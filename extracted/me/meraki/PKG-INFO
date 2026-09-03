@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: meraki
-Version: 4.4.0
+Version: 4.5.0
 Summary: Cisco Meraki Dashboard API library
 Project-URL: Homepage, https://github.com/meraki/dashboard-api-python
 Project-URL: Repository, https://github.com/meraki/dashboard-api-python

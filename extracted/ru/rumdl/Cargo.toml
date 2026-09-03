@@ -1,13 +1,13 @@
 [package]
 name = "rumdl"
-version = "0.2.62"
+version = "0.2.63"
 edition = "2024"
 rust-version = "1.94.0"
-description = "A fast Markdown linter written in Rust (Ru(st) MarkDown Linter)"
+description = "A fast Markdown linter and formatter written in Rust"
 authors = ["Ruben J. Jongejan <ruben.jongejan@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/rvben/rumdl"
-homepage = "https://github.com/rvben/rumdl"
+homepage = "https://rumdl.dev"
 documentation = "https://rumdl.dev"
 readme = "README.md"
 keywords = ["markdown", "linter", "markdown-linter", "static-analysis", "documentation"]
@@ -68,6 +68,7 @@ dyn-clone = "1"
 unicode-normalization = "0.1"
 schemars = "1.1"
 unicode-width = "0.2"
+percent-encoding = "2.3"
 
 # LSP dependencies (native only)
 tower-lsp = { version = "0.20", optional = true }
@@ -129,6 +130,7 @@ proptest = "1.9"
 paste = "1"
 criterion = { version = "0.8", features = ["html_reports"] }
 pretty_assertions = "1.4"
+quick-xml = "0.41"
 unicode-segmentation = "1.12"
 serial_test = "3.2"
 jsonschema = "0.46"

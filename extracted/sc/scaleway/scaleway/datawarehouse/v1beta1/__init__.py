@@ -6,10 +6,11 @@ from .types import EndpointServiceProtocol
 from .types import ListDatabasesRequestOrderBy
 from .types import ListDeploymentsRequestOrderBy
 from .types import ListUsersRequestOrderBy
-from .types import EndpointPrivateNetworkDetails
+from .types import NodePrivateNetworkDetails
 from .types import EndpointPublicDetails
 from .types import EndpointService
-from .types import EndpointSpecPrivateNetworkDetails
+from .types import PrivateNetworkDetails
+from .types import EndpointSpecPrivateNetworkSummary
 from .types import EndpointSpecPublicDetails
 from .types import Endpoint
 from .types import EndpointSpec
@@ -51,10 +52,11 @@ __all__ = [
     "ListDatabasesRequestOrderBy",
     "ListDeploymentsRequestOrderBy",
     "ListUsersRequestOrderBy",
-    "EndpointPrivateNetworkDetails",
+    "NodePrivateNetworkDetails",
     "EndpointPublicDetails",
     "EndpointService",
-    "EndpointSpecPrivateNetworkDetails",
+    "PrivateNetworkDetails",
+    "EndpointSpecPrivateNetworkSummary",
     "EndpointSpecPublicDetails",
     "Endpoint",
     "EndpointSpec",

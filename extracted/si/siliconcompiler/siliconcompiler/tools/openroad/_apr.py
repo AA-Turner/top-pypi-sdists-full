@@ -1839,6 +1839,26 @@ class APRTask(OpenROADTask):
         else:
             self.add("var", "global_connect_fileset", (library, fileset), step=step, index=index)
 
+    def _get_delaymodel(self) -> Optional[str]:
+        """Return :keypath:`ASIC,asic,delaymodel`, rejecting what OpenSTA cannot read.
+
+        The ``(corner, delaymodel)`` key a library groups its timing filesets under
+        is free-form, so a target can name a model that is not a flavor of Liberty
+        at all (a compiled binary model, ECSM, ...). Reading such a fileset would
+        hand OpenSTA files it cannot parse, so reject the model here instead.
+
+        An unset delay model is passed through untouched; :meth:`.ASIC._check_manifest`
+        is what reports that, and with a better message than this can give.
+
+        Raises:
+            ValueError: if the delay model is set to anything but ``nldm`` or ``ccs``.
+        """
+        delaymodel = self.project.get("asic", "delaymodel")
+        if delaymodel is not None and delaymodel not in ("nldm", "ccs"):
+            raise ValueError(f"{delaymodel} is not a supported delay model, "
+                             "supported delay models are: nldm, ccs")
+        return delaymodel
+
     def setup(self):
         """
         Configure APRTask prerequisites and required project keys for an OpenROAD run.
@@ -1854,7 +1874,7 @@ class APRTask(OpenROADTask):
             per-library fileset TCL file requirements for each entry.
         - Aggregates libcorner names from timing scenarios and, for each ASIC library and matching
             delay model, declares required libcorner filesets and per-fileset liberty file
-            requirements.
+            requirements. Raises if the project selects a delay model OpenSTA cannot read.
 
         Side effects:
         - Mutates the task/project state by setting variables, adding required keys, and
@@ -1922,7 +1942,7 @@ class APRTask(OpenROADTask):
                     mode_obj = self.project.constraint.timing.get_mode(mode)
                     self.add_required_key(mode_obj, "sdcfileset")
 
-        delay_model = self.project.get("asic", "delaymodel")
+        delay_model = self._get_delaymodel()
         for asiclib in self.project.get("asic", "asiclib"):
             lib = self.project.get_library(asiclib)
             for corner in libcorners:
@@ -2001,7 +2021,12 @@ class APRTask(OpenROADTask):
 
                 for mode in self._get_modes():
                     mode_obj = self.project.constraint.timing.get_mode(mode)
-                    for lib, fileset in mode_obj.get_sdcfileset():
+                    # step/index: sdcfileset is PerNode.OPTIONAL, and the tcl
+                    # manifest carries the value resolved for this node, so reading
+                    # the global here would declare files the script does not read
+                    # and miss the ones it does.
+                    for lib, fileset in mode_obj.get_sdcfileset(step=self.step,
+                                                                index=self.index):
                         libobj = self.project.get_library(lib)
                         # read_timing_constraints.tcl resolves aliases and
                         # depfilesets for the mode sdcfileset; mirror that here.
@@ -2239,7 +2264,9 @@ class APRTask(OpenROADTask):
                 "design/registers.rpt"
             ],
             "logicdepth": [
-                "design/logic_depth.rpt"
+                "design/logic_depth.rpt",
+                "design/logic_depth.histogram.rpt",
+                "design/logic_depth.histogram.comboonly.rpt"
             ],
             "unconstrained": [
                 "timing/unconstrained.rpt",

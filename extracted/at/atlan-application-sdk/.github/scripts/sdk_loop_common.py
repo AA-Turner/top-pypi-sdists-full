@@ -359,7 +359,174 @@ def _agent_prompt(name: str) -> str:
         return handle.read()
 
 
-def review_subagents(model: str) -> dict[str, Any]:
+# --------------------------------------------------------------------------
+# Review scope — which specialists §2a routes a PR to
+# --------------------------------------------------------------------------
+
+#: §2a's routing table, mirrored. The playbook stays authoritative and
+#: `test_the_scope_table_matches_the_playbook` parses the markdown table and
+#: fails if these drift — so this is a cache of that table, not a second
+#: opinion about it.
+SCOPE_AGENTS: dict[str, tuple[str, ...]] = {
+    "full": ("correctness", "quality", "structure"),
+    "minor": ("correctness",),
+    "contract-toolkit": ("toolkit-review",),
+    "mixed-sdk-toolkit": ("correctness", "quality", "structure", "toolkit-review"),
+    "tests-only": ("quality",),
+    "tests-focused": ("quality", "correctness"),
+    "conformance-only": ("conformance",),
+    "config-only": ("ci-config",),
+    "docs-only": (),
+}
+
+
+#: §11's bucket patterns, mirrored. Classification is pure file-list
+#: arithmetic with no judgement in it, so it belongs in Python: the agent
+#: currently spends a turn on a sixty-line bash block to reach an answer the
+#: harness can compute before the model starts, and — more importantly — the
+#: harness needs the answer FIRST, to decide whether registering sub-agents
+#: makes sense at all.
+_BUCKETS: tuple[tuple[str, str], ...] = (
+    ("ct", r"^contract-toolkit/"),
+    ("sdk", r"^application_sdk/"),
+    ("conf", r"^(packages/conformance/|remediation/)"),
+    ("test", r"^(tests/|contract-toolkit/tests/)"),
+    ("doc", r"^(docs/|contract-toolkit/docs/)|.*README\.md$"),
+    ("config", r"^(pyproject\.toml|uv\.lock|\.pre-commit|\.github/|helm/)"),
+    ("meta", r"^(\.mothership/|\.claude/)|(^|/)(AGENTS|CLAUDE)\.md$"),
+    ("security", r"(credential|secret|auth|token|_dapr|_temporal)"),
+)
+
+#: A file in NONE of the non-source buckets. Computed by exclusion rather than
+#: TOTAL - sum(buckets), because a path in two buckets (docs/CLAUDE.md is both
+#: DOC and META) would be subtracted twice and could zero out a real source
+#: count — silently skipping code review. §11 makes the same point.
+_NON_SOURCE = (
+    r"^(packages/conformance/|remediation/|tests/|contract-toolkit/tests/|"
+    r"docs/|contract-toolkit/docs/|pyproject\.toml|uv\.lock|\.pre-commit|"
+    r"\.github/|helm/|\.mothership/|\.claude/)|.*README\.md$|"
+    r"(^|/)(AGENTS|CLAUDE)\.md$"
+)
+
+
+def classify_scope(files: Sequence[str], changed_lines: int = 0) -> str:
+    """`review_scope` for a PR, by §11's rules, first match wins.
+
+    Mirrors `.mothership/pr-review/ORCHESTRATION.md` §11. Kept in step by
+    `test_the_scope_table_matches_the_playbook`, which parses §2a's routing
+    table — the playbook stays authoritative.
+    """
+    paths = [f.strip() for f in files if f and f.strip()]
+    n = {name: sum(1 for p in paths if re.search(pat, p)) for name, pat in _BUCKETS}
+    source = sum(1 for p in paths if not re.search(_NON_SOURCE, p))
+    total = len(paths)
+
+    if n["ct"] and not n["sdk"] and not n["conf"] and not n["config"]:
+        return "contract-toolkit"
+    if n["ct"] and (n["sdk"] or n["config"]):
+        return "mixed-sdk-toolkit"
+    if n["meta"] and not any(
+        (source, n["config"], n["conf"], n["ct"], n["test"], n["doc"])
+    ):
+        return "docs-only"
+    if not source and n["conf"] and not n["ct"]:
+        return "conformance-only"
+    if not source and n["test"]:
+        return "tests-only"
+    if not source and n["doc"] and not n["test"]:
+        return "docs-only"
+    if not source and n["config"]:
+        return "config-only"
+    if source <= 2 and n["test"] >= source * 3 and n["test"]:
+        return "tests-focused"
+    if (
+        source >= 1
+        and total <= 2
+        and changed_lines < 50
+        and not n["conf"]
+        and not n["ct"]
+        and not n["config"]
+        and not n["security"]
+    ):
+        return "minor"
+    return "full"
+
+
+#: Config paths that justify a `ci-config` partition agent. `uv.lock` alone
+#: does NOT: §2a skips the extra when the only config churn is an incidental
+#: lock bump with no `.github/`, `helm/` or `pyproject` change.
+_SUBSTANTIVE_CONFIG = r"^(\.github/|helm/|pyproject\.toml|\.pre-commit)"
+
+
+def dispatch_set(scope: str, files: Sequence[str] = ()) -> tuple[str, ...]:
+    """Every agent the playbook may `Task` for this PR — the registration set.
+
+    NOT just §2a's routing table. Registering exactly that table looked right
+    and was wrong in two ways, because the table is only the Wave 1 row:
+
+      * §1b dispatches `reachability` on `full` and `mixed-sdk-toolkit`. It is
+        named nowhere in §2a's table, so a table-only registration left the
+        parent instructed to dispatch an agent that did not exist.
+      * §2a's "Mixed partitions" rule and §11's `conformance-only` note add a
+        partition specialist when a PR ALSO touches config or conformance
+        files — `ci-config` or `conformance`, scoped to that slice only.
+
+    The invariant is "register exactly what the playbook will try to
+    dispatch", and these extras are part of that. They are deliberately kept
+    OUT of SCOPE_AGENTS: that mirrors §2a's markdown table and is asserted
+    against it, so stuffing derived agents in would break the very drift check
+    that keeps it honest.
+    """
+    agents = list(SCOPE_AGENTS.get(scope, ()))
+    paths = [f.strip() for f in files if f and f.strip()]
+
+    if scope in ("full", "mixed-sdk-toolkit") and "reachability" not in agents:
+        agents.append("reachability")
+
+    has_config = any(re.search(_SUBSTANTIVE_CONFIG, p) for p in paths)
+    has_conf = any(
+        re.search(r"^(packages/conformance/|remediation/)", p) for p in paths
+    )
+
+    if scope in ("full", "tests-focused"):
+        if has_config and "ci-config" not in agents:
+            agents.append("ci-config")
+        if has_conf and "conformance" not in agents:
+            agents.append("conformance")
+    elif scope == "conformance-only" and has_config and "ci-config" not in agents:
+        # §11: a conformance PR that also carries config files gets the CI
+        # specialist on that slice — so this scope is NOT always solo.
+        agents.append("ci-config")
+
+    return tuple(agents)
+
+
+def solo_scope(scope: str, files: Sequence[str] = ()) -> str:
+    """The one agent this PR routes to, or '' when it routes to 0 or 2+.
+
+    Computed from `dispatch_set`, never from SCOPE_AGENTS alone: a
+    `conformance-only` PR that also touches `.github/` picks up `ci-config`
+    and is a two-agent review, and treating it as solo would silently drop
+    the CI specialist from a PR that changes CI.
+
+    A dispatch exists to run agents CONCURRENTLY. With one agent there is
+    nothing to run alongside, so `Task` buys no parallelism and costs a cold
+    start: the parent has already read the playbook, the diff and every
+    changed file, and the sub-agent begins with none of it and re-reads its
+    way back. Measured on three single-agent reviews — 904s, ~9min, and 26min
+    inside that one call, per-step latency climbing 4s to 526s as the re-read
+    context accumulated. The 26-minute one reached step 11 of 25 before it was
+    killed; the parent covers the same ground in under a minute.
+
+    Two or more is a different trade and dispatch stays: a single agent
+    covering several domains produces a worse verdict, and nothing in the
+    output would say so.
+    """
+    agents = dispatch_set(scope, files)
+    return agents[0] if len(agents) == 1 else ""
+
+
+def review_subagents(model: str, only: Sequence[str] = ()) -> dict[str, Any]:
     """opencode subagent entries for the playbook's Phase 2 agents.
 
     Each is read-only by construction: the review lane holds a token with no
@@ -442,11 +609,15 @@ def review_subagents(model: str) -> dict[str, Any]:
                 "doom_loop": "deny",
             },
         }
-        for name in PHASE2_AGENTS
+        for name in (tuple(only) or PHASE2_AGENTS)
     }
 
 
-def opencode_config(model: str, with_subagents: bool = False) -> dict[str, Any]:
+def opencode_config(
+    model: str,
+    with_subagents: bool = False,
+    subagents: Sequence[str] = (),
+) -> dict[str, Any]:
     """`opencode.json` pinning the only provider and models this lane may use.
 
     Shell and network stay ALLOWED here, unlike the conformance fast lane which
@@ -491,18 +662,15 @@ def opencode_config(model: str, with_subagents: bool = False) -> dict[str, Any]:
                 # parsing `4.6` out of the id as a version, and the nested
                 # slash in `gateway/xai/grok-4.6`.
                 #
-                # Zeroes rather than real prices: this lane bills through the
-                # gateway key and reads spend from /key/info, so opencode's own
-                # accounting is unused. Declaring it only stops it guessing.
+                # REAL prices, not zeroes. The zeroes were collateral from the
+                # DecimalError fix above and they made opencode's own
+                # `Total Cost` $0.00 BY CONSTRUCTION — so when the /key/info
+                # fallback turned out to 403, there was no dollar figure left
+                # anywhere. Declaring the list price costs nothing and makes
+                # opencode's accounting agree with `usage_cost_usd`, which is
+                # what the summary actually prints.
                 "models": {
-                    name: {
-                        "cost": {
-                            "input": 0,
-                            "output": 0,
-                            "cache_read": 0,
-                            "cache_write": 0,
-                        }
-                    }
+                    name: {"cost": dict(MODEL_PRICES_USD_PER_MTOK[name])}
                     for name in ALLOWED_MODELS
                 },
             }
@@ -512,7 +680,7 @@ def opencode_config(model: str, with_subagents: bool = False) -> dict[str, Any]:
         # unanswered ask as a rejection — a connector-pulse run starved exactly
         # that way when its skill reads were auto-rejected. So everything a
         # phase legitimately does is allowed outright.
-        **({"agent": review_subagents(model)} if with_subagents else {}),
+        **({"agent": review_subagents(model, subagents)} if with_subagents else {}),
         # Every permission the playbooks can reach, in one place.
         #
         # Headless opencode has nobody to answer an "ask", so it auto-REJECTS
@@ -556,6 +724,43 @@ def opencode_config(model: str, with_subagents: bool = False) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
+#: List price per MILLION tokens, in USD, for every model this lane may reach.
+#:
+#: Units and values are models.dev's, which is the catalog opencode itself
+#: ships — `xai.models["grok-4.6"].cost` is `{input: 2, output: 6,
+#: cache_read: 0.5}` and `openai.models["gpt-5.6-luna"].cost` is
+#: `{input: 0.2, output: 1.2, cache_read: 0.02, cache_write: 0.25}`. Copied
+#: rather than read at runtime so a phase never depends on a cache file or a
+#: network fetch to report what it spent.
+#:
+#: These are LIST prices, not the gateway's billed rate. The lane says so
+#: wherever it prints a dollar figure. A list-price estimate that is
+#: attributable to one phase beats the alternative this replaced — the shared
+#: key's /key/info total, which 403s and, when it did not, summed every lane's
+#: traffic together.
+#:
+#: Both models charge double above a context threshold (grok-4.6 over 200K,
+#: gpt-5.6-luna over 272K). Not modelled: `opencode stats` reports totals, not
+#: a per-request context size, so there is nothing to apply the tier to. A
+#: phase that spends most of its turns over the threshold is UNDER-reported.
+MODEL_PRICES_USD_PER_MTOK: dict[str, dict[str, float]] = {
+    "xai/grok-4.6": {
+        "input": 2.0,
+        "output": 6.0,
+        "cache_read": 0.5,
+        # xai bills no separate cache-write rate. Zero is the real price here,
+        # not a placeholder.
+        "cache_write": 0.0,
+    },
+    "gpt-5.6-luna": {
+        "input": 0.2,
+        "output": 1.2,
+        "cache_read": 0.02,
+        "cache_write": 0.25,
+    },
+}
+
+
 def parse_opencode_usage(text: str) -> dict[str, int]:
     """Token counts from `opencode stats`, which is the authoritative source.
 
@@ -565,22 +770,54 @@ def parse_opencode_usage(text: str) -> dict[str, int]:
     whether the fixed ~90KB playbook prefix is being re-paid for on every one
     of a phase's ~24 turns, which is where this lane's cost actually lives.
 
-    Dollars are deliberately NOT taken from here: the model entries declare
-    zero cost (see `opencode_config`), so opencode's own total is $0.00 by
-    construction. Tokens are unaffected by that and are exact.
+    The suffix handling is not defensive coding. opencode renders every token
+    cell through `n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1000 ?
+    (n/1000).toFixed(1)+"K" : String(n)`, so a real 258,300 prints as
+    `258.3K`. The previous pattern was `([\\d,]+)`, which stops at the decimal
+    point and never sees the suffix — it stored 258. Every token figure this
+    lane has ever published was the leading digits of a rounded string,
+    understated by three orders of magnitude, and the tell was that across
+    twelve measured phases no value ever reached 1,000.
     """
+    number = r"([\d,]+(?:\.\d+)?)\s*([KM])?"
     fields = {
-        "input": r"Input\s+([\d,]+)",
-        "output": r"Output\s+([\d,]+)",
-        "cache_read": r"Cache Read\s+([\d,]+)",
-        "cache_write": r"Cache Write\s+([\d,]+)",
+        "input": rf"Input\s+{number}",
+        "output": rf"Output\s+{number}",
+        "cache_read": rf"Cache Read\s+{number}",
+        "cache_write": rf"Cache Write\s+{number}",
     }
+    scale = {None: 1, "": 1, "K": 1_000, "M": 1_000_000}
     out: dict[str, int] = {}
     for key, pattern in fields.items():
         match = re.search(pattern, text or "")
         if match:
-            out[key] = int(match.group(1).replace(",", ""))
+            digits = float(match.group(1).replace(",", ""))
+            out[key] = int(round(digits * scale[match.group(2)]))
     return out
+
+
+def usage_cost_usd(usage: dict[str, int], model: str) -> float | None:
+    """Dollars for one phase, priced locally from the parsed token counts.
+
+    Computed here rather than read back from `opencode stats` even though
+    `opencode_config` now declares the same prices. Two reasons: the arithmetic
+    stays visible and testable in this repo, and it survives a stats line that
+    reports tokens but no cost.
+
+    None, never 0.0, when the model is unpriced or nothing was measured — a
+    phase that reports free is worse than one that reports unknown.
+    """
+    prices = MODEL_PRICES_USD_PER_MTOK.get(model)
+    if not prices or not usage:
+        return None
+    return sum(usage.get(field, 0) * rate / 1_000_000 for field, rate in prices.items())
+
+
+def format_usd(amount: float | None) -> str:
+    """Four decimals: a resolve phase can land under a cent and $0.00 reads
+    as "free", which is the exact misreading this whole change exists to end.
+    """
+    return "unavailable" if amount is None else f"${amount:,.4f}"
 
 
 def opencode_usage(cwd: str, runner: Any = subprocess.run) -> dict[str, int]:
@@ -646,11 +883,25 @@ def format_usage(usage: dict[str, int]) -> str:
 SUBAGENT_MAX_STEPS = 25
 
 #: Kill an agent that has printed nothing for this long. Sized off measurement,
-#: not taste: across observed runs the longest gap between two output lines in a
-#: HEALTHY phase was well under a minute, while a stalled one produced 43
-#: minutes of nothing. Five minutes sits far above the former and far below the
-#: latter, so it cannot fire on a slow-but-working phase.
-IDLE_TIMEOUT_S = 5 * 60
+#: not taste — and RE-sized when the measurement moved.
+#:
+#: The original figure (5 minutes) rested on "the longest gap between two
+#: output lines in a HEALTHY phase was well under a minute". That premise is
+#: now falsified: across the 14 runs of 2026-09-01, healthy review turns on
+#: the review model routinely gapped 60-267s, and the maximum measured gap in
+#: a phase that went on to POST A CLEAN VERDICT was 304.7s — five seconds over
+#: the old bound. Run 33500595871 is the kill this caused: mid-Phase-1 greps
+#: returned, one long model turn followed, and the watchdog shot a working
+#: phase at exactly 300s with no verdict to show for the eight minutes before
+#: it. (The internal opencode log also refreshes the deadline, but during a
+#: single long generation it too can go quiet.)
+#:
+#: Ten minutes clears the worst measured healthy gap by ~2x and still sits far
+#: below the 43-minute genuine stall this bound exists to catch. The cost of a
+#: too-high bound is a few wasted minutes at the tail of a truly dead phase;
+#: the cost of a too-low one is a finished review discarded at its most
+#: expensive moment.
+IDLE_TIMEOUT_S = 10 * 60
 
 MAX_CONSECUTIVE_REAIMS = 2
 
@@ -748,6 +999,12 @@ AGENT_ENV_PASSTHROUGH = (
     "RIPGREP_CONFIG_PATH",
     "GH_TOKEN",
     "GITHUB_REPOSITORY",
+    # The agent reaches for these BEFORE the GHA_RUN_URL below — a live
+    # transcript shows it printing `GITHUB_RUN_ID=` and `GITHUB_SERVER_URL=`
+    # empty and spending a turn on it. They cost nothing to forward and the
+    # runner already has them.
+    "GITHUB_RUN_ID",
+    "GITHUB_SERVER_URL",
     # The playbook's own variables. Their absence was VISIBLE in a live
     # transcript — the agent's very first shell block printed `REPO env:
     # unset`, `PR_NUMBER env: unset`, `GHA_RUN_URL env: unset` and four more,
@@ -769,6 +1026,59 @@ def agent_env(extra: dict[str, str] | None = None) -> dict[str, str]:
     env = {k: os.environ[k] for k in AGENT_ENV_PASSTHROUGH if k in os.environ}
     env.update(extra or {})
     return env
+
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text or "")
+
+
+#: opencode brackets a dispatched sub-agent with two stdout lines and prints
+#: nothing between them. Stripped of colour they read:
+#:
+#:   • correctness domain review Correctness Agent
+#:   ✓ correctness domain review Correctness Agent
+#:
+#: The captured token is the registered agent name as the renderer title-cases
+#: it (`correctness` -> `Correctness`, `ci-config` -> `Ci-Config`). Both halves
+#: render identically, so start and finish match on the same string.
+#:
+#: The trailing ` Agent` is load-bearing, not decoration: `gh auth login` also
+#: prints a line beginning with `✓` — "✓ Logged in to github.com account
+#: atlan-app-fleet[bot] (GH_TOKEN)" — in every single transcript. Anchoring on
+#: the bullet alone would read that as a sub-agent finishing and mask a real
+#: outstanding one.
+_SUBAGENT_START_RE = re.compile(r"^\s*•\s+.*\s(\S+)\s+Agent\s*$", re.MULTILINE)
+_SUBAGENT_DONE_RE = re.compile(r"^\s*✓\s+.*\s(\S+)\s+Agent\s*$", re.MULTILINE)
+
+
+def outstanding_subagents(stdout: str) -> list[str]:
+    """Sub-agents this phase dispatched and never got an answer from.
+
+    Exists because of a measured loss. PR #3529 dispatched correctness,
+    quality, structure and reachability in one wave; three printed `✓` and
+    `correctness` never did. The parent then went silent, the idle watchdog
+    fired, and the phase reported only "the phase did not finish" — twice, on
+    two separate runs, with nothing in either summary naming the specialist
+    that hung. Both runs cost ~30 minutes and produced no verdict.
+
+    opencode exposes no per-dispatch deadline, so this does NOT prevent the
+    hang. It makes the hang attributable, which is what turns "@sdk-loop is
+    flaky on SDK PRs" into one named agent to go and look at.
+
+    Order-preserving and duplicate-safe: a wave can dispatch the same agent
+    name only once, but a later round can dispatch it again, and a name that
+    has been answered at any point is not outstanding.
+    """
+    started = _SUBAGENT_START_RE.findall(_strip_ansi(stdout or ""))
+    done = set(_SUBAGENT_DONE_RE.findall(_strip_ansi(stdout or "")))
+    seen: list[str] = []
+    for name in started:
+        if name not in done and name not in seen:
+            seen.append(name)
+    return seen
 
 
 #: opencode prints a fatal error as a line starting `Error:` and then exits 0.
@@ -794,10 +1104,14 @@ class AgentResult:
     def abort_reason(self) -> str:
         """The agent's own fatal error, if it printed one."""
         if self.stalled:
-            return (
+            reason = (
                 "agent produced no output for the idle timeout and was killed "
                 "as stalled — no verdict from this phase is trustworthy"
             )
+            hung = outstanding_subagents(self.stdout)
+            if hung:
+                reason += f"; sub-agent(s) never returned: {', '.join(hung)}"
+            return reason
         match = _ABORT_RE.search(f"{self.stdout}\n{self.stderr}")
         return match.group(1).strip() if match else ""
 
@@ -948,6 +1262,7 @@ def run_agent(
     transcript_path: str | None = None,
     sink: Any = None,
     subagents: bool = False,
+    subagent_names: Sequence[str] = (),
     idle_timeout_s: int = IDLE_TIMEOUT_S,
 ) -> AgentResult:
     """Invoke one agent phase, STREAMING its output to the job log.
@@ -972,7 +1287,11 @@ def run_agent(
     os.environ["RIPGREP_CONFIG_PATH"] = write_rg_config(cwd)
     config_path = os.path.join(cwd, "opencode.json")
     with open(config_path, "w", encoding="utf-8") as handle:
-        json.dump(opencode_config(model, with_subagents=subagents), handle, indent=2)
+        json.dump(
+            opencode_config(model, with_subagents=subagents, subagents=subagent_names),
+            handle,
+            indent=2,
+        )
 
     lines: list[str] = []
     # Stamped BEFORE launch so the follower can tell this run's log file from

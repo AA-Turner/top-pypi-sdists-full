@@ -76,6 +76,7 @@ from .literals import (
     TargetInstanceTypeRightSizingMethodType,
     TargetNetworkTopologyType,
     VolumeTypeType,
+    VpcProvisioningStrategyType,
     WaveHealthStatusType,
     WaveProgressStatusType,
 )
@@ -98,6 +99,7 @@ __all__ = (
     "ChangeServerLifeCycleStateRequestTypeDef",
     "ChangeServerLifeCycleStateSourceServerLifecycleTypeDef",
     "ChecksumTypeDef",
+    "CidrMappingTypeDef",
     "CodeGenerationOutputFormatStatusDetailsTypeDef",
     "ConnectorResponseTypeDef",
     "ConnectorSsmCommandConfigTypeDef",
@@ -447,6 +449,11 @@ ChecksumTypeDef = TypedDict(
         "hash": NotRequired[str],
     },
 )
+
+
+class CidrMappingTypeDef(TypedDict):
+    originalCidr: str
+    updatedCidr: str
 
 
 class CodeGenerationOutputFormatStatusDetailsTypeDef(TypedDict):
@@ -2327,6 +2334,8 @@ class CreateNetworkMigrationDefinitionRequestTypeDef(TypedDict):
     description: NotRequired[str]
     sourceConfigurations: NotRequired[Sequence[SourceConfigurationTypeDef]]
     targetDeployment: NotRequired[TargetDeploymentType]
+    vpcProvisioningStrategy: NotRequired[VpcProvisioningStrategyType]
+    cidrMappings: NotRequired[Sequence[CidrMappingTypeDef]]
     tags: NotRequired[Mapping[str, str]]
     scopeTags: NotRequired[Mapping[str, str]]
 
@@ -2340,6 +2349,8 @@ class NetworkMigrationDefinitionTypeDef(TypedDict):
     targetS3Configuration: TargetS3ConfigurationTypeDef
     targetNetwork: TargetNetworkTypeDef
     targetDeployment: TargetDeploymentType
+    vpcProvisioningStrategy: VpcProvisioningStrategyType
+    cidrMappings: list[CidrMappingTypeDef]
     createdAt: datetime
     updatedAt: datetime
     tags: dict[str, str]
@@ -2355,6 +2366,8 @@ class UpdateNetworkMigrationDefinitionRequestTypeDef(TypedDict):
     targetS3Configuration: NotRequired[TargetS3ConfigurationUpdateTypeDef]
     targetNetwork: NotRequired[TargetNetworkUpdateTypeDef]
     targetDeployment: NotRequired[TargetDeploymentType]
+    vpcProvisioningStrategy: NotRequired[VpcProvisioningStrategyType]
+    cidrMappings: NotRequired[Sequence[CidrMappingTypeDef]]
     scopeTags: NotRequired[Mapping[str, str]]
 
 

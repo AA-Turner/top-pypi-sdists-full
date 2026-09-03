@@ -354,3 +354,13 @@ dict_cci = {
     "MAX_CCI":  ["CCI", "Crop Condition Index (NASS QuickStats), stage max of monthly means"],
     "MIN_CCI":  ["CCI", "Crop Condition Index (NASS QuickStats), stage min of monthly means"],
 }
+
+# %Good+Excellent share (0-100) from the same QuickStats extract — the raw
+# G+E metric farmdoc daily (2026) found to beat weighted condition indices.
+# Joined as 'cci_ge' by cid.cci.get_cci_frame; ML-side selection via
+# [ML] cci_windows = current_ge.
+dict_ccige = {
+    "MEAN_CCIGE": ["CCI", "%% acreage Good+Excellent (NASS), stage mean of monthly means"],
+    "MAX_CCIGE":  ["CCI", "%% acreage Good+Excellent (NASS), stage max of monthly means"],
+    "MIN_CCIGE":  ["CCI", "%% acreage Good+Excellent (NASS), stage min of monthly means"],
+}

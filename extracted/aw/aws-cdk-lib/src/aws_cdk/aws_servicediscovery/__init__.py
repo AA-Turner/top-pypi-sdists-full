@@ -1114,7 +1114,6 @@ class CfnPrivateDnsNamespace(
         
         cfn_private_dns_namespace = servicediscovery.CfnPrivateDnsNamespace(self, "MyCfnPrivateDnsNamespace",
             name="name",
-            vpc="vpc",
         
             # the properties below are optional
             description="description",
@@ -1128,7 +1127,8 @@ class CfnPrivateDnsNamespace(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            vpc="vpc"
         )
     '''
 
@@ -1138,20 +1138,20 @@ class CfnPrivateDnsNamespace(
         id: builtins.str,
         *,
         name: builtins.str,
-        vpc: builtins.str,
         description: typing.Optional[builtins.str] = None,
         properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceDiscovery::PrivateDnsNamespace``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name that you want to assign to this namespace. When you create a private DNS namespace, AWS Cloud Map automatically creates an Amazon Route 53 private hosted zone that has the same name as the namespace.
-        :param vpc: The ID of the Amazon VPC that you want to associate the namespace with.
         :param description: A description for the namespace.
         :param properties: Properties for the private DNS namespace.
         :param tags: The tags for the namespace. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
+        :param vpc: The ID of the Amazon VPC that you want to associate the namespace with.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9c2d0f705fb36b36fc7feaf539456a26c7c18338d9006b092bacaa84409f9471)
@@ -1159,10 +1159,10 @@ class CfnPrivateDnsNamespace(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPrivateDnsNamespaceProps(
             name=name,
-            vpc=vpc,
             description=description,
             properties=properties,
             tags=tags,
+            vpc=vpc,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1288,19 +1288,6 @@ class CfnPrivateDnsNamespace(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="vpc")
-    def vpc(self) -> builtins.str:
-        '''The ID of the Amazon VPC that you want to associate the namespace with.'''
-        return typing.cast(builtins.str, jsii.get(self, "vpc"))
-
-    @vpc.setter
-    def vpc(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__2f608cd6424a86ed0fef18706668788c340990610474fd1eeae14922e544bdf3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpc", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''A description for the namespace.'''
@@ -1346,6 +1333,19 @@ class CfnPrivateDnsNamespace(
             type_hints = cached_type_hints(_typecheckingstub__aa5883b35538b12ffbde613234c3bae401579a44750c841160dd37593543431b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpc")
+    def vpc(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Amazon VPC that you want to associate the namespace with.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpc"))
+
+    @vpc.setter
+    def vpc(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2f608cd6424a86ed0fef18706668788c340990610474fd1eeae14922e544bdf3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpc", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_servicediscovery.CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty",
@@ -1524,10 +1524,10 @@ class CfnPrivateDnsNamespace(
     jsii_struct_bases=[],
     name_mapping={
         "name": "name",
-        "vpc": "vpc",
         "description": "description",
         "properties": "properties",
         "tags": "tags",
+        "vpc": "vpc",
     },
 )
 class CfnPrivateDnsNamespaceProps:
@@ -1535,18 +1535,18 @@ class CfnPrivateDnsNamespaceProps:
         self,
         *,
         name: builtins.str,
-        vpc: builtins.str,
         description: typing.Optional[builtins.str] = None,
         properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnPrivateDnsNamespace``.
 
         :param name: The name that you want to assign to this namespace. When you create a private DNS namespace, AWS Cloud Map automatically creates an Amazon Route 53 private hosted zone that has the same name as the namespace.
-        :param vpc: The ID of the Amazon VPC that you want to associate the namespace with.
         :param description: A description for the namespace.
         :param properties: Properties for the private DNS namespace.
         :param tags: The tags for the namespace. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
+        :param vpc: The ID of the Amazon VPC that you want to associate the namespace with.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-privatednsnamespace.html
         :exampleMetadata: fixture=_generated
@@ -1560,7 +1560,6 @@ class CfnPrivateDnsNamespaceProps:
             
             cfn_private_dns_namespace_props = servicediscovery.CfnPrivateDnsNamespaceProps(
                 name="name",
-                vpc="vpc",
             
                 # the properties below are optional
                 description="description",
@@ -1574,19 +1573,19 @@ class CfnPrivateDnsNamespaceProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                vpc="vpc"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__24aa942f7e65dbf86a2684831cbc900f12fcd449b4a9fd70d60e1aa627954d28)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "vpc": vpc,
         }
         if description is not None:
             self._values["description"] = description
@@ -1594,6 +1593,8 @@ class CfnPrivateDnsNamespaceProps:
             self._values["properties"] = properties
         if tags is not None:
             self._values["tags"] = tags
+        if vpc is not None:
+            self._values["vpc"] = vpc
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -1605,16 +1606,6 @@ class CfnPrivateDnsNamespaceProps:
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc(self) -> builtins.str:
-        '''The ID of the Amazon VPC that you want to associate the namespace with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-privatednsnamespace.html#cfn-servicediscovery-privatednsnamespace-vpc
-        '''
-        result = self._values.get("vpc")
-        assert result is not None, "Required property 'vpc' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
@@ -1647,6 +1638,15 @@ class CfnPrivateDnsNamespaceProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def vpc(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Amazon VPC that you want to associate the namespace with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-privatednsnamespace.html#cfn-servicediscovery-privatednsnamespace-vpc
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7361,10 +7361,10 @@ def _typecheckingstub__9c2d0f705fb36b36fc7feaf539456a26c7c18338d9006b092bacaa844
     id: builtins.str,
     *,
     name: builtins.str,
-    vpc: builtins.str,
     description: typing.Optional[builtins.str] = None,
     properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7399,12 +7399,6 @@ def _typecheckingstub__b397636100e7d203e28556416ce4db7669edc6734c5e6daf8032a3107
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2f608cd6424a86ed0fef18706668788c340990610474fd1eeae14922e544bdf3(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__359db7453c61916286016b99ce2b4d5f3170ced593718005d469fb1ed3ac7b7e(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -7419,6 +7413,12 @@ def _typecheckingstub__561f9e1a781f0e74d2cfb4e11987ae3b924d72bcc2704d5de82df6f49
 
 def _typecheckingstub__aa5883b35538b12ffbde613234c3bae401579a44750c841160dd37593543431b(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f608cd6424a86ed0fef18706668788c340990610474fd1eeae14922e544bdf3(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7447,10 +7447,10 @@ def _typecheckingstub__4086cc314eeb42b19549d7ade04036d8076e7ea80b0d9152544721abc
 def _typecheckingstub__24aa942f7e65dbf86a2684831cbc900f12fcd449b4a9fd70d60e1aa627954d28(
     *,
     name: builtins.str,
-    vpc: builtins.str,
     description: typing.Optional[builtins.str] = None,
     properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -29,7 +29,7 @@ from urllib.parse import quote
 
 import pytest
 
-from notebooklm._error_injection import (
+from notebooklm._web.transport.error_injection import (
     ERROR_INJECT_ENV_VAR,
     _get_error_injection_mode,
 )
@@ -58,6 +58,7 @@ _vcr_config = _load_by_path("tests_vcr_config", "vcr_config.py")
 _freq_body_matcher: Callable[[Any, Any], bool] = _vcr_config._freq_body_matcher
 recompute_chunk_prefix: Callable[[str], str] = _cassette_patterns.recompute_chunk_prefix
 scrub_response: Callable[[dict[str, Any]], dict[str, Any]] = _vcr_config.scrub_response
+ResourceIdCassetteScrubber = _vcr_config.ResourceIdCassetteScrubber
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +75,19 @@ class _StubRequest:
 
     def __init__(self, body: Any) -> None:
         self.body = body
+
+
+def test_resource_id_scrubber_replaces_uuid_inside_percent_encoded_request() -> None:
+    """Encoded delimiters must not defeat request-side UUID redaction."""
+
+    scrubber = ResourceIdCassetteScrubber()
+    resource_id = "e7626843-661e-4e4d-b0a9-2bc4692f8a7f"
+    encoded = f"f.req=%22{resource_id}%5C&source-path=%2Fnotebook%2F{resource_id}"
+
+    scrubbed = scrubber.scrub_text(encoded)
+
+    assert resource_id not in scrubbed
+    assert scrubbed.count("00000000-0000-4000-8000-000000000001") == 2
 
 
 def _build_freq_body(params: list[Any]) -> str:
@@ -503,7 +517,7 @@ def test_scrub_response_noop_when_env_var_unset(monkeypatch):
     assert b"original wire response" in out["body"]["string"]
 
 
-# --- (3) _error_injection.py mode resolver ----------------------------------
+# --- (3) _web/transport/error_injection.py mode resolver ----------------------------------
 
 
 def test_core_get_error_injection_mode_unset(monkeypatch):
@@ -542,7 +556,7 @@ def test_core_get_error_injection_mode_typo_returns_none(monkeypatch):
 async def test_error_injection_middleware_present_when_env_var_set_in_session(monkeypatch, mode):
     """Client startup wires pass-through ``ErrorInjectionMiddleware`` into the chain."""
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, mode)
-    from notebooklm._middleware.error_injection import ErrorInjectionMiddleware
+    from notebooklm._web.transport.middleware.error_injection import ErrorInjectionMiddleware
     from notebooklm.auth import AuthTokens
 
     auth = AuthTokens(cookies={"SID": "t"}, csrf_token="c", session_id="s")

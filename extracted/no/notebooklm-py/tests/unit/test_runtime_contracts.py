@@ -1,20 +1,19 @@
 """Typing checks for the capability-Protocol contracts in
-``notebooklm._runtime.contracts``.
+``notebooklm._runtime.contracts`` and ``notebooklm._web.contracts``.
 
 Phase 7 (docs/refactor-history.md §Migration Plan step 10) replaced the broad
 ``Session`` Protocol with shared capability Protocols. The surviving
 shared Protocols are ``RpcCaller`` (~17 consumers), ``LoopGuard`` (2
 consumers), and the pure-transport ``Kernel``. The single-consumer
-``AuthMetadata`` / ``OperationScopeProvider`` Protocols and the unused
+``AuthMetadata`` Protocol and the unused
 ``AsyncWorkRuntime`` composite were inlined into their owning feature
 modules / deleted in issue #1327 — ``AuthMetadata`` now lives in
-``_source.upload`` (used by ``SourceUploadPipeline``) and
-``OperationScopeProvider`` in ``_artifact.polling`` (used by
-``ArtifactPollingService``); mypy enforces their structural conformance
+``_web.sources.upload`` (used by ``SourceUploadPipeline``); mypy enforces its
+structural conformance
 at the consuming call sites. The standalone
 ``DrainHookRegistration`` Protocol previously kept here was deleted in
-Phase 7; drain-hook registration now lives on
-``TransportDrainTracker.register_drain_hook(...)`` in ``_transport_drain.py``.
+Phase 7; feature APIs now receive the concrete ``CallSupervisor`` when they
+need operation admission plus drain-hook registration.
 """
 
 from __future__ import annotations
@@ -25,11 +24,8 @@ from typing import Any
 
 import httpx
 
-from notebooklm._runtime.contracts import (
-    Kernel,
-    LoopGuard,
-    RpcCaller,
-)
+from notebooklm._runtime.contracts import LoopGuard
+from notebooklm._web.contracts import Kernel, RpcCaller
 from notebooklm.rpc.types import RPCMethod
 
 
@@ -62,8 +58,14 @@ class _KernelImpl:
         *,
         read_timeout: float | None = None,
         max_response_bytes: int | None = None,
+        expected_epoch: int | None = None,
     ) -> httpx.Response:
+        del expected_epoch
         return httpx.Response(200, content=body)
+
+    def get_http_client(self, *, expected_epoch: int | None = None) -> httpx.AsyncClient:
+        del expected_epoch
+        raise AssertionError("structural typing stub")
 
     @property
     def cookies(self) -> httpx.Cookies:
@@ -82,8 +84,13 @@ def _public_contract_members(protocol: type[Any]) -> set[str]:
 # ----------------------------------------------------------------------
 
 
-def test_kernel_protocol_has_exactly_three_members() -> None:
-    assert _public_contract_members(Kernel) == {"post", "cookies", "aclose"}
+def test_kernel_protocol_has_exactly_four_members() -> None:
+    assert _public_contract_members(Kernel) == {
+        "post",
+        "get_http_client",
+        "cookies",
+        "aclose",
+    }
 
 
 def test_rpc_caller_protocol_has_exactly_one_member() -> None:
@@ -141,6 +148,7 @@ def test_kernel_protocol_signatures_are_pinned() -> None:
         "body",
         "read_timeout",
         "max_response_bytes",
+        "expected_epoch",
     ]
     assert post.parameters["headers"].annotation == "Mapping[str, str]"
     assert post.parameters["body"].annotation == "bytes"
@@ -148,7 +156,15 @@ def test_kernel_protocol_signatures_are_pinned() -> None:
     assert post.parameters["read_timeout"].default is None
     assert post.parameters["max_response_bytes"].kind is inspect.Parameter.KEYWORD_ONLY
     assert post.parameters["max_response_bytes"].default is None
+    assert post.parameters["expected_epoch"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert post.parameters["expected_epoch"].default is None
     assert post.return_annotation == "httpx.Response"
+
+    get_http_client = inspect.signature(Kernel.get_http_client)
+    assert list(get_http_client.parameters) == ["self", "expected_epoch"]
+    assert get_http_client.parameters["expected_epoch"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert get_http_client.parameters["expected_epoch"].default is None
+    assert get_http_client.return_annotation == "httpx.AsyncClient"
 
     cookies = inspect.signature(Kernel.cookies.fget)
     assert cookies.return_annotation == "httpx.Cookies"

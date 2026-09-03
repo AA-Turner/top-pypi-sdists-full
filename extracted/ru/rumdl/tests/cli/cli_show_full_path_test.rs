@@ -3,8 +3,20 @@
 //! This flag controls whether file paths in output are absolute or relative.
 
 use std::fs;
+use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
+
+/// The form rumdl displays a canonical path in: `/` separators on every
+/// platform, and on Windows without the `\\?\` verbatim prefix `canonicalize`
+/// adds (both no-ops on Unix). Every output format shows this same string.
+fn displayed(canonical: &Path) -> String {
+    let normalized = canonical.to_string_lossy().replace('\\', "/");
+    normalized
+        .strip_prefix("//?/")
+        .map(str::to_string)
+        .unwrap_or(normalized)
+}
 
 /// Create a test directory with a markdown file that has linting issues
 fn create_test_structure() -> TempDir {
@@ -71,12 +83,12 @@ fn test_show_full_path_flag_shows_absolute_paths() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}");
 
-    // Should show absolute/canonical path
-    let expected_path = format!("{}:", canonical_path.display());
+    // Every warning line opens with the displayed canonical path. Matching the
+    // line start rejects a longer form (`//?/C:/...`) that merely contains it.
+    let expected_prefix = format!("{}:", displayed(&canonical_path));
     assert!(
-        combined.contains(&expected_path),
-        "Expected absolute path '{}' in output:\n{combined}",
-        canonical_path.display()
+        combined.lines().any(|line| line.starts_with(&expected_prefix)),
+        "Expected a warning line starting with '{expected_prefix}' in output:\n{combined}"
     );
 }
 
@@ -156,13 +168,18 @@ fn test_show_full_path_with_different_output_formats() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // JSON should contain the full path. Displayed paths use `/` separators on all
-    // platforms, so normalize the expected path to match (no-op on Unix).
-    let expected = canonical_path.to_string_lossy().replace('\\', "/");
-    assert!(
-        stdout.contains(&expected),
-        "JSON output should contain absolute path:\n{stdout}"
-    );
+    // Every warning's `file` is exactly the displayed canonical path.
+    let expected = displayed(&canonical_path);
+    let warnings: serde_json::Value = serde_json::from_str(&stdout).expect("JSON output is valid JSON");
+    let warnings = warnings.as_array().expect("JSON output is an array");
+    assert!(!warnings.is_empty(), "fixture should produce warnings:\n{stdout}");
+    for warning in warnings {
+        assert_eq!(
+            warning["file"].as_str(),
+            Some(expected.as_str()),
+            "JSON `file` should be the absolute path:\n{stdout}"
+        );
+    }
 }
 
 #[test]
@@ -287,12 +304,20 @@ fn test_show_full_path_in_sarif_format() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // SARIF should contain the full canonical path. Displayed paths use `/`
-    // separators on all platforms, so normalize the expected path (no-op on Unix).
-    let expected = canonical_path.to_string_lossy().replace('\\', "/");
-    assert!(
-        stdout.contains(&expected),
-        "SARIF with --show-full-path should contain absolute path:\n{stdout}"
+    // The artifact URI is the displayed canonical path as a `file:` URI.
+    let display = displayed(&canonical_path);
+    let expected = if display.starts_with('/') {
+        format!("file://{display}")
+    } else {
+        format!("file:///{display}")
+    };
+    let sarif: serde_json::Value = serde_json::from_str(&stdout).expect("SARIF output is valid JSON");
+    let uri = sarif["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        .as_str()
+        .expect("artifact URI");
+    assert_eq!(
+        uri, expected,
+        "SARIF with --show-full-path should name the absolute path as a file URI:\n{stdout}"
     );
 }
 

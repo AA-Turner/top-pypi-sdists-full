@@ -20,7 +20,7 @@ from notebooklm import (
     ResearchTask,
     RPCError,
 )
-from notebooklm._research import ResearchAPI
+from notebooklm._web.research import ResearchAPI
 from notebooklm.research import extract_report_urls, normalize_citation_url, select_cited_sources
 from notebooklm.rpc import RPCMethod
 
@@ -618,6 +618,27 @@ class TestResearch:
             assert isinstance(exc_info.value, TimeoutError)
             assert exc_info.value.task_id == "task_123"
             assert exc_info.value.timeout == 0
+
+    @pytest.mark.asyncio
+    async def test_pinned_absence_timeout_preserves_web_no_research_last_status(
+        self, auth_tokens, httpx_mock, build_rpc_response
+    ):
+        """The shared waiter must not leak poll's Web-only NOT_FOUND sentinel."""
+        response_body = build_rpc_response(RPCMethod.POLL_RESEARCH, [])
+        httpx_mock.add_response(content=response_body.encode(), method="POST")
+
+        from notebooklm.exceptions import ResearchTimeoutError
+
+        async with NotebookLMClient(auth_tokens) as client:
+            with pytest.raises(ResearchTimeoutError) as exc_info:
+                await client.research.wait_for_completion(
+                    "nb_123",
+                    task_id="task_missing",
+                    timeout=0,
+                    initial_interval=1,
+                )
+
+        assert exc_info.value.last_status == ResearchStatus.NO_RESEARCH.value
 
     @pytest.mark.asyncio
     async def test_wait_for_completion_rejects_invalid_budget(self, auth_tokens):

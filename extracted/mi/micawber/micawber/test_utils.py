@@ -39,9 +39,9 @@ class TestProvider(Provider):
     }
 
     def fetch(self, url):
-        if url in self.test_data:
-            return json.dumps(self.test_data[url])
-        return False
+        if url not in self.test_data:
+            raise ProviderException('Error fetching "%s"' % url)
+        return json.dumps(self.test_data[url])
 
 test_pr = ProviderRegistry()
 
@@ -56,14 +56,14 @@ for pr in (test_pr, test_pr_cache):
 
 class BaseTestCase(unittest.TestCase):
     def setUp(self):
-        test_cache._cache = {}
+        test_cache._cache.clear()
 
         self.full_pairs = {
             'http://link-test1': '<a href="http://link-test1" title="test1">test1</a>',
-            'http://photo-test2': '<a href="test2.jpg" title="ptest2"><img alt="ptest2" src="test2.jpg" /></a>',
+            'http://photo-test2': '<a href="test2.jpg" title="ptest2"><img alt="ptest2" src="test2.jpg" loading="lazy" decoding="async" /></a>',
             'http://video-test1': '<test1>video</test1>',
             'http://rich-test2': '<test2>rich</test2>',
-            'http://photo-notitle': '<a href="notitle.jpg" title="notitle.jpg"><img alt="notitle.jpg" src="notitle.jpg" /></a>',
+            'http://photo-notitle': '<a href="notitle.jpg" title="notitle.jpg"><img alt="notitle.jpg" src="notitle.jpg" loading="lazy" decoding="async" /></a>',
         }
 
         self.inline_pairs = {
@@ -86,7 +86,8 @@ class BaseTestCase(unittest.TestCase):
     def assertCached(self, url, data, **params):
         key = make_key(url, params)
         self.assertTrue(key in test_cache._cache)
-        self.assertEqual(test_cache._cache[key], data)
+        value, ttl = test_cache._cache[key]
+        self.assertEqual(value, data)
 
 
     def assertHTMLEqual(self, first, second, msg=None):

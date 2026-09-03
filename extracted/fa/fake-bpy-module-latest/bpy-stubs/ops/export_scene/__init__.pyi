@@ -447,7 +447,7 @@ class gltf(bpy.ops._BPyOpsSubModOp):
         Viewport -- Export minimal materials as defined in Viewport display properties.
 
         NONE
-        No export -- Do not export materials, and combine mesh primitive groups, losing material slot information.
+        No Export -- Do not export materials, and combine mesh primitive groups, losing material slot information.
                 :param export_unused_images: Unused Images, Export images not assigned to any material (optional)
                 :param export_unused_textures: Prepare Unused Textures, Export image texture nodes not assigned to any material. This feature is not standard and needs an external extension to be included in the glTF file (optional)
                 :param export_vertex_color: Use Vertex Color, How to export vertex color (optional)

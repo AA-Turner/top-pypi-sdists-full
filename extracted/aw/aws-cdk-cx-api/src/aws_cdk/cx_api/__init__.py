@@ -1320,7 +1320,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
 
            module.exports = {
              // ...
-             setupFilesAfterEnv: ['aws-cdk-lib/testhelpers/jest-cleanup'],
+             setupFilesAfterEnv: ['aws-cdk-lib/testhelpers/jest-autoclean'],
            };
         '''
         return typing.cast(None, jsii.sinvoke(cls, "cleanupTemporaryDirectories", []))

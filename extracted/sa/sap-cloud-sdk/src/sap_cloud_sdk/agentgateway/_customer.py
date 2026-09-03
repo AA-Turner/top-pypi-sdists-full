@@ -668,6 +668,7 @@ async def _list_server_tools(
                     )
 
                 result = await session.list_tools()
+                tools = result.tools or []
 
                 return [
                     MCPTool(
@@ -677,7 +678,7 @@ async def _list_server_tools(
                         input_schema=mcp_input_schema(t),
                         url=url,
                     )
-                    for t in result.tools
+                    for t in tools
                 ]
 
 

@@ -33,8 +33,10 @@ def mock_git_remote_detection(request, monkeypatch):
         yield
         return
 
+    from agentic_devtools.cli import pull_request_threads
     from agentic_devtools.cli.azure_devops import config
 
     monkeypatch.setattr(config, "get_repository_name_from_git_remote", lambda: None)
     monkeypatch.setattr(config, "get_azure_devops_context_from_git_remote", lambda: None)
+    monkeypatch.setattr(pull_request_threads, "get_azure_devops_context_from_git_remote", lambda: None)
     yield

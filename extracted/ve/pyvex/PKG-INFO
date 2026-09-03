@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: pyvex
-Version: 9.3.3
+Version: 9.3.4
 Summary: A Python interface to libVEX and VEX IR
-License-Expression: BSD-2-Clause AND GPL-2.0-only
+License-Expression: BSD-2-Clause AND GPL-2.0-or-later
 License-File: LICENSE
 License-File: pyvex_c/LICENSE
 License-File: vex/LICENSE.GPL

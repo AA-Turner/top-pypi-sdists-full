@@ -688,13 +688,14 @@ class RecordSetGroupReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_route53.RecordSetReference",
     jsii_struct_bases=[],
-    name_mapping={"record_set_name": "recordSetName"},
+    name_mapping={"record_set_name": "recordSetName", "type": "type"},
 )
 class RecordSetReference:
-    def __init__(self, *, record_set_name: builtins.str) -> None:
+    def __init__(self, *, record_set_name: builtins.str, type: builtins.str) -> None:
         '''A reference to a RecordSet resource.
 
         :param record_set_name: The Name of the RecordSet resource.
+        :param type: The Type of the RecordSet resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -705,14 +706,17 @@ class RecordSetReference:
             from aws_cdk.interfaces import aws_route53 as interfaces_route53
             
             record_set_reference = interfaces_route53.RecordSetReference(
-                record_set_name="recordSetName"
+                record_set_name="recordSetName",
+                type="type"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__309b4ebd3a2bc9de4559b92e46a6d5aa5ef18238d81d559d28fffaf3353eda80)
             check_type(argname="argument record_set_name", value=record_set_name, expected_type=type_hints["record_set_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "record_set_name": record_set_name,
+            "type": type,
         }
 
     @builtins.property
@@ -720,6 +724,13 @@ class RecordSetReference:
         '''The Name of the RecordSet resource.'''
         result = self._values.get("record_set_name")
         assert result is not None, "Required property 'record_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The Type of the RecordSet resource.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -800,6 +811,7 @@ def _typecheckingstub__843f82028bf43583ae47be1e10363ba4894e39f9bd7f71769ddfdced4
 def _typecheckingstub__309b4ebd3a2bc9de4559b92e46a6d5aa5ef18238d81d559d28fffaf3353eda80(
     *,
     record_set_name: builtins.str,
+    type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

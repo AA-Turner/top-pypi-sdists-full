@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhaviary
-Version: 0.35.0
+Version: 0.36.0
 Summary: Gymnasium framework for training language model agents on constructive tasks
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License

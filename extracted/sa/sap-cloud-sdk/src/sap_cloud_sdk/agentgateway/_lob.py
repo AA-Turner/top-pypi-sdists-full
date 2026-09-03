@@ -30,8 +30,8 @@ from sap_cloud_sdk.agentgateway._fragments import (
     FragmentLabel,
     get_ias_fragment_name,
     get_ias_user_fragment_name,
-    list_mcp_fragments,
     list_a2a_fragments,
+    list_mcp_fragments,
 )
 from sap_cloud_sdk.agentgateway._compat import (
     mcp_input_schema,
@@ -39,10 +39,10 @@ from sap_cloud_sdk.agentgateway._compat import (
     mcp_server_name,
 )
 from sap_cloud_sdk.agentgateway._models import (
-    JsonRpcError,
     Agent,
     AgentCard,
     AgentCardFilter,
+    JsonRpcError,
     MCPTool,
     MCPToolFilter,
 )
@@ -386,6 +386,11 @@ async def list_server_tools(
                 init_result = await session.initialize()
                 server_name = mcp_server_name(init_result) or fragment_name
                 result = await session.list_tools()
+                tools = result.tools or []
+                if not tools:
+                    logger.info(
+                        "No tools returned by AGW for fragment '%s'", fragment_name
+                    )
                 return [
                     MCPTool(
                         name=t.name,
@@ -395,7 +400,7 @@ async def list_server_tools(
                         url=dest_url,
                         fragment_name=fragment_name,
                     )
-                    for t in result.tools
+                    for t in tools
                 ]
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.9.0
+Version: 0.9.1
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>

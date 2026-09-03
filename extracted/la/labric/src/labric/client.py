@@ -5,17 +5,20 @@
 # rather than `write_labric_table(client, ...)`.
 
 from .base_client import AsyncBaseLabric, BaseLabric
+from .legacy_tools import LegacyToolsAliases
 from .read_wrappers import ReadWrappers
 from .step_recording import StepRecording
 from .write_wrappers import WriteWrappers
 
 
-class Labric(ReadWrappers, StepRecording, WriteWrappers, BaseLabric):
+class Labric(
+    ReadWrappers, StepRecording, WriteWrappers, LegacyToolsAliases, BaseLabric
+):
     """Synchronous client: the generated API plus read, write, and step-recording helpers."""
 
     # WriteWrappers is listed explicitly even though StepRecording already inherits
     # from it, so every mixin backing this client is visible here.
 
 
-class AsyncLabric(AsyncBaseLabric):
-    """Asynchronous client. The hand-written helpers above are synchronous only and not included here."""
+class AsyncLabric(LegacyToolsAliases, AsyncBaseLabric):
+    """Asynchronous client. The read, write, and step-recording helpers are synchronous only and not included here."""

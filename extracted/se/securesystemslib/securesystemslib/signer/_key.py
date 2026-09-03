@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from abc import ABCMeta, abstractmethod
 from typing import Any, cast
 
-from securesystemslib._internal.utils import make_hashable
 from securesystemslib._vendor.ed25519.ed25519 import (
     SignatureMismatch,
     checkvalid,
@@ -17,29 +15,8 @@ from securesystemslib.exceptions import (
     UnverifiedSignatureError,
     VerificationError,
 )
-from securesystemslib.signer._constants import (
-    ECDSA_SHA2_NISTP256,
-    ECDSA_SHA2_NISTP384,
-    ECDSA_SHA2_NISTP521,
-    ED25519,
-    KEY_TYPE_ECDSA,
-    KEY_TYPE_ED25519,
-    KEY_TYPE_MLDSA,
-    KEY_TYPE_RSA,
-    MLDSA_44_1,
-    MLDSA_65_1,
-    MLDSA_87_1,
-    RSA_PKCS1V15_SHA224,
-    RSA_PKCS1V15_SHA256,
-    RSA_PKCS1V15_SHA384,
-    RSA_PKCS1V15_SHA512,
-    RSASSA_PSS_SHA224,
-    RSASSA_PSS_SHA256,
-    RSASSA_PSS_SHA384,
-    RSASSA_PSS_SHA512,
-)
 from securesystemslib.signer._signature import Signature
-from securesystemslib.signer._utils import compute_default_keyid, get_mldsa_payload
+from securesystemslib.signer._utils import compute_default_keyid
 
 CRYPTO_IMPORT_ERROR = None
 try:
@@ -54,11 +31,6 @@ try:
     )
     from cryptography.hazmat.primitives.asymmetric.ed25519 import (
         Ed25519PublicKey,
-    )
-    from cryptography.hazmat.primitives.asymmetric.mldsa import (
-        MLDSA44PublicKey,
-        MLDSA65PublicKey,
-        MLDSA87PublicKey,
     )
     from cryptography.hazmat.primitives.asymmetric.padding import (
         MGF1,
@@ -110,10 +82,9 @@ class Key(metaclass=ABCMeta):
         keyid: Key identifier that is unique within the metadata it is used in.
             Keyid is not verified to be the hash of a specific representation
             of the key.
-        keytype: Key type, e.g. ``KEY_TYPE_RSA``, ``KEY_TYPE_ED25519`` or
-            ``KEY_TYPE_ECDSA``.
+        keytype: Key type, e.g. "rsa", "ed25519" or "ecdsa-sha2-nistp256".
         scheme: Signature scheme. For example:
-            ``RSASSA_PSS_SHA256``, ``ED25519``, and ``ECDSA_SHA2_NISTP256``.
+            "rsassa-pss-sha256", "ed25519", and "ecdsa-sha2-nistp256".
         keyval: Opaque key content
         unrecognized_fields: Dictionary of all attributes that are not managed
             by Securesystemslib
@@ -162,8 +133,8 @@ class Key(metaclass=ABCMeta):
                 self.keyid,
                 self.keytype,
                 self.scheme,
-                make_hashable(self.keyval),
-                make_hashable(self.unrecognized_fields),
+                self.keyval,
+                self.unrecognized_fields,
             )
         )
 
@@ -262,25 +233,20 @@ class SSlibKey(Key):
         """Get hash algorithm name for scheme. Raise
         ValueError if the scheme is not a supported pre-hash scheme."""
         if self.scheme in [
-            RSASSA_PSS_SHA224,
-            RSASSA_PSS_SHA256,
-            RSASSA_PSS_SHA384,
-            RSASSA_PSS_SHA512,
-            RSA_PKCS1V15_SHA224,
-            RSA_PKCS1V15_SHA256,
-            RSA_PKCS1V15_SHA384,
-            RSA_PKCS1V15_SHA512,
-            ECDSA_SHA2_NISTP256,
-            ECDSA_SHA2_NISTP384,
+            "rsassa-pss-sha224",
+            "rsassa-pss-sha256",
+            "rsassa-pss-sha384",
+            "rsassa-pss-sha512",
+            "rsa-pkcs1v15-sha224",
+            "rsa-pkcs1v15-sha256",
+            "rsa-pkcs1v15-sha384",
+            "rsa-pkcs1v15-sha512",
+            "ecdsa-sha2-nistp256",
+            "ecdsa-sha2-nistp384",
         ]:
             return f"sha{self.scheme[-3:]}"
 
-        elif self.scheme in [
-            ECDSA_SHA2_NISTP521,
-            MLDSA_44_1,
-            MLDSA_65_1,
-            MLDSA_87_1,
-        ]:
+        elif self.scheme == "ecdsa-sha2-nistp521":
             return "sha512"
 
         raise ValueError(f"method not supported for scheme {self.scheme}")
@@ -289,14 +255,14 @@ class SSlibKey(Key):
         """Get padding name for scheme. Raise
         ValueError if the scheme is not a supported padded rsa scheme."""
         if self.scheme in [
-            RSASSA_PSS_SHA224,
-            RSASSA_PSS_SHA256,
-            RSASSA_PSS_SHA384,
-            RSASSA_PSS_SHA512,
-            RSA_PKCS1V15_SHA224,
-            RSA_PKCS1V15_SHA256,
-            RSA_PKCS1V15_SHA384,
-            RSA_PKCS1V15_SHA512,
+            "rsassa-pss-sha224",
+            "rsassa-pss-sha256",
+            "rsassa-pss-sha384",
+            "rsassa-pss-sha512",
+            "rsa-pkcs1v15-sha224",
+            "rsa-pkcs1v15-sha256",
+            "rsa-pkcs1v15-sha384",
+            "rsa-pkcs1v15-sha512",
         ]:
             return self.scheme.split("-")[1]
 
@@ -336,28 +302,24 @@ class SSlibKey(Key):
             ).decode()
 
         if isinstance(public_key, RSAPublicKey):
-            ret = (KEY_TYPE_RSA, RSASSA_PSS_SHA256, _pem())
-        elif isinstance(public_key, EllipticCurvePublicKey):
-            if isinstance(public_key.curve, SECP256R1):
-                ret = (KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP256, _pem())
-            elif isinstance(public_key.curve, SECP384R1):
-                ret = (KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP384, _pem())
-            elif isinstance(public_key.curve, SECP521R1):
-                ret = (KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP521, _pem())
-            else:
-                raise ValueError(f"unsupported curve '{public_key.curve.name}'")
-        elif isinstance(public_key, Ed25519PublicKey):
-            ret = (KEY_TYPE_ED25519, ED25519, _raw())
-        elif isinstance(public_key, MLDSA44PublicKey):
-            ret = (KEY_TYPE_MLDSA, MLDSA_44_1, _pem())
-        elif isinstance(public_key, MLDSA65PublicKey):
-            ret = (KEY_TYPE_MLDSA, MLDSA_65_1, _pem())
-        elif isinstance(public_key, MLDSA87PublicKey):
-            ret = (KEY_TYPE_MLDSA, MLDSA_87_1, _pem())
-        else:
-            raise ValueError(f"unsupported key '{type(public_key)}'")
+            return "rsa", "rsassa-pss-sha256", _pem()
 
-        return ret
+        if isinstance(public_key, EllipticCurvePublicKey):
+            if isinstance(public_key.curve, SECP256R1):
+                return "ecdsa", "ecdsa-sha2-nistp256", _pem()
+
+            if isinstance(public_key.curve, SECP384R1):
+                return "ecdsa", "ecdsa-sha2-nistp384", _pem()
+
+            if isinstance(public_key.curve, SECP521R1):
+                return "ecdsa", "ecdsa-sha2-nistp521", _pem()
+
+            raise ValueError(f"unsupported curve '{public_key.curve.name}'")
+
+        if isinstance(public_key, Ed25519PublicKey):
+            return "ed25519", "ed25519", _raw()
+
+        raise ValueError(f"unsupported key '{type(public_key)}'")
 
     @classmethod
     def from_crypto(
@@ -371,8 +333,8 @@ class SSlibKey(Key):
         Args:
             public_key: pyca/cryptography public key object.
             keyid: Key identifier. If not passed, a default keyid is computed.
-            scheme: SSlibKey signing scheme. Defaults are ``RSASSA_PSS_SHA256``,
-                ``ECDSA_SHA2_NISTP256``, ``ECDSA_SHA2_NISTP384`` and ``ED25519``
+            scheme: SSlibKey signing scheme. Defaults are "rsassa-pss-sha256",
+                "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384" and "ed25519"
                 according to the keytype.
 
         Raises:
@@ -419,7 +381,7 @@ class SSlibKey(Key):
         except SignatureMismatch as e:
             raise UnverifiedSignatureError from e
 
-    def _verify(self, signature: bytes, data: bytes) -> None:  # noqa: PLR0912, PLR0915
+    def _verify(self, signature: bytes, data: bytes) -> None:
         """Helper to verify signature using pyca/cryptography (default)."""
 
         def _validate_type(key: object, type_: type) -> None:
@@ -434,15 +396,15 @@ class SSlibKey(Key):
 
         try:
             key: PublicKeyTypes
-            if self.keytype == KEY_TYPE_RSA and self.scheme in [
-                RSASSA_PSS_SHA224,
-                RSASSA_PSS_SHA256,
-                RSASSA_PSS_SHA384,
-                RSASSA_PSS_SHA512,
-                RSA_PKCS1V15_SHA224,
-                RSA_PKCS1V15_SHA256,
-                RSA_PKCS1V15_SHA384,
-                RSA_PKCS1V15_SHA512,
+            if self.keytype == "rsa" and self.scheme in [
+                "rsassa-pss-sha224",
+                "rsassa-pss-sha256",
+                "rsassa-pss-sha384",
+                "rsassa-pss-sha512",
+                "rsa-pkcs1v15-sha224",
+                "rsa-pkcs1v15-sha256",
+                "rsa-pkcs1v15-sha384",
+                "rsa-pkcs1v15-sha512",
             ]:
                 key = cast(RSAPublicKey, self._crypto_key())
                 _validate_type(key, RSAPublicKey)
@@ -453,72 +415,36 @@ class SSlibKey(Key):
                 key.verify(signature, data, padding, hash_algorithm)
 
             elif (
-                self.keytype in [KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP256]
-                and self.scheme == ECDSA_SHA2_NISTP256
+                self.keytype in ["ecdsa", "ecdsa-sha2-nistp256"]
+                and self.scheme == "ecdsa-sha2-nistp256"
             ):
-                if self.keytype == ECDSA_SHA2_NISTP256:
-                    warnings.warn(
-                        f"keytype '{ECDSA_SHA2_NISTP256}' is deprecated, "
-                        f"use '{KEY_TYPE_ECDSA}' instead",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
                 key = cast(EllipticCurvePublicKey, self._crypto_key())
                 _validate_type(key, EllipticCurvePublicKey)
                 _validate_curve(key, SECP256R1)
                 key.verify(signature, data, ECDSA(SHA256()))
 
             elif (
-                self.keytype in [KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP384]
-                and self.scheme == ECDSA_SHA2_NISTP384
+                self.keytype in ["ecdsa", "ecdsa-sha2-nistp384"]
+                and self.scheme == "ecdsa-sha2-nistp384"
             ):
-                if self.keytype == ECDSA_SHA2_NISTP384:
-                    warnings.warn(
-                        f"keytype '{ECDSA_SHA2_NISTP384}' is deprecated, "
-                        f"use '{KEY_TYPE_ECDSA}' instead",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
                 key = cast(EllipticCurvePublicKey, self._crypto_key())
                 _validate_type(key, EllipticCurvePublicKey)
                 _validate_curve(key, SECP384R1)
                 key.verify(signature, data, ECDSA(SHA384()))
 
             elif (
-                self.keytype in [KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP521]
-                and self.scheme == ECDSA_SHA2_NISTP521
+                self.keytype in ["ecdsa", "ecdsa-sha2-nistp521"]
+                and self.scheme == "ecdsa-sha2-nistp521"
             ):
-                if self.keytype == ECDSA_SHA2_NISTP521:
-                    warnings.warn(
-                        f"keytype '{ECDSA_SHA2_NISTP521}' is deprecated, "
-                        f"use '{KEY_TYPE_ECDSA}' instead",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
                 key = cast(EllipticCurvePublicKey, self._crypto_key())
                 _validate_type(key, EllipticCurvePublicKey)
                 _validate_curve(key, SECP521R1)
                 key.verify(signature, data, ECDSA(SHA512()))
 
-            elif self.keytype == KEY_TYPE_ED25519 and self.scheme == ED25519:
+            elif self.keytype == "ed25519" and self.scheme == "ed25519":
                 public_bytes = bytes.fromhex(self.keyval["public"])
                 key = Ed25519PublicKey.from_public_bytes(public_bytes)
                 key.verify(signature, data)
-
-            elif self.keytype == KEY_TYPE_MLDSA and self.scheme == MLDSA_44_1:
-                key = cast(MLDSA44PublicKey, self._crypto_key())
-                _validate_type(key, MLDSA44PublicKey)
-                key.verify(signature, get_mldsa_payload(data, 1))
-
-            elif self.keytype == KEY_TYPE_MLDSA and self.scheme == MLDSA_65_1:
-                key = cast(MLDSA65PublicKey, self._crypto_key())
-                _validate_type(key, MLDSA65PublicKey)
-                key.verify(signature, get_mldsa_payload(data, 1))
-
-            elif self.keytype == KEY_TYPE_MLDSA and self.scheme == MLDSA_87_1:
-                key = cast(MLDSA87PublicKey, self._crypto_key())
-                _validate_type(key, MLDSA87PublicKey)
-                key.verify(signature, get_mldsa_payload(data, 1))
 
             else:
                 raise ValueError(f"Unsupported public key {self.keytype}/{self.scheme}")
@@ -537,7 +463,7 @@ class SSlibKey(Key):
             signature_bytes = bytes.fromhex(signature.signature)
 
             if CRYPTO_IMPORT_ERROR:
-                if self.scheme != ED25519:
+                if self.scheme != "ed25519":
                     raise UnsupportedLibraryError(CRYPTO_IMPORT_ERROR)
 
                 return self._verify_ed25519_fallback(signature_bytes, data)

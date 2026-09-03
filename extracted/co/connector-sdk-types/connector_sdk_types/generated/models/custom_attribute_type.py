@@ -28,6 +28,9 @@ class CustomAttributeType(str, Enum):
     """
     STRING = 'string'
     USER = 'user'
+    BOOLEAN = 'boolean'
+    INTEGER = 'integer'
+    DATETIME = 'datetime'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

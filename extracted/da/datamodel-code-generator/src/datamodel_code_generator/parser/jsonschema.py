@@ -42,16 +42,18 @@ from datamodel_code_generator import (
     ReadOnlyWriteOnlyModelType,
     SchemaParseError,
     VersionMode,
-    YamlValue,
-    _load_parser_source_data_from_path_bytes,
-    load_data,
-    load_data_from_path,
     snooper_to_methods,
 )
 from datamodel_code_generator._format_types import (
     DatetimeClassType,
 )
 from datamodel_code_generator._shared_types import DefaultPutDict, LiteralType
+from datamodel_code_generator._source import (
+    YamlValue,
+    _load_parser_source_data_from_path_bytes,
+    load_data,
+    load_data_from_path,
+)
 from datamodel_code_generator.deprecations import warn_deprecated
 from datamodel_code_generator.enums import AliasGenerator
 from datamodel_code_generator.imports import IMPORT_ANY, Import
@@ -64,6 +66,7 @@ from datamodel_code_generator.model.enum import (
     EnumMemberValue,
     StrEnum,
 )
+from datamodel_code_generator.model.output import OutputModelContext
 from datamodel_code_generator.model.runtime_validation import (
     UNIQUE_ITEMS_ARRAY_TAIL_PATH_STEP,
     UNIQUE_ITEMS_MAPPING_ADDITIONAL_VALUES_PATH_STEP,
@@ -80,7 +83,6 @@ from datamodel_code_generator.model.runtime_validation import (
     _is_internal_schema_runtime_validation,
     _make_internal_schema_runtime_validation,
 )
-from datamodel_code_generator.parser._output_context import OutputModelContext
 from datamodel_code_generator.parser.base import (
     _DEFERRED_INHERITED_CLASS_KEY,
     _DEFERRED_INHERITED_FIELD_KEY,
@@ -844,7 +846,7 @@ class JsonSchemaObject(BaseModel):
     dynamicAnchor: Optional[str] = Field(default=None, alias="$dynamicAnchor")  # noqa: N815, UP045
     nullable: Optional[bool] = None  # noqa: UP045
     x_enum_varnames: list[str] = Field(default_factory=list, alias="x-enum-varnames")
-    x_enum_descriptions: list[str] = Field(default_factory=list, alias="x-enum-descriptions")
+    x_enum_descriptions: list[str | None] = Field(default_factory=list, alias="x-enum-descriptions")
     x_enum_names: list[str] = Field(default_factory=list, alias="x-enumNames")
     x_enum_field_as_literal: Optional[bool] = Field(default=None, alias="x-enum-field-as-literal")  # noqa: UP045
     description: Optional[str] = None  # noqa: UP045
@@ -1163,7 +1165,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         )
 
         # Normalize external ref mapping paths to absolute for reliable matching
-        raw_mapping = self.config.external_ref_mapping
+        raw_mapping = self._source_context.external_ref_mapping
         self._external_ref_mapping: dict[str, str] = {}
         if raw_mapping:
             for file_path, python_package in raw_mapping.items():
@@ -1222,22 +1224,27 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         *,
         config: JSONSchemaParserConfig,
     ) -> JsonSchemaParser:
-        """Construct one parser with its private input-model expression table."""
-        # Parser accepts in-memory dict sources; this private factory is the only
-        # path that bypasses JsonSchemaParser's public file/URL source contract.
+        """Preserve the historical private token-table construction path."""
         parser = cls(source=cast("str | Path | list[Path] | ParseResult", source), config=config)
         parser._python_type_expressions = python_type_expressions
         return parser
 
     def _externalize_schema_extra(self, key: str, value: Any) -> Any:
-        """Prevent private transport tokens from reaching fields or templates."""
+        """Render neutral type IR only when it crosses into generated metadata."""
         if key != "x-python-type":
             return value
-        from datamodel_code_generator._input_model_transport import (  # noqa: PLC0415
-            externalize_python_type_token,
-        )
+        from datamodel_code_generator._python_type_annotation import render_python_type_expr  # noqa: PLC0415
+        from datamodel_code_generator.input_model_result import PythonTypeSchemaAnnotation  # noqa: PLC0415
 
-        return externalize_python_type_token(value, self._python_type_expressions)
+        if isinstance(value, PythonTypeSchemaAnnotation):
+            return render_python_type_expr(value.expression)
+        if (
+            isinstance(value, str)
+            and self._python_type_expressions is not None
+            and (expression := self._python_type_expressions.get(value)) is not None
+        ):
+            return render_python_type_expr(expression)
+        return value
 
     def get_field_extras(self, obj: JsonSchemaObject) -> dict[str, Any]:
         """Extract extra field metadata from a JSON Schema object."""
@@ -2559,7 +2566,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         """Rewrite TypedDict extra-item metadata to the matching model variant."""
         metadata = self.extra_template_data[reference_path]
         if (
-            not self._output_model_context._has_additional_properties_type(metadata)  # noqa: SLF001
+            not self._output_model_context.has_additional_properties_type(metadata)
             or not isinstance(obj.additionalProperties, JsonSchemaObject)
             or (additional_type := self._build_lightweight_type(obj.additionalProperties)) is None
         ):
@@ -2568,7 +2575,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         reference_classes = {
             data_type.reference.path for data_type in additional_type.all_data_types if data_type.reference
         }
-        self._output_model_context._store_additional_properties_type(  # noqa: SLF001
+        self._output_model_context.store_additional_properties_type(
             metadata,
             additional_type.type_hint,
             reference_classes,
@@ -3072,14 +3079,21 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         if isinstance(obj.additionalProperties, bool):
             if not self.use_closed_typed_dict:
                 return
-            self.extra_template_data[path]["additionalProperties"] = obj.additionalProperties
-            if obj.additionalProperties is False and not self.target_python_version.has_typed_dict_closed:
-                self.extra_template_data[path]["use_typeddict_backport"] = True
+            self._output_model_context.store_additional_properties_value(
+                self.extra_template_data[path],
+                value=obj.additionalProperties,
+                use_backport=(
+                    obj.additionalProperties is False and not self.target_python_version.has_typed_dict_closed
+                ),
+            )
         elif isinstance(obj.additionalProperties, JsonSchemaObject):
             # A schema-valued additionalProperties still means extra keys are accepted.
             # Keep typed extra validation out of this bugfix; PEP 728 TypedDict uses
-            # additionalPropertiesType below when explicitly enabled.
-            self.extra_template_data[path]["additionalProperties"] = True
+            # output-owned type metadata below when explicitly enabled.
+            self._output_model_context.store_additional_properties_value(
+                self.extra_template_data[path],
+                value=True,
+            )
             if not self.use_closed_typed_dict:
                 return
             additional_props_type = self._build_lightweight_type(obj.additionalProperties)
@@ -3093,13 +3107,12 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     if self._output_model_context.requires_additional_properties_reference_classes
                     else None
                 )
-                self._output_model_context._store_additional_properties_type(  # noqa: SLF001
+                self._output_model_context.store_additional_properties_type(
                     self.extra_template_data[path],
                     additional_props_type.type_hint,
                     reference_classes,
+                    use_backport=not self.target_python_version.has_typed_dict_closed,
                 )
-                if not self.target_python_version.has_typed_dict_closed:  # pragma: no branch
-                    self.extra_template_data[path]["use_typeddict_backport"] = True
 
     def set_unevaluated_properties(self, path: str, obj: JsonSchemaObject) -> None:
         """Set unevaluated properties flag in extra template data."""
@@ -3223,17 +3236,20 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
     def _get_x_python_type(self, obj: JsonSchemaObject) -> PythonTypeExpr | None:
         """Resolve internal IR or parse external text at the schema boundary."""
         x_python_type = obj.extras.get("x-python-type")
-        if not x_python_type or not isinstance(x_python_type, str):
+        if not x_python_type:
             return None
+        if not isinstance(x_python_type, str):
+            from datamodel_code_generator.input_model_result import PythonTypeSchemaAnnotation  # noqa: PLC0415
+
+            return x_python_type.expression if isinstance(x_python_type, PythonTypeSchemaAnnotation) else None
         if (
             self._python_type_expressions is not None
             and (expression := self._python_type_expressions.get(x_python_type)) is not None
         ):
             return expression
+        from datamodel_code_generator.input_model_result import is_legacy_python_type_token  # noqa: PLC0415
 
-        from datamodel_code_generator._input_model_transport import is_python_type_token  # noqa: PLC0415
-
-        if is_python_type_token(x_python_type):
+        if is_legacy_python_type_token(x_python_type):
             msg = "Internal x-python-type context is unavailable"
             raise Error(msg)
 
@@ -7726,10 +7742,10 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         runtime_validation = self.extra_template_data[reference_path].get("schema_runtime_validation")
         if not _is_internal_schema_runtime_validation(runtime_validation) or not runtime_validation:
             return data_model_root_type
-
-        from datamodel_code_generator.model.pydantic_v2.root_model import RootModel  # noqa: PLC0415
-
-        return RootModel
+        if (root_model_factory := self.data_model_type.SCHEMA_RUNTIME_VALIDATION_ROOT_MODEL) is None:
+            self.extra_template_data[reference_path].pop("schema_runtime_validation")
+            return data_model_root_type
+        return root_model_factory()
 
     def _apply_root_model_sequence_interface(
         self,
@@ -8517,8 +8533,8 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 not type(self)._property_names_forbids_all_keys(property_names)  # noqa: SLF001
                 and (
                     (
-                        isinstance(x_python_type := property_names.extras.get("x-python-type"), str)
-                        and bool(x_python_type)
+                        bool(x_python_type := property_names.extras.get("x-python-type"))
+                        and (isinstance(x_python_type, str) or self._get_x_python_type(property_names) is not None)
                     )
                     or property_names.pattern is not None
                     or property_names.minLength is not None

@@ -973,6 +973,51 @@ class _IScheduledQueryRefProxy(
 typing.cast(typing.Any, IScheduledQueryRef).__jsii_proxy_class__ = lambda : _IScheduledQueryRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_logs.IStorageTierPolicyRef")
+class IStorageTierPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a StorageTierPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="storageTierPolicyRef")
+    def storage_tier_policy_ref(self) -> "StorageTierPolicyReference":
+        '''(experimental) A reference to a StorageTierPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStorageTierPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StorageTierPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_logs.IStorageTierPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="storageTierPolicyRef")
+    def storage_tier_policy_ref(self) -> "StorageTierPolicyReference":
+        '''(experimental) A reference to a StorageTierPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StorageTierPolicyReference", jsii.get(self, "storageTierPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStorageTierPolicyRef).__jsii_proxy_class__ = lambda : _IStorageTierPolicyRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_logs.ISubscriptionFilterRef")
 class ISubscriptionFilterRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1507,6 +1552,55 @@ class ScheduledQueryReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_logs.StorageTierPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"account_id": "accountId"},
+)
+class StorageTierPolicyReference:
+    def __init__(self, *, account_id: builtins.str) -> None:
+        '''A reference to a StorageTierPolicy resource.
+
+        :param account_id: The AccountId of the StorageTierPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_logs as interfaces_logs
+            
+            storage_tier_policy_reference = interfaces_logs.StorageTierPolicyReference(
+                account_id="accountId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__69b124f7c940661d2968dfcf111ea2e8ecb01a7fba2133c71f1029c0e5a0a036)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+        }
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The AccountId of the StorageTierPolicy resource.'''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StorageTierPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_logs.SubscriptionFilterReference",
     jsii_struct_bases=[],
     name_mapping={"filter_name": "filterName", "log_group_name": "logGroupName"},
@@ -1639,6 +1733,7 @@ __all__ = [
     "IQueryDefinitionRef",
     "IResourcePolicyRef",
     "IScheduledQueryRef",
+    "IStorageTierPolicyRef",
     "ISubscriptionFilterRef",
     "ITransformerRef",
     "IntegrationReference",
@@ -1649,6 +1744,7 @@ __all__ = [
     "QueryDefinitionReference",
     "ResourcePolicyReference",
     "ScheduledQueryReference",
+    "StorageTierPolicyReference",
     "SubscriptionFilterReference",
     "TransformerReference",
 ]
@@ -1755,6 +1851,13 @@ def _typecheckingstub__090fd04987a985f7f1ab057e746857042cf4b0d5ad8e6b821b8000c6a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__69b124f7c940661d2968dfcf111ea2e8ecb01a7fba2133c71f1029c0e5a0a036(
+    *,
+    account_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e03b9321b3853e172ea485b7f87ee05500da31635f70cfb3931308cf53d5b7c9(
     *,
     filter_name: builtins.str,
@@ -1770,5 +1873,5 @@ def _typecheckingstub__15e0e35db8a493355cc50017a7dbec5573a8aaa6167649b1ea54abc2a
     """Type checking stubs"""
     pass
 
-for cls in [IAccountPolicyRef, IDeliveryDestinationRef, IDeliveryRef, IDeliverySourceRef, IDestinationRef, IIntegrationRef, ILogAnomalyDetectorRef, ILogGroupRef, ILogStreamRef, IMetricFilterRef, IQueryDefinitionRef, IResourcePolicyRef, IScheduledQueryRef, ISubscriptionFilterRef, ITransformerRef]:
+for cls in [IAccountPolicyRef, IDeliveryDestinationRef, IDeliveryRef, IDeliverySourceRef, IDestinationRef, IIntegrationRef, ILogAnomalyDetectorRef, ILogGroupRef, ILogStreamRef, IMetricFilterRef, IQueryDefinitionRef, IResourcePolicyRef, IScheduledQueryRef, IStorageTierPolicyRef, ISubscriptionFilterRef, ITransformerRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

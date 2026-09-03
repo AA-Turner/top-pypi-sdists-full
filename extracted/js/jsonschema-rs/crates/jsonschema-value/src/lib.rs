@@ -16,6 +16,7 @@ mod magnus;
 mod pyo3;
 #[cfg(feature = "serde_json")]
 mod serde_json;
+mod serde_number;
 
 #[cfg(feature = "magnus")]
 pub use magnus::{
@@ -96,6 +97,11 @@ pub trait Json: Sized + Send + Sync + 'static {
     /// Property name prepared once at compile time, for repeated object lookups.
     type PreparedKey: Send + Sync;
 
+    /// Object keys a members pass may visit per [`Object::get`] it replaces, before the pass
+    /// costs more than the lookups. Zero keeps every representation whose lookup is a hash
+    /// probe on lookups.
+    const KEYS_PER_LOOKUP: usize = 0;
+
     /// Scratch storage for [`Json::with_string_node`], reusable across calls.
     type StringBuffer: Default;
 
@@ -152,6 +158,17 @@ pub trait JsonNumber {
     /// [`JsonNumber::to_number`] round-trip is not free (e.g. decimal representations).
     fn is_integer(&self) -> bool {
         crate::types::number_is_integer(&self.to_number())
+    }
+
+    /// Whether the number is *written* as an integer, with neither a fraction nor an exponent
+    /// part. Draft 4 decides `type: integer` this way, so `1.0` and `1e2` are not integers there.
+    ///
+    /// The default reads the literal from [`JsonNumber::as_str`]. A representation holding native
+    /// numbers has none, and must override this to answer from its own types.
+    fn is_written_as_integer(&self) -> bool {
+        self.as_u64().is_some()
+            || self.as_i64().is_some()
+            || !self.as_str().contains(['.', 'e', 'E'])
     }
 }
 

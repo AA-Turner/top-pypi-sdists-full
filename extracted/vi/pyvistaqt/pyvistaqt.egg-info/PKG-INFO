@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvistaqt
-Version: 0.12.0
+Version: 0.13.0
 Summary: pyvista qt plotter
 Author-email: PyVista Developers <info@pyvista.org>
 License: MIT
@@ -33,6 +33,7 @@ Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-memprof==0.2.0; extra == "test"
 Requires-Dist: pytest-qt==4.5.0; extra == "test"
 Requires-Dist: pyvista[jupyter]; extra == "test"
+Requires-Dist: refleak==0.2.2; extra == "test"
 Requires-Dist: scooby==0.11.2; extra == "test"
 Requires-Dist: sphinx_gallery==0.21.0; extra == "test"
 Provides-Extra: docs
@@ -116,7 +117,7 @@ To install this package with ``conda`` run::
 
 You will need a suitable Qt binding (abstraction provided by ``qtpy``),
 so install PySide6 or PyQt6 using ``pip`` or ``conda`` as well.
-PyQt5 is end-of-life so is unsupported (but may still work).
+PyQt5 is end-of-life upstream, but is still tested in CI and should work.
 
 You can also visit `PyPI <https://pypi.org/project/pyvistaqt/>`_ or
 `GitHub <https://github.com/pyvista/pyvistaqt>`_ to download the source.

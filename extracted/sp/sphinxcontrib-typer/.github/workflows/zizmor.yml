@@ -12,22 +12,26 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: zizmor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   zizmor-analysis:
     name: Run Zizmor
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
+      security-events: write # for post to GH security
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
       - name: Install jq
         run: |
           sudo apt-get update
@@ -38,7 +42,7 @@ jobs:
 
       - name: Run Zizmor analysis
         run: |
-          zizmor --format sarif .github/workflows/ > zizmor.sarif
+          zizmor --persona auditor --format sarif .github/workflows/ > zizmor.sarif
 
       - name: Upload analysis results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -48,7 +52,7 @@ jobs:
           retention-days: 7
 
       - name: Upload to code-scanning
-        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938
         with:
           sarif_file: zizmor.sarif
 

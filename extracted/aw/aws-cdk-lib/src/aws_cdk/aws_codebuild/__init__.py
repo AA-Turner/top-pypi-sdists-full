@@ -395,7 +395,7 @@ You can specify one of the predefined Windows/Linux images by using one
 of the constants such as `WindowsBuildImage.WIN_SERVER_CORE_2019_BASE`,
 `WindowsBuildImage.WINDOWS_BASE_2_0`, `LinuxBuildImage.STANDARD_2_0`,
 `LinuxBuildImage.AMAZON_LINUX_2_5`, `MacBuildImage.BASE_14`, `MacBuildImage.BASE_15`, `MacBuildImage.BASE_26`, `LinuxArmBuildImage.AMAZON_LINUX_2_ARM`,
-`LinuxLambdaBuildImage.AMAZON_LINUX_2_NODE_18` or `LinuxArmLambdaBuildImage.AMAZON_LINUX_2_NODE_18`.
+`LinuxLambdaBuildImage.AMAZON_LINUX_2_NODE_18`, `LinuxLambdaBuildImage.AMAZON_LINUX_2023_NODE_24`, `LinuxArmLambdaBuildImage.AMAZON_LINUX_2_NODE_18` or `LinuxArmLambdaBuildImage.AMAZON_LINUX_2023_NODE_24`.
 
 Alternatively, you can specify a custom image using one of the static methods on
 `LinuxBuildImage`:
@@ -8646,269 +8646,6 @@ class CfnReportGroupProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codebuild_88438b00.ISandboxRef)
-class CfnSandbox(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_codebuild.CfnSandbox",
-):
-    '''Represents a CodeBuild sandbox, an ephemeral compute environment started from a CodeBuild project.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-sandbox.html
-    :cloudformationResource: AWS::CodeBuild::Sandbox
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_codebuild as codebuild
-        
-        cfn_sandbox = codebuild.CfnSandbox(self, "MyCfnSandbox",
-            project_name="projectName"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        project_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Create a new ``AWS::CodeBuild::Sandbox``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param project_name: The CodeBuild project name.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ace84a16e70874650f9a163427c17e3d22fddd47680ac2ba9f998ccf804939f0)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnSandboxProps(project_name=project_name)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForSandbox")
-    @builtins.classmethod
-    def arn_for_sandbox(
-        cls,
-        resource: "_aws_codebuild_88438b00.ISandboxRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__877780f01107d5fe1aaec910bc5aa9448dd97f05737a489df36fd9f1bf79e642)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSandbox", [resource]))
-
-    @jsii.member(jsii_name="isCfnSandbox")
-    @builtins.classmethod
-    def is_cfn_sandbox(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnSandbox.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5c0b3ab477cf0314c13668ee06dc3298251f70d2cf6dc4fa3fc367e29fa4fc50)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSandbox", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__175fd28785259ea435533cfaa1d5c1c725611f5ec76a7fcc8eb68c4e6c6d5a43)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__4bea3a225e2e75ffc33f65c7607ad7098818c4108fd591c799865de4122dffb6)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the sandbox.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEncryptionKey")
-    def attr_encryption_key(self) -> builtins.str:
-        '''The KMS key used for encrypting the sandbox output artifacts.
-
-        :cloudformationAttribute: EncryptionKey
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEncryptionKey"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The ID of the sandbox.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrQueuedTimeoutInMinutes")
-    def attr_queued_timeout_in_minutes(self) -> jsii.Number:
-        '''The number of minutes a sandbox is allowed to be queued before it times out.
-
-        :cloudformationAttribute: QueuedTimeoutInMinutes
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrQueuedTimeoutInMinutes"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRequestTime")
-    def attr_request_time(self) -> builtins.str:
-        '''When the sandbox process was initially requested, expressed in ISO 8601 format.
-
-        :cloudformationAttribute: RequestTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRequestTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrServiceRole")
-    def attr_service_role(self) -> builtins.str:
-        '''The name of a service role used for this sandbox.
-
-        :cloudformationAttribute: ServiceRole
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrServiceRole"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStartTime")
-    def attr_start_time(self) -> builtins.str:
-        '''When the sandbox process started, expressed in ISO 8601 format.
-
-        :cloudformationAttribute: StartTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''The status of the sandbox.
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTimeoutInMinutes")
-    def attr_timeout_in_minutes(self) -> jsii.Number:
-        '''How long, in minutes, for CodeBuild to wait before timing out this sandbox.
-
-        :cloudformationAttribute: TimeoutInMinutes
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrTimeoutInMinutes"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="sandboxRef")
-    def sandbox_ref(self) -> "_aws_codebuild_88438b00.SandboxReference":
-        '''A reference to a Sandbox resource.'''
-        return typing.cast("_aws_codebuild_88438b00.SandboxReference", jsii.get(self, "sandboxRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="projectName")
-    def project_name(self) -> typing.Optional[builtins.str]:
-        '''The CodeBuild project name.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectName"))
-
-    @project_name.setter
-    def project_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__661185b0662d511d5680dfc9037e0a730e5e0d0dfcdd21466d5f7853fd15074d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "projectName", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_codebuild.CfnSandboxProps",
-    jsii_struct_bases=[],
-    name_mapping={"project_name": "projectName"},
-)
-class CfnSandboxProps:
-    def __init__(self, *, project_name: typing.Optional[builtins.str] = None) -> None:
-        '''Properties for defining a ``CfnSandbox``.
-
-        :param project_name: The CodeBuild project name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-sandbox.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_codebuild as codebuild
-            
-            cfn_sandbox_props = codebuild.CfnSandboxProps(
-                project_name="projectName"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ddad5dd0fd669733e0eb6e3aaceed289abc3ea45d1d38aa7d2d6f33cd63a8d41)
-            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if project_name is not None:
-            self._values["project_name"] = project_name
-
-    @builtins.property
-    def project_name(self) -> typing.Optional[builtins.str]:
-        '''The CodeBuild project name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-sandbox.html#cfn-codebuild-sandbox-projectname
-        '''
-        result = self._values.get("project_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSandboxProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codebuild_88438b00.ISourceCredentialRef)
 class CfnSourceCredential(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8974,6 +8711,20 @@ class CfnSourceCredential(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSourceCredential")
+    @builtins.classmethod
+    def arn_for_source_credential(
+        cls,
+        resource: "_aws_codebuild_88438b00.ISourceCredentialRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__05793ddf55be0eaf03d683218ed281fabd2c1c091cc285bffebd6c280c06ebdf)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSourceCredential", [resource]))
+
     @jsii.member(jsii_name="isCfnSourceCredential")
     @builtins.classmethod
     def is_cfn_source_credential(cls, x: typing.Any) -> builtins.bool:
@@ -9017,12 +8768,13 @@ class CfnSourceCredential(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the SourceCredential resource.
+
+        :cloudformationAttribute: Arn
         '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -13545,6 +13297,12 @@ class LinuxArmLambdaBuildImage(
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_22"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_LINUX_2023_NODE_24")
+    def AMAZON_LINUX_2023_NODE_24(cls) -> "IBuildImage":
+        '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:nodejs24`` build image.'''
+        return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_24"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_PYTHON_3_12")
     def AMAZON_LINUX_2023_PYTHON_3_12(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:python3.12`` build image.'''
@@ -14169,6 +13927,12 @@ class LinuxLambdaBuildImage(
     def AMAZON_LINUX_2023_NODE_22(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:nodejs22`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_22"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_LINUX_2023_NODE_24")
+    def AMAZON_LINUX_2023_NODE_24(cls) -> "IBuildImage":
+        '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:nodejs24`` build image.'''
+        return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_24"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_PYTHON_3_12")
@@ -20178,8 +19942,6 @@ __all__ = [
     "CfnProjectProps",
     "CfnReportGroup",
     "CfnReportGroupProps",
-    "CfnSandbox",
-    "CfnSandboxProps",
     "CfnSourceCredential",
     "CfnSourceCredentialProps",
     "CloudWatchLoggingOptions",
@@ -21141,52 +20903,6 @@ def _typecheckingstub__9978c1ccb960f6ab80b8e61977ac134148221fd9289f6e0031c900371
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ace84a16e70874650f9a163427c17e3d22fddd47680ac2ba9f998ccf804939f0(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    project_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__877780f01107d5fe1aaec910bc5aa9448dd97f05737a489df36fd9f1bf79e642(
-    resource: _aws_codebuild_88438b00.ISandboxRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5c0b3ab477cf0314c13668ee06dc3298251f70d2cf6dc4fa3fc367e29fa4fc50(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__175fd28785259ea435533cfaa1d5c1c725611f5ec76a7fcc8eb68c4e6c6d5a43(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4bea3a225e2e75ffc33f65c7607ad7098818c4108fd591c799865de4122dffb6(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__661185b0662d511d5680dfc9037e0a730e5e0d0dfcdd21466d5f7853fd15074d(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ddad5dd0fd669733e0eb6e3aaceed289abc3ea45d1d38aa7d2d6f33cd63a8d41(
-    *,
-    project_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a2ac3918ded7c6250024941017af43500a77f13249177da03bee6c80d6fd1ce9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -21195,6 +20911,12 @@ def _typecheckingstub__a2ac3918ded7c6250024941017af43500a77f13249177da03bee6c80d
     server_type: builtins.str,
     token: builtins.str,
     username: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05793ddf55be0eaf03d683218ed281fabd2c1c091cc285bffebd6c280c06ebdf(
+    resource: _aws_codebuild_88438b00.ISourceCredentialRef,
 ) -> None:
     """Type checking stubs"""
     pass

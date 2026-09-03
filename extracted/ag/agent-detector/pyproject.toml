@@ -1,6 +1,6 @@
 [project]
 name = "agent-detector"
-version = "1.1.0"
+version = "2.0.0"
 description = "Detect AI coding agents from their execution environment or User-Agent"
 readme = "README.md"
 license = "MIT"
@@ -22,6 +22,9 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+[project.scripts]
+agent-detector = "agent_detector._cli:main"
 
 [project.urls]
 Homepage = "https://github.com/patrick91/agent-detector"
@@ -58,6 +61,7 @@ filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
+omit = ["src/agent_detector/__main__.py"]
 
 [tool.coverage.report]
 fail_under = 100

@@ -7315,6 +7315,309 @@ class CfnModelProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_apigatewayv2_474cb0f4.IPortalProductRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnPortalProduct(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_apigatewayv2.CfnPortalProduct",
+):
+    '''Represents a portal product in Amazon API Gateway V2, which is a logical grouping of APIs that can be published in a developer portal.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigatewayv2-portalproduct.html
+    :cloudformationResource: AWS::ApiGatewayV2::PortalProduct
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_apigatewayv2 as apigatewayv2
+        
+        cfn_portal_product = apigatewayv2.CfnPortalProduct(self, "MyCfnPortalProduct",
+            display_name="displayName",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        display_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ApiGatewayV2::PortalProduct``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param display_name: The name of the portal product as it appears in a published portal.
+        :param description: A description of the portal product.
+        :param tags: The collection of tags associated with the portal product.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d1e3853251bb31d243c3af3dc955a61f8f3b62341910429955aa0f0b64f04c03)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPortalProductProps(
+            display_name=display_name, description=description, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPortalProduct")
+    @builtins.classmethod
+    def arn_for_portal_product(
+        cls,
+        resource: "_aws_apigatewayv2_474cb0f4.IPortalProductRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c79d5e743fc5ad12013c0749ae257e1e6ccb2e91d850623a036a773230faf038)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPortalProduct", [resource]))
+
+    @jsii.member(jsii_name="isCfnPortalProduct")
+    @builtins.classmethod
+    def is_cfn_portal_product(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPortalProduct.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__423acc0a7cb8c4507f323541ec08605592d755ab1e72e72f494e363d89fdf695)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPortalProduct", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f9f2b569b206f6336da4c6fdcac6d744f7a0072e7c506ff67436c2a7e018ab92)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3a0293c723eb7af6e493d0d4cd64076dfe724d2fb29cc29974da9d65bce852c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModified")
+    def attr_last_modified(self) -> builtins.str:
+        '''The timestamp when the portal product was last modified.
+
+        :cloudformationAttribute: LastModified
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModified"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPortalProductArn")
+    def attr_portal_product_arn(self) -> builtins.str:
+        '''The ARN of the portal product.
+
+        :cloudformationAttribute: PortalProductArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPortalProductArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPortalProductId")
+    def attr_portal_product_id(self) -> builtins.str:
+        '''The portal product identifier.
+
+        :cloudformationAttribute: PortalProductId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPortalProductId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portalProductRef")
+    def portal_product_ref(self) -> "_aws_apigatewayv2_474cb0f4.PortalProductReference":
+        '''A reference to a PortalProduct resource.'''
+        return typing.cast("_aws_apigatewayv2_474cb0f4.PortalProductReference", jsii.get(self, "portalProductRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> builtins.str:
+        '''The name of the portal product as it appears in a published portal.'''
+        return typing.cast(builtins.str, jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__493517dbc198c73a34abe101c063674d905818ccc45f8dc90229b51664b5ec5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the portal product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7a4f2b576e51ec97c9d8dc66530cff4206c573acf45a073d2480402555e52f8e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The collection of tags associated with the portal product.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7c17b0acb6fe81b85ca62ee4cc586808925d12fc2772e7f7c36abab0deb60935)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_apigatewayv2.CfnPortalProductProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "display_name": "displayName",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnPortalProductProps:
+    def __init__(
+        self,
+        *,
+        display_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPortalProduct``.
+
+        :param display_name: The name of the portal product as it appears in a published portal.
+        :param description: A description of the portal product.
+        :param tags: The collection of tags associated with the portal product.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigatewayv2-portalproduct.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_apigatewayv2 as apigatewayv2
+            
+            cfn_portal_product_props = apigatewayv2.CfnPortalProductProps(
+                display_name="displayName",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d97378e3f1ba996e4eb93d890cbb6dabbcf15a1674abb96644091ee27d2fd8b6)
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "display_name": display_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The name of the portal product as it appears in a published portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigatewayv2-portalproduct.html#cfn-apigatewayv2-portalproduct-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the portal product.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigatewayv2-portalproduct.html#cfn-apigatewayv2-portalproduct-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The collection of tags associated with the portal product.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigatewayv2-portalproduct.html#cfn-apigatewayv2-portalproduct-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPortalProductProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_apigatewayv2_474cb0f4.IRouteRef)
 class CfnRoute(
     _aws_cdk_0cae9daa.CfnResource,
@@ -22989,6 +23292,8 @@ __all__ = [
     "CfnIntegrationResponseProps",
     "CfnModel",
     "CfnModelProps",
+    "CfnPortalProduct",
+    "CfnPortalProductProps",
     "CfnRoute",
     "CfnRouteProps",
     "CfnRouteResponse",
@@ -24224,6 +24529,68 @@ def _typecheckingstub__94458d573335422ed4ef0420d5707527a083fd922a556e7e5cf9d2df4
     schema: typing.Any,
     content_type: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1e3853251bb31d243c3af3dc955a61f8f3b62341910429955aa0f0b64f04c03(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    display_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c79d5e743fc5ad12013c0749ae257e1e6ccb2e91d850623a036a773230faf038(
+    resource: _aws_apigatewayv2_474cb0f4.IPortalProductRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__423acc0a7cb8c4507f323541ec08605592d755ab1e72e72f494e363d89fdf695(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9f2b569b206f6336da4c6fdcac6d744f7a0072e7c506ff67436c2a7e018ab92(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3a0293c723eb7af6e493d0d4cd64076dfe724d2fb29cc29974da9d65bce852c(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__493517dbc198c73a34abe101c063674d905818ccc45f8dc90229b51664b5ec5a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a4f2b576e51ec97c9d8dc66530cff4206c573acf45a073d2480402555e52f8e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c17b0acb6fe81b85ca62ee4cc586808925d12fc2772e7f7c36abab0deb60935(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d97378e3f1ba996e4eb93d890cbb6dabbcf15a1674abb96644091ee27d2fd8b6(
+    *,
+    display_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

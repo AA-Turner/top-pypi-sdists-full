@@ -34,6 +34,18 @@ class Action(str, Enum, metaclass=StrEnumMeta):
         return str(self.value)
 
 
+class ListIngressRulesRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
+    CREATED_AT_ASC = "created_at_asc"
+    CREATED_AT_DESC = "created_at_desc"
+    SOURCE_ASC = "source_asc"
+    SOURCE_DESC = "source_desc"
+    PREFIX_LEN_ASC = "prefix_len_asc"
+    PREFIX_LEN_DESC = "prefix_len_desc"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class ListPrivateNetworksRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
     CREATED_AT_ASC = "created_at_asc"
     CREATED_AT_DESC = "created_at_desc"
@@ -131,6 +143,11 @@ class Subnet:
     VPC the subnet belongs to.
     """
 
+    region: ScwRegion
+    """
+    Region in which the Subnet can be used.
+    """
+
     created_at: Optional[datetime] = None
     """
     Subnet creation date.
@@ -192,6 +209,11 @@ class PrivateNetwork:
     default_route_propagation_enabled: bool
     """
     Defines whether default v4 and v6 routes are propagated for this Private Network.
+    """
+
+    has_object_storage_private_access: bool
+    """
+    Defines whether this Private Network is enabled for Object Storage private access.
     """
 
     created_at: Optional[datetime] = None
@@ -329,6 +351,74 @@ class AclRule:
 
 
 @dataclass
+class IngressRule:
+    id: str
+    """
+    ID of the ingress rule.
+    """
+
+    vpc_id: str
+    """
+    ID of the VPC this rule belongs to.
+    """
+
+    is_ipv6: bool
+    """
+    Whether this rule applies to IPv4 or IPv6 traffic.
+    """
+
+    source: str
+    """
+    Source network to apply this rule on.
+    """
+
+    nexthop_resource_ip: str
+    """
+    IP of the local resource to redirect ingress traffic to.
+    """
+
+    nexthop_private_network_id: str
+    """
+    ID of the Private Network the destination resource is in.
+    """
+
+    tags: list[str]
+    """
+    Tags of this ingress rule.
+    """
+
+    organization_id: str
+    """
+    Scaleway Organization the ingress rule belongs to.
+    """
+
+    project_id: str
+    """
+    Scaleway Project the ingress rule belongs to.
+    """
+
+    region: ScwRegion
+    """
+    Region of the ingress rule.
+    """
+
+    created_at: Optional[datetime] = None
+    """
+    Date the ingress rule was created.
+    """
+
+    updated_at: Optional[datetime] = None
+    """
+    Date the ingress rule was last modified.
+    """
+
+    description: Optional[str] = None
+    """
+    Description of this ingress rule.
+    """
+
+
+@dataclass
 class ListSubnetOverlapsResponseSubnetOverlap:
     subnet_id: str
     subnet: str
@@ -451,6 +541,16 @@ class VPC:
     Defines whether the VPC advertises custom routes between its Private Networks.
     """
 
+    transitivity_enabled: bool
+    """
+    Defines whether the VPC allows packets from peered VPCs to transit through.
+    """
+
+    object_storage_private_access_enabled: bool
+    """
+    Defines whether the Object Storage private access is enabled for the VPC.
+    """
+
     created_at: Optional[datetime] = None
     """
     Date the VPC was created.
@@ -463,10 +563,15 @@ class VPC:
 
 
 @dataclass
-class AddSubnetsRequest:
+class AddPrivateNetworkObjectStoragePrivateAccessRequest:
+    vpc_id: str
+    """
+    ID of the VPC containing the Object Storage private access.
+    """
+
     private_network_id: str
     """
-    Private Network ID.
+    ID of the Private Network to add to the Object Storage private access.
     """
 
     region: Optional[ScwRegion] = None
@@ -474,15 +579,56 @@ class AddSubnetsRequest:
     Region to target. If none is passed will use default region from the config.
     """
 
-    subnets: Optional[list[str]] = field(default_factory=list)
+
+@dataclass
+class AddPrivateNetworkObjectStoragePrivateAccessResponse:
+    vpc_id: str
     """
-    Private Network subnets CIDR.
+    ID of the VPC containing the Object Storage private access.
+    """
+
+    private_network_ids: list[str]
+    """
+    IDs of the Private Networks associated with the Object Storage private access.
     """
 
 
 @dataclass
-class AddSubnetsResponse:
-    subnets: list[str]
+class CreateIngressRuleRequest:
+    vpc_id: str
+    """
+    ID of the VPC this rule will belong to.
+    """
+
+    source: str
+    """
+    Source network to match ingress traffic on. Can be IPv6 or IPv4.
+    """
+
+    nexthop_resource_ip: str
+    """
+    IP of the local resource to redirect ingress traffic to. IP version must be consistent with the source network.
+    """
+
+    nexthop_private_network_id: str
+    """
+    ID of the Private Network the destination resource is in.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    description: Optional[str] = None
+    """
+    Description for this ingress rule.
+    """
+
+    tags: Optional[list[str]] = field(default_factory=list)
+    """
+    Tags for this ingress rule.
+    """
 
 
 @dataclass
@@ -601,6 +747,11 @@ class CreateVPCRequest:
     Enable routing between Private Networks in the VPC.
     """
 
+    enable_transitivity: bool
+    """
+    Enable packets from peered VPCs to transit through this VPC.
+    """
+
     region: Optional[ScwRegion] = None
     """
     Region to target. If none is passed will use default region from the config.
@@ -619,6 +770,37 @@ class CreateVPCRequest:
     tags: Optional[list[str]] = field(default_factory=list)
     """
     Tags for the VPC.
+    """
+
+
+@dataclass
+class DeleteIngressRuleRequest:
+    rule_id: str
+    """
+    ID of the ingress rule to delete.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+
+@dataclass
+class DeletePrivateNetworkObjectStoragePrivateAccessRequest:
+    vpc_id: str
+    """
+    ID of the VPC containing the Object Storage private access.
+    """
+
+    private_network_id: str
+    """
+    ID of the Private Network to remove from the Object Storage private access.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
     """
 
 
@@ -649,29 +831,6 @@ class DeleteRouteRequest:
 
 
 @dataclass
-class DeleteSubnetsRequest:
-    private_network_id: str
-    """
-    Private Network ID.
-    """
-
-    region: Optional[ScwRegion] = None
-    """
-    Region to target. If none is passed will use default region from the config.
-    """
-
-    subnets: Optional[list[str]] = field(default_factory=list)
-    """
-    Private Network subnets CIDR.
-    """
-
-
-@dataclass
-class DeleteSubnetsResponse:
-    subnets: list[str]
-
-
-@dataclass
 class DeleteVPCConnectorRequest:
     vpc_connector_id: str
     """
@@ -689,6 +848,19 @@ class DeleteVPCRequest:
     vpc_id: str
     """
     VPC ID.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+
+@dataclass
+class DisableObjectStoragePrivateAccessRequest:
+    vpc_id: str
+    """
+    ID of the VPC for which to disable Object Storage private access.
     """
 
     region: Optional[ScwRegion] = None
@@ -720,6 +892,24 @@ class EnableDHCPRequest:
     region: Optional[ScwRegion] = None
     """
     Region to target. If none is passed will use default region from the config.
+    """
+
+
+@dataclass
+class EnableObjectStoragePrivateAccessRequest:
+    vpc_id: str
+    """
+    ID of the VPC for which to enable Object Storage private access.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    private_network_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    IDs of the Private Networks for which to enable Object Storage private access.
     """
 
 
@@ -758,6 +948,19 @@ class GetAclRequest:
 class GetAclResponse:
     rules: list[AclRule]
     default_policy: Action
+
+
+@dataclass
+class GetIngressRuleRequest:
+    rule_id: str
+    """
+    ID of the ingress rule to return.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
 
 
 @dataclass
@@ -810,6 +1013,72 @@ class GetVPCRequest:
     """
     Region to target. If none is passed will use default region from the config.
     """
+
+
+@dataclass
+class ListIngressRulesRequest:
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    order_by: Optional[ListIngressRulesRequestOrderBy] = (
+        ListIngressRulesRequestOrderBy.CREATED_AT_ASC
+    )
+    """
+    Sort order of the returned ingress rules.
+    """
+
+    page: Optional[int] = 0
+    """
+    Page number to return, from the paginated results.
+    """
+
+    page_size: Optional[int] = 0
+    """
+    Maximum number of ingress rules to return per page.
+    """
+
+    vpc_id: Optional[str] = None
+    """
+    ID of the VPC to filter for.
+    """
+
+    nexthop_resource_ip: Optional[str] = None
+    """
+    Next hop IP to filter for.
+    """
+
+    nexthop_private_network_id: Optional[str] = None
+    """
+    Next hop Private Network ID to filter for. Only ingress rules with this Private Network as next hop will be returned.
+    """
+
+    is_ipv6: Optional[bool] = False
+    """
+    Whether to return only IPv4 or IPv6 ingress rules.
+    """
+
+    tags: Optional[list[str]] = field(default_factory=list)
+    """
+    Tags to filter for. Only ingress rules with one or more matching tags will be returned.
+    """
+
+    organization_id: Optional[str] = None
+    """
+    Organization ID to filter for. Only ingress rules belonging to this Organization will be returned.
+    """
+
+    project_id: Optional[str] = None
+    """
+    Project ID to filter for. Only ingress rules belonging to this Project will be returned.
+    """
+
+
+@dataclass
+class ListIngressRulesResponse:
+    rules: list[IngressRule]
+    total_count: int
 
 
 @dataclass
@@ -871,6 +1140,11 @@ class ListPrivateNetworksRequest:
     DHCP status to filter for. When true, only Private Networks with managed DHCP enabled will be returned.
     """
 
+    object_storage_private_access_enabled: Optional[bool] = False
+    """
+    Filter by whether Object Storage private access is enabled. When set, only matching Private Networks will be returned.
+    """
+
 
 @dataclass
 class ListPrivateNetworksResponse:
@@ -882,7 +1156,7 @@ class ListPrivateNetworksResponse:
 class ListSubnetOverlapsRequest:
     vpc_connector_id: str
     """
-    VPCConnector ID.
+    VPC Peering connector ID.
     """
 
     region: Optional[ScwRegion] = None
@@ -1085,6 +1359,11 @@ class ListVPCsRequest:
     Defines whether to filter only for VPCs which route traffic between their Private Networks.
     """
 
+    object_storage_private_access_enabled: Optional[bool] = False
+    """
+    Defines whether to filter only for VPCs with Object Storage private access enabled.
+    """
+
 
 @dataclass
 class ListVPCsResponse:
@@ -1124,6 +1403,75 @@ class SetAclRequest:
 class SetAclResponse:
     rules: list[AclRule]
     default_policy: Action
+
+
+@dataclass
+class SetPrivateNetworksObjectStoragePrivateAccessRequest:
+    vpc_id: str
+    """
+    ID of the VPC containing the Object Storage private access.
+    """
+
+    private_network_ids: list[str]
+    """
+    IDs of the Private Networks to associate with the Object Storage private access.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+
+@dataclass
+class SetPrivateNetworksObjectStoragePrivateAccessResponse:
+    vpc_id: str
+    """
+    ID of the VPC containing the Object Storage private access.
+    """
+
+    private_network_ids: list[str]
+    """
+    IDs of the Private Networks associated with the Object Storage private access.
+    """
+
+
+@dataclass
+class UpdateIngressRuleRequest:
+    rule_id: str
+    """
+    ID of the ingress rule to update.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    source: Optional[str] = None
+    """
+    Source network to match ingress traffic on. Can be IPv4 or IPv6.
+    """
+
+    nexthop_resource_ip: Optional[str] = None
+    """
+    IP of the local resource to redirect ingress traffic to. IP version must be consistent with the source network.
+    """
+
+    nexthop_private_network_id: Optional[str] = None
+    """
+    ID of the Private Network the destination resource is in.
+    """
+
+    description: Optional[str] = None
+    """
+    Description to set for this ingress rule.
+    """
+
+    tags: Optional[list[str]] = field(default_factory=list)
+    """
+    Tags to set for this ingress rule.
+    """
 
 
 @dataclass

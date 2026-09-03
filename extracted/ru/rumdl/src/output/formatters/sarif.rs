@@ -2,7 +2,53 @@
 
 use crate::output::OutputFormatter;
 use crate::rule::LintWarning;
+use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde_json::json;
+
+const SARIF_SCHEMA_URI: &str =
+    "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json";
+
+// RFC 3986 path characters that are either forbidden or would change the URI's
+// meaning if copied literally from a filesystem path. `/` remains unescaped so
+// relative repository paths stay readable.
+const SARIF_PATH_ENCODE_SET: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'%')
+    .add(b'<')
+    .add(b'>')
+    .add(b'?')
+    .add(b'[')
+    .add(b'\\')
+    .add(b']')
+    .add(b'^')
+    .add(b'`')
+    .add(b'{')
+    .add(b'|')
+    .add(b'}');
+
+fn artifact_uri(file_path: &str) -> String {
+    // A canonicalized Windows path reaches the formatter in its verbatim form,
+    // `//?/C:/...` once separators are normalized for display. Read literally
+    // its `//` opening is a UNC host, giving `file://%3F/C:/...`, which no URI
+    // parser accepts; unwrapped, it is the drive or share it stands for.
+    let file_path = crate::discovery::strip_verbatim_prefix(file_path);
+    let encoded = utf8_percent_encode(&file_path, SARIF_PATH_ENCODE_SET).to_string();
+
+    if file_path.starts_with("//") {
+        // A normalized UNC path naturally becomes `file://server/share`.
+        format!("file:{encoded}")
+    } else if file_path.starts_with('/') {
+        // A POSIX absolute path becomes `file:///path`.
+        format!("file://{encoded}")
+    } else if file_path.as_bytes().get(1) == Some(&b':') {
+        // A normalized Windows drive path (`C:/...`).
+        format!("file:///{encoded}")
+    } else {
+        encoded
+    }
+}
 
 /// SARIF (Static Analysis Results Interchange Format) formatter
 pub struct SarifFormatter;
@@ -40,7 +86,7 @@ impl OutputFormatter for SarifFormatter {
                     "locations": [{
                         "physicalLocation": {
                             "artifactLocation": {
-                                "uri": file_path
+                                "uri": artifact_uri(file_path)
                             },
                             "region": {
                                 "startLine": warning.line,
@@ -53,7 +99,7 @@ impl OutputFormatter for SarifFormatter {
             .collect();
 
         let sarif_doc = json!({
-            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "$schema": SARIF_SCHEMA_URI,
             "version": "2.1.0",
             "runs": [{
                 "tool": {
@@ -110,7 +156,7 @@ pub fn format_sarif_report(all_warnings: &[(String, Vec<LintWarning>)]) -> Strin
                 "locations": [{
                     "physicalLocation": {
                         "artifactLocation": {
-                            "uri": file_path
+                            "uri": artifact_uri(file_path)
                         },
                         "region": {
                             "startLine": warning.line,
@@ -125,7 +171,7 @@ pub fn format_sarif_report(all_warnings: &[(String, Vec<LintWarning>)]) -> Strin
     }
 
     let sarif_doc = json!({
-        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+        "$schema": SARIF_SCHEMA_URI,
         "version": "2.1.0",
         "runs": [{
             "tool": {
@@ -173,10 +219,7 @@ mod tests {
 
         let sarif: Value = serde_json::from_str(&output).unwrap();
         assert_eq!(sarif["version"], "2.1.0");
-        assert_eq!(
-            sarif["$schema"],
-            "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
-        );
+        assert_eq!(sarif["$schema"], SARIF_SCHEMA_URI);
         assert_eq!(sarif["runs"][0]["results"].as_array().unwrap().len(), 0);
     }
 
@@ -581,8 +624,45 @@ mod tests {
         let results = sarif["runs"][0]["results"].as_array().unwrap();
         assert_eq!(
             results[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
-            "path/with spaces/and-dashes.md"
+            "path/with%20spaces/and-dashes.md"
         );
+    }
+
+    #[test]
+    fn test_windows_verbatim_paths_become_drive_and_share_uris() {
+        let formatter = SarifFormatter::new();
+        let warnings = vec![LintWarning {
+            line: 1,
+            column: 1,
+            end_line: 1,
+            end_column: 5,
+            rule_name: Some("MD001".to_string()),
+            message: "Test".to_string(),
+            severity: Severity::Warning,
+            fix: None,
+        }];
+
+        // Each display path as `resolve_display_path` produces it on Windows for a
+        // canonicalized file, paired with the URI a SARIF consumer can resolve.
+        for (display_path, expected_uri) in [
+            ("//?/C:/Users/dev/docs/guide.md", "file:///C:/Users/dev/docs/guide.md"),
+            (
+                "//?/UNC/server/share/docs/guide.md",
+                "file://server/share/docs/guide.md",
+            ),
+            // The ordinary forms are untouched.
+            ("C:/Users/dev/docs/guide.md", "file:///C:/Users/dev/docs/guide.md"),
+            ("//server/share/docs/guide.md", "file://server/share/docs/guide.md"),
+        ] {
+            let output = formatter.format_warnings(&warnings, display_path);
+            let sarif: Value = serde_json::from_str(&output).unwrap();
+            let uri = sarif["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+                .as_str()
+                .unwrap();
+            assert_eq!(uri, expected_uri, "URI for {display_path}");
+            let parsed = url::Url::parse(uri).unwrap_or_else(|error| panic!("{display_path}: {error}: {uri}"));
+            assert_eq!(parsed.scheme(), "file", "{display_path}");
+        }
     }
 
     #[test]
@@ -592,10 +672,7 @@ mod tests {
         let output = formatter.format_warnings(&warnings, "test.md");
 
         let sarif: Value = serde_json::from_str(&output).unwrap();
-        assert_eq!(
-            sarif["$schema"],
-            "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
-        );
+        assert_eq!(sarif["$schema"], SARIF_SCHEMA_URI);
         assert_eq!(sarif["version"], "2.1.0");
     }
 
@@ -839,7 +916,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sarif_output_valid_json_schema() {
+    fn test_sarif_output_has_required_structure() {
         // Verify SARIF output is valid JSON and has required top-level fields
         let formatter = SarifFormatter::new();
         let warnings = vec![LintWarning {

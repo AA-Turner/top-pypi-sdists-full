@@ -25,17 +25,13 @@ classifiers = [
 ]
 
 dependencies = [
-    # TODO click 8.4.2 breaks the pager on Windows; check the next
-    # version after 8.4.2 for https://github.com/pallets/click/pull/3739
-    # which has been merged.  The click changelog predicts the next
-    # version to be 8.5.0, which can be merged around 2 Sep 2026.
-    "click ~= 8.3.3",
+    "click ~= 8.5.0",
     "clickdc ~= 0.1.1",
     "cryptography ~= 50.0.0",
     "Pygments ~= 2.21.0",
     "prompt_toolkit >= 3.0.41,<4.0.0",
     "PyMySQL ~= 1.1.2",
-    "sqlparse >= 0.3.0,<0.6.0",
+    "sqlparse ~= 0.6.0",
     "sqlglot ~= 30.17.0",
     "sqlglotc ~= 30.17.0",
     "configobj ~= 5.0.9",
@@ -68,10 +64,10 @@ build-backend = "setuptools.build_meta"
 llm = [
     "llm ~= 0.33",
     "setuptools == 83.*",                   # Required by llm commands to install models
-    "pip ~= 26.1.2",
+    "pip ~= 26.2.1",
 ]
 dataframe = [
-    "polars ~= 1.43.2",                     # Can be upgraded after 2 Sep 2026
+    "polars ~= 1.44.1",
     "altair ~= 6.2.2",
     "vl-convert-python ~= 1.9.0",
 ]

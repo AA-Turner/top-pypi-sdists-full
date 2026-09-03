@@ -113,14 +113,20 @@ def get_path(dct: SettingsDict, path: str) -> Any:
 
 def set_path(dct: SettingsDict, path: str, val: Any) -> None:
     """
-    Sets a value to a nested dict and automatically creates missing dicts
-    should they not exist.
+    Sets a value to a nested dict and automatically creates missing dicts should they
+    not exist.
 
-    Calling ``set_path(dct, "a.b", 3)`` is equivalent to ``dict["a"]["b"]
-    = 3``.
+    Calling ``set_path(dct, "a.b", 3)`` is equivalent to ``dict["a"]["b"] = 3``.
+
     If a part of the path is a non-negative integer, it is treated as list index.
     Calling ``set_path(dct, "a.0.b", 3)`` is therefore equivalent to
     ``dct["a"][0]["b"] = 3``.
+
+    .. warning::
+
+       This function is not able initialize paths with new lists but only with dicts.
+       You need to perform this yourself, e.g.:
+       ``set_path(dct, path, [{} for _ in data])``.
 
     Args:
         dct: The dict that should contain the value
@@ -132,14 +138,15 @@ def set_path(dct: SettingsDict, path: str, val: Any) -> None:
     """
     *parts, key = path.split(".")
     for part in parts:
-        if part.isnumeric():
+        if part.isnumeric() and isinstance(dct, list):
             dct = dct[int(part)]  # type: ignore[index]
         else:
             dct = dct.setdefault(part, {})
 
-    if key.isnumeric():
-        key = int(key)  # type: ignore[assignment]
-    dct[key] = val
+    if key.isnumeric() and isinstance(dct, list):
+        dct[int(key)] = val
+    else:
+        dct[key] = val
 
 
 def merge_settings(

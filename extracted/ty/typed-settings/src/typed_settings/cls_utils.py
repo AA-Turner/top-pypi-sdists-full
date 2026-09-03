@@ -8,6 +8,8 @@ Supported backends are:
 - `pydantic <https://docs.pydantic.dev>`_ (optional dependency)
 """
 
+from __future__ import annotations
+
 import ast
 import dataclasses
 import functools
@@ -17,7 +19,10 @@ from collections.abc import Callable, Mapping, Sequence
 from itertools import groupby, pairwise
 from typing import (
     Any,
+    Final,
     Protocol,
+    # Self,   # if PY_311
+    # override,  # if PY_311
     cast,
     get_args,
     get_origin,
@@ -25,7 +30,120 @@ from typing import (
 )
 
 from . import constants, types
-from .types import CollectionChildOptions
+from .types import NestedOptions, OptionInfo, SettingsDict
+
+
+class NestedSequence(NestedOptions):
+    """
+    Handler for validating options with types like ``list[SubSettings]``.
+    """
+
+    @classmethod
+    def inst_or_none(
+        cls, cl: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> NestedSequence | None:
+        if not (
+            args
+            and safe_is_subclass(origin, Sequence)
+            and (  # list or tuple
+                len(args) == 1  # list[Settings]
+                or (  # tuple[Settings, ...]
+                    safe_is_subclass(origin, tuple)
+                    and len(args) == 2
+                    and args[1] == ...
+                )
+            )
+            and handler_exists(args[0])
+        ):
+            return None
+        return cls(deep_options(args[0]))
+
+    # @override  # if PY_311
+    def init_data(self, path: str, val: object) -> list:
+        """
+        Return a list with an empty dict for each iten of the sequence *val*.
+
+        This is needed, because :meth:`~typed_settings.dict_utils.set_path()` cannot
+        initialize lists by itself.
+        """
+        if not isinstance(val, Sequence) or isinstance(val, str):
+            raise TypeError(f"{path} (needs to be a sequence)")
+        return [{} for _ in val]
+
+    # @override  # if PY_311
+    def handle_nested(
+        self, path: str, val: object
+    ) -> list[tuple[SettingsDict | object, str, dict[str, OptionInfo]]]:
+        """
+        Generate valid paths and the corresponding data for each item of the sequence
+        *val*.
+
+        Valid paths for a list of nested settings look like this::
+
+            parent.0.sub_option_a
+            parent.0.sub_option_b
+            parent.1.sub_option_a
+            parent.1.sub_option_b
+        """
+        # This check is not strictly necessary here, because "init_data()" already
+        # asserts that "val" has the correct type.  But it improves typing.
+        if not isinstance(val, Sequence) or isinstance(val, str):  # pragma: no cover
+            raise TypeError(f"{path} (needs to be a sequence)")
+
+        return [
+            (
+                nested_data,
+                f"{path}.{i}.",
+                {f"{path}.{i}.{o.path}": o for o in self.options},
+            )
+            for i, nested_data in enumerate(val)
+        ]
+
+
+class NestedMapping(NestedOptions):
+    """
+    Handler for validating options with types like ``dict[str, SubSettings]``.
+    """
+
+    @classmethod
+    def inst_or_none(
+        cls, cl: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> NestedMapping | None:
+        if not (
+            args
+            and safe_is_subclass(origin, Mapping)
+            and safe_is_subclass(args[0], str)
+            and handler_exists(args[1])
+        ):
+            return None
+        return cls(deep_options(args[1]))
+
+    # @override  # if PY_311
+    def handle_nested(
+        self, path: str, val: object
+    ) -> list[tuple[SettingsDict | object, str, dict[str, OptionInfo]]]:
+        """
+        Generate valid paths and the corresponding data for each item of the mapping
+        *val*.
+
+        Valid paths for a mapping of nested settings look like this::
+
+            parent.key_0.sub_option_a
+            parent.key_0.sub_option_b
+            parent.key_1.sub_option_a
+            parent.key_1.sub_option_b
+        """
+        if not isinstance(val, Mapping):
+            raise TypeError(f"{path} (needs to be a mapping)")
+
+        return [
+            (
+                nested_data,
+                f"{path}.{key}.",
+                {f"{path}.{key}.{o.path}": o for o in self.options},
+            )
+            for key, nested_data in val.items()
+        ]
 
 
 class ClsHandler(Protocol):
@@ -157,7 +275,7 @@ class Attrs:
                                 and issubclass(origin, types.SECRETS_TYPES)
                             )
                         ),
-                        collection_child_options=nested_options(field.type),
+                        nested_options=nested_options(field.type),
                         default=field.default,
                         has_no_default=is_nothing,
                         default_is_factory=is_factory,
@@ -245,7 +363,7 @@ class Dataclasses:
                             )
                         ),
                         default=field.default,
-                        collection_child_options=nested_options(field.type),  # type: ignore[arg-type]
+                        nested_options=nested_options(field.type),  # type: ignore[arg-type]
                         has_no_default=is_nothing and not is_factory,
                         default_is_factory=is_factory,
                         converter=None,
@@ -358,7 +476,7 @@ class Pydantic:
                                 )
                             )
                         ),
-                        collection_child_options=nested_options(field.annotation),  # type: ignore[arg-type]
+                        nested_options=nested_options(field.annotation),  # type: ignore[arg-type]
                         default=field.default,
                         has_no_default=field.is_required(),
                         default_is_factory=False,
@@ -401,7 +519,7 @@ class Pydantic:
         return cls
 
 
-CLASS_HANDLERS: list[type[ClsHandler]] = [
+CLASS_HANDLERS: Final[list[type[ClsHandler]]] = [
     Attrs,
     Dataclasses,
     Pydantic,
@@ -455,36 +573,22 @@ def safe_is_subclass(cls: object, subclass: type) -> bool:
         return False
 
 
-def nested_options(cls: type) -> CollectionChildOptions | None:
+NESTED_OPTION_CLS: Final = [NestedSequence, NestedMapping]
+
+
+def nested_options(cls: type) -> NestedOptions | None:
     """
     Return a list of nested options if *cls* is either a mapping or a sequence of
     settings classes.
 
     Return ``None`` otherwise.
     """
-    origin_cls = get_origin(cls)
-    if safe_is_subclass(origin_cls, Mapping):
-        try:
-            key_cls, value_cls = get_args(cls)
-            if safe_is_subclass(key_cls, str):
-                return CollectionChildOptions(deep_options(value_cls), "mapping")
-        except (TypeError, ValueError):
-            return None
-
-    elif safe_is_subclass(origin_cls, Sequence):
-        arg_cls = get_args(cls)
-        is_list_like = len(arg_cls) == 1  # list[Settings], Sequence[Settings]
-        is_tuple_list = (  # tuple[Settings, ...]
-            len(arg_cls) == 2
-            and safe_is_subclass(origin_cls, tuple)
-            and arg_cls[1] == ...
-        )
-        if is_list_like or is_tuple_list:
-            try:
-                return CollectionChildOptions(deep_options(arg_cls[0]), "sequence")
-            except TypeError:
-                return None
-
+    origin = get_origin(cls)
+    args = get_args(cls)
+    for nested_options_cls in NESTED_OPTION_CLS:
+        inst = nested_options_cls.inst_or_none(cls, origin, args)
+        if inst is not None:
+            return inst
     return None
 
 

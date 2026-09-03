@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cases.CaseReference",
+    jsii_struct_bases=[],
+    name_mapping={"case_arn": "caseArn"},
+)
+class CaseReference:
+    def __init__(self, *, case_arn: builtins.str) -> None:
+        '''A reference to a Case resource.
+
+        :param case_arn: The Arn of the Case resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cases as interfaces_cases
+            
+            case_reference = interfaces_cases.CaseReference(
+                case_arn="caseArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f2c3163cdf181717798e146733e197a652f0dabb49746928943403d2ca3a1e03)
+            check_type(argname="argument case_arn", value=case_arn, expected_type=type_hints["case_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "case_arn": case_arn,
+        }
+
+    @builtins.property
+    def case_arn(self) -> builtins.str:
+        '''The Arn of the Case resource.'''
+        result = self._values.get("case_arn")
+        assert result is not None, "Required property 'case_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CaseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cases.CaseRuleReference",
     jsii_struct_bases=[],
     name_mapping={"case_rule_arn": "caseRuleArn"},
@@ -183,6 +232,51 @@ class FieldReference:
         return "FieldReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cases.ICaseRef")
+class ICaseRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Case.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="caseRef")
+    def case_ref(self) -> "CaseReference":
+        '''(experimental) A reference to a Case resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICaseRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Case.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cases.ICaseRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="caseRef")
+    def case_ref(self) -> "CaseReference":
+        '''(experimental) A reference to a Case resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CaseReference", jsii.get(self, "caseRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICaseRef).__jsii_proxy_class__ = lambda : _ICaseRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cases.ICaseRuleRef")
@@ -509,9 +603,11 @@ class TemplateReference:
 
 
 __all__ = [
+    "CaseReference",
     "CaseRuleReference",
     "DomainReference",
     "FieldReference",
+    "ICaseRef",
     "ICaseRuleRef",
     "IDomainRef",
     "IFieldRef",
@@ -522,6 +618,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__f2c3163cdf181717798e146733e197a652f0dabb49746928943403d2ca3a1e03(
+    *,
+    case_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__04d900fba4db4547b064b2cd8142a6512b831496af39d45be4d747639a3d4747(
     *,
@@ -558,5 +661,5 @@ def _typecheckingstub__e79abfdc3314e46c0458acb7321ed640fc64b358a0e8a6232d6d4d081
     """Type checking stubs"""
     pass
 
-for cls in [ICaseRuleRef, IDomainRef, IFieldRef, ILayoutRef, ITemplateRef]:
+for cls in [ICaseRef, ICaseRuleRef, IDomainRef, IFieldRef, ILayoutRef, ITemplateRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

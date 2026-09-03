@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import errno
+import io
 import os
 import sys
 from functools import partial, wraps
@@ -19,9 +21,79 @@ else:
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Final, TextIO
 
     from djlint.settings import Config
     from djlint.types import ProcessResult
+
+_WINDOWS_MAX_PROCESSES: Final = 61
+
+
+_keep_mypyc_wheels_from_crashing = partial
+
+
+def _drop_stdout_so_the_exit_flush_cannot_fail() -> None:
+    """Replace stdout when the consumer is gone.
+
+    The interpreter flushes stdout once more on the way out, and that flush
+    failing against the same dead pipe would replace the exit code with 120.
+    """
+    sys.stdout = io.StringIO()
+
+
+def _read_stdin_as_utf8_keeping_line_endings() -> str:
+    """Read stdin as utf-8, verbatim.
+
+    ``--reformat`` hands this text straight back to whatever piped it in, so
+    a replacement character would corrupt the buffer that gets saved, and
+    universal newlines would hand the formatter LF for a CRLF buffer and
+    rewrite every line of it.
+    """
+    try:
+        sys.stdin.reconfigure(  # type: ignore[union-attr]
+            encoding="utf-8", errors="strict", newline=""
+        )
+    except Exception:
+        pass
+
+    try:
+        return sys.stdin.read()
+    except UnicodeDecodeError as e:
+        msg = f"Input on stdin is not valid UTF-8: {e}"
+        raise click.UsageError(msg) from None
+
+
+def _use_utf8(stream: TextIO) -> None:
+    """Retune a std stream to utf-8, whatever codepage the locale hands us.
+
+    Windows consoles and Git Bash arrive on the locale codepage, which cannot
+    hold the report's rules or a template's own text. Naming the error handler
+    is not decoration: passing an encoding alone silently resets it to strict,
+    and a stream carrying diagnostics must never abort the run reporting them.
+    """
+    try:
+        stream.reconfigure(  # type: ignore[attr-defined]
+            encoding="utf-8", errors="backslashreplace"
+        )
+    except Exception:
+        pass
+
+
+def _consumer_hung_up(error: Exception) -> bool:
+    """Whether the failure is just the other end of the pipe closing.
+
+    `djlint . | head -1` leaves djLint writing into a pipe nobody is
+    reading. POSIX reports that as BrokenPipeError; Windows raises a plain
+    OSError with EINVAL out of the flush that follows. EINVAL is broader
+    than the case at hand, so the cost of guessing wrong is weighed rather
+    than avoided: a mistaken match loses a traceback, never an exit code.
+    """
+    if isinstance(error, BrokenPipeError):
+        return True
+    return isinstance(error, OSError) and error.errno in {
+        errno.EINVAL,
+        errno.EPIPE,
+    }
 
 
 def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
@@ -31,7 +103,8 @@ def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
     as "found lint errors" or "would reformat", and a pipeline cannot tell a
     crash from a normal failing run: a template djLint cannot read looks
     exactly like a template it disliked. So failures exit 2 instead,
-    alongside the usage errors click already exits 2 for. The traceback is
+    alongside the usage errors click already exits 2 for, while click's own
+    control flow, including --help, is re-raised untouched. The traceback is
     still printed, so bug reports lose nothing.
     """
 
@@ -40,9 +113,12 @@ def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
         try:
             func(*args, **kwargs)
         except (click.ClickException, click.exceptions.Exit, click.Abort):
-            # click's own control flow, including --help and usage errors
             raise
-        except Exception:
+        except Exception as error:
+            if _consumer_hung_up(error):
+                _drop_stdout_so_the_exit_flush_cannot_fail()
+                sys.exit(2)
+
             import traceback  # noqa: PLC0415
 
             traceback.print_exc()
@@ -194,6 +270,14 @@ def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
     help="Path to global configuration file in djlint.toml, .djlint.toml, or .djlintrc format",
 )
 @click.option(
+    "--prefer-configuration",
+    is_flag=True,
+    help=(
+        "Let --configuration override the project's own config file,"
+        " rather than the other way round."
+    ),
+)
+@click.option(
     "--rules",
     type=click.Path(
         exists=True,
@@ -318,6 +402,21 @@ def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
     help="Do not add a blank line after yaml front matter.",
 )
 @click.option(
+    "--name-endblocks",
+    is_flag=True,
+    help="Name the endblock of a block written across lines.",
+)
+@click.option(
+    "--sort-attributes",
+    is_flag=True,
+    help="Sort attributes by name, with id first and class second.",
+)
+@click.option(
+    "--no-indent-inner-html",
+    is_flag=True,
+    help="Do not indent <head> and <body> below <html>.",
+)
+@click.option(
     "--no-function-formatting",
     is_flag=True,
     help="Do not attempt to format function contents.",
@@ -326,6 +425,22 @@ def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
     "--no-set-formatting",
     is_flag=True,
     help="Do not attempt to format set contents.",
+)
+@click.option(
+    "--keep-br-inline",
+    is_flag=True,
+    help="Keep <br> on the line of the text it breaks.",
+)
+@click.option(
+    "--no-entity-formatting",
+    is_flag=True,
+    help="Do not rewrite entity references as characters.",
+)
+@click.option(
+    "--quote-style",
+    type=click.Choice(("double", "single")),
+    help="Quotes to use for strings inside template tags. [default: double]",
+    show_default=False,
 )
 @click.option(
     "--max-blank-lines",
@@ -339,7 +454,7 @@ def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
     default=None,
     help="Output GitHub-compatible formatting.",
 )
-@partial  # mypyc-compiled wheels crash without this hack
+@_keep_mypyc_wheels_from_crashing
 @_fail_with_usage_code
 def main(
     *,
@@ -363,6 +478,7 @@ def main(
     format_css: bool,
     format_js: bool,
     configuration: Path | None,
+    prefer_configuration: bool,
     rules: Path | None,
     statistics: bool,
     include: str,
@@ -388,12 +504,21 @@ def main(
     indent_js: int | None,
     close_void_tags: bool,
     no_line_after_yaml: bool,
+    no_indent_inner_html: bool,
+    sort_attributes: bool,
+    name_endblocks: bool,
     no_function_formatting: bool,
     no_set_formatting: bool,
+    no_entity_formatting: bool,
+    keep_br_inline: bool,
+    quote_style: str | None,
     max_blank_lines: int | None,
     github_output: bool | None = None,
 ) -> None:
     """djLint · HTML template linter and formatter."""
+    _use_utf8(sys.stdout)
+    _use_utf8(sys.stderr)
+
     from djlint.settings import Config  # noqa: PLC0415
     from djlint.src import (  # noqa: PLC0415
         get_src,
@@ -428,6 +553,7 @@ def main(
         format_css=format_css,
         format_js=format_js,
         configuration=configuration,
+        prefer_configuration=prefer_configuration,
         rules=rules,
         statistics=statistics,
         include=include,
@@ -453,26 +579,26 @@ def main(
         indent_js=indent_js,
         close_void_tags=close_void_tags,
         no_line_after_yaml=no_line_after_yaml,
+        no_indent_inner_html=no_indent_inner_html,
+        sort_attributes=sort_attributes,
+        name_endblocks=name_endblocks,
         no_function_formatting=no_function_formatting,
         no_set_formatting=no_set_formatting,
+        no_entity_formatting=no_entity_formatting,
+        keep_br_inline=keep_br_inline,
+        quote_style=quote_style,
         max_blank_lines=max_blank_lines,
         github_output=github_output,
         stdin="-" in src,
     )
 
     if "-" in src and not config.files:
-        stdin_stream = click.get_text_stream("stdin", encoding="utf-8")
-        stdin_text = stdin_stream.read()
+        stdin_text = _read_stdin_as_utf8_keeping_line_endings()
 
         if config.require_pragma and not has_pragma(
             config, stdin_text.split("\n", 1)[0]
         ):
-            # the pragma is an opt-in, so input without one was skipped on
-            # purpose. Hand it back byte for byte: an editor piping a buffer
-            # through djLint writes whatever lands on stdout back to the file.
-            print_no_files_to_check(excluded=True)
-            if config.reformat or config.check:
-                echo(stdin_text.encode("utf-8"), nl=False)
+            _echo_unchanged_stdin(config, stdin_text)
             return
 
         file_error, formatted_code = process_stdin(config, stdin_text)
@@ -480,17 +606,13 @@ def main(
         files_count = 1
 
         if config.reformat or config.check:
-            echo((formatted_code or "").rstrip().encode("utf-8"))
+            echo((formatted_code or "").encode("utf-8"), nl=False)
 
     else:
         file_src = config.files if "-" in src and config.files else src
         file_list, excluded = get_src((Path(x) for x in file_src), config)
         if not file_list:
             print_no_files_to_check(excluded=excluded)
-            # excluding every candidate is the configuration doing its job,
-            # so it is a success. Matching nothing at all means the run
-            # checked nothing it was asked to check, which is a usage error
-            # and stays loud unless it was opted into.
             if excluded or config.allow_empty_input:
                 return
             sys.exit(2)
@@ -529,7 +651,7 @@ def main(
             show_percent=False,
             show_pos=True,
             bar_template=progress_template,
-            file=click.get_text_stream("stderr"),
+            file=sys.stderr,
             hidden=config.github_output or config.quiet,
         ) as bar:
             if max_workers == 1:
@@ -544,8 +666,7 @@ def main(
                 else:
                     executor_cls = concurrent.futures.ProcessPoolExecutor
                     if sys.platform == "win32":
-                        # Windows has a hard limit of 61 processes
-                        max_workers = min(max_workers, 61)
+                        max_workers = min(max_workers, _WINDOWS_MAX_PROCESSES)
 
                 with executor_cls(max_workers=max_workers) as exe:
                     futures = {
@@ -570,6 +691,20 @@ def main(
 
         if print_output(config, file_errors, files_count) and not config.warn:
             sys.exit(1)
+
+
+def _echo_unchanged_stdin(config: Config, stdin_text: str) -> None:
+    """Hand stdin back byte for byte when its pragma opt-in is missing.
+
+    An editor piping a buffer through djLint writes whatever lands on
+    stdout back to the file, so input skipped on purpose has to come back
+    exactly as it went in.
+    """
+    from djlint.src import print_no_files_to_check  # noqa: PLC0415
+
+    print_no_files_to_check(excluded=True)
+    if config.reformat or config.check:
+        echo(stdin_text.encode("utf-8"), nl=False)
 
 
 def _is_free_threaded_python() -> bool:
@@ -598,7 +733,10 @@ def process(config: Config, this_file: Path) -> ProcessResult:
 def process_stdin(
     config: Config, stdin_text: str
 ) -> tuple[ProcessResult, str | None]:
-    """Run linter or formatter on stdin."""
+    """Run linter or formatter on stdin.
+
+    As lint_file() does, per_file_ignores is matched against a posix path.
+    """
     output: ProcessResult = {}
     html = stdin_text
     formatted_code = None
@@ -615,7 +753,6 @@ def process_stdin(
     if config.lint:
         from djlint.lint import linter  # noqa: PLC0415
 
-        # as lint_file() does, match per_file_ignores against a posix path
         output["lint_message"] = linter(
             config, html, stdin_filename, Path(stdin_filename).as_posix()
         )

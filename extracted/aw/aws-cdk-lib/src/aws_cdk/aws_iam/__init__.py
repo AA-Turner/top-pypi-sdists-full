@@ -7677,7 +7677,7 @@ class CustomizeRolesOptions:
             
             stack = Stack(app, "MyStack")
             iam.Role(stack, "MyRole",
-                assumed_by=iam.AccountPrincipal("1111111111")
+                assumed_by=iam.AccountPrincipal("111111111111")
             )
             
             iam.Role.customize_roles(stack,

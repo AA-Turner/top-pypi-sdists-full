@@ -214,6 +214,11 @@ class Deployment:
 
     node_amount: int
     """
+    DEPRECATED: Use node_count instead. Number of nodes allocated per deployment.
+    """
+
+    node_count: int
+    """
     Number of nodes allocated per deployment.
     """
 
@@ -348,11 +353,6 @@ class CreateDeploymentRequest:
     Name of the deployment.
     """
 
-    node_amount: int
-    """
-    Number of nodes.
-    """
-
     node_type: str
     """
     Node type.
@@ -376,6 +376,16 @@ class CreateDeploymentRequest:
     tags: Optional[list[str]] = field(default_factory=list)
     """
     Tags.
+    """
+
+    node_amount: Optional[int] = 0
+    """
+    DEPRECATED: Use node_count instead. Number of nodes.
+    """
+
+    node_count: Optional[int] = 0
+    """
+    Number of nodes.
     """
 
     user_name: Optional[str] = None
@@ -505,7 +515,7 @@ class DeleteUserRequest:
 
 
 @dataclass
-class GetDeploymentCertificateAuthorityRequest:
+class DownloadDeploymentCertificateAuthorityRequest:
     deployment_id: str
     region: Optional[ScwRegion] = None
     """
@@ -576,11 +586,6 @@ class ListDeploymentsRequest:
     name: Optional[str] = None
     """
     Deployment name to filter for.
-    """
-
-    version: Optional[str] = None
-    """
-    Engine version to filter for.
     """
 
 
@@ -781,5 +786,7 @@ class UpgradeDeploymentRequest:
     """
 
     node_amount: Optional[int] = 0
+
+    node_count: Optional[int] = 0
 
     volume_size_bytes: Optional[int] = 0

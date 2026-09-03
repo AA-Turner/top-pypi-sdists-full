@@ -39,55 +39,6 @@ else:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_personalize.DataDeletionJobReference",
-    jsii_struct_bases=[],
-    name_mapping={"data_deletion_job_arn": "dataDeletionJobArn"},
-)
-class DataDeletionJobReference:
-    def __init__(self, *, data_deletion_job_arn: builtins.str) -> None:
-        '''A reference to a DataDeletionJob resource.
-
-        :param data_deletion_job_arn: The DataDeletionJobArn of the DataDeletionJob resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_personalize as interfaces_personalize
-            
-            data_deletion_job_reference = interfaces_personalize.DataDeletionJobReference(
-                data_deletion_job_arn="dataDeletionJobArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__fa829c6a843351b29acf0c59d247f7c3c8d02d2095dfa4c4737a2b4112de7d94)
-            check_type(argname="argument data_deletion_job_arn", value=data_deletion_job_arn, expected_type=type_hints["data_deletion_job_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_deletion_job_arn": data_deletion_job_arn,
-        }
-
-    @builtins.property
-    def data_deletion_job_arn(self) -> builtins.str:
-        '''The DataDeletionJobArn of the DataDeletionJob resource.'''
-        result = self._values.get("data_deletion_job_arn")
-        assert result is not None, "Required property 'data_deletion_job_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DataDeletionJobReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_personalize.DatasetGroupReference",
     jsii_struct_bases=[],
     name_mapping={"dataset_group_arn": "datasetGroupArn"},
@@ -185,49 +136,53 @@ class DatasetReference:
         )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IDataDeletionJobRef")
-class IDataDeletionJobRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a DataDeletionJob.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_personalize.EventTrackerReference",
+    jsii_struct_bases=[],
+    name_mapping={"event_tracker_arn": "eventTrackerArn"},
+)
+class EventTrackerReference:
+    def __init__(self, *, event_tracker_arn: builtins.str) -> None:
+        '''A reference to a EventTracker resource.
 
-    :stability: experimental
-    '''
+        :param event_tracker_arn: The EventTrackerArn of the EventTracker resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_personalize as interfaces_personalize
+            
+            event_tracker_reference = interfaces_personalize.EventTrackerReference(
+                event_tracker_arn="eventTrackerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6d8d144771c9767d2eb402aa1c45874e15c7a7f3d7d9b725488105373beccc9a)
+            check_type(argname="argument event_tracker_arn", value=event_tracker_arn, expected_type=type_hints["event_tracker_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_tracker_arn": event_tracker_arn,
+        }
 
     @builtins.property
-    @jsii.member(jsii_name="dataDeletionJobRef")
-    def data_deletion_job_ref(self) -> "DataDeletionJobReference":
-        '''(experimental) A reference to a DataDeletionJob resource.
+    def event_tracker_arn(self) -> builtins.str:
+        '''The EventTrackerArn of the EventTracker resource.'''
+        result = self._values.get("event_tracker_arn")
+        assert result is not None, "Required property 'event_tracker_arn' is missing"
+        return typing.cast(builtins.str, result)
 
-        :stability: experimental
-        '''
-        ...
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
 
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
 
-class _IDataDeletionJobRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a DataDeletionJob.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.IDataDeletionJobRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="dataDeletionJobRef")
-    def data_deletion_job_ref(self) -> "DataDeletionJobReference":
-        '''(experimental) A reference to a DataDeletionJob resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("DataDeletionJobReference", jsii.get(self, "dataDeletionJobRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDataDeletionJobRef).__jsii_proxy_class__ = lambda : _IDataDeletionJobRefProxy
+    def __repr__(self) -> str:
+        return "EventTrackerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IDatasetGroupRef")
@@ -320,49 +275,96 @@ class _IDatasetRefProxy(
 typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IRecipeRef")
-class IRecipeRef(
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IEventTrackerRef")
+class IEventTrackerRef(
     _constructs_77d1e7e8.IConstruct,
     _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Recipe.
+    '''(experimental) Indicates that this resource can be referenced as a EventTracker.
 
     :stability: experimental
     '''
 
     @builtins.property
-    @jsii.member(jsii_name="recipeRef")
-    def recipe_ref(self) -> "RecipeReference":
-        '''(experimental) A reference to a Recipe resource.
+    @jsii.member(jsii_name="eventTrackerRef")
+    def event_tracker_ref(self) -> "EventTrackerReference":
+        '''(experimental) A reference to a EventTracker resource.
 
         :stability: experimental
         '''
         ...
 
 
-class _IRecipeRefProxy(
+class _IEventTrackerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
     jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Recipe.
+    '''(experimental) Indicates that this resource can be referenced as a EventTracker.
 
     :stability: experimental
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.IRecipeRef"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.IEventTrackerRef"
 
     @builtins.property
-    @jsii.member(jsii_name="recipeRef")
-    def recipe_ref(self) -> "RecipeReference":
-        '''(experimental) A reference to a Recipe resource.
+    @jsii.member(jsii_name="eventTrackerRef")
+    def event_tracker_ref(self) -> "EventTrackerReference":
+        '''(experimental) A reference to a EventTracker resource.
 
         :stability: experimental
         '''
-        return typing.cast("RecipeReference", jsii.get(self, "recipeRef"))
+        return typing.cast("EventTrackerReference", jsii.get(self, "eventTrackerRef"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRecipeRef).__jsii_proxy_class__ = lambda : _IRecipeRefProxy
+typing.cast(typing.Any, IEventTrackerRef).__jsii_proxy_class__ = lambda : _IEventTrackerRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_personalize.IMetricAttributionRef"
+)
+class IMetricAttributionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MetricAttribution.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="metricAttributionRef")
+    def metric_attribution_ref(self) -> "MetricAttributionReference":
+        '''(experimental) A reference to a MetricAttribution resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMetricAttributionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MetricAttribution.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.IMetricAttributionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="metricAttributionRef")
+    def metric_attribution_ref(self) -> "MetricAttributionReference":
+        '''(experimental) A reference to a MetricAttribution resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MetricAttributionReference", jsii.get(self, "metricAttributionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMetricAttributionRef).__jsii_proxy_class__ = lambda : _IMetricAttributionRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.ISchemaRef")
@@ -456,15 +458,15 @@ typing.cast(typing.Any, ISolutionRef).__jsii_proxy_class__ = lambda : _ISolution
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_personalize.RecipeReference",
+    jsii_type="aws-cdk-lib.interfaces.aws_personalize.MetricAttributionReference",
     jsii_struct_bases=[],
-    name_mapping={"recipe_arn": "recipeArn"},
+    name_mapping={"metric_attribution_arn": "metricAttributionArn"},
 )
-class RecipeReference:
-    def __init__(self, *, recipe_arn: builtins.str) -> None:
-        '''A reference to a Recipe resource.
+class MetricAttributionReference:
+    def __init__(self, *, metric_attribution_arn: builtins.str) -> None:
+        '''A reference to a MetricAttribution resource.
 
-        :param recipe_arn: The RecipeArn of the Recipe resource.
+        :param metric_attribution_arn: The MetricAttributionArn of the MetricAttribution resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -474,22 +476,22 @@ class RecipeReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_personalize as interfaces_personalize
             
-            recipe_reference = interfaces_personalize.RecipeReference(
-                recipe_arn="recipeArn"
+            metric_attribution_reference = interfaces_personalize.MetricAttributionReference(
+                metric_attribution_arn="metricAttributionArn"
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__88b30575e077bfe0328362e985703eb62521bcfb9c71aa407ead9f5813ce8d40)
-            check_type(argname="argument recipe_arn", value=recipe_arn, expected_type=type_hints["recipe_arn"])
+            type_hints = cached_type_hints(_typecheckingstub__f901034fd37d74f86a1f352aac6f6ff15fc0b4e1c2eefd635246f849663fd5a0)
+            check_type(argname="argument metric_attribution_arn", value=metric_attribution_arn, expected_type=type_hints["metric_attribution_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "recipe_arn": recipe_arn,
+            "metric_attribution_arn": metric_attribution_arn,
         }
 
     @builtins.property
-    def recipe_arn(self) -> builtins.str:
-        '''The RecipeArn of the Recipe resource.'''
-        result = self._values.get("recipe_arn")
-        assert result is not None, "Required property 'recipe_arn' is missing"
+    def metric_attribution_arn(self) -> builtins.str:
+        '''The MetricAttributionArn of the MetricAttribution resource.'''
+        result = self._values.get("metric_attribution_arn")
+        assert result is not None, "Required property 'metric_attribution_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -499,7 +501,7 @@ class RecipeReference:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "RecipeReference(%s)" % ", ".join(
+        return "MetricAttributionReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -603,28 +605,21 @@ class SolutionReference:
 
 
 __all__ = [
-    "DataDeletionJobReference",
     "DatasetGroupReference",
     "DatasetReference",
-    "IDataDeletionJobRef",
+    "EventTrackerReference",
     "IDatasetGroupRef",
     "IDatasetRef",
-    "IRecipeRef",
+    "IEventTrackerRef",
+    "IMetricAttributionRef",
     "ISchemaRef",
     "ISolutionRef",
-    "RecipeReference",
+    "MetricAttributionReference",
     "SchemaReference",
     "SolutionReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__fa829c6a843351b29acf0c59d247f7c3c8d02d2095dfa4c4737a2b4112de7d94(
-    *,
-    data_deletion_job_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__9bd607e866ffb5f894ee4515b429500888071106bbb3684630b35c3f634570cb(
     *,
@@ -640,9 +635,16 @@ def _typecheckingstub__8259ee192b97f65bb1bfb7dd2c09770b403cad7400c4318eae4c7d5c8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__88b30575e077bfe0328362e985703eb62521bcfb9c71aa407ead9f5813ce8d40(
+def _typecheckingstub__6d8d144771c9767d2eb402aa1c45874e15c7a7f3d7d9b725488105373beccc9a(
     *,
-    recipe_arn: builtins.str,
+    event_tracker_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f901034fd37d74f86a1f352aac6f6ff15fc0b4e1c2eefd635246f849663fd5a0(
+    *,
+    metric_attribution_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -661,5 +663,5 @@ def _typecheckingstub__4eb7000ac778c9296a1bcf604536bc2f9b85654eafa6d8acf1a30e8d4
     """Type checking stubs"""
     pass
 
-for cls in [IDataDeletionJobRef, IDatasetGroupRef, IDatasetRef, IRecipeRef, ISchemaRef, ISolutionRef]:
+for cls in [IDatasetGroupRef, IDatasetRef, IEventTrackerRef, IMetricAttributionRef, ISchemaRef, ISolutionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

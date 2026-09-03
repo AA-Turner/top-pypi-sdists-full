@@ -21,6 +21,26 @@ DEFAULT_TEMPERATURE = 1.0
 MCP_BETA = "mcp-client-2025-11-20"
 
 
+class ClaudeRefusal(llm.ModelError):
+    """Raised when the API returns stop_reason "refusal".
+
+    Claude 4.7 and later models run safety classifiers that can decline a
+    request with an HTTP 200 and an empty (or partial) response. The
+    ``category`` and ``explanation`` come from the response's stop_details.
+    """
+
+    def __init__(self, stop_details):
+        self.stop_details = stop_details or {}
+        self.category = self.stop_details.get("category")
+        self.explanation = self.stop_details.get("explanation")
+        message = "Claude refused this request"
+        if self.category:
+            message += f" ({self.category})"
+        if self.explanation:
+            message += f": {self.explanation}"
+        super().__init__(message)
+
+
 class ThinkingEffort(str, enum.Enum):
     LOW = "low"
     MEDIUM = "medium"
@@ -448,6 +468,38 @@ def register_models(register):
             default_max_tokens=128000,
         ),
         aliases=("claude-opus-5",),
+    )
+    # claude-fable-5.1
+    register(
+        ClaudeMessages(
+            "claude-fable-5-1",
+            supports_pdf=True,
+            supports_system_messages=True,
+            thinks_by_default=True,
+            always_thinks=True,
+            supports_thinking=True,
+            supports_thinking_effort=True,
+            supports_adaptive_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
+            use_structured_outputs=True,
+            default_max_tokens=128000,
+        ),
+        AsyncClaudeMessages(
+            "claude-fable-5-1",
+            supports_pdf=True,
+            supports_system_messages=True,
+            thinks_by_default=True,
+            always_thinks=True,
+            supports_thinking=True,
+            supports_thinking_effort=True,
+            supports_adaptive_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
+            use_structured_outputs=True,
+            default_max_tokens=128000,
+        ),
+        aliases=("claude-fable-5.1",),
     )
 
 
@@ -1284,18 +1336,22 @@ class _Shared:
                         "type": "enabled",
                         "budget_tokens": DEFAULT_THINKING_TOKENS,
                     }
-            elif self.thinks_by_default and hide_reasoning:
+            elif self.thinks_by_default:
                 # No thinking option set, but the model will think anyway -
-                # send the param explicitly so display can be omitted below
+                # send the param explicitly so display can be set below
                 kwargs["thinking"] = {"type": "adaptive"}
 
-            if (
-                hide_reasoning
-                and "thinking" in kwargs
-                and kwargs["thinking"]["type"] != "disabled"
-            ):
-                # -R / hide_reasoning=True asks the API to leave the
-                # thinking trace out of the response entirely
+            if "thinking" in kwargs and kwargs["thinking"]["type"] == "adaptive":
+                if hide_reasoning:
+                    # -R / hide_reasoning=True asks the API to leave the
+                    # thinking trace out of the response entirely
+                    kwargs["thinking"]["display"] = "omitted"
+                else:
+                    # Claude 4.7 and later default to display: omitted,
+                    # which streams thinking blocks with empty text. Ask
+                    # for the summarized trace so it can be shown and logged.
+                    kwargs["thinking"]["display"] = "summarized"
+            elif hide_reasoning and kwargs.get("thinking", {}).get("type") == "enabled":
                 kwargs["thinking"]["display"] = "omitted"
 
         # Handle effort in output_config
@@ -1382,11 +1438,36 @@ class _Shared:
         usage = response.response_json.pop("usage")
         input_tokens = usage.pop("input_tokens")
         output_tokens = usage.pop("output_tokens")
-        # Only include usage details if prompt caching was on or web search was used
+        # Include the full usage details if prompt caching was on or web
+        # search was used. Otherwise only record the thinking token
+        # breakdown, if the API reported one, and a non-standard service
+        # tier - the rest of the usage dict is zero cache counters and
+        # routing metadata
         details = None
         if response.prompt.options.cache or usage.get("server_tool_use"):
             details = usage
+        else:
+            details = {}
+            if usage.get("output_tokens_details"):
+                details["output_tokens_details"] = usage["output_tokens_details"]
+            service_tier = usage.get("service_tier")
+            if service_tier and service_tier != "standard":
+                details["service_tier"] = service_tier
+            details = details or None
         response.set_usage(input=input_tokens, output=output_tokens, details=details)
+
+    def raise_if_refused(self, response):
+        """Raise ClaudeRefusal if the response stopped with a refusal.
+
+        The API signals a safety classifier block with a normal HTTP 200,
+        ``stop_reason: "refusal"`` and an empty content array - or partial
+        content if the classifier fired mid-stream. Called after the
+        response JSON and usage have been recorded so they are available
+        on the response object even though the exception propagates.
+        """
+        message = response.response_json or {}
+        if message.get("stop_reason") == "refusal":
+            raise ClaudeRefusal(message.get("stop_details"))
 
     def add_tool_usage(self, response, last_message) -> bool:
         tool_uses = [
@@ -1541,6 +1622,7 @@ class ClaudeMessages(_Shared, llm.KeyModel):
                 # Avoid "can have dragons.Now that I " bug
                 yield StreamEvent(type="text", chunk=" ")
         self.set_usage(response)
+        self.raise_if_refused(response)
 
 
 class AsyncClaudeMessages(_Shared, llm.AsyncKeyModel):
@@ -1675,3 +1757,4 @@ class AsyncClaudeMessages(_Shared, llm.AsyncKeyModel):
                 # Avoid "can have dragons.Now that I " bug
                 yield StreamEvent(type="text", chunk=" ")
         self.set_usage(response)
+        self.raise_if_refused(response)

@@ -5,8 +5,10 @@ import pickle
 from pathlib import Path
 from typing import Any, TypeVar
 
+import numpy as np
 import pytest
 
+import zarr
 from icechunk import IcechunkError, IcechunkStore, local_filesystem_storage
 from icechunk.repository import Repository
 from zarr.abc.store import OffsetByteRequest, RangeByteRequest, Store, SuffixByteRequest
@@ -312,7 +314,9 @@ class TestIcechunkStore(StoreTests[IcechunkStore, cpu.Buffer]):
         i.e. no unwanted replacement occurs.
         """
         await store.set("foo/bar/zarr.json", self.buffer_cls.from_bytes(ARRAY_METADATA))
-        data = self.buffer_cls.from_bytes(b"")
+        # upstream uses empty values here; icechunk rejects zero-length chunks, and the
+        # content is irrelevant to what this test checks, which is listing
+        data = self.buffer_cls.from_bytes(b"x")
         store_dict = {
             "foo/bar/c/1/0/0": data,
             "foo/bar/c/0/0/0": data,
@@ -374,6 +378,28 @@ class TestIcechunkStore(StoreTests[IcechunkStore, cpu.Buffer]):
         if not store.supports_deletes:
             pytest.skip("store does not support deletes")
         await store.delete("zarr.json")
+
+    async def test_delete_out_of_grid_chunk_does_not_raise(
+        self, store: IcechunkStore
+    ) -> None:
+        # A sharded array has one key per shard, so an index on the inner chunk
+        # grid (which is what `cdata_shape` counts) names a key that cannot exist.
+        arr = zarr.create_array(
+            store,
+            name="Y",
+            shape=(5,),
+            shards=(4,),
+            chunks=(2,),
+            dtype="i1",
+            fill_value=0,
+        )
+        arr[:] = np.arange(5, dtype="i1")
+        before = sorted(await _collect_aiterator(store.list_prefix("")))
+        assert "Y/c/2" not in before
+
+        await store.delete("Y/c/2")
+
+        assert sorted(await _collect_aiterator(store.list_prefix(""))) == before
 
     async def test_get_partial_values(  # type: ignore[override]
         self,
@@ -443,7 +469,8 @@ class TestIcechunkStore(StoreTests[IcechunkStore, cpu.Buffer]):
             "c/1/1/0",
             "c/1/1/1",
         ]
-        values = [bytes(i) for i, _ in enumerate(keys)]
+        # non-zero sizes: icechunk rejects zero-length chunks
+        values = [bytes(i + 1) for i, _ in enumerate(keys)]
         for k, v in zip(keys, values, strict=False):
             await self.set(store, k, self.buffer_cls.from_bytes(v))
         observed_buffers = collect_aiterator(
@@ -531,7 +558,9 @@ class TestIcechunkStore(StoreTests[IcechunkStore, cpu.Buffer]):
             f"{prefix}/c/1/1/0",
             f"{prefix}/c/1/1/1",
         ]
-        values = [bytes(i) for i, _ in enumerate(keys)]
+        # sizes differ per chunk so a wrong total cannot go unnoticed, but none
+        # is zero: icechunk rejects zero-length chunks
+        values = [bytes(i + 1) for i, _ in enumerate(keys)]
         for k, v in zip(keys, values, strict=False):
             await self.set(store, k, self.buffer_cls.from_bytes(v))
 

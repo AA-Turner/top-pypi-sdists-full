@@ -3903,27 +3903,6 @@ class CfnEndpoint(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEndpoint", [resource]))
 
-    @jsii.member(jsii_name="fromEndpointId")
-    @builtins.classmethod
-    def from_endpoint_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        endpoint_id: builtins.str,
-    ) -> "_aws_dms_c75cb9b8.IEndpointRef":
-        '''Creates a new IEndpointRef from a endpointId.
-
-        :param scope: -
-        :param id: -
-        :param endpoint_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__cc7544659847cebf1010859beefe92e136eed06aeede14a54bb30e07bc5741a0)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
-        return typing.cast("_aws_dms_c75cb9b8.IEndpointRef", jsii.sinvoke(cls, "fromEndpointId", [scope, id, endpoint_id]))
-
     @jsii.member(jsii_name="isCfnEndpoint")
     @builtins.classmethod
     def is_cfn_endpoint(cls, x: typing.Any) -> builtins.bool:
@@ -3967,6 +3946,15 @@ class CfnEndpoint(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrEndpointArn")
+    def attr_endpoint_arn(self) -> builtins.str:
+        '''The endpoint ARN.
+
+        :cloudformationAttribute: EndpointArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrExternalId")
     def attr_external_id(self) -> builtins.str:
         '''A value that can be used for cross-account validation.
@@ -3974,14 +3962,6 @@ class CfnEndpoint(
         :cloudformationAttribute: ExternalId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrExternalId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -10710,14 +10690,6 @@ class CfnEventSubscription(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -14150,14 +14122,6 @@ class CfnReplicationSubnetGroup(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -14455,6 +14419,20 @@ class CfnReplicationTask(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForReplicationTask")
+    @builtins.classmethod
+    def arn_for_replication_task(
+        cls,
+        resource: "_aws_dms_c75cb9b8.IReplicationTaskRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__69b0cdb59f7b548999eccaf8e66075fa4ca82dcfc29e9d0caebf1fabbd900ac9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReplicationTask", [resource]))
+
     @jsii.member(jsii_name="isCfnReplicationTask")
     @builtins.classmethod
     def is_cfn_replication_task(cls, x: typing.Any) -> builtins.bool:
@@ -14504,6 +14482,17 @@ class CfnReplicationTask(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReplicationTaskArn")
+    def attr_replication_task_arn(self) -> builtins.str:
+        '''The ARN of the ReplicationTask.
+
+        Also serves the purpise of Primary Identifier.
+
+        :cloudformationAttribute: ReplicationTaskArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReplicationTaskArn"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -15482,14 +15471,6 @@ def _typecheckingstub__738d71cd2300575c2c6537801f3dede195e2179cefcdceb9d0410340f
 
 def _typecheckingstub__7761f93304ac33cd495a90c1f5a99370e3abac6729cef125359cded810a0032d(
     resource: _aws_dms_c75cb9b8.IEndpointRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cc7544659847cebf1010859beefe92e136eed06aeede14a54bb30e07bc5741a0(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    endpoint_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16825,6 +16806,12 @@ def _typecheckingstub__ddd9891907ccbbff1ea14d14a5e54ee5d7bb976ca72f0b8bf69f14ef1
     resource_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_data: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69b0cdb59f7b548999eccaf8e66075fa4ca82dcfc29e9d0caebf1fabbd900ac9(
+    resource: _aws_dms_c75cb9b8.IReplicationTaskRef,
 ) -> None:
     """Type checking stubs"""
     pass

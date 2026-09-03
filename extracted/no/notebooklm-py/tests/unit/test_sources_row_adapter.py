@@ -1,7 +1,7 @@
 """Unit tests for the source response adapters drained from raw positional reads.
 
 Covers the three additions that absorbed the ``_source/`` + ``_types/sources``
-raw ``name[int]`` RPC-payload reads behind the sanctioned ``_row_adapters``
+raw ``name[int]`` RPC-payload reads behind the sanctioned ``_web.rows``
 layer (the #1491 single-level burndown for the sources domain):
 
 * :meth:`SourceRow.url_from_metadata` / :meth:`SourceRow.created_at_from_metadata`
@@ -23,17 +23,17 @@ from __future__ import annotations
 
 import pytest
 
-from notebooklm._row_adapters.sources import (
+from notebooklm._types.common import _datetime_from_timestamp
+from notebooklm._types.sources import (
+    _extract_source_created_at,
+    _extract_source_url,
+)
+from notebooklm._web.rows.sources import (
     SourceFulltextRow,
     SourceGuideRow,
     SourceRow,
     _warned_drive_id_slots,
     _warned_drive_status_codes,
-)
-from notebooklm._types.common import _datetime_from_timestamp
-from notebooklm._types.sources import (
-    _extract_source_created_at,
-    _extract_source_url,
 )
 from notebooklm.rpc import RPCMethod
 from notebooklm.rpc.types import DriveSourceStatus, SourceStatus
@@ -404,20 +404,24 @@ def test_native_sheet_type_code_14_stays_spreadsheet() -> None:
     assert src.kind == SourceType.GOOGLE_SPREADSHEET
 
 
-def test_type_code_14_no_mime_stays_spreadsheet() -> None:
-    """type_code 14 with no MIME signal stays GOOGLE_SPREADSHEET (conservative)."""
+def test_type_code_14_no_mime_stays_drive() -> None:
+    """type_code 14 with no MIME signal decodes as GOOGLE_DRIVE.
+
+    14 is the backend's catch-all for a Drive file it gave no format-specific
+    code; with nothing to disambiguate on, reporting that is the honest answer.
+    """
     from notebooklm._types.sources import Source, SourceType
 
     src = Source.from_row(_row(_meta_with(type_code=14)))
-    assert src.kind == SourceType.GOOGLE_SPREADSHEET
+    assert src.kind == SourceType.GOOGLE_DRIVE
 
 
-def test_type_code_14_unknown_binary_mime_stays_spreadsheet() -> None:
-    """An unrecognized MIME under 14 is left as GOOGLE_SPREADSHEET, not relabeled/UNKNOWN."""
+def test_type_code_14_unknown_binary_mime_stays_drive() -> None:
+    """An unrecognized MIME under 14 is left as GOOGLE_DRIVE, not relabeled/UNKNOWN."""
     from notebooklm._types.sources import Source, SourceType
 
     src = Source.from_row(_row(_meta_with(type_code=14, mime="application/x-mystery")))
-    assert src.kind == SourceType.GOOGLE_SPREADSHEET
+    assert src.kind == SourceType.GOOGLE_DRIVE
 
 
 def test_non_14_type_code_with_pdf_mime_is_untouched() -> None:
@@ -616,7 +620,7 @@ def test_source_row_rejects_boolean_timestamps() -> None:
 # --- #2113: SourceRow.drive_document_id (the add_drive idempotency key) ------
 
 #: A Drive file id as it appears on the wire (44-char Base64URL), taken from the
-#: live ADD_SOURCE capture in ``tests/cassettes/sources_add_drive.yaml``.
+#: live ADD_SOURCE capture in ``tests/cassettes/web/sources_add_drive.yaml``.
 _DRIVE_FILE_ID = "1oAk_INJHbIPsIh49jgNqj3FESSGHZrzxFY7t05Lvvl0"
 
 
@@ -624,7 +628,7 @@ def _live_google_docs_row(document_id: str = _DRIVE_FILE_ID) -> SourceRow:
     """The live-captured Google-native Drive row (``metadata[0]`` block).
 
     Copied verbatim (ids aside) from the ADD_SOURCE response in
-    ``tests/cassettes/sources_add_drive.yaml`` — note that NO url slot is
+    ``tests/cassettes/web/sources_add_drive.yaml`` — note that NO url slot is
     populated, which is the whole reason #2113 existed.
     """
     return SourceRow.from_entry(
@@ -684,7 +688,7 @@ def test_drive_document_id_is_none_for_web_page_row() -> None:
     """A live-shaped web-page row (``metadata[0]`` null, URL at ``[7]``) yields None.
 
     Shape from the GET_NOTEBOOK capture in
-    ``tests/cassettes/sources_check_freshness_drive.yaml``.
+    ``tests/cassettes/web/sources_check_freshness_drive.yaml``.
     """
     row = SourceRow.from_entry(
         [
@@ -849,7 +853,7 @@ class TestDriveDocumentIdDriftWarning:
 #
 # Fixture provenance: the settings-block shapes below are the ones observed
 # across 409 live source rows in the 2026-08-07 wire audit
-# (``docs/notes/web-rpc-vs-mobile-grpc-audit-2026-08-07.md`` §1.6):
+# (Web and Android transports):
 #
 #     402x  [null, 2]                       — no Drive-status slot
 #       4x  [null, 2, null, 3]              — Drive-backed, ACTIVE
@@ -857,7 +861,7 @@ class TestDriveDocumentIdDriftWarning:
 #
 # ACTIVE is the ONLY Drive-status value that has been seen on the wire. The
 # degraded members are exercised below from the backend enum
-# (``docs/mobile/enums.txt::UserDriveSourceStatus``), NOT from a captured
+# (``docs/android/enums.txt::UserDriveSourceStatus``), NOT from a captured
 # response — producing them requires deliberately breaking access to a real
 # Drive file. Those rows are a claim about *our decoding*, not about the wire.
 

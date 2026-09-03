@@ -3,7 +3,7 @@ PyVEX provides an interface that translates binary code into the VEX intermediat
 For an introduction to VEX, take a look here: https://docs.angr.io/advanced-topics/ir
 """
 
-__version__ = "9.3.3"
+__version__ = "9.3.4"
 
 from . import const, expr, stmt
 from .arches import (
@@ -17,6 +17,8 @@ from .arches import (
     ARCH_MIPS32_LE,
     ARCH_MIPS64_BE,
     ARCH_MIPS64_LE,
+    ARCH_MIPSN32_BE,
+    ARCH_MIPSN32_LE,
     ARCH_PPC32,
     ARCH_PPC64_BE,
     ARCH_PPC64_LE,
@@ -88,5 +90,7 @@ __all__ = [
     "ARCH_MIPS32_LE",
     "ARCH_MIPS64_BE",
     "ARCH_MIPS64_LE",
+    "ARCH_MIPSN32_BE",
+    "ARCH_MIPSN32_LE",
     "ARCH_RISCV64_LE",
 ]

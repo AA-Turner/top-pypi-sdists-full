@@ -1,6 +1,6 @@
 """Parity for `UnifiedConfig` — the last and largest contract type.
 
-Phase 1b.2, Retirement Ledger row 9. 90 fields, 99 construction sites.
+Phase 1b.2, Retirement Ledger row 9. 91 fields, 99 construction sites.
 
 The twin was GENERATED from the dataclass rather than hand-written, because
 FIELD_TRUTH §4d verified 56 of 57 declared types against 6,485 stored configs —
@@ -30,8 +30,8 @@ def test_same_fields_in_the_same_order():
     assert [f.name for f in dataclasses.fields(UnifiedConfig)] == list(UnifiedConfigModel.model_fields)
 
 
-def test_field_count_is_ninety():
-    assert len(UnifiedConfigModel.model_fields) == 90
+def test_field_count_matches_dataclass():
+    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 91
 
 
 def test_annotations_are_identical_except_the_staged_two():

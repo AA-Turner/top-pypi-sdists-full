@@ -9,7 +9,10 @@ from scaleway_core.bridge import (
 )
 from .types import (
     PublicCatalogProductProductBadge,
+    PublicCatalogProductPropertiesApacheKafkaAvailableVolumeType,
+    PublicCatalogProductPropertiesGenerativeApisTask,
     PublicCatalogProductPropertiesHardwareCPUArch,
+    PublicCatalogProductPropertiesHardwareRAMECCType,
     PublicCatalogProductPropertiesManagedMongoDBStorageTypeStorageClass,
     PublicCatalogProductPropertiesManagedRelationalDatabaseStorageTypeStorageClass,
     PublicCatalogProductPropertiesObjectStorageClassTypeStorageClass,
@@ -18,6 +21,10 @@ from .types import (
     PublicCatalogProductStatus,
     PublicCatalogProductPropertiesHardwareCPUPhysical,
     PublicCatalogProductPropertiesHardwareCPUVirtual,
+    PublicCatalogProductPropertiesApacheKafkaNodeType,
+    PublicCatalogProductPropertiesApacheKafkaStorageType,
+    PublicCatalogProductPropertiesBlockStorageSnapshotType,
+    PublicCatalogProductPropertiesBlockStorageVolumeType,
     PublicCatalogProductPropertiesHardwareCPU,
     PublicCatalogProductPropertiesHardwareGPU,
     PublicCatalogProductPropertiesHardwareNetwork,
@@ -28,6 +35,8 @@ from .types import (
     PublicCatalogProductPropertiesKubernetesKosmosNodeType,
     PublicCatalogProductPropertiesLoadBalancerIPV4Type,
     PublicCatalogProductPropertiesLoadBalancerNodeType,
+    PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage,
+    PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment,
     PublicCatalogProductPropertiesManagedMongoDBManagementType,
     PublicCatalogProductPropertiesManagedMongoDBNodeType,
     PublicCatalogProductPropertiesManagedMongoDBStorageType,
@@ -39,13 +48,26 @@ from .types import (
     PublicCatalogProductPropertiesObjectStorageInternetTrafficType,
     PublicCatalogProductPropertiesObjectStorageRegionTrafficType,
     PublicCatalogProductPropertiesObjectStorageRestoreType,
+    PublicCatalogProductPropertiesServerlessContainersCPUType,
+    PublicCatalogProductPropertiesServerlessContainersMemoryType,
+    PublicCatalogProductPropertiesServerlessFunctionsConsumptionType,
+    PublicCatalogProductPropertiesServerlessFunctionsFreeTierType,
+    PublicCatalogProductPropertiesServerlessFunctionsProvisionType,
+    PublicCatalogProductPropertiesServerlessFunctionsRequestType,
+    PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource,
+    PublicCatalogProductPropertiesServerlessJobsCPUType,
+    PublicCatalogProductPropertiesServerlessJobsMemoryType,
+    PublicCatalogProductPropertiesApacheKafka,
     PublicCatalogProductPropertiesAppleSilicon,
     PublicCatalogProductPropertiesBlockStorage,
     PublicCatalogProductPropertiesDedibox,
     PublicCatalogProductPropertiesElasticMetal,
+    PublicCatalogProductPropertiesFileStorage,
     PublicCatalogProductPropertiesGenerativeApis,
     PublicCatalogProductPropertiesHardware,
     PublicCatalogProductPropertiesInstance,
+    PublicCatalogProductPropertiesInstanceLocalSSDSnapshot,
+    PublicCatalogProductPropertiesInstanceLocalSSDStorage,
     PublicCatalogProductPropertiesKeyManager,
     PublicCatalogProductPropertiesKubernetes,
     PublicCatalogProductPropertiesLoadBalancer,
@@ -54,7 +76,12 @@ from .types import (
     PublicCatalogProductPropertiesManagedRedisDatabase,
     PublicCatalogProductPropertiesManagedRelationalDatabase,
     PublicCatalogProductPropertiesObjectStorage,
+    PublicCatalogProductPropertiesOpenSearch,
     PublicCatalogProductPropertiesSecretManager,
+    PublicCatalogProductPropertiesServerlessContainers,
+    PublicCatalogProductPropertiesServerlessFunctions,
+    PublicCatalogProductPropertiesServerlessJobs,
+    PublicCatalogProductPropertiesServerlessSqlDatabase,
     PublicCatalogProductEnvironmentalImpactEstimation,
     PublicCatalogProductLocality,
     PublicCatalogProductPrice,
@@ -127,6 +154,120 @@ def unmarshal_PublicCatalogProductPropertiesHardwareCPUVirtual(
     return PublicCatalogProductPropertiesHardwareCPUVirtual(**args)
 
 
+def unmarshal_PublicCatalogProductPropertiesApacheKafkaNodeType(
+    data: Any,
+) -> PublicCatalogProductPropertiesApacheKafkaNodeType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesApacheKafkaNodeType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("versions", None)
+    if field is not None:
+        args["versions"] = field
+    else:
+        args["versions"] = []
+
+    field = data.get("vcpu_count", None)
+    if field is not None:
+        args["vcpu_count"] = field
+    else:
+        args["vcpu_count"] = 0
+
+    field = data.get("is_multi_az", None)
+    if field is not None:
+        args["is_multi_az"] = field
+    else:
+        args["is_multi_az"] = False
+
+    field = data.get("memory_size", None)
+    if field is not None:
+        args["memory_size"] = field
+    else:
+        args["memory_size"] = 0
+
+    return PublicCatalogProductPropertiesApacheKafkaNodeType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesApacheKafkaStorageType(
+    data: Any,
+) -> PublicCatalogProductPropertiesApacheKafkaStorageType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesApacheKafkaStorageType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("type", None)
+    if field is not None:
+        args["type_"] = field
+    else:
+        args["type_"] = (
+            PublicCatalogProductPropertiesApacheKafkaAvailableVolumeType.UNKNOWN_TYPE
+        )
+
+    field = data.get("min_size", None)
+    if field is not None:
+        args["min_size"] = field
+    else:
+        args["min_size"] = 0
+
+    field = data.get("max_size", None)
+    if field is not None:
+        args["max_size"] = field
+    else:
+        args["max_size"] = 0
+
+    field = data.get("is_multi_az", None)
+    if field is not None:
+        args["is_multi_az"] = field
+    else:
+        args["is_multi_az"] = False
+
+    return PublicCatalogProductPropertiesApacheKafkaStorageType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesBlockStorageSnapshotType(
+    data: Any,
+) -> PublicCatalogProductPropertiesBlockStorageSnapshotType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesBlockStorageSnapshotType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesBlockStorageSnapshotType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesBlockStorageVolumeType(
+    data: Any,
+) -> PublicCatalogProductPropertiesBlockStorageVolumeType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesBlockStorageVolumeType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("min_size", None)
+    if field is not None:
+        args["min_size"] = field
+    else:
+        args["min_size"] = 0
+
+    field = data.get("max_size", None)
+    if field is not None:
+        args["max_size"] = field
+    else:
+        args["max_size"] = 0
+
+    return PublicCatalogProductPropertiesBlockStorageVolumeType(**args)
+
+
 def unmarshal_PublicCatalogProductPropertiesHardwareCPU(
     data: Any,
 ) -> PublicCatalogProductPropertiesHardwareCPU:
@@ -160,6 +301,12 @@ def unmarshal_PublicCatalogProductPropertiesHardwareCPU(
         args["threads"] = field
     else:
         args["threads"] = 0
+
+    field = data.get("shared", None)
+    if field is not None:
+        args["shared"] = field
+    else:
+        args["shared"] = False
 
     field = data.get("virtual", None)
     if field is not None:
@@ -276,6 +423,14 @@ def unmarshal_PublicCatalogProductPropertiesHardwareRAM(
     else:
         args["type_"] = None
 
+    field = data.get("ecc_type", None)
+    if field is not None:
+        args["ecc_type"] = field
+    else:
+        args["ecc_type"] = (
+            PublicCatalogProductPropertiesHardwareRAMECCType.UNKNOWN_ECC_TYPE
+        )
+
     return PublicCatalogProductPropertiesHardwareRAM(**args)
 
 
@@ -385,6 +540,42 @@ def unmarshal_PublicCatalogProductPropertiesLoadBalancerNodeType(
         args["bandwidth"] = 0
 
     return PublicCatalogProductPropertiesLoadBalancerNodeType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage(
+    data: Any,
+) -> PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage(
+        **args
+    )
+
+
+def unmarshal_PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment(
+    data: Any,
+) -> PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("instance_gpu_name", None)
+    if field is not None:
+        args["instance_gpu_name"] = field
+    else:
+        args["instance_gpu_name"] = None
+
+    return PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment(
+        **args
+    )
 
 
 def unmarshal_PublicCatalogProductPropertiesManagedMongoDBManagementType(
@@ -576,6 +767,188 @@ def unmarshal_PublicCatalogProductPropertiesObjectStorageRestoreType(
     return PublicCatalogProductPropertiesObjectStorageRestoreType(**args)
 
 
+def unmarshal_PublicCatalogProductPropertiesServerlessContainersCPUType(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessContainersCPUType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessContainersCPUType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("mvcpu_counts", None)
+    if field is not None:
+        args["mvcpu_counts"] = field
+    else:
+        args["mvcpu_counts"] = []
+
+    return PublicCatalogProductPropertiesServerlessContainersCPUType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessContainersMemoryType(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessContainersMemoryType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessContainersMemoryType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("sizes", None)
+    if field is not None:
+        args["sizes"] = field
+    else:
+        args["sizes"] = []
+
+    return PublicCatalogProductPropertiesServerlessContainersMemoryType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessFunctionsConsumptionType(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessFunctionsConsumptionType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessFunctionsConsumptionType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesServerlessFunctionsConsumptionType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessFunctionsFreeTierType(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessFunctionsFreeTierType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessFunctionsFreeTierType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesServerlessFunctionsFreeTierType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessFunctionsProvisionType(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessFunctionsProvisionType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessFunctionsProvisionType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesServerlessFunctionsProvisionType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessFunctionsRequestType(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessFunctionsRequestType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessFunctionsRequestType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesServerlessFunctionsRequestType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("memory_size", None)
+    if field is not None:
+        args["memory_size"] = field
+    else:
+        args["memory_size"] = 0
+
+    field = data.get("mvcpu_count", None)
+    if field is not None:
+        args["mvcpu_count"] = field
+    else:
+        args["mvcpu_count"] = 0
+
+    return PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessJobsCPUType(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessJobsCPUType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessJobsCPUType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("mvcpu_counts", None)
+    if field is not None:
+        args["mvcpu_counts"] = field
+    else:
+        args["mvcpu_counts"] = []
+
+    return PublicCatalogProductPropertiesServerlessJobsCPUType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessJobsMemoryType(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessJobsMemoryType:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessJobsMemoryType' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("sizes", None)
+    if field is not None:
+        args["sizes"] = field
+    else:
+        args["sizes"] = []
+
+    return PublicCatalogProductPropertiesServerlessJobsMemoryType(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesApacheKafka(
+    data: Any,
+) -> PublicCatalogProductPropertiesApacheKafka:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesApacheKafka' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("node", None)
+    if field is not None:
+        args["node"] = unmarshal_PublicCatalogProductPropertiesApacheKafkaNodeType(
+            field
+        )
+    else:
+        args["node"] = None
+
+    field = data.get("storage", None)
+    if field is not None:
+        args["storage"] = (
+            unmarshal_PublicCatalogProductPropertiesApacheKafkaStorageType(field)
+        )
+    else:
+        args["storage"] = None
+
+    return PublicCatalogProductPropertiesApacheKafka(**args)
+
+
 def unmarshal_PublicCatalogProductPropertiesAppleSilicon(
     data: Any,
 ) -> PublicCatalogProductPropertiesAppleSilicon:
@@ -622,6 +995,22 @@ def unmarshal_PublicCatalogProductPropertiesBlockStorage(
         args["max_volume_size"] = field
     else:
         args["max_volume_size"] = None
+
+    field = data.get("snapshot", None)
+    if field is not None:
+        args["snapshot"] = (
+            unmarshal_PublicCatalogProductPropertiesBlockStorageSnapshotType(field)
+        )
+    else:
+        args["snapshot"] = None
+
+    field = data.get("volume", None)
+    if field is not None:
+        args["volume"] = unmarshal_PublicCatalogProductPropertiesBlockStorageVolumeType(
+            field
+        )
+    else:
+        args["volume"] = None
 
     return PublicCatalogProductPropertiesBlockStorage(**args)
 
@@ -676,6 +1065,31 @@ def unmarshal_PublicCatalogProductPropertiesElasticMetal(
     return PublicCatalogProductPropertiesElasticMetal(**args)
 
 
+def unmarshal_PublicCatalogProductPropertiesFileStorage(
+    data: Any,
+) -> PublicCatalogProductPropertiesFileStorage:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesFileStorage' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("min_size", None)
+    if field is not None:
+        args["min_size"] = field
+    else:
+        args["min_size"] = 0
+
+    field = data.get("max_size", None)
+    if field is not None:
+        args["max_size"] = field
+    else:
+        args["max_size"] = 0
+
+    return PublicCatalogProductPropertiesFileStorage(**args)
+
+
 def unmarshal_PublicCatalogProductPropertiesGenerativeApis(
     data: Any,
 ) -> PublicCatalogProductPropertiesGenerativeApis:
@@ -703,6 +1117,40 @@ def unmarshal_PublicCatalogProductPropertiesGenerativeApis(
         args["consumption_mode"] = field
     else:
         args["consumption_mode"] = None
+
+    field = data.get("provider_name", None)
+    if field is not None:
+        args["provider_name"] = field
+    else:
+        args["provider_name"] = None
+
+    field = data.get("tasks", None)
+    if field is not None:
+        args["tasks"] = (
+            [PublicCatalogProductPropertiesGenerativeApisTask(v) for v in field]
+            if field is not None
+            else None
+        )
+    else:
+        args["tasks"] = None
+
+    field = data.get("token_type", None)
+    if field is not None:
+        args["token_type"] = field
+    else:
+        args["token_type"] = None
+
+    field = data.get("supported_reasoning_values", None)
+    if field is not None:
+        args["supported_reasoning_values"] = field
+    else:
+        args["supported_reasoning_values"] = None
+
+    field = data.get("default_reasoning_value", None)
+    if field is not None:
+        args["default_reasoning_value"] = field
+    else:
+        args["default_reasoning_value"] = None
 
     return PublicCatalogProductPropertiesGenerativeApis(**args)
 
@@ -779,6 +1227,32 @@ def unmarshal_PublicCatalogProductPropertiesInstance(
         args["recommended_replacement_offer_ids"] = []
 
     return PublicCatalogProductPropertiesInstance(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesInstanceLocalSSDSnapshot(
+    data: Any,
+) -> PublicCatalogProductPropertiesInstanceLocalSSDSnapshot:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesInstanceLocalSSDSnapshot' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesInstanceLocalSSDSnapshot(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesInstanceLocalSSDStorage(
+    data: Any,
+) -> PublicCatalogProductPropertiesInstanceLocalSSDStorage:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesInstanceLocalSSDStorage' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesInstanceLocalSSDStorage(**args)
 
 
 def unmarshal_PublicCatalogProductPropertiesKeyManager(
@@ -879,6 +1353,26 @@ def unmarshal_PublicCatalogProductPropertiesManagedInference(
         args["instance_gpu_name"] = field
     else:
         args["instance_gpu_name"] = None
+
+    field = data.get("deployment", None)
+    if field is not None:
+        args["deployment"] = (
+            unmarshal_PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment(
+                field
+            )
+        )
+    else:
+        args["deployment"] = None
+
+    field = data.get("custom_model_storage", None)
+    if field is not None:
+        args["custom_model_storage"] = (
+            unmarshal_PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage(
+                field
+            )
+        )
+    else:
+        args["custom_model_storage"] = None
 
     return PublicCatalogProductPropertiesManagedInference(**args)
 
@@ -1035,6 +1529,19 @@ def unmarshal_PublicCatalogProductPropertiesObjectStorage(
     return PublicCatalogProductPropertiesObjectStorage(**args)
 
 
+def unmarshal_PublicCatalogProductPropertiesOpenSearch(
+    data: Any,
+) -> PublicCatalogProductPropertiesOpenSearch:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesOpenSearch' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesOpenSearch(**args)
+
+
 def unmarshal_PublicCatalogProductPropertiesSecretManager(
     data: Any,
 ) -> PublicCatalogProductPropertiesSecretManager:
@@ -1046,6 +1553,147 @@ def unmarshal_PublicCatalogProductPropertiesSecretManager(
     args: dict[str, Any] = {}
 
     return PublicCatalogProductPropertiesSecretManager(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessContainers(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessContainers:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessContainers' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("memory", None)
+    if field is not None:
+        args["memory"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessContainersMemoryType(
+                field
+            )
+        )
+    else:
+        args["memory"] = None
+
+    field = data.get("cpu", None)
+    if field is not None:
+        args["cpu"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessContainersCPUType(field)
+        )
+    else:
+        args["cpu"] = None
+
+    return PublicCatalogProductPropertiesServerlessContainers(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessFunctions(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessFunctions:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessFunctions' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("resources", None)
+    if field is not None:
+        args["resources"] = (
+            [
+                unmarshal_PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource(
+                    v
+                )
+                for v in field
+            ]
+            if field is not None
+            else None
+        )
+    else:
+        args["resources"] = []
+
+    field = data.get("consumption", None)
+    if field is not None:
+        args["consumption"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessFunctionsConsumptionType(
+                field
+            )
+        )
+    else:
+        args["consumption"] = None
+
+    field = data.get("request", None)
+    if field is not None:
+        args["request"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessFunctionsRequestType(
+                field
+            )
+        )
+    else:
+        args["request"] = None
+
+    field = data.get("provision", None)
+    if field is not None:
+        args["provision"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessFunctionsProvisionType(
+                field
+            )
+        )
+    else:
+        args["provision"] = None
+
+    field = data.get("free_tier", None)
+    if field is not None:
+        args["free_tier"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessFunctionsFreeTierType(
+                field
+            )
+        )
+    else:
+        args["free_tier"] = None
+
+    return PublicCatalogProductPropertiesServerlessFunctions(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessJobs(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessJobs:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessJobs' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("memory", None)
+    if field is not None:
+        args["memory"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessJobsMemoryType(field)
+        )
+    else:
+        args["memory"] = None
+
+    field = data.get("cpu", None)
+    if field is not None:
+        args["cpu"] = unmarshal_PublicCatalogProductPropertiesServerlessJobsCPUType(
+            field
+        )
+    else:
+        args["cpu"] = None
+
+    return PublicCatalogProductPropertiesServerlessJobs(**args)
+
+
+def unmarshal_PublicCatalogProductPropertiesServerlessSqlDatabase(
+    data: Any,
+) -> PublicCatalogProductPropertiesServerlessSqlDatabase:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PublicCatalogProductPropertiesServerlessSqlDatabase' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return PublicCatalogProductPropertiesServerlessSqlDatabase(**args)
 
 
 def unmarshal_PublicCatalogProductEnvironmentalImpactEstimation(
@@ -1245,6 +1893,22 @@ def unmarshal_PublicCatalogProductProperties(
     else:
         args["managed_relational_database"] = None
 
+    field = data.get("serverless_functions", None)
+    if field is not None:
+        args["serverless_functions"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessFunctions(field)
+        )
+    else:
+        args["serverless_functions"] = None
+
+    field = data.get("serverless_containers", None)
+    if field is not None:
+        args["serverless_containers"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessContainers(field)
+        )
+    else:
+        args["serverless_containers"] = None
+
     field = data.get("managed_mongodb", None)
     if field is not None:
         args["managed_mongodb"] = (
@@ -1252,6 +1916,60 @@ def unmarshal_PublicCatalogProductProperties(
         )
     else:
         args["managed_mongodb"] = None
+
+    field = data.get("serverless_jobs", None)
+    if field is not None:
+        args["serverless_jobs"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessJobs(field)
+        )
+    else:
+        args["serverless_jobs"] = None
+
+    field = data.get("serverless_sql_database", None)
+    if field is not None:
+        args["serverless_sql_database"] = (
+            unmarshal_PublicCatalogProductPropertiesServerlessSqlDatabase(field)
+        )
+    else:
+        args["serverless_sql_database"] = None
+
+    field = data.get("apache_kafka", None)
+    if field is not None:
+        args["apache_kafka"] = unmarshal_PublicCatalogProductPropertiesApacheKafka(
+            field
+        )
+    else:
+        args["apache_kafka"] = None
+
+    field = data.get("open_search", None)
+    if field is not None:
+        args["open_search"] = unmarshal_PublicCatalogProductPropertiesOpenSearch(field)
+    else:
+        args["open_search"] = None
+
+    field = data.get("instance_local_ssd_snapshot", None)
+    if field is not None:
+        args["instance_local_ssd_snapshot"] = (
+            unmarshal_PublicCatalogProductPropertiesInstanceLocalSSDSnapshot(field)
+        )
+    else:
+        args["instance_local_ssd_snapshot"] = None
+
+    field = data.get("instance_local_ssd_storage", None)
+    if field is not None:
+        args["instance_local_ssd_storage"] = (
+            unmarshal_PublicCatalogProductPropertiesInstanceLocalSSDStorage(field)
+        )
+    else:
+        args["instance_local_ssd_storage"] = None
+
+    field = data.get("file_storage", None)
+    if field is not None:
+        args["file_storage"] = unmarshal_PublicCatalogProductPropertiesFileStorage(
+            field
+        )
+    else:
+        args["file_storage"] = None
 
     return PublicCatalogProductProperties(**args)
 

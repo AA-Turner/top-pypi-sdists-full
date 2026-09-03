@@ -6,6 +6,7 @@ from datadog_api_client.v2.api.aws_integration_api import AWSIntegrationApi
 from datadog_api_client.v2.api.aws_logs_integration_api import AWSLogsIntegrationApi
 from datadog_api_client.v2.api.action_connection_api import ActionConnectionApi
 from datadog_api_client.v2.api.actions_datastores_api import ActionsDatastoresApi
+from datadog_api_client.v2.api.agent_observability_api import AgentObservabilityApi
 from datadog_api_client.v2.api.agentless_scanning_api import AgentlessScanningApi
 from datadog_api_client.v2.api.annotations_api import AnnotationsApi
 from datadog_api_client.v2.api.app_builder_api import AppBuilderApi
@@ -47,10 +48,12 @@ from datadog_api_client.v2.api.datasets_api import DatasetsApi
 from datadog_api_client.v2.api.deployment_gates_api import DeploymentGatesApi
 from datadog_api_client.v2.api.domain_allowlist_api import DomainAllowlistApi
 from datadog_api_client.v2.api.downtimes_api import DowntimesApi
+from datadog_api_client.v2.api.elastic_cloud_integration_accounts_api import ElasticCloudIntegrationAccountsApi
 from datadog_api_client.v2.api.entity_integration_configs_api import EntityIntegrationConfigsApi
 from datadog_api_client.v2.api.entity_risk_scores_api import EntityRiskScoresApi
 from datadog_api_client.v2.api.error_tracking_api import ErrorTrackingApi
 from datadog_api_client.v2.api.events_api import EventsApi
+from datadog_api_client.v2.api.execution_policy_api import ExecutionPolicyApi
 from datadog_api_client.v2.api.fastly_integration_api import FastlyIntegrationApi
 from datadog_api_client.v2.api.feature_flags_api import FeatureFlagsApi
 from datadog_api_client.v2.api.fleet_automation_api import FleetAutomationApi
@@ -65,7 +68,6 @@ from datadog_api_client.v2.api.incidents_api import IncidentsApi
 from datadog_api_client.v2.api.integrations_api import IntegrationsApi
 from datadog_api_client.v2.api.jira_integration_api import JiraIntegrationApi
 from datadog_api_client.v2.api.key_management_api import KeyManagementApi
-from datadog_api_client.v2.api.llm_observability_api import LLMObservabilityApi
 from datadog_api_client.v2.api.logs_api import LogsApi
 from datadog_api_client.v2.api.logs_archives_api import LogsArchivesApi
 from datadog_api_client.v2.api.logs_custom_destinations_api import LogsCustomDestinationsApi
@@ -96,6 +98,7 @@ from datadog_api_client.v2.api.rum_config_api import RUMConfigApi
 from datadog_api_client.v2.api.rum_insights_api import RUMInsightsApi
 from datadog_api_client.v2.api.rum_operations_api import RUMOperationsApi
 from datadog_api_client.v2.api.rum_remote_config_api import RUMRemoteConfigApi
+from datadog_api_client.v2.api.rum_retention_quotas_api import RUMRetentionQuotasApi
 from datadog_api_client.v2.api.reference_tables_api import ReferenceTablesApi
 from datadog_api_client.v2.api.report_schedules_api import ReportSchedulesApi
 from datadog_api_client.v2.api.reporting_and_sharing_api import ReportingAndSharingApi
@@ -108,6 +111,7 @@ from datadog_api_client.v2.api.rum_replay_playlists_api import RumReplayPlaylist
 from datadog_api_client.v2.api.rum_replay_sessions_api import RumReplaySessionsApi
 from datadog_api_client.v2.api.rum_replay_viewership_api import RumReplayViewershipApi
 from datadog_api_client.v2.api.rum_retention_filters_api import RumRetentionFiltersApi
+from datadog_api_client.v2.api.rum_teams_ownership_api import RumTeamsOwnershipApi
 from datadog_api_client.v2.api.salesforce_integration_api import SalesforceIntegrationApi
 from datadog_api_client.v2.api.scorecards_api import ScorecardsApi
 from datadog_api_client.v2.api.seats_api import SeatsApi
@@ -128,9 +132,11 @@ from datadog_api_client.v2.api.statuspage_integration_api import StatuspageInteg
 from datadog_api_client.v2.api.stegadography_api import StegadographyApi
 from datadog_api_client.v2.api.storage_management_api import StorageManagementApi
 from datadog_api_client.v2.api.synthetics_api import SyntheticsApi
-from datadog_api_client.v2.api.tag_policies_api import TagPoliciesApi
+from datadog_api_client.v2.api.tag_rules_api import TagRulesApi
 from datadog_api_client.v2.api.teams_api import TeamsApi
 from datadog_api_client.v2.api.test_optimization_api import TestOptimizationApi
+from datadog_api_client.v2.api.threat_intelligence_api import ThreatIntelligenceApi
+from datadog_api_client.v2.api.twilio_integration_accounts_api import TwilioIntegrationAccountsApi
 from datadog_api_client.v2.api.usage_metering_api import UsageMeteringApi
 from datadog_api_client.v2.api.user_authorized_clients_api import UserAuthorizedClientsApi
 from datadog_api_client.v2.api.users_api import UsersApi
@@ -149,6 +155,7 @@ __all__ = [
     "AWSLogsIntegrationApi",
     "ActionConnectionApi",
     "ActionsDatastoresApi",
+    "AgentObservabilityApi",
     "AgentlessScanningApi",
     "AnnotationsApi",
     "AppBuilderApi",
@@ -190,10 +197,12 @@ __all__ = [
     "DeploymentGatesApi",
     "DomainAllowlistApi",
     "DowntimesApi",
+    "ElasticCloudIntegrationAccountsApi",
     "EntityIntegrationConfigsApi",
     "EntityRiskScoresApi",
     "ErrorTrackingApi",
     "EventsApi",
+    "ExecutionPolicyApi",
     "FastlyIntegrationApi",
     "FeatureFlagsApi",
     "FleetAutomationApi",
@@ -208,7 +217,6 @@ __all__ = [
     "IntegrationsApi",
     "JiraIntegrationApi",
     "KeyManagementApi",
-    "LLMObservabilityApi",
     "LogsApi",
     "LogsArchivesApi",
     "LogsCustomDestinationsApi",
@@ -239,6 +247,7 @@ __all__ = [
     "RUMInsightsApi",
     "RUMOperationsApi",
     "RUMRemoteConfigApi",
+    "RUMRetentionQuotasApi",
     "ReferenceTablesApi",
     "ReportSchedulesApi",
     "ReportingAndSharingApi",
@@ -251,6 +260,7 @@ __all__ = [
     "RumReplaySessionsApi",
     "RumReplayViewershipApi",
     "RumRetentionFiltersApi",
+    "RumTeamsOwnershipApi",
     "SalesforceIntegrationApi",
     "ScorecardsApi",
     "SeatsApi",
@@ -271,9 +281,11 @@ __all__ = [
     "StegadographyApi",
     "StorageManagementApi",
     "SyntheticsApi",
-    "TagPoliciesApi",
+    "TagRulesApi",
     "TeamsApi",
     "TestOptimizationApi",
+    "ThreatIntelligenceApi",
+    "TwilioIntegrationAccountsApi",
     "UsageMeteringApi",
     "UserAuthorizedClientsApi",
     "UsersApi",

@@ -152,6 +152,71 @@ class ChannelReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.FunctionReference",
+    jsii_struct_bases=[],
+    name_mapping={"function_arn": "functionArn", "function_id": "functionId"},
+)
+class FunctionReference:
+    def __init__(
+        self,
+        *,
+        function_arn: builtins.str,
+        function_id: builtins.str,
+    ) -> None:
+        '''A reference to a Function resource.
+
+        :param function_arn: The ARN of the Function resource.
+        :param function_id: The FunctionId of the Function resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_mediatailor as interfaces_mediatailor
+            
+            function_reference = interfaces_mediatailor.FunctionReference(
+                function_arn="functionArn",
+                function_id="functionId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c222f9051eee67d8a99cbbc87d50786fd7c5c392f05d1dd2ed48fc8976318815)
+            check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
+            check_type(argname="argument function_id", value=function_id, expected_type=type_hints["function_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_arn": function_arn,
+            "function_id": function_id,
+        }
+
+    @builtins.property
+    def function_arn(self) -> builtins.str:
+        '''The ARN of the Function resource.'''
+        result = self._values.get("function_arn")
+        assert result is not None, "Required property 'function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def function_id(self) -> builtins.str:
+        '''The FunctionId of the Function resource.'''
+        result = self._values.get("function_id")
+        assert result is not None, "Required property 'function_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FunctionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.IChannelPolicyRef")
 class IChannelPolicyRef(
     _constructs_77d1e7e8.IConstruct,
@@ -240,6 +305,51 @@ class _IChannelRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.IFunctionRef")
+class IFunctionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Function.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="functionRef")
+    def function_ref(self) -> "FunctionReference":
+        '''(experimental) A reference to a Function resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFunctionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Function.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_mediatailor.IFunctionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="functionRef")
+    def function_ref(self) -> "FunctionReference":
+        '''(experimental) A reference to a Function resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FunctionReference", jsii.get(self, "functionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFunctionRef).__jsii_proxy_class__ = lambda : _IFunctionRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.ILiveSourceRef")
@@ -332,6 +442,53 @@ class _IPlaybackConfigurationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPlaybackConfigurationRef).__jsii_proxy_class__ = lambda : _IPlaybackConfigurationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.IPrefetchScheduleRef"
+)
+class IPrefetchScheduleRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PrefetchSchedule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="prefetchScheduleRef")
+    def prefetch_schedule_ref(self) -> "PrefetchScheduleReference":
+        '''(experimental) A reference to a PrefetchSchedule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPrefetchScheduleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PrefetchSchedule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_mediatailor.IPrefetchScheduleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="prefetchScheduleRef")
+    def prefetch_schedule_ref(self) -> "PrefetchScheduleReference":
+        '''(experimental) A reference to a PrefetchSchedule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PrefetchScheduleReference", jsii.get(self, "prefetchScheduleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPrefetchScheduleRef).__jsii_proxy_class__ = lambda : _IPrefetchScheduleRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.ISourceLocationRef")
@@ -574,6 +731,55 @@ class PlaybackConfigurationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.PrefetchScheduleReference",
+    jsii_struct_bases=[],
+    name_mapping={"prefetch_schedule_arn": "prefetchScheduleArn"},
+)
+class PrefetchScheduleReference:
+    def __init__(self, *, prefetch_schedule_arn: builtins.str) -> None:
+        '''A reference to a PrefetchSchedule resource.
+
+        :param prefetch_schedule_arn: The Arn of the PrefetchSchedule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_mediatailor as interfaces_mediatailor
+            
+            prefetch_schedule_reference = interfaces_mediatailor.PrefetchScheduleReference(
+                prefetch_schedule_arn="prefetchScheduleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2c6e17eaa1312f76d53042cfc80d90761ff8b3879924f9955510e99211bef0f6)
+            check_type(argname="argument prefetch_schedule_arn", value=prefetch_schedule_arn, expected_type=type_hints["prefetch_schedule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prefetch_schedule_arn": prefetch_schedule_arn,
+        }
+
+    @builtins.property
+    def prefetch_schedule_arn(self) -> builtins.str:
+        '''The Arn of the PrefetchSchedule resource.'''
+        result = self._values.get("prefetch_schedule_arn")
+        assert result is not None, "Required property 'prefetch_schedule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PrefetchScheduleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.SourceLocationReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -725,14 +931,18 @@ class VodSourceReference:
 __all__ = [
     "ChannelPolicyReference",
     "ChannelReference",
+    "FunctionReference",
     "IChannelPolicyRef",
     "IChannelRef",
+    "IFunctionRef",
     "ILiveSourceRef",
     "IPlaybackConfigurationRef",
+    "IPrefetchScheduleRef",
     "ISourceLocationRef",
     "IVodSourceRef",
     "LiveSourceReference",
     "PlaybackConfigurationReference",
+    "PrefetchScheduleReference",
     "SourceLocationReference",
     "VodSourceReference",
 ]
@@ -754,6 +964,14 @@ def _typecheckingstub__086dd4896fac32f634b3a32200eb3a76698c4796f218c2131a16e3881
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c222f9051eee67d8a99cbbc87d50786fd7c5c392f05d1dd2ed48fc8976318815(
+    *,
+    function_arn: builtins.str,
+    function_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a564cf5f5dcac0d7efa00a183776f0f63bb3a946621e96d6ec491e8c4d2136bd(
     *,
     live_source_arn: builtins.str,
@@ -767,6 +985,13 @@ def _typecheckingstub__bf613545aa68f893fc0bd727d1eeee7017a21e18e95230dc9096d2f25
     *,
     playback_configuration_arn: builtins.str,
     playback_configuration_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c6e17eaa1312f76d53042cfc80d90761ff8b3879924f9955510e99211bef0f6(
+    *,
+    prefetch_schedule_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -788,5 +1013,5 @@ def _typecheckingstub__c6a76b4e25fe3c65837b46020060418da7098205d91980c8a0d216866
     """Type checking stubs"""
     pass
 
-for cls in [IChannelPolicyRef, IChannelRef, ILiveSourceRef, IPlaybackConfigurationRef, ISourceLocationRef, IVodSourceRef]:
+for cls in [IChannelPolicyRef, IChannelRef, IFunctionRef, ILiveSourceRef, IPlaybackConfigurationRef, IPrefetchScheduleRef, ISourceLocationRef, IVodSourceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

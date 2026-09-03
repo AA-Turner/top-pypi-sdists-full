@@ -778,6 +778,11 @@ class Backend:
     Maximum time for a request to be left pending in queue when `max_connections` is reached.
     """
 
+    host: Optional[str] = None
+    """
+    When connecting to backend servers, use this value as the HTTP Host header or TLS SNI. This allows routing to specific services on the backend server that are configured to respond to particular hostnames.
+    """
+
 
 @dataclass
 class Certificate:
@@ -869,7 +874,7 @@ class AclMatch:
 
     ips_edge_services: bool
     """
-    Defines whether Edge Services IPs should be matched.
+    Defines whether Edge Services IPs should be matched. If set to `true`, restricts all connections except for Edge Services.
     """
 
     http_filter: AclHttpFilter
@@ -1439,6 +1444,11 @@ class CreateBackendRequest:
     timeout_queue: Optional[str] = None
     """
     Maximum time for a request to be left pending in queue when `max_connections` is reached.
+    """
+
+    host: Optional[str] = None
+    """
+    When connecting to backend servers, use this value as the HTTP Host header or TLS SNI. This allows routing to specific services on the backend server that are configured to respond to particular hostnames.
     """
 
 
@@ -2307,6 +2317,11 @@ class ListLbsRequest:
     Filter by tag, only Load Balancers with one or more matching tags will be returned.
     """
 
+    lb_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    Filter by lb_ids, only Load Balancers with these IDs will be returned.
+    """
+
 
 @dataclass
 class ListLbsResponse:
@@ -2673,6 +2688,11 @@ class UpdateBackendRequest:
     timeout_queue: Optional[str] = None
     """
     Maximum time for a request to be left pending in queue when `max_connections` is reached.
+    """
+
+    host: Optional[str] = None
+    """
+    When connecting to backend servers, use this value as the HTTP Host header or TLS SNI. This allows routing to specific services on the backend server that are configured to respond to particular hostnames.
     """
 
 
@@ -3123,6 +3143,11 @@ class ZonedApiCreateBackendRequest:
     timeout_queue: Optional[str] = None
     """
     Maximum time for a request to be left pending in queue when `max_connections` is reached.
+    """
+
+    host: Optional[str] = None
+    """
+    When connecting to backend servers, use this value as the HTTP Host header or TLS SNI. This allows routing to specific services on the backend server that are configured to respond to particular hostnames.
     """
 
 
@@ -3879,6 +3904,11 @@ class ZonedApiListLbsRequest:
     Filter by tag, only Load Balancers with one or more matching tags will be returned.
     """
 
+    lb_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    Filter by lb_ids, only Load Balancers with these IDs will be returned.
+    """
+
 
 @dataclass
 class ZonedApiListRoutesRequest:
@@ -4211,6 +4241,11 @@ class ZonedApiUpdateBackendRequest:
     timeout_queue: Optional[str] = None
     """
     Maximum time for a request to be left pending in queue when `max_connections` is reached.
+    """
+
+    host: Optional[str] = None
+    """
+    When connecting to backend servers, use this value as the HTTP Host header or TLS SNI. This allows routing to specific services on the backend server that are configured to respond to particular hostnames.
     """
 
 

@@ -36,9 +36,9 @@ class IncidentTriggerWrapper(ModelNormal):
         self_, incident_trigger: IncidentTrigger, start_step_names: Union[List[str], UnsetType] = unset, **kwargs
     ):
         """
-        Schema for an Incident-based trigger.
+        Schema for an incident-based trigger.
 
-        :param incident_trigger: Trigger a workflow from an Incident. For automatic triggering a handle must be configured and the workflow must be published.
+        :param incident_trigger: Trigger a workflow from an incident. For automatic triggering a handle must be configured and the workflow must be published.
         :type incident_trigger: IncidentTrigger
 
         :param start_step_names: Names of existing workflow steps that run first after a trigger fires.

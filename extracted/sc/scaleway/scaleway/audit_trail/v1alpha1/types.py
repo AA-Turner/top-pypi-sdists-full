@@ -76,6 +76,28 @@ class AuthenticationEventResult(str, Enum, metaclass=StrEnumMeta):
         return str(self.value)
 
 
+class CustomAlertRuleSeverity(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_SEVERITY = "unknown_severity"
+    INFO = "info"
+    ERROR = "error"
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class CustomAlertRuleStatus(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_STATUS = "unknown_status"
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    ENABLING = "enabling"
+    DISABLING = "disabling"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class ExportJobStatusCode(str, Enum, metaclass=StrEnumMeta):
     UNKNOWN_CODE = "unknown_code"
     SUCCESS = "success"
@@ -182,8 +204,10 @@ class ResourceType(str, Enum, metaclass=StrEnumMeta):
     VPC_ROUTE = "vpc_route"
     VPC_ACL = "vpc_acl"
     VPC_CONNECTOR = "vpc_connector"
+    VPC_INGRESS_RULE = "vpc_ingress_rule"
     EDGE_SERVICES_PLAN = "edge_services_plan"
     EDGE_SERVICES_PIPELINE = "edge_services_pipeline"
+    EDGE_SERVICES_VPC_ENDPOINT = "edge_services_vpc_endpoint"
     EDGE_SERVICES_DNS_STAGE = "edge_services_dns_stage"
     EDGE_SERVICES_TLS_STAGE = "edge_services_tls_stage"
     EDGE_SERVICES_CACHE_STAGE = "edge_services_cache_stage"
@@ -211,8 +235,54 @@ class ResourceType(str, Enum, metaclass=StrEnumMeta):
     MONGODB_INSTANCE = "mongodb_instance"
     MONGODB_INSTANCE_SNAPSHOT = "mongodb_instance_snapshot"
     MONGODB_INSTANCE_ENDPOINT = "mongodb_instance_endpoint"
+    MONGODB_INSTANCE_MAINTENANCE = "mongodb_instance_maintenance"
     APPLE_SILICON_RUNNER = "apple_silicon_runner"
     AUDIT_TRAIL_ALERT_RULE = "audit_trail_alert_rule"
+    AUDIT_TRAIL_CUSTOM_ALERT_RULE = "audit_trail_custom_alert_rule"
+    DTWH_DEPLOYMENT = "dtwh_deployment"
+    DTWH_DEPLOYMENT_ENDPOINT = "dtwh_deployment_endpoint"
+    DTWH_DEPLOYMENT_DATABASE = "dtwh_deployment_database"
+    DTWH_DEPLOYMENT_USER = "dtwh_deployment_user"
+    SSDB_DATABASE = "ssdb_database"
+    SSDB_DATABASE_BACKUP = "ssdb_database_backup"
+    OBSERVABILITY_DATASOURCE = "observability_datasource"
+    OBSERVABILITY_TOKEN = "observability_token"
+    OBSERVABILITY_EXPORTER = "observability_exporter"
+    ILI_PARTNER = "ili_partner"
+    ILI_CONNECTION = "ili_connection"
+    ILI_LINK = "ili_link"
+    ILI_ROUTING_POLICY = "ili_routing_policy"
+    AUTOSCALING_GROUP = "autoscaling_group"
+    GAPI_DEDICATED_DEPLOYMENT = "gapi_dedicated_deployment"
+    GAPI_DEDICATED_MODEL = "gapi_dedicated_model"
+    SERVERLESS_CONTAINERS_NAMESPACE = "serverless_containers_namespace"
+    SERVERLESS_CONTAINERS_CONTAINER = "serverless_containers_container"
+    SERVERLESS_CONTAINERS_DOMAIN = "serverless_containers_domain"
+    SERVERLESS_CONTAINERS_TRIGGER = "serverless_containers_trigger"
+    SERVERLESS_FUNCTIONS_NAMESPACE = "serverless_functions_namespace"
+    SERVERLESS_FUNCTIONS_FUNCTION = "serverless_functions_function"
+    SERVERLESS_FUNCTIONS_DOMAIN = "serverless_functions_domain"
+    SERVERLESS_FUNCTIONS_CRON = "serverless_functions_cron"
+    SERVERLESS_FUNCTIONS_TRIGGER = "serverless_functions_trigger"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class ServerlessContainersTriggerInfoSourceType(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_SOURCE_TYPE = "unknown_source_type"
+    CRON = "cron"
+    SQS = "sqs"
+    NATS = "nats"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class ServerlessFunctionsTriggerInfoInputType(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_INPUT_TYPE = "unknown_input_type"
+    SCW_SQS = "scw_sqs"
+    SCW_NATS = "scw_nats"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -279,6 +349,11 @@ class AuditTrailAlertRuleInfo:
 
 
 @dataclass
+class AuditTrailCustomAlertRuleInfo:
+    pass
+
+
+@dataclass
 class AuditTrailExportJobInfo:
     pass
 
@@ -332,6 +407,11 @@ class EdgeServicesRouteStageInfo:
 @dataclass
 class EdgeServicesTLSStageInfo:
     pipeline_id: Optional[str] = None
+
+
+@dataclass
+class EdgeServicesVPCEndpointInfo:
+    private_network_id: str
 
 
 @dataclass
@@ -424,6 +504,16 @@ class LoadBalancerRouteInfo:
 
 
 @dataclass
+class ObservabilityAlertRuleInfo:
+    rule_ids: list[str]
+
+
+@dataclass
+class ObservabilityContactPointInfo:
+    email: str
+
+
+@dataclass
 class SecretManagerSecretInfo:
     path: str
     key_id: Optional[str] = None
@@ -432,6 +522,53 @@ class SecretManagerSecretInfo:
 @dataclass
 class SecretManagerSecretVersionInfo:
     revision: int
+
+
+@dataclass
+class ServerlessContainersContainerInfo:
+    namespace_id: str
+
+
+@dataclass
+class ServerlessContainersDomainInfo:
+    container_id: str
+
+
+@dataclass
+class ServerlessContainersNamespaceInfo:
+    pass
+
+
+@dataclass
+class ServerlessContainersTriggerInfo:
+    container_id: str
+    source_type: ServerlessContainersTriggerInfoSourceType
+
+
+@dataclass
+class ServerlessFunctionsCronInfo:
+    function_id: str
+
+
+@dataclass
+class ServerlessFunctionsDomainInfo:
+    function_id: str
+
+
+@dataclass
+class ServerlessFunctionsFunctionInfo:
+    namespace_id: str
+
+
+@dataclass
+class ServerlessFunctionsNamespaceInfo:
+    pass
+
+
+@dataclass
+class ServerlessFunctionsTriggerInfo:
+    function_id: str
+    input_type: ServerlessFunctionsTriggerInfoInputType
 
 
 @dataclass
@@ -452,6 +589,14 @@ class VpcGwGatewayNetworkInfo:
     gateway_id: str
     pn_id: str
     address: Optional[str] = None
+
+
+@dataclass
+class VpcIngressRuleInfo:
+    vpc_id: str
+    source: str
+    nexthop_private_network_id: str
+    nexthop_resource_ip: str
 
 
 @dataclass
@@ -482,6 +627,7 @@ class Resource:
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
     name: Optional[str] = None
+    action: Optional[str] = None
     secm_secret_info: Optional[SecretManagerSecretInfo] = None
 
     secm_secret_version_info: Optional[SecretManagerSecretVersionInfo] = None
@@ -573,6 +719,40 @@ class Resource:
     instance_private_network_interface_info: Optional[
         InstancePrivateNetworkInterfaceInfo
     ] = None
+
+    vpc_ingress_rule_info: Optional[VpcIngressRuleInfo] = None
+
+    observability_contact_point_info: Optional[ObservabilityContactPointInfo] = None
+
+    observability_alert_rule_info: Optional[ObservabilityAlertRuleInfo] = None
+
+    edge_services_vpc_endpoint_info: Optional[EdgeServicesVPCEndpointInfo] = None
+
+    audit_trail_custom_alert_rule_info: Optional[AuditTrailCustomAlertRuleInfo] = None
+
+    serverless_containers_namespace_info: Optional[
+        ServerlessContainersNamespaceInfo
+    ] = None
+
+    serverless_containers_container_info: Optional[
+        ServerlessContainersContainerInfo
+    ] = None
+
+    serverless_containers_domain_info: Optional[ServerlessContainersDomainInfo] = None
+
+    serverless_containers_trigger_info: Optional[ServerlessContainersTriggerInfo] = None
+
+    serverless_functions_namespace_info: Optional[ServerlessFunctionsNamespaceInfo] = (
+        None
+    )
+
+    serverless_functions_function_info: Optional[ServerlessFunctionsFunctionInfo] = None
+
+    serverless_functions_domain_info: Optional[ServerlessFunctionsDomainInfo] = None
+
+    serverless_functions_cron_info: Optional[ServerlessFunctionsCronInfo] = None
+
+    serverless_functions_trigger_info: Optional[ServerlessFunctionsTriggerInfo] = None
 
 
 @dataclass
@@ -823,6 +1003,59 @@ class AlertRule:
 
 
 @dataclass
+class CustomAlertRule:
+    id: str
+    """
+    ID of the alert rule.
+    """
+
+    name: str
+    """
+    Name of the alert rule.
+    """
+
+    status: CustomAlertRuleStatus
+    """
+    Current status of the alert rule.
+    """
+
+    query: str
+    """
+    The Common Expression Language (CEL) string defining the logic for the alert rule.
+    """
+
+    occurrences: int
+    """
+    The minimum number of matched occurrences required within the evaluation window to trigger the alert.
+    """
+
+    severity: CustomAlertRuleSeverity
+    """
+    The severity level assigned to the custom alert rule.
+    """
+
+    description: Optional[str] = None
+    """
+    (Optional) Description of the alert rule.
+    """
+
+    evaluation_window: Optional[str] = None
+    """
+    The duration of time over which to evaluate the rule (how far back to look for matching events).
+    """
+
+    created_at: Optional[datetime] = None
+    """
+    Custom alert rule creation date.
+    """
+
+    updated_at: Optional[datetime] = None
+    """
+    Custom alert rule last modification date.
+    """
+
+
+@dataclass
 class ListCombinedEventsResponseCombinedEvent:
     api: Optional[Event] = None
 
@@ -890,6 +1123,51 @@ class Product:
 
 
 @dataclass
+class CreateCustomAlertRuleRequest:
+    name: str
+    """
+    Name of the custom alert rule.
+    """
+
+    query: str
+    """
+    The Common Expression Language (CEL) string defining the logic for the alert rule.
+    """
+
+    occurrences: int
+    """
+    The minimum number of matched occurrences required within the evaluation window to trigger the alert.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    organization_id: Optional[str] = None
+    """
+    ID of the Organization to target.
+    """
+
+    description: Optional[str] = None
+    """
+    (Optional) Description of the custom alert rule.
+    """
+
+    evaluation_window: Optional[str] = None
+    """
+    The duration of time over which to evaluate the rule (how far back to look for matching events).
+    """
+
+    severity: Optional[CustomAlertRuleSeverity] = (
+        CustomAlertRuleSeverity.UNKNOWN_SEVERITY
+    )
+    """
+    (Optional) The severity level assigned to the custom alert rule. By default, the severity will be set to info.
+    """
+
+
+@dataclass
 class CreateExportJobRequest:
     name: str
     """
@@ -912,6 +1190,19 @@ class CreateExportJobRequest:
     """
 
     s3: Optional[ExportJobS3] = None
+
+
+@dataclass
+class DeleteCustomAlertRuleRequest:
+    custom_alert_rule_id: str
+    """
+    ID of the custom alert rule to delete.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
 
 
 @dataclass
@@ -949,7 +1240,33 @@ class DisableAlertRulesRequest:
 class DisableAlertRulesResponse:
     alert_rules: list[AlertRule]
     """
-    List of the rules that were disabled.
+    List of the preconfigured rules that were disabled.
+    """
+
+
+@dataclass
+class DisableCustomAlertRulesRequest:
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    organization_id: Optional[str] = None
+    """
+    ID of the Organization to target.
+    """
+
+    custom_alert_rule_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    List of IDs of the custom rules to disable.
+    """
+
+
+@dataclass
+class DisableCustomAlertRulesResponse:
+    custom_alert_rules: list[CustomAlertRule]
+    """
+    List of the custom rules that were disabled.
     """
 
 
@@ -975,8 +1292,50 @@ class EnableAlertRulesRequest:
 class EnableAlertRulesResponse:
     alert_rules: list[AlertRule]
     """
-    List of the rules that were enabled.
+    List of the preconfigured rules that were enabled.
     """
+
+
+@dataclass
+class EnableCustomAlertRulesRequest:
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    organization_id: Optional[str] = None
+    """
+    ID of the Organization to target.
+    """
+
+    custom_alert_rule_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    List of IDs of the custom rules to enable.
+    """
+
+
+@dataclass
+class EnableCustomAlertRulesResponse:
+    custom_alert_rules: list[CustomAlertRule]
+    """
+    List of the custom rules that were enabled.
+    """
+
+
+@dataclass
+class EventsOverview:
+    last_events: list[Event]
+
+
+@dataclass
+class GetLastEventsOverviewRequest:
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    organization_id: Optional[str] = None
+    project_id: Optional[str] = None
 
 
 @dataclass
@@ -1004,7 +1363,7 @@ class ListAlertRulesRequest:
 class ListAlertRulesResponse:
     alert_rules: list[AlertRule]
     """
-    Single page of alert rules matching the requested criteria.
+    Single page of preconfigured alert rules matching the requested criteria.
     """
 
     total_count: int
@@ -1055,6 +1414,40 @@ class ListCombinedEventsRequest:
 class ListCombinedEventsResponse:
     events: list[ListCombinedEventsResponseCombinedEvent]
     next_page_token: Optional[str] = None
+
+
+@dataclass
+class ListCustomAlertRulesRequest:
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    organization_id: Optional[str] = None
+    """
+    ID of the Organization to target.
+    """
+
+    status: Optional[CustomAlertRuleStatus] = CustomAlertRuleStatus.UNKNOWN_STATUS
+    """
+    (Optional) Status of the custom alert rule.
+    """
+
+    page: Optional[int] = 0
+    page_size: Optional[int] = 0
+
+
+@dataclass
+class ListCustomAlertRulesResponse:
+    custom_alert_rules: list[CustomAlertRule]
+    """
+    Single page of custom alert rules matching the requested criteria.
+    """
+
+    total_count: int
+    """
+    Total count of custom alert rules matching the requested criteria.
+    """
 
 
 @dataclass
@@ -1275,5 +1668,54 @@ class SetEnabledAlertRulesRequest:
 class SetEnabledAlertRulesResponse:
     alert_rules: list[AlertRule]
     """
-    List of the rules that were enabled.
+    List of the preconfigured rules that were enabled.
+    """
+
+
+@dataclass
+class SetEnabledCustomAlertRulesRequest:
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    organization_id: Optional[str] = None
+    """
+    ID of the Organization to target.
+    """
+
+    enabled_custom_alert_rule_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    List of IDs of the custom rules that must be enabled after the update.
+    """
+
+
+@dataclass
+class SetEnabledCustomAlertRulesResponse:
+    custom_alert_rules: list[CustomAlertRule]
+    """
+    List of the custom rules that were enabled.
+    """
+
+
+@dataclass
+class UpdateCustomAlertRuleRequest:
+    custom_alert_rule_id: str
+    """
+    ID of the custom alert rule to update.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    name: Optional[str] = None
+    """
+    (Optional) New name for the custom alert rule.
+    """
+
+    description: Optional[str] = None
+    """
+    (Optional) New description for the custom alert rule.
     """

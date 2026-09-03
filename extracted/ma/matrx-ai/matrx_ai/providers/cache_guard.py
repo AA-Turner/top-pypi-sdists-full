@@ -63,6 +63,16 @@ CACHE_GUARD_ENABLED = True
 # call in a loop. Anthropic only when we're actually sending breakpoints.
 _AUTO_CACHE_PROVIDERS = {"openai"}
 
+# OpenAI Responses rejects prompt_cache_key values longer than 64 characters.
+# Keep the human-recognizable namespace while leaving the remaining bytes to a
+# collision-resistant digest.  This is a wire-contract limit, not a tuning
+# knob.
+OPENAI_PROMPT_CACHE_KEY_MAX_CHARS = 64
+_PROMPT_CACHE_KEY_PREFIX = "matrx_"
+_PROMPT_CACHE_KEY_DIGEST_CHARS = (
+    OPENAI_PROMPT_CACHE_KEY_MAX_CHARS - len(_PROMPT_CACHE_KEY_PREFIX)
+)
+
 
 def _expected_cache_providers() -> set[str]:
     providers = set(_AUTO_CACHE_PROVIDERS)
@@ -142,6 +152,31 @@ def _loop_key(provider: str, conversation_id: str | None, request_id: str | None
     request_scope = request_id or "unknown-request"
     conversation_scope = conversation_id or "unknown-conversation"
     return f"{provider}:{request_scope}:{conversation_scope}"
+
+
+def provider_prompt_cache_key(
+    conversation_id: str | None, request_id: str | None
+) -> str | None:
+    """Return a stable, opaque cache-routing key for one provider/tool loop."""
+    if not conversation_id and not request_id:
+        return None
+    loop_identity = f"{request_id or 'unknown-request'}:{conversation_id or 'unknown-conversation'}"
+    digest = hashlib.sha256(loop_identity.encode()).hexdigest()
+    return _PROMPT_CACHE_KEY_PREFIX + digest[:_PROMPT_CACHE_KEY_DIGEST_CHARS]
+
+
+def normalize_openai_prompt_cache_key(value: str) -> str:
+    """Enforce OpenAI's cache-key wire contract for every request source.
+
+    The orchestrator normally supplies an already-bounded opaque key, but
+    ``UnifiedConfig`` is public and other callers may set one directly. Hashing
+    an oversized value preserves stable cache routing without leaking it or
+    creating collisions through plain truncation.
+    """
+    if len(value) <= OPENAI_PROMPT_CACHE_KEY_MAX_CHARS:
+        return value
+    digest = hashlib.sha256(value.encode()).hexdigest()
+    return _PROMPT_CACHE_KEY_PREFIX + digest[:_PROMPT_CACHE_KEY_DIGEST_CHARS]
 
 
 def _get_or_create(key: str, provider: str, model: str) -> _LoopCacheState:

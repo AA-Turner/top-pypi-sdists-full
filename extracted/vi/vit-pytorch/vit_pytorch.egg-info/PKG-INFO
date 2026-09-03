@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vit-pytorch
-Version: 1.26.2
+Version: 1.26.4
 Summary: Vision Transformer (ViT) - Pytorch
 Author-email: Phil Wang <lucidrains@gmail.com>
 License: MIT License
@@ -2537,6 +2537,18 @@ Coming from computer vision and new to transformers? Here are some resources tha
     archivePrefix = {arXiv},
     primaryClass = {cs.CV},
     url     = {https://arxiv.org/abs/2608.27395},
+}
+```
+
+```bibtex
+@misc{richemond2020byolworks,
+    title   = {BYOL works even without batch statistics},
+    author  = {Pierre H. Richemond and Jean-Bastien Grill and Florent Altché and Corentin Tallec and Florian Strub and Andrew Brock and Samuel Smith and Soham De and Razvan Pascanu and Bilal Piot and Michal Valko},
+    year    = {2020},
+    eprint  = {2010.10241},
+    archivePrefix = {arXiv},
+    primaryClass = {stat.ML},
+    url     = {https://arxiv.org/abs/2010.10241},
 }
 ```
 

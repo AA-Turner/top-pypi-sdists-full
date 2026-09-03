@@ -1786,16 +1786,16 @@ class CapacityMode(enum.Enum):
     '''Autoscaled.'''
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_dynamodb_948f46d7.IExportRef)
-class CfnExport(
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_dynamodb_948f46d7.IBackupRef)
+class CfnBackup(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_dynamodb.CfnExport",
+    jsii_type="aws-cdk-lib.aws_dynamodb.CfnBackup",
 ):
-    '''Represents a completed or in-progress DynamoDB table export to S3.
+    '''Creates an on-demand backup of a DynamoDB table.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html
-    :cloudformationResource: AWS::DynamoDB::Export
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-backup.html
+    :cloudformationResource: AWS::DynamoDB::Backup
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -1804,16 +1804,9 @@ class CfnExport(
         # The values are placeholders you should change.
         from aws_cdk import aws_dynamodb as dynamodb
         
-        cfn_export = dynamodb.CfnExport(self, "MyCfnExport",
-            s3_bucket="s3Bucket",
-            table_arn="tableArn",
-        
-            # the properties below are optional
-            export_format="exportFormat",
-            export_type="exportType",
-            s3_bucket_owner="s3BucketOwner",
-            s3_prefix="s3Prefix",
-            s3_sse_algorithm="s3SseAlgorithm"
+        cfn_backup = dynamodb.CfnBackup(self, "MyCfnBackup",
+            backup_name="backupName",
+            table_name="tableName"
         )
     '''
 
@@ -1822,67 +1815,49 @@ class CfnExport(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        s3_bucket: builtins.str,
-        table_arn: builtins.str,
-        export_format: typing.Optional[builtins.str] = None,
-        export_type: typing.Optional[builtins.str] = None,
-        s3_bucket_owner: typing.Optional[builtins.str] = None,
-        s3_prefix: typing.Optional[builtins.str] = None,
-        s3_sse_algorithm: typing.Optional[builtins.str] = None,
+        backup_name: builtins.str,
+        table_name: builtins.str,
     ) -> None:
-        '''Create a new ``AWS::DynamoDB::Export``.
+        '''Create a new ``AWS::DynamoDB::Backup``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param s3_bucket: The name of the Amazon S3 bucket containing the export.
-        :param table_arn: The Amazon Resource Name (ARN) of the table that was exported.
-        :param export_format: The format of the exported data.
-        :param export_type: The type of export that was performed.
-        :param s3_bucket_owner: The ID of the Amazon Web Services account that owns the bucket containing the export.
-        :param s3_prefix: The Amazon S3 bucket prefix used as the file name and path of the exported snapshot.
-        :param s3_sse_algorithm: Type of encryption used on the bucket where export data is stored.
+        :param backup_name: The name for the backup.
+        :param table_name: The name of the table to back up.
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e655098cead4744684d09f3ffc17706150f82bd75c3599498bd69c6b8175e0a4)
+            type_hints = cached_type_hints(_typecheckingstub__293688f2435f852ea975e7818aa1a8371789502883e966f44b3c1575874650b8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnExportProps(
-            s3_bucket=s3_bucket,
-            table_arn=table_arn,
-            export_format=export_format,
-            export_type=export_type,
-            s3_bucket_owner=s3_bucket_owner,
-            s3_prefix=s3_prefix,
-            s3_sse_algorithm=s3_sse_algorithm,
-        )
+        props = CfnBackupProps(backup_name=backup_name, table_name=table_name)
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForExport")
+    @jsii.member(jsii_name="arnForBackup")
     @builtins.classmethod
-    def arn_for_export(
+    def arn_for_backup(
         cls,
-        resource: "_aws_dynamodb_948f46d7.IExportRef",
+        resource: "_aws_dynamodb_948f46d7.IBackupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__b030e222f9e3c6689b527e4213b738be098c18d2c50d28b46eddf671b61cc3d6)
+            type_hints = cached_type_hints(_typecheckingstub__63997dc78a443a8a8cbd8b8a49428cdbfe40a088da1a097d220b0c64974277db)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForExport", [resource]))
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBackup", [resource]))
 
-    @jsii.member(jsii_name="isCfnExport")
+    @jsii.member(jsii_name="isCfnBackup")
     @builtins.classmethod
-    def is_cfn_export(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnExport.
+    def is_cfn_backup(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBackup.
 
         :param x: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__441a04f4df6cfe37d52d7e98be19ef4fbd36732669c89aa71681a4e4ba1a4480)
+            type_hints = cached_type_hints(_typecheckingstub__2f677df4d050c92922043a44711cab73db3eecde816c77805174c22abaa93a87)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnExport", [x]))
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackup", [x]))
 
     @jsii.member(jsii_name="inspect")
     def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
@@ -1891,7 +1866,7 @@ class CfnExport(
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a1b7b63361eb3fda92b30de3d2d2ec43703116c58e89d8af4e307ca6b9e3dcb6)
+            type_hints = cached_type_hints(_typecheckingstub__5ea169a085bb009816d8e737f2fc73d11cdca793b84552cbe8e80c6986fe75b7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1904,7 +1879,7 @@ class CfnExport(
         :param props: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__57f9516a22bfc26ff9d7db9d5c93df41f1889314ee2f95f67e93f577f66a5518)
+            type_hints = cached_type_hints(_typecheckingstub__4ada2e447a88d9faae4723bf9cdbc3a194192c23c498f7dded71920e7985ac96)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1915,103 +1890,64 @@ class CfnExport(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrBilledSizeBytes")
-    def attr_billed_size_bytes(self) -> jsii.Number:
-        '''The billable size of the table export.
+    @jsii.member(jsii_name="attrBackupArn")
+    def attr_backup_arn(self) -> builtins.str:
+        '''The ARN associated with the backup.
 
-        :cloudformationAttribute: BilledSizeBytes
+        :cloudformationAttribute: BackupArn
         '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrBilledSizeBytes"))
+        return typing.cast(builtins.str, jsii.get(self, "attrBackupArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrEndTime")
-    def attr_end_time(self) -> builtins.str:
-        '''The time at which the export task completed, in ISO 8601 format.
+    @jsii.member(jsii_name="attrBackupCreationDateTime")
+    def attr_backup_creation_date_time(self) -> builtins.str:
+        '''The time at which the backup was created.
 
-        :cloudformationAttribute: EndTime
+        :cloudformationAttribute: BackupCreationDateTime
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEndTime"))
+        return typing.cast(builtins.str, jsii.get(self, "attrBackupCreationDateTime"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrExportArn")
-    def attr_export_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the export.
+    @jsii.member(jsii_name="attrBackupId")
+    def attr_backup_id(self) -> builtins.str:
+        '''The identifier portion of the backup ARN (server-generated).
 
-        :cloudformationAttribute: ExportArn
+        :cloudformationAttribute: BackupId
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrExportArn"))
+        return typing.cast(builtins.str, jsii.get(self, "attrBackupId"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrExportId")
-    def attr_export_id(self) -> builtins.str:
-        '''The unique identifier of the export.
+    @jsii.member(jsii_name="attrBackupSizeBytes")
+    def attr_backup_size_bytes(self) -> jsii.Number:
+        '''The size of the backup in bytes.
 
-        :cloudformationAttribute: ExportId
+        :cloudformationAttribute: BackupSizeBytes
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrExportId"))
+        return typing.cast(jsii.Number, jsii.get(self, "attrBackupSizeBytes"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrExportManifest")
-    def attr_export_manifest(self) -> builtins.str:
-        '''The name of the manifest file for the export task.
+    @jsii.member(jsii_name="attrBackupStatus")
+    def attr_backup_status(self) -> builtins.str:
+        '''The current state of the backup.
 
-        :cloudformationAttribute: ExportManifest
+        :cloudformationAttribute: BackupStatus
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrExportManifest"))
+        return typing.cast(builtins.str, jsii.get(self, "attrBackupStatus"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrExportStatus")
-    def attr_export_status(self) -> builtins.str:
-        '''Export can be in one of the following states: IN_PROGRESS, COMPLETED, or FAILED.
+    @jsii.member(jsii_name="attrBackupType")
+    def attr_backup_type(self) -> builtins.str:
+        '''The type of backup (USER, SYSTEM, or AWS_BACKUP).
 
-        :cloudformationAttribute: ExportStatus
+        :cloudformationAttribute: BackupType
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrExportStatus"))
+        return typing.cast(builtins.str, jsii.get(self, "attrBackupType"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrExportTime")
-    def attr_export_time(self) -> builtins.str:
-        '''Point in time from which table data was exported, in ISO 8601 format.
-
-        :cloudformationAttribute: ExportTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrExportTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrItemCount")
-    def attr_item_count(self) -> jsii.Number:
-        '''The number of items exported.
-
-        :cloudformationAttribute: ItemCount
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrItemCount"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStartTime")
-    def attr_start_time(self) -> builtins.str:
-        '''The time at which the export task began, in ISO 8601 format.
-
-        :cloudformationAttribute: StartTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTableId")
-    def attr_table_id(self) -> builtins.str:
-        '''Unique ID of the table that was exported.
-
-        :cloudformationAttribute: TableId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTableId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTableName")
-    def attr_table_name(self) -> builtins.str:
-        '''The name of the table that was exported.
-
-        :cloudformationAttribute: TableName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTableName"))
+    @jsii.member(jsii_name="backupRef")
+    def backup_ref(self) -> "_aws_dynamodb_948f46d7.BackupReference":
+        '''A reference to a Backup resource.'''
+        return typing.cast("_aws_dynamodb_948f46d7.BackupReference", jsii.get(self, "backupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2024,139 +1960,45 @@ class CfnExport(
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
-    @jsii.member(jsii_name="exportRef")
-    def export_ref(self) -> "_aws_dynamodb_948f46d7.ExportReference":
-        '''A reference to a Export resource.'''
-        return typing.cast("_aws_dynamodb_948f46d7.ExportReference", jsii.get(self, "exportRef"))
+    @jsii.member(jsii_name="backupName")
+    def backup_name(self) -> builtins.str:
+        '''The name for the backup.'''
+        return typing.cast(builtins.str, jsii.get(self, "backupName"))
+
+    @backup_name.setter
+    def backup_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cfe49689ac343403186d433f668a68c97e182979fec6b0287614e0fb9694538a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "backupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="s3Bucket")
-    def s3_bucket(self) -> builtins.str:
-        '''The name of the Amazon S3 bucket containing the export.'''
-        return typing.cast(builtins.str, jsii.get(self, "s3Bucket"))
+    @jsii.member(jsii_name="tableName")
+    def table_name(self) -> builtins.str:
+        '''The name of the table to back up.'''
+        return typing.cast(builtins.str, jsii.get(self, "tableName"))
 
-    @s3_bucket.setter
-    def s3_bucket(self, value: builtins.str) -> None:
+    @table_name.setter
+    def table_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__711e8f1932d1af472d3f3e5cfa43843b2377a682839324268bf4401e27cf1089)
+            type_hints = cached_type_hints(_typecheckingstub__333d31b3f1ea816baec75f5b82b6c90b040987d214be1845e187196833809c51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3Bucket", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tableArn")
-    def table_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the table that was exported.'''
-        return typing.cast(builtins.str, jsii.get(self, "tableArn"))
-
-    @table_arn.setter
-    def table_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__94732d495f2c0ebc13fb57c4609c477190a19a569d86aa6e0c7f8668c529334a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="exportFormat")
-    def export_format(self) -> typing.Optional[builtins.str]:
-        '''The format of the exported data.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "exportFormat"))
-
-    @export_format.setter
-    def export_format(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__14a6f417525d6f43de653ac6e5105b564a601969e8e9e749a43a2ef8f07ca401)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "exportFormat", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="exportType")
-    def export_type(self) -> typing.Optional[builtins.str]:
-        '''The type of export that was performed.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "exportType"))
-
-    @export_type.setter
-    def export_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__4666facb93f8d8185a3af0ae8bce30aec39bc9a395a6bbb8c9a4f1d0ac53a818)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "exportType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="s3BucketOwner")
-    def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''The ID of the Amazon Web Services account that owns the bucket containing the export.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3BucketOwner"))
-
-    @s3_bucket_owner.setter
-    def s3_bucket_owner(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__b1edc3505bd0781e3b3c0798e7782db892e9a7bfef126b6911f102f1fee0d1a0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3BucketOwner", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="s3Prefix")
-    def s3_prefix(self) -> typing.Optional[builtins.str]:
-        '''The Amazon S3 bucket prefix used as the file name and path of the exported snapshot.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3Prefix"))
-
-    @s3_prefix.setter
-    def s3_prefix(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a68fdffb1b5a7f622003397c17c4f5c12eb5040f26f7d24e6d449002ac8b0b3d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3Prefix", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="s3SseAlgorithm")
-    def s3_sse_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Type of encryption used on the bucket where export data is stored.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3SseAlgorithm"))
-
-    @s3_sse_algorithm.setter
-    def s3_sse_algorithm(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d4b3bc876ff10791ad4050408dfc4bad3bf5c08f10a7fe6f7745de5967134aec)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3SseAlgorithm", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dynamodb.CfnExportProps",
+    jsii_type="aws-cdk-lib.aws_dynamodb.CfnBackupProps",
     jsii_struct_bases=[],
-    name_mapping={
-        "s3_bucket": "s3Bucket",
-        "table_arn": "tableArn",
-        "export_format": "exportFormat",
-        "export_type": "exportType",
-        "s3_bucket_owner": "s3BucketOwner",
-        "s3_prefix": "s3Prefix",
-        "s3_sse_algorithm": "s3SseAlgorithm",
-    },
+    name_mapping={"backup_name": "backupName", "table_name": "tableName"},
 )
-class CfnExportProps:
-    def __init__(
-        self,
-        *,
-        s3_bucket: builtins.str,
-        table_arn: builtins.str,
-        export_format: typing.Optional[builtins.str] = None,
-        export_type: typing.Optional[builtins.str] = None,
-        s3_bucket_owner: typing.Optional[builtins.str] = None,
-        s3_prefix: typing.Optional[builtins.str] = None,
-        s3_sse_algorithm: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnExport``.
+class CfnBackupProps:
+    def __init__(self, *, backup_name: builtins.str, table_name: builtins.str) -> None:
+        '''Properties for defining a ``CfnBackup``.
 
-        :param s3_bucket: The name of the Amazon S3 bucket containing the export.
-        :param table_arn: The Amazon Resource Name (ARN) of the table that was exported.
-        :param export_format: The format of the exported data.
-        :param export_type: The type of export that was performed.
-        :param s3_bucket_owner: The ID of the Amazon Web Services account that owns the bucket containing the export.
-        :param s3_prefix: The Amazon S3 bucket prefix used as the file name and path of the exported snapshot.
-        :param s3_sse_algorithm: Type of encryption used on the bucket where export data is stored.
+        :param backup_name: The name for the backup.
+        :param table_name: The name of the table to back up.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-backup.html
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2165,106 +2007,39 @@ class CfnExportProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_dynamodb as dynamodb
             
-            cfn_export_props = dynamodb.CfnExportProps(
-                s3_bucket="s3Bucket",
-                table_arn="tableArn",
-            
-                # the properties below are optional
-                export_format="exportFormat",
-                export_type="exportType",
-                s3_bucket_owner="s3BucketOwner",
-                s3_prefix="s3Prefix",
-                s3_sse_algorithm="s3SseAlgorithm"
+            cfn_backup_props = dynamodb.CfnBackupProps(
+                backup_name="backupName",
+                table_name="tableName"
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e16dd1347b013646fabb02c49ecb4f710a6a222a89ac2f655ce7bbb714914cd1)
-            check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
-            check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
-            check_type(argname="argument export_format", value=export_format, expected_type=type_hints["export_format"])
-            check_type(argname="argument export_type", value=export_type, expected_type=type_hints["export_type"])
-            check_type(argname="argument s3_bucket_owner", value=s3_bucket_owner, expected_type=type_hints["s3_bucket_owner"])
-            check_type(argname="argument s3_prefix", value=s3_prefix, expected_type=type_hints["s3_prefix"])
-            check_type(argname="argument s3_sse_algorithm", value=s3_sse_algorithm, expected_type=type_hints["s3_sse_algorithm"])
+            type_hints = cached_type_hints(_typecheckingstub__e68839b541f03bf92709fa93fe4db06ff43f22f1f0ba6d659848811cca193b50)
+            check_type(argname="argument backup_name", value=backup_name, expected_type=type_hints["backup_name"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "s3_bucket": s3_bucket,
-            "table_arn": table_arn,
+            "backup_name": backup_name,
+            "table_name": table_name,
         }
-        if export_format is not None:
-            self._values["export_format"] = export_format
-        if export_type is not None:
-            self._values["export_type"] = export_type
-        if s3_bucket_owner is not None:
-            self._values["s3_bucket_owner"] = s3_bucket_owner
-        if s3_prefix is not None:
-            self._values["s3_prefix"] = s3_prefix
-        if s3_sse_algorithm is not None:
-            self._values["s3_sse_algorithm"] = s3_sse_algorithm
 
     @builtins.property
-    def s3_bucket(self) -> builtins.str:
-        '''The name of the Amazon S3 bucket containing the export.
+    def backup_name(self) -> builtins.str:
+        '''The name for the backup.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-s3bucket
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-backup.html#cfn-dynamodb-backup-backupname
         '''
-        result = self._values.get("s3_bucket")
-        assert result is not None, "Required property 's3_bucket' is missing"
+        result = self._values.get("backup_name")
+        assert result is not None, "Required property 'backup_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def table_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the table that was exported.
+    def table_name(self) -> builtins.str:
+        '''The name of the table to back up.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-tablearn
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-backup.html#cfn-dynamodb-backup-tablename
         '''
-        result = self._values.get("table_arn")
-        assert result is not None, "Required property 'table_arn' is missing"
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def export_format(self) -> typing.Optional[builtins.str]:
-        '''The format of the exported data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-exportformat
-        '''
-        result = self._values.get("export_format")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def export_type(self) -> typing.Optional[builtins.str]:
-        '''The type of export that was performed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-exporttype
-        '''
-        result = self._values.get("export_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''The ID of the Amazon Web Services account that owns the bucket containing the export.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-s3bucketowner
-        '''
-        result = self._values.get("s3_bucket_owner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_prefix(self) -> typing.Optional[builtins.str]:
-        '''The Amazon S3 bucket prefix used as the file name and path of the exported snapshot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-s3prefix
-        '''
-        result = self._values.get("s3_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_sse_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Type of encryption used on the bucket where export data is stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-s3ssealgorithm
-        '''
-        result = self._values.get("s3_sse_algorithm")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2273,7 +2048,7 @@ class CfnExportProps:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "CfnExportProps(%s)" % ", ".join(
+        return "CfnBackupProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2345,7 +2120,7 @@ class CfnGlobalTable(
 
     Example::
 
-        from aws_cdk import CfnTag
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dynamodb as dynamodb
@@ -2431,7 +2206,11 @@ class CfnGlobalTable(
                 replica_stream_specification=dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
                     resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
                         policy_document=policy_document
-                    )
+                    ),
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
                 ),
                 resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
                     policy_document=policy_document
@@ -4515,7 +4294,7 @@ class CfnGlobalTable(
 
             Example::
 
-                from aws_cdk import CfnTag
+                from aws_cdk import CfnTag, CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dynamodb as dynamodb
@@ -4600,7 +4379,11 @@ class CfnGlobalTable(
                     replica_stream_specification=dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
                         resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
                             policy_document=policy_document
-                        )
+                        ),
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )]
                     ),
                     resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
                         policy_document=policy_document
@@ -4839,23 +4622,26 @@ class CfnGlobalTable(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty",
         jsii_struct_bases=[],
-        name_mapping={"resource_policy": "resourcePolicy"},
+        name_mapping={"resource_policy": "resourcePolicy", "tags": "tags"},
     )
     class ReplicaStreamSpecificationProperty:
         def __init__(
             self,
             *,
             resource_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents the DynamoDB Streams configuration for a global table replica.
 
             :param resource_policy: A resource-based policy document that contains the permissions for the specified stream of a DynamoDB global table replica. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ . You can update the ``ResourcePolicy`` property if you've specified more than one table using the `AWS ::DynamoDB::GlobalTable <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html>`_ resource.
+            :param tags: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html
             :exampleMetadata: fixture=_generated
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dynamodb as dynamodb
@@ -4865,15 +4651,22 @@ class CfnGlobalTable(
                 replica_stream_specification_property = dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
                     resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
                         policy_document=policy_document
-                    )
+                    ),
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__00848a241dcb74d0918fbddda5f7ccf1c445a7b63583f8697e2d95d334aa1bed)
                 check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if resource_policy is not None:
                 self._values["resource_policy"] = resource_policy
+            if tags is not None:
+                self._values["tags"] = tags
 
         @builtins.property
         def resource_policy(
@@ -4891,6 +4684,14 @@ class CfnGlobalTable(
             '''
             result = self._values.get("resource_policy")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.ResourcePolicyProperty"]], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html#cfn-dynamodb-globaltable-replicastreamspecification-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5590,7 +5391,7 @@ class CfnGlobalTableProps:
 
         Example::
 
-            from aws_cdk import CfnTag
+            from aws_cdk import CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_dynamodb as dynamodb
@@ -5676,7 +5477,11 @@ class CfnGlobalTableProps:
                     replica_stream_specification=dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
                         resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
                             policy_document=policy_document
-                        )
+                        ),
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )]
                     ),
                     resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
                         policy_document=policy_document
@@ -6136,7 +5941,7 @@ class CfnTable(
 
     Example::
 
-        from aws_cdk import CfnTag
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dynamodb as dynamodb
@@ -6257,7 +6062,11 @@ class CfnTable(
                 # the properties below are optional
                 resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
                     policy_document=policy_document
-                )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             ),
             table_class="tableClass",
             table_name="tableName",
@@ -8341,6 +8150,7 @@ class CfnTable(
         name_mapping={
             "stream_view_type": "streamViewType",
             "resource_policy": "resourcePolicy",
+            "tags": "tags",
         },
     )
     class StreamSpecificationProperty:
@@ -8349,17 +8159,20 @@ class CfnTable(
             *,
             stream_view_type: builtins.str,
             resource_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents the DynamoDB Streams configuration for a table in DynamoDB.
 
             :param stream_view_type: When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table. Valid values for ``StreamViewType`` are: - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream. - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream. - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream. - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
             :param resource_policy: Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. .. epigraph:: When you remove the ``StreamSpecification`` property from the template, DynamoDB disables the stream but retains any attached resource policy until the stream is deleted after 24 hours. When you modify the ``StreamViewType`` property, DynamoDB creates a new stream and retains the old stream's resource policy. The old stream and its resource policy are deleted after the 24-hour retention period. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+            :param tags: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html
             :exampleMetadata: fixture=_generated
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dynamodb as dynamodb
@@ -8372,18 +8185,25 @@ class CfnTable(
                     # the properties below are optional
                     resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
                         policy_document=policy_document
-                    )
+                    ),
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__3099d6d2aee077548b7bec617449da8355169637f0983749d3191a63e00a1c72)
                 check_type(argname="argument stream_view_type", value=stream_view_type, expected_type=type_hints["stream_view_type"])
                 check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "stream_view_type": stream_view_type,
             }
             if resource_policy is not None:
                 self._values["resource_policy"] = resource_policy
+            if tags is not None:
+                self._values["tags"] = tags
 
         @builtins.property
         def stream_view_type(self) -> builtins.str:
@@ -8419,6 +8239,14 @@ class CfnTable(
             '''
             result = self._values.get("resource_policy")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.ResourcePolicyProperty"]], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html#cfn-dynamodb-table-streamspecification-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8666,7 +8494,7 @@ class CfnTableProps:
 
         Example::
 
-            from aws_cdk import CfnTag
+            from aws_cdk import CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_dynamodb as dynamodb
@@ -8787,7 +8615,11 @@ class CfnTableProps:
                     # the properties below are optional
                     resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
                         policy_document=policy_document
-                    )
+                    ),
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
                 ),
                 table_class="tableClass",
                 table_name="tableName",
@@ -20090,8 +19922,8 @@ __all__ = [
     "BillingMode",
     "Capacity",
     "CapacityMode",
-    "CfnExport",
-    "CfnExportProps",
+    "CfnBackup",
+    "CfnBackupProps",
     "CfnGlobalTable",
     "CfnGlobalTableProps",
     "CfnTable",
@@ -20173,96 +20005,56 @@ def _typecheckingstub__ac96235cd17326a35c953f2d45a5b2b8c2323302d2f4fad1870f10eb1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e655098cead4744684d09f3ffc17706150f82bd75c3599498bd69c6b8175e0a4(
+def _typecheckingstub__293688f2435f852ea975e7818aa1a8371789502883e966f44b3c1575874650b8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    s3_bucket: builtins.str,
-    table_arn: builtins.str,
-    export_format: typing.Optional[builtins.str] = None,
-    export_type: typing.Optional[builtins.str] = None,
-    s3_bucket_owner: typing.Optional[builtins.str] = None,
-    s3_prefix: typing.Optional[builtins.str] = None,
-    s3_sse_algorithm: typing.Optional[builtins.str] = None,
+    backup_name: builtins.str,
+    table_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b030e222f9e3c6689b527e4213b738be098c18d2c50d28b46eddf671b61cc3d6(
-    resource: _aws_dynamodb_948f46d7.IExportRef,
+def _typecheckingstub__63997dc78a443a8a8cbd8b8a49428cdbfe40a088da1a097d220b0c64974277db(
+    resource: _aws_dynamodb_948f46d7.IBackupRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__441a04f4df6cfe37d52d7e98be19ef4fbd36732669c89aa71681a4e4ba1a4480(
+def _typecheckingstub__2f677df4d050c92922043a44711cab73db3eecde816c77805174c22abaa93a87(
     x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a1b7b63361eb3fda92b30de3d2d2ec43703116c58e89d8af4e307ca6b9e3dcb6(
+def _typecheckingstub__5ea169a085bb009816d8e737f2fc73d11cdca793b84552cbe8e80c6986fe75b7(
     inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__57f9516a22bfc26ff9d7db9d5c93df41f1889314ee2f95f67e93f577f66a5518(
+def _typecheckingstub__4ada2e447a88d9faae4723bf9cdbc3a194192c23c498f7dded71920e7985ac96(
     props: typing.Mapping[builtins.str, typing.Any],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__711e8f1932d1af472d3f3e5cfa43843b2377a682839324268bf4401e27cf1089(
+def _typecheckingstub__cfe49689ac343403186d433f668a68c97e182979fec6b0287614e0fb9694538a(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__94732d495f2c0ebc13fb57c4609c477190a19a569d86aa6e0c7f8668c529334a(
+def _typecheckingstub__333d31b3f1ea816baec75f5b82b6c90b040987d214be1845e187196833809c51(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__14a6f417525d6f43de653ac6e5105b564a601969e8e9e749a43a2ef8f07ca401(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4666facb93f8d8185a3af0ae8bce30aec39bc9a395a6bbb8c9a4f1d0ac53a818(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b1edc3505bd0781e3b3c0798e7782db892e9a7bfef126b6911f102f1fee0d1a0(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a68fdffb1b5a7f622003397c17c4f5c12eb5040f26f7d24e6d449002ac8b0b3d(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d4b3bc876ff10791ad4050408dfc4bad3bf5c08f10a7fe6f7745de5967134aec(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e16dd1347b013646fabb02c49ecb4f710a6a222a89ac2f655ce7bbb714914cd1(
+def _typecheckingstub__e68839b541f03bf92709fa93fe4db06ff43f22f1f0ba6d659848811cca193b50(
     *,
-    s3_bucket: builtins.str,
-    table_arn: builtins.str,
-    export_format: typing.Optional[builtins.str] = None,
-    export_type: typing.Optional[builtins.str] = None,
-    s3_bucket_owner: typing.Optional[builtins.str] = None,
-    s3_prefix: typing.Optional[builtins.str] = None,
-    s3_sse_algorithm: typing.Optional[builtins.str] = None,
+    backup_name: builtins.str,
+    table_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20575,6 +20367,7 @@ def _typecheckingstub__912e2bc047b1f65121a39316718e5632909682a5243ef8e21ead42e3e
 def _typecheckingstub__00848a241dcb74d0918fbddda5f7ccf1c445a7b63583f8697e2d95d334aa1bed(
     *,
     resource_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20993,6 +20786,7 @@ def _typecheckingstub__3099d6d2aee077548b7bec617449da8355169637f0983749d3191a63e
     *,
     stream_view_type: builtins.str,
     resource_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

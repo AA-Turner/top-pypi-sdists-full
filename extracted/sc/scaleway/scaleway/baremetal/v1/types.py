@@ -70,6 +70,16 @@ class ListSettingsRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
         return str(self.value)
 
 
+class MemoryEccType(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_ECC_TYPE = "unknown_ecc_type"
+    NONE = "none"
+    STANDARD = "standard"
+    ON_DIE = "on_die"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class OfferStock(str, Enum, metaclass=StrEnumMeta):
     EMPTY = "empty"
     LOW = "low"
@@ -546,6 +556,11 @@ class Memory:
     True if the memory is an error-correcting code memory.
     """
 
+    ecc_type: MemoryEccType
+    """
+    Type of ECC memory.
+    """
+
 
 @dataclass
 class OfferOptionOffer:
@@ -618,6 +633,13 @@ class PersistentMemory:
 class RaidController:
     model: str
     raid_level: list[str]
+
+
+@dataclass
+class BatchCreateServersRequestServerConfig:
+    hostname: str
+    description: str
+    tags: list[str]
 
 
 @dataclass
@@ -1157,6 +1179,31 @@ class BMCAccess:
     """
     The date after which the BMC (Baseboard Management Controller) access will be closed.
     """
+
+
+@dataclass
+class BatchCreateServersRequest:
+    zone: Optional[ScwZone] = None
+    """
+    Zone to target. If none is passed will use default zone from the config.
+    """
+
+    common_configuration: Optional[CreateServerRequest] = None
+    """
+    Configuration wanted for the servers to create.
+    """
+
+    servers: Optional[list[BatchCreateServersRequestServerConfig]] = field(
+        default_factory=list
+    )
+    """
+    List of servers to create.
+    """
+
+
+@dataclass
+class BatchCreateServersResponse:
+    servers: list[Server]
 
 
 @dataclass

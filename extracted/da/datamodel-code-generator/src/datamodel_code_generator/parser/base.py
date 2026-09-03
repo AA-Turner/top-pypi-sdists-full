@@ -51,15 +51,24 @@ from datamodel_code_generator import (
     ModuleSplitMode,
     ReadOnlyWriteOnlyModelType,
     ReuseScope,
-    YamlValue,
-    _CollapseRootModelsRecursionError,
-    _internal_utils,
-    _is_parsed_source_cache_enabled,
-    _read_parser_source_data_from_path,
 )
 from datamodel_code_generator._format_types import Formatter, PythonVersion
 from datamodel_code_generator._graph import stable_toposort
-from datamodel_code_generator._shared_types import DefaultPutDict, LiteralType
+from datamodel_code_generator._internal_utils import (
+    HashableComparable,
+    get_most_of_parent,
+)
+from datamodel_code_generator._parser_context import ParserSourceContext
+from datamodel_code_generator._shared_types import (
+    DefaultPutDict,
+    LiteralType,
+    _CollapseRootModelsRecursionError,
+)
+from datamodel_code_generator._source import (
+    YamlValue,
+    _is_parsed_source_cache_enabled,
+    _read_parser_source_data_from_path,
+)
 from datamodel_code_generator.enums import DefaultValueType, StrictTypes
 from datamodel_code_generator.imports import (
     IMPORT_ANNOTATIONS,
@@ -126,9 +135,6 @@ ParserConfigT = TypeVar("ParserConfigT", bound="ParserConfig")
 _ConstructorFieldAdjustment: TypeAlias = Literal["assignment", "keyword_only"]
 
 
-HashableComparable = _internal_utils.HashableComparable
-to_hashable = _internal_utils.to_hashable
-
 # Keep these as module-name checks so non-pydantic-v2 outputs do not import the
 # pydantic_v2 generator package and its runtime feature gates.
 _PYDANTIC_V2_BASE_MODEL_MODULE: Final = "datamodel_code_generator.model.pydantic_v2.base_model"
@@ -185,6 +191,28 @@ def _get_model_field_constructor(
     return field_type
 
 
+def _source_context_from_config(config: ParserConfig) -> ParserSourceContext:
+    """Adapt a public parser config to the neutral source policy."""
+    remote_lock = getattr(config, "remote_lock", None)
+    response_observer = remote_lock.record_response if remote_lock is not None else None
+    return ParserSourceContext(
+        base_path=config.base_path,
+        encoding=config.encoding,
+        remote_text_cache=config.remote_text_cache,
+        allow_remote_refs=config.allow_remote_refs,
+        strict_refs=config.strict_refs,
+        allow_private_network=config.allow_private_network,
+        http_backend=config.http_backend,
+        http_headers=config.http_headers,
+        http_local_ref_path=config.http_local_ref_path,
+        http_ignore_tls=config.http_ignore_tls,
+        http_query_parameters=config.http_query_parameters,
+        http_timeout=config.http_timeout,
+        external_ref_mapping=config.external_ref_mapping,
+        remote_response_observer=response_observer,
+    )
+
+
 def _get_builtin_pydantic_v2_field_constructor(
     field_type: type[DataModelFieldBase],
 ) -> Callable[..., DataModelFieldBase] | None:
@@ -224,12 +252,17 @@ def __getattr__(name: str) -> Any:
             from datamodel_code_generator.model import msgspec as msgspec_model  # noqa: PLC0415
 
             return msgspec_model
+        case "Child" | "T" | "to_hashable":
+            from datamodel_code_generator._internal_utils import Child, T, to_hashable  # noqa: PLC0415
+
+            match name:
+                case "Child":
+                    return Child
+                case "T":
+                    return T
+                case _:
+                    return to_hashable
     raise AttributeError(name)
-
-
-Child = _internal_utils.Child
-T = _internal_utils.T
-get_most_of_parent = _internal_utils.get_most_of_parent
 
 
 ModelName: TypeAlias = str
@@ -425,6 +458,19 @@ class _ConstructorFieldPolicy(NamedTuple):
     has_assignment: Callable[[DataModelFieldBase], bool]
     classify_default: Callable[[DataModelFieldBase], tuple[bool, bool]]
     participates: Callable[[DataModelFieldBase], bool]
+
+
+@dataclass(frozen=True, slots=True)
+class ParserRunContext:
+    """Immutable parser settings scoped to one facade-managed run."""
+
+    diagnostic_source_path: Path | None = None
+    formatter_cwd: Path | None = None
+    preserve_circular_root_models: bool = False
+    suppress_parse_warnings: bool = False
+
+
+_DEFAULT_PARSER_RUN_CONTEXT = ParserRunContext()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1966,8 +2012,80 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     _config_class_name: ClassVar[str] = "ParserConfig"
     _cache_local_sources_during_parse: ClassVar[bool] = False
     _cache_parsed_sources_from_path: ClassVar[bool] = False
-    _formatter_cwd: Path | None = None
     _http_fetch_session: _HTTPFetchSession | None = None
+
+    @property
+    def run_context(self) -> ParserRunContext:
+        """Return the immutable settings for the current facade-managed run."""
+        return self._run_context or _DEFAULT_PARSER_RUN_CONTEXT
+
+    def configure_run_context(
+        self,
+        *,
+        diagnostic_source_path: Path | None = None,
+        formatter_cwd: Path | None = None,
+        preserve_circular_root_models: bool = False,
+        suppress_parse_warnings: bool = False,
+    ) -> None:
+        """Configure parser run state without exposing implementation attributes."""
+        if (
+            diagnostic_source_path is None
+            and formatter_cwd is None
+            and not preserve_circular_root_models
+            and not suppress_parse_warnings
+        ):
+            self._run_context = None
+            return
+        self._run_context = ParserRunContext(
+            diagnostic_source_path=diagnostic_source_path,
+            formatter_cwd=formatter_cwd,
+            preserve_circular_root_models=preserve_circular_root_models,
+            suppress_parse_warnings=suppress_parse_warnings,
+        )
+
+    def _configure_legacy_run_context_attribute(self, attribute: str, value: object) -> None:
+        """Keep historical private state writes as a parser-local compatibility facade."""
+        context = self.run_context
+        diagnostic_source_path = context.diagnostic_source_path
+        formatter_cwd = context.formatter_cwd
+        preserve_circular_root_models = context.preserve_circular_root_models
+        match attribute:
+            case "diagnostic_source_path":
+                diagnostic_source_path = cast("Path | None", value)
+            case "formatter_cwd":
+                formatter_cwd = cast("Path | None", value)
+            case _:
+                preserve_circular_root_models = cast("bool", value)
+        self.configure_run_context(
+            diagnostic_source_path=diagnostic_source_path,
+            formatter_cwd=formatter_cwd,
+            preserve_circular_root_models=preserve_circular_root_models,
+            suppress_parse_warnings=context.suppress_parse_warnings,
+        )
+
+    @property
+    def _diagnostic_source_path(self) -> Path | None:
+        return self.run_context.diagnostic_source_path
+
+    @_diagnostic_source_path.setter
+    def _diagnostic_source_path(self, value: Path | None) -> None:
+        self._configure_legacy_run_context_attribute("diagnostic_source_path", value)
+
+    @property
+    def _formatter_cwd(self) -> Path | None:
+        return self.run_context.formatter_cwd
+
+    @_formatter_cwd.setter
+    def _formatter_cwd(self, value: Path | None) -> None:
+        self._configure_legacy_run_context_attribute("formatter_cwd", value)
+
+    @property
+    def _preserve_circular_root_models(self) -> bool:
+        return self.run_context.preserve_circular_root_models
+
+    @_preserve_circular_root_models.setter
+    def _preserve_circular_root_models(self, value: bool) -> None:
+        self._configure_legacy_run_context_attribute("preserve_circular_root_models", value)
 
     @classmethod
     def _get_config_class(cls) -> type[ParserConfig]:
@@ -2053,6 +2171,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             config = self._create_default_config(options)  # ty: ignore[invalid-argument-type]
 
         self.config = config
+        self._source_context = getattr(config, "_source_context", None) or _source_context_from_config(config)
         self._has_bound_python_types = False
         self._has_runtime_expressions = False
 
@@ -2135,7 +2254,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.reuse_model: bool = config.reuse_model
         self.reuse_scope: ReuseScope | None = config.reuse_scope
         self.shared_module_name: str = config.shared_module_name
-        self.encoding: str = config.encoding
+        self.encoding: str = self._source_context.encoding
         self.enum_field_as_literal: LiteralType | None = config.enum_field_as_literal
         self.enum_field_as_literal_map: dict[str, str] = config.enum_field_as_literal_map or {}
         self.ignore_enum_constraints: bool = config.ignore_enum_constraints
@@ -2147,9 +2266,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_union_operator: bool = config.use_union_operator
         self.enable_faux_immutability: bool = config.enable_faux_immutability
         self.custom_class_name_generator: Callable[[str], str] | None = config.custom_class_name_generator
-        self.repair_invalid_dotted_stdout: bool = getattr(config, "repair_invalid_dotted_stdout", False)
-        self.forced_invalid_dotted_stdout_repair_modules: tuple[ModulePath, ...] = getattr(
-            config, "forced_invalid_dotted_stdout_repair_modules", ()
+        self.repair_invalid_dotted_stdout: bool = config.repair_invalid_dotted_stdout
+        self.forced_invalid_dotted_stdout_repair_modules: tuple[ModulePath, ...] = (
+            config.forced_invalid_dotted_stdout_repair_modules
         )
         self.field_extra_keys: set[str] = config.field_extra_keys or set()
         self.field_extra_keys_without_x_prefix: set[str] = config.field_extra_keys_without_x_prefix or set()
@@ -2157,9 +2276,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.model_extra_keys_without_x_prefix: set[str] = config.model_extra_keys_without_x_prefix or set()
         self.field_include_all_keys: bool = config.field_include_all_keys
 
-        self.remote_text_cache: DefaultPutDict[str, str] = config.remote_text_cache or DefaultPutDict()
+        self.remote_text_cache: DefaultPutDict[str, str] = self._source_context.remote_text_cache or DefaultPutDict()
         self.current_source_path: Path | None = None
-        self._diagnostic_source_path: Path | None = None
+        self._run_context: ParserRunContext | None = None
         self.use_title_as_name: bool = config.use_title_as_name
         self.infer_union_variant_names: bool = config.infer_union_variant_names
         self.use_operation_id_as_name: bool = config.use_operation_id_as_name
@@ -2172,8 +2291,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.allof_class_hierarchy: AllOfClassHierarchy = config.allof_class_hierarchy
         self.dataclass_arguments = config.dataclass_arguments
 
-        if config.base_path:
-            self.base_path = config.base_path
+        if self._source_context.base_path:
+            self.base_path = self._source_context.base_path
         elif isinstance(source, Path):
             self.base_path = source.absolute() if source.is_dir() else source.absolute().parent
         else:
@@ -2290,22 +2409,26 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             class_name_affix_scope=config.class_name_affix_scope,
             skip_affix_for_root=config.class_name is not None,
             default_value_overrides=config.default_value_overrides,
-            http_backend=config.http_backend,
+            http_backend=self._source_context.http_backend,
+            field_name_resolver_classes=(
+                {self.field_name_model_type: field_name_resolver_class}
+                if (field_name_resolver_class := self.data_model_type.FIELD_NAME_RESOLVER_CLASS) is not None
+                else None
+            ),
         )
         self.class_name: str | None = config.class_name
         self.allow_leading_underscore_class_name: bool = config.allow_leading_underscore_class_name
         self.wrap_string_literal: bool | None = config.wrap_string_literal
-        self.allow_remote_refs: bool | None = config.allow_remote_refs
-        self.strict_refs: bool = config.strict_refs
-        self.allow_private_network: bool = config.allow_private_network
-        self.http_backend = config.http_backend
-        self.http_headers: Sequence[tuple[str, str]] | None = config.http_headers
-        self.http_local_ref_path: Path | None = config.http_local_ref_path
-        self.http_query_parameters: Sequence[tuple[str, str]] | None = config.http_query_parameters
-        self.http_ignore_tls: bool = config.http_ignore_tls
-        self.http_timeout: float | None = config.http_timeout
-        remote_lock = getattr(config, "remote_lock", None)
-        self._remote_response_observer = remote_lock.record_response if remote_lock is not None else None
+        self.allow_remote_refs: bool | None = self._source_context.allow_remote_refs
+        self.strict_refs: bool = self._source_context.strict_refs
+        self.allow_private_network: bool = self._source_context.allow_private_network
+        self.http_backend = self._source_context.http_backend
+        self.http_headers: Sequence[tuple[str, str]] | None = self._source_context.http_headers
+        self.http_local_ref_path: Path | None = self._source_context.http_local_ref_path
+        self.http_query_parameters: Sequence[tuple[str, str]] | None = self._source_context.http_query_parameters
+        self.http_ignore_tls: bool = self._source_context.http_ignore_tls
+        self.http_timeout: float | None = self._source_context.http_timeout
+        self._remote_response_observer = self._source_context.remote_response_observer
         self.use_annotated: bool = config.use_annotated
         if self.use_annotated and not self.field_constraints:  # pragma: no cover
             msg = "`use_annotated=True` has to be used with `field_constraints=True`"
@@ -2510,8 +2633,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         """Return source context without changing parser path semantics."""
         if source_path is not None and source_path.parts:
             return source_path.as_posix()
-        if self._diagnostic_source_path is not None:
-            return self._diagnostic_source_path.as_posix()
+        if (diagnostic_source_path := self.run_context.diagnostic_source_path) is not None:
+            return diagnostic_source_path.as_posix()
         return "<input>"
 
     def _append_additional_imports(self, additional_imports: list[str] | None) -> None:
@@ -3313,7 +3436,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.__validate_shared_module_name(module_models)
         return self.__create_shared_module_from_duplicates(module_models, duplicates, require_update_action_models)
 
-    def __collapse_root_models(  # noqa: PLR0912, PLR0914, PLR0915
+    def __collapse_root_models(
         self,
         models: list[DataModel],
         unused_models: list[DataModel],
@@ -3324,6 +3447,23 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         if not self.collapse_root_models:
             return
 
+        with self.generation_store._collapse_root_reference_scope():  # noqa: SLF001
+            self.__collapse_root_models_in_scope(
+                models,
+                unused_models,
+                imports,
+                scoped_model_resolver,
+                model_path_to_module_name,
+            )
+
+    def __collapse_root_models_in_scope(  # noqa: PLR0912, PLR0914, PLR0915
+        self,
+        models: list[DataModel],
+        unused_models: list[DataModel],
+        imports: Imports,
+        scoped_model_resolver: ModelResolver,
+        model_path_to_module_name: dict[str, str] | None = None,
+    ) -> None:
         generation_store = self.generation_store
         generation_index = generation_store.index
         circular_root_model_paths = getattr(self, "_circular_root_model_paths", ())
@@ -3409,12 +3549,16 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                                 new_path=root_type_model.reference.path,
                             )
 
-                        assert isinstance(root_type_model, DataModel)
-
-                        has_remaining_root_references = generation_index.has_data_type_references_other_than(
-                            root_type_model.reference,
-                            data_type,
-                        )
+                        if (
+                            has_remaining_root_references := generation_store._root_collapse_has_data_type_references(  # noqa: SLF001
+                                root_type_model.reference,
+                                excluded_data_type=data_type,
+                            )
+                        ) is None:
+                            has_remaining_root_references = generation_index.has_data_type_references_other_than(
+                                root_type_model.reference,
+                                data_type,
+                            )
                         generation_store.collapse_root_data_type(data_type, inner_reference)
 
                         imports.remove_referenced_imports(root_type_model.path)
@@ -3425,7 +3569,19 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
 
                     # set copied data_type
                     copied_data_type = root_type_field.data_type.model_copy()
-                    if isinstance(data_type.parent, self.data_model_field_type):
+                    if (
+                        has_remaining_root_references := generation_store._root_collapse_has_data_type_references(  # noqa: SLF001
+                            root_type_model.reference,
+                            excluded_data_type=data_type,
+                        )
+                    ) is None:
+                        has_remaining_root_references = generation_index.has_data_type_references_other_than(
+                            root_type_model.reference,
+                            data_type,
+                        )
+
+                    replacement_context = None
+                    if isinstance(field_ := data_type.parent, self.data_model_field_type):
                         # for field
                         # override empty field by root-type field
                         model_field.extras = {
@@ -3439,9 +3595,14 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                                 root_type_field.constraints, model_field.constraints
                             )
 
-                        self.generation_store.replace_field_type(data_type.parent, copied_data_type)
+                        replacement_context = generation_store._replace_data_type_and_detach_data_type_ref(  # noqa: SLF001
+                            data_type,
+                            copied_data_type,
+                            owner=field_,
+                            replacement_kind="field",
+                        )
 
-                    elif isinstance(data_type.parent, DataType) and data_type.parent.is_list:
+                    elif isinstance(parent_data_type := data_type.parent, DataType) and parent_data_type.is_list:
                         if self.field_constraints:
                             model_field.constraints = ConstraintsBase.merge_constraints(
                                 root_type_field.constraints, model_field.constraints
@@ -3466,38 +3627,46 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                                     mapping,
                                 ):
                                     copied_data_type.discriminator = field_name
-                        assert isinstance(data_type.parent, DataType)
-                        self.generation_store.replace_nested_data_type(data_type.parent, data_type, copied_data_type)
+                        replacement_context = generation_store._replace_data_type_and_detach_data_type_ref(  # noqa: SLF001
+                            data_type,
+                            copied_data_type,
+                            owner=parent_data_type,
+                            replacement_kind="nested",
+                        )
 
-                    elif isinstance(data_type.parent, DataType):
+                    elif isinstance(parent_data_type := data_type.parent, DataType):
                         # for data_type
-                        self.generation_store.replace_nested_data_type(data_type.parent, data_type, copied_data_type)
+                        replacement_context = generation_store._replace_data_type_and_detach_data_type_ref(  # noqa: SLF001
+                            data_type,
+                            copied_data_type,
+                            owner=parent_data_type,
+                            replacement_kind="nested",
+                        )
                     else:  # pragma: no cover
                         continue
 
-                    for d in copied_data_type.all_data_types:
-                        _register_data_type_import(
-                            d,
-                            model,
-                            imports,
-                            scoped_model_resolver,
-                            model_path_to_module_name,
-                        )
+                    if replacement_context is None:  # pragma: no cover
+                        continue
+                    with replacement_context:
+                        for d in copied_data_type.all_data_types:
+                            _register_data_type_import(
+                                d,
+                                model,
+                                imports,
+                                scoped_model_resolver,
+                                model_path_to_module_name,
+                            )
 
-                    original_field = get_most_of_parent(data_type, DataModelFieldBase)
-                    if original_field:  # pragma: no cover
-                        # TODO: Improve detection of reference type
-                        # Use list instead of set because Import is not hashable
-                        excluded_imports = [IMPORT_OPTIONAL, IMPORT_UNION]
-                        field_imports = [i for i in original_field.imports if i not in excluded_imports]
-                        imports.append(field_imports)
-
-                    generation_store.detach_data_type_ref(data_type)
-
-                    assert isinstance(root_type_model, DataModel)
+                        original_field = get_most_of_parent(data_type, DataModelFieldBase)
+                        if original_field:  # pragma: no cover
+                            # TODO: Improve detection of reference type
+                            # Use list instead of set because Import is not hashable
+                            excluded_imports = [IMPORT_OPTIONAL, IMPORT_UNION]
+                            field_imports = [i for i in original_field.imports if i not in excluded_imports]
+                            imports.append(field_imports)
 
                     imports.remove_referenced_imports(root_type_model.path)
-                    if not generation_index.has_data_type_references(root_type_model.reference):
+                    if not has_remaining_root_references:
                         unused_models.append(root_type_model)
 
     def __set_circular_root_model_paths(self, module_models: ModuleModels) -> None:
@@ -5026,7 +5195,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             builtin_format_line_length=self.builtin_format_line_length,
             use_type_checking_imports=effective_use_type_checking_imports,
             defer_formatting=self.defer_formatting,
-            formatter_cwd=self._formatter_cwd,
+            formatter_cwd=self.run_context.formatter_cwd,
         )
 
     def _find_invalid_inferred_modules(  # noqa: PLR6301
@@ -5843,12 +6012,24 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.model_resolver.references.clear()
         self._reset_local_source_cache()
 
+    def dispose(self) -> None:
+        """Release parser-owned resources after a facade-managed run."""
+        self._dispose()
+
     def _reset_local_source_cache(self) -> None:
         self._cache_local_sources = False
         self._local_source_cache = None
 
     def _report_parse_diagnostics(self) -> None:
         """Report diagnostics collected while parsing the input schema."""
+
+    def _run_with_suppressed_warnings(self, callback: Callable[[], None]) -> None:  # noqa: PLR6301
+        """Invoke one retry hook without repeating user-visible warnings."""
+        import warnings  # noqa: PLC0415
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            callback()
 
     def parse(  # noqa: PLR0913, PLR0917
         self,
@@ -5891,11 +6072,19 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self._set_typed_extra_annotation_mode(
             use_deferred_annotations=self._uses_deferred_annotations(with_import, disable_future_imports)
         )
+        run_context = self._run_context
+        suppress_parse_warnings = run_context is not None and run_context.suppress_parse_warnings
         try:
-            self.parse_raw()
+            if suppress_parse_warnings:
+                self._run_with_suppressed_warnings(self.parse_raw)
+            else:
+                self.parse_raw()
         finally:
             self._close_http_fetch_session()
-        self._report_parse_diagnostics()
+        if suppress_parse_warnings:
+            self._run_with_suppressed_warnings(self._report_parse_diagnostics)
+        else:
+            self._report_parse_diagnostics()
 
         config = self._prepare_parse_config(
             with_import,
@@ -6001,7 +6190,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         module_to_import: dict[ModulePath, Imports] = {}
         contexts: list[ModuleContext] = []
 
-        if self.collapse_root_models and getattr(self, "_preserve_circular_root_models", False):
+        if self.collapse_root_models and self.run_context.preserve_circular_root_models:
             self.__set_circular_root_model_paths(module_models)
 
         for module_, models in module_models:

@@ -33,152 +33,6 @@ class RawAgentClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def run(
-        self,
-        *,
-        prompt: str,
-        model: typing.Optional[str] = OMIT,
-        chat_id: typing.Optional[str] = OMIT,
-        persist: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[AgentRunResponse]:
-        """
-        Run the Labric data-analysis agent to completion and return its final
-        answer alongside the tool calls it made. Pass chat_id to continue a saved
-        conversation, or persist=true to save the run as a new chat visible in the
-        web UI; if saving fails, the response still carries the answer but its
-        chat_id is null. Long-running analyses should prefer the streaming
-        variant.
-
-        Parameters
-        ----------
-        prompt : str
-
-        model : typing.Optional[str]
-
-        chat_id : typing.Optional[str]
-
-        persist : typing.Optional[bool]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[AgentRunResponse]
-            OK
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/agent/runs",
-            method="POST",
-            json={
-                "prompt": prompt,
-                "model": model,
-                "chat_id": chat_id,
-                "persist": persist,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    AgentRunResponse,
-                    parse_obj_as(
-                        type_=AgentRunResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ValidationErrorSchema,
-                        parse_obj_as(
-                            type_=ValidationErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 502:
-                raise BadGatewayError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     @contextlib.contextmanager
     def run_stream(
         self,
@@ -186,15 +40,20 @@ class RawAgentClient:
         prompt: str,
         model: typing.Optional[str] = OMIT,
         chat_id: typing.Optional[str] = OMIT,
-        persist: typing.Optional[bool] = OMIT,
+        save: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[typing.Iterator[AgentRunEvent]]]:
         """
-        Stream an agent run as server-sent events. Each event is an
-        AgentRunEvent; the stream closes after a terminal `result` event, which
-        carries the same summary the non-streaming endpoint returns, or after a
-        terminal `error` event if the run fails. Persistence (chat_id / persist)
-        behaves as in the non-streaming variant.
+        Run the Labric data-analysis agent and return its final answer
+        alongside the tool calls it made. With stream=true the response is
+        instead a stream of server-sent AgentRunEvent events, closing after a
+        terminal `result` event that carries the same summary, or an `error`
+        event if the run fails; prefer streaming for long analyses. Pass chat_id
+        to continue a saved conversation, or save=true to save the run as a new
+        chat visible in the web UI; if saving fails, the answer is still returned
+        but its chat_id is null.
+
+        Requires an API key with the `read` scope.
 
         Parameters
         ----------
@@ -204,7 +63,7 @@ class RawAgentClient:
 
         chat_id : typing.Optional[str]
 
-        persist : typing.Optional[bool]
+        save : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -212,16 +71,17 @@ class RawAgentClient:
         Yields
         ------
         typing.Iterator[HttpResponse[typing.Iterator[AgentRunEvent]]]
-            OK
+
         """
         with self._client_wrapper.httpx_client.stream(
-            "api/v1/agent/runs/stream",
+            "api/v1/agent/runs",
             method="POST",
             json={
                 "prompt": prompt,
                 "model": model,
                 "chat_id": chat_id,
-                "persist": persist,
+                "save": save,
+                "stream": True,
             },
             headers={
                 "content-type": "application/json",
@@ -327,6 +187,17 @@ class RawAgentClient:
                                 ),
                             ),
                         )
+                    if _response.status_code == 502:
+                        raise BadGatewayError(
+                            headers=dict(_response.headers),
+                            body=typing.cast(
+                                ErrorSchema,
+                                parse_obj_as(
+                                    type_=ErrorSchema,  # type: ignore
+                                    object_=_response.json(),
+                                ),
+                            ),
+                        )
                     _response_json = _response.json()
                 except JSONDecodeError:
                     raise ApiError(
@@ -343,27 +214,26 @@ class RawAgentClient:
 
             yield _stream()
 
-
-class AsyncRawAgentClient:
-    def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._client_wrapper = client_wrapper
-
-    async def run(
+    def run(
         self,
         *,
         prompt: str,
         model: typing.Optional[str] = OMIT,
         chat_id: typing.Optional[str] = OMIT,
-        persist: typing.Optional[bool] = OMIT,
+        save: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[AgentRunResponse]:
+    ) -> HttpResponse[AgentRunResponse]:
         """
-        Run the Labric data-analysis agent to completion and return its final
-        answer alongside the tool calls it made. Pass chat_id to continue a saved
-        conversation, or persist=true to save the run as a new chat visible in the
-        web UI; if saving fails, the response still carries the answer but its
-        chat_id is null. Long-running analyses should prefer the streaming
-        variant.
+        Run the Labric data-analysis agent and return its final answer
+        alongside the tool calls it made. With stream=true the response is
+        instead a stream of server-sent AgentRunEvent events, closing after a
+        terminal `result` event that carries the same summary, or an `error`
+        event if the run fails; prefer streaming for long analyses. Pass chat_id
+        to continue a saved conversation, or save=true to save the run as a new
+        chat visible in the web UI; if saving fails, the answer is still returned
+        but its chat_id is null.
+
+        Requires an API key with the `read` scope.
 
         Parameters
         ----------
@@ -373,24 +243,25 @@ class AsyncRawAgentClient:
 
         chat_id : typing.Optional[str]
 
-        persist : typing.Optional[bool]
+        save : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[AgentRunResponse]
-            OK
+        HttpResponse[AgentRunResponse]
+
         """
-        _response = await self._client_wrapper.httpx_client.request(
+        _response = self._client_wrapper.httpx_client.request(
             "api/v1/agent/runs",
             method="POST",
             json={
                 "prompt": prompt,
                 "model": model,
                 "chat_id": chat_id,
-                "persist": persist,
+                "save": save,
+                "stream": False,
             },
             headers={
                 "content-type": "application/json",
@@ -407,7 +278,7 @@ class AsyncRawAgentClient:
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),
@@ -494,6 +365,11 @@ class AsyncRawAgentClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+
+class AsyncRawAgentClient:
+    def __init__(self, *, client_wrapper: AsyncClientWrapper):
+        self._client_wrapper = client_wrapper
+
     @contextlib.asynccontextmanager
     async def run_stream(
         self,
@@ -501,15 +377,20 @@ class AsyncRawAgentClient:
         prompt: str,
         model: typing.Optional[str] = OMIT,
         chat_id: typing.Optional[str] = OMIT,
-        persist: typing.Optional[bool] = OMIT,
+        save: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[AgentRunEvent]]]:
         """
-        Stream an agent run as server-sent events. Each event is an
-        AgentRunEvent; the stream closes after a terminal `result` event, which
-        carries the same summary the non-streaming endpoint returns, or after a
-        terminal `error` event if the run fails. Persistence (chat_id / persist)
-        behaves as in the non-streaming variant.
+        Run the Labric data-analysis agent and return its final answer
+        alongside the tool calls it made. With stream=true the response is
+        instead a stream of server-sent AgentRunEvent events, closing after a
+        terminal `result` event that carries the same summary, or an `error`
+        event if the run fails; prefer streaming for long analyses. Pass chat_id
+        to continue a saved conversation, or save=true to save the run as a new
+        chat visible in the web UI; if saving fails, the answer is still returned
+        but its chat_id is null.
+
+        Requires an API key with the `read` scope.
 
         Parameters
         ----------
@@ -519,7 +400,7 @@ class AsyncRawAgentClient:
 
         chat_id : typing.Optional[str]
 
-        persist : typing.Optional[bool]
+        save : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -527,16 +408,17 @@ class AsyncRawAgentClient:
         Yields
         ------
         typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[AgentRunEvent]]]
-            OK
+
         """
         async with self._client_wrapper.httpx_client.stream(
-            "api/v1/agent/runs/stream",
+            "api/v1/agent/runs",
             method="POST",
             json={
                 "prompt": prompt,
                 "model": model,
                 "chat_id": chat_id,
-                "persist": persist,
+                "save": save,
+                "stream": True,
             },
             headers={
                 "content-type": "application/json",
@@ -642,6 +524,17 @@ class AsyncRawAgentClient:
                                 ),
                             ),
                         )
+                    if _response.status_code == 502:
+                        raise BadGatewayError(
+                            headers=dict(_response.headers),
+                            body=typing.cast(
+                                ErrorSchema,
+                                parse_obj_as(
+                                    type_=ErrorSchema,  # type: ignore
+                                    object_=_response.json(),
+                                ),
+                            ),
+                        )
                     _response_json = _response.json()
                 except JSONDecodeError:
                     raise ApiError(
@@ -657,3 +550,154 @@ class AsyncRawAgentClient:
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
             yield await _stream()
+
+    async def run(
+        self,
+        *,
+        prompt: str,
+        model: typing.Optional[str] = OMIT,
+        chat_id: typing.Optional[str] = OMIT,
+        save: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[AgentRunResponse]:
+        """
+        Run the Labric data-analysis agent and return its final answer
+        alongside the tool calls it made. With stream=true the response is
+        instead a stream of server-sent AgentRunEvent events, closing after a
+        terminal `result` event that carries the same summary, or an `error`
+        event if the run fails; prefer streaming for long analyses. Pass chat_id
+        to continue a saved conversation, or save=true to save the run as a new
+        chat visible in the web UI; if saving fails, the answer is still returned
+        but its chat_id is null.
+
+        Requires an API key with the `read` scope.
+
+        Parameters
+        ----------
+        prompt : str
+
+        model : typing.Optional[str]
+
+        chat_id : typing.Optional[str]
+
+        save : typing.Optional[bool]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[AgentRunResponse]
+
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/agent/runs",
+            method="POST",
+            json={
+                "prompt": prompt,
+                "model": model,
+                "chat_id": chat_id,
+                "save": save,
+                "stream": False,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AgentRunResponse,
+                    parse_obj_as(
+                        type_=AgentRunResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)

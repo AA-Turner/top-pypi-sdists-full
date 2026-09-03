@@ -30,6 +30,17 @@ if TYPE_CHECKING:
     from datadog_api_client.v2.model.dashboard_trigger_wrapper import DashboardTriggerWrapper
     from datadog_api_client.v2.model.form_trigger_wrapper import FormTriggerWrapper
     from datadog_api_client.v2.model.github_webhook_trigger_wrapper import GithubWebhookTriggerWrapper
+    from datadog_api_client.v2.model.incident_created_trigger_wrapper import IncidentCreatedTriggerWrapper
+    from datadog_api_client.v2.model.incident_impact_created_trigger_wrapper import IncidentImpactCreatedTriggerWrapper
+    from datadog_api_client.v2.model.incident_impact_updated_trigger_wrapper import IncidentImpactUpdatedTriggerWrapper
+    from datadog_api_client.v2.model.incident_postmortem_updated_trigger_wrapper import (
+        IncidentPostmortemUpdatedTriggerWrapper,
+    )
+    from datadog_api_client.v2.model.incident_responder_created_trigger_wrapper import (
+        IncidentResponderCreatedTriggerWrapper,
+    )
+    from datadog_api_client.v2.model.incident_saved_trigger_wrapper import IncidentSavedTriggerWrapper
+    from datadog_api_client.v2.model.incident_schedule_trigger_wrapper import IncidentScheduleTriggerWrapper
     from datadog_api_client.v2.model.incident_trigger_wrapper import IncidentTriggerWrapper
     from datadog_api_client.v2.model.monitor_trigger_wrapper import MonitorTriggerWrapper
     from datadog_api_client.v2.model.notebook_trigger_wrapper import NotebookTriggerWrapper
@@ -43,6 +54,12 @@ if TYPE_CHECKING:
 
 
 class Spec(ModelNormal):
+    validations = {
+        "annotations": {
+            "max_items": 100,
+        },
+    }
+
     @cached_property
     def openapi_types(_):
         from datadog_api_client.v2.model.annotation import Annotation
@@ -94,6 +111,13 @@ class Spec(ModelNormal):
                     DashboardTriggerWrapper,
                     FormTriggerWrapper,
                     GithubWebhookTriggerWrapper,
+                    IncidentCreatedTriggerWrapper,
+                    IncidentImpactCreatedTriggerWrapper,
+                    IncidentImpactUpdatedTriggerWrapper,
+                    IncidentPostmortemUpdatedTriggerWrapper,
+                    IncidentResponderCreatedTriggerWrapper,
+                    IncidentSavedTriggerWrapper,
+                    IncidentScheduleTriggerWrapper,
                     IncidentTriggerWrapper,
                     MonitorTriggerWrapper,
                     NotebookTriggerWrapper,
@@ -113,7 +137,7 @@ class Spec(ModelNormal):
         """
         A complete Workflow Automation definition, including its triggers, steps, and connections.
 
-        :param annotations: A list of annotations used in the workflow. These are like sticky notes for your workflow!
+        :param annotations: Up to 100 text annotations displayed on the workflow canvas.
         :type annotations: [Annotation], optional
 
         :param connection_envs: A list of connections or connection groups used in the workflow.
@@ -122,7 +146,7 @@ class Spec(ModelNormal):
         :param handle: Unique identifier used to trigger workflows automatically in Datadog.
         :type handle: str, optional
 
-        :param input_schema: A list of input parameters for the workflow. These can be used as dynamic runtime values in your workflow.
+        :param input_schema: A list of input parameters for the workflow. Input parameters are available under the ``Trigger`` object and can be referenced in workflow steps using ``{{ Trigger.<parameter_name> }}``.
         :type input_schema: InputSchema, optional
 
         :param output_schema: A list of output parameters for the workflow.

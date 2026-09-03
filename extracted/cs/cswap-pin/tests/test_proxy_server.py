@@ -6511,6 +6511,108 @@ class TestDrainReportsWhatItCut:
         srv._note_bridge_traffic(A, now=100002.0)
         assert "cse_AAA" in srv.deaf_bridges(window=60.0, now=100003.0)
 
+    def case_a_bridge_that_has_just_registered_is_not_yet_deaf(self, certdir):
+        """The burst measured on a mac after `cc-update --apply --force`:
+        six bridges registered in six seconds, each posted before it had
+        opened its stream, and the daemon named every one deaf although the
+        stream GET followed within seconds on all of them — the ordinary
+        gap between register and subscribe, not a loss.
+
+        The grace is earned by a CREATE THIS DAEMON SERVED, not by merely
+        being new to `_bridge_posts`: a bridge this daemon only inherited on
+        a handover never posted its create here and must be judged at once
+        (case c) — the shape the grace must never cover, because a handover
+        is every cswap deploy.
+        """
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        srv = pp.PinProxy.__new__(pp.PinProxy)
+        srv._stream_lost = {}
+        srv._reset_bridge_traffic()
+        srv._live_lock = threading.Lock()
+        srv._stream_conns = set()
+        srv._open_conns = set()
+
+        # (a) a create THIS daemon served, then its bridge posts before its
+        # stream GET -- shielded inside the grace, judged past it.
+        NEW = "/v1/code/sessions/cse_NEW/worker/messages"
+        srv._should_sweep_bridges("POST", "/v1/code/sessions", now=999.0)
+        srv._note_bridge_traffic(NEW, now=1000.0)
+        assert srv.deaf_bridges(window=60.0, now=1005.0) == [], (
+            "a bridge whose create this daemon just served was named deaf "
+            "before its stream GET had a chance to arrive: "
+            + repr(srv.deaf_bridges(window=60.0, now=1005.0)))
+        past_grace = 1000.0 + pp._DEAF_STARTUP_GRACE_S + 1.0
+        assert srv.deaf_bridges(window=60.0, now=past_grace) == ["cse_NEW"], (
+            "the grace never expires, so a bridge that truly never opened "
+            "its ear is never reported: "
+            + repr(srv.deaf_bridges(window=60.0, now=past_grace)))
+
+        # (b) a bridge whose stream WAS held and then dropped, inside its
+        # own grace -- the grace must not shield a real loss.
+        LOST = "/v1/code/sessions/cse_LOST/worker/messages"
+        LOST_STREAM = "/v1/code/sessions/cse_LOST/worker/events/stream"
+        conn = object()
+        srv._should_sweep_bridges("POST", "/v1/code/sessions", now=1999.0)
+        srv._note_bridge_traffic(LOST, now=2000.0)
+        srv._note_bridge_traffic(LOST_STREAM, now=2001.0, conn=conn)
+        srv._stream_conns.add(conn)
+        srv._open_conns.add(conn)
+        srv._forget_stream(conn)
+        # EXPLICIT, not the real clock `_forget_stream` just stamped: the
+        # rest of this case runs on the fake timeline above and a real
+        # `time.monotonic()` value would make `deaf_for` answer a huge
+        # negative instead of the 2.0s this loss actually aged.
+        srv._stream_lost["cse_LOST"] = 2003.0
+        srv._note_bridge_traffic(LOST, now=2005.0)
+        assert srv.deaf_bridges(window=60.0, now=2005.0) == ["cse_LOST"], (
+            "the startup grace shielded a bridge whose stream this daemon "
+            "watched go, which is exactly the loss the check exists to name: "
+            + repr(srv.deaf_bridges(window=60.0, now=2005.0)))
+
+        # (c) THE SUCCESSOR SHAPE: no create ever passed through this
+        # daemon (`_last_create` stays None, as on a handover), so the
+        # bridge earns no grace and is judged the moment it posts. A fresh
+        # instance, not this daemon's own `_last_create` from (a)/(b) above.
+        succ = pp.PinProxy.__new__(pp.PinProxy)
+        succ._stream_lost = {}
+        succ._reset_bridge_traffic()
+        succ._live_lock = threading.Lock()
+        succ._stream_conns = set()
+        succ._open_conns = set()
+        SUCC = "/v1/code/sessions/cse_SUCC/worker/messages"
+        succ._note_bridge_traffic(SUCC, now=3000.0)
+        assert succ.deaf_bridges(window=60.0, now=3001.0) == ["cse_SUCC"], (
+            "a bridge this daemon never served a create for was shielded "
+            "as though it had just registered here, which on a handover "
+            "hides a genuinely deaf inherited bridge for the whole grace: "
+            + repr(succ.deaf_bridges(window=60.0, now=3001.0)))
+
+        # (d) AN OLD BRIDGE, already posting before any create fired, must
+        # not be backdated into the grace by an UNRELATED create that
+        # happens later: only a bridge NEW to `_bridge_posts` at the moment
+        # of its post earns an entry.
+        old = pp.PinProxy.__new__(pp.PinProxy)
+        old._stream_lost = {}
+        old._reset_bridge_traffic()
+        old._live_lock = threading.Lock()
+        old._stream_conns = set()
+        old._open_conns = set()
+        OLD = "/v1/code/sessions/cse_OLD/worker/messages"
+        old._note_bridge_traffic(OLD, now=100.0)
+        assert old.deaf_bridges(window=60.0, now=101.0) == ["cse_OLD"], (
+            "a bridge posting before any create fired was shielded with no "
+            "create to shield it: " + repr(old.deaf_bridges(window=60.0, now=101.0)))
+        old._should_sweep_bridges("POST", "/v1/code/sessions", now=200.0)
+        old._note_bridge_traffic(OLD, now=201.0)
+        assert old.deaf_bridges(window=60.0, now=202.0) == ["cse_OLD"], (
+            "an old bridge reposting after an unrelated create was shielded "
+            "as though it had just registered, backdating a grace that had "
+            "nothing to do with it: "
+            + repr(old.deaf_bridges(window=60.0, now=202.0)))
+
     def case_the_owner_map_is_pruned_wherever_the_stream_set_is(self):
         """`_stream_owner` is keyed on the connection object, so it must be
         dropped wherever `_stream_conns` is.
@@ -6634,6 +6736,132 @@ class TestDrainReportsWhatItCut:
                 "the transition and trains a reader to skim the file")
         finally:
             pp._log_lifecycle = real_log
+
+    def case_the_report_makes_no_claim_while_the_grace_hides_a_bridge(self,
+                                                                       monkeypatch):
+        """A shielded bridge must leave `_report_deaf_bridges` SILENT, not
+        certified clear: the false CLEAR measured on the branch's own
+        incident (six bridges posting inside 6s, none judged yet) read
+        `every posting bridge holds an inbound stream (6 posting)` over six
+        bridges nothing had judged, and the same shape on a successor
+        downgrades the honest `DEAF_REPORT_BLIND` third answer to an
+        all-clear.
+        """
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+
+            def wire(request_line, conn=None, now=None):
+                parts = request_line.split(" ")
+                srv._note_bridge_traffic(
+                    parts[1] if len(parts) > 1 else "/", conn=conn, now=now)
+                srv._connected_bridges = set(srv._bridge_posts)
+
+            # A CREATE THIS DAEMON SERVED, then its bridge posts before its
+            # stream GET has a chance to arrive -- inside the grace.
+            srv._should_sweep_bridges("POST", "/v1/code/sessions", now=999.0)
+            wire("POST /v1/code/sessions/cse_GRACE/worker/messages HTTP/1.1",
+                 now=1000.0)
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 1005.0)
+            srv._report_deaf_bridges()
+            assert lines == [], (
+                "the report claimed a verdict while the grace still hides "
+                f"cse_GRACE, judged or not: {lines}")
+
+            # PAST THE GRACE, still streamless: the next sweep judges it for
+            # real and the measured MARK line appears.
+            monkeypatch.setattr(
+                pp.time, "monotonic",
+                lambda: 1000.0 + pp._DEAF_STARTUP_GRACE_S + 1.0)
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_MARK in lines[-1], lines
+            assert "cse_GRACE" in lines[-1], lines[-1]
+
+            # A SUCCESSOR-SHAPED BRIDGE on a FRESH instance, no create ever
+            # served here (a handover, not this daemon's own bookkeeping),
+            # posts with no stream: judged AT ONCE, no grace to hide behind.
+            srv2 = pp.PinProxy.__new__(pp.PinProxy)
+            srv2._reset_bridge_traffic()
+            srv2._live_lock = threading.Lock()
+            srv2._stream_conns = set()
+            srv2._open_conns = set()
+            srv2._note_bridge_traffic(
+                "/v1/code/sessions/cse_SUCC/worker/messages", now=2000.0)
+            srv2._connected_bridges = set(srv2._bridge_posts)
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 2001.0)
+            srv2._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_MARK in lines[-1], lines
+            assert "cse_SUCC" in lines[-1], (
+                "a bridge this daemon never served a create for was "
+                f"shielded as though it had just registered here: {lines[-1]!r}")
+        finally:
+            pp._log_lifecycle = real_log
+
+    def case_the_union_makes_no_claim_while_the_grace_hides_a_bridge(
+            self, certdir, monkeypatch):
+        """The same silence as the cheap branch, on the UNION path: a
+        predecessor confirming it holds every bridge the local, graced list
+        named does not make a shielded one judged. The union can only ever
+        REMOVE bridges, never add the one grace is hiding, so a `now` that
+        reads empty here is exactly as unearned a CLEAR as the cheap
+        branch's.
+        """
+        import os
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        real_pids = pp._pin_daemon_pids
+        real_draining = pp.is_draining
+        real_held = pp.draining_bridges
+        pp._log_lifecycle = lines.append
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+            srv._certdir = certdir
+
+            # A: posted long before any create fired here -- judged locally,
+            # not shielded, and its stream turns out to be held by a
+            # predecessor this daemon cannot see.
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_A/worker/messages", now=100.0)
+            # B: a create THIS daemon served, then B posts before its
+            # stream GET has a chance to arrive -- shielded by the grace.
+            srv._should_sweep_bridges("POST", "/v1/code/sessions", now=199.0)
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_B/worker/messages", now=200.0)
+            srv._connected_bridges = {"cse_A", "cse_B"}
+
+            pp._pin_daemon_pids = lambda _c: [os.getpid(), 4242]
+            pp.is_draining = lambda _c, pid: pid == 4242
+            pp.draining_bridges = lambda _c, pid: ({"cse_A"}, True)
+
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 205.0)
+            srv._report_deaf_bridges()
+            assert lines == [], (
+                "the union read the predecessor holding cse_A as an "
+                "all-clear while the grace still hides cse_B, judged or "
+                f"not: {lines}")
+        finally:
+            pp._log_lifecycle = real_log
+            pp._pin_daemon_pids = real_pids
+            pp.is_draining = real_draining
+            pp.draining_bridges = real_held
 
     def case_both_counts_come_from_ONE_snapshot(self):
         """A NUMERATOR LARGER THAN ITS DENOMINATOR, measured in the wild:

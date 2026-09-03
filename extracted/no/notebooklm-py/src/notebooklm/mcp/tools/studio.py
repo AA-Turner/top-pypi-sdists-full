@@ -35,6 +35,7 @@ from ..._app import notes as note_core
 from ..._app.language import is_supported_language
 from ..._app.resolve import FULL_ID_PATTERN
 from ..._app.serialize import to_jsonable
+from ..._types.enums import GrpcStatusCode
 from ...exceptions import (
     ArtifactFeatureUnavailableError,
     AuthError,
@@ -46,7 +47,6 @@ from ...exceptions import (
     ServerError,
     ValidationError,
 )
-from ...rpc.types import GrpcStatusCode
 from .._coerce import coerce_list
 from .._confirm import DESTRUCTIVE, READ_ONLY, needs_confirmation
 from .._context import get_client, get_file_transfer
@@ -870,6 +870,12 @@ def register(mcp: Any) -> None:
                 # with no status at all (``ArtifactFeatureUnavailableError``), or
                 # one the server tagged INVALID_ARGUMENT / FAILED_PRECONDITION.
                 # Anything else keeps its own error.
+                # A malformed success from a non-idempotent retry carries this
+                # marker. It is not a synchronous wrong-state refusal and must
+                # reach MCP unchanged; probing here could replace it with an
+                # unmarked read failure and encourage a duplicate retry.
+                if getattr(exc, "unconfirmed", False):
+                    raise
                 if not isinstance(exc, ArtifactFeatureUnavailableError) and exc.rpc_code not in (
                     GrpcStatusCode.INVALID_ARGUMENT,
                     GrpcStatusCode.FAILED_PRECONDITION,

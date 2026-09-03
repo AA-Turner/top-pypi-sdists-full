@@ -17,6 +17,7 @@ LIBVEX_SUPPORTED_ARCHES = {
     "AMD64",
     "MIPS32",
     "MIPS64",
+    "MIPSN32",
     "ARM",
     "ARMEL",
     "ARMHF",
@@ -54,6 +55,7 @@ class LibVEXLifter(Lifter):
         if TYPE_CHECKING:
             assert isinstance(self.irsb.arch, LibvexArch)
             assert isinstance(self.data, CLiftSource)
+        vex_archinfo = self.vex_archinfo if self.vex_archinfo is not None else self.irsb.arch.vex_archinfo
         try:
             _libvex_lock.acquire()
 
@@ -83,10 +85,10 @@ class LibVEXLifter(Lifter):
             else:
                 px_control = VexRegisterUpdates.VexRegUpdLdAllregsAtEachInsn
 
-            self.irsb.arch.vex_archinfo["hwcache_info"]["caches"] = ffi.NULL
+            vex_archinfo["hwcache_info"]["caches"] = ffi.NULL
             lift_r = pvc.vex_lift(
                 vex_arch,
-                self.irsb.arch.vex_archinfo,
+                vex_archinfo,
                 self.data + self.bytes_offset,
                 self.irsb.addr,
                 max_inst,
@@ -114,4 +116,4 @@ class LibVEXLifter(Lifter):
                 raise LiftingException("libvex: could not decode any instructions @ 0x%x" % self.addr)
         finally:
             _libvex_lock.release()
-            self.irsb.arch.vex_archinfo["hwcache_info"]["caches"] = None
+            vex_archinfo["hwcache_info"]["caches"] = None

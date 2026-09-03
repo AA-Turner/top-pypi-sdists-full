@@ -573,6 +573,24 @@ class CIPlatformProvider(ABC):
         """
         return ""
 
+    def list_relevant_pull_requests(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 25,
+    ) -> tuple[list[PRMetadata], str | None]:
+        """List one page of relevant open pull requests.
+
+        Providers may override this method to expose a complete, cursor-based
+        inventory.  The default keeps older providers source-compatible while
+        making unsupported inventory explicit to callers.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not implement list_relevant_pull_requests")
+
+    def get_pr_copilot_attribution(self, pr_number: int, *, observation_watermark: str = "") -> dict[str, bool | str]:
+        """Return whether a pull request has Copilot activity after a watermark."""
+        raise NotImplementedError(f"{type(self).__name__} does not implement get_pr_copilot_attribution")
+
     def reclaim_copilot_commit(
         self,
         *,

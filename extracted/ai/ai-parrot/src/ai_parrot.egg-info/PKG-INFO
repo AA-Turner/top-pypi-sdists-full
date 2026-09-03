@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.28.0
+Version: 0.28.1
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -44,6 +44,8 @@ Requires-Dist: xmltodict>=0.14.2
 Requires-Dist: tiktoken>=0.9.0
 Requires-Dist: psutil>=5.9
 Requires-Dist: semantic-text-splitter<1.0,>=0.30
+Requires-Dist: jsonschema>=4.20
+Requires-Dist: regex>=2023.0
 Requires-Dist: navconfig[default]>=2.2.2
 Requires-Dist: navigator-auth>0.20.9
 Requires-Dist: navigator-session>=0.6.5
@@ -74,6 +76,11 @@ Requires-Dist: sqlglot>=20.0
 Requires-Dist: numexpr==2.10.2
 Requires-Dist: faiss-cpu>=1.9.0
 Requires-Dist: navigator-eventbus>=0.2.1
+Requires-Dist: rustworkx>=0.15
+Requires-Dist: networkx>=3.0
+Requires-Dist: pathspec>=0.12
+Requires-Dist: aiosqlite>=0.17
+Requires-Dist: orjson>=3.9
 Provides-Extra: notify-all
 Requires-Dist: async-notify[all]>=1.6.0; extra == "notify-all"
 Provides-Extra: db
@@ -96,15 +103,10 @@ Provides-Extra: finance
 Requires-Dist: ta-lib==0.6.8; extra == "finance"
 Requires-Dist: pandas-datareader>=0.10.0; extra == "finance"
 Provides-Extra: flowtask
-Requires-Dist: flowtask>=5.12.3; extra == "flowtask"
+Requires-Dist: flowtask>=5.12.14; extra == "flowtask"
 Provides-Extra: graphindex
-Requires-Dist: rustworkx>=0.15; extra == "graphindex"
-Requires-Dist: networkx>=3.0; extra == "graphindex"
 Requires-Dist: tree-sitter>=0.23; extra == "graphindex"
 Requires-Dist: tree-sitter-languages>=1.10; extra == "graphindex"
-Requires-Dist: pathspec>=0.12; extra == "graphindex"
-Requires-Dist: aiosqlite>=0.17; extra == "graphindex"
-Requires-Dist: orjson>=3.9; extra == "graphindex"
 Provides-Extra: wiki-languages
 Requires-Dist: tree-sitter>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-php>=0.23; extra == "wiki-languages"
@@ -112,11 +114,13 @@ Requires-Dist: tree-sitter-typescript>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-javascript>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-rust>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-perl>=0.23; extra == "wiki-languages"
+Provides-Extra: wiki-structural
+Requires-Dist: ast-grep-py>=0.45; extra == "wiki-structural"
 Provides-Extra: leiden
 Requires-Dist: leidenalg>=0.10; extra == "leiden"
 Requires-Dist: python-igraph>=0.10; extra == "leiden"
 Provides-Extra: wiki
-Requires-Dist: ai-parrot[graphindex,leiden,wiki-languages]; extra == "wiki"
+Requires-Dist: ai-parrot[graphindex,leiden,wiki-languages,wiki-structural]; extra == "wiki"
 Requires-Dist: pymupdf>=1.27; extra == "wiki"
 Provides-Extra: scheduler
 Requires-Dist: apscheduler==3.11.2; extra == "scheduler"
@@ -297,10 +301,6 @@ Requires-Dist: onnxruntime>=1.16; extra == "security"
 Requires-Dist: huggingface_hub<1.0,>=0.24; extra == "security"
 Provides-Extra: xai
 Requires-Dist: xai-sdk>=1.12.0; extra == "xai"
-Provides-Extra: gemma4
-Requires-Dist: transformers>=5.0.0; extra == "gemma4"
-Requires-Dist: torch>=2.13.0; extra == "gemma4"
-Requires-Dist: accelerate>=1.9.0; extra == "gemma4"
 Provides-Extra: deploy
 Requires-Dist: gunicorn>=23.0.0; extra == "deploy"
 Provides-Extra: docling

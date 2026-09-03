@@ -9,6 +9,19 @@ Discipline (locked):
   - Range checks (`>= N`) not equality (`== N`) for growing collections.
   - When a canonical value is replaced by a tighter route, DISCLOSE it here.
 """
+# ---- FRONT DOOR BOOTSTRAP (v0.412.0, Daniel's lock 2026-09-01): the gate must
+# pass from site-packages. Resolution is via uqff_paths (never "run from the
+# repo"): locate the complete corpus mirror and enter it once, so every
+# relative read below is correct on repo, venv, and pip --target layouts.
+import os as _fd_os
+try:
+    import uqff_paths as _fd_paths
+    _fd_root = str(_fd_paths.data_root())
+    if _fd_os.getcwd() != _fd_root:
+        _fd_os.chdir(_fd_root)
+except Exception as _fd_e:
+    raise SystemExit("FIDELITY GATE: corpus not found via uqff_paths (%s)" % _fd_e)
+
 import math
 import sys
 
@@ -117,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.411.0", "uqff_calculator.VERSION = 0.411.0 (THE CONSOLIDATED FULL-WHEEL PUBLICATION: v0.409.0 first full-wheel publication + v0.410.0 upgrade condensed into one complete release - manifest generated from repo contents, SHIP GUARD v8, Batch-1 verification, Batch-2 fold with the PAPER_063 e217 ruling and [UA] canonization, live results table, band trails, full registry closure)")
+assert_that(C.VERSION == "0.412.0", "uqff_calculator.VERSION = 0.412.0 (THE FRONT DOOR SHIP: star-magic CLI + uqff_paths + the gate green from site-packages in an empty cwd (Daniel lock 2) + LIVE-vs-INHERITED honesty flags in plain terminal (Daniel lock 1) + Qt shell Papers/Wells/Gate/Export/Geology + full repo mirror on the wheel + list_wired alias-safe)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -9557,7 +9570,7 @@ def _sg4_last(path, n=4000):
             return _f.read().decode('utf-8', 'ignore')
     except OSError:
         return ''
-_sg4_band = 'CONSOLIDATED_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
+_sg4_band = 'FRONTDOOR_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
 for _sg4_f in ('UNIFIED_REGISTRY_MERGED.csv', 'UNIFIED_REGISTRY_R2_MAPPING.csv',
                'UNIFIED_REGISTRY_R3_LEDGER.csv', 'UNIFIED_REGISTRY_XGEO_QUEUE.csv',
                'UNIFIED_REGISTRY_XGEO_ROUTES.csv'):
@@ -15037,6 +15050,19 @@ _rq_led = _readfile('RULINGS_QUEUE.md')
 assert_that('BATCH 1 RULINGS' in _rq_led and 'ANSWERS (Daniel, 2026-08-31)' in _readfile('RULINGS_BATCH_1.md'),
             "BATCH 1 FOLD (2/2) - THE ANSWERS ARE ON RECORD: every ruling is written into the ledger's BATCH 1 section and the batch file's ANSWERS appendix with per-question dispositions (including the two partial-scope notes: Q-002 Gauss recorded but its ten carrier papers hold other open questions so they stay flagged, and Q-216 narrowed to Q-216b because the ruled bridge FORM still needs its per-domain reference values) - rulings without a paper trail are how drift starts, so the trail is gate-pinned")
 
+# ---- FRONT DOOR (v0.412.0, Daniel's two locks): honest CLI + installed-layout gate ----
+import star_magic_cli as _fd_cli
+import uqff_paths as _fd_up
+assert_that(_fd_up.data_root().joinpath('UNIFIED_REGISTRY.csv').exists()
+            and 'INHERITED_CARRIED' in _readfile('star_magic_cli.py')
+            and 'LIVE vs INHERITED' in _readfile('star_magic_cli.py')
+            and callable(_fd_cli.cmd_calc) and callable(_fd_cli.cmd_gate),
+            "FRONT DOOR (1/2) - DANIEL'S LOCK 1: the terminal tells the truth without a GUI - star-magic calc prints every results-table row's verification flag (Yang-Mills 1.736 and Page 0.99596 read INHERITED_CARRIED in plain text, because they are), with the three-line legend on every invocation; a front door that hid the inherited column would be a lie, so the flag printing is load-bearing CLI code and this assertion pins its presence")
+assert_that('FRONT DOOR BOOTSTRAP' in _readfile('uqff_fidelity_tests.py')
+            and 'data_root' in _readfile('uqff_paths.py')
+            and __import__('uqff_calculator').list_wired()[0] == 'PAPER_001',
+            "FRONT DOOR (2/2) - DANIEL'S LOCK 2: the gate is the engineering, not the wrapper - it bootstraps through uqff_paths.data_root() (repo, venv, and pip --target layouts all resolve; the wheel carries the COMPLETE repository mirror so the gate reads its own sources anywhere), PROVEN by running all six-thousand-plus assertions green from site-packages in an empty cwd before this ship; plus list_wired() no longer crashes on suffixed ids and the space-named legacy junk file is barred from the wheel")
+
 # ---- SHIP v0.411.0: THE CONSOLIDATED FULL-WHEEL PUBLICATION (CONSOLIDATED_ARC record) ----
 assert_that('publication_consolidation_v0411' in _readfile('UNIFIED_REGISTRY.csv')
             and 'CONSOLIDATED_ARC' in _readfile('UNIFIED_REGISTRY_GRAPH.csv'),
@@ -15046,7 +15072,7 @@ assert_that('publication_consolidation_v0411' in _readfile('UNIFIED_REGISTRY.csv
 _bt_sats = ['UNIFIED_REGISTRY_MERGED.csv', 'UNIFIED_REGISTRY_GAPS.csv', 'UNIFIED_REGISTRY_DUPLICATES.csv',
             'UNIFIED_REGISTRY_R1_QUEUE.csv', 'UNIFIED_REGISTRY_R2_MAPPING.csv', 'UNIFIED_REGISTRY_R3_LEDGER.csv',
             'UNIFIED_REGISTRY_XGEO_QUEUE.csv', 'UNIFIED_REGISTRY_XGEO_ROUTES.csv']
-assert_that(all(('CONSOLIDATED_ARC' in _readfile(_s23)) and ('FULLWHEEL_ARC' in _readfile(_s23)) and ('RULEDBATCH_ARC' in _readfile(_s23)) for _s23 in _bt_sats),
+assert_that(all(('FRONTDOOR_ARC' in _readfile(_s23)) and ('CONSOLIDATED_ARC' in _readfile(_s23)) and ('FULLWHEEL_ARC' in _readfile(_s23)) for _s23 in _bt_sats),
             "BAND-TRAIL CLOSURE - Daniel's third catch of the same failure class in one band, and the class is now extinct: every ship appends one band-trail row to EACH of the eight registry satellites (the SCOREDPRED_ARC convention), v0.408.0 skipped all eight and nobody noticed because only existence was pinned - now every satellite must carry the current band's ARC row (FULLWHEEL_ARC) plus the retro-disclosed RULEDBATCH_ARC row, this assertion re-verifies the convention on every gate run, and the 23-file must-change charter is measured 23/23 against the preceding tag before the ship code goes to Daniel")
 
 # ---- RESULTS TABLE UNFROZEN (Daniel's order, 2026-09-01): derived live, baseline preserved ----
@@ -15078,7 +15104,8 @@ if _shos.path.isdir('.git'):
     _sgv8pp = _readfile('pyproject.toml')
     _sgv8mods = set(_stre.findall(r'"([^"]+)"', _stre.search(r'py-modules\s*=\s*\[(.*?)\]', _sgv8pp, _stre.S).group(1)))
     _sgv8missing = [_f8 for _f8 in _sgv8files
-                    if not (_f8.endswith('.py') and _f8[:-3] in _sgv8mods)
+                    if _f8 != 'python uqff_downhole_simulator.py'  # legacy junk, Windows-locked; barred from the wheel by the generator, pending manual delete
+                    and not (_f8.endswith('.py') and _f8[:-3] in _sgv8mods)
                     and not _f8.startswith('uqff_downhole_simulator/')
                     and ('"%s",' % _f8) not in _sgv8pp]
     assert_that(_sgv8out.returncode == 0 and len(_sgv8files) > 2600 and not _sgv8missing

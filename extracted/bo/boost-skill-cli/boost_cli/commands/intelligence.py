@@ -14,6 +14,7 @@ import difflib
 import fnmatch
 import json
 import re
+import sys
 import tempfile
 import textwrap
 from collections import Counter
@@ -27,6 +28,7 @@ from ..core import (
     gitutil,
     imperative,
     journal,
+    jsonstate,
     lockfile,
     paths,
     registry,
@@ -46,10 +48,16 @@ _warned_fallback = False
 
 
 def _note_fallback() -> None:
-    """Warn once per invocation that the AI path is unavailable."""
+    """Warn once per invocation that the AI path is unavailable.
+
+    Routed to stderr: `infer`/`absorb` write generated SKILL.md content to
+    stdout when neither `--install` nor `-o` is given, and this note used to
+    print as stdout's first line — `boost infer > SKILL.md` wrote a file
+    whose body opened with the warning instead of the frontmatter.
+    """
     global _warned_fallback
     if not _warned_fallback:
-        out.warn(ai.fallback_note(), wrap=True)
+        out.warn(ai.fallback_note(), wrap=True, stream=sys.stderr)
         _warned_fallback = True
 
 
@@ -88,17 +96,33 @@ def _bump_patch(v: str) -> str:
 
 def _load_state(fname: str, default: dict) -> dict:
     p = paths.state_dir() / fname
-    if not p.exists():
+    data, err = jsonstate.read_object(p)
+    if err:
+        # stderr unconditionally: some callers (`context status --json`) read
+        # this before deciding whether they're printing JSON to stdout, and a
+        # warning has no business inside that payload.
+        out.warn("%s — reading as the default; the file is left on disk but "
+                 "the next write here replaces it" % err, stream=sys.stderr)
+    if data is None:
         return json.loads(json.dumps(default))
-    try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return json.loads(json.dumps(default))
+    return data
 
 
 def _save_state(fname: str, data: dict) -> None:
     paths.ensure_dirs()
-    (paths.state_dir() / fname).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    p = paths.state_dir() / fname
+    if jsonstate.is_corrupt(p):
+        dest = jsonstate.quarantine(p)
+        out.warn("%s was corrupt and has been moved to %s before writing "
+                 "the new file" % (p, dest), stream=sys.stderr)
+    p.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def _save_generated_fallback(name: str, text: str, reason: str) -> None:
+    fallback = Path.cwd() / ("%s.SKILL.md" % name)
+    fallback.write_text(text, encoding="utf-8")
+    out.warn("not installed: %s" % reason)
+    out.info("generated skill saved to %s" % _tilde(fallback))
 
 
 def _install_generated(name: str, text: str) -> None:
@@ -108,7 +132,19 @@ def _install_generated(name: str, text: str) -> None:
     must not be allowed to propagate out of the ``with`` block and delete it —
     that would discard an LLM generation the user paid for, with nothing on disk
     to recover. On a refusal, save it beside the cwd and say where it went.
+
+    ``install_from_path`` refuses to overwrite a *pinned* name, but silently
+    replaces an unpinned one — the common case, since it doubles as the
+    ``boost import``/``reinstall`` path. Ask before doing that here, so
+    ``distill``/``infer``/``absorb --install`` don't quietly destroy an
+    existing install and relabel its lock provenance ``local``.
     """
+    owner = store.existing_skill_owner(name)
+    if owner and not out.confirm(
+            "%s is already installed from %s — replace it?" % (name, owner)):
+        _save_generated_fallback(
+            name, text, "%s is already installed from %s" % (name, owner))
+        return
     with tempfile.TemporaryDirectory(prefix="boost-gen-") as td:
         src = Path(td) / name
         src.mkdir()
@@ -116,12 +152,9 @@ def _install_generated(name: str, text: str) -> None:
         try:
             res = store.install_from_path(src, name=name, tap_label="local")
         except BoostError as err:
-            fallback = Path.cwd() / ("%s.SKILL.md" % name)
-            fallback.write_text(text, encoding="utf-8")
-            out.warn("not installed: %s" % err.message)
-            out.info("generated skill saved to %s" % _tilde(fallback))
+            _save_generated_fallback(name, text, err.message)
             return
-    out.ok("installed %s → %s" % (name, _tilde(res.dest)))
+    out.ok("%s %s → %s" % ("replaced" if owner else "installed", name, _tilde(res.dest)))
     if res.linked:
         out.info(out.role("linked into: %s" % ", ".join(res.linked), "muted"))
 
@@ -131,19 +164,18 @@ def _write_generated(dest: Path, text: str) -> bool:
     if dest.exists() and not out.confirm("overwrite %s?" % _tilde(dest)):
         out.info("aborted — %s left untouched" % _tilde(dest))
         return False
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(text, encoding="utf-8")
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        raise BoostError("cannot write %s: %s" % (dest, exc)) from exc
     out.ok("wrote %s" % _tilde(dest))
     return True
 
 
 def _current_branch(cwd: Path | None = None) -> str | None:
     """Current git branch of cwd, or None when not in a repo / no git."""
-    if not gitutil.has_git():
-        return None
-    proc = gitutil.run(["rev-parse", "--abbrev-ref", "HEAD"],
-                       cwd=cwd or Path.cwd(), check=False)
-    return proc.stdout.strip() if proc.returncode == 0 else None
+    return gitutil.branch_state(cwd).branch
 
 
 # ---------------------------------------------------------------- distill
@@ -557,7 +589,7 @@ def cmd_absorb(argv: list[str]) -> int:
         description="Turn recurring chat-history patterns into a skill")
     ap.add_argument("--history", metavar="PATH",
                     help="history .jsonl file or directory of them")
-    ap.add_argument("--limit", type=int, default=5, metavar="N",
+    ap.add_argument("--limit", type=util.positive_int, default=5, metavar="N",
                     help="max patterns to absorb (default: 5)")
     ap.add_argument("--install", action="store_true",
                     help="install the generated skill")
@@ -588,10 +620,14 @@ def cmd_absorb(argv: list[str]) -> int:
         return 0
 
     name = "absorbed-patterns"
-    out.heading("recurring patterns from %d history file(s)" % len(files))
+    # Without --install, stdout carries the generated SKILL.md (`boost absorb
+    # > SKILL.md`), so this report must not land ahead of it there.
+    report_stream = None if args.install else sys.stderr
+    out.heading("recurring patterns from %d history file(s)" % len(files),
+                stream=report_stream)
     out.table([(p, "%dx" % n) for p, n in patterns],
-              headers=("PATTERN", "SEEN"))
-    print()
+              headers=("PATTERN", "SEEN"), stream=report_stream)
+    print(file=report_stream)
 
     text = _absorb_ai(name, patterns) if ai.available() else None
     if text is None:
@@ -883,7 +919,8 @@ def cmd_context(argv: list[str]) -> int:
         return 0
     # apply
     if not state.get("enabled"):
-        out.warn("context is disabled (`boost context enable`) — applying anyway")
+        out.warn("context is disabled (`boost context enable`) — applying anyway",
+                 stream=sys.stderr)
     return _context_apply(state)
 
 
@@ -892,14 +929,19 @@ def _mentioned_skills(state: dict) -> set:
 
 
 def _context_status(state: dict, as_json: bool) -> int:
-    branch = _current_branch()
+    git = gitutil.branch_state()
+    branch = git.branch
     if as_json:
         print(json.dumps({"enabled": bool(state.get("enabled")),
-                          "branch": branch, "rules": state.get("rules", [])}))
+                          "branch": branch, "git": git.has_git,
+                          "rules": state.get("rules", [])}))
         return 0
     out.heading("branch-aware skill activation")
     out.kv("enabled", "yes" if state.get("enabled") else "no")
-    out.kv("branch", branch or "(not in a git repository)")
+    if not git.has_git:
+        out.kv("branch", "(git not found on PATH)")
+    else:
+        out.kv("branch", branch or "(not in a git repository)")
     rules = state.get("rules", [])
     if not rules:
         out.info("no rules — add one with `boost context map 'feature/*' "
@@ -913,9 +955,11 @@ def _context_status(state: dict, as_json: bool) -> int:
 
 
 def _context_apply(state: dict) -> int:
-    branch = _current_branch()
+    git = gitutil.branch_state()
+    branch = git.branch
     if branch is None:
-        out.info("not inside a git repository — nothing to apply")
+        out.info("git not found on PATH — nothing to apply" if not git.has_git
+                 else "not inside a git repository — nothing to apply")
         return 0
     rules = state.get("rules", [])
     matched = [r for r in rules if fnmatch.fnmatch(branch, r.get("pattern", ""))]
@@ -1052,6 +1096,10 @@ def cmd_impact(argv: list[str]) -> int:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
+    git = gitutil.branch_state()
+    in_repo = git.in_repo
+    note = _IMPACT_NOTE if in_repo else _IMPACT_NOTE_NO_REPO
+
     inst = lockfile.installed()
     if args.name:
         if args.name not in inst:
@@ -1069,16 +1117,10 @@ def cmd_impact(argv: list[str]) -> int:
         names = sorted(inst)
         if not names:
             if args.json:
-                print(json.dumps({"note": _IMPACT_NOTE, "skills": []}))
+                print(json.dumps({"note": note, "git": git.has_git, "skills": []}))
             else:
                 out.info("no skills installed — nothing to measure")
             return 0
-
-    in_repo = False
-    if gitutil.has_git():
-        proc = gitutil.run(["rev-parse", "--is-inside-work-tree"],
-                           cwd=Path.cwd(), check=False)
-        in_repo = proc.returncode == 0 and proc.stdout.strip() == "true"
 
     rows, data = [], []
     for name in names:
@@ -1093,7 +1135,7 @@ def cmd_impact(argv: list[str]) -> int:
                      "events": events})
 
     if args.json:
-        print(json.dumps({"note": _IMPACT_NOTE, "skills": data}))
+        print(json.dumps({"note": note, "git": git.has_git, "skills": data}))
         return 0
     out.heading("impact" + ((" of %s" % args.name) if args.name else ""))
     out.table(rows, headers=("SKILL", "INSTALLED", "COMMITS SINCE", "EVENTS"))
@@ -1111,11 +1153,12 @@ def cmd_impact(argv: list[str]) -> int:
                 print(textwrap.indent(textwrap.fill(reply, width=76), "  "))
         else:
             _note_fallback()
-    out.dim("  " + _IMPACT_NOTE)
+    out.dim("  " + note)
     return 0
 
 
 _IMPACT_NOTE = "correlation, not causation — commits since install in this repo"
+_IMPACT_NOTE_NO_REPO = "not inside a git repository — commit counts unavailable"
 
 
 def _repo_activity(since: str) -> tuple[int | None, int | None]:
@@ -1181,7 +1224,7 @@ def cmd_chat(argv: list[str]) -> int:
         description="Ask about skills in plain language")
     ap.add_argument("question", nargs="*", metavar="QUESTION",
                     help="ask once and exit; omit for an interactive session")
-    ap.add_argument("-k", "--limit", type=int, default=chat_engine.TOP_K,
+    ap.add_argument("-k", "--limit", type=util.positive_int, default=chat_engine.TOP_K,
                     metavar="N", help="candidate skills to consider (default %d)"
                                       % chat_engine.TOP_K)
     ap.add_argument("--no-sources", action="store_true",

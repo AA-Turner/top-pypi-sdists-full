@@ -228,6 +228,7 @@ class RawAccountsClient:
         self,
         *,
         affiliate_code: typing.Optional[str] = OMIT,
+        blueprint_id: typing.Optional[str] = OMIT,
         country: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
@@ -241,6 +242,9 @@ class RawAccountsClient:
         ----------
         affiliate_code : typing.Optional[str]
             The username, if any, of the partner who referred this account
+
+        blueprint_id : typing.Optional[str]
+            The blueprint App ID, prefixed `app_`. Creates a hosted website for the account and queues its deployment asynchronously; the Account response does not report deployment completion.
 
         country : typing.Optional[str]
             The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
@@ -267,6 +271,7 @@ class RawAccountsClient:
             method="POST",
             json={
                 "affiliate_code": affiliate_code,
+                "blueprint_id": blueprint_id,
                 "country": country,
                 "email": email,
                 "metadata": metadata,
@@ -818,7 +823,7 @@ class RawAccountsClient:
             High-level business category, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
 
         formation_state : FormCompanyAccountsRequestFormationState
-            Two-letter code of the US state (or `DC`) to form the company in.
+            Two-letter code of the US state (or `DC`) to form the company in. We recommend `WY` because Wyoming formations are completed the same day.
 
         founders : typing.Sequence[FormCompanyAccountsRequestFoundersItem]
             The company's founders. Exactly one must be marked `is_primary` — the responsible party for the filing.
@@ -968,12 +973,98 @@ class RawAccountsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def suspend(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Account]:
+        """
+        Suspends a connected account directly owned by the authenticated platform account. This cannot suspend the platform account itself or an account owned by another platform.
+
+        Parameters
+        ----------
+        id : str
+            Connected account ID, prefixed `biz_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Account]
+            Connected account suspended.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"accounts/{encode_path_param(id)}/suspend",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Account,
+                    parse_obj_as(
+                        type_=Account,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def transfer_ownership(
         self,
         id: str,
         *,
         identifier: str,
         as_partner: typing.Optional[bool] = OMIT,
+        message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TransferOwnershipAccountsResponse]:
         """
@@ -990,6 +1081,9 @@ class RawAccountsClient:
         as_partner : typing.Optional[bool]
             If true, the current owner is credited as the account's Whop partner, earning partner commission on its sales. Requires the current owner to already be an enrolled Whop partner. Skipped if the account already has an active partner.
 
+        message : typing.Optional[str]
+            A note from the partner, shown as a quote in the invite email and signed with their name. Requires `as_partner`; sending it on an ordinary transfer is a 400. Omit it and the email sends without a note.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1004,6 +1098,7 @@ class RawAccountsClient:
             json={
                 "as_partner": as_partner,
                 "identifier": identifier,
+                "message": message,
             },
             headers={
                 "content-type": "application/json",
@@ -1228,6 +1323,7 @@ class AsyncRawAccountsClient:
         self,
         *,
         affiliate_code: typing.Optional[str] = OMIT,
+        blueprint_id: typing.Optional[str] = OMIT,
         country: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
@@ -1241,6 +1337,9 @@ class AsyncRawAccountsClient:
         ----------
         affiliate_code : typing.Optional[str]
             The username, if any, of the partner who referred this account
+
+        blueprint_id : typing.Optional[str]
+            The blueprint App ID, prefixed `app_`. Creates a hosted website for the account and queues its deployment asynchronously; the Account response does not report deployment completion.
 
         country : typing.Optional[str]
             The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
@@ -1267,6 +1366,7 @@ class AsyncRawAccountsClient:
             method="POST",
             json={
                 "affiliate_code": affiliate_code,
+                "blueprint_id": blueprint_id,
                 "country": country,
                 "email": email,
                 "metadata": metadata,
@@ -1820,7 +1920,7 @@ class AsyncRawAccountsClient:
             High-level business category, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
 
         formation_state : FormCompanyAccountsRequestFormationState
-            Two-letter code of the US state (or `DC`) to form the company in.
+            Two-letter code of the US state (or `DC`) to form the company in. We recommend `WY` because Wyoming formations are completed the same day.
 
         founders : typing.Sequence[FormCompanyAccountsRequestFoundersItem]
             The company's founders. Exactly one must be marked `is_primary` — the responsible party for the filing.
@@ -1970,12 +2070,100 @@ class AsyncRawAccountsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def suspend(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[Account]:
+        """
+        Suspends a connected account directly owned by the authenticated platform account. This cannot suspend the platform account itself or an account owned by another platform.
+
+        Parameters
+        ----------
+        id : str
+            Connected account ID, prefixed `biz_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Account]
+            Connected account suspended.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"accounts/{encode_path_param(id)}/suspend",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Account,
+                    parse_obj_as(
+                        type_=Account,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def transfer_ownership(
         self,
         id: str,
         *,
         identifier: str,
         as_partner: typing.Optional[bool] = OMIT,
+        message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TransferOwnershipAccountsResponse]:
         """
@@ -1992,6 +2180,9 @@ class AsyncRawAccountsClient:
         as_partner : typing.Optional[bool]
             If true, the current owner is credited as the account's Whop partner, earning partner commission on its sales. Requires the current owner to already be an enrolled Whop partner. Skipped if the account already has an active partner.
 
+        message : typing.Optional[str]
+            A note from the partner, shown as a quote in the invite email and signed with their name. Requires `as_partner`; sending it on an ordinary transfer is a 400. Omit it and the email sends without a note.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2006,6 +2197,7 @@ class AsyncRawAccountsClient:
             json={
                 "as_partner": as_partner,
                 "identifier": identifier,
+                "message": message,
             },
             headers={
                 "content-type": "application/json",

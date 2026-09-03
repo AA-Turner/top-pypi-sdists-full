@@ -42,6 +42,7 @@ from .paginator import (
     ListDbSystemShapesPaginator,
     ListExadbVmClustersPaginator,
     ListExascaleDbStorageVaultsPaginator,
+    ListFlexComponentsPaginator,
     ListGiMinorVersionsPaginator,
     ListGiVersionsPaginator,
     ListOdbNetworksPaginator,
@@ -145,6 +146,8 @@ from .type_defs import (
     ListExadbVmClustersOutputTypeDef,
     ListExascaleDbStorageVaultsInputTypeDef,
     ListExascaleDbStorageVaultsOutputTypeDef,
+    ListFlexComponentsInputTypeDef,
+    ListFlexComponentsOutputTypeDef,
     ListGiMinorVersionsInputTypeDef,
     ListGiMinorVersionsOutputTypeDef,
     ListGiVersionsInputTypeDef,
@@ -802,6 +805,17 @@ class OdbClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#list_exascale_db_storage_vaults)
         """
 
+    def list_flex_components(
+        self, **kwargs: Unpack[ListFlexComponentsInputTypeDef]
+    ) -> ListFlexComponentsOutputTypeDef:
+        """
+        Returns information about the flex components that are available for an Exadata
+        infrastructure.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_flex_components.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#list_flex_components)
+        """
+
     def list_gi_minor_versions(
         self, **kwargs: Unpack[ListGiMinorVersionsInputTypeDef]
     ) -> ListGiMinorVersionsOutputTypeDef:
@@ -1200,6 +1214,17 @@ class OdbClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_exascale_db_storage_vaults"]
     ) -> ListExascaleDbStorageVaultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_flex_components"]
+    ) -> ListFlexComponentsPaginator:
         """
         Create a paginator for an operation.
 

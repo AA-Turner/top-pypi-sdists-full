@@ -218,6 +218,17 @@ if TYPE_CHECKING:
     from .copilot_report_root import CopilotReportRoot
     from .cross_tenant_access_policy import CrossTenantAccessPolicy
     from .cross_tenant_access_policy_configuration_default import CrossTenantAccessPolicyConfigurationDefault
+    from .cross_tenant_calendar_availability_basic import CrossTenantCalendarAvailabilityBasic
+    from .cross_tenant_calendar_availability_limited_details import CrossTenantCalendarAvailabilityLimitedDetails
+    from .cross_tenant_calendar_sharing_free_busy_detail import CrossTenantCalendarSharingFreeBusyDetail
+    from .cross_tenant_calendar_sharing_free_busy_reviewer import CrossTenantCalendarSharingFreeBusyReviewer
+    from .cross_tenant_calendar_sharing_free_busy_simple import CrossTenantCalendarSharingFreeBusySimple
+    from .cross_tenant_mail_tips_all import CrossTenantMailTipsAll
+    from .cross_tenant_mail_tips_limited import CrossTenantMailTipsLimited
+    from .cross_tenant_migration import CrossTenantMigration
+    from .cross_tenant_open_profile_card import CrossTenantOpenProfileCard
+    from .cross_tenant_places_desk_booking import CrossTenantPlacesDeskBooking
+    from .cross_tenant_places_room_booking import CrossTenantPlacesRoomBooking
     from .custom_authentication_extension import CustomAuthenticationExtension
     from .custom_callout_extension import CustomCalloutExtension
     from .custom_data_provided_resource import CustomDataProvidedResource
@@ -247,7 +258,6 @@ if TYPE_CHECKING:
     from .device import Device
     from .device_and_app_management_role_assignment import DeviceAndAppManagementRoleAssignment
     from .device_and_app_management_role_definition import DeviceAndAppManagementRoleDefinition
-    from .device_app_management import DeviceAppManagement
     from .device_category import DeviceCategory
     from .device_compliance_action_item import DeviceComplianceActionItem
     from .device_compliance_device_overview import DeviceComplianceDeviceOverview
@@ -383,6 +393,7 @@ if TYPE_CHECKING:
     from .external_connectors.identity import Identity
     from .external_connectors.schema import Schema
     from .external_domain_name import ExternalDomainName
+    from .external_origin_resource_connector import ExternalOriginResourceConnector
     from .external_users_self_service_sign_up_events_flow import ExternalUsersSelfServiceSignUpEventsFlow
     from .e_book_install_summary import EBookInstallSummary
     from .feature_rollout_policy import FeatureRolloutPolicy
@@ -425,6 +436,7 @@ if TYPE_CHECKING:
     from .identity_governance.lifecycle_management_settings import LifecycleManagementSettings
     from .identity_governance.lifecycle_workflows_container import LifecycleWorkflowsContainer
     from .identity_governance.run import Run
+    from .identity_governance.subject_processing_result import SubjectProcessingResult
     from .identity_governance.task import Task
     from .identity_governance.task_definition import TaskDefinition
     from .identity_governance.task_processing_result import TaskProcessingResult
@@ -488,6 +500,7 @@ if TYPE_CHECKING:
     from .login_page import LoginPage
     from .long_running_operation import LongRunningOperation
     from .m365_apps_installation_options import M365AppsInstallationOptions
+    from .m365_capability_base import M365CapabilityBase
     from .mac_o_s_compliance_policy import MacOSCompliancePolicy
     from .mac_o_s_custom_configuration import MacOSCustomConfiguration
     from .mac_o_s_device_features_configuration import MacOSDeviceFeaturesConfiguration
@@ -992,6 +1005,7 @@ if TYPE_CHECKING:
     from .unified_role_management_policy_rule import UnifiedRoleManagementPolicyRule
     from .unified_role_schedule_base import UnifiedRoleScheduleBase
     from .unified_role_schedule_instance_base import UnifiedRoleScheduleInstanceBase
+    from .unified_root import UnifiedRoot
     from .unified_storage_quota import UnifiedStorageQuota
     from .unit_map import UnitMap
     from .unmute_participant_operation import UnmuteParticipantOperation
@@ -2031,6 +2045,50 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .cross_tenant_access_policy_configuration_default import CrossTenantAccessPolicyConfigurationDefault
 
             return CrossTenantAccessPolicyConfigurationDefault()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantCalendarAvailabilityBasic".casefold():
+            from .cross_tenant_calendar_availability_basic import CrossTenantCalendarAvailabilityBasic
+
+            return CrossTenantCalendarAvailabilityBasic()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantCalendarAvailabilityLimitedDetails".casefold():
+            from .cross_tenant_calendar_availability_limited_details import CrossTenantCalendarAvailabilityLimitedDetails
+
+            return CrossTenantCalendarAvailabilityLimitedDetails()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantCalendarSharingFreeBusyDetail".casefold():
+            from .cross_tenant_calendar_sharing_free_busy_detail import CrossTenantCalendarSharingFreeBusyDetail
+
+            return CrossTenantCalendarSharingFreeBusyDetail()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantCalendarSharingFreeBusyReviewer".casefold():
+            from .cross_tenant_calendar_sharing_free_busy_reviewer import CrossTenantCalendarSharingFreeBusyReviewer
+
+            return CrossTenantCalendarSharingFreeBusyReviewer()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantCalendarSharingFreeBusySimple".casefold():
+            from .cross_tenant_calendar_sharing_free_busy_simple import CrossTenantCalendarSharingFreeBusySimple
+
+            return CrossTenantCalendarSharingFreeBusySimple()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantMailTipsAll".casefold():
+            from .cross_tenant_mail_tips_all import CrossTenantMailTipsAll
+
+            return CrossTenantMailTipsAll()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantMailTipsLimited".casefold():
+            from .cross_tenant_mail_tips_limited import CrossTenantMailTipsLimited
+
+            return CrossTenantMailTipsLimited()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantMigration".casefold():
+            from .cross_tenant_migration import CrossTenantMigration
+
+            return CrossTenantMigration()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantOpenProfileCard".casefold():
+            from .cross_tenant_open_profile_card import CrossTenantOpenProfileCard
+
+            return CrossTenantOpenProfileCard()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantPlacesDeskBooking".casefold():
+            from .cross_tenant_places_desk_booking import CrossTenantPlacesDeskBooking
+
+            return CrossTenantPlacesDeskBooking()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.crossTenantPlacesRoomBooking".casefold():
+            from .cross_tenant_places_room_booking import CrossTenantPlacesRoomBooking
+
+            return CrossTenantPlacesRoomBooking()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.customAuthenticationExtension".casefold():
             from .custom_authentication_extension import CustomAuthenticationExtension
 
@@ -2147,10 +2205,6 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .device_and_app_management_role_definition import DeviceAndAppManagementRoleDefinition
 
             return DeviceAndAppManagementRoleDefinition()
-        if mapping_value and mapping_value.casefold() == "#microsoft.graph.deviceAppManagement".casefold():
-            from .device_app_management import DeviceAppManagement
-
-            return DeviceAppManagement()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.deviceCategory".casefold():
             from .device_category import DeviceCategory
 
@@ -2695,6 +2749,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .external_domain_name import ExternalDomainName
 
             return ExternalDomainName()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.externalOriginResourceConnector".casefold():
+            from .external_origin_resource_connector import ExternalOriginResourceConnector
+
+            return ExternalOriginResourceConnector()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.externalUsersSelfServiceSignUpEventsFlow".casefold():
             from .external_users_self_service_sign_up_events_flow import ExternalUsersSelfServiceSignUpEventsFlow
 
@@ -2861,6 +2919,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .identity_governance.run import Run
 
             return Run()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.identityGovernance.subjectProcessingResult".casefold():
+            from .identity_governance.subject_processing_result import SubjectProcessingResult
+
+            return SubjectProcessingResult()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.identityGovernance.task".casefold():
             from .identity_governance.task import Task
 
@@ -3113,6 +3175,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .m365_apps_installation_options import M365AppsInstallationOptions
 
             return M365AppsInstallationOptions()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.m365CapabilityBase".casefold():
+            from .m365_capability_base import M365CapabilityBase
+
+            return M365CapabilityBase()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.macOSCompliancePolicy".casefold():
             from .mac_o_s_compliance_policy import MacOSCompliancePolicy
 
@@ -5136,6 +5202,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .unified_role_schedule_instance_base import UnifiedRoleScheduleInstanceBase
 
             return UnifiedRoleScheduleInstanceBase()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.unifiedRoot".casefold():
+            from .unified_root import UnifiedRoot
+
+            return UnifiedRoot()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.unifiedStorageQuota".casefold():
             from .unified_storage_quota import UnifiedStorageQuota
 
@@ -6004,6 +6074,17 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .copilot_report_root import CopilotReportRoot
         from .cross_tenant_access_policy import CrossTenantAccessPolicy
         from .cross_tenant_access_policy_configuration_default import CrossTenantAccessPolicyConfigurationDefault
+        from .cross_tenant_calendar_availability_basic import CrossTenantCalendarAvailabilityBasic
+        from .cross_tenant_calendar_availability_limited_details import CrossTenantCalendarAvailabilityLimitedDetails
+        from .cross_tenant_calendar_sharing_free_busy_detail import CrossTenantCalendarSharingFreeBusyDetail
+        from .cross_tenant_calendar_sharing_free_busy_reviewer import CrossTenantCalendarSharingFreeBusyReviewer
+        from .cross_tenant_calendar_sharing_free_busy_simple import CrossTenantCalendarSharingFreeBusySimple
+        from .cross_tenant_mail_tips_all import CrossTenantMailTipsAll
+        from .cross_tenant_mail_tips_limited import CrossTenantMailTipsLimited
+        from .cross_tenant_migration import CrossTenantMigration
+        from .cross_tenant_open_profile_card import CrossTenantOpenProfileCard
+        from .cross_tenant_places_desk_booking import CrossTenantPlacesDeskBooking
+        from .cross_tenant_places_room_booking import CrossTenantPlacesRoomBooking
         from .custom_authentication_extension import CustomAuthenticationExtension
         from .custom_callout_extension import CustomCalloutExtension
         from .custom_data_provided_resource import CustomDataProvidedResource
@@ -6033,7 +6114,6 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .device import Device
         from .device_and_app_management_role_assignment import DeviceAndAppManagementRoleAssignment
         from .device_and_app_management_role_definition import DeviceAndAppManagementRoleDefinition
-        from .device_app_management import DeviceAppManagement
         from .device_category import DeviceCategory
         from .device_compliance_action_item import DeviceComplianceActionItem
         from .device_compliance_device_overview import DeviceComplianceDeviceOverview
@@ -6169,6 +6249,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .external_connectors.identity import Identity
         from .external_connectors.schema import Schema
         from .external_domain_name import ExternalDomainName
+        from .external_origin_resource_connector import ExternalOriginResourceConnector
         from .external_users_self_service_sign_up_events_flow import ExternalUsersSelfServiceSignUpEventsFlow
         from .e_book_install_summary import EBookInstallSummary
         from .feature_rollout_policy import FeatureRolloutPolicy
@@ -6211,6 +6292,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .identity_governance.lifecycle_management_settings import LifecycleManagementSettings
         from .identity_governance.lifecycle_workflows_container import LifecycleWorkflowsContainer
         from .identity_governance.run import Run
+        from .identity_governance.subject_processing_result import SubjectProcessingResult
         from .identity_governance.task import Task
         from .identity_governance.task_definition import TaskDefinition
         from .identity_governance.task_processing_result import TaskProcessingResult
@@ -6274,6 +6356,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .login_page import LoginPage
         from .long_running_operation import LongRunningOperation
         from .m365_apps_installation_options import M365AppsInstallationOptions
+        from .m365_capability_base import M365CapabilityBase
         from .mac_o_s_compliance_policy import MacOSCompliancePolicy
         from .mac_o_s_custom_configuration import MacOSCustomConfiguration
         from .mac_o_s_device_features_configuration import MacOSDeviceFeaturesConfiguration
@@ -6778,6 +6861,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .unified_role_management_policy_rule import UnifiedRoleManagementPolicyRule
         from .unified_role_schedule_base import UnifiedRoleScheduleBase
         from .unified_role_schedule_instance_base import UnifiedRoleScheduleInstanceBase
+        from .unified_root import UnifiedRoot
         from .unified_storage_quota import UnifiedStorageQuota
         from .unit_map import UnitMap
         from .unmute_participant_operation import UnmuteParticipantOperation
@@ -7153,6 +7237,17 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .copilot_report_root import CopilotReportRoot
         from .cross_tenant_access_policy import CrossTenantAccessPolicy
         from .cross_tenant_access_policy_configuration_default import CrossTenantAccessPolicyConfigurationDefault
+        from .cross_tenant_calendar_availability_basic import CrossTenantCalendarAvailabilityBasic
+        from .cross_tenant_calendar_availability_limited_details import CrossTenantCalendarAvailabilityLimitedDetails
+        from .cross_tenant_calendar_sharing_free_busy_detail import CrossTenantCalendarSharingFreeBusyDetail
+        from .cross_tenant_calendar_sharing_free_busy_reviewer import CrossTenantCalendarSharingFreeBusyReviewer
+        from .cross_tenant_calendar_sharing_free_busy_simple import CrossTenantCalendarSharingFreeBusySimple
+        from .cross_tenant_mail_tips_all import CrossTenantMailTipsAll
+        from .cross_tenant_mail_tips_limited import CrossTenantMailTipsLimited
+        from .cross_tenant_migration import CrossTenantMigration
+        from .cross_tenant_open_profile_card import CrossTenantOpenProfileCard
+        from .cross_tenant_places_desk_booking import CrossTenantPlacesDeskBooking
+        from .cross_tenant_places_room_booking import CrossTenantPlacesRoomBooking
         from .custom_authentication_extension import CustomAuthenticationExtension
         from .custom_callout_extension import CustomCalloutExtension
         from .custom_data_provided_resource import CustomDataProvidedResource
@@ -7182,7 +7277,6 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .device import Device
         from .device_and_app_management_role_assignment import DeviceAndAppManagementRoleAssignment
         from .device_and_app_management_role_definition import DeviceAndAppManagementRoleDefinition
-        from .device_app_management import DeviceAppManagement
         from .device_category import DeviceCategory
         from .device_compliance_action_item import DeviceComplianceActionItem
         from .device_compliance_device_overview import DeviceComplianceDeviceOverview
@@ -7318,6 +7412,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .external_connectors.identity import Identity
         from .external_connectors.schema import Schema
         from .external_domain_name import ExternalDomainName
+        from .external_origin_resource_connector import ExternalOriginResourceConnector
         from .external_users_self_service_sign_up_events_flow import ExternalUsersSelfServiceSignUpEventsFlow
         from .e_book_install_summary import EBookInstallSummary
         from .feature_rollout_policy import FeatureRolloutPolicy
@@ -7360,6 +7455,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .identity_governance.lifecycle_management_settings import LifecycleManagementSettings
         from .identity_governance.lifecycle_workflows_container import LifecycleWorkflowsContainer
         from .identity_governance.run import Run
+        from .identity_governance.subject_processing_result import SubjectProcessingResult
         from .identity_governance.task import Task
         from .identity_governance.task_definition import TaskDefinition
         from .identity_governance.task_processing_result import TaskProcessingResult
@@ -7423,6 +7519,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .login_page import LoginPage
         from .long_running_operation import LongRunningOperation
         from .m365_apps_installation_options import M365AppsInstallationOptions
+        from .m365_capability_base import M365CapabilityBase
         from .mac_o_s_compliance_policy import MacOSCompliancePolicy
         from .mac_o_s_custom_configuration import MacOSCustomConfiguration
         from .mac_o_s_device_features_configuration import MacOSDeviceFeaturesConfiguration
@@ -7927,6 +8024,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .unified_role_management_policy_rule import UnifiedRoleManagementPolicyRule
         from .unified_role_schedule_base import UnifiedRoleScheduleBase
         from .unified_role_schedule_instance_base import UnifiedRoleScheduleInstanceBase
+        from .unified_root import UnifiedRoot
         from .unified_storage_quota import UnifiedStorageQuota
         from .unit_map import UnitMap
         from .unmute_participant_operation import UnmuteParticipantOperation

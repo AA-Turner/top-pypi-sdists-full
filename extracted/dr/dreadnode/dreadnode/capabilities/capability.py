@@ -353,6 +353,22 @@ class Capability:
             self._tools = _stamp_tool_identities(
                 raw, cap_name=self._manifest.name, bundled=self.bundled
             )
+            if self._source == "runtime" and self._manifest.commands:
+                from dreadnode.capabilities.command_tools import load_command_tools
+
+                self._tools = self._tools or []
+                self._tools.extend(
+                    load_command_tools(
+                        capability_name=self._manifest.name,
+                        capability_root=self._path,
+                        workspace_root=self._cwd,
+                        declarations=self._manifest.commands,
+                        component_health=self._component_health,
+                    )
+                )
+                from dreadnode.capabilities.tool_rules import validate_wire_names
+
+                validate_wire_names(self._tools)
         return self._tools or []
 
     @property

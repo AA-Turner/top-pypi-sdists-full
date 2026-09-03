@@ -2,10 +2,10 @@
 
 Wraps the typer ``app()`` in each entrypoint (``main.py:cli`` and
 ``aiwatch.py:main``), times the invocation, captures CPU + peak-memory usage,
-disk reads, and POSTs one event to the backend relay
-(``POST /api/v1/telemetry/cli-command-events``). The backend validates it and
-records customer-tagged ``runlayer.cli.command.*`` OTel metrics — clients ship
-no telemetry SDK.
+platform-specific logical or physical disk reads, and POSTs one event to the
+backend relay (``POST /api/v1/telemetry/cli-command-events``). The backend
+validates it and records customer-tagged ``runlayer.cli.command.*`` OTel
+metrics — clients ship no telemetry SDK.
 
 Design constraints (mirrors ``telemetry.py`` / ``metrics.py``):
 - Import-safe inside the ``aiwatch`` PyInstaller bundle: only stdlib +
@@ -55,6 +55,11 @@ _BYTES_PER_MB = 1024.0 * 1024.0
 class ResourceUsage(TypedDict):
     cpu_time_ms: float | None
     peak_memory_mb: float | None
+    disk_read_ops: float | None
+    disk_read_mb: float | None
+
+
+class DiskReadUsage(TypedDict):
     disk_read_ops: float | None
     disk_read_mb: float | None
 
@@ -321,11 +326,11 @@ def _capture_resource_usage(
 ) -> ResourceUsage:
     """Return resource usage for this process, best-effort.
 
-    CPU time is total user+system across the process and its children. Peak
-    memory and disk-read operation count cover the process tree where the
-    platform supports it. Disk-read bytes cover self on POSIX and the process
-    tree on Windows. Any field may be ``None`` when its platform syscall is
-    unavailable; the command still reports its wall time.
+    Linux reports self-only logical disk reads, including cache hits; child
+    process reads are excluded. Windows reports logical reads, including cache
+    hits, for the process tree. macOS reports ``ru_inblock`` operations and
+    physical bytes read. Any field may be ``None`` when its platform syscall
+    is unavailable; the command still reports its wall time.
     """
     if sys.platform == "win32":
         return _capture_resource_usage_windows(job_handle)
@@ -359,29 +364,56 @@ def _capture_resource_usage_posix() -> ResourceUsage:
         pass
 
     if sys.platform == "linux":
-        usage["disk_read_mb"] = _capture_linux_disk_read_mb()
+        disk_usage = _capture_linux_disk_read_usage()
+        usage["disk_read_ops"] = disk_usage["disk_read_ops"]
+        usage["disk_read_mb"] = disk_usage["disk_read_mb"]
     elif sys.platform == "darwin":
         usage["disk_read_mb"] = _capture_macos_disk_read_mb()
     return usage
 
 
-def _capture_linux_disk_read_mb() -> float | None:
-    """Read Linux's self-process storage bytes counter from procfs."""
+def _capture_linux_disk_read_usage() -> DiskReadUsage:
+    """Read self-only logical reads from procfs, excluding child processes.
+
+    ``rchar`` and ``syscr`` include reads served from cache.
+    """
+    usage: DiskReadUsage = {
+        "disk_read_ops": None,
+        "disk_read_mb": None,
+    }
     try:
-        for line in Path("/proc/self/io").read_text(encoding="ascii").splitlines():
-            key, separator, raw_value = line.partition(":")
-            if key == "read_bytes" and separator:
-                read_bytes = int(raw_value.strip())
-                if read_bytes < 0:
-                    return None
-                return read_bytes / _BYTES_PER_MB
-    except (OSError, ValueError):
-        return None
-    return None
+        proc_io = Path("/proc/self/io").read_text(encoding="ascii")
+    except Exception:
+        return usage
+
+    counters: dict[str, str] = {}
+    for line in proc_io.splitlines():
+        key, separator, raw_value = line.partition(":")
+        if separator and key in {"rchar", "syscr"}:
+            counters[key] = raw_value.strip()
+
+    raw_rchar = counters.get("rchar")
+    if raw_rchar is not None:
+        try:
+            rchar = int(raw_rchar)
+            if rchar >= 0:
+                usage["disk_read_mb"] = rchar / _BYTES_PER_MB
+        except (ValueError, OverflowError):
+            pass
+
+    raw_syscr = counters.get("syscr")
+    if raw_syscr is not None:
+        try:
+            syscr = int(raw_syscr)
+            if syscr >= 0:
+                usage["disk_read_ops"] = float(syscr)
+        except (ValueError, OverflowError):
+            pass
+    return usage
 
 
 def _capture_macos_disk_read_mb() -> float | None:
-    """Read macOS's self-process storage bytes counter through libproc."""
+    """Read macOS's self-process physical storage bytes through libproc."""
     try:
         libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
         proc_pid_rusage = libproc.proc_pid_rusage
@@ -533,6 +565,7 @@ def _close_windows_job_accounting(job_handle: int) -> None:
 def _capture_resource_usage_windows(
     job_handle: int | None = None,
 ) -> ResourceUsage:
+    """Capture logical reads, including cache hits, preferring process-tree data."""
     usage = _empty_resource_usage()
     if job_handle is not None:
         usage = _capture_windows_job_usage(job_handle)

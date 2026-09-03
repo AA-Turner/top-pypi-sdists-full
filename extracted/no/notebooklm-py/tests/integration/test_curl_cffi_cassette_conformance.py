@@ -35,7 +35,7 @@ import pytest
 import yaml
 
 from notebooklm._curl_cffi_transport import CurlCffiAsyncClient
-from notebooklm._streaming_post import stream_post_with_size_cap
+from notebooklm._web.transport.streaming_post import stream_post_with_size_cap
 
 # Keep this module COLLECTED even when the optional extra is absent (the imports
 # above don't need curl_cffi at import time) so its ``allow_no_vcr`` marker stays
@@ -50,7 +50,7 @@ pytestmark = [
     ),
 ]
 
-_CASSETTE_DIR = Path(__file__).resolve().parent.parent / "cassettes"
+_CASSETTE_DIR = Path(__file__).resolve().parent.parent / "cassettes" / "web"
 
 
 def _real_recorded_bodies(limit: int = 4) -> list[tuple[str, bytes]]:

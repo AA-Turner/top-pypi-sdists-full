@@ -21,6 +21,7 @@ except ImportError:
     flask = None
 from micawber.contrib.providers import GoogleMapsProvider
 from micawber.parsers import full_handler
+from micawber.providers import make_key
 from micawber.test_utils import test_pr, test_cache, test_pr_cache, TestProvider, BaseTestCase
 
 
@@ -94,6 +95,16 @@ class ProviderTestCase(BaseTestCase):
         self.assertRaises(ProviderException, test_pr.request, 'http://not-here')
         self.assertRaises(ProviderException, test_pr.request, 'http://link-test3')
 
+    def test_no_provider_skips_cache(self):
+        with mock.patch.object(test_cache, 'get', return_value=None) as get:
+            self.assertRaises(ProviderNotFoundException, test_pr_cache.request,
+                              'http://nothing-matches')
+            urls, data = test_pr_cache.extract(
+                'http://nothing-matches http://link-test1')
+        get.assert_called_once_with(make_key('http://link-test1', {}))
+        self.assertEqual(urls, ['http://nothing-matches', 'http://link-test1'])
+        self.assertEqual(list(data), ['http://link-test1'])
+
     def test_caching(self):
         resp = test_pr_cache.request('http://link-test1')
         self.assertCached('http://link-test1', resp)
@@ -120,7 +131,6 @@ class ProviderTestCase(BaseTestCase):
         self.assertFalse(resp == resp_p)
 
     def test_make_key_stable(self):
-        from micawber.providers import make_key
         k1 = make_key('http://foo', {'maxwidth': 600, 'maxheight': 400})
         k2 = make_key('http://foo', {'maxheight': 400, 'maxwidth': 600})
         self.assertEqual(k1, k2)
@@ -131,15 +141,23 @@ class ProviderTestCase(BaseTestCase):
     def test_make_key_non_json_params(self):
         import datetime
         from decimal import Decimal
-        from micawber.providers import make_key
         k1 = make_key('http://foo', {'maxwidth': Decimal('600'),
                                      'since': datetime.date(2026, 7, 5)})
         k2 = make_key('http://foo', {'since': datetime.date(2026, 7, 5),
                                      'maxwidth': Decimal('600')})
         self.assertEqual(k1, k2)
 
+    def test_encode_params_maxheight(self):
+        from urllib.parse import parse_qs
+        provider = Provider('http://example.com/oembed')
+        def params(**kw):
+            return parse_qs(provider.encode_params('http://u', **kw))
+        self.assertNotIn('maxheight', params())
+        self.assertEqual(params(maxwidth=720)['maxheight'], ['1280'])
+        self.assertEqual(params(maxwidth=720, maxheight=400)['maxheight'],
+                         ['400'])
+
     def test_cache_falsy_value(self):
-        from micawber.providers import make_key
         # A cached falsy value is a hit, not a miss -- link-test3 is unknown
         # to the provider, so an attempt to re-fetch would raise instead.
         test_cache.set(make_key('http://link-test3', {}), {})
@@ -162,7 +180,7 @@ class ProviderTestCase(BaseTestCase):
                 self.headers['Content-Type'] = (
                     'application/json; charset=%s' % charset)
 
-            def read(self):
+            def read(self, n=-1):
                 return self._body
 
             def __enter__(self):
@@ -200,28 +218,36 @@ class ProviderTestCase(BaseTestCase):
     def test_bootstrap_basic_matching(self):
         pr = bootstrap_basic()
         urls = [
-            'https://podcasts.apple.com/us/podcast/the-daily/id1200361736',
-            'https://www.circuitlab.com/circuit/62vf6a/555-timer/',
-            'https://www.dailymotion.com/video/x8kjx7v',
-            'https://www.flickr.com/photos/bees/2341623661/',
-            'https://flic.kr/p/4yVr32',
-            'https://www.polleverywhere.com/polls/LTIwNzM4NTt8MQ',
-            'https://www.slideshare.net/haraldf/business-quotes-for-2011',
-            'https://soundcloud.com/forss/flickermood',
-            'https://speakerdeck.com/rocio/or-mad-men',
-            'https://www.scribd.com/document/110799637/Synthesis',
-            'https://www.tiktok.com/@scout2015/video/6718335390845095173',
-            'https://tiktok.com/@scout2015/video/6718335390845095173',
-            'https://twitter.com/jack/status/20',
-            'https://x.com/jack/status/20',
-            'https://vimeo.com/76979871',
-            'http://player.vimeo.com/76979871',
+            'https://podcasts.apple.com/us/podcast/the-daily/123',
+            'https://music.apple.com/us/album/123',
+            'https://bsky.app/profile/bsky.app/post/abc',
+            'https://www.dailymotion.com/video/xyz',
+            'https://www.facebook.com/facebook',
+            'https://www.facebook.com/123/posts/234/',
+            'https://www.facebook.com/facebook/videos/123/',
+            'https://www.flickr.com/photos/abc/123/',
+            'https://flic.kr/p/a123',
+            'https://giphy.com/gifs/abc-123',
+            'https://www.instagram.com/p/abc/',
+            'https://www.instagram.com/reel/abc/',
+            'https://www.pinterest.com/pin/123/',
+            'https://www.reddit.com/r/abc/comments/123/'
+            'https://soundcloud.com/abc/def',
+            'https://open.spotify.com/track/abc',
+            'https://www.tiktok.com/@abc/video/123',
+            'https://tiktok.com/@abc/video/123',
+            'https://staff.tumblr.com/post/123',
+            'https://twitter.com/abc/status/123',
+            'https://x.com/abc/status/123',
+            'https://vimeo.com/123',
+            'http://player.vimeo.com/123',
             'https://someblog.wordpress.com/2011/10/28/1000-posts/',
-            'https://wordpress.tv/2026/06/06/fireside-chat/',
-            'http://www.youtube.com/watch?v=54XHDUOHuzU',
-            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-            'https://youtu.be/dQw4w9WgXcQ',
-            'https://www.youtube.com/shorts/aqz-KE-bpKQ',
+            'http://www.youtube.com/watch?v=abc',
+            'https://www.youtube.com/watch?v=abc',
+            'https://youtu.be/abc',
+            'https://www.youtube.com/shorts/abc',
+            'https://www.youtube.com/live/def',
+            'https://www.youtube.com/playlist?list=PLabc',
         ]
         for url in urls:
             self.assertTrue(pr.provider_for_url(url) is not None, url)
@@ -298,7 +324,7 @@ class EscapingTestCase(BaseTestCase):
     def test_unsafe_url_escaped(self):
         url = 'test.jpg&quot; onload=&quot;alert(0)'
         expected = ('<a href="%(url)s" title="pic">'
-                    '<img alt="pic" src="%(url)s" /></a>' % {'url': url})
+                    '<img alt="pic" src="%(url)s" loading="lazy" decoding="async" /></a>' % {'url': url})
         self.assertEqual(test_pr.parse_text('http://photo-unsafe'), expected)
 
     def test_response_html_not_escaped(self):
@@ -322,6 +348,76 @@ class EscapingTestCase(BaseTestCase):
         self.assertEqual(
             parse_text_full('http://video-nohtml/foo', pr),
             '<a href="http://video-nohtml/foo" title="broken">broken</a>')
+
+
+class CacheTestCase(unittest.TestCase):
+    def test_get_set(self):
+        cache = Cache()
+        self.assertTrue(cache.get('key') is None)
+        cache.set('key', {'title': 'test'})
+        self.assertEqual(cache.get('key'), {'title': 'test'})
+        cache.set('key', {'title': 'updated'})
+        self.assertEqual(cache.get('key'), {'title': 'updated'})
+
+    def test_no_timeout(self):
+        cache = Cache()
+        with mock.patch('micawber.cache.time.time', return_value=1000):
+            cache.set('key', 'value')
+        with mock.patch('micawber.cache.time.time', return_value=1e9):
+            self.assertEqual(cache.get('key'), 'value')
+
+    def test_timeout(self):
+        cache = Cache(timeout=60)
+        with mock.patch('micawber.cache.time.time', return_value=1000):
+            cache.set('key', 'value')
+            self.assertEqual(cache.get('key'), 'value')
+        with mock.patch('micawber.cache.time.time', return_value=1059):
+            self.assertEqual(cache.get('key'), 'value')
+        with mock.patch('micawber.cache.time.time', return_value=1061):
+            self.assertTrue(cache.get('key') is None)
+
+        # The expired value is discarded rather than left to take up space.
+        self.assertEqual(len(cache._cache), 0)
+
+    def test_timeout_per_value(self):
+        cache = Cache(timeout=60)
+        with mock.patch('micawber.cache.time.time', return_value=1000):
+            cache.set('short', 'a', timeout=10)
+            cache.set('long', 'b', timeout=600)
+            cache.set('default', 'c')
+
+        with mock.patch('micawber.cache.time.time', return_value=1030):
+            self.assertTrue(cache.get('short') is None)
+            self.assertEqual(cache.get('default'), 'c')
+            self.assertEqual(cache.get('long'), 'b')
+
+        with mock.patch('micawber.cache.time.time', return_value=1100):
+            self.assertTrue(cache.get('default') is None)
+            self.assertEqual(cache.get('long'), 'b')
+
+    def test_max_size(self):
+        cache = Cache(max_size=3)
+        for i in range(3):
+            cache.set('k%s' % i, i)
+
+        # Reading k0 leaves k1 as the least-recently-used.
+        self.assertEqual(cache.get('k0'), 0)
+        cache.set('k3', 3)
+        self.assertEqual(sorted(cache._cache), ['k0', 'k2', 'k3'])
+
+    def test_registry_timeout(self):
+        cache = Cache(timeout=60)
+        pr = ProviderRegistry(cache)
+        pr.register(r'http://link\S*', TestProvider('link'))
+
+        with mock.patch('micawber.cache.time.time', return_value=1000):
+            resp = pr.request('http://link-test1')
+            self.assertEqual(resp['title'], 'test1')
+            self.assertEqual(len(cache._cache), 1)
+
+        with mock.patch('micawber.cache.time.time', return_value=1100):
+            self.assertEqual(len(cache._cache), 1)
+            self.assertEqual(pr.request('http://link-test1'), resp)
 
 
 class PickleCacheTestCase(unittest.TestCase):
@@ -358,6 +454,27 @@ class PickleCacheTestCase(unittest.TestCase):
         self.assertEqual(cache2.get('key'), {'title': 'test', 'type': 'link'})
         self.assertEqual(cache2.get('key2'), [1, 2, 3])
         self.assertTrue(cache2.get('missing') is None)
+
+    def test_timeout(self):
+        cache = PickleCache(self.filename, timeout=60)
+        with mock.patch('micawber.cache.time.time', return_value=1000):
+            cache.set('key', 'value')
+        cache.save()
+
+        cache2 = PickleCache(self.filename)
+        with mock.patch('micawber.cache.time.time', return_value=1030):
+            self.assertEqual(cache2.get('key'), 'value')
+        with mock.patch('micawber.cache.time.time', return_value=1100):
+            self.assertTrue(cache2.get('key') is None)
+
+    def test_load_values_without_expiration(self):
+        # Cache files written before values carried an expiration.
+        import pickle
+        with open(self.filename, 'wb') as fh:
+            pickle.dump({'key': 'value'}, fh)
+
+        cache = PickleCache(self.filename)
+        self.assertEqual(cache.get('key'), 'value')
 
 
 @unittest.skipIf(mcflask is None, 'markupsafe/flask is not installed')
@@ -455,6 +572,15 @@ class RedisCacheTestCase(unittest.TestCase):
         cache.set('key', {'title': 'test'})
         self.assertEqual(cache.get('key'), {'title': 'test'})
         self.assertEqual(cache.conn.expiry['micawber.key'], 60)
+
+    def test_timeout_per_value(self):
+        cache = self.get_cache(timeout=60)
+        cache.set('key', {'title': 'test'}, timeout=10)
+        self.assertEqual(cache.conn.expiry['micawber.key'], 10)
+
+        cache = self.get_cache()
+        cache.set('key', {'title': 'test'}, timeout=10)
+        self.assertEqual(cache.conn.expiry['micawber.key'], 10)
 
 
 class ParserTestCase(BaseTestCase):

@@ -86,7 +86,12 @@ impl<F: Json> Validate<F> for ItemsArrayValidator<F> {
         if let Some(array) = instance.as_array() {
             let mut children = Vec::with_capacity(self.items.len().min(array.len()));
             for (idx, (item, node)) in array.elements().zip(self.items.iter()).enumerate() {
-                children.push(node.evaluate_instance(&item, &location.push(idx), tracker, ctx));
+                children.push(node.evaluate_instance_below(
+                    &item,
+                    &location.push(idx),
+                    tracker,
+                    ctx,
+                ));
             }
             EvaluationResult::from_children(children)
         } else {
@@ -162,7 +167,7 @@ impl<F: Json> Validate<F> for ItemsObjectValidator<F> {
         if let Some(array) = instance.as_array() {
             let mut children = Vec::with_capacity(array.len());
             for (idx, item) in array.elements().enumerate() {
-                children.push(self.node.evaluate_instance(
+                children.push(self.node.evaluate_instance_below(
                     &item,
                     &location.push(idx),
                     tracker,
@@ -260,7 +265,7 @@ impl<F: Json> Validate<F> for ItemsObjectSkipPrefixValidator<F> {
         if let Some(array) = instance.as_array() {
             let mut children = Vec::with_capacity(array.len().saturating_sub(self.skip_prefix));
             for (idx, item) in array.elements().enumerate().skip(self.skip_prefix) {
-                children.push(self.node.evaluate_instance(
+                children.push(self.node.evaluate_instance_below(
                     &item,
                     &location.push(idx),
                     tracker,
@@ -1191,7 +1196,7 @@ impl<F: Json> Validate<F> for ArrayShapeValidator<F> {
             FusedItems::Generic(node) => {
                 let mut element_children = Vec::with_capacity(array.len());
                 for (idx, item) in array.elements().enumerate() {
-                    element_children.push(node.evaluate_instance(
+                    element_children.push(node.evaluate_instance_below(
                         &item,
                         &location.push(idx),
                         tracker,
@@ -1613,8 +1618,8 @@ mod tests {
         #[test_case(r#"{"items": {"type": "integer"}}"#, r"[-18446744073709551616]", true; "negative huge")]
         #[test_case(r#"{"items": {"type": "integer"}}"#, r"[-18446744073709551616.0]", false; "negative huge with .0 NOT integer")]
         #[test_case(r#"{"items": {"type": "integer"}}"#, r"[18446744073709551616.5]", false; "huge decimal")]
-        #[test_case(r#"{"items": {"type": "integer"}}"#, r"[1e1000]", true; "huge scientific notation")]
-        #[test_case(r#"{"items": {"type": "integer"}}"#, r"[1e1000001]", false; "infinity positive")]
+        #[test_case(r#"{"items": {"type": "integer"}}"#, r"[1e1000]", false; "huge scientific notation is not an integer in draft4")]
+        #[test_case(r#"{"items": {"type": "integer"}}"#, r"[1e1000001]", false; "scientific notation past f64 is not an integer in draft4")]
         fn items_integer_huge_draft4(schema_json: &str, instance_json: &str, expected: bool) {
             let schema = parse_json(schema_json);
             let instance = parse_json(instance_json);

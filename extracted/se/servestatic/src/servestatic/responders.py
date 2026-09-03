@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import errno
 import os
-import re
 import stat
 from email.utils import formatdate, parsedate
 from http import HTTPStatus
@@ -13,7 +12,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import quote
 from wsgiref.headers import Headers
 
-from servestatic.utils import AsyncFile
+from servestatic.utils import AsyncFile, parse_accept_encoding
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -42,6 +41,7 @@ NOT_ALLOWED_RESPONSE = Response(
 # Headers which should be returned with a 304 Not Modified response as
 # specified here: https://tools.ietf.org/html/rfc7232#section-4.1
 NOT_MODIFIED_HEADERS = (
+    "Access-Control-Allow-Origin",
     "Cache-Control",
     "Content-Location",
     "Date",
@@ -184,7 +184,7 @@ class StaticFile:
             raise ValueError(msg)
         start, end = self.get_byte_range(range_header, size)
         if start > end:
-            return self.get_range_not_satisfiable_response(file_handle, size)
+            return self.get_range_not_satisfiable_response(file_handle, size, headers)
         if file_handle is not None:
             file_handle = SlicedFile(file_handle, start, end)
         headers.extend((
@@ -213,7 +213,7 @@ class StaticFile:
             raise ValueError(msg)
         start, end = self.get_byte_range(range_header, size)
         if start > end:
-            return await self.aget_range_not_satisfiable_response(file_handle, size)
+            return await self.aget_range_not_satisfiable_response(file_handle, size, headers)
         sliced_file: AsyncSlicedFile | None = None
         if file_handle is not None:
             sliced_file = AsyncSlicedFile(file_handle, start, end)
@@ -249,23 +249,35 @@ class StaticFile:
         return start, end
 
     @staticmethod
-    def get_range_not_satisfiable_response(file_handle: BufferedIOBase | None, size: int) -> Response:
+    def get_range_not_satisfiable_response(
+        file_handle: BufferedIOBase | None,
+        size: int,
+        headers: list[tuple[str, str | None]] | None = None,
+    ) -> Response:
         if file_handle is not None:
             file_handle.close()
+        response_headers = list(headers) if headers else []
+        response_headers.append(("Content-Range", f"bytes */{size}"))
         return Response(
             HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
-            [("Content-Range", f"bytes */{size}")],
+            response_headers,
             None,
         )
 
     @staticmethod
-    async def aget_range_not_satisfiable_response(file_handle: AsyncFile | None, size: int) -> Response:
+    async def aget_range_not_satisfiable_response(
+        file_handle: AsyncFile | None,
+        size: int,
+        headers: list[tuple[str, str | None]] | None = None,
+    ) -> Response:
         """Variant of `get_range_not_satisfiable_response` that works with
         async file objects. Async file handles do not need to be closed, since they
         are only opened via context managers while being dispatched."""
+        response_headers = list(headers) if headers else []
+        response_headers.append(("Content-Range", f"bytes */{size}"))
         return Response(
             HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
-            [("Content-Range", f"bytes */{size}")],
+            response_headers,
             None,
         )
 
@@ -313,7 +325,7 @@ class StaticFile:
     def get_alternatives(
         base_headers: Headers,
         files: Mapping[str | None, FileEntry],
-    ) -> list[tuple[re.Pattern[str], str, list[tuple[str, str | None]]]]:
+    ) -> list[tuple[str | None, str, list[tuple[str, str | None]]]]:
         # Sort by size so that the smallest compressed alternative matches first
         alternatives = []
         files_by_size = sorted(files.items(), key=lambda i: i[1].size)
@@ -322,10 +334,7 @@ class StaticFile:
             headers["Content-Length"] = str(file_entry.size)
             if encoding:
                 headers["Content-Encoding"] = encoding
-                encoding_re = re.compile(rf"\b{encoding}\b")
-            else:
-                encoding_re = re.compile(r"")
-            alternatives.append((encoding_re, file_entry.path, headers.items()))
+            alternatives.append((encoding, file_entry.path, headers.items()))
         return alternatives
 
     def is_not_modified(self, request_headers: Mapping[str, str]) -> bool:
@@ -347,12 +356,14 @@ class StaticFile:
         accept_encoding = request_headers.get("HTTP_ACCEPT_ENCODING", "")
         if accept_encoding == "*":
             accept_encoding = ""
+        accepted = parse_accept_encoding(accept_encoding)
         # These are sorted by size so first match is the best
         result = next(
             (
                 (path, headers)
-                for encoding_re, path, headers in self.alternatives
-                if encoding_re.search(accept_encoding)
+                for encoding, path, headers in self.alternatives
+                # An uncompressed file is always an acceptable fallback.
+                if not encoding or encoding in accepted
             ),
             None,
         )

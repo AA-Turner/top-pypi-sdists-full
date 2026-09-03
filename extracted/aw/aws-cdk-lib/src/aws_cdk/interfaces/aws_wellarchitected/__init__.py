@@ -175,6 +175,51 @@ class _IReviewTemplateRefProxy(
 typing.cast(typing.Any, IReviewTemplateRef).__jsii_proxy_class__ = lambda : _IReviewTemplateRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wellarchitected.IWorkloadRef")
+class IWorkloadRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workload.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadRef")
+    def workload_ref(self) -> "WorkloadReference":
+        '''(experimental) A reference to a Workload resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkloadRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workload.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_wellarchitected.IWorkloadRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadRef")
+    def workload_ref(self) -> "WorkloadReference":
+        '''(experimental) A reference to a Workload resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkloadReference", jsii.get(self, "workloadRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkloadRef).__jsii_proxy_class__ = lambda : _IWorkloadRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_wellarchitected.LensReference",
     jsii_struct_bases=[],
@@ -322,13 +367,64 @@ class ReviewTemplateReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_wellarchitected.WorkloadReference",
+    jsii_struct_bases=[],
+    name_mapping={"workload_arn": "workloadArn"},
+)
+class WorkloadReference:
+    def __init__(self, *, workload_arn: builtins.str) -> None:
+        '''A reference to a Workload resource.
+
+        :param workload_arn: The WorkloadArn of the Workload resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_wellarchitected as interfaces_wellarchitected
+            
+            workload_reference = interfaces_wellarchitected.WorkloadReference(
+                workload_arn="workloadArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b80aadace37defea5bb38980b5834ceb8b9a78873d0957dc8eeea4651ac8e82d)
+            check_type(argname="argument workload_arn", value=workload_arn, expected_type=type_hints["workload_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workload_arn": workload_arn,
+        }
+
+    @builtins.property
+    def workload_arn(self) -> builtins.str:
+        '''The WorkloadArn of the Workload resource.'''
+        result = self._values.get("workload_arn")
+        assert result is not None, "Required property 'workload_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkloadReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "ILensRef",
     "IProfileRef",
     "IReviewTemplateRef",
+    "IWorkloadRef",
     "LensReference",
     "ProfileReference",
     "ReviewTemplateReference",
+    "WorkloadReference",
 ]
 
 publication.publish()
@@ -354,5 +450,12 @@ def _typecheckingstub__aff0e657e253e8180fdf4b38be6787eb3cfa2166327da2bcb2125bd91
     """Type checking stubs"""
     pass
 
-for cls in [ILensRef, IProfileRef, IReviewTemplateRef]:
+def _typecheckingstub__b80aadace37defea5bb38980b5834ceb8b9a78873d0957dc8eeea4651ac8e82d(
+    *,
+    workload_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [ILensRef, IProfileRef, IReviewTemplateRef, IWorkloadRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -107,6 +107,7 @@ class MideaDevice(threading.Thread):
         self._ip_address = kwargs["ip_address"]
         self._port = kwargs["port"]
         self._security = LocalSecurity()
+        self._socket_lock = threading.RLock()
         self._token = bytes.fromhex(kwargs["token"])
         self._key = bytes.fromhex(kwargs["key"])
         self._buffer = b""
@@ -237,45 +238,55 @@ class MideaDevice(threading.Thread):
     def connect(self, check_protocol: bool = False) -> bool:
         """Connect to device."""
         connected = False
-        try:
-            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.settimeout(SOCKET_TIMEOUT)
-            _LOGGER.debug(
-                "[%s] Connecting to %s:%s",
-                self._device_id,
-                self._ip_address,
-                self._port,
-            )
-            self._socket.connect((self._ip_address, self._port))
-            _LOGGER.debug("[%s] Connected", self._device_id)
-            if self._device_protocol_version == ProtocolVersion.V3:
-                self.authenticate()
-            # 1. midea_ac_lan add device verify token with connect and auth
-            # 2. init connection, check_protocol
-            if check_protocol:
-                self.refresh_status(check_protocol=check_protocol)
-            connected = True
-        except TimeoutError:
-            _LOGGER.debug("[%s] Connection timed out", self._device_id)
-        except OSError:  # refresh_status exception
-            _LOGGER.debug("[%s] Connection error", self._device_id)
-        except AuthException:  # authenticate exception
-            _LOGGER.debug("[%s] Authentication failed", self._device_id)
-        except SocketException:  # refresh_status exception
-            _LOGGER.debug("[%s] Connect socket exception", self._device_id)
-        except NoSupportedProtocol:  # refresh_status exception
-            _LOGGER.debug("[%s] No supported query protocol", self._device_id)
-        except Exception as e:
-            _LOGGER.exception(
-                "[%s] Unknown error during connect device",
-                self._device_id,
-                exc_info=e,
-            )
-        finally:
-            # Any failure path leaves connected False; release the socket once
-            # here instead of repeating close_socket() in every handler.
-            if not connected:
-                self.close_socket()
+        sock: socket.socket | None = None
+        with self._socket_lock:
+            was_running = self._is_run
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self._socket = sock
+                sock.settimeout(SOCKET_TIMEOUT)
+                _LOGGER.debug(
+                    "[%s] Connecting to %s:%s",
+                    self._device_id,
+                    self._ip_address,
+                    self._port,
+                )
+                sock.connect((self._ip_address, self._port))
+                _LOGGER.debug("[%s] Connected", self._device_id)
+                if self._device_protocol_version == ProtocolVersion.V3:
+                    self.authenticate()
+                # 1. midea_ac_lan add device verify token with connect and auth
+                # 2. init connection, check_protocol
+                if check_protocol:
+                    self.refresh_status(check_protocol=check_protocol)
+                if was_running and not self._is_run:
+                    _LOGGER.debug(
+                        "[%s] Connection closed before lifecycle completed",
+                        self._device_id,
+                    )
+                else:
+                    connected = True
+            except TimeoutError:
+                _LOGGER.debug("[%s] Connection timed out", self._device_id)
+            except OSError:  # refresh_status exception
+                _LOGGER.debug("[%s] Connection error", self._device_id)
+            except AuthException:  # authenticate exception
+                _LOGGER.warning("[%s] Authentication failed", self._device_id)
+            except SocketException:  # refresh_status exception
+                _LOGGER.debug("[%s] Connect socket exception", self._device_id)
+            except NoSupportedProtocol:  # refresh_status exception
+                _LOGGER.warning("[%s] No supported query protocol", self._device_id)
+            except Exception as e:
+                _LOGGER.exception(
+                    "[%s] Unknown error during connect device",
+                    self._device_id,
+                    exc_info=e,
+                )
+            finally:
+                # Any failure path leaves connected False; release the socket once
+                # here instead of repeating close_socket() in every handler.
+                if not connected and sock is not None:
+                    self.close_socket(sock)
         # enable/disable device in init connection
         if check_protocol:
             self.set_available(connected)
@@ -301,7 +312,7 @@ class MideaDevice(threading.Thread):
             response.hex(),
         )
         if len(response) < MIN_AUTH_RESPONSE:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "[%s] Received auth response len %d error, bytes: %s",
                 self._device_id,
                 len(response),
@@ -383,16 +394,134 @@ class MideaDevice(threading.Thread):
         msg = PacketBuilder(self._device_id, data).finalize()
         self.send_message(msg, query=query)
 
+    def _await_query_reply(self) -> None:
+        """Block until the current query is answered (checked pass only).
+
+        Loops over socket reads until parse_message reports SUCCESS, then
+        restores SOCKET_TIMEOUT. A PADDING result keeps reading; any other
+        result raises ResponseException. A missing socket or a closed peer
+        raises to the connect/main loop. TimeoutError from recv propagates to
+        the caller, which records the query as unsupported.
+        """
+        while True:
+            if not self._socket:
+                _LOGGER.debug("[%s] device socket is none", self._device_id)
+                # raise exception to connect/main loop
+                raise SocketException
+            msg = self._socket.recv(512)
+            if len(msg) == 0:
+                raise ConnectionResetError("Connection closed by peer.")
+            result = self.parse_message(msg)
+            # Prevent infinite loop
+            if result == MessageResult.SUCCESS:
+                break
+            if result == MessageResult.PADDING:
+                continue
+            raise ResponseException
+        # recovery SOCKET_TIMEOUT after recv msg
+        self._socket.settimeout(SOCKET_TIMEOUT)
+
+    def _advance_query_stage(
+        self,
+        cmds: list,
+        queued: set[str],
+        real_cmds: list,
+        status_appended: bool,
+    ) -> tuple[list, bool, bool]:
+        """Append the next due query stage to ``cmds`` in dependency order.
+
+        Queries are built lazily, one stage at a time, so each stage sees the
+        state resolved by the previous stage's reply: the one-time init queries
+        (e.g. the AC B5 capability probes, which need the protocol version the
+        appliance reply reports) run first, offered until they are exhausted,
+        then the recurring status queries (which may need the decoded
+        capabilities). Commands already queued this refresh are filtered out, so
+        a probe left armed after a timeout -- still reported by build_init_query
+        but recorded in _unsupported_protocol -- is not queued a second time.
+
+        Returns the status-query list (for the all-failed check), whether the
+        status stage has been appended yet, and whether this call appended
+        anything (the unchecked pass loops on it until every stage is queued).
+        """
+        # The init/capability probes depend on the message protocol version the
+        # appliance reply reports. Offer them only once a parsed reply has
+        # cleared _appliance_query; if the appliance query timed out, raised, or
+        # is still pending, _message_protocol_version is unresolved (0), so skip
+        # straight to build_query() rather than probe with a stale version and
+        # risk blacklisting a capability query for the whole connection.
+        new_init = (
+            [
+                cmd
+                for cmd in self.build_init_query()
+                if cmd.__class__.__name__ not in queued
+            ]
+            if not self._appliance_query
+            else []
+        )
+        if new_init:
+            for cmd in new_init:
+                queued.add(cmd.__class__.__name__)
+                cmds.append(cmd)
+            return real_cmds, status_appended, True
+        if not status_appended:
+            real_cmds = self.build_query()
+            for cmd in real_cmds:
+                queued.add(cmd.__class__.__name__)
+                cmds.append(cmd)
+            return real_cmds, True, True
+        return real_cmds, status_appended, False
+
     def refresh_status(self, check_protocol: bool = False) -> None:
-        """Refresh device status."""
-        cmds: list = self.build_query()
-        if self._appliance_query:
-            cmds = [MessageQueryAppliance(self.device_type), *cmds]
+        """Refresh device status.
+
+        Queries are built and sent in dependency order so each stage's reply
+        can inform the next: the appliance query first (it reports the message
+        protocol version); once answered, the one-time init/capability probes
+        are built (they need that version) and sent; once those are answered,
+        the recurring status queries are built (they may need the decoded
+        capabilities) and sent. In the checked pass each stage's reply is
+        awaited before the next stage is built, via _advance_query_stage(). In
+        the unchecked periodic refresh no reply is awaited inline -- the run
+        loop parses them -- so any still-armed stage is built and sent back to
+        back.
+        """
+        cmds: list = []
+        real_cmds: list = []
+        status_appended = False
         error_count = 0
+        # Names already queued this refresh, so a stage command left armed after
+        # a timeout (recorded in _unsupported_protocol) is not queued again.
+        queued: set[str] = set()
+        # Stage 1: the appliance query. When its reply will be awaited (checked
+        # pass), later stages are appended only after it, so they see the
+        # protocol version it reports. Otherwise they are seeded below.
+        if self._appliance_query:
+            cmds.append(MessageQueryAppliance(self.device_type))
+            queued.add("MessageQueryAppliance")
+        if check_protocol:
+            # Nothing to await first (appliance query already done): seed the
+            # next stage now; its reply then drives the remaining stages.
+            if not cmds:
+                real_cmds, status_appended, _ = self._advance_query_stage(
+                    cmds,
+                    queued,
+                    real_cmds,
+                    status_appended,
+                )
+        else:
+            # No inline replies: build every still-armed stage up front.
+            advanced = True
+            while advanced:
+                real_cmds, status_appended, advanced = self._advance_query_stage(
+                    cmds,
+                    queued,
+                    real_cmds,
+                    status_appended,
+                )
         _LOGGER.debug(
-            "[%s] refresh_status with cmds: %s, check_protocol %s, \
-            device %s, type %s, model %s, subtype %s, device_protocol: %s, \
-            message_protocol %s, unsupported_protocol: %s",
+            "[%s] refresh_status seed cmds: %s, check_protocol %s, "
+            "device %s, type %s, model %s, subtype %s, device_protocol: %s, "
+            "message_protocol %s, unsupported_protocol: %s",
             self._device_id,
             cmds,
             check_protocol,
@@ -404,7 +533,12 @@ class MideaDevice(threading.Thread):
             self._message_protocol_version,
             self._unsupported_protocol,
         )
-        for cmd in cmds:
+        # Index-based so the next stage, built only once the current reply is
+        # parsed, can be appended and validated within this same checked pass.
+        index = 0
+        while index < len(cmds):
+            cmd = cmds[index]
+            index += 1
             if cmd.__class__.__name__ not in self._unsupported_protocol:
                 # set socket QUERY_TIMEOUT for query msg
                 # build_send exception should be catch by connect/run
@@ -412,31 +546,12 @@ class MideaDevice(threading.Thread):
                 # init check_protocol, skip timeout exception
                 if check_protocol:
                     try:
-                        while True:
-                            if not self._socket:
-                                _LOGGER.debug(
-                                    "[%s] device socket is none",
-                                    self._device_id,
-                                )
-                                # raise exception to connect/main loop
-                                raise SocketException
-                            msg = self._socket.recv(512)
-                            if len(msg) == 0:
-                                raise ConnectionResetError("Connection closed by peer.")
-                            result = self.parse_message(msg)
-                            # Prevent infinite loop
-                            if result == MessageResult.SUCCESS:
-                                break
-                            elif result == MessageResult.PADDING:  # noqa: RET508
-                                continue
-                            else:
-                                raise ResponseException  # noqa: TRY301
-                        # recovery SOCKET_TIMEOUT after recv msg
-                        self._socket.settimeout(SOCKET_TIMEOUT)
+                        self._await_query_reply()
                     # only catch TimoutError for check_protocol
                     # unexpected exception in recv/settimeout, catch by main loop
                     except TimeoutError:
-                        error_count += 1
+                        if cmd in real_cmds:
+                            error_count += 1
                         self._unsupported_protocol.append(cmd.__class__.__name__)
                         _LOGGER.debug(
                             "[%s] Does not supports the protocol %s, cmd %s, ignored",
@@ -446,23 +561,51 @@ class MideaDevice(threading.Thread):
                         )
                     except ResponseException:
                         # parse msg error
-                        error_count += 1
+                        if cmd in real_cmds:
+                            error_count += 1
                         _LOGGER.debug(
                             "[%s] refresh_status ResponseException %s, cmd %s",
                             self._device_id,
                             cmd.__class__.__name__,
                             cmd,
                         )
+                    # The reply (or its absence) may resolve the state the next
+                    # stage depends on -- the appliance reply enables the
+                    # capability probes, a capability reply the status queries.
+                    # Append that stage now so it is sent and validated in this
+                    # same checked pass, not deferred to an unchecked refresh
+                    # where a timeout could never blacklist it.
+                    real_cmds, status_appended, _ = self._advance_query_stage(
+                        cmds,
+                        queued,
+                        real_cmds,
+                        status_appended,
+                    )
             else:
                 _LOGGER.debug(
                     "[%s] refresh_status with cmd: %s, unsupported protocol, SKIP",
                     self._device_id,
                     cmd,
                 )
-                error_count += 1
-            # all the query failed
-            if error_count == len(cmds):
-                _LOGGER.debug(
+                if cmd in real_cmds:
+                    error_count += 1
+                # A skipped (already-unsupported) stage command still resolves
+                # its stage, so advance to the next one in the checked pass.
+                if check_protocol:
+                    real_cmds, status_appended, _ = self._advance_query_stage(
+                        cmds,
+                        queued,
+                        real_cmds,
+                        status_appended,
+                    )
+            # All the REAL status queries failed. The appliance query is excluded: it
+            # answers even when the device serves no status protocol, so counting it
+            # left error_count one short of len(cmds) and the failure was masked --
+            # connect() returned True and the device came up available with no data.
+            # `real_cmds and` keeps the check vacuously false for a device whose
+            # build_query() is empty, which would otherwise raise on 0 == 0.
+            if real_cmds and error_count == len(real_cmds):
+                _LOGGER.warning(
                     "[%s] all the query cmds failed %s, please report bug",
                     self._device_id,
                     cmds,
@@ -523,9 +666,9 @@ class MideaDevice(threading.Thread):
                             cont = self.pre_process_message(decrypted)
                         if cont:
                             _LOGGER.debug(
-                                "[%s] process message %s for device %s, \
-                                model %s, subtype %s, \
-                                device protocol %s, message procol %s",
+                                "[%s] process message %s for device %s,"
+                                "model %s, subtype %s, "
+                                "device protocol %s, message protocol %s",
                                 self._device_id,
                                 decrypted.hex(),
                                 self._device_name,
@@ -544,9 +687,9 @@ class MideaDevice(threading.Thread):
                                 )
                     except Exception:
                         _LOGGER.exception(
-                            "[%s] Error in process message %s, \
-                                model %s, subtype %s, \
-                                device protocol %s, message procol %s",
+                            "[%s] Error in process message %s, "
+                            "model %s, subtype %s, "
+                            "device protocol %s, message protocol %s",
                             self._device_id,
                             decrypted.hex(),
                             self._model,
@@ -588,6 +731,34 @@ class MideaDevice(threading.Thread):
         """Build query."""
         raise NotImplementedError
 
+    def build_init_query(self) -> list:
+        """Build one-time queries to run once at connect time.
+
+        refresh_status() sends these after the appliance query and before the
+        recurring build_query() status queries, and -- crucially -- builds them
+        only once the appliance reply has set the message protocol version, so
+        they can depend on it. Their own replies are then processed before the
+        status queries are built, so a status query can react to the result
+        (e.g. the AC B5 capability probes decoded here). A device only needs to
+        send these once (their reply never changes); the subclass clears its own
+        arming flags when the reply is parsed, and any query that times out is
+        recorded in _unsupported_protocol and skipped from then on. The subclass
+        may return a follow-up query only after an earlier init reply is parsed
+        (e.g. the AC additional-capability probe); refresh_status() keeps
+        offering build_init_query() until it is exhausted. The base class has
+        none.
+        """
+        return []
+
+    def reset_init_query(self) -> None:
+        """Re-arm the one-time init queries after the socket is closed.
+
+        Called from close_socket() alongside the appliance-query re-arm so a
+        reconnected device re-probes from scratch instead of reusing stale
+        results. Subclasses that override build_init_query() reset their arming
+        flags here. The base class has no init queries, so this is a no-op.
+        """
+
     def process_message(self, msg: bytes) -> dict[str, Any]:
         """Process message."""
         raise NotImplementedError
@@ -604,7 +775,7 @@ class MideaDevice(threading.Thread):
             self.build_send(cmd)
         except OSError as e:
             _LOGGER.debug(
-                "[{%s] Interface send_command failure, %s, cmd_type: %s, cmd_body: %s",
+                "[%s] send_command failure, %s, cmd_type: %s, cmd_body: %s",
                 self._device_id,
                 repr(e),
                 cmd_type,
@@ -669,13 +840,24 @@ class MideaDevice(threading.Thread):
         """
         return self._is_run
 
-    def close_socket(self) -> None:
+    def close_socket(self, sock: socket.socket | None = None) -> None:
         """Close socket."""
-        self._unsupported_protocol = []
-        self._buffer = b""
-        if self._socket:
+        with self._socket_lock:
+            if sock is None:
+                sock = self._socket
+            if sock is None or self._socket is sock:
+                self._unsupported_protocol = []
+                # Re-arm the appliance query too. It is cleared in
+                # pre_process_message and was never set back, so a reconnected device
+                # would skip protocol detection and re-probe with build_query() alone.
+                self._appliance_query = True
+                # Re-arm one-time init queries (e.g. AC B5 capability probes) so a
+                # reconnected device re-probes instead of reusing stale results.
+                self.reset_init_query()
+                self._buffer = b""
+        if sock is not None:
             try:
-                self._socket.shutdown(socket.SHUT_RDWR)
+                sock.shutdown(socket.SHUT_RDWR)
             except OSError as e:
                 # shutdown() raises ENOTCONN if the peer already went away;
                 # that's fine, we still close() below.
@@ -685,12 +867,16 @@ class MideaDevice(threading.Thread):
                     e,
                 )
             try:
-                self._socket.close()
+                sock.close()
                 _LOGGER.debug("[%s] Socket closed", self._device_id)
-            except OSError as e:
+            # catch OSError, AttributeError, ValueError to avoid race condition
+            except (OSError, AttributeError, ValueError) as e:
                 _LOGGER.debug("[%s] Error while closing socket: %s", self._device_id, e)
             finally:
-                self._socket = None
+                with self._socket_lock:
+                    # Avoid clearing a socket installed by a concurrent reconnect.
+                    if self._socket is sock:
+                        self._socket = None
 
     def set_ip_address(self, ip_address: str) -> None:
         """Set IP address."""
@@ -727,7 +913,6 @@ class MideaDevice(threading.Thread):
             # the while guard was evaluated, so skip opening a socket / network
             # I/O once teardown is in progress.
             if self._should_run() and self.connect(check_protocol=True) is False:
-                self.close_socket()
                 connection_retries += 1
                 # Sleep time with exponential backoff, maximum 600 seconds
                 sleep_time = min(5 * (2 ** (connection_retries - 1)), 600)
@@ -813,11 +998,18 @@ class MideaDevice(threading.Thread):
                     self.close_socket()
                     break
                 except NoSupportedProtocol:
+                    # Drop the socket and reconnect, as every other exception here
+                    # does. Continuing on the same socket could never recover: once
+                    # every command is in _unsupported_protocol, refresh_status takes
+                    # the SKIP branch for all of them and performs NO socket I/O, so
+                    # no socket error can ever be raised to break the loop and the
+                    # device stayed stuck until Home Assistant restarted.
+                    # close_socket() clears _unsupported_protocol and re-arms
+                    # _appliance_query, so the reconnect is a genuine fresh probe --
+                    # the same effect as the user power-cycling the device.
                     _LOGGER.debug("[%s] No Supported protocol", self._device_id)
-                    # sleep 1 seconds to prevent high cpu usage in for loop
-                    time.sleep(1)
-                    # ignore and continue loop
-                    continue
+                    self.close_socket()
+                    break
                 except ConnectionResetError:  # refresh_status -> build_send exception
                     _LOGGER.debug("[%s] Connection reset by peer", self._device_id)
                     self.close_socket()

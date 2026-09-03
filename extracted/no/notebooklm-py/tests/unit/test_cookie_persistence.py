@@ -10,8 +10,8 @@ from typing import Any
 import httpx
 import pytest
 
-import notebooklm._cookie_persistence as persistence_module
 import notebooklm._runtime.lifecycle as lifecycle_module
+import notebooklm._web.transport.cookie_persistence as persistence_module
 from notebooklm._auth.paths import canonical_storage_key
 from notebooklm._auth.storage import (
     CookieSaveResult,
@@ -20,7 +20,7 @@ from notebooklm._auth.storage import (
     save_cookies_to_storage,
     snapshot_cookie_jar,
 )
-from notebooklm._cookie_persistence import CookiePersistence
+from notebooklm._web.transport.cookie_persistence import CookiePersistence
 from notebooklm.auth import (
     AuthTokens,
 )
@@ -149,7 +149,7 @@ async def test_client_core_save_cookies_routes_through_injected_seam_and_to_thre
         _auth_tokens(tmp_path / "storage_state.json"), cookie_saver=fake_save
     )
 
-    await core._collaborators.lifecycle.save_cookies(core._collaborators.cookie_persistence, _jar())
+    await core._collaborators.web_transport.save_cookies(_jar())
 
     assert calls == ["to_thread", "save"]
 

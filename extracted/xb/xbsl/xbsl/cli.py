@@ -6,9 +6,12 @@ import argparse
 import json
 import sys
 import textwrap
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
+from typing import NamedTuple
 
-from xbsl import __version__, baseline, dataset, engine, i18n, plugins, report
+from xbsl import __version__, baseline, dataset, engine, environment, i18n, plugins, report
 from xbsl.templates import DEFAULT_FILE as DEFAULT_TEMPLATES_FILE
 
 
@@ -103,23 +106,20 @@ def _commands_help() -> str:
 
     The top-level commands are dispatched by hand in main(): the default mode accepts arbitrary
     paths, so argparse cannot tell "xbsl Форма.xbsl" from a command name and would not build this
-    list itself. The names come from the same tuples as the dispatch, so they cannot drift apart.
-    The help texts go through i18n.t: the language is chosen before build_parser is called.
+    list itself. The names and descriptions come from COMMANDS, the registry main() dispatches
+    by, so the list cannot drift apart from the dispatch. The help texts go through i18n.t: the
+    language is chosen before build_parser is called.
     """
-    entries = [(i18n.t("cli.help.commands.lint-name"), i18n.t("cli.help.commands.lint-desc"))]
-    entries += [(name, i18n.t(f"cli.help.server.{name}")) for name in _SERVER_COMMANDS]
-    entries += [
-        ("templates", i18n.t("cli.help.commands.templates")),
-        ("extract", i18n.t("cli.help.commands.extract")),
-        ("data-diff", i18n.t("cli.help.commands.data-diff")),
-        ("translate", i18n.t("cli.help.commands.translate")),
-        ("self-update", i18n.t("cli.help.commands.self-update")),
+    entries = [
+        (i18n.t(command.label) if command.label else command.name, i18n.t(command.help))
+        for command in COMMANDS if not command.scaffold
     ]
     lines = [i18n.t("cli.help.commands.header")]
     lines += [f"  {name:<16}{description}" for name, description in entries]
     lines += ["", "  " + i18n.t("cli.help.commands.scaffold-header")]
     # break_on_hyphens=False: without it the wrapper splits names like add-subsystem in half.
-    lines += textwrap.wrap(", ".join(_META_COMMANDS), width=74, break_on_hyphens=False,
+    scaffold = ", ".join(command.name for command in COMMANDS if command.scaffold)
+    lines += textwrap.wrap(scaffold, width=74, break_on_hyphens=False,
                            initial_indent="    ", subsequent_indent="    ")
     lines += ["", i18n.t("cli.help.commands.footer")]
     return "\n".join(lines)
@@ -316,13 +316,14 @@ def _apply_fixes(sources, diagnostics, args) -> int:
     return 1 if any(d.severity.value == "error" for d in remaining) else 0
 
 
+#: The metadata scaffolding in the order the help and the reference list it: one family
+#: sharing a parser (_scaffold_parser) and a handler (_scaffold_main) across every name.
 _META_COMMANDS = (
     "new-project", "new-object", "add-field", "add-route", "add-method", "add-form",
     "add-subsystem", "add-dependency", "add-localization", "set-field-property",
     "rename-object", "delete-object", "set-access", "object-info", "project-info",
     "localization-info", "form-tree", "form-edit", "form-handlers",
 )
-_SERVER_COMMANDS = ("lsp", "mcp", "web")
 
 
 def _selfupdate_parser() -> argparse.ArgumentParser:
@@ -332,6 +333,118 @@ def _selfupdate_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stop-holders", action="store_true",
                         help=i18n.t("cli.help.selfupdate-stop"))
     return parser
+
+
+def _selfupdate_main(argv: list[str]) -> int:
+    # Updating by unpacking the wheel - safe while the exe files are held by LSP/MCP processes.
+    from xbsl import selfupdate
+
+    args = _selfupdate_parser().parse_args(argv)
+    try:
+        old, new = selfupdate.self_update(version=args.version, stop_busy=args.stop_holders,
+                                          log=lambda msg: print(msg, file=sys.stderr))
+    except selfupdate.SelfUpdateError as exc:
+        print(json.dumps({"error": str(exc)}, ensure_ascii=False))
+        return 2
+    print(json.dumps({"updated": old != new, "from": old, "to": new}, ensure_ascii=False))
+    return 0
+
+
+def _baseline_parser() -> argparse.ArgumentParser:
+    parser = i18n.ArgumentParser(
+        prog="xbsl baseline",
+        description=i18n.t("cli.help.bl.description"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = parser.add_subparsers(dest="action", required=True)
+    p = sub.add_parser("add", help=i18n.t("cli.help.bl.add"))
+    p.add_argument("paths", nargs="+", help=i18n.t("cli.help.bl.paths"))
+    p.add_argument("--rule", metavar=i18n.t("cli.help.meta.rule-selector"), action="append",
+                   required=True, help=i18n.t("cli.help.bl.rule"))
+    p.add_argument("--reason", help=i18n.t("cli.help.bl.reason"))
+    p.add_argument("--baseline", metavar=i18n.t("cli.help.meta.file"),
+                   help=i18n.t("cli.help.bl.baseline"))
+    p.add_argument("--format", choices=("text", "json"), default="text",
+                   help=i18n.t("cli.help.bl.format"))
+    p.add_argument("--jobs", type=int, default=0, metavar="N", help=i18n.t("cli.help.jobs"))
+    p.add_argument("--lang", choices=i18n.LANGS, help=i18n.t("cli.help.lang"))
+    p.add_argument("--element-version", metavar=i18n.t("cli.help.meta.version"),
+                   help=i18n.t("cli.help.element-version"))
+    p.add_argument("--data-dir", metavar=i18n.t("cli.help.meta.dir"),
+                   help=i18n.t("cli.help.data-dir"))
+    return parser
+
+
+def _baseline_main(argv: list[str]) -> int:
+    """xbsl baseline add: append the findings of one rule to the baseline and nothing else.
+
+    The run is the check mode's: the project context of the paths is loaded, the findings
+    are narrowed to the requested paths, the baseline is the one named or the project's
+    own. Only the selected rules run - the command adds one kind of debt, not a snapshot.
+    """
+    i18n.set_lang(i18n.lang_from_argv(argv))
+    args = _baseline_parser().parse_args(argv)
+    i18n.set_lang(args.lang)
+    if args.data_dir:
+        dataset.set_data_root(args.data_dir)
+    if args.element_version:
+        dataset.set_version(args.element_version)
+    try:
+        dataset.resolve_version()
+    except dataset.DatasetError as exc:
+        print(i18n.t("cli.data-error", error=exc), file=sys.stderr)
+        return 2
+
+    from xbsl.engine import active_rules, run_parallel
+
+    select = _parse_set(args.rule) or set()
+    # A selector nothing answers to is a typo, and a typo must not pass for "nothing new".
+    unknown = [s for s in sorted(select) if not active_rules({s})]
+    if unknown:
+        print(i18n.t("cli.baseline-unknown-rule", rule=", ".join(unknown)), file=sys.stderr)
+        return 2
+    missing = [p for p in args.paths if not Path(p).exists()]
+    if missing:
+        print(i18n.t("cli.missing-paths", paths=", ".join(f"'{p}'" for p in missing)),
+              file=sys.stderr)
+        return 2
+    files, requested = discover_with_context(args.paths)
+    if not files:
+        print(i18n.t("cli.nothing-collected", paths=", ".join(f"'{p}'" for p in args.paths)),
+              file=sys.stderr)
+        return 2
+    target = Path(args.baseline) if args.baseline else baseline.discover(files)
+    if target is None:
+        print(i18n.t("cli.baseline-none-to-extend"), file=sys.stderr)
+        return 2
+    try:
+        data = baseline.load(target)
+    except baseline.BaselineError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    diagnostics = _filter_requested(
+        run_parallel(files, select=select, jobs=args.jobs,
+                     element_version=args.element_version or None),
+        requested,
+    )
+    added = baseline.add_entries(data, diagnostics, target.parent, reason=args.reason)
+    if added:
+        baseline.save(target, data)
+    findings = sum(entry["count"] for entry in added)
+    if args.format == "json":
+        print(json.dumps({"baseline": str(target), "added": added, "findings": findings,
+                          "written": bool(added)}, ensure_ascii=False))
+        return 0
+    for entry in added:
+        print(i18n.t("cli.baseline-added-entry", path=entry["path"], rule=entry["rule"],
+                     count=entry["count"], message=entry["message"]))
+    if added:
+        print(i18n.t("cli.baseline-added", path=target, count=findings, entries=len(added)))
+    else:
+        print(i18n.t("cli.baseline-nothing-to-add", path=target))
+    return 0
+
 
 def _templates_parser() -> argparse.ArgumentParser:
     parser = i18n.ArgumentParser(
@@ -477,7 +590,7 @@ def _scaffold_parser() -> argparse.ArgumentParser:
     p.add_argument("field_kind", help=", ".join(("реквизит", "измерение", "ресурс", "значение",
                                                  "параметр", "поле", "табличная-часть")))
     p.add_argument("name", help=i18n.t("cli.help.scaf.af-name"))
-    p.add_argument("--type", default="Строка", help=i18n.t("cli.help.scaf.af-type"))
+    p.add_argument("--type", help=i18n.t("cli.help.scaf.af-type"))
     p.add_argument("--tabular", help=i18n.t("cli.help.scaf.add-field-tabular"))
     p.add_argument("--prop", action="append", metavar="КЛЮЧ=ЗНАЧЕНИЕ",
                    help=i18n.t("cli.help.scaf.field-prop"))
@@ -908,64 +1021,8 @@ def _scaffold_main(argv: list[str]) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    # The linter output is always UTF-8, regardless of the console encoding (matters for
-    # Cyrillic and for redirection to a file/editor).
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is not None:
-            try:
-                reconfigure(encoding="utf-8")
-            except (ValueError, OSError):
-                pass
-
-    argv = list(sys.argv[1:] if argv is None else argv)
-    if argv[:1] == ["self-update"]:
-        # Updating by unpacking the wheel - safe while the exe files are held by LSP/MCP processes.
-        from xbsl import selfupdate
-
-        sp_args = _selfupdate_parser().parse_args(argv[1:])
-        try:
-            old, new = selfupdate.self_update(version=sp_args.version,
-                                              stop_busy=sp_args.stop_holders,
-                                              log=lambda msg: print(msg, file=sys.stderr))
-        except selfupdate.SelfUpdateError as exc:
-            print(json.dumps({"error": str(exc)}, ensure_ascii=False))
-            return 2
-        print(json.dumps({"updated": old != new, "from": old, "to": new}, ensure_ascii=False))
-        return 0
-    if argv and argv[0] in _SERVER_COMMANDS:
-        # xbsl lsp|mcp|web - a dispatcher to the entry points of the same names.
-        command, rest = argv[0], argv[1:]
-        sys.argv = [f"xbsl-{command}", *rest]
-        if command == "lsp":
-            from xbsl.lsp import main as server_main
-        elif command == "mcp":
-            from xbsl.mcp_server import main as server_main
-        else:
-            from xbsl.web import main as server_main
-        server_main()
-        return 0
-    if argv[:1] == ["templates"]:
-        return _templates_main(argv[1:])
-    if argv[:1] == ["extract"]:
-        # The dataset generator (xbsl.extract) - the same code as tools/extract.py in a clone.
-        from xbsl import extract as extract_package
-
-        return extract_package.main(argv[1:])
-    if argv[:1] == ["data-diff"]:
-        from xbsl import datadiff
-
-        return datadiff.cli_main(argv[1:])
-    if argv[:1] == ["translate"]:
-        from xbsl.translation import cli as translate_cli
-
-        return translate_cli.cli_main(argv[1:])
-    if argv and argv[0] in _META_COMMANDS:
-        return _scaffold_main(argv)
-    if argv[:1] == ["lint"]:
-        argv = argv[1:]  # an explicit alias of the default mode
-
+def _check_main(argv: list[str]) -> int:
+    """The check mode: `xbsl <paths> [options]`, also spelled `xbsl lint <paths>`."""
     # The language must be known BEFORE build_parser: the check-mode help (help=) is assembled in
     # the chosen language. Prescan argv for --lang; env and locale are read by t() via current_lang().
     i18n.set_lang(i18n.lang_from_argv(argv))
@@ -1012,7 +1069,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(build_index(root), ensure_ascii=False))
         return 0
 
-    from xbsl.engine import RULES, load, make_source, run_sources
+    from xbsl.engine import RULES, active_rules, load, make_source, run_sources
 
     if args.list_rules:
         for r in sorted(RULES, key=lambda x: (x.tier, x.id)):
@@ -1029,6 +1086,9 @@ def main(argv: list[str] | None = None) -> int:
     select = _parse_set(args.select)
     ignore = _parse_set(args.ignore)
     enable = _parse_set(args.enable)
+    # The rule set of this run, named in every report: two installations answering
+    # differently about one tree differ here first, and the report must say so itself.
+    active = active_rules(select, ignore, enable)
 
     if args.fix and args.stdin:
         print(i18n.t("cli.fix-needs-files"), file=sys.stderr)
@@ -1113,15 +1173,16 @@ def main(argv: list[str] | None = None) -> int:
         except baseline.BaselineError as exc:
             print(str(exc), file=sys.stderr)
             return 2
-        # The rule set the run carried: an entry of a rule nobody ran is not stale debt,
-        # it is debt nobody looked at, and pruning it would drop the record silently.
-        from xbsl.engine import active_rules
-
-        carried = {r.id for r in active_rules(select, ignore, enable)}
+        # The rule set the run carried and the paths it reached: an entry of a rule nobody
+        # ran, or of a file nobody asked about, is not stale debt - it is debt nobody looked
+        # at, and pruning it would drop the record silently.
+        carried = {r.id for r in active}
+        asked = [Path(args.filename)] if args.stdin else [Path(p) for p in (args.paths or ["."])]
+        roots = baseline.roots_of(asked, Path(args.baseline).parent)
         diagnostics, suppressed, unused, stale = baseline.apply(
-            diagnostics, data, Path(args.baseline).parent, carried,
+            diagnostics, data, Path(args.baseline).parent, carried, roots,
         )
-        not_checked = baseline.not_checked_entries(data, carried)
+        not_checked = baseline.not_checked_entries(data, carried, roots)
         # The stale entries are named, not just counted: without the list the only way to
         # find them was to rewrite the whole baseline and diff it.
         if (args.stale_baseline or args.prune_baseline) and args.format == "text":
@@ -1140,6 +1201,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.format == "json":
         # Machine-readable: the whole payload on stdout (or in --out), nothing on stderr.
         payload = report.report(diagnostics, len(files))
+        payload["summary"].update(environment.provenance(active))
         if suppressed is not None:
             payload["summary"]["baselined"] = suppressed
             # Two different units, both useful: `unused` counts the suppressions nobody
@@ -1151,6 +1213,9 @@ def main(argv: list[str] | None = None) -> int:
             # apart so two environments with different rule sets stop contradicting each
             # other about one and the same baseline.
             payload["summary"]["baseline_not_checked"] = len(not_checked)
+            split = baseline.not_checked_split(not_checked)
+            payload["summary"]["baseline_not_checked_rules"] = split["rules"]
+            payload["summary"]["baseline_not_checked_paths"] = split["paths"]
         _emit_report(json.dumps(payload, ensure_ascii=False), args.out)
     elif args.format == "codeclimate":
         # GitLab Code Quality report: the issue array on stdout, nothing on stderr.
@@ -1171,6 +1236,7 @@ def main(argv: list[str] | None = None) -> int:
                    diags=len(diagnostics), errors=n_err),
             file=sys.stderr,
         )
+        print(environment.provenance_note(environment.provenance(active)), file=sys.stderr)
         if suppressed is not None:
             # The count names ENTRIES, as the text promises; `unused` counts the individual
             # suppressions behind them and lives in the json payload.
@@ -1182,11 +1248,123 @@ def main(argv: list[str] | None = None) -> int:
             # here, and a line of zeros in every report teaches nobody anything.
             if not_checked:
                 print(
-                    i18n.t("cli.baseline-not-checked", count=len(not_checked)),
+                    i18n.t("cli.baseline-not-checked", count=len(not_checked),
+                           **baseline.not_checked_split(not_checked)),
                     file=sys.stderr,
                 )
 
     return 1 if any(d.severity.value == "error" for d in diagnostics) else 0
+
+
+def _server_main(command: str, argv: list[str]) -> int:
+    """xbsl lsp|mcp|web - a dispatcher to the entry points of the same names."""
+    sys.argv = [f"xbsl-{command}", *argv]
+    if command == "lsp":
+        from xbsl.lsp import main as server_main
+    elif command == "mcp":
+        from xbsl.mcp_server import main as server_main
+    else:
+        from xbsl.web import main as server_main
+    server_main()
+    return 0
+
+
+def _extract_main(argv: list[str]) -> int:
+    # The dataset generator (xbsl.extract) - the same code as tools/extract.py in a clone.
+    from xbsl import extract as extract_package
+
+    return extract_package.main(argv)
+
+
+def _datadiff_main(argv: list[str]) -> int:
+    from xbsl import datadiff
+
+    return datadiff.cli_main(argv)
+
+
+def _translate_main(argv: list[str]) -> int:
+    from xbsl.translation import cli as translate_cli
+
+    return translate_cli.cli_main(argv)
+
+
+def _scaffold_run(name: str, argv: list[str]) -> int:
+    """One scaffold command: the family's parser wants the command name back in front."""
+    return _scaffold_main([name, *argv])
+
+
+class Command(NamedTuple):
+    """One top-level command - the single place `xbsl <command>` is registered (COMMANDS).
+
+    The help epilog (_commands_help), the dispatch in main(), the reference generator
+    (scripts/gen-cli-docs.py) and the help tests (tests/test_cli_docs.py) all read the
+    registry: a new command is one record here plus its parser and handler, and every
+    consumer picks it up. Before the registry each of them kept its own list, and a command
+    missing from one of the lists was noticed by a red test or by a reader of the reference.
+    """
+
+    name: str
+    #: i18n key of the one-line description in the help epilog.
+    help: str
+    #: The handler: takes the arguments after the command name, returns the exit code.
+    run: Callable[[list[str]], int]
+    #: The argparse factory when this module owns the parser - the help tests walk it; None
+    #: when the command hands its arguments to another module's entry point.
+    parser: Callable[[], argparse.ArgumentParser] | None = None
+    #: i18n key of the name as the help prints it, when it says more than the name
+    #: ("lint <paths>"); None prints the name itself.
+    label: str | None = None
+    #: The metadata scaffolding: the family shares one parser and one handler, the help
+    #: lists it as prose and the reference gives it a chapter of subsections.
+    scaffold: bool = False
+    #: Whether the reference (docs/CLI*.md) carries a section of the command's own --help.
+    reference: bool = True
+    #: Import name of the optional dependency the command needs even to answer --help
+    #: (the [lsp] and [mcp] extras); without it the tests skip the command.
+    dependency: str | None = None
+
+
+#: The top-level commands in the order the help lists them. The reference documents the
+#: check mode as its opening block rather than as a section of `lint`, and describes
+#: extract, data-diff and translate on the platform-data and translation pages, so those
+#: four carry no section of their own.
+COMMANDS: tuple[Command, ...] = (
+    Command("lint", "cli.help.commands.lint-desc", _check_main, parser=build_parser,
+            label="cli.help.commands.lint-name", reference=False),
+    Command("lsp", "cli.help.server.lsp", partial(_server_main, "lsp"), dependency="pygls"),
+    Command("mcp", "cli.help.server.mcp", partial(_server_main, "mcp"), dependency="mcp"),
+    Command("web", "cli.help.server.web", partial(_server_main, "web")),
+    Command("templates", "cli.help.commands.templates", _templates_main,
+            parser=_templates_parser),
+    Command("baseline", "cli.help.commands.baseline", _baseline_main, parser=_baseline_parser),
+    Command("extract", "cli.help.commands.extract", _extract_main, reference=False),
+    Command("data-diff", "cli.help.commands.data-diff", _datadiff_main, reference=False),
+    Command("translate", "cli.help.commands.translate", _translate_main, reference=False),
+    Command("self-update", "cli.help.commands.self-update", _selfupdate_main,
+            parser=_selfupdate_parser),
+    *(Command(name, f"cli.help.scaf.{name}", partial(_scaffold_run, name),
+              parser=_scaffold_parser, scaffold=True) for name in _META_COMMANDS),
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    # The linter output is always UTF-8, regardless of the console encoding (matters for
+    # Cyrillic and for redirection to a file/editor).
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8")
+            except (ValueError, OSError):
+                pass
+
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # By name, not by argparse: the check mode accepts arbitrary paths, so a parser could not
+    # tell a command from a file that happens to be called like one.
+    for command in COMMANDS:
+        if argv[:1] == [command.name]:
+            return command.run(argv[1:])
+    return _check_main(argv)
 
 
 if __name__ == "__main__":

@@ -2138,6 +2138,11 @@ class CfnChannel(
                                 check_digit_string="checkDigitString",
                                 sid=123,
                                 timezone="timezone"
+                            ),
+                            nielsen_nw_only_settings=medialive.CfnChannel.NielsenNwOnlyProperty(
+                                check_digit_string="checkDigitString",
+                                sid=123,
+                                timezone="timezone"
                             )
                         )
                     ),
@@ -3894,6 +3899,11 @@ class CfnChannel(
                         ),
                         nielsen_distribution_type="nielsenDistributionType",
                         nielsen_naes_ii_nw_settings=medialive.CfnChannel.NielsenNaesIiNwProperty(
+                            check_digit_string="checkDigitString",
+                            sid=123,
+                            timezone="timezone"
+                        ),
+                        nielsen_nw_only_settings=medialive.CfnChannel.NielsenNwOnlyProperty(
                             check_digit_string="checkDigitString",
                             sid=123,
                             timezone="timezone"
@@ -20571,12 +20581,98 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.NielsenNwOnlyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "check_digit_string": "checkDigitString",
+            "sid": "sid",
+            "timezone": "timezone",
+        },
+    )
+    class NielsenNwOnlyProperty:
+        def __init__(
+            self,
+            *,
+            check_digit_string: typing.Optional[builtins.str] = None,
+            sid: typing.Optional[jsii.Number] = None,
+            timezone: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param check_digit_string: 
+            :param sid: 
+            :param timezone: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennwonly.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                nielsen_nw_only_property = medialive.CfnChannel.NielsenNwOnlyProperty(
+                    check_digit_string="checkDigitString",
+                    sid=123,
+                    timezone="timezone"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c8880569fbcb21f53f2aadeb90349757818c1b56006828e4d9dc301866002213)
+                check_type(argname="argument check_digit_string", value=check_digit_string, expected_type=type_hints["check_digit_string"])
+                check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
+                check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if check_digit_string is not None:
+                self._values["check_digit_string"] = check_digit_string
+            if sid is not None:
+                self._values["sid"] = sid
+            if timezone is not None:
+                self._values["timezone"] = timezone
+
+        @builtins.property
+        def check_digit_string(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennwonly.html#cfn-medialive-channel-nielsennwonly-checkdigitstring
+            '''
+            result = self._values.get("check_digit_string")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sid(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennwonly.html#cfn-medialive-channel-nielsennwonly-sid
+            '''
+            result = self._values.get("sid")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timezone(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennwonly.html#cfn-medialive-channel-nielsennwonly-timezone
+            '''
+            result = self._values.get("timezone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NielsenNwOnlyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.NielsenWatermarksSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
             "nielsen_cbet_settings": "nielsenCbetSettings",
             "nielsen_distribution_type": "nielsenDistributionType",
             "nielsen_naes_ii_nw_settings": "nielsenNaesIiNwSettings",
+            "nielsen_nw_only_settings": "nielsenNwOnlySettings",
         },
     )
     class NielsenWatermarksSettingsProperty:
@@ -20586,6 +20682,7 @@ class CfnChannel(
             nielsen_cbet_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.NielsenCBETProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             nielsen_distribution_type: typing.Optional[builtins.str] = None,
             nielsen_naes_ii_nw_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.NielsenNaesIiNwProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nielsen_nw_only_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.NielsenNwOnlyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure Nielsen Watermarks in the audio encode.
 
@@ -20594,6 +20691,7 @@ class CfnChannel(
             :param nielsen_cbet_settings: Complete these fields only if you want to insert watermarks of type Nielsen CBET.
             :param nielsen_distribution_type: Choose the distribution types that you want to assign to the watermarks: - PROGRAM_CONTENT - FINAL_DISTRIBUTOR.
             :param nielsen_naes_ii_nw_settings: Complete these fields only if you want to insert watermarks of type Nielsen NAES II (N2) and Nielsen NAES VI (NW).
+            :param nielsen_nw_only_settings: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsenwatermarkssettings.html
             :exampleMetadata: fixture=_generated
@@ -20615,6 +20713,11 @@ class CfnChannel(
                         check_digit_string="checkDigitString",
                         sid=123,
                         timezone="timezone"
+                    ),
+                    nielsen_nw_only_settings=medialive.CfnChannel.NielsenNwOnlyProperty(
+                        check_digit_string="checkDigitString",
+                        sid=123,
+                        timezone="timezone"
                     )
                 )
             '''
@@ -20623,6 +20726,7 @@ class CfnChannel(
                 check_type(argname="argument nielsen_cbet_settings", value=nielsen_cbet_settings, expected_type=type_hints["nielsen_cbet_settings"])
                 check_type(argname="argument nielsen_distribution_type", value=nielsen_distribution_type, expected_type=type_hints["nielsen_distribution_type"])
                 check_type(argname="argument nielsen_naes_ii_nw_settings", value=nielsen_naes_ii_nw_settings, expected_type=type_hints["nielsen_naes_ii_nw_settings"])
+                check_type(argname="argument nielsen_nw_only_settings", value=nielsen_nw_only_settings, expected_type=type_hints["nielsen_nw_only_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if nielsen_cbet_settings is not None:
                 self._values["nielsen_cbet_settings"] = nielsen_cbet_settings
@@ -20630,6 +20734,8 @@ class CfnChannel(
                 self._values["nielsen_distribution_type"] = nielsen_distribution_type
             if nielsen_naes_ii_nw_settings is not None:
                 self._values["nielsen_naes_ii_nw_settings"] = nielsen_naes_ii_nw_settings
+            if nielsen_nw_only_settings is not None:
+                self._values["nielsen_nw_only_settings"] = nielsen_nw_only_settings
 
         @builtins.property
         def nielsen_cbet_settings(
@@ -20661,6 +20767,16 @@ class CfnChannel(
             '''
             result = self._values.get("nielsen_naes_ii_nw_settings")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.NielsenNaesIiNwProperty"]], result)
+
+        @builtins.property
+        def nielsen_nw_only_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.NielsenNwOnlyProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsenwatermarkssettings.html#cfn-medialive-channel-nielsenwatermarkssettings-nielsennwonlysettings
+            '''
+            result = self._values.get("nielsen_nw_only_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.NielsenNwOnlyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20741,7 +20857,8 @@ class CfnChannel(
                         password_param="passwordParam",
                         stream_name="streamName",
                         url="url",
-                        username="username"
+                        username="username",
+                        virtual_source_address="virtualSourceAddress"
                     )],
                     srt_settings=[medialive.CfnChannel.SrtOutputDestinationSettingsProperty(
                         connection_mode="connectionMode",
@@ -20868,6 +20985,7 @@ class CfnChannel(
             "stream_name": "streamName",
             "url": "url",
             "username": "username",
+            "virtual_source_address": "virtualSourceAddress",
         },
     )
     class OutputDestinationSettingsProperty:
@@ -20878,6 +20996,7 @@ class CfnChannel(
             stream_name: typing.Optional[builtins.str] = None,
             url: typing.Optional[builtins.str] = None,
             username: typing.Optional[builtins.str] = None,
+            virtual_source_address: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration information for this output.
 
@@ -20887,6 +21006,7 @@ class CfnChannel(
             :param stream_name: The stream name for the content. This applies only to RTMP outputs.
             :param url: The URL for the destination.
             :param username: The user name to connect to the downstream system. This applies only if the downstream system requires credentials.
+            :param virtual_source_address: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputdestinationsettings.html
             :exampleMetadata: fixture=_generated
@@ -20901,7 +21021,8 @@ class CfnChannel(
                     password_param="passwordParam",
                     stream_name="streamName",
                     url="url",
-                    username="username"
+                    username="username",
+                    virtual_source_address="virtualSourceAddress"
                 )
             '''
             if __debug__:
@@ -20910,6 +21031,7 @@ class CfnChannel(
                 check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
+                check_type(argname="argument virtual_source_address", value=virtual_source_address, expected_type=type_hints["virtual_source_address"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if password_param is not None:
                 self._values["password_param"] = password_param
@@ -20919,6 +21041,8 @@ class CfnChannel(
                 self._values["url"] = url
             if username is not None:
                 self._values["username"] = username
+            if virtual_source_address is not None:
+                self._values["virtual_source_address"] = virtual_source_address
 
         @builtins.property
         def password_param(self) -> typing.Optional[builtins.str]:
@@ -20960,6 +21084,14 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputdestinationsettings.html#cfn-medialive-channel-outputdestinationsettings-username
             '''
             result = self._values.get("username")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def virtual_source_address(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputdestinationsettings.html#cfn-medialive-channel-outputdestinationsettings-virtualsourceaddress
+            '''
+            result = self._values.get("virtual_source_address")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -35703,420 +35835,6 @@ class CfnNodeProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_medialive_a638737a.IOfferingRef)
-class CfnOffering(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_medialive.CfnOffering",
-):
-    '''Definition of AWS::MediaLive::Offering Resource Type.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-offering.html
-    :cloudformationResource: AWS::MediaLive::Offering
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_medialive as medialive
-        
-        cfn_offering = medialive.CfnOffering(self, "MyCfnOffering")
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-    ) -> None:
-        '''Create a new ``AWS::MediaLive::Offering``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__1b34a87dc5178a2bc32da7aff8c093d77b903d4d1b4faa26b75aef53c7cd27ec)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnOfferingProps()
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForOffering")
-    @builtins.classmethod
-    def arn_for_offering(
-        cls,
-        resource: "_aws_medialive_a638737a.IOfferingRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__b3cec622eb6a4cff322d3be05f1a337f22804a613a86d8c09c92c71e0050b8d7)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOffering", [resource]))
-
-    @jsii.member(jsii_name="isCfnOffering")
-    @builtins.classmethod
-    def is_cfn_offering(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnOffering.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5ffeae04aad4ee121844650d2f3e9f332b1ead0bb211228ed998a303cf002c25)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOffering", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__58a1e4f328cff591edfe1da6a21061f0cc8b7afa132766ac27aeebbd4108be64)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__3e9a51dddfaaa22944e8850fd2138587ccf8380c7f8c34ea958a9d119d32e914)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Unique offering ARN, e.g. 'arn:aws:medialive:us-west-2:123456789012:offering:87654321'.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCurrencyCode")
-    def attr_currency_code(self) -> builtins.str:
-        '''Currency code for usagePrice and fixedPrice in ISO-4217 format, e.g. 'USD'.
-
-        :cloudformationAttribute: CurrencyCode
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCurrencyCode"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDuration")
-    def attr_duration(self) -> jsii.Number:
-        '''Lease duration, e.g. '12'.
-
-        :cloudformationAttribute: Duration
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrDuration"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDurationUnits")
-    def attr_duration_units(self) -> builtins.str:
-        '''Units for duration, e.g. 'MONTHS'.
-
-        :cloudformationAttribute: DurationUnits
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDurationUnits"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrFixedPrice")
-    def attr_fixed_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''One-time charge for each reserved resource, e.g. '0.0' for a NO_UPFRONT offering.
-
-        :cloudformationAttribute: FixedPrice
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFixedPrice"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrOfferingDescription")
-    def attr_offering_description(self) -> builtins.str:
-        '''Offering description, e.g. 'HD AVC output at 10-20 Mbps, 30 fps, and standard VQ in US West (Oregon)'.
-
-        :cloudformationAttribute: OfferingDescription
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrOfferingDescription"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrOfferingId")
-    def attr_offering_id(self) -> builtins.str:
-        '''Unique offering ID, e.g. '87654321'.
-
-        :cloudformationAttribute: OfferingId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrOfferingId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrOfferingType")
-    def attr_offering_type(self) -> builtins.str:
-        '''Offering type, e.g. 'NO_UPFRONT'.
-
-        :cloudformationAttribute: OfferingType
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrOfferingType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRegion")
-    def attr_region(self) -> builtins.str:
-        '''AWS region, e.g. 'us-west-2'.
-
-        :cloudformationAttribute: Region
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRegion"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrResourceSpecification")
-    def attr_resource_specification(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''Resource configuration (codec, resolution, bitrate, ...).
-
-        :cloudformationAttribute: ResourceSpecification
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrResourceSpecification"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrUsagePrice")
-    def attr_usage_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''Recurring usage charge for each reserved resource, e.g. '157.0'.
-
-        :cloudformationAttribute: UsagePrice
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrUsagePrice"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="offeringRef")
-    def offering_ref(self) -> "_aws_medialive_a638737a.OfferingReference":
-        '''A reference to a Offering resource.'''
-        return typing.cast("_aws_medialive_a638737a.OfferingReference", jsii.get(self, "offeringRef"))
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_medialive.CfnOffering.ReservationResourceSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "channel_class": "channelClass",
-            "codec": "codec",
-            "maximum_bitrate": "maximumBitrate",
-            "maximum_framerate": "maximumFramerate",
-            "resolution": "resolution",
-            "resource_type": "resourceType",
-            "special_feature": "specialFeature",
-            "video_quality": "videoQuality",
-        },
-    )
-    class ReservationResourceSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            channel_class: typing.Optional[builtins.str] = None,
-            codec: typing.Optional[builtins.str] = None,
-            maximum_bitrate: typing.Optional[builtins.str] = None,
-            maximum_framerate: typing.Optional[builtins.str] = None,
-            resolution: typing.Optional[builtins.str] = None,
-            resource_type: typing.Optional[builtins.str] = None,
-            special_feature: typing.Optional[builtins.str] = None,
-            video_quality: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Resource configuration (codec, resolution, bitrate, ...).
-
-            :param channel_class: Channel class, e.g. 'STANDARD'.
-            :param codec: Codec, e.g. 'AVC'.
-            :param maximum_bitrate: Maximum bitrate, e.g. 'MAX_20_MBPS'.
-            :param maximum_framerate: Maximum framerate, e.g. 'MAX_30_FPS' (Outputs only).
-            :param resolution: Resolution, e.g. 'HD'.
-            :param resource_type: Resource type, 'INPUT', 'OUTPUT', 'MULTIPLEX', or 'CHANNEL'.
-            :param special_feature: Special feature, e.g. 'AUDIO_NORMALIZATION' (Channels only).
-            :param video_quality: Video quality, e.g. 'STANDARD' (Outputs only).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_medialive as medialive
-                
-                reservation_resource_specification_property = medialive.CfnOffering.ReservationResourceSpecificationProperty(
-                    channel_class="channelClass",
-                    codec="codec",
-                    maximum_bitrate="maximumBitrate",
-                    maximum_framerate="maximumFramerate",
-                    resolution="resolution",
-                    resource_type="resourceType",
-                    special_feature="specialFeature",
-                    video_quality="videoQuality"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__dc22294f240abd2c1a00d455e13ad66b2cf707eed64109e879de689d81a482c4)
-                check_type(argname="argument channel_class", value=channel_class, expected_type=type_hints["channel_class"])
-                check_type(argname="argument codec", value=codec, expected_type=type_hints["codec"])
-                check_type(argname="argument maximum_bitrate", value=maximum_bitrate, expected_type=type_hints["maximum_bitrate"])
-                check_type(argname="argument maximum_framerate", value=maximum_framerate, expected_type=type_hints["maximum_framerate"])
-                check_type(argname="argument resolution", value=resolution, expected_type=type_hints["resolution"])
-                check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
-                check_type(argname="argument special_feature", value=special_feature, expected_type=type_hints["special_feature"])
-                check_type(argname="argument video_quality", value=video_quality, expected_type=type_hints["video_quality"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if channel_class is not None:
-                self._values["channel_class"] = channel_class
-            if codec is not None:
-                self._values["codec"] = codec
-            if maximum_bitrate is not None:
-                self._values["maximum_bitrate"] = maximum_bitrate
-            if maximum_framerate is not None:
-                self._values["maximum_framerate"] = maximum_framerate
-            if resolution is not None:
-                self._values["resolution"] = resolution
-            if resource_type is not None:
-                self._values["resource_type"] = resource_type
-            if special_feature is not None:
-                self._values["special_feature"] = special_feature
-            if video_quality is not None:
-                self._values["video_quality"] = video_quality
-
-        @builtins.property
-        def channel_class(self) -> typing.Optional[builtins.str]:
-            '''Channel class, e.g. 'STANDARD'.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html#cfn-medialive-offering-reservationresourcespecification-channelclass
-            '''
-            result = self._values.get("channel_class")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def codec(self) -> typing.Optional[builtins.str]:
-            '''Codec, e.g. 'AVC'.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html#cfn-medialive-offering-reservationresourcespecification-codec
-            '''
-            result = self._values.get("codec")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def maximum_bitrate(self) -> typing.Optional[builtins.str]:
-            '''Maximum bitrate, e.g. 'MAX_20_MBPS'.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html#cfn-medialive-offering-reservationresourcespecification-maximumbitrate
-            '''
-            result = self._values.get("maximum_bitrate")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def maximum_framerate(self) -> typing.Optional[builtins.str]:
-            '''Maximum framerate, e.g. 'MAX_30_FPS' (Outputs only).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html#cfn-medialive-offering-reservationresourcespecification-maximumframerate
-            '''
-            result = self._values.get("maximum_framerate")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def resolution(self) -> typing.Optional[builtins.str]:
-            '''Resolution, e.g. 'HD'.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html#cfn-medialive-offering-reservationresourcespecification-resolution
-            '''
-            result = self._values.get("resolution")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def resource_type(self) -> typing.Optional[builtins.str]:
-            '''Resource type, 'INPUT', 'OUTPUT', 'MULTIPLEX', or 'CHANNEL'.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html#cfn-medialive-offering-reservationresourcespecification-resourcetype
-            '''
-            result = self._values.get("resource_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def special_feature(self) -> typing.Optional[builtins.str]:
-            '''Special feature, e.g. 'AUDIO_NORMALIZATION' (Channels only).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html#cfn-medialive-offering-reservationresourcespecification-specialfeature
-            '''
-            result = self._values.get("special_feature")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def video_quality(self) -> typing.Optional[builtins.str]:
-            '''Video quality, e.g. 'STANDARD' (Outputs only).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-offering-reservationresourcespecification.html#cfn-medialive-offering-reservationresourcespecification-videoquality
-            '''
-            result = self._values.get("video_quality")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ReservationResourceSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnOfferingProps",
-    jsii_struct_bases=[],
-    name_mapping={},
-)
-class CfnOfferingProps:
-    def __init__(self) -> None:
-        '''Properties for defining a ``CfnOffering``.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-offering.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_offering_props = medialive.CfnOfferingProps()
-        '''
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOfferingProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_medialive_a638737a.ISdiSourceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSdiSource(
     _aws_cdk_0cae9daa.CfnResource,
@@ -37430,8 +37148,6 @@ __all__ = [
     "CfnNetworkProps",
     "CfnNode",
     "CfnNodeProps",
-    "CfnOffering",
-    "CfnOfferingProps",
     "CfnSdiSource",
     "CfnSdiSourceProps",
     "CfnSignalMap",
@@ -39150,11 +38866,21 @@ def _typecheckingstub__5486358a38d9072aa9cea1007a7ed50c25e020f301a9f22ca820fa859
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c8880569fbcb21f53f2aadeb90349757818c1b56006828e4d9dc301866002213(
+    *,
+    check_digit_string: typing.Optional[builtins.str] = None,
+    sid: typing.Optional[jsii.Number] = None,
+    timezone: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9e5624fe566342243b7ed3e5c7b82883302c5f225edc78912ef46db7518d8a35(
     *,
     nielsen_cbet_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.NielsenCBETProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     nielsen_distribution_type: typing.Optional[builtins.str] = None,
     nielsen_naes_ii_nw_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.NielsenNaesIiNwProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    nielsen_nw_only_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.NielsenNwOnlyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39178,6 +38904,7 @@ def _typecheckingstub__7a269efb72488b0dcdc8c596268ad0ed5fc30128a0e556b9b5dd12a47
     stream_name: typing.Optional[builtins.str] = None,
     url: typing.Optional[builtins.str] = None,
     username: typing.Optional[builtins.str] = None,
+    virtual_source_address: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -41001,51 +40728,6 @@ def _typecheckingstub__d4679805cb94a56356bf02811ab57a3ae76bfb79a1b49dd1279b30ac9
     role: typing.Optional[builtins.str] = None,
     sdi_source_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnNode.SdiSourceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1b34a87dc5178a2bc32da7aff8c093d77b903d4d1b4faa26b75aef53c7cd27ec(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b3cec622eb6a4cff322d3be05f1a337f22804a613a86d8c09c92c71e0050b8d7(
-    resource: _aws_medialive_a638737a.IOfferingRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5ffeae04aad4ee121844650d2f3e9f332b1ead0bb211228ed998a303cf002c25(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__58a1e4f328cff591edfe1da6a21061f0cc8b7afa132766ac27aeebbd4108be64(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3e9a51dddfaaa22944e8850fd2138587ccf8380c7f8c34ea958a9d119d32e914(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dc22294f240abd2c1a00d455e13ad66b2cf707eed64109e879de689d81a482c4(
-    *,
-    channel_class: typing.Optional[builtins.str] = None,
-    codec: typing.Optional[builtins.str] = None,
-    maximum_bitrate: typing.Optional[builtins.str] = None,
-    maximum_framerate: typing.Optional[builtins.str] = None,
-    resolution: typing.Optional[builtins.str] = None,
-    resource_type: typing.Optional[builtins.str] = None,
-    special_feature: typing.Optional[builtins.str] = None,
-    video_quality: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -113,12 +113,25 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
     _fallback_model: str = "gemini-3.1-flash-lite"
     _model_garden: bool = False
     _lightweight_model: str = "gemini-3.1-flash-lite"
+    # Gemini bills reasoning tokens against max_output_tokens, and the Gemini 3.x
+    # Pro family is thinking-only (see _requires_thinking) so reasoning cannot be
+    # switched off. Reasoning routinely consumes several thousand tokens before
+    # the first byte of the answer, so invoke() needs materially more headroom
+    # than the framework default. Gemini accepts up to 65535 output tokens; this
+    # is only a cap, billing follows actual usage.
+    _invoke_max_tokens: int = 16384
+    # ``None`` => send no max_output_tokens at all for ask()/ask_stream()
+    # and let Gemini apply its own per-model ceiling, which is far above
+    # anything we would hardcode (65535 on the 3.x family). Pinning a
+    # number here would *lower* the cap for those models.
+    _default_max_tokens: Optional[int] = None
     # Default prefixes for which tools + response_schema may be sent in a
     # single GenerateContentConfig (FEAT-193). Override per-subclass by
     # setting this attribute, or per-instance via the constructor kwarg
     # ``combined_call_prefixes``. Gemini 3.x models listed here have been
     # validated by upstream evaluation to accept both simultaneously.
     _default_combined_call_prefixes: tuple[str, ...] = (
+        "gemini-3.8-flash",
         "gemini-3.7-flash",
         "gemini-3.7-pro",
         "gemini-3.6-flash",
@@ -250,6 +263,39 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
             or model.startswith("gemini-3-pro")
             or GoogleGenAIClient._is_computer_use_model(model)
         )
+
+    def _invoke_thinking_config(self, model: str, *, structured: bool) -> "Optional[ThinkingConfig]":
+        """Return a ThinkingConfig that disables reasoning, or ``None`` to leave it default.
+
+        Gemini bills reasoning tokens against ``max_output_tokens``, so reasoning
+        left on for work that needs none both burns budget and adds latency —
+        the same rationale that makes ``_reformat_as_structured_output`` force
+        ``thinking_budget=0``.
+
+        Reasoning is switched off for:
+
+        - **structured extraction** — a ``response_schema`` is already supplied,
+          so the model has no structural decisions left to reason about; and
+        - **flash-lite models** — the cheap tier is chosen precisely for
+          mechanical, low-latency work.
+
+        Thinking-only models (see :meth:`_requires_thinking`, e.g. the Gemini 3.x
+        Pro family) reject ``thinking_budget=0``, so they always return ``None``.
+
+        Args:
+            model: The resolved model identifier for this call.
+            structured: Whether the call requests structured output.
+
+        Returns:
+            ``ThinkingConfig(thinking_budget=0)``, or ``None`` to leave the
+            provider default in place.
+        """
+        if self._requires_thinking(model):
+            return None
+        normalised = (self._as_model_str(model) or "").lower()
+        if structured or "flash-lite" in normalised:
+            return ThinkingConfig(thinking_budget=0)
+        return None
 
     @staticmethod
     def _is_computer_use_model(model: str) -> bool:
@@ -964,7 +1010,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
             The parsed structured output (Pydantic model, dict, etc.) on success,
             or ``text`` unchanged if reformatting or parsing fails.
         """
-        _max = max_tokens if max_tokens is not None else self.max_tokens
+        _max = self._resolve_max_tokens(max_tokens)
         structured_config: Dict[str, Any] = {
             "temperature": temperature if temperature is not None else self.temperature,
             "response_mime_type": "application/json",
@@ -1041,7 +1087,11 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
             return text
 
         if isinstance(output_config, StructuredOutputConfig):
-            return await self._parse_structured_output(structured_text, output_config)
+            return await self._parse_structured_output(
+                structured_text,
+                output_config,
+                finish_reason=self._extract_finish_reason(structured_response),
+            )
         elif isinstance(output_config, type):
             if hasattr(output_config, "model_validate_json"):
                 return output_config.model_validate_json(structured_text)
@@ -2092,7 +2142,8 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                         current_response = await chat.send_message(next_prompt_parts, config=current_config)
                         finish_reason = getattr(current_response.candidates[0], "finish_reason", None)
                         if finish_reason:
-                            if finish_reason.name == "MAX_TOKENS" and current_config.max_output_tokens < 8192:
+                            _cur_cap = getattr(current_config, "max_output_tokens", None)
+                            if finish_reason.name == "MAX_TOKENS" and _cur_cap is not None and _cur_cap < 8192:
                                 self.logger.warning("Hit MAX_TOKENS limit. Retrying with increased token limit.")
                                 retry_count += 1
                                 current_config.max_output_tokens = 8192
@@ -3017,7 +3068,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                     if parts:
                         history.append(ModelContent(parts=parts))
 
-        default_tokens = max_tokens or self.max_tokens
+        default_tokens = self._resolve_max_tokens(max_tokens)
         generation_config = {"temperature": temperature or self.temperature}
         if default_tokens:
             generation_config["max_output_tokens"] = default_tokens
@@ -3265,7 +3316,8 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                 response = await chat.send_message(message=prompt, config=final_config)
                 finish_reason = getattr(response.candidates[0], "finish_reason", None)
                 if finish_reason:
-                    if finish_reason.name == "MAX_TOKENS" and generation_config["max_output_tokens"] <= 1024:
+                    _cur_cap = generation_config.get("max_output_tokens")
+                    if finish_reason.name == "MAX_TOKENS" and _cur_cap is not None and _cur_cap <= 1024:
                         retry_count += 1
                         self.logger.warning(
                             f"Hit MAX_TOKENS limit on initial response. Retrying {retry_count}/{max_retries} with increased token limit."
@@ -3400,10 +3452,18 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
 
         # Handle structured output
         final_output = None
+        if structured_output_for_later or output_config:
+            # A MAX_TOKENS response is known-truncated: fail here, before the
+            # fast-path/reformat/combined-mode parsers below can leak the
+            # truncated text as a plain string or "reformat" a partial answer.
+            # Deliberately NOT gated on non-empty text: a reasoning model can
+            # burn the whole output budget on thinking and return MAX_TOKENS
+            # with no text at all, which must not parse as "".
+            self._raise_if_truncated(self._extract_finish_reason(final_response), model=model)
         if structured_output_for_later and use_tools and assistant_response_text:
             try:
                 # Create a new generation config for structured output only
-                _max = max_tokens or self.max_tokens
+                _max = self._resolve_max_tokens(max_tokens)
                 structured_config = {
                     "temperature": temperature or self.temperature,
                     "response_mime_type": "application/json",
@@ -3512,7 +3572,9 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                         # Parse the structured output
                         if isinstance(structured_output_for_later, StructuredOutputConfig):
                             final_output = await self._parse_structured_output(
-                                structured_text, structured_output_for_later
+                                structured_text,
+                                structured_output_for_later,
+                                finish_reason=self._extract_finish_reason(structured_response),
                             )
                         elif isinstance(structured_output_for_later, type):
                             if hasattr(structured_output_for_later, "model_validate_json"):
@@ -3525,6 +3587,9 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                     else:
                         self.logger.warning("No structured text received, falling back to original response")
                         final_output = assistant_response_text
+            except InvokeError:
+                # A truncated reformat response is a real error, not a fallback case.
+                raise
             except Exception as e:
                 self.logger.error(f"Error parsing structured output: {e}")
                 # Fallback to original text if structured output fails
@@ -3549,6 +3614,9 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                     )
                 else:
                     final_output = parsed
+            except InvokeError:
+                # A truncated reformat response is a real error, not a fallback case.
+                raise
             except Exception as e:
                 self.logger.warning(
                     "Combined-mode parse raised %s — falling back to reformat call.",
@@ -3561,6 +3629,8 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                         temperature=temperature,
                         max_tokens=max_tokens,
                     )
+                except InvokeError:
+                    raise
                 except Exception as reformat_err:
                     self.logger.error("Recovery reformat also failed: %s", reformat_err)
                     final_output = assistant_response_text
@@ -3933,7 +4003,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
             else:
                 thinking_config = ThinkingConfig(thinking_budget=8192, include_thoughts=False)
 
-            current_max_tokens = max_tokens or getattr(self, "max_tokens", 8192)
+            current_max_tokens = self._resolve_max_tokens(max_tokens)
             retry_count = 0
             iteration = 0
             current_message_content = prompt
@@ -4029,7 +4099,12 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                             ):
                                 max_tokens_reached = True
                                 if on_max_tokens == "notify":
-                                    yield f"\n\n⚠️ **Response truncated due to token limit ({current_max_tokens} tokens).**\n"
+                                    _cap_label = (
+                                        f"{current_max_tokens} tokens"
+                                        if current_max_tokens is not None
+                                        else "the model's default output limit"
+                                    )
+                                    yield f"\n\n⚠️ **Response truncated due to token limit ({_cap_label}).**\n"
                                 elif on_max_tokens == "retry" and retry_config.auto_retry_on_max_tokens:
                                     break
 
@@ -4062,7 +4137,16 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
 
                     if max_tokens_reached and on_max_tokens == "retry" and retry_config.auto_retry_on_max_tokens:
                         if retry_count < retry_config.max_retries:
-                            new_max_tokens = int(current_max_tokens * retry_config.token_increase_factor)
+                            # current_max_tokens is None when no cap was sent
+                            # (Gemini applied its own default); escalate from
+                            # the client's invoke-tier budget in that case
+                            # rather than multiplying None.
+                            _base_cap = (
+                                current_max_tokens
+                                if current_max_tokens is not None
+                                else self._invoke_max_tokens
+                            )
+                            new_max_tokens = int(_base_cap * retry_config.token_increase_factor)
                             yield f"\n\n🔄 **Retrying with increased limit ({new_max_tokens})...**\n\n"
                             current_max_tokens = new_max_tokens
                             retry_count += 1
@@ -4374,7 +4458,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         generation_config = {
             "temperature": req.get("temperature") if req.get("temperature") is not None else self.temperature
         }
-        max_tokens = req.get("max_tokens") or self.max_tokens
+        max_tokens = self._resolve_max_tokens(req.get("max_tokens"))
         if max_tokens:
             generation_config["max_output_tokens"] = max_tokens
 
@@ -4811,7 +4895,11 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                     try:
                         output_config = self._get_structured_config(structured_output)
                         if isinstance(output_config, StructuredOutputConfig):
-                            final_output = await self._parse_structured_output(text_response, output_config)
+                            final_output = await self._parse_structured_output(
+                                text_response,
+                                output_config,
+                                finish_reason=self._extract_finish_reason(item),
+                            )
                         elif isinstance(structured_output, type):
                             if hasattr(structured_output, "model_validate_json"):
                                 final_output = structured_output.model_validate_json(text_response)
@@ -4940,7 +5028,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                     raise ValueError("Reference Image must be a Path, bytes, or PIL.Image object.")
 
         contents.append(prompt)  # The text prompt always comes last
-        _max = max_tokens or self.max_tokens
+        _max = self._resolve_max_tokens(max_tokens)
         generation_config = {
             "temperature": temperature or self.temperature,
         }
@@ -4991,7 +5079,13 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         final_output = None
         if structured_output_config:
             try:
-                final_output = await self._parse_structured_output(response.text, structured_output_config)
+                final_output = await self._parse_structured_output(
+                    response.text,
+                    structured_output_config,
+                    finish_reason=self._extract_finish_reason(response),
+                )
+            except InvokeError:
+                raise
             except Exception as e:
                 self.logger.error(f"Failed to parse structured output from vision model: {e}")
                 final_output = response.text
@@ -5244,7 +5338,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
 
         output_config = self._get_structured_config(structured_output)
 
-        _max = max_tokens or self.max_tokens
+        _max = self._resolve_max_tokens(max_tokens)
         generation_config = {
             "temperature": temperature or self.temperature,
         }
@@ -5320,7 +5414,13 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         _extracted_text = self._safe_extract_text(response)
         if output_config:
             try:
-                final_output = await self._parse_structured_output(_extracted_text, output_config)
+                final_output = await self._parse_structured_output(
+                    _extracted_text,
+                    output_config,
+                    finish_reason=self._extract_finish_reason(response),
+                )
+            except InvokeError:
+                raise
             except Exception:
                 final_output = _extracted_text
 
@@ -5468,7 +5568,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         structured_output: Optional[StructuredOutputConfig] = None,
         model: Optional[str] = None,
         system_prompt: Optional[str] = None,
-        max_tokens: int = 4096,
+        max_tokens: Optional[int] = None,
         temperature: float = 0.0,
         use_tools: bool = False,
         tools: Optional[list] = None,
@@ -5482,14 +5582,21 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         1. First call: tools enabled, no structured output — gets tool results.
         2. Second call: raw result as input, structured output — parses into schema.
 
+        Reasoning is switched off (``thinking_budget=0``) for structured
+        extraction and for flash-lite models — see
+        :meth:`_invoke_thinking_config`. Thinking-only models are left alone.
+
         Args:
             prompt: User prompt.
             output_type: Pydantic model or dataclass to parse the response into.
             structured_output: Full :class:`StructuredOutputConfig`; takes
                 precedence over ``output_type``.
-            model: Model override. Defaults to ``_lightweight_model``.
+            model: Model override. Falls back to an explicitly selected
+                ``self.model``, then ``_lightweight_model``.
             system_prompt: System prompt override.
-            max_tokens: Maximum output tokens.
+            max_tokens: Maximum output tokens. ``None`` (the default) resolves
+                via :meth:`_resolve_invoke_max_tokens` — 16384 for this client
+                unless overridden per-instance.
             temperature: Sampling temperature.
             use_tools: Whether to inject registered tools.
             tools: Additional tool definitions.
@@ -5504,6 +5611,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
             resolved_prompt = self._resolve_invoke_system_prompt(system_prompt)
             config = self._build_invoke_structured_config(output_type, structured_output)
             resolved_model = self._resolve_invoke_model(model)
+            max_tokens = self._resolve_max_tokens(max_tokens, resolved_model, for_invoke=True)
 
             if not self.client:
                 raise RuntimeError("GoogleGenAIClient not initialised. Use async context manager.")
@@ -5513,11 +5621,15 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
             if needs_two_call:
                 # --- First call: tools, no structured output ---
                 tool_defs = self._prepare_tools()
+                first_thinking = self._invoke_thinking_config(
+                    resolved_model, structured=False
+                )
                 first_config = GenerateContentConfig(
                     system_instruction=resolved_prompt,
                     max_output_tokens=max_tokens,
                     temperature=temperature,
                     tools=tool_defs or None,
+                    **({"thinking_config": first_thinking} if first_thinking else {}),
                 )
                 first_response = await self.client.aio.models.generate_content(
                     model=resolved_model,
@@ -5532,12 +5644,16 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                     f"Based on this information:\n{first_text}\n\n"
                     f"Original request: {prompt}\n\nProvide structured output."
                 )
+                second_thinking = self._invoke_thinking_config(
+                    resolved_model, structured=True
+                )
                 second_config = GenerateContentConfig(
                     system_instruction=resolved_prompt,
                     max_output_tokens=max_tokens,
                     temperature=temperature,
                     response_mime_type="application/json",
                     response_schema=config.get_schema(),
+                    **({"thinking_config": second_thinking} if second_thinking else {}),
                 )
                 second_response = await self.client.aio.models.generate_content(
                     model=resolved_model,
@@ -5564,6 +5680,12 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                     if sdk_tools:
                         gen_config_kwargs["tools"] = sdk_tools
 
+                thinking = self._invoke_thinking_config(
+                    resolved_model, structured=config is not None
+                )
+                if thinking is not None:
+                    gen_config_kwargs["thinking_config"] = thinking
+
                 gen_config = GenerateContentConfig(**gen_config_kwargs)
                 final_response = await self.client.aio.models.generate_content(
                     model=resolved_model,
@@ -5576,10 +5698,17 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
             # Parse output
             output: Any = raw_text
             if config:
+                # Known-truncated output must not reach a custom parser either.
+                self._raise_if_truncated(self._extract_finish_reason(final_response), model=resolved_model)
                 if config.custom_parser:
                     output = config.custom_parser(raw_text)
                 else:
-                    output = await self._parse_structured_output(raw_text, config)
+                    output = await self._parse_structured_output(
+                        raw_text,
+                        config,
+                        finish_reason=self._extract_finish_reason(final_response),
+                        model=resolved_model,
+                    )
 
             # Extract usage
             usage_dict: Dict[str, Any] = {}

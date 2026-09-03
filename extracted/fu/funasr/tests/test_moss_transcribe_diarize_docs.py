@@ -15,6 +15,24 @@ MATRICES = (
     ROOT / "docs" / "deployment_matrix_ja.md",
     ROOT / "docs" / "deployment_matrix_ko.md",
 )
+BOUNDARY_DOCS = (
+    *GUIDES,
+    ROOT / "docs" / "repository_roles.md",
+    ROOT / "docs" / "repository_roles_zh.md",
+    ROOT
+    / "web-pages"
+    / "product-site"
+    / "legacy"
+    / "en"
+    / "blog"
+    / "funclip-v2-2-0-moss-speaker-clipping.html",
+    ROOT
+    / "web-pages"
+    / "product-site"
+    / "legacy"
+    / "blog"
+    / "funclip-v2-2-0-moss-speaker-clipping.html",
+)
 
 
 @pytest.mark.parametrize("guide", GUIDES)
@@ -52,6 +70,9 @@ def test_moss_guides_pin_upstream_and_separate_serving_contracts(guide: Path) ->
         "6561ee553c8f762aac4ebd65439d3414820761b547fa3a2edcea43b86a2abc02",
         "779899a3ce937dd7352b4db1ea53e3f6aa2cfef7109de0249082223c936f9372",
         "localai-org/moss-transcribe.cpp",
+        "Open WebUI",
+        "OpenAI API Base URL",
+        "/v1/audio/transcriptions",
     ):
         assert marker in text, f"{guide.name} is missing {marker}"
 
@@ -158,3 +179,42 @@ def test_openai_consumer_docs_expose_moss_alias_and_boundaries() -> None:
     spec = json.loads((root / "openapi.json").read_text(encoding="utf-8"))
     model = spec["components"]["schemas"]["TranscriptionRequest"]["properties"]["model"]
     assert "moss-transcribe-diarize" in model["enum"]
+
+
+def test_use_case_showcases_surface_offline_moss_diarization() -> None:
+    showcases = {
+        "docs/use_case_showcase.md": (
+            "Offline long-form diarized transcripts",
+            "offline long audio",
+            "anonymous speaker labels",
+        ),
+        "docs/use_case_showcase_zh.md": (
+            "离线长音频一体化转写与说话人标签",
+            "离线长音频",
+            "匿名说话人标签",
+        ),
+    }
+
+    for name, markers in showcases.items():
+        text = (ROOT / name).read_text()
+        assert "MOSS-Transcribe-Diarize" in text, name
+        assert "moss_transcribe_diarize" in text, name
+        for marker in markers:
+            assert marker in text, name
+
+
+def test_moss_docs_describe_anonymous_labels_not_known_person_identity() -> None:
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in BOUNDARY_DOCS)
+
+    for misleading_claim in (
+        "speaker identity",
+        "speaker identities",
+        "说话人身份",
+        "身份识别",
+    ):
+        assert misleading_claim not in combined
+
+    assert "anonymous speaker labels" in combined
+    assert "匿名说话人标签" in combined
+    assert "does not identify a known person" in combined
+    assert "不能识别已知人物" in combined

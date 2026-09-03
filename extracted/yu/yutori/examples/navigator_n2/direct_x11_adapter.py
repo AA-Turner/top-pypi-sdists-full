@@ -37,7 +37,6 @@ import shutil
 import signal
 import subprocess
 import tempfile
-import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -45,8 +44,15 @@ from types import SimpleNamespace
 from typing import Any
 
 from yutori.navigator import ShellFileToolsMixin
+from yutori.navigator.sandbox_tools import PointerKeyLifecycleMixin
 from yutori.navigator.sandbox_tools import (
     append_stream as _append_stream,
+)
+from yutori.navigator.sandbox_tools import (
+    background_bash_log_path as _background_bash_log_path,
+)
+from yutori.navigator.sandbox_tools import (
+    build_bash_result_paths as _build_bash_result_paths,
 )
 from yutori.navigator.sandbox_tools import (
     build_cwd_tracking_bash_script as _build_cwd_tracking_bash_script,
@@ -102,7 +108,7 @@ def _is_directly_typeable(gui: Any, character: str) -> bool:
     )
 
 
-class LocalX11Computer(ShellFileToolsMixin):
+class LocalX11Computer(ShellFileToolsMixin, PointerKeyLifecycleMixin):
     """N2 computer handler with direct access to an X11 display and local shell.
 
     ``gui`` exists for tests: any object with pyautogui's surface (``click``,
@@ -264,16 +270,6 @@ class LocalX11Computer(ShellFileToolsMixin):
     async def key_up(self, key: str) -> None:
         await self._run_gui(lambda: self._gui().keyUp(_map_key(key)))
 
-    async def hold_key(self, key: str, ms: int = 1_000) -> None:
-        await self.key_down(key)
-        try:
-            await asyncio.sleep(ms / 1_000)
-        finally:
-            await self.key_up(key)
-
-    async def wait(self, ms: int = 1_000) -> None:
-        await asyncio.sleep(ms / 1_000)
-
     async def left_mouse_down(self, x: int | None = None, y: int | None = None) -> None:
         def run() -> None:
             gui = self._gui()
@@ -298,10 +294,6 @@ class LocalX11Computer(ShellFileToolsMixin):
         finally:
             self._left_mouse_down = False
 
-    async def release_held_mouse_button(self) -> None:
-        if self._left_mouse_down:
-            await self.left_mouse_up()
-
     # -- shell / file tools --------------------------------------------------
 
     async def run_shell_command(
@@ -321,7 +313,7 @@ class LocalX11Computer(ShellFileToolsMixin):
     ) -> str:
         cwd = self._bash_cwd
         if run_in_background:
-            log_path = os.path.join(tempfile.gettempdir(), f"yutori-n2-bash-{uuid.uuid4().hex[:8]}.log")
+            log_path = _background_bash_log_path(tempfile.gettempdir())
             with open(log_path, "wb") as log_file:
                 process = subprocess.Popen(
                     ["/bin/bash", "-c", command],
@@ -343,15 +335,9 @@ class LocalX11Computer(ShellFileToolsMixin):
         # descendant alive (``xcalc &``) holds a pipe open past bash's own exit,
         # so a pipe read would hang the full timeout. The status file appearing
         # is the completion signal, independent of surviving descendants.
-        token = uuid.uuid4().hex
-        result_prefix = os.path.join(tempfile.gettempdir(), f"yutori-n2-bash-{token}")
-        stdout_path = f"{result_prefix}.stdout"
-        stderr_path = f"{result_prefix}.stderr"
-        status_path = f"{result_prefix}.status"
-        cwd_path = f"{result_prefix}.cwd"
-        status_tmp = f"{status_path}.tmp"
-        wrapped = _build_cwd_tracking_bash_script(command, cwd=cwd, cwd_path=cwd_path, status_path=status_path)
-        with open(stdout_path, "wb") as stdout_file, open(stderr_path, "wb") as stderr_file:
+        paths = _build_bash_result_paths(tempfile.gettempdir())
+        wrapped = _build_cwd_tracking_bash_script(command, cwd=cwd, cwd_path=paths.cwd, status_path=paths.status)
+        with open(paths.stdout, "wb") as stdout_file, open(paths.stderr, "wb") as stderr_file:
             process = await asyncio.create_subprocess_exec(
                 "/bin/bash",
                 "-c",
@@ -363,17 +349,17 @@ class LocalX11Computer(ShellFileToolsMixin):
             )
 
         async def _status_exists() -> bool:
-            return os.path.exists(status_path)
+            return os.path.exists(paths.status)
 
         try:
             if not await _wait_for_file(_status_exists, timeout_s):
                 with contextlib.suppress(ProcessLookupError):
                     os.killpg(process.pid, signal.SIGKILL)
                 return f"Command timed out after {timeout_s:g}s"
-            stdout = Path(stdout_path).read_text(encoding="utf-8", errors="replace")
-            stderr = Path(stderr_path).read_text(encoding="utf-8", errors="replace")
-            status = Path(status_path).read_text(encoding="utf-8")
-            new_cwd = Path(cwd_path).read_text(encoding="utf-8", errors="replace").strip()
+            stdout = Path(paths.stdout).read_text(encoding="utf-8", errors="replace")
+            stderr = Path(paths.stderr).read_text(encoding="utf-8", errors="replace")
+            status = Path(paths.status).read_text(encoding="utf-8")
+            new_cwd = Path(paths.cwd).read_text(encoding="utf-8", errors="replace").strip()
             self._bash_cwd = new_cwd or cwd
             return _format_shell_output(_append_stream(stdout, stderr), int(status.strip()))
         finally:
@@ -381,7 +367,7 @@ class LocalX11Computer(ShellFileToolsMixin):
             if process.returncode is None:
                 with contextlib.suppress(asyncio.TimeoutError):
                     await asyncio.wait_for(process.wait(), timeout=5)
-            for path in (stdout_path, stderr_path, status_path, status_tmp, cwd_path, f"{cwd_path}.tmp"):
+            for path in paths.cleanup_paths():
                 with contextlib.suppress(OSError):
                     os.unlink(path)
 

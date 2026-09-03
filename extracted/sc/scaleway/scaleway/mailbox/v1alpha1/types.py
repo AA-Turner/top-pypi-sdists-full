@@ -12,6 +12,16 @@ from scaleway_core.utils import (
 )
 
 
+class AliasStatus(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_STATUS = "unknown_status"
+    PROVISIONING = "provisioning"
+    DELETING = "deleting"
+    READY = "ready"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class DomainRecordDNSType(str, Enum, metaclass=StrEnumMeta):
     UNKNOWN_DNS_TYPE = "unknown_dns_type"
     CNAME_DNS_TYPE = "cname_dns_type"
@@ -53,6 +63,18 @@ class DomainStatus(str, Enum, metaclass=StrEnumMeta):
     PROVISIONING = "provisioning"
     READY = "ready"
     DELETING = "deleting"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class ListAliasesRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
+    CREATED_AT_DESC = "created_at_desc"
+    CREATED_AT_ASC = "created_at_asc"
+    UPDATED_AT_DESC = "updated_at_desc"
+    UPDATED_AT_ASC = "updated_at_asc"
+    NAME_DESC = "name_desc"
+    NAME_ASC = "name_asc"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -122,6 +144,16 @@ class Mailbox:
     id: str
     """
     Unique identifier of the mailbox.
+    """
+
+    project_id: str
+    """
+    ID of the Project to which the mailbox belongs.
+    """
+
+    organization_id: str
+    """
+    ID of the Organization to which the mailbox belongs.
     """
 
     domain_id: str
@@ -229,6 +261,44 @@ class DomainRecord:
 
 
 @dataclass
+class Alias:
+    id: str
+    """
+    Unique identifier of the alias.
+    """
+
+    email: str
+    """
+    Email address of the alias as local_part@domain.
+    """
+
+    mailbox_id: str
+    """
+    ID of the mailbox to which the alias belongs.
+    """
+
+    description: str
+    """
+    Description of the alias.
+    """
+
+    status: AliasStatus
+    """
+    Current status of the alias.
+    """
+
+    created_at: Optional[datetime] = None
+    """
+    Date and time of alias creation.
+    """
+
+    updated_at: Optional[datetime] = None
+    """
+    Date and time when the alias was last updated.
+    """
+
+
+@dataclass
 class Domain:
     id: str
     """
@@ -238,6 +308,11 @@ class Domain:
     project_id: str
     """
     ID of the Project to which the domain belongs.
+    """
+
+    organization_id: str
+    """
+    ID of the Organization to which the domain belongs.
     """
 
     name: str
@@ -263,11 +338,6 @@ class Domain:
     imap_url: str
     """
     URL of the domain's IMAP service.
-    """
-
-    jmap_url: str
-    """
-    URL of the domain's JMAP service.
     """
 
     pop3_url: str
@@ -322,6 +392,24 @@ class BatchCreateMailboxesResponse:
 
 
 @dataclass
+class CreateAliasRequest:
+    local_part: str
+    """
+    Local part of the email address (e.g. local_part@domain.com).
+    """
+
+    mailbox_id: str
+    """
+    ID of the mailbox to associate with the alias.
+    """
+
+    description: Optional[str] = None
+    """
+    (Optional) Description of the alias.
+    """
+
+
+@dataclass
 class CreateDomainRequest:
     name: str
     """
@@ -331,6 +419,14 @@ class CreateDomainRequest:
     project_id: Optional[str] = None
     """
     ID of the project to which the domain belongs.
+    """
+
+
+@dataclass
+class DeleteAliasRequest:
+    alias_id: str
+    """
+    ID of the alias to delete.
     """
 
 
@@ -347,6 +443,14 @@ class DeleteMailboxRequest:
     mailbox_id: str
     """
     ID of the mailbox to delete.
+    """
+
+
+@dataclass
+class GetAliasRequest:
+    alias_id: str
+    """
+    ID of the alias to get.
     """
 
 
@@ -400,11 +504,6 @@ class GetDomainRecordsResponse:
     Record that allows accessing the mailbox with the IMAP protocol.
     """
 
-    jmap: Optional[DomainRecord] = None
-    """
-    Record that allows accessing the mailbox with the JMAP protocol.
-    """
-
     mx: Optional[DomainRecord] = None
     """
     Record that directs emails to a mail server.
@@ -439,6 +538,54 @@ class GetMailboxRequest:
     mailbox_id: str
     """
     ID of the mailbox to get.
+    """
+
+
+@dataclass
+class ListAliasesRequest:
+    order_by: Optional[ListAliasesRequestOrderBy] = (
+        ListAliasesRequestOrderBy.CREATED_AT_DESC
+    )
+    """
+    Order aliases by specific criteria.
+    """
+
+    page: Optional[int] = 0
+    """
+    Requested page number. Value must be greater or equal to 1.
+    """
+
+    page_size: Optional[int] = 0
+    """
+    Requested page size. Value must be between 1 and 100.
+    """
+
+    mailbox_id: Optional[str] = None
+    """
+    ID of the mailbox for which to list aliases.
+    """
+
+    status: Optional[AliasStatus] = AliasStatus.UNKNOWN_STATUS
+    """
+    (Optional) Filter aliases by their status.
+    """
+
+    project_id: Optional[str] = None
+    """
+    Project ID to filter on.
+    """
+
+
+@dataclass
+class ListAliasesResponse:
+    total_count: int
+    """
+    Number of aliases that match the request (without pagination).
+    """
+
+    aliases: list[Alias]
+    """
+    Single page of aliases matching the requested criteria.
     """
 
 
@@ -499,6 +646,11 @@ class ListMailboxesRequest:
     (Optional) Search term to filter mailboxes on name and local_part.
     """
 
+    project_id: Optional[str] = None
+    """
+    (Optional) Project ID to filter mailboxes on.
+    """
+
 
 @dataclass
 class ListMailboxesResponse:
@@ -518,6 +670,19 @@ class RestoreMailboxRequest:
     mailbox_id: str
     """
     ID of the mailbox to restore.
+    """
+
+
+@dataclass
+class UpdateAliasRequest:
+    alias_id: str
+    """
+    ID of the alias to update.
+    """
+
+    description: Optional[str] = None
+    """
+    (Optional) Description of the alias.
     """
 
 
@@ -544,3 +709,6 @@ class UpdateMailboxRequest:
 @dataclass
 class ValidateDomainRecordsRequest:
     domain_id: str
+    """
+    ID of the domain with which to validate the records.
+    """

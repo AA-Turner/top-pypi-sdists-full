@@ -1,4 +1,11 @@
-"""Rule H037: Check for duplicate HTML attributes."""
+"""Rule H037: Check for duplicate HTML attributes.
+
+An attribute name is read as a whole run of name characters, never from
+the middle of one. Html allows "." in a name and frameworks build names
+around it (alpine's x-on:click.prevent, vue's @keyup.enter); read from the
+middle, data-a.checked and data-b.checked would both come out as "checked"
+and look like a duplicate.
+"""
 
 from __future__ import annotations
 
@@ -6,12 +13,11 @@ from typing import TYPE_CHECKING
 
 import regex as re
 
-from djlint.formatter.tokenizer import tokenize_tags
 from djlint.helpers import (
-    RE_FLAGS_IX,
     inside_ignored_linter_block,
     inside_ignored_rule,
     overlaps_ignored_block,
+    tokenize_markup,
 )
 from djlint.lint import get_line
 
@@ -22,23 +28,19 @@ if TYPE_CHECKING:
     from djlint.types import LintError
 
 
-# A name is read as a whole run of name characters, never from the middle
-# of one. Html allows "." in an attribute name and frameworks build names
-# around it (alpine's x-on:click.prevent, vue's @keyup.enter); read from
-# the middle, data-a.checked and data-b.checked would both come out as
-# "checked" and look like a duplicate.
 _NAME_CHAR = r"[-.:\w]"
 _EVENT_PATTERN = re.compile(
     r""""[^"]*"|'[^']*'|"""
     r"(?P<template>{{(?:(?!}}).)*}}|{%(?:(?!%}).)*%}|{\#(?:(?!\#}).)*\#})|"
     rf"(?P<attribute>(?<!{_NAME_CHAR}){_NAME_CHAR}+)"
-    r"(?=\s*=(?:\s*)(?:\"|'|{{|{%|{\#|[\w-]))",
+    r"(?=\s*=(?:\s*)(?:\"|'|{{|{%|{\#|[\w-])|[\s/>]|$)",
     re.I | re.S,
     cache_pattern=False,
 )
 _NAME_CHAR_PATTERN = re.compile(_NAME_CHAR, cache_pattern=False)
-# handlebars {{! }}, {{!-- --}} and golang {{/* */}} comments
-_COMMENT_PATTERN = re.compile(r"\{\{-?\s*(?:!|/\*)", cache_pattern=False)
+_HANDLEBARS_OR_GOLANG_COMMENT_PATTERN = re.compile(
+    r"\{\{-?\s*(?:!|/\*)", cache_pattern=False
+)
 
 
 def _exclusive(
@@ -61,10 +63,17 @@ def run(
     *args: Any,
     **kwargs: Any,
 ) -> tuple[LintError, ...]:
-    """Check for duplicate attributes that can occur on the same element."""
+    """Check for duplicate attributes that can occur on the same element.
+
+    A name reached after a template tag that renders text, as in
+    `{% if x %}data-{% endif %}srcset`, has a template-generated prefix
+    glued onto it, so it is not a definite duplicate of a plain occurrence
+    of the name. A template comment renders as nothing and glues on
+    nothing, so it does not count.
+    """
     errors: list[LintError] = []
 
-    for token in tokenize_tags(html):
+    for token in tokenize_markup(html):
         if (
             token.closing
             or token.declaration
@@ -86,9 +95,6 @@ def run(
 
         for match in _EVENT_PATTERN.finditer(attributes):
             if name := match.group("attribute"):
-                # the rendered name has a template-generated prefix glued
-                # on, e.g. {% if x %}data-{% endif %}srcset, so it is not
-                # a definite duplicate of a plain occurrence of the name.
                 if match.start("attribute") == prefixed_from:
                     continue
                 occurrences.setdefault(name.lower(), []).append((
@@ -102,24 +108,22 @@ def run(
             if not template_tag:
                 continue
             prefixed_from = -1
-            if re.match(config.tag_unindent_line, template_tag, RE_FLAGS_IX):
+            if config.tag_unindent_line_ix_pattern.match(template_tag):
                 if blocks:
                     blocks[-1][1] += 1
-            elif re.match(config.template_unindent, template_tag, RE_FLAGS_IX):
+            elif config.template_unindent_ix_pattern.match(template_tag):
                 if blocks:
                     blocks.pop()
                 if match.start() and _NAME_CHAR_PATTERN.match(
                     attributes[match.start() - 1]
                 ):
                     prefixed_from = match.end()
-            elif re.match(config.template_indent, template_tag, RE_FLAGS_IX):
+            elif config.template_indent_ix_pattern.match(template_tag):
                 blocks.append([next_block, 0])
                 next_block += 1
-            elif template_tag.startswith("{{") and not _COMMENT_PATTERN.match(
-                template_tag
-            ):
-                # a comment renders as nothing, so it cannot glue a
-                # template-generated prefix onto the next attribute name.
+            elif template_tag.startswith(
+                "{{"
+            ) and not _HANDLEBARS_OR_GOLANG_COMMENT_PATTERN.match(template_tag):
                 prefixed_from = match.end()
 
         for repeated in occurrences.values():

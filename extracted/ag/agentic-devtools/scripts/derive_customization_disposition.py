@@ -1419,6 +1419,15 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
             artifact kind does not match what the table permits for that target.
     """
     expected_kinds_by_target = _expected_authored_kinds_by_target(rows)
+    legacy_expected_kinds_by_slug: dict[str, set[str]] = defaultdict(set)
+    for item in rows:
+        if item.target == "-":
+            continue
+        expected_kinds = expected_kinds_by_target.get(item.target)
+        if not expected_kinds:
+            continue
+        legacy_expected_kinds_by_slug[item.slug.replace(".", "-")].update(expected_kinds)
+    legacy_slugs = set(legacy_expected_kinds_by_slug)
     for target, kinds in sorted(expected_kinds_by_target.items()):
         if len(kinds) > 1:
             listed = ", ".join(sorted(kinds))
@@ -1440,6 +1449,8 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
             raise ValueError(f"target {slug!r} is claimed by multiple authored artifacts: {rendered}")
         kind, path = claims[0]
         expected_kinds = expected_kinds_by_target.get(slug)
+        if expected_kinds is None and slug in legacy_slugs:
+            expected_kinds = legacy_expected_kinds_by_slug[slug]
         if expected_kinds is not None and kind not in expected_kinds:
             expected_kind = next(iter(expected_kinds))
             raise ValueError(
@@ -1448,7 +1459,8 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
         authored.add(slug)
 
     expected = set(expected_kinds_by_target)
-    return sorted(authored), sorted(expected - authored), sorted(authored - expected)
+    recognized = expected | legacy_slugs
+    return sorted(authored), sorted(expected - authored), sorted(authored - recognized)
 
 
 def _fail(message: str) -> int:

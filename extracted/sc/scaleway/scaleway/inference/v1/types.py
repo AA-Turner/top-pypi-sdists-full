@@ -24,6 +24,7 @@ class DeploymentStatus(str, Enum, metaclass=StrEnumMeta):
     DELETING = "deleting"
     LOCKED = "locked"
     SCALING = "scaling"
+    DELETED = "deleted"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -220,7 +221,7 @@ class Deployment:
 
     max_size: int
     """
-    Defines the maximum size of the pool.
+    Defines the maximum size of the pool. Currently, autoscaling is not yet supported, and this value must be equal to `min_size`.
     """
 
     model_id: str
@@ -445,7 +446,7 @@ The terms of the EULA can be retrieved using the `GetModelEula` API call.
 
     max_size: Optional[int] = 0
     """
-    Defines the maximum size of the pool.
+    Defines the maximum size of the pool. Currently, autoscaling is not yet supported, and this value must be equal to `min_size`.
     """
 
     quantization: Optional[DeploymentQuantization] = None
@@ -656,6 +657,11 @@ class ListModelsRequest:
     Filter by Project ID.
     """
 
+    organization_id: Optional[str] = None
+    """
+    Filter by Organization ID.
+    """
+
     name: Optional[str] = None
     """
     Filter by model name.
@@ -745,7 +751,7 @@ class UpdateDeploymentRequest:
 
     max_size: Optional[int] = 0
     """
-    Defines the new maximum size of the pool.
+    Defines the maximum size of the pool. Currently, autoscaling is not yet supported, and this value must be equal to `min_size`.
     """
 
     model_id: Optional[str] = None

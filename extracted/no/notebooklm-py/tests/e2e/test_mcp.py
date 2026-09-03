@@ -212,9 +212,14 @@ TOOL_COVERAGE: dict[str, str] = {
     "source_delete": "TestMcpSources.test_source_roundtrip",
     "source_wait": "TestMcpSources.test_source_roundtrip",
     "source_add_drive_file": "tests/unit/mcp/test_sources_drive.py (Drive-doc auto-route; unit — needs a real Drive document_id)",
+    "source_list_play_books": "tests/unit/mcp/test_sources_playbooks.py (list, pagination, and unsupported-backend paths)",
+    "source_add_play_book": "tests/unit/mcp/test_sources_playbooks.py (add, wait, and non-exportable-book paths)",
     "await_upload": "tests/unit/mcp/test_await_upload.py (completion-map poll) + test_fileroutes.py (POST records result; unit — remote signed-URL side-channel, no live browser upload)",
     # chat
     "chat_ask": "TestMcpChat.test_configure_then_ask",
+    "chat_start": "tests/unit/mcp/test_chat_start.py (detached-ask registry + tool cycle)",
+    "chat_status": "tests/unit/mcp/test_chat_start.py (detached-ask registry + tool cycle)",
+    "chat_cancel": "tests/unit/mcp/test_chat_start.py (backend and detached-task cancellation)",
     "chat_configure": "TestMcpChat.test_configure_then_ask",
     # notes
     "note_save": "TestMcpNotes.test_note_crud",
@@ -235,7 +240,7 @@ TOOL_COVERAGE: dict[str, str] = {
     "share_remove_user": "tests/unit/mcp/test_sharing.py",
     # research
     "research_start": "TestMcpResearch.test_start_status_cancel (variants)",
-    "research_status": "TestMcpResearch.test_status_readonly",
+    "research_status": "TestMcpResearch.test_status_on_clean_notebook",
     "research_cancel": "TestMcpResearch.test_start_status_cancel (variants)",
     "research_import": "tests/e2e research suite (CLI import roundtrip)",
 }
@@ -271,6 +276,8 @@ class TestMcpToolMatrix:
         nothing) plus ``source_read`` (a real source id is resolved from
         ``source_list``). ``studio_status`` needs a live ``task_id`` and is
         instead covered by ``TestMcpArtifacts`` (the generation wiring smoke).
+        ``research_status`` needs controlled task state and is covered by
+        ``TestMcpResearch`` on an isolated notebook.
         """
         nb = read_only_notebook_id
 
@@ -282,10 +289,6 @@ class TestMcpToolMatrix:
         for name in ("notebook_describe", "source_list", "studio_list"):
             structured = await _call(client, name, {"notebook": nb})
             assert isinstance(structured, dict), f"{name} returned {type(structured)}"
-
-        # research_status with no in-flight task classifies cleanly (no_research / etc.).
-        research = await _call(client, "research_status", {"notebook": nb})
-        assert "status" in research
 
         # source_read needs a real source id — resolve one from the listing.
         listing = await _call(client, "source_list", {"notebook": nb})
@@ -369,13 +372,13 @@ class TestMcpSources:
 @requires_auth
 @pytest.mark.live_chat_ask
 class TestMcpChat:
-    """Chat domain: configure then ask against the read-only notebook."""
+    """Chat domain: configure then ask against an isolated notebook."""
 
     @pytest.mark.asyncio
-    @pytest.mark.readonly
-    async def test_configure_then_ask(self, client, read_only_notebook_id):
+    @pytest.mark.timeout(240)
+    async def test_configure_then_ask(self, client, temp_notebook):
         """``chat_configure`` then ``chat_ask`` returns a non-empty answer."""
-        nb = read_only_notebook_id
+        nb = temp_notebook.id
 
         configured = await _call(client, "chat_configure", {"notebook": nb, "chat_mode": "concise"})
         assert isinstance(configured, dict)
@@ -502,16 +505,18 @@ class TestMcpArtifacts:
 
 @requires_auth
 class TestMcpResearch:
-    """Research domain: a read-only status smoke (nightly) + a start/cancel wiring
-    smoke (``variants`` — spawns a backend job)."""
+    """Research domain: an isolated status smoke plus a start/cancel wiring smoke.
+
+    The ``variants`` smoke spawns a backend job.
+    """
 
     @pytest.mark.asyncio
-    @pytest.mark.readonly
-    async def test_status_readonly(self, client, read_only_notebook_id):
-        """``research_status`` classifies a notebook with no in-flight research."""
-        structured = await _call(client, "research_status", {"notebook": read_only_notebook_id})
+    async def test_status_on_clean_notebook(self, client, temp_notebook):
+        """``research_status`` classifies an isolated notebook with no research."""
+        notebook_id = temp_notebook.id
+        structured = await _call(client, "research_status", {"notebook": notebook_id})
         assert "status" in structured
-        assert structured["notebook_id"] == read_only_notebook_id
+        assert structured["notebook_id"] == notebook_id
 
     @pytest.mark.asyncio
     @pytest.mark.variants

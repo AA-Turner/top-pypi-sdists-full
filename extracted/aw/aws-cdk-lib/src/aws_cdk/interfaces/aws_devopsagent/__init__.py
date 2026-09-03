@@ -107,6 +107,87 @@ class AgentSpaceReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.AssetReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_space_id": "agentSpaceId",
+        "asset_arn": "assetArn",
+        "asset_id": "assetId",
+    },
+)
+class AssetReference:
+    def __init__(
+        self,
+        *,
+        agent_space_id: builtins.str,
+        asset_arn: builtins.str,
+        asset_id: builtins.str,
+    ) -> None:
+        '''A reference to a Asset resource.
+
+        :param agent_space_id: The AgentSpaceId of the Asset resource.
+        :param asset_arn: The ARN of the Asset resource.
+        :param asset_id: The AssetId of the Asset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_devopsagent as interfaces_devopsagent
+            
+            asset_reference = interfaces_devopsagent.AssetReference(
+                agent_space_id="agentSpaceId",
+                asset_arn="assetArn",
+                asset_id="assetId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5e07ae93fd4597600bcf048453225278461c377da1857624454c2c72c898a881)
+            check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
+            check_type(argname="argument asset_arn", value=asset_arn, expected_type=type_hints["asset_arn"])
+            check_type(argname="argument asset_id", value=asset_id, expected_type=type_hints["asset_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_space_id": agent_space_id,
+            "asset_arn": asset_arn,
+            "asset_id": asset_id,
+        }
+
+    @builtins.property
+    def agent_space_id(self) -> builtins.str:
+        '''The AgentSpaceId of the Asset resource.'''
+        result = self._values.get("agent_space_id")
+        assert result is not None, "Required property 'agent_space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_arn(self) -> builtins.str:
+        '''The ARN of the Asset resource.'''
+        result = self._values.get("asset_arn")
+        assert result is not None, "Required property 'asset_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_id(self) -> builtins.str:
+        '''The AssetId of the Asset resource.'''
+        result = self._values.get("asset_id")
+        assert result is not None, "Required property 'asset_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.AssociationReference",
     jsii_struct_bases=[],
     name_mapping={"agent_space_id": "agentSpaceId", "association_id": "associationId"},
@@ -214,6 +295,51 @@ class _IAgentSpaceRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAgentSpaceRef).__jsii_proxy_class__ = lambda : _IAgentSpaceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.IAssetRef")
+class IAssetRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Asset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assetRef")
+    def asset_ref(self) -> "AssetReference":
+        '''(experimental) A reference to a Asset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Asset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_devopsagent.IAssetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assetRef")
+    def asset_ref(self) -> "AssetReference":
+        '''(experimental) A reference to a Asset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AssetReference", jsii.get(self, "assetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssetRef).__jsii_proxy_class__ = lambda : _IAssetRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.IAssociationRef")
@@ -353,6 +479,51 @@ class _IServiceRefProxy(
 typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.ITriggerRef")
+class ITriggerRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Trigger.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="triggerRef")
+    def trigger_ref(self) -> "TriggerReference":
+        '''(experimental) A reference to a Trigger resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITriggerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Trigger.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_devopsagent.ITriggerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="triggerRef")
+    def trigger_ref(self) -> "TriggerReference":
+        '''(experimental) A reference to a Trigger resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TriggerReference", jsii.get(self, "triggerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITriggerRef).__jsii_proxy_class__ = lambda : _ITriggerRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.PrivateConnectionReference",
     jsii_struct_bases=[],
@@ -481,15 +652,100 @@ class ServiceReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.TriggerReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_space_id": "agentSpaceId",
+        "trigger_arn": "triggerArn",
+        "trigger_id": "triggerId",
+    },
+)
+class TriggerReference:
+    def __init__(
+        self,
+        *,
+        agent_space_id: builtins.str,
+        trigger_arn: builtins.str,
+        trigger_id: builtins.str,
+    ) -> None:
+        '''A reference to a Trigger resource.
+
+        :param agent_space_id: The AgentSpaceId of the Trigger resource.
+        :param trigger_arn: The ARN of the Trigger resource.
+        :param trigger_id: The TriggerId of the Trigger resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_devopsagent as interfaces_devopsagent
+            
+            trigger_reference = interfaces_devopsagent.TriggerReference(
+                agent_space_id="agentSpaceId",
+                trigger_arn="triggerArn",
+                trigger_id="triggerId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b2334c3b3f5d85bb6bbe5d5d6389c0b340214fd4e5d54bdb8336c1e2fbe619d8)
+            check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
+            check_type(argname="argument trigger_arn", value=trigger_arn, expected_type=type_hints["trigger_arn"])
+            check_type(argname="argument trigger_id", value=trigger_id, expected_type=type_hints["trigger_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_space_id": agent_space_id,
+            "trigger_arn": trigger_arn,
+            "trigger_id": trigger_id,
+        }
+
+    @builtins.property
+    def agent_space_id(self) -> builtins.str:
+        '''The AgentSpaceId of the Trigger resource.'''
+        result = self._values.get("agent_space_id")
+        assert result is not None, "Required property 'agent_space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def trigger_arn(self) -> builtins.str:
+        '''The ARN of the Trigger resource.'''
+        result = self._values.get("trigger_arn")
+        assert result is not None, "Required property 'trigger_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def trigger_id(self) -> builtins.str:
+        '''The TriggerId of the Trigger resource.'''
+        result = self._values.get("trigger_id")
+        assert result is not None, "Required property 'trigger_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TriggerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AgentSpaceReference",
+    "AssetReference",
     "AssociationReference",
     "IAgentSpaceRef",
+    "IAssetRef",
     "IAssociationRef",
     "IPrivateConnectionRef",
     "IServiceRef",
+    "ITriggerRef",
     "PrivateConnectionReference",
     "ServiceReference",
+    "TriggerReference",
 ]
 
 publication.publish()
@@ -498,6 +754,15 @@ def _typecheckingstub__243d248446cd635e4d580c7e821c36a9651420cfff39e507c6e56843c
     *,
     agent_space_arn: builtins.str,
     agent_space_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e07ae93fd4597600bcf048453225278461c377da1857624454c2c72c898a881(
+    *,
+    agent_space_id: builtins.str,
+    asset_arn: builtins.str,
+    asset_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -526,5 +791,14 @@ def _typecheckingstub__07ccf3b3910b4e346e3aafaa8df25d00cb1ad66f67f835fb8c05b14d4
     """Type checking stubs"""
     pass
 
-for cls in [IAgentSpaceRef, IAssociationRef, IPrivateConnectionRef, IServiceRef]:
+def _typecheckingstub__b2334c3b3f5d85bb6bbe5d5d6389c0b340214fd4e5d54bdb8336c1e2fbe619d8(
+    *,
+    agent_space_id: builtins.str,
+    trigger_arn: builtins.str,
+    trigger_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAgentSpaceRef, IAssetRef, IAssociationRef, IPrivateConnectionRef, IServiceRef, ITriggerRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

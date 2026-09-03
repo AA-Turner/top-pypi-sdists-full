@@ -70,6 +70,16 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("array_constructor", ARRAY_CONSTRUCTORS)
 
 
+def _codec_value(value):
+    """Return the plain value of a codec configuration attribute.
+
+    zarr < 3.3 exposes attributes such as ``BloscCodec.cname`` and
+    ``BytesCodec.endian`` as (non-str) ``Enum`` members, while zarr >= 3.3 uses
+    plain strings.
+    """
+    return getattr(value, "value", value)
+
+
 def _make_storage_options(fmt, shape, axes):
     from numcodecs import Blosc
     from zarr.codecs import (
@@ -122,6 +132,123 @@ class TestWriter:
     def shape(self, request):
         return request.param
 
+    def test_additional_transforms(self):
+        from ome_zarr_models.v06.coordinate_transforms import (
+            CoordinateSystem,
+            CoordinateSystemIdentifier,
+            Sequence,
+        )
+
+        data = self.create_data((2, 128, 128))
+
+        image = OMEZarrImage(data=data, axes="cyx", scale={"y": 0.5, "x": 0.5})
+
+        additional_transforms = Sequence.model_validate(
+            {
+                "type": "sequence",
+                "input": {"name": "physical"},
+                "output": {"name": "world"},
+                "transformations": [
+                    {
+                        "type": "scale",
+                        "scale": [1.0, 0.5, 0.5],
+                    },
+                    {
+                        "type": "translation",
+                        "translation": [0.0, 10.0, 10.0],
+                    },
+                ],
+            }
+        )
+
+        additional_cs = [
+            CoordinateSystem.model_validate(
+                {
+                    "name": "world",
+                    "axes": [
+                        {"name": "c", "type": "channel", "unit": "none"},
+                        {"name": "y", "type": "space", "unit": "micrometer"},
+                        {"name": "x", "type": "space", "unit": "micrometer"},
+                    ],
+                }
+            )
+        ]
+
+        # this call lacks the coordinate system "world"
+        # needed as output for the additional transforms
+        with pytest.raises(ValueError):
+            OMEZarrMultiscale(
+                image=image,
+                scale_factors=None,
+                method=None,
+                coordinate_transformations=(additional_transforms,),
+            )
+
+        ms = OMEZarrMultiscale(
+            image=image,
+            scale_factors=None,
+            method=None,
+            coordinate_transformations=(additional_transforms,),
+            coordinate_systems=additional_cs,
+            default_coordinate_system_name="physical",
+        )
+        ms.to_ome_zarr(
+            zarr.open(self.path / "test_transforms.zarr", mode="w"),
+            version="0.6",
+            overwrite=True,
+        )
+
+        # make transform go bad
+        additional_transforms = additional_transforms.model_copy(
+            update={"output": CoordinateSystemIdentifier(name="nonexistent")}
+        )
+        with pytest.raises(ValueError):
+            OMEZarrMultiscale(
+                image=image,
+                scale_factors=None,
+                method=None,
+                coordinate_transformations=(additional_transforms,),
+                coordinate_systems=additional_cs,
+                default_coordinate_system_name="physical",
+            )
+
+    @pytest.mark.parametrize(
+        "version", ("0.4", "0.5", "0.6"), ids=["V04", "V05", "V06"]
+    )
+    def test_image_class_versions(self, version):
+        from ome_zarr_models.v06.multiscales import Multiscale as Multiscale_V06
+
+        data = self.create_data((2, 128, 128))
+        image = OMEZarrImage(data=data, axes="cyx", scale={"y": 0.5, "x": 0.5})
+        ms = OMEZarrMultiscale(
+            image=image,
+        )
+        if version == "0.4":
+            grp = zarr.open(
+                self.path / f"test_versions_{version}.zarr",
+                mode="w",
+                zarr_format=2,
+            )
+        else:
+            grp = zarr.open(
+                self.path / f"test_versions_{version}.zarr",
+                mode="w",
+                zarr_format=3,
+            )
+        ms.to_ome_zarr(grp, overwrite=True, version=version)
+
+        # open the written zarr and check the version
+        out = zarr.open_group(self.path / f"test_versions_{version}.zarr")
+        if version == "0.4":
+            metadata = out.attrs["multiscales"][0]
+        else:
+            metadata = out.attrs.get("ome", {})
+
+        assert metadata["version"] == version
+
+        ms_read = OMEZarrMultiscale.from_ome_zarr(grp)
+        assert isinstance(ms_read.metadata, Multiscale_V06)
+
     def test_image_class_bad_args(self):
         data = self.create_data((2, 128, 128))
 
@@ -141,14 +268,14 @@ class TestWriter:
         assert image.scale["c"] == 1.0
 
         # less channels then dims in channel axis
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             multiscales = OMEZarrMultiscale(
                 image=image,
                 channel_names=["Channel 0"],
             )
 
         # less channel_names than channel_colors
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             multiscales = OMEZarrMultiscale(
                 image=image,
                 channel_names=["Channel 0", "Channel 1"],
@@ -156,7 +283,7 @@ class TestWriter:
             )
 
         # less channel_names than contrast limits
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             multiscales = OMEZarrMultiscale(
                 image=image,
                 channel_names=["Channel 0", "Channel 1"],
@@ -176,12 +303,16 @@ class TestWriter:
         multiscales.to_ome_zarr(self.path / "test_bad_args.zarr", version="0.5.5")
 
     @pytest.mark.parametrize("storage_options_list", [True, False])
+    @pytest.mark.parametrize(
+        "version",
+        ["0.4", "0.5", "0.6"],
+        ids=["V04", "V05", "V06"],
+    )
     def test_image_class_writer(
-        self, shape, format_version_all, array_constructor, storage_options_list
+        self, shape, version, array_constructor, storage_options_list
     ):
-        version = format_version_all()
 
-        if version.version == "0.5":
+        if version.startswith(("0.5", "0.6")):
             grp_path = self.path_v3 / "test"
         else:
             grp_path = self.path / "test"
@@ -240,7 +371,7 @@ class TestWriter:
         # write image and labels to disk
         image_multiscales.to_ome_zarr(
             group=str(grp_path),
-            version=version.version,
+            version=version,
             storage_options=storage_options,
             overwrite=True,
         )
@@ -250,27 +381,32 @@ class TestWriter:
         node_metadata = out.attrs
         if "ome" in node_metadata:
             node_metadata = node_metadata["ome"]
+
+        # multiscales and omero data must be present by default
         assert "multiscales" in node_metadata
+        assert "omero" in node_metadata
+
         paths = [d["path"] for d in node_metadata["multiscales"][0]["datasets"]]
         node_data = [da.from_zarr(grp_path / path) for path in paths]
-        if version.version in ("0.1", "0.2"):
-            # v0.1 and v0.2 MUST be 5D
-            assert node_data[0].ndim == 5
-        else:
-            assert node_data[0].shape == shape
-        print("node.metadata", node_metadata)
 
         # check written coordinatetransormations match relative factors between array sizes
         for level, nd_array in enumerate(node_data):
+            ds = node_metadata["multiscales"][0]["datasets"][level]
             if level == 0:
                 # check first written scale values explicitly match those in TRANSFORMATIONS
                 for d in axes:
-                    assert (
-                        node_metadata["multiscales"][0]["datasets"][level][
-                            "coordinateTransformations"
-                        ][0]["scale"][axes.index(d)]
-                        == TRANSFORMATIONS[0][0]["scale"][axes.index(d)]
-                    )
+                    if version.startswith(("0.4", "0.5")):
+                        tf = ds["coordinateTransformations"][0]
+                        assert (
+                            tf["scale"][axes.index(d)]
+                            == TRANSFORMATIONS[0][0]["scale"][axes.index(d)]
+                        )
+                    elif version.startswith("0.6"):
+                        tf = ds["coordinateTransformations"][0]["transformations"][0]
+                        assert (
+                            tf["scale"][axes.index(d)]
+                            == TRANSFORMATIONS[0][0]["scale"][axes.index(d)]
+                        )
                 continue
 
             # first calculate relative factors between this and previous level
@@ -295,9 +431,10 @@ class TestWriter:
                 assert relative_factors["z"] == 1.0
 
             # retrieve written scale factors from metadata and check they match expected
-            cts = node_metadata["multiscales"][0]["datasets"][level][
-                "coordinateTransformations"
-            ]
+            if version.startswith(("0.4", "0.5")):
+                cts = ds["coordinateTransformations"]
+            elif version.startswith("0.6"):
+                cts = ds["coordinateTransformations"][0]["transformations"]
             assert len(cts) == 2
             transf = cts[0]
             assert transf["type"] == "scale"
@@ -313,7 +450,7 @@ class TestWriter:
         # Verify labels data
         label_group = zarr.open(f"{grp_path}/labels", mode="r")
         label_group_attrs = label_group.attrs
-        if version.version == "0.5":
+        if version == "0.5" or version.startswith("0.6"):
             label_group_attrs = label_group_attrs["ome"]
         assert "labels" in label_group_attrs
         assert labels_name in label_group_attrs["labels"]
@@ -322,12 +459,6 @@ class TestWriter:
         image = OMEZarrMultiscale.from_ome_zarr(str(grp_path))
 
         assert labels_name in list(image.labels.keys())
-
-        if version.version == "0.4":
-            # Validate with ome-zarr-models-py: only supports v0.4
-            Models04Image.from_zarr(out)
-        elif version.version == "0.5":
-            Models05Image.from_zarr(out)
 
         # verify omero and image-labels metadata
         if "c" in axes:
@@ -895,7 +1026,7 @@ class TestWriter:
             # transformations different length than levels
             fmt.validate_coordinate_transformations(2, 1, transformations)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             transf = [[{"type": "scale", "scale": ("1", 1)}]]
             fmt.validate_coordinate_transformations(2, 1, transf)
 
@@ -1058,7 +1189,7 @@ class TestMultiscalesMetadata:
         assert "multiscales" in self.root.attrs
         # for v0.3, axes is a list of names
         assert self.root.attrs["multiscales"][0]["axes"] == axes
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             # for v0.4 and above, paths no-longer supported (need dataset dicts)
             write_multiscales_metadata(self.root, ["0"], axes=axes, fmt=FormatV04())
 
@@ -1078,7 +1209,7 @@ class TestMultiscalesMetadata:
 
     @pytest.mark.parametrize("datasets", ([], None, "0", ["0"], [{"key": 1}]))
     def test_invalid_datasets(self, datasets):
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             write_multiscales_metadata(
                 self.root, datasets, axes=["t", "c", "z", "y", "x"], fmt=FormatV04()
             )
@@ -1159,7 +1290,7 @@ class TestMultiscalesMetadata:
         datasets = [
             {"path": "0", "coordinateTransformations": coordinateTransformations}
         ]
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             write_multiscales_metadata(self.root, datasets, axes=axes, fmt=FormatV04())
 
     @pytest.mark.parametrize(
@@ -1488,7 +1619,7 @@ class TestPlateMetadata:
         ),
     )
     def test_invalid_acquisition_keys(self, acquisitions):
-        with pytest.raises(ValueError):
+        with pytest.raises((TypeError, ValueError)):
             write_plate_metadata(
                 self.root_v3, ["A"], ["1"], ["A/1"], acquisitions=acquisitions
             )
@@ -1504,7 +1635,7 @@ class TestPlateMetadata:
         (None, [], [1]),
     )
     def test_invalid_well_list(self, wells):
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             write_plate_metadata(self.root, ["A"], ["1"], wells)
 
     @pytest.mark.parametrize(
@@ -1536,7 +1667,7 @@ class TestPlateMetadata:
         ),
     )
     def test_invalid_well_keys(self, wells):
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             write_plate_metadata(self.root, ["A"], ["1"], wells, fmt=FormatV04())
 
     def test_unspecified_well_keys(self):
@@ -1569,21 +1700,21 @@ class TestPlateMetadata:
             {"path": "A/2"},
             {"path": "B/1"},
         ]
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             write_plate_metadata(
                 self.root, ["A", "B"], ["1", "2"], wells, fmt=FormatV04()
             )
 
     def test_well_not_in_rows(self):
         wells = ["A/1", "B/1", "C/1"]
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             write_plate_metadata(
                 self.root, ["A", "B"], ["1", "2"], wells, fmt=FormatV04()
             )
 
     def test_well_not_in_columns(self):
         wells = ["A/1", "A/2", "A/3"]
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             write_plate_metadata(
                 self.root, ["A", "B"], ["1", "2"], wells, fmt=FormatV04()
             )
@@ -1681,7 +1812,7 @@ class TestWellMetadata:
         ),
     )
     def test_invalid_images(self, images):
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             write_well_metadata(self.root, images)
 
     def test_unspecified_images_keys(self):
@@ -1946,7 +2077,7 @@ class TestLabelWriter:
         if level0.compressors:
             if fmt.version == "0.5":
                 if USE_DASK_ARRAY_KWARGS:
-                    assert level0.compressors[0].cname.name == "zstd"
+                    assert _codec_value(level0.compressors[0].cname) == "zstd"
                 else:
                     assert level0.compressors[0].to_dict()["name"] == "zstd"
             else:
@@ -1955,7 +2086,7 @@ class TestLabelWriter:
                 assert level0.compressors[0].clevel == 3
                 if fmt.version == "0.5" and hasattr(level0, "serializer"):
                     assert (
-                        level0.metadata.codecs[0].index_codecs[0].endian.name
+                        _codec_value(level0.metadata.codecs[0].index_codecs[0].endian)
                         == "little"
                     )
             else:
@@ -2139,7 +2270,7 @@ class TestLabelWriter:
             if level.compressors:
                 if fmt.version == "0.5":
                     if USE_DASK_ARRAY_KWARGS:
-                        assert level.compressors[0].cname.name == "zstd"
+                        assert _codec_value(level.compressors[0].cname) == "zstd"
                     else:
                         assert level.compressors[0].to_dict()["name"] == "zstd"
                 else:
@@ -2148,7 +2279,9 @@ class TestLabelWriter:
                     assert level.compressors[0].clevel == 3
                     if fmt.version == "0.5" and hasattr(level, "serializer"):
                         assert (
-                            level.metadata.codecs[0].index_codecs[0].endian.name
+                            _codec_value(
+                                level.metadata.codecs[0].index_codecs[0].endian
+                            )
                             == "little"
                         )
                 else:

@@ -105,6 +105,16 @@ class ListTLSStagesRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
         return str(self.value)
 
 
+class ListVPCEndpointsRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
+    CREATED_AT_ASC = "created_at_asc"
+    CREATED_AT_DESC = "created_at_desc"
+    NAME_ASC = "name_asc"
+    NAME_DESC = "name_desc"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class ListWafStagesRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
     CREATED_AT_ASC = "created_at_asc"
     CREATED_AT_DESC = "created_at_desc"
@@ -147,6 +157,7 @@ class PipelineErrorCode(str, Enum, metaclass=StrEnumMeta):
     PIPELINE_INVALID_WORKFLOW = "pipeline_invalid_workflow"
     PIPELINE_MISSING_HEAD_STAGE = "pipeline_missing_head_stage"
     PIPELINE_WEBSOCKET_LIMIT = "pipeline_websocket_limit"
+    PIPELINE_CONFIGURATION_FAILED = "pipeline_configuration_failed"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -267,6 +278,15 @@ class SearchWafStagesRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
         return str(self.value)
 
 
+class StageStatus(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_STATUS = "unknown_status"
+    INACTIVE = "inactive"
+    ACTIVE = "active"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class WafStageMode(str, Enum, metaclass=StrEnumMeta):
     UNKNOWN_MODE = "unknown_mode"
     DISABLE = "disable"
@@ -308,6 +328,8 @@ class ScalewayLb:
     """
     Defines whether to forward websocket requests to the load balancer.
     """
+
+    private_network_id: Optional[str] = None
 
 
 @dataclass
@@ -427,6 +449,11 @@ class BackendStage:
     Pipeline ID the backend stage belongs to.
     """
 
+    status: StageStatus
+    """
+    Current status of the stage.
+    """
+
     created_at: Optional[datetime] = None
     """
     Date the backend stage was created.
@@ -467,6 +494,11 @@ class CacheStage:
     Defines whether responses to requests with cookies must be stored in the cache.
     """
 
+    status: StageStatus
+    """
+    Current status of the stage.
+    """
+
     fallback_ttl: Optional[str] = None
     """
     Time To Live (TTL) in seconds. Defines how long content is cached.
@@ -482,9 +514,9 @@ class CacheStage:
     Date the cache stage was last updated.
     """
 
-    backend_stage_id: Optional[str] = None
-
     waf_stage_id: Optional[str] = None
+
+    backend_stage_id: Optional[str] = None
 
     route_stage_id: Optional[str] = None
 
@@ -501,6 +533,7 @@ class DNSStage:
     Default Fully Qualified Domain Name attached to the stage.
     """
 
+    default_private_fqdn: str
     fqdns: list[str]
     """
     List of additional (custom) Fully Qualified Domain Names attached to the stage.
@@ -516,9 +549,19 @@ class DNSStage:
     Pipeline ID the DNS stage belongs to.
     """
 
+    status: StageStatus
+    """
+    Current status of the stage.
+    """
+
     wildcard_domain: bool
     """
     Support of wildcard (subdomains) for the given domain (a wildcard certificate is required to make it work).
+    """
+
+    full_private: bool
+    """
+    Fully Qualified Domain Names are accessible exclusively within the VPC.
     """
 
     created_at: Optional[datetime] = None
@@ -575,6 +618,7 @@ class Pipeline:
     Organization ID of the pipeline.
     """
 
+    vpc_endpoint_ids: list[str]
     created_at: Optional[datetime] = None
     """
     Date the pipeline was created.
@@ -596,6 +640,11 @@ class RouteStage:
     pipeline_id: str
     """
     Pipeline ID the route stage belongs to.
+    """
+
+    status: StageStatus
+    """
+    Current status of the stage.
     """
 
     created_at: Optional[datetime] = None
@@ -633,6 +682,11 @@ class TLSStage:
     pipeline_id: str
     """
     Pipeline ID the TLS stage belongs to.
+    """
+
+    status: StageStatus
+    """
+    Current status of the stage.
     """
 
     certificate_expires_at: Optional[datetime] = None
@@ -679,6 +733,11 @@ class WafStage:
     paranoia_level: int
     """
     Sensitivity level (`1`,`2`,`3`,`4`) to use when classifying requests as malicious. With a high level, requests are more likely to be classed as malicious, and false positives are expected. With a lower level, requests are more likely to be classed as benign.
+    """
+
+    status: StageStatus
+    """
+    Current status of the stage.
     """
 
     created_at: Optional[datetime] = None
@@ -820,6 +879,39 @@ class PurgeRequest:
     assets: Optional[list[str]] = field(default_factory=list)
 
     all: Optional[bool] = False
+
+
+@dataclass
+class VPCEndpoint:
+    id: str
+    """
+    The VPC Endpoint ID.
+    """
+
+    project_id: str
+    """
+    Project ID of the VPC Endpoint.
+    """
+
+    region: ScwRegion
+    """
+    Zone of the VPC Endpoint.
+    """
+
+    private_network_id: str
+    """
+    Private Network ID of the VPC Endpoint.
+    """
+
+    created_at: Optional[datetime] = None
+    """
+    Date the VPC Endpoint was created.
+    """
+
+    updated_at: Optional[datetime] = None
+    """
+    Date the VPC Endpoint was last updated.
+    """
 
 
 @dataclass
@@ -971,6 +1063,11 @@ class CreateDNSStageRequest:
     Support of wildcard (subdomains) for the given domain (a wildcard certificate is required to make it work).
     """
 
+    full_private: Optional[bool] = False
+    """
+    When true, Fully Qualified Domain Names are accessible exclusively within the VPC.
+    """
+
     tls_stage_id: Optional[str] = None
 
     cache_stage_id: Optional[str] = None
@@ -1047,6 +1144,24 @@ class CreateTLSStageRequest:
 
 
 @dataclass
+class CreateVPCEndpointRequest:
+    private_network_id: str
+    """
+    Private Network ID of the VPC Endpoint.
+    """
+
+    project_id: Optional[str] = None
+    """
+    Project ID of the VPC Endpoint.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Zone of the VPC Endpoint.
+    """
+
+
+@dataclass
 class CreateWafStageRequest:
     pipeline_id: str
     """
@@ -1116,6 +1231,14 @@ class DeleteTLSStageRequest:
     tls_stage_id: str
     """
     ID of the TLS stage to delete.
+    """
+
+
+@dataclass
+class DeleteVPCEndpointRequest:
+    vpc_endpoint_id: str
+    """
+    The VPC Endpoint ID.
     """
 
 
@@ -1258,6 +1381,14 @@ class GetTLSStageRequest:
     tls_stage_id: str
     """
     ID of the requested TLS stage.
+    """
+
+
+@dataclass
+class GetVPCEndpointRequest:
+    vpc_endpoint_id: str
+    """
+    The VPC Endpoint ID.
     """
 
 
@@ -1538,7 +1669,7 @@ class ListPurgeRequestsRequest:
 
     organization_id: Optional[str] = None
     """
-    Organization ID to filter for. Only purge requests from this Project will be returned.
+    Organization ID to filter for. Only purge requests from this Organization will be returned.
     """
 
     project_id: Optional[str] = None
@@ -1673,6 +1804,49 @@ class ListTLSStagesResponse:
 
 
 @dataclass
+class ListVPCEndpointsRequest:
+    order_by: Optional[ListVPCEndpointsRequestOrderBy] = (
+        ListVPCEndpointsRequestOrderBy.CREATED_AT_ASC
+    )
+    """
+    Sort order of VPC Endpoints in the response.
+    """
+
+    page: Optional[int] = 0
+    """
+    Page number to return, from the paginated results.
+    """
+
+    page_size: Optional[int] = 0
+    """
+    Number of VPC Endpoints to return per page.
+    """
+
+    project_id: Optional[str] = None
+    """
+    Project ID to filter for. Only VPC Endpoints from this project will be returned.
+    """
+
+    organization_id: Optional[str] = None
+    """
+    Organization ID to filter for. Only VPC Endpoints from this Organization will be returned.
+    """
+
+
+@dataclass
+class ListVPCEndpointsResponse:
+    vpc_endpoints: list[VPCEndpoint]
+    """
+    Paginated list of VPC Endpoints.
+    """
+
+    total_count: int
+    """
+    Count of all VPC Endpoints matching the requested criteria.
+    """
+
+
+@dataclass
 class ListWafStagesRequest:
     pipeline_id: str
     """
@@ -1764,6 +1938,37 @@ class SetHeadStageRequest:
 
 
 @dataclass
+class SetPipelineVPCEndpointsRequest:
+    pipeline_id: str
+    """
+    Pipeline ID for which VPC Endpoints must be set.
+    """
+
+    vpc_endpoint_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    List of VPC Endpoints to attach.
+    """
+
+
+@dataclass
+class SetPipelineVPCEndpointsResponse:
+    pipeline_id: str
+    """
+    Pipeline ID.
+    """
+
+    vpc_endpoints: list[VPCEndpoint]
+    """
+    List of VPC Endpoints for the given Pipeline ID.
+    """
+
+    total_count: int
+    """
+    Count of all VPC Endpoints for the given Pipeline ID.
+    """
+
+
+@dataclass
 class SetRouteRulesRequest:
     route_stage_id: str
     """
@@ -1850,6 +2055,11 @@ class UpdateDNSStageRequest:
     wildcard_domain: Optional[bool] = False
     """
     Support of wildcard (subdomains) for the given domain (a wildcard certificate is required to make it work).
+    """
+
+    full_private: Optional[bool] = False
+    """
+    When true, Fully Qualified Domain Names are accessible exclusively within the VPC.
     """
 
     tls_stage_id: Optional[str] = None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ome-zarr-models
-Version: 1.8.0
+Version: 1.8.1
 Summary: A minimal Python package for reading OME-Zarr (meta)data 
 Project-URL: Documentation, https://ome-zarr-models-py.readthedocs.io
 Project-URL: Repository, https://github.com/ome-zarr-models/ome-zarr-models-py

@@ -29,6 +29,8 @@ def test_known_agents_are_stable() -> None:
             "cursor-cli",
             "gemini-cli",
             "goose",
+            "grok",
+            "grok-bot",
             "kiro",
             "opencode",
             "pi",

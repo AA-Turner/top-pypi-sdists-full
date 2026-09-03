@@ -2641,6 +2641,333 @@ class CfnTestGridProjectProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_devicefarm_10243d8a.IUploadRef)
+class CfnUpload(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_devicefarm.CfnUpload",
+):
+    '''Represents an app or test scripts upload in AWS Device Farm.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-upload.html
+    :cloudformationResource: AWS::DeviceFarm::Upload
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_devicefarm as devicefarm
+        
+        cfn_upload = devicefarm.CfnUpload(self, "MyCfnUpload",
+            name="name",
+            project_arn="projectArn",
+            type="type",
+        
+            # the properties below are optional
+            content_type="contentType"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        project_arn: builtins.str,
+        type: builtins.str,
+        content_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::DeviceFarm::Upload``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The upload's file name.
+        :param project_arn: The ARN of the project for the upload.
+        :param type: The upload's type.
+        :param content_type: The upload's content type (for example, application/octet-stream).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d283bcd94daf803dbcc6de79e96925e35a4437d5c69473ba70c38731f612cf23)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUploadProps(
+            name=name, project_arn=project_arn, type=type, content_type=content_type
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForUpload")
+    @builtins.classmethod
+    def arn_for_upload(
+        cls,
+        resource: "_aws_devicefarm_10243d8a.IUploadRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b778e3e6259e9042a489de0a640fdbefba9a65d70b761e8fb85b63e2ae792ed5)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUpload", [resource]))
+
+    @jsii.member(jsii_name="isCfnUpload")
+    @builtins.classmethod
+    def is_cfn_upload(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUpload.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e881a5653db6028dabd186ebe3f2900e5b9db0e90ff9be66eaffbc1f1e157393)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUpload", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e600f2f282e416ae5d18951b1bdac880b12379b603e13abc3f5e2ea3e4c0e503)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__084d7fda91a4fe5fab8a95d50643e25ced905dd3a6d02e6e021ab28cc38915b7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the upload.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCategory")
+    def attr_category(self) -> builtins.str:
+        '''The upload's category.
+
+        :cloudformationAttribute: Category
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCategory"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreated")
+    def attr_created(self) -> builtins.str:
+        '''When the upload was created.
+
+        :cloudformationAttribute: Created
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreated"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The upload's status.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="uploadRef")
+    def upload_ref(self) -> "_aws_devicefarm_10243d8a.UploadReference":
+        '''A reference to a Upload resource.'''
+        return typing.cast("_aws_devicefarm_10243d8a.UploadReference", jsii.get(self, "uploadRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The upload's file name.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa47460d9e90218f5313b8221534141aa09ce54fe12674fb0fb7f5b734b3894d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="projectArn")
+    def project_arn(self) -> builtins.str:
+        '''The ARN of the project for the upload.'''
+        return typing.cast(builtins.str, jsii.get(self, "projectArn"))
+
+    @project_arn.setter
+    def project_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b3e8393e7f215aef65b4f6fc4743c058484cfa92f498d75e369d48c28a03d4fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "projectArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The upload's type.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__58ae2316be36b6813a2d2199aa8646dabe5c1bf5633b72ff5d4685efdc4eb43d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contentType")
+    def content_type(self) -> typing.Optional[builtins.str]:
+        '''The upload's content type (for example, application/octet-stream).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "contentType"))
+
+    @content_type.setter
+    def content_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9bc12407d77912eb6fae30a2b65d4e110ed8749207cd8a9914398171322c7028)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contentType", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devicefarm.CfnUploadProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "project_arn": "projectArn",
+        "type": "type",
+        "content_type": "contentType",
+    },
+)
+class CfnUploadProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        project_arn: builtins.str,
+        type: builtins.str,
+        content_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUpload``.
+
+        :param name: The upload's file name.
+        :param project_arn: The ARN of the project for the upload.
+        :param type: The upload's type.
+        :param content_type: The upload's content type (for example, application/octet-stream).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-upload.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devicefarm as devicefarm
+            
+            cfn_upload_props = devicefarm.CfnUploadProps(
+                name="name",
+                project_arn="projectArn",
+                type="type",
+            
+                # the properties below are optional
+                content_type="contentType"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a121fc90327aaca1db2266e1af9d97ac599f2f017cd0b1a0dc2bbbbb890f2b42)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "project_arn": project_arn,
+            "type": type,
+        }
+        if content_type is not None:
+            self._values["content_type"] = content_type
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The upload's file name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-upload.html#cfn-devicefarm-upload-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project_arn(self) -> builtins.str:
+        '''The ARN of the project for the upload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-upload.html#cfn-devicefarm-upload-projectarn
+        '''
+        result = self._values.get("project_arn")
+        assert result is not None, "Required property 'project_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The upload's type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-upload.html#cfn-devicefarm-upload-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def content_type(self) -> typing.Optional[builtins.str]:
+        '''The upload's content type (for example, application/octet-stream).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-upload.html#cfn-devicefarm-upload-contenttype
+        '''
+        result = self._values.get("content_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUploadProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_devicefarm_10243d8a.IVPCEConfigurationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnVPCEConfiguration(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3016,6 +3343,8 @@ __all__ = [
     "CfnProjectProps",
     "CfnTestGridProject",
     "CfnTestGridProjectProps",
+    "CfnUpload",
+    "CfnUploadProps",
     "CfnVPCEConfiguration",
     "CfnVPCEConfigurationProps",
 ]
@@ -3515,6 +3844,76 @@ def _typecheckingstub__e145dbb564c006058fffdd2f8e7b8379a9b6dbbd495c537021b0c7c87
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTestGridProject.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d283bcd94daf803dbcc6de79e96925e35a4437d5c69473ba70c38731f612cf23(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    project_arn: builtins.str,
+    type: builtins.str,
+    content_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b778e3e6259e9042a489de0a640fdbefba9a65d70b761e8fb85b63e2ae792ed5(
+    resource: _aws_devicefarm_10243d8a.IUploadRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e881a5653db6028dabd186ebe3f2900e5b9db0e90ff9be66eaffbc1f1e157393(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e600f2f282e416ae5d18951b1bdac880b12379b603e13abc3f5e2ea3e4c0e503(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__084d7fda91a4fe5fab8a95d50643e25ced905dd3a6d02e6e021ab28cc38915b7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa47460d9e90218f5313b8221534141aa09ce54fe12674fb0fb7f5b734b3894d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3e8393e7f215aef65b4f6fc4743c058484cfa92f498d75e369d48c28a03d4fb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58ae2316be36b6813a2d2199aa8646dabe5c1bf5633b72ff5d4685efdc4eb43d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bc12407d77912eb6fae30a2b65d4e110ed8749207cd8a9914398171322c7028(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a121fc90327aaca1db2266e1af9d97ac599f2f017cd0b1a0dc2bbbbb890f2b42(
+    *,
+    name: builtins.str,
+    project_arn: builtins.str,
+    type: builtins.str,
+    content_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

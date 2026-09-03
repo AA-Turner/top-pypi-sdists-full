@@ -1033,12 +1033,14 @@ class CfnComputeEnvironment(
             compute_environment_name="computeEnvironmentName",
             compute_resources=batch.CfnComputeEnvironment.ComputeResourcesProperty(
                 maxv_cpus=123,
-                subnets=["subnets"],
                 type="type",
         
                 # the properties below are optional
                 allocation_strategy="allocationStrategy",
                 bid_percentage=123,
+                capacity_tags={
+                    "capacity_tags_key": "capacityTags"
+                },
                 desiredv_cpus=123,
                 ec2_configuration=[batch.CfnComputeEnvironment.Ec2ConfigurationObjectProperty(
                     image_type="imageType",
@@ -1065,6 +1067,41 @@ class CfnComputeEnvironment(
                     userdata_type="userdataType",
                     version="version"
                 ),
+                managed_instances_provider=batch.CfnComputeEnvironment.ManagedInstancesProviderProperty(
+                    infrastructure_role_arn="infrastructureRoleArn",
+                    instance_launch_template=batch.CfnComputeEnvironment.InstanceLaunchTemplateProperty(
+                        ec2_instance_profile_arn="ec2InstanceProfileArn",
+                        network_configuration=batch.CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty(
+                            security_groups=["securityGroups"],
+                            subnets=["subnets"]
+                        ),
+        
+                        # the properties below are optional
+                        capacity_option_type="capacityOptionType",
+                        capacity_reservations=batch.CfnComputeEnvironment.CapacityReservationsProperty(
+                            reservation_group_arn="reservationGroupArn",
+                            reservation_preference="reservationPreference"
+                        ),
+                        fips_enabled=False,
+                        instance_metadata_tags_propagation=False,
+                        instance_requirements=batch.CfnComputeEnvironment.InstanceRequirementsProperty(
+                            allowed_instance_types=["allowedInstanceTypes"]
+                        ),
+                        local_storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty(
+                            use_local_storage=False
+                        ),
+                        monitoring="monitoring",
+                        storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty(
+                            storage_size_gi_b=123
+                        )
+                    ),
+        
+                    # the properties below are optional
+                    infrastructure_optimization=batch.CfnComputeEnvironment.InfrastructureOptimizationProperty(
+                        scale_in_after=123
+                    ),
+                    propagate_tags="propagateTags"
+                ),
                 minv_cpus=123,
                 placement_group="placementGroup",
                 scaling_policy=batch.CfnComputeEnvironment.ComputeScalingPolicyProperty(
@@ -1072,12 +1109,16 @@ class CfnComputeEnvironment(
                 ),
                 security_group_ids=["securityGroupIds"],
                 spot_iam_fleet_role="spotIamFleetRole",
+                subnets=["subnets"],
                 tags={
                     "tags_key": "tags"
                 },
                 update_to_latest_image_version=False
             ),
             context="context",
+            ecs_settings=batch.CfnComputeEnvironment.EcsSettingsProperty(
+                container_insights="containerInsights"
+            ),
             eks_configuration=batch.CfnComputeEnvironment.EksConfigurationProperty(
                 eks_cluster_arn="eksClusterArn",
                 kubernetes_namespace="kubernetesNamespace"
@@ -1105,6 +1146,7 @@ class CfnComputeEnvironment(
         compute_environment_name: typing.Optional[builtins.str] = None,
         compute_resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.ComputeResourcesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         context: typing.Optional[builtins.str] = None,
+        ecs_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.EcsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         eks_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.EksConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         replace_compute_environment: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         service_role: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
@@ -1121,6 +1163,7 @@ class CfnComputeEnvironment(
         :param compute_environment_name: The name for your compute environment. It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
         :param compute_resources: The ComputeResources property type specifies details of the compute resources managed by the compute environment. This parameter is required for managed compute environments. For more information, see `Compute Environments <https://docs.aws.amazon.com/batch/latest/userguide/compute_environments.html>`_ in the ** .
         :param context: Reserved.
+        :param ecs_settings: 
         :param eks_configuration: The details for the Amazon EKS cluster that supports the compute environment. .. epigraph:: To create a compute environment that uses EKS resources, the caller must have permissions to call ``eks:DescribeCluster`` .
         :param replace_compute_environment: Specifies whether the compute environment is replaced if an update is made that requires replacing the instances in the compute environment. The default value is ``true`` . To enable more properties to be updated, set this property to ``false`` . When changing the value of this property to ``false`` , do not change any other properties at the same time. If other properties are changed at the same time, and the change needs to be rolled back but it can't, it's possible for the stack to go into the ``UPDATE_ROLLBACK_FAILED`` state. You can't update a stack that is in the ``UPDATE_ROLLBACK_FAILED`` state. However, if you can continue to roll it back, you can return the stack to its original settings and then try to update it again. For more information, see `Continue rolling back an update <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-continueupdaterollback.html>`_ in the *AWS CloudFormation User Guide* . ``ReplaceComputeEnvironment`` is not applicable for Fargate compute environments. Fargate compute environments are always updated without interruption. The properties that can't be changed without replacing the compute environment are in the ```ComputeResources`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html>`_ property type: ```AllocationStrategy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-allocationstrategy>`_ , ```BidPercentage`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-bidpercentage>`_ , ```Ec2Configuration`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-ec2configuration>`_ , ```Ec2KeyPair`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-ec2keypair>`_ , ```Ec2KeyPair`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-ec2keypair>`_ , ```ImageId`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-imageid>`_ , ```InstanceRole`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-instancerole>`_ , ```InstanceTypes`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-instancetypes>`_ , ```LaunchTemplate`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-launchtemplate>`_ , ```MaxvCpus`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-maxvcpus>`_ , ```MinvCpus`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-minvcpus>`_ , ```PlacementGroup`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-placementgroup>`_ , ```SecurityGroupIds`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-securitygroupids>`_ , ```Subnets`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-subnets>`_ , `Tags <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-tags>`_ , ```Type`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-type>`_ , and ```UpdateToLatestImageVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-updatetolatestimageversion>`_ . Default: - true
         :param service_role: The full Amazon Resource Name (ARN) of the IAM role that allows AWS Batch to make calls to other AWS services on your behalf. For more information, see `AWS Batch service IAM role <https://docs.aws.amazon.com/batch/latest/userguide/service_IAM_role.html>`_ in the *AWS Batch User Guide* . .. epigraph:: If your account already created the AWS Batch service-linked role, that role is used by default for your compute environment unless you specify a different role here. If the AWS Batch service-linked role doesn't exist in your account, and no role is specified here, the service attempts to create the AWS Batch service-linked role in your account. If your specified role has a path other than ``/`` , then you must specify either the full role ARN (recommended) or prefix the role name with the path. For example, if a role with the name ``bar`` has a path of ``/foo/`` , specify ``/foo/bar`` as the role name. For more information, see `Friendly names and paths <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-friendly-names>`_ in the *IAM User Guide* . .. epigraph:: Depending on how you created your AWS Batch service role, its ARN might contain the ``service-role`` path prefix. When you only specify the name of the service role, AWS Batch assumes that your ARN doesn't use the ``service-role`` path prefix. Because of this, we recommend that you specify the full ARN of your service role when you create compute environments.
@@ -1138,6 +1181,7 @@ class CfnComputeEnvironment(
             compute_environment_name=compute_environment_name,
             compute_resources=compute_resources,
             context=context,
+            ecs_settings=ecs_settings,
             eks_configuration=eks_configuration,
             replace_compute_environment=replace_compute_environment,
             service_role=service_role,
@@ -1296,6 +1340,23 @@ class CfnComputeEnvironment(
         jsii.set(self, "context", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="ecsSettings")
+    def ecs_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.EcsSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.EcsSettingsProperty"]], jsii.get(self, "ecsSettings"))
+
+    @ecs_settings.setter
+    def ecs_settings(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.EcsSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f917c0f8e0752631deb1ea56ca73d9858a03f7c6646f04e812b9d61967d44a18)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ecsSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="eksConfiguration")
     def eks_configuration(
         self,
@@ -1405,14 +1466,84 @@ class CfnComputeEnvironment(
         jsii.set(self, "updatePolicy", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.CapacityReservationsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "reservation_group_arn": "reservationGroupArn",
+            "reservation_preference": "reservationPreference",
+        },
+    )
+    class CapacityReservationsProperty:
+        def __init__(
+            self,
+            *,
+            reservation_group_arn: typing.Optional[builtins.str] = None,
+            reservation_preference: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param reservation_group_arn: 
+            :param reservation_preference: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-capacityreservations.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                capacity_reservations_property = batch.CfnComputeEnvironment.CapacityReservationsProperty(
+                    reservation_group_arn="reservationGroupArn",
+                    reservation_preference="reservationPreference"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8e4cd5fe082b29bff10129759905ec9042c42822a72eec11265de11da14c0de8)
+                check_type(argname="argument reservation_group_arn", value=reservation_group_arn, expected_type=type_hints["reservation_group_arn"])
+                check_type(argname="argument reservation_preference", value=reservation_preference, expected_type=type_hints["reservation_preference"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if reservation_group_arn is not None:
+                self._values["reservation_group_arn"] = reservation_group_arn
+            if reservation_preference is not None:
+                self._values["reservation_preference"] = reservation_preference
+
+        @builtins.property
+        def reservation_group_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-capacityreservations.html#cfn-batch-computeenvironment-capacityreservations-reservationgrouparn
+            '''
+            result = self._values.get("reservation_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def reservation_preference(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-capacityreservations.html#cfn-batch-computeenvironment-capacityreservations-reservationpreference
+            '''
+            result = self._values.get("reservation_preference")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityReservationsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.ComputeResourcesProperty",
         jsii_struct_bases=[],
         name_mapping={
             "maxv_cpus": "maxvCpus",
-            "subnets": "subnets",
             "type": "type",
             "allocation_strategy": "allocationStrategy",
             "bid_percentage": "bidPercentage",
+            "capacity_tags": "capacityTags",
             "desiredv_cpus": "desiredvCpus",
             "ec2_configuration": "ec2Configuration",
             "ec2_key_pair": "ec2KeyPair",
@@ -1420,11 +1551,13 @@ class CfnComputeEnvironment(
             "instance_role": "instanceRole",
             "instance_types": "instanceTypes",
             "launch_template": "launchTemplate",
+            "managed_instances_provider": "managedInstancesProvider",
             "minv_cpus": "minvCpus",
             "placement_group": "placementGroup",
             "scaling_policy": "scalingPolicy",
             "security_group_ids": "securityGroupIds",
             "spot_iam_fleet_role": "spotIamFleetRole",
+            "subnets": "subnets",
             "tags": "tags",
             "update_to_latest_image_version": "updateToLatestImageVersion",
         },
@@ -1434,10 +1567,10 @@ class CfnComputeEnvironment(
             self,
             *,
             maxv_cpus: jsii.Number,
-            subnets: typing.Sequence[builtins.str],
             type: builtins.str,
             allocation_strategy: typing.Optional[builtins.str] = None,
             bid_percentage: typing.Optional[jsii.Number] = None,
+            capacity_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             desiredv_cpus: typing.Optional[jsii.Number] = None,
             ec2_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.Ec2ConfigurationObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ec2_key_pair: typing.Optional[builtins.str] = None,
@@ -1445,11 +1578,13 @@ class CfnComputeEnvironment(
             instance_role: typing.Optional[builtins.str] = None,
             instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
             launch_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            managed_instances_provider: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.ManagedInstancesProviderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             minv_cpus: typing.Optional[jsii.Number] = None,
             placement_group: typing.Optional[builtins.str] = None,
             scaling_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.ComputeScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             spot_iam_fleet_role: typing.Optional[builtins.str] = None,
+            subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
             tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
             update_to_latest_image_version: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
@@ -1458,10 +1593,10 @@ class CfnComputeEnvironment(
             This parameter is required for managed compute environments. For more information, see `Compute Environments <https://docs.aws.amazon.com/batch/latest/userguide/compute_environments.html>`_ in the *AWS Batch User Guide* .
 
             :param maxv_cpus: The maximum number of Amazon EC2 vCPUs that an environment can reach. .. epigraph:: With ``BEST_FIT_PROGRESSIVE`` , ``SPOT_CAPACITY_OPTIMIZED`` and ``SPOT_PRICE_CAPACITY_OPTIMIZED`` (recommended) strategies using On-Demand or Spot Instances, and the ``BEST_FIT`` strategy using Spot Instances, AWS Batch might need to exceed ``maxvCpus`` to meet your capacity requirements. In this event, AWS Batch never exceeds ``maxvCpus`` by more than a single instance.
-            :param subnets: The VPC subnets where the compute resources are launched. Fargate compute resources can contain up to 16 subnets. For Fargate compute resources, providing an empty list will be handled as if this parameter wasn't specified and no change is made. For Amazon EC2 compute resources, providing an empty list removes the VPC subnets from the compute resource. For more information, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* . When updating a compute environment, changing the VPC subnets requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: AWS Batch on Amazon EC2 and AWS Batch on Amazon EKS support Local Zones. For more information, see `Local Zones <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-local-zones>`_ in the *Amazon EC2 User Guide for Linux Instances* , `Amazon EKS and AWS Local Zones <https://docs.aws.amazon.com/eks/latest/userguide/local-zones.html>`_ in the *Amazon EKS User Guide* and `Amazon ECS clusters in Local Zones, Wavelength Zones, and AWS Outposts <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-regions-zones.html#clusters-local-zones>`_ in the *Amazon ECS Developer Guide* . AWS Batch on Fargate doesn't currently support Local Zones.
             :param type: The type of compute environment: ``EC2`` , ``SPOT`` , ``FARGATE`` , or ``FARGATE_SPOT`` . For more information, see `Compute environments <https://docs.aws.amazon.com/batch/latest/userguide/compute_environments.html>`_ in the *AWS Batch User Guide* . If you choose ``SPOT`` , you must also specify an Amazon EC2 Spot Fleet role with the ``spotIamFleetRole`` parameter. For more information, see `Amazon EC2 spot fleet role <https://docs.aws.amazon.com/batch/latest/userguide/spot_fleet_IAM_role.html>`_ in the *AWS Batch User Guide* . When updating compute environment, changing the type of a compute environment requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . When updating the type of a compute environment, changing between ``EC2`` and ``SPOT`` or between ``FARGATE`` and ``FARGATE_SPOT`` will initiate an infrastructure update, but if you switch between ``EC2`` and ``FARGATE`` , CloudFormation will create a new compute environment.
             :param allocation_strategy: The allocation strategy to use for the compute resource if not enough instances of the best fitting instance type can be allocated. This might be because of availability of the instance type in the Region or `Amazon EC2 service limits <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-resource-limits.html>`_ . For more information, see `Allocation strategies <https://docs.aws.amazon.com/batch/latest/userguide/allocation-strategies.html>`_ in the *AWS Batch User Guide* . When updating a compute environment, changing the allocation strategy requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . ``BEST_FIT`` is not supported when updating a compute environment. .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources, and shouldn't be specified. - **BEST_FIT (default)** - AWS Batch selects an instance type that best fits the needs of the jobs with a preference for the lowest-cost instance type. If additional instances of the selected instance type aren't available, AWS Batch waits for the additional instances to be available. If there aren't enough instances available, or if the user is reaching `Amazon EC2 service limits <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-resource-limits.html>`_ then additional jobs aren't run until the currently running jobs have completed. This allocation strategy keeps costs lower but can limit scaling. If you are using Spot Fleets with ``BEST_FIT`` then the Spot Fleet IAM role must be specified. - **BEST_FIT_PROGRESSIVE** - AWS Batch will select additional instance types that are large enough to meet the requirements of the jobs in the queue, with a preference for instance types with a lower cost per unit vCPU. If additional instances of the previously selected instance types aren't available, AWS Batch will select new instance types. - **SPOT_CAPACITY_OPTIMIZED** - AWS Batch will select one or more instance types that are large enough to meet the requirements of the jobs in the queue, with a preference for instance types that are less likely to be interrupted. This allocation strategy is only available for Spot Instance compute resources. - **SPOT_PRICE_CAPACITY_OPTIMIZED** - The price and capacity optimized allocation strategy looks at both price and capacity to select the Spot Instance pools that are the least likely to be interrupted and have the lowest possible price. This allocation strategy is only available for Spot Instance compute resources. .. epigraph:: We recommend that you use ``SPOT_PRICE_CAPACITY_OPTIMIZED`` rather than ``SPOT_CAPACITY_OPTIMIZED`` in most instances. With ``BEST_FIT_PROGRESSIVE`` , ``SPOT_CAPACITY_OPTIMIZED`` , and ``SPOT_PRICE_CAPACITY_OPTIMIZED`` allocation strategies using On-Demand or Spot Instances, and the ``BEST_FIT`` strategy using Spot Instances, AWS Batch might need to go above ``maxvCpus`` to meet your capacity requirements. In this event, AWS Batch never exceeds ``maxvCpus`` by more than a single instance.
             :param bid_percentage: The maximum percentage that a Spot Instance price can be when compared with the On-Demand price for that instance type before instances are launched. For example, if your maximum percentage is 20%, the Spot price must be less than 20% of the current On-Demand price for that Amazon EC2 instance. You always pay the lowest (market) price and never more than your maximum percentage. For most use cases, we recommend leaving this field empty. When updating a compute environment, changing the bid percentage requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
+            :param capacity_tags: Capacity-level tags for compute environments.
             :param desiredv_cpus: The desired number of vCPUS in the compute environment. AWS Batch modifies this value between the minimum and maximum values based on job queue demand. .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it. > AWS Batch doesn't support changing the desired number of vCPUs of an existing compute environment. Don't specify this parameter for compute environments using Amazon EKS clusters. > When you update the ``desiredvCpus`` setting, the value must be between the ``minvCpus`` and ``maxvCpus`` values. Additionally, the updated ``desiredvCpus`` value must be greater than or equal to the current ``desiredvCpus`` value. For more information, see `Troubleshooting AWS Batch <https://docs.aws.amazon.com/batch/latest/userguide/troubleshooting.html#error-desired-vcpus-update>`_ in the *AWS Batch User Guide* .
             :param ec2_configuration: Provides information used to select Amazon Machine Images (AMIs) for Amazon EC2 instances in the compute environment. If ``Ec2Configuration`` isn't specified, the default is ``ECS_AL2`` . When updating a compute environment, changing this setting requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . To remove the Amazon EC2 configuration and any custom AMI ID specified in ``imageIdOverride`` , set this value to an empty string. One or two values can be provided. .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
             :param ec2_key_pair: The Amazon EC2 key pair that's used for instances launched in the compute environment. You can use this key pair to log in to your instances with SSH. To remove the Amazon EC2 key pair, set this value to an empty string. When updating a compute environment, changing the Amazon EC2 key pair requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
@@ -1469,11 +1604,13 @@ class CfnComputeEnvironment(
             :param instance_role: The Amazon ECS instance profile applied to Amazon EC2 instances in a compute environment. Required for Amazon EC2 instances. You can specify the short name or full Amazon Resource Name (ARN) of an instance profile. For example, ``*ecsInstanceRole*`` or ``arn:aws:iam:: *<aws_account_id>* :instance-profile/ *ecsInstanceRole*`` . For more information, see `Amazon ECS instance role <https://docs.aws.amazon.com/batch/latest/userguide/instance_IAM_role.html>`_ in the *AWS Batch User Guide* . When updating a compute environment, changing this setting requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
             :param instance_types: The instances types that can be launched. You can specify instance families to launch any instance type within those families (for example, ``c5`` or ``p3`` ), or you can specify specific sizes within a family (such as ``c5.8xlarge`` ). AWS Batch can select the instance type for you if you choose one of the following: - ``optimal`` to select instance types (from the ``c4`` , ``m4`` , ``r4`` , ``c5`` , ``m5`` , and ``r5`` instance families) that match the demand of your job queues. - ``default_x86_64`` to choose x86 based instance types (from the ``m6i`` , ``c6i`` , ``r6i`` , and ``c7i`` instance families) that matches the resource demands of the job queue. - ``default_arm64`` to choose x86 based instance types (from the ``m6g`` , ``c6g`` , ``r6g`` , and ``c7g`` instance families) that matches the resource demands of the job queue. .. epigraph:: Starting on 11/01/2025 the behavior of ``optimal`` is going to be changed to match ``default_x86_64`` . During the change your instance families could be updated to a newer generation. You do not need to perform any actions for the upgrade to happen. For more information about change, see `Optimal instance type configuration to receive automatic instance family updates <https://docs.aws.amazon.com/batch/latest/userguide/optimal-default-instance-troubleshooting.html>`_ . > Instance family availability varies by AWS Region . For example, some AWS Region s may not have any fourth generation instance families but have fifth and sixth generation instance families. When using ``default_x86_64`` or ``default_arm64`` instance bundles, AWS Batch selects instance families based on a balance of cost-effectiveness and performance. While newer generation instances often provide better price-performance, AWS Batch may choose an earlier generation instance family if it provides the optimal combination of availability, cost, and performance for your workload. For example, in an AWS Region where both c6i and c7i instances are available, AWS Batch might select c6i instances if they offer better cost-effectiveness for your specific job requirements. For more information on AWS Batch instance types and AWS Region availability, see `Instance type compute table <https://docs.aws.amazon.com/batch/latest/userguide/instance-type-compute-table.html>`_ in the *AWS Batch User Guide* . AWS Batch periodically updates your instances in default bundles to newer, more cost-effective options. Updates happen automatically without requiring any action from you. Your workloads continue running during updates with no interruption > This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it. > When you create a compute environment, the instance types that you select for the compute environment must share the same architecture. For example, you can't mix x86 and ARM instances in the same compute environment.
             :param launch_template: The launch template to use for your compute resources. Any other compute resource parameters that you specify in a `CreateComputeEnvironment <https://docs.aws.amazon.com/batch/latest/APIReference/API_CreateComputeEnvironment.html>`_ API operation override the same parameters in the launch template. You must specify either the launch template ID or launch template name in the request, but not both. For more information, see `Launch Template Support <https://docs.aws.amazon.com/batch/latest/userguide/launch-templates.html>`_ in the ** . Removing the launch template from a compute environment will not remove the AMI specified in the launch template. In order to update the AMI specified in a launch template, the ``updateToLatestImageVersion`` parameter must be set to ``true`` . When updating a compute environment, changing the launch template requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the ** . .. epigraph:: This parameter isn't applicable to jobs running on Fargate resources, and shouldn't be specified.
+            :param managed_instances_provider: 
             :param minv_cpus: The minimum number of vCPUs that an environment should maintain (even if the compute environment is ``DISABLED`` ). .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
             :param placement_group: The Amazon EC2 placement group to associate with your compute resources. If you intend to submit multi-node parallel jobs to your compute environment, you should consider creating a cluster placement group and associate it with your compute resources. This keeps your multi-node parallel job on a logical grouping of instances within a single Availability Zone with high network flow potential. For more information, see `Placement groups <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html>`_ in the *Amazon EC2 User Guide for Linux Instances* . When updating a compute environment, changing the placement group requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
             :param scaling_policy: 
             :param security_group_ids: The Amazon EC2 security groups that are associated with instances launched in the compute environment. This parameter is required for Fargate compute resources, where it can contain up to 5 security groups. For Fargate compute resources, providing an empty list is handled as if this parameter wasn't specified and no change is made. For Amazon EC2 compute resources, providing an empty list removes the security groups from the compute resource. When updating a compute environment, changing the Amazon EC2 security groups requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* .
             :param spot_iam_fleet_role: The Amazon Resource Name (ARN) of the Amazon EC2 Spot Fleet IAM role applied to a ``SPOT`` compute environment. This role is required if the allocation strategy set to ``BEST_FIT`` or if the allocation strategy isn't specified. For more information, see `Amazon EC2 spot fleet role <https://docs.aws.amazon.com/batch/latest/userguide/spot_fleet_IAM_role.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it. > To tag your Spot Instances on creation, the Spot Fleet IAM role specified here must use the newer *AmazonEC2SpotFleetTaggingRole* managed policy. The previously recommended *AmazonEC2SpotFleetRole* managed policy doesn't have the required permissions to tag Spot Instances. For more information, see `Spot instances not tagged on creation <https://docs.aws.amazon.com/batch/latest/userguide/troubleshooting.html#spot-instance-no-tag>`_ in the *AWS Batch User Guide* .
+            :param subnets: The VPC subnets where the compute resources are launched. Fargate compute resources can contain up to 16 subnets. For Fargate compute resources, providing an empty list will be handled as if this parameter wasn't specified and no change is made. For Amazon EC2 compute resources, providing an empty list removes the VPC subnets from the compute resource. For more information, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* . When updating a compute environment, changing the VPC subnets requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: AWS Batch on Amazon EC2 and AWS Batch on Amazon EKS support Local Zones. For more information, see `Local Zones <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-local-zones>`_ in the *Amazon EC2 User Guide for Linux Instances* , `Amazon EKS and AWS Local Zones <https://docs.aws.amazon.com/eks/latest/userguide/local-zones.html>`_ in the *Amazon EKS User Guide* and `Amazon ECS clusters in Local Zones, Wavelength Zones, and AWS Outposts <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-regions-zones.html#clusters-local-zones>`_ in the *Amazon ECS Developer Guide* . AWS Batch on Fargate doesn't currently support Local Zones.
             :param tags: Key-value pair tags to be applied to Amazon EC2 resources that are launched in the compute environment. For AWS Batch , these take the form of ``"String1": "String2"`` , where ``String1`` is the tag key and ``String2`` is the tag value (for example, ``{ "Name": "Batch Instance - C4OnDemand" }`` ). This is helpful for recognizing your Batch instances in the Amazon EC2 console. These tags aren't seen when using the AWS Batch ``ListTagsForResource`` API operation. When updating a compute environment, changing this setting requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
             :param update_to_latest_image_version: Specifies whether the AMI ID is updated to the latest one that's supported by AWS Batch when the compute environment has an infrastructure update. The default value is ``false`` . .. epigraph:: An AMI ID can either be specified in the ``imageId`` or ``imageIdOverride`` parameters or be determined by the launch template that's specified in the ``launchTemplate`` parameter. If an AMI ID is specified any of these ways, this parameter is ignored. For more information about to update AMI IDs during an infrastructure update, see `Updating the AMI ID <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html#updating-compute-environments-ami>`_ in the *AWS Batch User Guide* . When updating a compute environment, changing this setting requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . Default: - false
 
@@ -1488,12 +1625,14 @@ class CfnComputeEnvironment(
                 
                 compute_resources_property = batch.CfnComputeEnvironment.ComputeResourcesProperty(
                     maxv_cpus=123,
-                    subnets=["subnets"],
                     type="type",
                 
                     # the properties below are optional
                     allocation_strategy="allocationStrategy",
                     bid_percentage=123,
+                    capacity_tags={
+                        "capacity_tags_key": "capacityTags"
+                    },
                     desiredv_cpus=123,
                     ec2_configuration=[batch.CfnComputeEnvironment.Ec2ConfigurationObjectProperty(
                         image_type="imageType",
@@ -1520,6 +1659,41 @@ class CfnComputeEnvironment(
                         userdata_type="userdataType",
                         version="version"
                     ),
+                    managed_instances_provider=batch.CfnComputeEnvironment.ManagedInstancesProviderProperty(
+                        infrastructure_role_arn="infrastructureRoleArn",
+                        instance_launch_template=batch.CfnComputeEnvironment.InstanceLaunchTemplateProperty(
+                            ec2_instance_profile_arn="ec2InstanceProfileArn",
+                            network_configuration=batch.CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty(
+                                security_groups=["securityGroups"],
+                                subnets=["subnets"]
+                            ),
+                
+                            # the properties below are optional
+                            capacity_option_type="capacityOptionType",
+                            capacity_reservations=batch.CfnComputeEnvironment.CapacityReservationsProperty(
+                                reservation_group_arn="reservationGroupArn",
+                                reservation_preference="reservationPreference"
+                            ),
+                            fips_enabled=False,
+                            instance_metadata_tags_propagation=False,
+                            instance_requirements=batch.CfnComputeEnvironment.InstanceRequirementsProperty(
+                                allowed_instance_types=["allowedInstanceTypes"]
+                            ),
+                            local_storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty(
+                                use_local_storage=False
+                            ),
+                            monitoring="monitoring",
+                            storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty(
+                                storage_size_gi_b=123
+                            )
+                        ),
+                
+                        # the properties below are optional
+                        infrastructure_optimization=batch.CfnComputeEnvironment.InfrastructureOptimizationProperty(
+                            scale_in_after=123
+                        ),
+                        propagate_tags="propagateTags"
+                    ),
                     minv_cpus=123,
                     placement_group="placementGroup",
                     scaling_policy=batch.CfnComputeEnvironment.ComputeScalingPolicyProperty(
@@ -1527,6 +1701,7 @@ class CfnComputeEnvironment(
                     ),
                     security_group_ids=["securityGroupIds"],
                     spot_iam_fleet_role="spotIamFleetRole",
+                    subnets=["subnets"],
                     tags={
                         "tags_key": "tags"
                     },
@@ -1536,10 +1711,10 @@ class CfnComputeEnvironment(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__0e554c6eb00e2d197fa806c35d70007a7590c1c363259e3e48971f0671e0e85f)
                 check_type(argname="argument maxv_cpus", value=maxv_cpus, expected_type=type_hints["maxv_cpus"])
-                check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
                 check_type(argname="argument bid_percentage", value=bid_percentage, expected_type=type_hints["bid_percentage"])
+                check_type(argname="argument capacity_tags", value=capacity_tags, expected_type=type_hints["capacity_tags"])
                 check_type(argname="argument desiredv_cpus", value=desiredv_cpus, expected_type=type_hints["desiredv_cpus"])
                 check_type(argname="argument ec2_configuration", value=ec2_configuration, expected_type=type_hints["ec2_configuration"])
                 check_type(argname="argument ec2_key_pair", value=ec2_key_pair, expected_type=type_hints["ec2_key_pair"])
@@ -1547,22 +1722,25 @@ class CfnComputeEnvironment(
                 check_type(argname="argument instance_role", value=instance_role, expected_type=type_hints["instance_role"])
                 check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
                 check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
+                check_type(argname="argument managed_instances_provider", value=managed_instances_provider, expected_type=type_hints["managed_instances_provider"])
                 check_type(argname="argument minv_cpus", value=minv_cpus, expected_type=type_hints["minv_cpus"])
                 check_type(argname="argument placement_group", value=placement_group, expected_type=type_hints["placement_group"])
                 check_type(argname="argument scaling_policy", value=scaling_policy, expected_type=type_hints["scaling_policy"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument spot_iam_fleet_role", value=spot_iam_fleet_role, expected_type=type_hints["spot_iam_fleet_role"])
+                check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
                 check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
                 check_type(argname="argument update_to_latest_image_version", value=update_to_latest_image_version, expected_type=type_hints["update_to_latest_image_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "maxv_cpus": maxv_cpus,
-                "subnets": subnets,
                 "type": type,
             }
             if allocation_strategy is not None:
                 self._values["allocation_strategy"] = allocation_strategy
             if bid_percentage is not None:
                 self._values["bid_percentage"] = bid_percentage
+            if capacity_tags is not None:
+                self._values["capacity_tags"] = capacity_tags
             if desiredv_cpus is not None:
                 self._values["desiredv_cpus"] = desiredv_cpus
             if ec2_configuration is not None:
@@ -1577,6 +1755,8 @@ class CfnComputeEnvironment(
                 self._values["instance_types"] = instance_types
             if launch_template is not None:
                 self._values["launch_template"] = launch_template
+            if managed_instances_provider is not None:
+                self._values["managed_instances_provider"] = managed_instances_provider
             if minv_cpus is not None:
                 self._values["minv_cpus"] = minv_cpus
             if placement_group is not None:
@@ -1587,6 +1767,8 @@ class CfnComputeEnvironment(
                 self._values["security_group_ids"] = security_group_ids
             if spot_iam_fleet_role is not None:
                 self._values["spot_iam_fleet_role"] = spot_iam_fleet_role
+            if subnets is not None:
+                self._values["subnets"] = subnets
             if tags is not None:
                 self._values["tags"] = tags
             if update_to_latest_image_version is not None:
@@ -1605,25 +1787,6 @@ class CfnComputeEnvironment(
             result = self._values.get("maxv_cpus")
             assert result is not None, "Required property 'maxv_cpus' is missing"
             return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def subnets(self) -> typing.List[builtins.str]:
-            '''The VPC subnets where the compute resources are launched.
-
-            Fargate compute resources can contain up to 16 subnets. For Fargate compute resources, providing an empty list will be handled as if this parameter wasn't specified and no change is made. For Amazon EC2 compute resources, providing an empty list removes the VPC subnets from the compute resource. For more information, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* .
-
-            When updating a compute environment, changing the VPC subnets requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* .
-            .. epigraph::
-
-               AWS Batch on Amazon EC2 and AWS Batch on Amazon EKS support Local Zones. For more information, see `Local Zones <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-local-zones>`_ in the *Amazon EC2 User Guide for Linux Instances* , `Amazon EKS and AWS Local Zones <https://docs.aws.amazon.com/eks/latest/userguide/local-zones.html>`_ in the *Amazon EKS User Guide* and `Amazon ECS clusters in Local Zones, Wavelength Zones, and AWS Outposts <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-regions-zones.html#clusters-local-zones>`_ in the *Amazon ECS Developer Guide* .
-
-               AWS Batch on Fargate doesn't currently support Local Zones.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-subnets
-            '''
-            result = self._values.get("subnets")
-            assert result is not None, "Required property 'subnets' is missing"
-            return typing.cast(typing.List[builtins.str], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -1685,6 +1848,17 @@ class CfnComputeEnvironment(
             '''
             result = self._values.get("bid_percentage")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def capacity_tags(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Capacity-level tags for compute environments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-capacitytags
+            '''
+            result = self._values.get("capacity_tags")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def desiredv_cpus(self) -> typing.Optional[jsii.Number]:
@@ -1814,6 +1988,16 @@ class CfnComputeEnvironment(
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.LaunchTemplateSpecificationProperty"]], result)
 
         @builtins.property
+        def managed_instances_provider(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.ManagedInstancesProviderProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-managedinstancesprovider
+            '''
+            result = self._values.get("managed_instances_provider")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.ManagedInstancesProviderProperty"]], result)
+
+        @builtins.property
         def minv_cpus(self) -> typing.Optional[jsii.Number]:
             '''The minimum number of vCPUs that an environment should maintain (even if the compute environment is ``DISABLED`` ).
 
@@ -1878,6 +2062,24 @@ class CfnComputeEnvironment(
             '''
             result = self._values.get("spot_iam_fleet_role")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The VPC subnets where the compute resources are launched.
+
+            Fargate compute resources can contain up to 16 subnets. For Fargate compute resources, providing an empty list will be handled as if this parameter wasn't specified and no change is made. For Amazon EC2 compute resources, providing an empty list removes the VPC subnets from the compute resource. For more information, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* .
+
+            When updating a compute environment, changing the VPC subnets requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* .
+            .. epigraph::
+
+               AWS Batch on Amazon EC2 and AWS Batch on Amazon EKS support Local Zones. For more information, see `Local Zones <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-local-zones>`_ in the *Amazon EC2 User Guide for Linux Instances* , `Amazon EKS and AWS Local Zones <https://docs.aws.amazon.com/eks/latest/userguide/local-zones.html>`_ in the *Amazon EKS User Guide* and `Amazon ECS clusters in Local Zones, Wavelength Zones, and AWS Outposts <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-regions-zones.html#clusters-local-zones>`_ in the *Amazon ECS Developer Guide* .
+
+               AWS Batch on Fargate doesn't currently support Local Zones.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-subnets
+            '''
+            result = self._values.get("subnets")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -2139,6 +2341,59 @@ class CfnComputeEnvironment(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.EcsSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"container_insights": "containerInsights"},
+    )
+    class EcsSettingsProperty:
+        def __init__(
+            self,
+            *,
+            container_insights: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param container_insights: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-ecssettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                ecs_settings_property = batch.CfnComputeEnvironment.EcsSettingsProperty(
+                    container_insights="containerInsights"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3ce795882a92ce4ddccf28104d448b1549ce89722f1be912d9fc1a911c3d6538)
+                check_type(argname="argument container_insights", value=container_insights, expected_type=type_hints["container_insights"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if container_insights is not None:
+                self._values["container_insights"] = container_insights
+
+        @builtins.property
+        def container_insights(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-ecssettings.html#cfn-batch-computeenvironment-ecssettings-containerinsights
+            '''
+            result = self._values.get("container_insights")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EcsSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.EksConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2215,6 +2470,331 @@ class CfnComputeEnvironment(
 
         def __repr__(self) -> str:
             return "EksConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.InfrastructureOptimizationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"scale_in_after": "scaleInAfter"},
+    )
+    class InfrastructureOptimizationProperty:
+        def __init__(
+            self,
+            *,
+            scale_in_after: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param scale_in_after: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-infrastructureoptimization.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                infrastructure_optimization_property = batch.CfnComputeEnvironment.InfrastructureOptimizationProperty(
+                    scale_in_after=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__65a9a6e61154c7e8c34d51946fc028c5748136c31f48c33a598c5465cacdf8b3)
+                check_type(argname="argument scale_in_after", value=scale_in_after, expected_type=type_hints["scale_in_after"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if scale_in_after is not None:
+                self._values["scale_in_after"] = scale_in_after
+
+        @builtins.property
+        def scale_in_after(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-infrastructureoptimization.html#cfn-batch-computeenvironment-infrastructureoptimization-scaleinafter
+            '''
+            result = self._values.get("scale_in_after")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InfrastructureOptimizationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.InstanceLaunchTemplateProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ec2_instance_profile_arn": "ec2InstanceProfileArn",
+            "network_configuration": "networkConfiguration",
+            "capacity_option_type": "capacityOptionType",
+            "capacity_reservations": "capacityReservations",
+            "fips_enabled": "fipsEnabled",
+            "instance_metadata_tags_propagation": "instanceMetadataTagsPropagation",
+            "instance_requirements": "instanceRequirements",
+            "local_storage_configuration": "localStorageConfiguration",
+            "monitoring": "monitoring",
+            "storage_configuration": "storageConfiguration",
+        },
+    )
+    class InstanceLaunchTemplateProperty:
+        def __init__(
+            self,
+            *,
+            ec2_instance_profile_arn: builtins.str,
+            network_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            capacity_option_type: typing.Optional[builtins.str] = None,
+            capacity_reservations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.CapacityReservationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fips_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            instance_metadata_tags_propagation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            instance_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            local_storage_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            monitoring: typing.Optional[builtins.str] = None,
+            storage_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param ec2_instance_profile_arn: 
+            :param network_configuration: 
+            :param capacity_option_type: 
+            :param capacity_reservations: 
+            :param fips_enabled: 
+            :param instance_metadata_tags_propagation: 
+            :param instance_requirements: 
+            :param local_storage_configuration: 
+            :param monitoring: 
+            :param storage_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                instance_launch_template_property = batch.CfnComputeEnvironment.InstanceLaunchTemplateProperty(
+                    ec2_instance_profile_arn="ec2InstanceProfileArn",
+                    network_configuration=batch.CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty(
+                        security_groups=["securityGroups"],
+                        subnets=["subnets"]
+                    ),
+                
+                    # the properties below are optional
+                    capacity_option_type="capacityOptionType",
+                    capacity_reservations=batch.CfnComputeEnvironment.CapacityReservationsProperty(
+                        reservation_group_arn="reservationGroupArn",
+                        reservation_preference="reservationPreference"
+                    ),
+                    fips_enabled=False,
+                    instance_metadata_tags_propagation=False,
+                    instance_requirements=batch.CfnComputeEnvironment.InstanceRequirementsProperty(
+                        allowed_instance_types=["allowedInstanceTypes"]
+                    ),
+                    local_storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty(
+                        use_local_storage=False
+                    ),
+                    monitoring="monitoring",
+                    storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty(
+                        storage_size_gi_b=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3ac2c0f524862183a4575f27ec644c20ffc215b9264027766761ff6c0c061d2e)
+                check_type(argname="argument ec2_instance_profile_arn", value=ec2_instance_profile_arn, expected_type=type_hints["ec2_instance_profile_arn"])
+                check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
+                check_type(argname="argument capacity_option_type", value=capacity_option_type, expected_type=type_hints["capacity_option_type"])
+                check_type(argname="argument capacity_reservations", value=capacity_reservations, expected_type=type_hints["capacity_reservations"])
+                check_type(argname="argument fips_enabled", value=fips_enabled, expected_type=type_hints["fips_enabled"])
+                check_type(argname="argument instance_metadata_tags_propagation", value=instance_metadata_tags_propagation, expected_type=type_hints["instance_metadata_tags_propagation"])
+                check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
+                check_type(argname="argument local_storage_configuration", value=local_storage_configuration, expected_type=type_hints["local_storage_configuration"])
+                check_type(argname="argument monitoring", value=monitoring, expected_type=type_hints["monitoring"])
+                check_type(argname="argument storage_configuration", value=storage_configuration, expected_type=type_hints["storage_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "ec2_instance_profile_arn": ec2_instance_profile_arn,
+                "network_configuration": network_configuration,
+            }
+            if capacity_option_type is not None:
+                self._values["capacity_option_type"] = capacity_option_type
+            if capacity_reservations is not None:
+                self._values["capacity_reservations"] = capacity_reservations
+            if fips_enabled is not None:
+                self._values["fips_enabled"] = fips_enabled
+            if instance_metadata_tags_propagation is not None:
+                self._values["instance_metadata_tags_propagation"] = instance_metadata_tags_propagation
+            if instance_requirements is not None:
+                self._values["instance_requirements"] = instance_requirements
+            if local_storage_configuration is not None:
+                self._values["local_storage_configuration"] = local_storage_configuration
+            if monitoring is not None:
+                self._values["monitoring"] = monitoring
+            if storage_configuration is not None:
+                self._values["storage_configuration"] = storage_configuration
+
+        @builtins.property
+        def ec2_instance_profile_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-ec2instanceprofilearn
+            '''
+            result = self._values.get("ec2_instance_profile_arn")
+            assert result is not None, "Required property 'ec2_instance_profile_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def network_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-networkconfiguration
+            '''
+            result = self._values.get("network_configuration")
+            assert result is not None, "Required property 'network_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty"], result)
+
+        @builtins.property
+        def capacity_option_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-capacityoptiontype
+            '''
+            result = self._values.get("capacity_option_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def capacity_reservations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.CapacityReservationsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-capacityreservations
+            '''
+            result = self._values.get("capacity_reservations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.CapacityReservationsProperty"]], result)
+
+        @builtins.property
+        def fips_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-fipsenabled
+            '''
+            result = self._values.get("fips_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def instance_metadata_tags_propagation(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-instancemetadatatagspropagation
+            '''
+            result = self._values.get("instance_metadata_tags_propagation")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def instance_requirements(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.InstanceRequirementsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-instancerequirements
+            '''
+            result = self._values.get("instance_requirements")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.InstanceRequirementsProperty"]], result)
+
+        @builtins.property
+        def local_storage_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-localstorageconfiguration
+            '''
+            result = self._values.get("local_storage_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty"]], result)
+
+        @builtins.property
+        def monitoring(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-monitoring
+            '''
+            result = self._values.get("monitoring")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def storage_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancelaunchtemplate.html#cfn-batch-computeenvironment-instancelaunchtemplate-storageconfiguration
+            '''
+            result = self._values.get("storage_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InstanceLaunchTemplateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.InstanceRequirementsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"allowed_instance_types": "allowedInstanceTypes"},
+    )
+    class InstanceRequirementsProperty:
+        def __init__(
+            self,
+            *,
+            allowed_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param allowed_instance_types: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancerequirements.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                instance_requirements_property = batch.CfnComputeEnvironment.InstanceRequirementsProperty(
+                    allowed_instance_types=["allowedInstanceTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7abd885d16169bdae9c9b866d65580e495d2dd8003fb3fa8a52cccf5fb11e18d)
+                check_type(argname="argument allowed_instance_types", value=allowed_instance_types, expected_type=type_hints["allowed_instance_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if allowed_instance_types is not None:
+                self._values["allowed_instance_types"] = allowed_instance_types
+
+        @builtins.property
+        def allowed_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-instancerequirements.html#cfn-batch-computeenvironment-instancerequirements-allowedinstancetypes
+            '''
+            result = self._values.get("allowed_instance_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InstanceRequirementsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2527,6 +3107,316 @@ class CfnComputeEnvironment(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"use_local_storage": "useLocalStorage"},
+    )
+    class ManagedInstancesLocalStorageConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            use_local_storage: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''
+            :param use_local_storage: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstanceslocalstorageconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                managed_instances_local_storage_configuration_property = batch.CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty(
+                    use_local_storage=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b83ffe00d39042d1937c8d9f39074efe5b40041f941438add0ed0c54a0fb5e46)
+                check_type(argname="argument use_local_storage", value=use_local_storage, expected_type=type_hints["use_local_storage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if use_local_storage is not None:
+                self._values["use_local_storage"] = use_local_storage
+
+        @builtins.property
+        def use_local_storage(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstanceslocalstorageconfiguration.html#cfn-batch-computeenvironment-managedinstanceslocalstorageconfiguration-uselocalstorage
+            '''
+            result = self._values.get("use_local_storage")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedInstancesLocalStorageConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"security_groups": "securityGroups", "subnets": "subnets"},
+    )
+    class ManagedInstancesNetworkConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            security_groups: typing.Sequence[builtins.str],
+            subnets: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            :param security_groups: 
+            :param subnets: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesnetworkconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                managed_instances_network_configuration_property = batch.CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty(
+                    security_groups=["securityGroups"],
+                    subnets=["subnets"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dc6683eee9494c0dd58a401c2b9a5c3db209583f11772a17bc459cbf36d6c349)
+                check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+                check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "security_groups": security_groups,
+                "subnets": subnets,
+            }
+
+        @builtins.property
+        def security_groups(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesnetworkconfiguration.html#cfn-batch-computeenvironment-managedinstancesnetworkconfiguration-securitygroups
+            '''
+            result = self._values.get("security_groups")
+            assert result is not None, "Required property 'security_groups' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnets(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesnetworkconfiguration.html#cfn-batch-computeenvironment-managedinstancesnetworkconfiguration-subnets
+            '''
+            result = self._values.get("subnets")
+            assert result is not None, "Required property 'subnets' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedInstancesNetworkConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.ManagedInstancesProviderProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "infrastructure_role_arn": "infrastructureRoleArn",
+            "instance_launch_template": "instanceLaunchTemplate",
+            "infrastructure_optimization": "infrastructureOptimization",
+            "propagate_tags": "propagateTags",
+        },
+    )
+    class ManagedInstancesProviderProperty:
+        def __init__(
+            self,
+            *,
+            infrastructure_role_arn: builtins.str,
+            instance_launch_template: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.InstanceLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]],
+            infrastructure_optimization: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.InfrastructureOptimizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            propagate_tags: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param infrastructure_role_arn: 
+            :param instance_launch_template: 
+            :param infrastructure_optimization: 
+            :param propagate_tags: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesprovider.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                managed_instances_provider_property = batch.CfnComputeEnvironment.ManagedInstancesProviderProperty(
+                    infrastructure_role_arn="infrastructureRoleArn",
+                    instance_launch_template=batch.CfnComputeEnvironment.InstanceLaunchTemplateProperty(
+                        ec2_instance_profile_arn="ec2InstanceProfileArn",
+                        network_configuration=batch.CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty(
+                            security_groups=["securityGroups"],
+                            subnets=["subnets"]
+                        ),
+                
+                        # the properties below are optional
+                        capacity_option_type="capacityOptionType",
+                        capacity_reservations=batch.CfnComputeEnvironment.CapacityReservationsProperty(
+                            reservation_group_arn="reservationGroupArn",
+                            reservation_preference="reservationPreference"
+                        ),
+                        fips_enabled=False,
+                        instance_metadata_tags_propagation=False,
+                        instance_requirements=batch.CfnComputeEnvironment.InstanceRequirementsProperty(
+                            allowed_instance_types=["allowedInstanceTypes"]
+                        ),
+                        local_storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty(
+                            use_local_storage=False
+                        ),
+                        monitoring="monitoring",
+                        storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty(
+                            storage_size_gi_b=123
+                        )
+                    ),
+                
+                    # the properties below are optional
+                    infrastructure_optimization=batch.CfnComputeEnvironment.InfrastructureOptimizationProperty(
+                        scale_in_after=123
+                    ),
+                    propagate_tags="propagateTags"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b7fee096953ec27bc7969c59885341438b0a3270ac9a7076edc5bf2856bb8a43)
+                check_type(argname="argument infrastructure_role_arn", value=infrastructure_role_arn, expected_type=type_hints["infrastructure_role_arn"])
+                check_type(argname="argument instance_launch_template", value=instance_launch_template, expected_type=type_hints["instance_launch_template"])
+                check_type(argname="argument infrastructure_optimization", value=infrastructure_optimization, expected_type=type_hints["infrastructure_optimization"])
+                check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "infrastructure_role_arn": infrastructure_role_arn,
+                "instance_launch_template": instance_launch_template,
+            }
+            if infrastructure_optimization is not None:
+                self._values["infrastructure_optimization"] = infrastructure_optimization
+            if propagate_tags is not None:
+                self._values["propagate_tags"] = propagate_tags
+
+        @builtins.property
+        def infrastructure_role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesprovider.html#cfn-batch-computeenvironment-managedinstancesprovider-infrastructurerolearn
+            '''
+            result = self._values.get("infrastructure_role_arn")
+            assert result is not None, "Required property 'infrastructure_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def instance_launch_template(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.InstanceLaunchTemplateProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesprovider.html#cfn-batch-computeenvironment-managedinstancesprovider-instancelaunchtemplate
+            '''
+            result = self._values.get("instance_launch_template")
+            assert result is not None, "Required property 'instance_launch_template' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.InstanceLaunchTemplateProperty"], result)
+
+        @builtins.property
+        def infrastructure_optimization(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.InfrastructureOptimizationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesprovider.html#cfn-batch-computeenvironment-managedinstancesprovider-infrastructureoptimization
+            '''
+            result = self._values.get("infrastructure_optimization")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.InfrastructureOptimizationProperty"]], result)
+
+        @builtins.property
+        def propagate_tags(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesprovider.html#cfn-batch-computeenvironment-managedinstancesprovider-propagatetags
+            '''
+            result = self._values.get("propagate_tags")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedInstancesProviderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"storage_size_gib": "storageSizeGiB"},
+    )
+    class ManagedInstancesStorageConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            storage_size_gib: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param storage_size_gib: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesstorageconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                managed_instances_storage_configuration_property = batch.CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty(
+                    storage_size_gi_b=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7723dbeb5f830eb159f49557028916988f704e49628d17b98f55f4c9a53fa0bc)
+                check_type(argname="argument storage_size_gib", value=storage_size_gib, expected_type=type_hints["storage_size_gib"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if storage_size_gib is not None:
+                self._values["storage_size_gib"] = storage_size_gib
+
+        @builtins.property
+        def storage_size_gib(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-managedinstancesstorageconfiguration.html#cfn-batch-computeenvironment-managedinstancesstorageconfiguration-storagesizegib
+            '''
+            result = self._values.get("storage_size_gib")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedInstancesStorageConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.UpdatePolicyProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2620,6 +3510,7 @@ class CfnComputeEnvironment(
         "compute_environment_name": "computeEnvironmentName",
         "compute_resources": "computeResources",
         "context": "context",
+        "ecs_settings": "ecsSettings",
         "eks_configuration": "eksConfiguration",
         "replace_compute_environment": "replaceComputeEnvironment",
         "service_role": "serviceRole",
@@ -2637,6 +3528,7 @@ class CfnComputeEnvironmentProps:
         compute_environment_name: typing.Optional[builtins.str] = None,
         compute_resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.ComputeResourcesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         context: typing.Optional[builtins.str] = None,
+        ecs_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.EcsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         eks_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.EksConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         replace_compute_environment: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         service_role: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
@@ -2651,6 +3543,7 @@ class CfnComputeEnvironmentProps:
         :param compute_environment_name: The name for your compute environment. It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
         :param compute_resources: The ComputeResources property type specifies details of the compute resources managed by the compute environment. This parameter is required for managed compute environments. For more information, see `Compute Environments <https://docs.aws.amazon.com/batch/latest/userguide/compute_environments.html>`_ in the ** .
         :param context: Reserved.
+        :param ecs_settings: 
         :param eks_configuration: The details for the Amazon EKS cluster that supports the compute environment. .. epigraph:: To create a compute environment that uses EKS resources, the caller must have permissions to call ``eks:DescribeCluster`` .
         :param replace_compute_environment: Specifies whether the compute environment is replaced if an update is made that requires replacing the instances in the compute environment. The default value is ``true`` . To enable more properties to be updated, set this property to ``false`` . When changing the value of this property to ``false`` , do not change any other properties at the same time. If other properties are changed at the same time, and the change needs to be rolled back but it can't, it's possible for the stack to go into the ``UPDATE_ROLLBACK_FAILED`` state. You can't update a stack that is in the ``UPDATE_ROLLBACK_FAILED`` state. However, if you can continue to roll it back, you can return the stack to its original settings and then try to update it again. For more information, see `Continue rolling back an update <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-continueupdaterollback.html>`_ in the *AWS CloudFormation User Guide* . ``ReplaceComputeEnvironment`` is not applicable for Fargate compute environments. Fargate compute environments are always updated without interruption. The properties that can't be changed without replacing the compute environment are in the ```ComputeResources`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html>`_ property type: ```AllocationStrategy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-allocationstrategy>`_ , ```BidPercentage`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-bidpercentage>`_ , ```Ec2Configuration`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-ec2configuration>`_ , ```Ec2KeyPair`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-ec2keypair>`_ , ```Ec2KeyPair`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-ec2keypair>`_ , ```ImageId`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-imageid>`_ , ```InstanceRole`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-instancerole>`_ , ```InstanceTypes`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-instancetypes>`_ , ```LaunchTemplate`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-launchtemplate>`_ , ```MaxvCpus`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-maxvcpus>`_ , ```MinvCpus`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-minvcpus>`_ , ```PlacementGroup`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-placementgroup>`_ , ```SecurityGroupIds`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-securitygroupids>`_ , ```Subnets`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-subnets>`_ , `Tags <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-tags>`_ , ```Type`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-type>`_ , and ```UpdateToLatestImageVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-updatetolatestimageversion>`_ . Default: - true
         :param service_role: The full Amazon Resource Name (ARN) of the IAM role that allows AWS Batch to make calls to other AWS services on your behalf. For more information, see `AWS Batch service IAM role <https://docs.aws.amazon.com/batch/latest/userguide/service_IAM_role.html>`_ in the *AWS Batch User Guide* . .. epigraph:: If your account already created the AWS Batch service-linked role, that role is used by default for your compute environment unless you specify a different role here. If the AWS Batch service-linked role doesn't exist in your account, and no role is specified here, the service attempts to create the AWS Batch service-linked role in your account. If your specified role has a path other than ``/`` , then you must specify either the full role ARN (recommended) or prefix the role name with the path. For example, if a role with the name ``bar`` has a path of ``/foo/`` , specify ``/foo/bar`` as the role name. For more information, see `Friendly names and paths <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-friendly-names>`_ in the *IAM User Guide* . .. epigraph:: Depending on how you created your AWS Batch service role, its ARN might contain the ``service-role`` path prefix. When you only specify the name of the service role, AWS Batch assumes that your ARN doesn't use the ``service-role`` path prefix. Because of this, we recommend that you specify the full ARN of your service role when you create compute environments.
@@ -2675,12 +3568,14 @@ class CfnComputeEnvironmentProps:
                 compute_environment_name="computeEnvironmentName",
                 compute_resources=batch.CfnComputeEnvironment.ComputeResourcesProperty(
                     maxv_cpus=123,
-                    subnets=["subnets"],
                     type="type",
             
                     # the properties below are optional
                     allocation_strategy="allocationStrategy",
                     bid_percentage=123,
+                    capacity_tags={
+                        "capacity_tags_key": "capacityTags"
+                    },
                     desiredv_cpus=123,
                     ec2_configuration=[batch.CfnComputeEnvironment.Ec2ConfigurationObjectProperty(
                         image_type="imageType",
@@ -2707,6 +3602,41 @@ class CfnComputeEnvironmentProps:
                         userdata_type="userdataType",
                         version="version"
                     ),
+                    managed_instances_provider=batch.CfnComputeEnvironment.ManagedInstancesProviderProperty(
+                        infrastructure_role_arn="infrastructureRoleArn",
+                        instance_launch_template=batch.CfnComputeEnvironment.InstanceLaunchTemplateProperty(
+                            ec2_instance_profile_arn="ec2InstanceProfileArn",
+                            network_configuration=batch.CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty(
+                                security_groups=["securityGroups"],
+                                subnets=["subnets"]
+                            ),
+            
+                            # the properties below are optional
+                            capacity_option_type="capacityOptionType",
+                            capacity_reservations=batch.CfnComputeEnvironment.CapacityReservationsProperty(
+                                reservation_group_arn="reservationGroupArn",
+                                reservation_preference="reservationPreference"
+                            ),
+                            fips_enabled=False,
+                            instance_metadata_tags_propagation=False,
+                            instance_requirements=batch.CfnComputeEnvironment.InstanceRequirementsProperty(
+                                allowed_instance_types=["allowedInstanceTypes"]
+                            ),
+                            local_storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty(
+                                use_local_storage=False
+                            ),
+                            monitoring="monitoring",
+                            storage_configuration=batch.CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty(
+                                storage_size_gi_b=123
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        infrastructure_optimization=batch.CfnComputeEnvironment.InfrastructureOptimizationProperty(
+                            scale_in_after=123
+                        ),
+                        propagate_tags="propagateTags"
+                    ),
                     minv_cpus=123,
                     placement_group="placementGroup",
                     scaling_policy=batch.CfnComputeEnvironment.ComputeScalingPolicyProperty(
@@ -2714,12 +3644,16 @@ class CfnComputeEnvironmentProps:
                     ),
                     security_group_ids=["securityGroupIds"],
                     spot_iam_fleet_role="spotIamFleetRole",
+                    subnets=["subnets"],
                     tags={
                         "tags_key": "tags"
                     },
                     update_to_latest_image_version=False
                 ),
                 context="context",
+                ecs_settings=batch.CfnComputeEnvironment.EcsSettingsProperty(
+                    container_insights="containerInsights"
+                ),
                 eks_configuration=batch.CfnComputeEnvironment.EksConfigurationProperty(
                     eks_cluster_arn="eksClusterArn",
                     kubernetes_namespace="kubernetesNamespace"
@@ -2743,6 +3677,7 @@ class CfnComputeEnvironmentProps:
             check_type(argname="argument compute_environment_name", value=compute_environment_name, expected_type=type_hints["compute_environment_name"])
             check_type(argname="argument compute_resources", value=compute_resources, expected_type=type_hints["compute_resources"])
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
+            check_type(argname="argument ecs_settings", value=ecs_settings, expected_type=type_hints["ecs_settings"])
             check_type(argname="argument eks_configuration", value=eks_configuration, expected_type=type_hints["eks_configuration"])
             check_type(argname="argument replace_compute_environment", value=replace_compute_environment, expected_type=type_hints["replace_compute_environment"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
@@ -2759,6 +3694,8 @@ class CfnComputeEnvironmentProps:
             self._values["compute_resources"] = compute_resources
         if context is not None:
             self._values["context"] = context
+        if ecs_settings is not None:
+            self._values["ecs_settings"] = ecs_settings
         if eks_configuration is not None:
             self._values["eks_configuration"] = eks_configuration
         if replace_compute_environment is not None:
@@ -2818,6 +3755,16 @@ class CfnComputeEnvironmentProps:
         '''
         result = self._values.get("context")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ecs_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.EcsSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-computeenvironment.html#cfn-batch-computeenvironment-ecssettings
+        '''
+        result = self._values.get("ecs_settings")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.EcsSettingsProperty"]], result)
 
     @builtins.property
     def eks_configuration(
@@ -4733,6 +5680,7 @@ class CfnJobDefinition(
                         network_configuration=batch.CfnJobDefinition.NetworkConfigurationProperty(
                             assign_public_ip="assignPublicIp"
                         ),
+                        network_mode="networkMode",
                         pid_mode="pidMode",
                         platform_version="platformVersion",
                         runtime_platform=batch.CfnJobDefinition.RuntimePlatformProperty(
@@ -4813,6 +5761,7 @@ class CfnJobDefinition(
             "execution_role_arn": "executionRoleArn",
             "ipc_mode": "ipcMode",
             "network_configuration": "networkConfiguration",
+            "network_mode": "networkMode",
             "pid_mode": "pidMode",
             "platform_version": "platformVersion",
             "runtime_platform": "runtimePlatform",
@@ -4830,6 +5779,7 @@ class CfnJobDefinition(
             execution_role_arn: typing.Optional[builtins.str] = None,
             ipc_mode: typing.Optional[builtins.str] = None,
             network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_mode: typing.Optional[builtins.str] = None,
             pid_mode: typing.Optional[builtins.str] = None,
             platform_version: typing.Optional[builtins.str] = None,
             runtime_platform: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.RuntimePlatformProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4846,6 +5796,7 @@ class CfnJobDefinition(
             :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role that AWS Batch can assume. For jobs that run on Fargate resources, you must provide an execution role. For more information, see `AWS Batch execution IAM role <https://docs.aws.amazon.com/batch/latest/userguide/execution-IAM-role.html>`_ in the *AWS Batch User Guide* .
             :param ipc_mode: The IPC resource namespace to use for the containers in the task. The valid values are ``host`` , ``task`` , or ``none`` . If ``host`` is specified, all containers within the tasks that specified the ``host`` IPC mode on the same container instance share the same IPC resources with the host Amazon EC2 instance. If ``task`` is specified, all containers within the specified ``task`` share the same IPC resources. If ``none`` is specified, the IPC resources within the containers of a task are private, and are not shared with other containers in a task or on the container instance. If no value is specified, then the IPC resource namespace sharing depends on the Docker daemon setting on the container instance. For more information, see `IPC settings <https://docs.aws.amazon.com/https://docs.docker.com/engine/reference/run/#ipc-settings---ipc>`_ in the Docker run reference.
             :param network_configuration: The network configuration for jobs that are running on Fargate resources. Jobs that are running on Amazon EC2 resources must not specify this parameter.
+            :param network_mode: 
             :param pid_mode: The process namespace to use for the containers in the task. The valid values are ``host`` or ``task`` . For example, monitoring sidecars might need ``pidMode`` to access information about other containers running in the same task. If ``host`` is specified, all containers within the tasks that specified the ``host`` PID mode on the same container instance share the process namespace with the host Amazon EC2 instance. If ``task`` is specified, all containers within the specified task share the same process namespace. If no value is specified, the default is a private namespace for each container. For more information, see `PID settings <https://docs.aws.amazon.com/https://docs.docker.com/engine/reference/run/#pid-settings---pid>`_ in the Docker run reference.
             :param platform_version: The Fargate platform version where the jobs are running. A platform version is specified only for jobs that are running on Fargate resources. If one isn't specified, the ``LATEST`` platform version is used by default. This uses a recent, approved version of the Fargate platform for compute resources. For more information, see `AWS Fargate platform versions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
             :param runtime_platform: An object that represents the compute environment architecture for AWS Batch jobs on Fargate.
@@ -4951,6 +5902,7 @@ class CfnJobDefinition(
                     network_configuration=batch.CfnJobDefinition.NetworkConfigurationProperty(
                         assign_public_ip="assignPublicIp"
                     ),
+                    network_mode="networkMode",
                     pid_mode="pidMode",
                     platform_version="platformVersion",
                     runtime_platform=batch.CfnJobDefinition.RuntimePlatformProperty(
@@ -4994,6 +5946,7 @@ class CfnJobDefinition(
                 check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
                 check_type(argname="argument ipc_mode", value=ipc_mode, expected_type=type_hints["ipc_mode"])
                 check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
+                check_type(argname="argument network_mode", value=network_mode, expected_type=type_hints["network_mode"])
                 check_type(argname="argument pid_mode", value=pid_mode, expected_type=type_hints["pid_mode"])
                 check_type(argname="argument platform_version", value=platform_version, expected_type=type_hints["platform_version"])
                 check_type(argname="argument runtime_platform", value=runtime_platform, expected_type=type_hints["runtime_platform"])
@@ -5012,6 +5965,8 @@ class CfnJobDefinition(
                 self._values["ipc_mode"] = ipc_mode
             if network_configuration is not None:
                 self._values["network_configuration"] = network_configuration
+            if network_mode is not None:
+                self._values["network_mode"] = network_mode
             if pid_mode is not None:
                 self._values["pid_mode"] = pid_mode
             if platform_version is not None:
@@ -5102,6 +6057,14 @@ class CfnJobDefinition(
             '''
             result = self._values.get("network_configuration")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.NetworkConfigurationProperty"]], result)
+
+        @builtins.property
+        def network_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ecstaskproperties.html#cfn-batch-jobdefinition-ecstaskproperties-networkmode
+            '''
+            result = self._values.get("network_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def pid_mode(self) -> typing.Optional[builtins.str]:
@@ -27887,6 +28850,7 @@ def _typecheckingstub__b3892141757a3fffc40366f3b0a3472c965c97710a96f3bb61a3618dd
     compute_environment_name: typing.Optional[builtins.str] = None,
     compute_resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.ComputeResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     context: typing.Optional[builtins.str] = None,
+    ecs_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.EcsSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     eks_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.EksConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     replace_compute_environment: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     service_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
@@ -27946,6 +28910,12 @@ def _typecheckingstub__da32f27a124e80b7835c8c0b9d4dd96db23a3745e9e3b0b4850f40ffa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f917c0f8e0752631deb1ea56ca73d9858a03f7c6646f04e812b9d61967d44a18(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeEnvironment.EcsSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__896771848c9977e1ce30b550c3e02c1b1e7e047a645b3eb92c3d6d3bcf2ef1cf(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeEnvironment.EksConfigurationProperty]],
 ) -> None:
@@ -27988,13 +28958,21 @@ def _typecheckingstub__39e9319d6ed789d3e7f527a145e7be0671311d4703680199b29ca8aef
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8e4cd5fe082b29bff10129759905ec9042c42822a72eec11265de11da14c0de8(
+    *,
+    reservation_group_arn: typing.Optional[builtins.str] = None,
+    reservation_preference: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0e554c6eb00e2d197fa806c35d70007a7590c1c363259e3e48971f0671e0e85f(
     *,
     maxv_cpus: jsii.Number,
-    subnets: typing.Sequence[builtins.str],
     type: builtins.str,
     allocation_strategy: typing.Optional[builtins.str] = None,
     bid_percentage: typing.Optional[jsii.Number] = None,
+    capacity_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     desiredv_cpus: typing.Optional[jsii.Number] = None,
     ec2_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.Ec2ConfigurationObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ec2_key_pair: typing.Optional[builtins.str] = None,
@@ -28002,11 +28980,13 @@ def _typecheckingstub__0e554c6eb00e2d197fa806c35d70007a7590c1c363259e3e48971f067
     instance_role: typing.Optional[builtins.str] = None,
     instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     launch_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_instances_provider: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.ManagedInstancesProviderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     minv_cpus: typing.Optional[jsii.Number] = None,
     placement_group: typing.Optional[builtins.str] = None,
     scaling_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.ComputeScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     spot_iam_fleet_role: typing.Optional[builtins.str] = None,
+    subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     update_to_latest_image_version: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
@@ -28030,10 +29010,47 @@ def _typecheckingstub__ce3b98c061a5de7793f276c675aa6c48c626a13d8debc8bf1a12f7411
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3ce795882a92ce4ddccf28104d448b1549ce89722f1be912d9fc1a911c3d6538(
+    *,
+    container_insights: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5d01293eced89171b858aec2adc4c3362e7bc583fff04c8572350b492d38c641(
     *,
     eks_cluster_arn: builtins.str,
     kubernetes_namespace: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65a9a6e61154c7e8c34d51946fc028c5748136c31f48c33a598c5465cacdf8b3(
+    *,
+    scale_in_after: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ac2c0f524862183a4575f27ec644c20ffc215b9264027766761ff6c0c061d2e(
+    *,
+    ec2_instance_profile_arn: builtins.str,
+    network_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.ManagedInstancesNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    capacity_option_type: typing.Optional[builtins.str] = None,
+    capacity_reservations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.CapacityReservationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fips_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    instance_metadata_tags_propagation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    instance_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    local_storage_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.ManagedInstancesLocalStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    monitoring: typing.Optional[builtins.str] = None,
+    storage_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.ManagedInstancesStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7abd885d16169bdae9c9b866d65580e495d2dd8003fb3fa8a52cccf5fb11e18d(
+    *,
+    allowed_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28060,6 +29077,38 @@ def _typecheckingstub__e2a48b24f0297afff0df36a352af2f9856ad8fac713d1ecbc2161d0b9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b83ffe00d39042d1937c8d9f39074efe5b40041f941438add0ed0c54a0fb5e46(
+    *,
+    use_local_storage: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc6683eee9494c0dd58a401c2b9a5c3db209583f11772a17bc459cbf36d6c349(
+    *,
+    security_groups: typing.Sequence[builtins.str],
+    subnets: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7fee096953ec27bc7969c59885341438b0a3270ac9a7076edc5bf2856bb8a43(
+    *,
+    infrastructure_role_arn: builtins.str,
+    instance_launch_template: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.InstanceLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
+    infrastructure_optimization: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.InfrastructureOptimizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7723dbeb5f830eb159f49557028916988f704e49628d17b98f55f4c9a53fa0bc(
+    *,
+    storage_size_gib: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2f01f930e5e22d80ed490169089dfdbf2f416fdeb6b3ae57212518ae0b70b5e3(
     *,
     job_execution_timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -28074,6 +29123,7 @@ def _typecheckingstub__a81ed1de03c840384ae49a0a4dbeb244507d2327c304fc093af8d7209
     compute_environment_name: typing.Optional[builtins.str] = None,
     compute_resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.ComputeResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     context: typing.Optional[builtins.str] = None,
+    ecs_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.EcsSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     eks_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.EksConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     replace_compute_environment: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     service_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
@@ -28369,6 +29419,7 @@ def _typecheckingstub__8e8c39be2b840a158045732ea20d964bf03d380304bbcd66936cb862e
     execution_role_arn: typing.Optional[builtins.str] = None,
     ipc_mode: typing.Optional[builtins.str] = None,
     network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_mode: typing.Optional[builtins.str] = None,
     pid_mode: typing.Optional[builtins.str] = None,
     platform_version: typing.Optional[builtins.str] = None,
     runtime_platform: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.RuntimePlatformProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -11,35 +11,46 @@ from scaleway_core.utils import (
     wait_for_resource,
 )
 from .types import (
+    AliasStatus,
     DomainStatus,
+    ListAliasesRequestOrderBy,
     ListDomainsRequestOrderBy,
     ListMailboxesRequestOrderBy,
     MailboxStatus,
     MailboxSubscriptionPeriod,
+    Alias,
     BatchCreateMailboxesRequest,
     BatchCreateMailboxesRequestMailboxParameters,
     BatchCreateMailboxesResponse,
+    CreateAliasRequest,
     CreateDomainRequest,
     Domain,
     GetDomainRecordsResponse,
+    ListAliasesResponse,
     ListDomainsResponse,
     ListMailboxesResponse,
     Mailbox,
+    UpdateAliasRequest,
     UpdateMailboxRequest,
 )
 from .content import (
+    ALIAS_TRANSIENT_STATUSES,
     DOMAIN_TRANSIENT_STATUSES,
     MAILBOX_TRANSIENT_STATUSES,
 )
 from .marshalling import (
     unmarshal_Mailbox,
+    unmarshal_Alias,
     unmarshal_Domain,
     unmarshal_BatchCreateMailboxesResponse,
     unmarshal_GetDomainRecordsResponse,
+    unmarshal_ListAliasesResponse,
     unmarshal_ListDomainsResponse,
     unmarshal_ListMailboxesResponse,
     marshal_BatchCreateMailboxesRequest,
+    marshal_CreateAliasRequest,
     marshal_CreateDomainRequest,
+    marshal_UpdateAliasRequest,
     marshal_UpdateMailboxRequest,
 )
 
@@ -292,7 +303,8 @@ class MailboxV1Alpha1API(API):
         domain_id: str,
     ) -> None:
         """
-        :param domain_id:
+        Validate domain records by its ID.
+        :param domain_id: ID of the domain with which to validate the records.
 
         Usage:
         ::
@@ -320,6 +332,7 @@ class MailboxV1Alpha1API(API):
         subscription_period: Optional[MailboxSubscriptionPeriod] = None,
     ) -> BatchCreateMailboxesResponse:
         """
+        Create one or more mailboxes.
         :param domain_id: ID of the domain in which to create the mailboxes.
         :param mailboxes: Parameters for the mailboxes to create.
         :param subscription_period: Subscription renewal period, it can be monthly or yearly.
@@ -358,6 +371,7 @@ class MailboxV1Alpha1API(API):
         domain_id: Optional[str] = None,
         statuses: Optional[list[MailboxStatus]] = None,
         search: Optional[str] = None,
+        project_id: Optional[str] = None,
     ) -> ListMailboxesResponse:
         """
         List mailboxes in an organization.
@@ -368,6 +382,7 @@ class MailboxV1Alpha1API(API):
         :param domain_id: (Optional) ID of the domain in which to list the mailboxes.
         :param statuses: (Optional) Filter mailboxes by their statuses.
         :param search: (Optional) Search term to filter mailboxes on name and local_part.
+        :param project_id: (Optional) Project ID to filter mailboxes on.
         :return: :class:`ListMailboxesResponse <ListMailboxesResponse>`
 
         Usage:
@@ -384,6 +399,7 @@ class MailboxV1Alpha1API(API):
                 "order_by": order_by,
                 "page": page,
                 "page_size": page_size or self.client.default_page_size,
+                "project_id": project_id or self.client.default_project_id,
                 "search": search,
                 "statuses": statuses,
             },
@@ -401,6 +417,7 @@ class MailboxV1Alpha1API(API):
         domain_id: Optional[str] = None,
         statuses: Optional[list[MailboxStatus]] = None,
         search: Optional[str] = None,
+        project_id: Optional[str] = None,
     ) -> list[Mailbox]:
         """
         List mailboxes in an organization.
@@ -411,6 +428,7 @@ class MailboxV1Alpha1API(API):
         :param domain_id: (Optional) ID of the domain in which to list the mailboxes.
         :param statuses: (Optional) Filter mailboxes by their statuses.
         :param search: (Optional) Search term to filter mailboxes on name and local_part.
+        :param project_id: (Optional) Project ID to filter mailboxes on.
         :return: :class:`list[Mailbox] <list[Mailbox]>`
 
         Usage:
@@ -430,6 +448,7 @@ class MailboxV1Alpha1API(API):
                 "domain_id": domain_id,
                 "statuses": statuses,
                 "search": search,
+                "project_id": project_id,
             },
         )
 
@@ -590,3 +609,250 @@ class MailboxV1Alpha1API(API):
 
         self._throw_on_error(res)
         return unmarshal_Mailbox(res.json())
+
+    def create_alias(
+        self,
+        *,
+        local_part: str,
+        mailbox_id: str,
+        description: Optional[str] = None,
+    ) -> Alias:
+        """
+        Create an alias for a mailbox.
+        :param local_part: Local part of the email address (e.g. local_part@domain.com).
+        :param mailbox_id: ID of the mailbox to associate with the alias.
+        :param description: (Optional) Description of the alias.
+        :return: :class:`Alias <Alias>`
+
+        Usage:
+        ::
+
+            result = api.create_alias(
+                local_part="example",
+                mailbox_id="example",
+            )
+        """
+
+        res = self._request(
+            "POST",
+            "/mailbox/v1alpha1/aliases",
+            body=marshal_CreateAliasRequest(
+                CreateAliasRequest(
+                    local_part=local_part,
+                    mailbox_id=mailbox_id,
+                    description=description,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_Alias(res.json())
+
+    def list_aliases(
+        self,
+        *,
+        order_by: Optional[ListAliasesRequestOrderBy] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        mailbox_id: Optional[str] = None,
+        status: Optional[AliasStatus] = None,
+        project_id: Optional[str] = None,
+    ) -> ListAliasesResponse:
+        """
+        List aliases for a mailbox.
+        :param order_by: Order aliases by specific criteria.
+        :param page: Requested page number. Value must be greater or equal to 1.
+        :param page_size: Requested page size. Value must be between 1 and 100.
+        :param mailbox_id: ID of the mailbox for which to list aliases.
+        :param status: (Optional) Filter aliases by their status.
+        :param project_id: Project ID to filter on.
+        :return: :class:`ListAliasesResponse <ListAliasesResponse>`
+
+        Usage:
+        ::
+
+            result = api.list_aliases()
+        """
+
+        res = self._request(
+            "GET",
+            "/mailbox/v1alpha1/aliases",
+            params={
+                "mailbox_id": mailbox_id,
+                "order_by": order_by,
+                "page": page,
+                "page_size": page_size or self.client.default_page_size,
+                "project_id": project_id or self.client.default_project_id,
+                "status": status,
+            },
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_ListAliasesResponse(res.json())
+
+    def list_aliases_all(
+        self,
+        *,
+        order_by: Optional[ListAliasesRequestOrderBy] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        mailbox_id: Optional[str] = None,
+        status: Optional[AliasStatus] = None,
+        project_id: Optional[str] = None,
+    ) -> list[Alias]:
+        """
+        List aliases for a mailbox.
+        :param order_by: Order aliases by specific criteria.
+        :param page: Requested page number. Value must be greater or equal to 1.
+        :param page_size: Requested page size. Value must be between 1 and 100.
+        :param mailbox_id: ID of the mailbox for which to list aliases.
+        :param status: (Optional) Filter aliases by their status.
+        :param project_id: Project ID to filter on.
+        :return: :class:`list[Alias] <list[Alias]>`
+
+        Usage:
+        ::
+
+            result = api.list_aliases_all()
+        """
+
+        return fetch_all_pages(
+            type=ListAliasesResponse,
+            key="aliases",
+            fetcher=self.list_aliases,
+            args={
+                "order_by": order_by,
+                "page": page,
+                "page_size": page_size,
+                "mailbox_id": mailbox_id,
+                "status": status,
+                "project_id": project_id,
+            },
+        )
+
+    def get_alias(
+        self,
+        *,
+        alias_id: str,
+    ) -> Alias:
+        """
+        Get an alias by its ID.
+        :param alias_id: ID of the alias to get.
+        :return: :class:`Alias <Alias>`
+
+        Usage:
+        ::
+
+            result = api.get_alias(
+                alias_id="example",
+            )
+        """
+
+        param_alias_id = validate_path_param("alias_id", alias_id)
+
+        res = self._request(
+            "GET",
+            f"/mailbox/v1alpha1/aliases/{param_alias_id}",
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_Alias(res.json())
+
+    def wait_for_alias(
+        self,
+        *,
+        alias_id: str,
+        options: Optional[WaitForOptions[Alias, bool]] = None,
+    ) -> Alias:
+        """
+        Get an alias by its ID.
+        :param alias_id: ID of the alias to get.
+        :return: :class:`Alias <Alias>`
+
+        Usage:
+        ::
+
+            result = api.get_alias(
+                alias_id="example",
+            )
+        """
+
+        if not options:
+            options = WaitForOptions()
+
+        if not options.stop:
+            options.stop = lambda res: res.status not in ALIAS_TRANSIENT_STATUSES
+
+        return wait_for_resource(
+            fetcher=self.get_alias,
+            options=options,
+            args={
+                "alias_id": alias_id,
+            },
+        )
+
+    def update_alias(
+        self,
+        *,
+        alias_id: str,
+        description: Optional[str] = None,
+    ) -> Alias:
+        """
+        Update an alias by its ID.
+        :param alias_id: ID of the alias to update.
+        :param description: (Optional) Description of the alias.
+        :return: :class:`Alias <Alias>`
+
+        Usage:
+        ::
+
+            result = api.update_alias(
+                alias_id="example",
+            )
+        """
+
+        param_alias_id = validate_path_param("alias_id", alias_id)
+
+        res = self._request(
+            "PATCH",
+            f"/mailbox/v1alpha1/aliases/{param_alias_id}",
+            body=marshal_UpdateAliasRequest(
+                UpdateAliasRequest(
+                    alias_id=alias_id,
+                    description=description,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_Alias(res.json())
+
+    def delete_alias(
+        self,
+        *,
+        alias_id: str,
+    ) -> Alias:
+        """
+        Delete an alias by its ID.
+        :param alias_id: ID of the alias to delete.
+        :return: :class:`Alias <Alias>`
+
+        Usage:
+        ::
+
+            result = api.delete_alias(
+                alias_id="example",
+            )
+        """
+
+        param_alias_id = validate_path_param("alias_id", alias_id)
+
+        res = self._request(
+            "DELETE",
+            f"/mailbox/v1alpha1/aliases/{param_alias_id}",
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_Alias(res.json())

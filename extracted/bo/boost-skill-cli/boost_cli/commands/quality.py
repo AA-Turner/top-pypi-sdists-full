@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from itertools import starmap
@@ -265,7 +266,7 @@ _DRIFT_ROLE = {"in-sync": "success", "local-edits": "warn",
                "quarantined": "muted"}
 
 
-def _drift_hint(name: str, status: str) -> str:
+def _drift_hint(name: str, status: str, tap: str = "") -> str:
     if status == "quarantined":
         return "boost quarantine --release %s to restore" % name
     if status == "upstream-moved":
@@ -273,7 +274,10 @@ def _drift_hint(name: str, status: str) -> str:
     if status == "local-edits":
         return "boost reinstall %s to discard local edits" % name
     if status == "source-missing":
-        return "boost update"
+        # `boost update` only refreshes configured taps. When the entry's
+        # tap has been untapped, that command is a guaranteed no-op — the
+        # only remedy that can actually restore the source is re-tapping it.
+        return "boost update" if registry.is_tapped(tap) else "boost tap %s" % tap
     if status == "store-missing":
         return "boost heal"
     return ""
@@ -286,23 +290,42 @@ def _parse_ts(iso: str) -> datetime | None:
         return None
 
 
-def _fingerprint() -> tuple[str, list[str]]:
-    """(sha256 hexdigest, component lines). Deterministic: the same lock file
-    and tap commits always produce the same hash."""
-    comps = sorted("%s:%s" % (n, e.get("sha256", ""))
+def _q_suffix(e: dict) -> str:
+    # Quarantine de-arms a component (a poisoned rule stops being materialized,
+    # a skill's links are removed) without deleting its lock entry, so the
+    # digest must move too or a quarantined-then-released environment reads
+    # as unchanged. Suffixed rather than dropped: dropping the line would make
+    # quarantine indistinguishable from uninstall.
+    return ":q" if e.get("quarantined") else ""
+
+
+def _fingerprint() -> tuple[str, list[str], list[str]]:
+    """(sha256 hexdigest, component lines, uncloned tap names).
+
+    Deterministic: the same lock file and tap commits always produce the same
+    hash. An uncloned tap hashes as an empty commit rather than being skipped
+    silently — its name is returned separately so callers can say the digest
+    is incomplete instead of passing it off as a real measurement."""
+    comps = sorted("%s:%s%s" % (n, e.get("sha256", ""), _q_suffix(e))
                    for n, e in lockfile.installed().items())
     # Rules and workflows are part of the environment the agent runs on —
     # a poisoned CLAUDE.md rule must change the fingerprint. Kind-prefixed so
     # a skill-only environment's fingerprint is unchanged by this addition.
-    comps += sorted("%s/%s:%s" % (kind, n, e.get("sha256", ""))
+    comps += sorted("%s/%s:%s%s" % (kind, n, e.get("sha256", ""), _q_suffix(e))
                     for kind, section in lockfile.all_installed().items()
                     if kind != "skill" for n, e in section.items())
-    comps += sorted("%s:%s" % (t.name,
-                               gitutil.head_commit(t.path)
-                               if t.is_cloned and gitutil.has_git() else "")
-                    for t in registry.list_taps())
+    uncloned = []
+    tap_lines = []
+    for t in registry.list_taps():
+        if t.is_cloned and gitutil.has_git():
+            commit = gitutil.head_commit(t.path)
+        else:
+            commit = ""
+            uncloned.append(t.name)
+        tap_lines.append("%s:%s" % (t.name, commit))
+    comps += sorted(tap_lines)
     digest = hashlib.sha256("\n".join(comps).encode()).hexdigest()
-    return digest, comps
+    return digest, comps, sorted(uncloned)
 
 
 def _norm_token(tok: str) -> str:
@@ -738,8 +761,8 @@ def cmd_lint(argv):
                     help="installed skill name(s), or a path to a skill "
                          "directory / its SKILL.md")
     ap.add_argument("--tap", metavar="TAP", help="lint every skill in a tap's clone")
-    ap.add_argument("--min", type=int, default=40, dest="min_score", metavar="N",
-                    help="minimum passing score (default 40)")
+    ap.add_argument("--min", type=util.score_int, default=40, dest="min_score", metavar="N",
+                    help="minimum passing score, 0-100 (default 40)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -841,7 +864,7 @@ def cmd_drift(argv):
         status = (_drift_status(name, entry) if kind == "skill"
                   else _drift_status_materialized(kind, name, entry))
         rows.append({"name": name, "kind": kind, "status": status,
-                     "hint": _drift_hint(name, status)})
+                     "hint": _drift_hint(name, status, entry.get("tap", ""))})
     if args.json:
         print(json.dumps({"skills": rows}))
         return 0
@@ -906,10 +929,10 @@ def cmd_fingerprint(argv):
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
-    digest, comps = _fingerprint()
+    digest, comps, incomplete = _fingerprint()
     if args.json:
         print(json.dumps({"fingerprint": digest, "short": digest[:16],
-                          "components": comps}))
+                          "components": comps, "incomplete": incomplete}))
         return 0
     out.heading("environment fingerprint")
     print("  " + out.role(digest[:16], "accent", bold=True)
@@ -917,6 +940,9 @@ def cmd_fingerprint(argv):
     if args.verbose:
         out.table([tuple(line.split(":", 1)) for line in comps],
                   headers=("COMPONENT", "DIGEST/COMMIT"))
+    for name in incomplete:
+        out.warn("tap %s not cloned — fingerprint incomplete (boost update)"
+                 % name, stream=sys.stderr)
     return 0
 
 
@@ -1182,7 +1208,7 @@ def cmd_changelog(argv):
         prog="boost changelog",
         description="Show a skill's upstream change history")
     ap.add_argument("name", metavar="NAME")
-    ap.add_argument("-n", type=int, default=20, metavar="N",
+    ap.add_argument("-n", type=util.positive_int, default=20, metavar="N",
                     help="number of entries (default 20)")
     args = ap.parse_args(argv)
 

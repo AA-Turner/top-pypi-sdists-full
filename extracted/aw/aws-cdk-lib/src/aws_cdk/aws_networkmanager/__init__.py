@@ -312,6 +312,26 @@ class CfnConnectAttachment(
         return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccountId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrProposedNetworkFunctionGroupChange")
+    def attr_proposed_network_function_group_change(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one network function group to another.
+
+        :cloudformationAttribute: ProposedNetworkFunctionGroupChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedNetworkFunctionGroupChange"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProposedSegmentChange")
+    def attr_proposed_segment_change(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one segment to another.
+
+        :cloudformationAttribute: ProposedSegmentChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedSegmentChange"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrResourceArn")
     def attr_resource_arn(self) -> builtins.str:
         '''The resource ARN for the Connect attachment.
@@ -4062,6 +4082,26 @@ class CfnDirectConnectGatewayAttachment(
         return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccountId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrProposedNetworkFunctionGroupChange")
+    def attr_proposed_network_function_group_change(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one network function group to another.
+
+        :cloudformationAttribute: ProposedNetworkFunctionGroupChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedNetworkFunctionGroupChange"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProposedSegmentChange")
+    def attr_proposed_segment_change(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one segment to another.
+
+        :cloudformationAttribute: ProposedSegmentChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedSegmentChange"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrResourceArn")
     def attr_resource_arn(self) -> builtins.str:
         '''The ARN of the Resource.
@@ -6421,6 +6461,26 @@ class CfnSiteToSiteVpnAttachment(
         return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccountId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrProposedNetworkFunctionGroupChange")
+    def attr_proposed_network_function_group_change(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one network function group to another.
+
+        :cloudformationAttribute: ProposedNetworkFunctionGroupChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedNetworkFunctionGroupChange"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProposedSegmentChange")
+    def attr_proposed_segment_change(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one segment to another.
+
+        :cloudformationAttribute: ProposedSegmentChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedSegmentChange"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrResourceArn")
     def attr_resource_arn(self) -> builtins.str:
         '''The resource ARN for the site-to-site VPN attachment.
@@ -7751,6 +7811,26 @@ class CfnTransitGatewayRouteTableAttachment(
         return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccountId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrProposedNetworkFunctionGroupChange")
+    def attr_proposed_network_function_group_change(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one network function group to another.
+
+        :cloudformationAttribute: ProposedNetworkFunctionGroupChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedNetworkFunctionGroupChange"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProposedSegmentChange")
+    def attr_proposed_segment_change(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one segment to another.
+
+        :cloudformationAttribute: ProposedSegmentChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedSegmentChange"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrResourceArn")
     def attr_resource_arn(self) -> builtins.str:
         '''The resource ARN for the transit gateway route table attachment.
@@ -8546,6 +8626,26 @@ class CfnVpcAttachment(
         :cloudformationAttribute: OwnerAccountId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProposedNetworkFunctionGroupChange")
+    def attr_proposed_network_function_group_change(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one network function group to another.
+
+        :cloudformationAttribute: ProposedNetworkFunctionGroupChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedNetworkFunctionGroupChange"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProposedSegmentChange")
+    def attr_proposed_segment_change(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The attachment to move from one segment to another.
+
+        :cloudformationAttribute: ProposedSegmentChange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProposedSegmentChange"))
 
     @builtins.property
     @jsii.member(jsii_name="attrResourceArn")

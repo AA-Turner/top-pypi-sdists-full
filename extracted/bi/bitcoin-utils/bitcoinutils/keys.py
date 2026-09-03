@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 import re
 import struct
 import hashlib
+import warnings
 from abc import ABC, abstractmethod
 from base64 import b64encode, b64decode
 from typing import Optional, List, Tuple, Union, cast
@@ -45,7 +46,7 @@ from bitcoinutils.constants import (
     NETWORK_SEGWIT_PREFIXES,
     TAPROOT_SIGHASH_ALL,
 )
-from bitcoinutils.setup import get_network
+from bitcoinutils.setup import get_network, should_warn_about_private_key_use
 from bitcoinutils.ripemd160 import ripemd160
 from bitcoinutils.schnorr import schnorr_sign
 from bitcoinutils.transactions import Transaction
@@ -67,39 +68,51 @@ from bitcoinutils.script import Script
 import bitcoinutils.bech32
 
 
+_PRIVATE_KEY_SECURITY_WARNING = (
+    "Pure-Python private-key operations in bitcoinutils are for education, "
+    "testing, and offline experimentation. They are not side-channel hardened "
+    "and should not be used to protect real funds in timing-observable "
+    "environments."
+)
+
+
+def _warn_about_private_key_use() -> None:
+    if should_warn_about_private_key_use():
+        warnings.warn(_PRIVATE_KEY_SECURITY_WARNING, RuntimeWarning, stacklevel=3)
+
+
 class PrivateKey:
     """Represents an ECDSA private key.
 
+    The object can be created randomly, from WIF, from raw 32-byte key
+    material, or from a secret exponent. It can derive the corresponding
+    :class:`PublicKey` and sign Bitcoin messages and transaction digests.
+
     Attributes
     ----------
-    key : bytes
-        the raw key of 32 bytes
+    key
+        The underlying ECDSA signing key object.
 
-    Methods
-    -------
-    from_wif(wif)
-        creates an object from a WIF of WIFC format (string)
-    from_bytes()
-        creates an object from raw 32 bytes
-    to_wif(compressed=True)
-        returns as WIFC (compressed) or WIF format (string)
-    to_bytes()
-        returns the key's raw bytes
-    sign_message(message, compressed=True)
-        signs the message's digest and returns the signature
-    sign_input(tx, txin_index, script, sighash=SIGHASH_ALL)
-        creates the transaction's digest and signs it for a particular index
-        and returns the signature.
-    sign_segwit_input(tx, txin_index, script, amount, sighash=SIGHASH_ALL)
-        creates the transaction's digest and signs it for a particular index
-        and amount and returns the signature.
-    sign_taproot_input(tx, txin_index, utxo_scripts, amounts, script_path=False,
-                       script=None, sighash=TAPROOT_SIGHASH_ALL, tweak=True)
-        creates the transaction's digest and signs it for a particular index
-        input script_pub_keys and amounts and returns the signature. By default
-        it tweaks the keys but it can be disabled for tapleaf scripts.
-    get_public_key()
-        returns the corresponding PublicKey object
+    Common methods
+    --------------
+    ``from_wif(wif)``
+        Create an object from WIF or WIFC text.
+    ``from_bytes(b)``
+        Create an object from 32 raw private-key bytes.
+    ``to_wif(compressed=True)``
+        Return the key as WIF or WIFC text.
+    ``to_bytes()``
+        Return the raw 32-byte private key.
+    ``get_public_key()``
+        Return the corresponding :class:`PublicKey`.
+    ``sign_message(message, compressed=True)``
+        Sign a Bitcoin message and return a compact Base64 signature.
+    ``sign_input(tx, txin_index, script, sighash=SIGHASH_ALL)``
+        Sign a legacy transaction input.
+    ``sign_segwit_input(tx, txin_index, script, amount, sighash=SIGHASH_ALL)``
+        Sign a SegWit v0 transaction input.
+    ``sign_taproot_input(...)``
+        Sign a Taproot transaction input by key path or script path.
     """
 
     def __init__(
@@ -118,9 +131,15 @@ class PrivateKey:
             used to create a specific key deterministically (default None)
         b : bytes, optional
             used to create a key from raw bytes
+
+        Notes
+        -----
+        Private-key operations are implemented in pure Python for educational
+        readability. They are not side-channel hardened.
         """
 
         if not secret_exponent and not wif and not b:
+            _warn_about_private_key_use()
             self.key = SigningKey.generate(curve=SECP256k1)
         else:
             if wif:
@@ -241,7 +260,12 @@ class PrivateKey:
         respectively)
 
         Returns a Bitcoin compact signature in Base64
+
+        Notes
+        -----
+        This pure-Python signing path is not side-channel hardened.
         """
+        _warn_about_private_key_use()
 
         # All bitcoin signatures include the magic prefix. It is just a string
         # added to the message to distinguish Bitcoin-specific messages.
@@ -278,6 +302,7 @@ class PrivateKey:
     def sign_input(
         self, tx: Transaction, txin_index: int, script: Script, sighash: int = SIGHASH_ALL
     ) -> str:
+        _warn_about_private_key_use()
         # get the digest from the transaction object and sign
         tx_digest = tx.get_transaction_digest(txin_index, script, sighash)
         return self._sign_input(tx_digest, sighash)
@@ -290,6 +315,7 @@ class PrivateKey:
         amount: int,
         sighash: int = SIGHASH_ALL,
     ) -> str:
+        _warn_about_private_key_use()
         # get the digest from the transaction object and sign
         tx_digest = tx.get_transaction_segwit_digest(
             txin_index, script, amount, sighash
@@ -308,6 +334,7 @@ class PrivateKey:
         sighash: int = TAPROOT_SIGHASH_ALL,
         tweak: bool = True,
     ) -> str:
+        _warn_about_private_key_use()
         # get the digest from the transaction object and sign
         # note that when signing a tapleaf we typically won't use tweaked
         # keys - so tweak should be set to False
@@ -336,7 +363,12 @@ class PrivateKey:
         is what is actually signed!)
 
         Returns a signature for that input
+
+        Notes
+        -----
+        This pure-Python signing path is not side-channel hardened.
         """
+        _warn_about_private_key_use()
 
         # Both R ans S cannot start with 0x00 (be signed as negative) unless
         # they are higher than 2^128 or start with 0x80.
@@ -452,7 +484,12 @@ class PrivateKey:
         use tweaking so tweak should be set to False
 
         Returns a signature for that input
+
+        Notes
+        -----
+        This pure-Python Schnorr signing path is not side-channel hardened.
         """
+        _warn_about_private_key_use()
 
         byte_key = b""
 
@@ -1404,11 +1441,3 @@ class P2trAddress(SegwitAddress):
         False otherwise."""
 
         return self.odd
-
-
-def main():
-    pass
-
-
-if __name__ == "__main__":
-    main()

@@ -14,7 +14,7 @@ The pre-fix parser only surfaced ``"er"`` frames and the
 into the generic ``ChatResponseParseError`` ("No parseable chunks ..."), masking
 the real cause. The ``["e", ...]`` trailer is a batchexecute stream terminator
 whose trailing number is a running byte count, not an error code — so the fix
-must NOT key off it. ``_chat/wire.py`` now raises a :class:`ChatError`
+must NOT key off it. ``_web/rows/chat_stream.py`` now raises a :class:`ChatError`
 ("rejected by the server (status 3) ...") instead.
 
 This cassette captures one real rejection so the surfacing stays covered in
@@ -60,7 +60,7 @@ from tests.vcr_config import notebooklm_vcr
 pytestmark = [pytest.mark.vcr, skip_no_cassettes]
 
 CASSETTE_NAME = "chat_ask_oversized_rejection.yaml"
-CASSETTE_PATH = Path(__file__).parent.parent / "cassettes" / CASSETTE_NAME
+CASSETTE_PATH = Path(__file__).parent.parent / "cassettes" / "web" / CASSETTE_NAME
 
 _MATCH_ON = ["method", "scheme", "host", "port", "path", "freq"]
 

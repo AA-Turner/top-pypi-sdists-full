@@ -1,0 +1,592 @@
+[project]
+name = "pyramids-gis"
+version = "0.59.0"
+description = "GIS utility package"
+readme = {file = "README.md", content-type = "text/markdown"}
+authors = [{ name = "Mostafa Farrag", email = "moah.farag@gmail.com" }]
+license = {text = "GNU General Public License v3"}
+keywords = ["GIS", "gdal"]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+]
+
+requires-python = ">= 3.11, <4"
+
+# GDAL is intentionally omitted from runtime deps: the platform wheel
+# vendors osgeo, conda-forge users get gdal via the feedstock, sdist
+# users install native GDAL out-of-band (see docs/installation.md).
+# Listing pip's PyPI GDAL would force a from-source build on Windows
+# (no wheel exists) and break most end-user pip installs.
+dependencies = [
+    # Inverse of the win_arm64 vendoring markers below: the vendored
+    # geopandas/pyogrio still import `packaging` (both) and `certifi`
+    # (pyogrio) at runtime, and with the real distributions skipped
+    # nothing else in the closure is guaranteed to install them — pip
+    # was satisfied while `import geopandas` died on a clean install.
+    # Drop these two lines together with the markers.
+    "certifi ; sys_platform == 'win32' and platform_machine == 'ARM64'",
+    "packaging ; sys_platform == 'win32' and platform_machine == 'ARM64'",
+    "cftime >=1.6.4",
+    # win_arm64: shapely and pyogrio (geopandas' hard dep) ship no ARM64
+    # wheels on PyPI, so requiring them would make the platform
+    # uninstallable. The win_arm64 wheel vendors the whole vector stack
+    # (shapely + geopandas + pyogrio) under pyramids/_vendor/ instead —
+    # see ci/install-and-vendor-osgeo.py. Every other platform resolves
+    # these normally; drop the markers when upstream ships ARM64 wheels.
+    "geopandas >=1.0.0 ; sys_platform != 'win32' or platform_machine != 'ARM64'",
+    "hpc-utils >=0.1.5",
+    "numpy >=2.0.0",
+    "pandas >=2.0.0",
+    "pyproj >=3.7.0",
+    "PyYAML >=6.0.0",
+    "Shapely >=2.1.0 ; sys_platform != 'win32' or platform_machine != 'ARM64'",
+    "scipy >=1.10.0",
+]
+
+[project.optional-dependencies]
+viz = ["cleopatra[tiles]>=0.31.0"]
+lazy = [
+    "dask>=2024.1.0",
+    "distributed>=2024.1.0",
+    "zarr>=3",
+    "fsspec>=2024.1.0",
+    "s3fs>=2024.1.0",
+    # kerchunk + h5py for the NetCDF/HDF5 lazy (Zarr-reference) path.
+    "kerchunk>=0.2.10",
+    "h5py>=3.8.0",
+]
+parquet = ["pyarrow>=10.0.0", "pyramids-gis[lazy]", "dask-geopandas>=0.5.0"]
+stac = ["pystac-client>=0.8.0", "stac-asset>=0.4.7"]
+
+[dependency-groups]
+dev = [
+    "nbval >=0.11.0",
+    "pre-commit >=3.7.1",
+    "pre-commit-hooks >=4.6.0",
+    # The same linter/formatter the pre-commit hook runs (ruff-pre-commit v0.15.22),
+    # so `pixi run -e dev ruff {check,format}` is available locally to pre-empt the CI
+    # lint/format gate. Floored, not pinned; bump the hook rev in lockstep if exact
+    # formatter parity ever matters.
+    "ruff>=0.15.22",
+    "pytest >=8.2.2",
+    "pytest-cov >= 5.0.0",
+    "pytest-env>=1.6.0",
+    "coverage",
+    "build>=1.0.0",
+    "twine>=5.0.0",
+    "pip",
+    "jupyterlab",
+    "notebook",
+    "jupyter",
+    "commitizen>=4.8.4",
+    "mypy>=1.10.0",
+    "types-PyYAML>=6.0.0",
+    "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.3.0"
+]
+docs = [
+    "mkdocs >=1.5.3",
+    "mkdocs-material >=9.5.3",
+    "mkdocstrings >=0.24.0",
+    "mkdocstrings-python >=1.7.5",
+    "mike >=2.1.3",
+    "mkdocs-jupyter >=0.25.1",
+    "mkdocs-autorefs  >=1.2",
+    "mkdocs-macros-plugin  >=1.3.7",
+    "mkdocs-table-reader-plugin  >=3.1.0",
+    "mkdocs-mermaid2-plugin  >=1.2.1",
+    "jupyter-contrib-nbextensions  >=0.7.0",
+    "mkdocs-panzoom-plugin",
+    "notebook<7.0",
+    # Required by the mkdocs-deploy action's notebook-execution preflight
+    # (`import jupyter, nbconvert, ipykernel`) and to register the python3 kernel
+    # that `jupyter nbconvert --execute` uses in CI.
+    "jupyter",
+    "nbconvert",
+    "ipykernel",
+]
+
+
+[project.scripts]
+pyramids = "pyramids.cli:main"
+
+[project.urls]
+homepage = "https://github.com/serapeum-org/pyramids"
+repository = "https://github.com/serapeum-org/pyramids"
+documentation = "https://serapeum-org.github.io/pyramids"
+Changelog = "https://github.com/serapeum-org/pyramids/blob/main/docs/change-log.md"
+
+
+[build-system]
+requires = ["setuptools>=80.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pyramids", "pyramids.*"]
+
+[tool.setuptools.package-data]
+# YAML glob scoped to base/data/ so future test fixtures or plot
+# configs dropped under src/pyramids/ don't auto-ship in every wheel.
+pyramids = [
+    "base/data/*.yaml",
+    "_vendor/osgeo/**/*",
+    "_vendor/osgeo_utils/**/*",
+    # win_arm64 vector stack (empty matches on every other platform): the
+    # vendored packages' .py files ship via package discovery, but the
+    # compiled extensions (shapely/lib.pyd, pyogrio/_io.pyd, ...) are
+    # data files and need explicit globs. Their GEOS/GDAL DLLs are NOT
+    # vendored here — the wheel's delvewheel pass bundles one shared
+    # copy into pyramids_gis.libs and rewrites the import tables.
+    "_vendor/shapely/**/*",
+    "_vendor/geopandas/**/*",
+    "_vendor/pyogrio/**/*",
+    "_data/gdal_data/*",
+    "_data/proj_data/*",
+    "_data/gdalplugins/*",
+    # curl CA bundle re-pointed by the runtime bootstrap so vendored-GDAL
+    # /vsicurl HTTPS reads find trust anchors in the consuming env (#412).
+    "_data/ssl/*",
+    # Third-party license texts auto-vendored by
+    # ci/install-and-vendor-osgeo.py from each conda-forge package's
+    # info/licenses/. Required by MIT/BSD/LGPL attribution clauses for
+    # every native lib bundled in pyramids_gis.libs/. See
+    # docs/about/THIRD_PARTY_LICENSES.md for the human-readable index.
+    "_licenses/**/*",
+]
+
+# Ruff replaces black + isort + flake8 + pyupgrade (and their nbqa notebook
+# wrappers) with one tool. Because a single engine formats and sorts imports
+# against one line-length, the formatter and the import sorter cannot disagree the
+# way black and isort did — a long trailing comment on an import made black wrap the
+# line while isort collapsed it, an endless loop. Ruff lints and formats both .py
+# and .ipynb natively, so the nbqa wrappers are gone too.
+[tool.ruff]
+line-length = 88
+target-version = "py311"  # requires-python floors at 3.11
+
+[tool.ruff.format]
+# black had skip-string-normalization = true → preserve existing quotes.
+quote-style = "preserve"
+
+[tool.ruff.lint]
+# The *effective* flake8 rule set today is E/F/W: the old config's B and T4 selectors
+# were inert (flake8-bugbear / flake8-print were never installed). Add I (isort) and
+# UP (pyupgrade) to fold in those two standalone hooks.
+select = ["E", "F", "W", "I", "UP"]
+# Mirror the old [tool.flake8].extend-ignore. E704 and W503 are dropped — ruff does not
+# implement either (both are formatter-owned pycodestyle codes black conflicts with), so
+# there is nothing to ignore. E121/E123/E126 likewise need no entry: the ruff formatter
+# owns continuation-line indentation.
+ignore = ["E203", "E226", "E266", "E501", "E701", "E722", "C901", "E741", "E731"]
+
+[tool.ruff.lint.per-file-ignores]
+# flake8 excluded examples/ and tests/ from linting, and the old bare pyupgrade never
+# modernized their typing — so drop E/F/W and UP there, keeping only import-sorting (I),
+# which isort did run everywhere. This keeps the migration's lint churn on shipped src/.
+"tests/**" = ["E", "F", "W", "UP"]
+"examples/**" = ["E", "F", "W", "UP"]
+# Tutorial notebooks import next to first use and run setup (e.g. `%matplotlib inline`)
+# before imports — both legitimately trip E402, which stays enforced for real modules.
+"*.ipynb" = ["E402"]
+
+[tool.bandit]
+# ci/ holds non-shipped build tooling (like scripts/) — its subprocess/urllib
+# calls run trusted, fixed commands in CI, so it is excluded from the scan.
+exclude_dirs = ["ci", "tests", "examples", "scripts", "planning", "docs"]
+skips = ["B101"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/pyramids"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 90
+
+[tool.mypy]
+# Checker target is 3.12 even though `requires-python` floors at 3.11: numpy 2.5
+# ships PEP 695 `type` statements in its stubs, which mypy only parses when the
+# target is >= 3.12 (at 3.11 it aborts with a syntax error before checking any
+# source). This only widens the *typing* target; actual 3.11 runtime
+# compatibility is covered by the py311 leg of the test matrix, not by mypy.
+python_version = "3.12"
+mypy_path = "src"
+packages = ["pyramids"]
+explicit_package_bases = true
+warn_return_any = true
+warn_unused_configs = false
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+    "tests/",
+    "examples/",
+    "docs/",
+    "scripts/",
+    "planning/",
+]
+
+[[tool.mypy.overrides]]
+# cleopatra ships inline types (the TypedDicts PlotKwargs/AnimateKwargs, the ColorBar /
+# PointOverlay / Basemap dataclasses, ...) but no `py.typed` marker yet, so the global
+# `ignore_missing_imports` would collapse them to `Any` and break `Unpack[PlotKwargs]`.
+# Follow its source types instead. Drop once cleopatra ships `py.typed`.
+module = "cleopatra.*"
+ignore_missing_imports = false
+follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+# render_array is the single dynamic-dispatch backend: it splits **kwargs into ctor /
+# render buckets at runtime (keyed on ArrayGlyph.option_keys()) and splats them into
+# cleopatra's now-typed plot/animate/facet. mypy cannot verify a runtime-built **dict
+# against a typed signature, so `arg-type` here is a wall of false positives (the 1367
+# plot tests prove the routing). Suppress just that code for this one module.
+module = "pyramids.dataset._plot_helpers"
+disable_error_code = ["arg-type", "no-any-return"]
+
+[[tool.mypy.overrides]]
+module = "pyramids.dataset.ops.*"
+disable_error_code = [
+    "attr-defined", "call-arg", "misc", "return-value",
+    "assignment", "union-attr", "no-any-return", "arg-type",
+]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+tag_format = "$version"
+changelog_file = "docs/change-log.md"
+update_changelog_on_bump = true
+style = [
+    ["qmark", "fg:#ff9d00 bold"],
+    ["question", "bold"],
+    ["answer", "fg:#ff9d00 bold"],
+    ["pointer", "fg:#ff9d00 bold"],
+    ["highlighted", "fg:#ff9d00 bold"],
+    ["selected", "fg:#cc5454"],
+    ["separator", "fg:#cc5454"],
+    ["instruction", ""],
+    ["text", ""],
+    ["disabled", "fg:#858585 italic"]
+]
+
+[tool.pytest.ini_options]
+env = ["MPLBACKEND=Agg"]
+pythonpath = ["src"]
+testpaths = ["tests"]
+# Fail (don't hang) on a stuck test: pytest-timeout aborts any single test that runs
+# longer than `timeout` and prints its stack; `faulthandler_timeout` (stdlib) dumps an
+# earlier all-thread traceback for diagnosis. A flaky kerchunk/fsspec read in the
+# interop suite hung CI for ~35 min; no legitimate test in this suite is this slow.
+timeout = 300
+faulthandler_timeout = 120
+markers = [
+    "vfs: mark a test as a virtual file system (deselect with '-m \"not vfs\"')",
+    "slow: mark test as slow (deselect with '-m \"not slow\"')",
+    "fast: mark test as fast (deselect with '-m \"not fast\"')",
+    "core: extras-free test (auto-applied when no extras marker is present)",
+    "plot: tests requiring the [viz] extra (cleopatra) — plotting tests (deselect with '-m \"not plot\"')",
+    # One marker per [project.optional-dependencies] group. Each marker
+    # auto-skips when the extra's headline dep isn't importable — see
+    # ``tests/_marks.py`` + ``pytest_collection_modifyitems``. ``viz`` is
+    # spelled ``plot`` above; don't register a duplicate.
+    "lazy: tests requiring the [lazy] extra (dask, distributed, zarr, fsspec)",
+    "interop: tests requiring the optional interop peer dependency",
+    "netcdf_lazy: tests requiring kerchunk + h5py (now part of the [lazy] extra)",
+    "parquet: tests requiring the [parquet] extra (pyarrow)",
+    "parquet_lazy: tests requiring dask-geopandas (now part of the [parquet] extra)",
+    "stac: tests requiring the [stac] extra (pystac-client)",
+    "live: live network test against a real external service (deselect with '-m \"not live\"', run with '-m live')",
+]
+
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
+
+[tool.pixi.pypi-dependencies]
+pyramids-gis = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+main = { cmd = "pytest -vvv --cov=src/pyramids -sv -m 'not plot and not interop' --cov-report=xml", description = "Run the main test suite" }
+plot = { cmd = "pytest -vvv --cov=src/pyramids --cov-append -sv -m 'plot' --cov-report=xml", description = "Run plot test suite" }
+interop-tests = { cmd = "pytest -vvv --cov=src/pyramids --cov-append -sv -m 'interop' --cov-report=xml", description = "Run the NetCDF interop tests" }
+test-all = { cmd = "pytest -vvv --cov=src/pyramids -sv --cov-report=xml --cov-report=term-missing", description = "Run all testsuite" }
+notebooks = { cmd = "pytest --nbval --nbval-lax --verbose docs/examples --ignore-glob='docs/examples/**/dask-lazy-*.ipynb' --ignore-glob='docs/examples/dask/*.ipynb' --ignore-glob='docs/examples/**/lazy-*-complete.ipynb' --ignore-glob='docs/examples/**/stac-cloud-*.ipynb' --ignore-glob='docs/examples/zarr/*.ipynb'", description = "check notebooks (skips dask cookbooks/quickstarts, stac-cloud-* and zarr/* — all need extras envs or real endpoints)" }
+jupyter = { cmd = "jupyter lab --no-browser --IdentityProvider.token='' --ServerApp.password='' --port=8889", description = "launch JupyterLab to run the example notebooks — run with `-e dev` (only env with JupyterLab + all notebook deps)" }
+build-dist = { cmd = "python -m build", description = "Build sdist and wheel for PyPI" }
+publish-pypi = { cmd = "twine upload --non-interactive --repository pypi dist/*", depends-on = ["build-dist"], description = "Build and upload package to PyPI" }
+cz-changelog = { cmd = "cz changelog", description = "Generate changelog using Commitizen" }
+cz-bump = { cmd = "cz bump", description = "Bump version using Commitizen" }
+mypy = { cmd = "mypy", description = "Run mypy type checking" }
+
+
+[tool.pixi.environments]
+# Every env lists the shared `gdal` feature so the single GDAL pin reaches all of
+# them, incl. no-default-feature wheel-build. tests/test_gdal_pin.py enforces it.
+default = {features = ["gdal", "viz"], solve-group = "default" }
+dev = { features = ["gdal", "viz", "dev", "interop", "lazy", "stac", "parquet"], solve-group = "default" }
+lazy = { features = ["gdal", "viz", "dev", "lazy"], solve-group = "default" }
+parquet = { features = ["gdal", "viz", "dev", "interop", "lazy", "parquet"], solve-group = "default" }
+# `docs` also carries the notebook runtime features (viz/cleopatra, interop, lazy, stac,
+# parquet) so the mkdocs-deploy action can execute the example notebooks in CI and render
+# real outputs. See .github/workflows/github-pages-mkdocs.yml (notebooks-path).
+docs = { features = ["gdal", "docs", "viz", "interop", "lazy", "stac", "parquet"], solve-group = "docs" }
+# py3XX envs include `lazy` so the `interop-tests` step has the interop data stack
+# (zarr / dask / s3fs / fsspec) its interop tests need, run with real deps. `parquet`
+# (pyarrow) is left out on purpose: it would un-skip the core OGR-Parquet tests, which
+# need GDAL's libgdal-arrow-parquet driver (absent on the runners) — the parquet extras
+# matrix covers those. Bare-core (no-lazy) installs are covered by the `default` env.
+py311 = { features = ["gdal", "py311", "viz", "dev", "interop", "lazy"], solve-group = "py311" }
+py312 = { features = ["gdal", "py312", "viz", "dev", "interop", "lazy"], solve-group = "py312" }
+py313 = { features = ["gdal", "py313", "viz", "dev", "interop", "lazy"], solve-group = "py313" }
+py314 = { features = ["gdal", "py314", "viz", "dev", "interop", "lazy"], solve-group = "py314" }
+# wheel-build: lean env inside the cibuildwheel container.
+# no-default-feature = true keeps pyramids-gis (and its pandas/numpy
+# transitive deps) out of the build container so cibuildwheel's pip
+# can resolve them against the target Python's manylinux wheels.
+wheel-build = { features = ["gdal", "wheel-build"], solve-group = "wheel-build", no-default-feature = true }
+
+
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+[tool.pixi.feature.py314.dependencies]
+# Pin the standard-GIL ABI. conda-forge ships two Python 3.14 builds at the same
+# version — *_cp314 (GIL) and *_cp314t (free-threaded / no-GIL, PEP 703) — and a
+# bare "3.14.*" lets the solver pick either, inconsistently per platform. pyramids
+# has thread-sensitive code (per-thread GDAL handles, base/_locks.py), so the 3.14
+# leg must test one intended ABI. Free-threaded would be a separate opt-in leg.
+python = { version = "3.14.*", build = "*_cp314" }
+
+[tool.pixi.feature.dev.dependencies]
+scipy = ">=1.17.1,<2"
+
+# dask / distributed / fsspec routed through conda so they share the same numpy
+# ABI as libgdal-netcdf / h5py (below). zarr bumped to v3 (was pinned <3 while
+# the lazy stack targeted the v2 API — under evaluation).
+[tool.pixi.feature.lazy.dependencies]
+"dask-core" = ">=2024.1.0"
+distributed = ">=2024.1.0"
+zarr = ">=3"
+fsspec = ">=2024.1.0"
+s3fs = ">=2024.1.0"
+# kerchunk (+ h5py) for the NetCDF/HDF5 lazy Zarr-reference path. HDF5-linking
+# libs must come from conda-forge to share the one HDF5 binary libgdal-netcdf
+# links against; PyPI h5py wheels bundle their own copy, which DLL-shadows on
+# Windows ("DLL load failed while importing defs") once two HDF5 backends load
+# in-process. Only kerchunk needs h5py here (to walk HDF5 chunk metadata) — the
+# lazy NetCDF path itself is pure GDAL MDArray, no netCDF4/h5netcdf.
+kerchunk = ">=0.2.10"
+# h5py 3.16 moved to hdf5 2.x, but libgdal-netcdf still links hdf5 1.14.x.
+# Pin h5py to the last 1.14-compatible release so the whole env shares
+# one HDF5 binary. Raise this pin when libgdal-netcdf follows hdf5 2.x.
+h5py = ">=3.8.0,<3.16"
+# Pin the hdf5 major.minor line explicitly so any future h5py rebuild
+# that would drag hdf5 2.x is blocked until libgdal-netcdf follows.
+# Without this the solver can pair h5py 3.16 (hdf5 2) with
+# libgdal-netcdf (still hdf5 1) and the env silently breaks on Windows.
+hdf5 = "1.14.*"
+
+[tool.pixi.feature.parquet.dependencies]
+pyarrow = ">=10.0.0"
+# dask-geopandas powers the lazy LazyFeatureCollection / GeoParquet path; it ships
+# in the [parquet] extra alongside pyarrow (the lazy dask/zarr stack comes via [lazy]).
+dask-geopandas = ">=0.5.0"
+
+[tool.pixi.feature.stac.dependencies]
+pystac-client = ">=0.8.0"
+
+# The `interop` feature installs the peer dependency the to_xarray / from_xarray methods
+# need, for the dev / CI environments only. It is intentionally NOT a
+# [project.optional-dependencies] extra: pyramids is GDAL-backed, so this is a peer dep for
+# those two methods alone — install it directly to use them. This feature just lets CI
+# exercise those code paths; it surfaces no user-facing extra or conda subpackage.
+[tool.pixi.feature.interop.pypi-dependencies]
+xarray = ">=2023.1.0"
+
+# Single source of truth for the conda GDAL pin (SWIG osgeo bindings are ABI-locked to
+# libgdal). Listed by every environment; ci/gdal-pin.py and ci/setup-gdal-micromamba.sh
+# read it so CI installs the same range. Bump all five together on a new gdal minor.
+# libgdal-jp2openjpeg ships the JP2OpenJPEG driver (pulls openjpeg) so the bundled GDAL
+# can read JPEG2000-packed GRIB2 (WMO template 5.40 — NCEP/ECCC/ECMWF); see issue #600.
+# Effectively-exact pins (single-patch window, not open ranges): GDAL
+# versions are bumped deliberately, in one review, across all build
+# models — ci/source-build/config.sh is the canonical pin (Linux
+# wheels), this block mirrors it for the conda-extract wheels
+# (macOS/win_amd64) and the dev envs, and ci/vcpkg.json's overrides pin
+# the win_arm64 canary. Operator-leading form on purpose: ci/gdal-pin.py
+# consumers build conda matchspecs as "gdal${SPEC}", so a digit-leading
+# spec like "3.13.1.*" concatenates into a nonexistent package name
+# (observed: micromamba "gdal3.13.1.* does not exist", macOS x86_64).
+[tool.pixi.feature.gdal.dependencies]
+gdal = ">=3.13.1,<3.13.2"
+libgdal-netcdf = ">=3.13.1,<3.13.2"
+libgdal-hdf4 = ">=3.13.1,<3.13.2"
+libgdal-grib = ">=3.13.1,<3.13.2"
+libgdal-jp2openjpeg = ">=3.13,<3.14"
+
+# swig builds the osgeo bindings against libgdal; build-only, so it stays in the
+# wheel-build feature (not the shared gdal feature). setup-gdal-micromamba.sh reads it.
+[tool.pixi.feature.wheel-build.dependencies]
+swig = ">=4.3,<5"
+# This no-default-feature env used to float Python to the newest available with no ABI
+# constraint, so the solver picked the free-threaded *_cp314t build on osx-64 and win-64
+# while the py314 env used *_cp314 — a per-platform ABI mismatch in the lock. Pin it to
+# the same standard-GIL 3.14 build so wheel-build and py314 agree everywhere. This also
+# freezes the env at 3.14 (no longer floating): intended, since cibuildwheel provides its
+# own target interpreters and this env's Python only drives the build toolchain — bump
+# the version here when 3.15 support is added.
+python = { version = "3.14.*", build = "*_cp314" }
+
+# libstdcxx-ng provides the GCC-13 libstdc++.so.6 that conda-forge's GDAL
+# is built against. Only relevant to the conda-extract model — the Linux
+# wheels build from source (ci/source-build/) inside the manylinux image
+# and never touch this pixi env; it is kept for local conda-extract runs
+# (e.g. reproducing the macOS/Windows flow on a Linux box).
+[tool.pixi.feature.wheel-build.target.linux-64.dependencies]
+libstdcxx-ng = "*"
+
+[tool.pixi.feature.wheel-build.target.linux-aarch64.dependencies]
+libstdcxx-ng = "*"
+
+
+[tool.pixi.dependencies]
+# The GDAL pin lives in the shared `gdal` feature, not here (see above).
+# cftime decodes non-standard NetCDF calendars (360_day, noleap, julian, ...)
+# in pyramids.netcdf.utils — reachable from core NetCDF reads, so it is a core dep.
+cftime = ">=1.6.4"
+# Conda-forge's geopandas-base no longer pulls in a vector-IO backend.
+# pyogrio is required for GeoDataFrame.to_file / read_file on every env.
+pyogrio = ">=0.7"
+
+
+[tool.cibuildwheel]
+# Single place to add a new Python version — beats juggling CIBW_BUILD
+# across the three per-OS workflow jobs.
+build = ["cp311-*", "cp312-*", "cp313-*", "cp314-*"]
+# Excludes for build IDs that match `build` but we don't want (PyPy,
+# musllinux, free-threaded 3.14).
+skip = ["*pp*", "*musllinux*", "cp314t-*"]
+archs = ["auto64"]
+build-verbosity = 3
+# cibuildwheel's in-container self-test is skipped: the wheels are
+# exercised far more thoroughly by bundle-pypi-wheels.yml's test-wheels
+# matrix (4 OSes x cp311-cp314) and the verify-debian12 / verify-rocky9 /
+# verify-alpine full-suite jobs, so a container smoke test would add
+# minutes per build for no extra signal.
+test-skip = "*"
+
+# PACKAGE_DATA (and PIXI_NO_PATH_UPDATE on macOS/Windows) is repeated in each per-platform
+# [tool.cibuildwheel.<platform>.environment] block below: cibuildwheel REPLACES the
+# `environment` table across overrides (not merges, despite docs), so hoisting them
+# to a shared block silently broke every build ("PACKAGE_DATA != 1"; commit 607d3153).
+
+[tool.cibuildwheel.linux]
+# Linux wheels are built FROM SOURCE (#332): ci/source-build/config.sh
+# compiles the curated GDAL dependency stack with the build image's own
+# toolchain, so no symbol exceeds the image's glibc baseline and the wheel
+# tags manylinux_2_28 (Ubuntu 20.04+ / Debian 11+ / RHEL 8+ / AL2023).
+# macOS/Windows keep the conda-extract model (setup-gdal-from-pixi.*).
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+before-all = ["bash ./ci/source-build/build-gdal-stack.sh"]
+# install-and-vendor-osgeo.py runs pip WITH build isolation so it picks
+# up setuptools>=77 (GDAL's build-system.requires) and a matching
+# numpy. Without isolation, the manylinux container's pre-installed
+# setuptools 75.5.0 rejects GDAL's PEP 639 license string.
+before-build = ["python ./ci/install-and-vendor-osgeo.py"]
+# auditwheel walks the .so dep graph, bundles libgdal + transitive deps
+# into pyramids_gis.libs/, and rewrites RPATH. Tag = the build image's own
+# floor (the whole point of the from-source stack). ${AUDITWHEEL_ARCH} is
+# auto-exported by cibuildwheel inside the container (x86_64/aarch64).
+# The musl canary jobs in bundle-pypi-wheels.yml override --plat to
+# musllinux_1_2_* via CIBW_REPAIR_WHEEL_COMMAND.
+repair-wheel-command = [
+    "export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64",
+    "auditwheel repair --plat manylinux_2_28_${AUDITWHEEL_ARCH} -w {dest_dir} {wheel}",
+]
+
+[tool.cibuildwheel.linux.environment]
+# GDAL_VERSION is pinned in ci/source-build/build-gdal-stack.sh (which also
+# writes ${BUILD_PREFIX}/GDAL_VERSION for install-and-vendor-osgeo.py); bump
+# it together with ci/source-build/config.sh's dep pins.
+BUILD_PREFIX = "/usr/local"
+GDAL_DATA = "/usr/local/share/gdal"
+PROJ_DATA = "/usr/local/share/proj"
+PROJ_LIB = "/usr/local/share/proj"
+PACKAGE_DATA = "1"
+LD_LIBRARY_PATH = "/usr/local/lib:/usr/local/lib64"
+
+
+# macOS: same pixi/conda-forge flow as Linux, but with .dylib +
+# delocate-wheel (macOS equivalent of auditwheel) instead of patchelf.
+# Pip build-isolation rationale is the same as the Linux block above.
+[tool.cibuildwheel.macos]
+before-all = ["bash ./ci/setup-gdal-from-pixi.sh"]
+before-build = ["python ./ci/install-and-vendor-osgeo.py"]
+# DYLD_LIBRARY_PATH lives in the .macos.environment block so every
+# subprocess (before-build, build, repair) inherits the same value.
+repair-wheel-command = [
+    "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} {wheel}",
+]
+
+[tool.cibuildwheel.macos.environment]
+# /usr/local needs sudo on GitHub macOS runners — use $HOME instead.
+BUILD_PREFIX = "/Users/runner/gdal-prefix"
+GDAL_DATA = "/Users/runner/gdal-prefix/share/gdal"
+PROJ_DATA = "/Users/runner/gdal-prefix/share/proj"
+PROJ_LIB = "/Users/runner/gdal-prefix/share/proj"
+PACKAGE_DATA = "1"
+DYLD_LIBRARY_PATH = "/Users/runner/gdal-prefix/lib"
+PIXI_NO_PATH_UPDATE = "1"
+# 11.0 = Big Sur; required floor for the arm64 build, safe for x86_64.
+MACOSX_DEPLOYMENT_TARGET = "11.0"
+
+
+# Windows: conda's Library/ nesting + delvewheel for repair.
+[tool.cibuildwheel.windows]
+before-all = ["powershell -File ci/setup-gdal-from-pixi.ps1"]
+before-build = [
+    # delvewheel is the only tool we install explicitly (needed for the
+    # repair command); setuptools/wheel/numpy arrive via pip's build
+    # isolation when install-and-vendor-osgeo.py runs.
+    "python -m pip install delvewheel",
+    "python ci/install-and-vendor-osgeo.py",
+]
+# --analyze-existing makes delvewheel walk the dep graph of DLLs ALREADY
+# inside the wheel (the GDAL plugins at pyramids/_data/gdalplugins/).
+# Without it, gdal_netCDF.dll / gdal_HDF*.dll ship without their
+# transitive deps (netcdf.dll, hdf5.dll, …) and NetCDF/HDF open fails at
+# runtime with "not recognized as being in a supported file format".
+repair-wheel-command = [
+    "delvewheel repair --analyze-existing --add-path C:/gdal-prefix/Library/bin -w {dest_dir} {wheel}",
+]
+
+[tool.cibuildwheel.windows.environment]
+# Forward slashes survive bash/PowerShell/cmd interpolation without
+# double-backslash escaping; Windows treats /, \, and mixed paths
+# equivalently for built-in APIs.
+BUILD_PREFIX = "C:/gdal-prefix"
+GDAL_DATA = "C:/gdal-prefix/Library/share/gdal"
+PROJ_DATA = "C:/gdal-prefix/Library/share/proj"
+PROJ_LIB = "C:/gdal-prefix/Library/share/proj"
+PACKAGE_DATA = "1"
+PATH = "C:/gdal-prefix/Library/bin;$PATH"
+PIXI_NO_PATH_UPDATE = "1"

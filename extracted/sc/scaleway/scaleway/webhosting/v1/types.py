@@ -183,6 +183,15 @@ class DomainZoneOwner(str, Enum, metaclass=StrEnumMeta):
         return str(self.value)
 
 
+class HostingProvider(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_PROVIDER = "unknown_provider"
+    ELEMENTS = "elements"
+    DEDIBOX = "dedibox"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class HostingStatus(str, Enum, metaclass=StrEnumMeta):
     UNKNOWN_STATUS = "unknown_status"
     DELIVERING = "delivering"
@@ -192,6 +201,8 @@ class HostingStatus(str, Enum, metaclass=StrEnumMeta):
     LOCKED = "locked"
     MIGRATING = "migrating"
     UPDATING = "updating"
+    PAYMENT_PENDING = "payment_pending"
+    PAYMENT_FAILED = "payment_failed"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -395,6 +406,11 @@ class OfferCommitment:
     type_: CommitmentType
     """
     Offer commitment type.
+    """
+
+    is_default: bool
+    """
+    True if the commitment is the default one for that offer.
     """
 
     billing_mode: BillingMode
@@ -1854,6 +1870,11 @@ class Hosting:
     Commitment details to which the hosting is engaged.
     """
 
+    provider: Optional[HostingProvider] = HostingProvider.UNKNOWN_PROVIDER
+    """
+    Provider where the Web Hosting plan is managed (elements, dedibox).
+    """
+
 
 @dataclass
 class HostingApiAddCustomDomainRequest:
@@ -2191,6 +2212,11 @@ class HostingApiUpdateHostingRequest:
     protected: Optional[bool] = False
     """
     Whether the hosting is protected or not.
+    """
+
+    delete_hosting_after_commitment: Optional[bool] = False
+    """
+    Whether the hosting is deleted at the end of the commitment period.
     """
 
 

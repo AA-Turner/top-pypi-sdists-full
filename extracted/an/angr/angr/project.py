@@ -17,6 +17,7 @@ from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
 from angr.knowledge_base import KnowledgeBase
 
 from .analyses.analysis import AnalysesHub, AnalysesHubWithDefault
+from .engines.pcode.lifter import PcodeBasicBlockLifter
 from .errors import AngrNoPluginError
 from .factory import AngrObjectFactory
 from .llm_client import LLMClient
@@ -115,6 +116,8 @@ class Project:
     """
 
     arch: archinfo.Arch
+    # class-level default so that projects unpickled from before this attribute existed still work
+    _language_confidence: str | None = None
 
     def __init__(
         self,
@@ -134,7 +137,6 @@ class Project:
         store_function=None,
         load_function=None,
         analyses_preset=None,
-        concrete_target=None,
         eager_ifunc_resolution=None,
         cache_limits: dict[str, int | None] | None = None,
         rustc_version=None,
@@ -169,7 +171,7 @@ class Project:
             # use angr's loader, provided by cle
             l.info("Loading binary %s", thing)
             self.filename = str(thing)
-            self.loader = cle.Loader(self.filename, concrete_target=concrete_target, **load_options)
+            self.loader = cle.Loader(self.filename, **load_options)
 
         # Step 2: determine its CPU architecture, ideally falling back to CLE's guess
         if isinstance(arch, str):
@@ -193,21 +195,6 @@ class Project:
             )
 
         self._sim_procedures = {}
-
-        self.concrete_target = concrete_target
-
-        # It doesn't make any sense to have auto_load_libs
-        # if you have the concrete target, let's warn the user about this.
-        if self.concrete_target and load_options.get("auto_load_libs"):
-            l.critical(
-                "Incompatible options selected for this project, please disable auto_load_libs if "
-                "you want to use a concrete target."
-            )
-            raise ValueError("Incompatible options for the project")
-
-        if self.concrete_target and self.arch.name not in ["X86", "AMD64", "ARMHF", "ARMEL", "MIPS32"]:
-            l.critical("Concrete execution does not support yet the selected architecture. Aborting.")
-            raise ValueError("Incompatible options for the project")
 
         self._default_analysis_mode = default_analysis_mode
         self._exclude_sim_procedures_func = exclude_sim_procedures_func
@@ -265,7 +252,10 @@ class Project:
         if not set(self.cache_limits.keys()).issubset(CACHE_CONFIG_KEYS):
             raise ValueError(f"Invalid cache configuration keys: {set(self.cache_limits.keys()) - CACHE_CONFIG_KEYS}")
 
+        self._pcode_block_lifter: PcodeBasicBlockLifter | None = None
+
         self._languages: list[str] | None = None
+        self._language_confidence: str | None = None
         self.is_java_project = isinstance(self.arch, ArchSoot)
         self.is_java_jni_project = isinstance(self.arch, ArchSoot) and getattr(
             self.simos, "is_javavm_with_jni_support", False
@@ -815,6 +805,22 @@ class Project:
         return hook_decorator
 
     #
+    # P-code
+    #
+
+    def pcode_block_lifter(self, arch: archinfo.Arch) -> PcodeBasicBlockLifter:
+        """
+        Get the p-code basic block lifter, and therefore the Sleigh context, this project decodes `arch` with.
+
+        Sleigh records context variables per address, so the blocks of one binary decode with one context and no
+        block of another binary touches it. `arch` is normally this project's own; a `Block` may name another, and
+        decoding that with this project's context would answer for the wrong architecture, so it gets its own.
+        """
+        if self._pcode_block_lifter is None or self._pcode_block_lifter.arch != arch:
+            self._pcode_block_lifter = PcodeBasicBlockLifter(arch)
+        return self._pcode_block_lifter
+
+    #
     # Pickling
     #
 
@@ -831,6 +837,7 @@ class Project:
                 not in {
                     "analyses",
                     "_llm_client",
+                    "_pcode_block_lifter",
                 }
             }
         finally:
@@ -839,6 +846,7 @@ class Project:
     def __setstate__(self, s):
         self.__dict__.update(s)
         self._llm_client = _UNSET
+        self._pcode_block_lifter = None
         try:
             self._initialize_analyses_hub()
         except AngrNoPluginError:
@@ -908,13 +916,40 @@ class Project:
         if not self._languages:
             detector = self.analyses.LanguageDetector()
             self._languages = [detector.language]
+            self._language_confidence = detector.confidence.value
         if not self._languages:
             self._languages.append("unknown")
         return self._languages
 
     @property
+    def language_confidence(self) -> str | None:
+        """
+        How sure LanguageDetector is about :meth:`languages` ("high", "medium" or "low"), or None when the language did
+        not come from detection.
+        """
+        self.languages()
+        return self._language_confidence
+
+    @property
+    def language_is_certain(self) -> bool:
+        """
+        Whether the detected language is solid enough to base language-specific ABI decisions on. A single matching
+        symbol name is enough for LanguageDetector to report a language, but not enough to reinterpret every argument
+        and return value in the binary.
+        """
+        return self.language_confidence in (None, "high")
+
+    @property
     def is_rust_binary(self) -> bool:
         return "rust" in self.languages()
+
+    @property
+    def is_go_binary(self) -> bool:
+        """
+        Whether the main binary was confidently identified as Go. Go's ABI differs from the platform default in every
+        argument and return value, so a low-confidence detection is deliberately not enough.
+        """
+        return "go" in self.languages() and self.language_is_certain
 
     #
     # Cache limit settings

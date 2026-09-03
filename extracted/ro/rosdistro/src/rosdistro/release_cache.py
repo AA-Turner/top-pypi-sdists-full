@@ -47,7 +47,9 @@ class ReleaseCache(object):
             assert 'version' in data, "Release cache file for '%s' lacks required version information" % name
             self.version = int(data['version'])
             assert self.version > 1, "Unable to handle '%s' format version '%d' anymore, please update your '%s' file to version '2'" % (ReleaseCache._type, self.version, ReleaseCache._type)
-            assert self.version == 2, "Unable to handle '%s' format version '%d', please update rosdistro (e.g. on Ubuntu/Debian use: sudo apt-get update && sudo apt-get install --only-upgrade python-rosdistro)" % (ReleaseCache._type, self.version)
+            if self.version != 2:
+                from . import FormatVersionError
+                raise FormatVersionError(ReleaseCache._type, self.version, [2], name)
 
             assert 'name' in data, "Release cache file for '%s' lacks required name information" % name
             assert data['name'] == name, "Release cache file for '%s' does not match the name '%s'" % (name, data['name'])

@@ -5564,340 +5564,6 @@ class CfnReplicationGroupProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IReservedCacheNodeRef)
-class CfnReservedCacheNode(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticache.CfnReservedCacheNode",
-):
-    '''Represents an Amazon ElastiCache Reserved Cache Node.
-
-    Reserved Cache Nodes provide a discounted hourly rate compared to on-demand cache node pricing.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-reservedcachenode.html
-    :cloudformationResource: AWS::ElastiCache::ReservedCacheNode
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticache as elasticache
-        
-        cfn_reserved_cache_node = elasticache.CfnReservedCacheNode(self, "MyCfnReservedCacheNode")
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-    ) -> None:
-        '''Create a new ``AWS::ElastiCache::ReservedCacheNode``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e5a52ae994175750d77a1922b35f66ed844c53274d2e62486e22b687c898460a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnReservedCacheNodeProps()
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="isCfnReservedCacheNode")
-    @builtins.classmethod
-    def is_cfn_reserved_cache_node(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnReservedCacheNode.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__da3245e5a5befc6d553996391ddf17a54e703e48e684f26090e2235d512485cb)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReservedCacheNode", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__15bd051d88ec43357eaa70bd554c0fdd73cd2cc03b37db8280f91588f9f8e48a)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__257f8a2b9f55c001c475450ea75da81bb5f771d3e903c4e1460ae6c8049e33f6)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCacheNodeCount")
-    def attr_cache_node_count(self) -> jsii.Number:
-        '''The number of cache nodes that have been reserved.
-
-        :cloudformationAttribute: CacheNodeCount
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrCacheNodeCount"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCacheNodeType")
-    def attr_cache_node_type(self) -> builtins.str:
-        '''The cache node type for the reserved cache nodes.
-
-        :cloudformationAttribute: CacheNodeType
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCacheNodeType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDuration")
-    def attr_duration(self) -> jsii.Number:
-        '''The duration of the reservation in seconds.
-
-        :cloudformationAttribute: Duration
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrDuration"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrFixedPrice")
-    def attr_fixed_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''The fixed price charged for this reserved cache node.
-
-        :cloudformationAttribute: FixedPrice
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFixedPrice"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrOfferingType")
-    def attr_offering_type(self) -> builtins.str:
-        '''The offering type of this reserved cache node.
-
-        :cloudformationAttribute: OfferingType
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrOfferingType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrProductDescription")
-    def attr_product_description(self) -> builtins.str:
-        '''The description of the reserved cache node.
-
-        :cloudformationAttribute: ProductDescription
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrProductDescription"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRecurringCharges")
-    def attr_recurring_charges(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''The recurring price charged to run this reserved cache node.
-
-        :cloudformationAttribute: RecurringCharges
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRecurringCharges"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrReservationArn")
-    def attr_reservation_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the reserved cache node.
-
-        :cloudformationAttribute: ReservationARN
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrReservationArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrReservedCacheNodeId")
-    def attr_reserved_cache_node_id(self) -> builtins.str:
-        '''The unique identifier for the reservation.
-
-        :cloudformationAttribute: ReservedCacheNodeId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrReservedCacheNodeId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrReservedCacheNodesOfferingId")
-    def attr_reserved_cache_nodes_offering_id(self) -> builtins.str:
-        '''The offering identifier.
-
-        :cloudformationAttribute: ReservedCacheNodesOfferingId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrReservedCacheNodesOfferingId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStartTime")
-    def attr_start_time(self) -> builtins.str:
-        '''The time the reservation started.
-
-        :cloudformationAttribute: StartTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrState")
-    def attr_state(self) -> builtins.str:
-        '''The state of the reserved cache node.
-
-        :cloudformationAttribute: State
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrState"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTags")
-    def attr_tags(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''A list of tags.
-
-        :cloudformationAttribute: Tags
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrUsagePrice")
-    def attr_usage_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''The hourly price charged for this reserved cache node.
-
-        :cloudformationAttribute: UsagePrice
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrUsagePrice"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="reservedCacheNodeRef")
-    def reserved_cache_node_ref(
-        self,
-    ) -> "_aws_elasticache_452416cc.ReservedCacheNodeReference":
-        '''A reference to a ReservedCacheNode resource.'''
-        return typing.cast("_aws_elasticache_452416cc.ReservedCacheNodeReference", jsii.get(self, "reservedCacheNodeRef"))
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticache.CfnReservedCacheNode.RecurringChargeProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "recurring_charge_amount": "recurringChargeAmount",
-            "recurring_charge_frequency": "recurringChargeFrequency",
-        },
-    )
-    class RecurringChargeProperty:
-        def __init__(
-            self,
-            *,
-            recurring_charge_amount: typing.Optional[jsii.Number] = None,
-            recurring_charge_frequency: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''
-            :param recurring_charge_amount: The monetary amount of the recurring charge.
-            :param recurring_charge_frequency: The frequency of the recurring charge.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-reservedcachenode-recurringcharge.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticache as elasticache
-                
-                recurring_charge_property = elasticache.CfnReservedCacheNode.RecurringChargeProperty(
-                    recurring_charge_amount=123,
-                    recurring_charge_frequency="recurringChargeFrequency"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__1aa0805044a94de11c2c11d1fdac593329d46916e7a901ab5638a768218fc8a0)
-                check_type(argname="argument recurring_charge_amount", value=recurring_charge_amount, expected_type=type_hints["recurring_charge_amount"])
-                check_type(argname="argument recurring_charge_frequency", value=recurring_charge_frequency, expected_type=type_hints["recurring_charge_frequency"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if recurring_charge_amount is not None:
-                self._values["recurring_charge_amount"] = recurring_charge_amount
-            if recurring_charge_frequency is not None:
-                self._values["recurring_charge_frequency"] = recurring_charge_frequency
-
-        @builtins.property
-        def recurring_charge_amount(self) -> typing.Optional[jsii.Number]:
-            '''The monetary amount of the recurring charge.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-reservedcachenode-recurringcharge.html#cfn-elasticache-reservedcachenode-recurringcharge-recurringchargeamount
-            '''
-            result = self._values.get("recurring_charge_amount")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def recurring_charge_frequency(self) -> typing.Optional[builtins.str]:
-            '''The frequency of the recurring charge.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-reservedcachenode-recurringcharge.html#cfn-elasticache-reservedcachenode-recurringcharge-recurringchargefrequency
-            '''
-            result = self._values.get("recurring_charge_frequency")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RecurringChargeProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_elasticache.CfnReservedCacheNodeProps",
-    jsii_struct_bases=[],
-    name_mapping={},
-)
-class CfnReservedCacheNodeProps:
-    def __init__(self) -> None:
-        '''Properties for defining a ``CfnReservedCacheNode``.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-reservedcachenode.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_elasticache as elasticache
-            
-            cfn_reserved_cache_node_props = elasticache.CfnReservedCacheNodeProps()
-        '''
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReservedCacheNodeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.ISecurityGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSecurityGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -7660,6 +7326,468 @@ class CfnServerlessCacheProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IServerlessCacheSnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnServerlessCacheSnapshot(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticache.CfnServerlessCacheSnapshot",
+):
+    '''Resource Type definition for AWS::ElastiCache::ServerlessCacheSnapshot.
+
+    A serverless cache snapshot is a point-in-time backup of an ElastiCache serverless cache. Available for Valkey, Redis OSS and Serverless Memcached only.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscachesnapshot.html
+    :cloudformationResource: AWS::ElastiCache::ServerlessCacheSnapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticache as elasticache
+        
+        cfn_serverless_cache_snapshot = elasticache.CfnServerlessCacheSnapshot(self, "MyCfnServerlessCacheSnapshot",
+            serverless_cache_name="serverlessCacheName",
+            serverless_cache_snapshot_name="serverlessCacheSnapshotName",
+        
+            # the properties below are optional
+            kms_key_id="kmsKeyId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        serverless_cache_name: builtins.str,
+        serverless_cache_snapshot_name: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ElastiCache::ServerlessCacheSnapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param serverless_cache_name: The name of an existing serverless cache. The snapshot is created from this cache.
+        :param serverless_cache_snapshot_name: The name of the serverless cache snapshot. Must be unique for the customer account. This value is stored as a lowercase string.
+        :param kms_key_id: The Amazon Resource Name (ARN) of the AWS KMS key used to encrypt the snapshot. Provide the key ARN: the resource returns the key ARN on read, so supplying a bare key ID or alias for this createOnly property may be reported as drift by CloudFormation.
+        :param tags: A list of tags to be added to the serverless cache snapshot resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c789cfad873fd51f0af1dc8f8eebd64a4615baac7f1e878fd729cec257b34200)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnServerlessCacheSnapshotProps(
+            serverless_cache_name=serverless_cache_name,
+            serverless_cache_snapshot_name=serverless_cache_snapshot_name,
+            kms_key_id=kms_key_id,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForServerlessCacheSnapshot")
+    @builtins.classmethod
+    def arn_for_serverless_cache_snapshot(
+        cls,
+        resource: "_aws_elasticache_452416cc.IServerlessCacheSnapshotRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a48520d48d62276e50ce24c1b95405b31a467e1be70db2df67ea448ed130cede)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServerlessCacheSnapshot", [resource]))
+
+    @jsii.member(jsii_name="isCfnServerlessCacheSnapshot")
+    @builtins.classmethod
+    def is_cfn_serverless_cache_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnServerlessCacheSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__61ce1cd6cd1998b9988d0c801a4f5a24d102d58534deb2207849b666a5d57bf4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServerlessCacheSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fffe2d63abdb8bceefded455f4dd218c4794b7abd466a824b1067f87d188440c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4acf403df9addce16832c6cc202cad0bbff090695c4d7206695506eb363b370a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the serverless cache snapshot.
+
+        :cloudformationAttribute: ARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBytesUsedForCache")
+    def attr_bytes_used_for_cache(self) -> builtins.str:
+        '''The total size of the serverless cache snapshot, in bytes.
+
+        :cloudformationAttribute: BytesUsedForCache
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBytesUsedForCache"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreateTime")
+    def attr_create_time(self) -> builtins.str:
+        '''The date and time that the source serverless cache's metadata and cache data set was obtained for the snapshot.
+
+        :cloudformationAttribute: CreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrServerlessCacheConfiguration")
+    def attr_serverless_cache_configuration(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''
+        :cloudformationAttribute: ServerlessCacheConfiguration
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrServerlessCacheConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotType")
+    def attr_snapshot_type(self) -> builtins.str:
+        '''The type of snapshot of the serverless cache.
+
+        :cloudformationAttribute: SnapshotType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the serverless cache snapshot.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessCacheSnapshotRef")
+    def serverless_cache_snapshot_ref(
+        self,
+    ) -> "_aws_elasticache_452416cc.ServerlessCacheSnapshotReference":
+        '''A reference to a ServerlessCacheSnapshot resource.'''
+        return typing.cast("_aws_elasticache_452416cc.ServerlessCacheSnapshotReference", jsii.get(self, "serverlessCacheSnapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessCacheName")
+    def serverless_cache_name(self) -> builtins.str:
+        '''The name of an existing serverless cache.'''
+        return typing.cast(builtins.str, jsii.get(self, "serverlessCacheName"))
+
+    @serverless_cache_name.setter
+    def serverless_cache_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1756df07b42bb68770113ffbdd6608c21ee2988408178b17033f1d49857a0621)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serverlessCacheName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessCacheSnapshotName")
+    def serverless_cache_snapshot_name(self) -> builtins.str:
+        '''The name of the serverless cache snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "serverlessCacheSnapshotName"))
+
+    @serverless_cache_snapshot_name.setter
+    def serverless_cache_snapshot_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2067468d4cff4f77a4107fe7f9ba3c1986be6743e4b43b1e6b960e6225c7ad75)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serverlessCacheSnapshotName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS KMS key used to encrypt the snapshot.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c29dd438a6a43ab21e6fb1d0879c83a7d1905788af536361967394f96e81ca9a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to be added to the serverless cache snapshot resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5dd69cc86dda9cf6db8e899989b69185ec3d98da50553548520657ca2b451557)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticache.CfnServerlessCacheSnapshot.ServerlessCacheConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "engine": "engine",
+            "major_engine_version": "majorEngineVersion",
+            "serverless_cache_name": "serverlessCacheName",
+        },
+    )
+    class ServerlessCacheConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            engine: typing.Optional[builtins.str] = None,
+            major_engine_version: typing.Optional[builtins.str] = None,
+            serverless_cache_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param engine: The engine that the serverless cache is configured with.
+            :param major_engine_version: The engine version number that the serverless cache is configured with.
+            :param serverless_cache_name: The identifier of the serverless cache.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-serverlesscachesnapshot-serverlesscacheconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticache as elasticache
+                
+                serverless_cache_configuration_property = elasticache.CfnServerlessCacheSnapshot.ServerlessCacheConfigurationProperty(
+                    engine="engine",
+                    major_engine_version="majorEngineVersion",
+                    serverless_cache_name="serverlessCacheName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__daed97f9b4a16c26872ab836db35b07f2c65b9bae440309b3bbdd46d275b0e15)
+                check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
+                check_type(argname="argument major_engine_version", value=major_engine_version, expected_type=type_hints["major_engine_version"])
+                check_type(argname="argument serverless_cache_name", value=serverless_cache_name, expected_type=type_hints["serverless_cache_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if engine is not None:
+                self._values["engine"] = engine
+            if major_engine_version is not None:
+                self._values["major_engine_version"] = major_engine_version
+            if serverless_cache_name is not None:
+                self._values["serverless_cache_name"] = serverless_cache_name
+
+        @builtins.property
+        def engine(self) -> typing.Optional[builtins.str]:
+            '''The engine that the serverless cache is configured with.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-serverlesscachesnapshot-serverlesscacheconfiguration.html#cfn-elasticache-serverlesscachesnapshot-serverlesscacheconfiguration-engine
+            '''
+            result = self._values.get("engine")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def major_engine_version(self) -> typing.Optional[builtins.str]:
+            '''The engine version number that the serverless cache is configured with.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-serverlesscachesnapshot-serverlesscacheconfiguration.html#cfn-elasticache-serverlesscachesnapshot-serverlesscacheconfiguration-majorengineversion
+            '''
+            result = self._values.get("major_engine_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def serverless_cache_name(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the serverless cache.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-serverlesscachesnapshot-serverlesscacheconfiguration.html#cfn-elasticache-serverlesscachesnapshot-serverlesscacheconfiguration-serverlesscachename
+            '''
+            result = self._values.get("serverless_cache_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServerlessCacheConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticache.CfnServerlessCacheSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "serverless_cache_name": "serverlessCacheName",
+        "serverless_cache_snapshot_name": "serverlessCacheSnapshotName",
+        "kms_key_id": "kmsKeyId",
+        "tags": "tags",
+    },
+)
+class CfnServerlessCacheSnapshotProps:
+    def __init__(
+        self,
+        *,
+        serverless_cache_name: builtins.str,
+        serverless_cache_snapshot_name: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServerlessCacheSnapshot``.
+
+        :param serverless_cache_name: The name of an existing serverless cache. The snapshot is created from this cache.
+        :param serverless_cache_snapshot_name: The name of the serverless cache snapshot. Must be unique for the customer account. This value is stored as a lowercase string.
+        :param kms_key_id: The Amazon Resource Name (ARN) of the AWS KMS key used to encrypt the snapshot. Provide the key ARN: the resource returns the key ARN on read, so supplying a bare key ID or alias for this createOnly property may be reported as drift by CloudFormation.
+        :param tags: A list of tags to be added to the serverless cache snapshot resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscachesnapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticache as elasticache
+            
+            cfn_serverless_cache_snapshot_props = elasticache.CfnServerlessCacheSnapshotProps(
+                serverless_cache_name="serverlessCacheName",
+                serverless_cache_snapshot_name="serverlessCacheSnapshotName",
+            
+                # the properties below are optional
+                kms_key_id="kmsKeyId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ff17779014074c3a5e93426bbb1a7b4b089d75b04eb9a5d5e9ab3375b19541b1)
+            check_type(argname="argument serverless_cache_name", value=serverless_cache_name, expected_type=type_hints["serverless_cache_name"])
+            check_type(argname="argument serverless_cache_snapshot_name", value=serverless_cache_snapshot_name, expected_type=type_hints["serverless_cache_snapshot_name"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "serverless_cache_name": serverless_cache_name,
+            "serverless_cache_snapshot_name": serverless_cache_snapshot_name,
+        }
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def serverless_cache_name(self) -> builtins.str:
+        '''The name of an existing serverless cache.
+
+        The snapshot is created from this cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscachesnapshot.html#cfn-elasticache-serverlesscachesnapshot-serverlesscachename
+        '''
+        result = self._values.get("serverless_cache_name")
+        assert result is not None, "Required property 'serverless_cache_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def serverless_cache_snapshot_name(self) -> builtins.str:
+        '''The name of the serverless cache snapshot.
+
+        Must be unique for the customer account. This value is stored as a lowercase string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscachesnapshot.html#cfn-elasticache-serverlesscachesnapshot-serverlesscachesnapshotname
+        '''
+        result = self._values.get("serverless_cache_snapshot_name")
+        assert result is not None, "Required property 'serverless_cache_snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS KMS key used to encrypt the snapshot.
+
+        Provide the key ARN: the resource returns the key ARN on read, so supplying a bare key ID or alias for this createOnly property may be reported as drift by CloudFormation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscachesnapshot.html#cfn-elasticache-serverlesscachesnapshot-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to be added to the serverless cache snapshot resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscachesnapshot.html#cfn-elasticache-serverlesscachesnapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServerlessCacheSnapshotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.ISubnetGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSubnetGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8945,14 +9073,14 @@ __all__ = [
     "CfnParameterGroupProps",
     "CfnReplicationGroup",
     "CfnReplicationGroupProps",
-    "CfnReservedCacheNode",
-    "CfnReservedCacheNodeProps",
     "CfnSecurityGroup",
     "CfnSecurityGroupIngress",
     "CfnSecurityGroupIngressProps",
     "CfnSecurityGroupProps",
     "CfnServerlessCache",
     "CfnServerlessCacheProps",
+    "CfnServerlessCacheSnapshot",
+    "CfnServerlessCacheSnapshotProps",
     "CfnSubnetGroup",
     "CfnSubnetGroupProps",
     "CfnUser",
@@ -9892,39 +10020,6 @@ def _typecheckingstub__c8dbf3d422d5fea6e04cfbc10e81904d384dc2c210952911caaa5ab7e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e5a52ae994175750d77a1922b35f66ed844c53274d2e62486e22b687c898460a(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__da3245e5a5befc6d553996391ddf17a54e703e48e684f26090e2235d512485cb(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__15bd051d88ec43357eaa70bd554c0fdd73cd2cc03b37db8280f91588f9f8e48a(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__257f8a2b9f55c001c475450ea75da81bb5f771d3e903c4e1460ae6c8049e33f6(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1aa0805044a94de11c2c11d1fdac593329d46916e7a901ab5638a768218fc8a0(
-    *,
-    recurring_charge_amount: typing.Optional[jsii.Number] = None,
-    recurring_charge_frequency: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a123177a3bb81237f7f7f549a05ee3a5234df818c52d76546ff68a80c39ddaed(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10248,6 +10343,85 @@ def _typecheckingstub__58b8c0bd8ed5d4d4b90b896e92a64fc113ba2b7b80dfa7075b8fad4b0
     subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_group_id: typing.Optional[typing.Union[builtins.str, _aws_elasticache_452416cc.IUserGroupRef]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c789cfad873fd51f0af1dc8f8eebd64a4615baac7f1e878fd729cec257b34200(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    serverless_cache_name: builtins.str,
+    serverless_cache_snapshot_name: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a48520d48d62276e50ce24c1b95405b31a467e1be70db2df67ea448ed130cede(
+    resource: _aws_elasticache_452416cc.IServerlessCacheSnapshotRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61ce1cd6cd1998b9988d0c801a4f5a24d102d58534deb2207849b666a5d57bf4(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fffe2d63abdb8bceefded455f4dd218c4794b7abd466a824b1067f87d188440c(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4acf403df9addce16832c6cc202cad0bbff090695c4d7206695506eb363b370a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1756df07b42bb68770113ffbdd6608c21ee2988408178b17033f1d49857a0621(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2067468d4cff4f77a4107fe7f9ba3c1986be6743e4b43b1e6b960e6225c7ad75(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c29dd438a6a43ab21e6fb1d0879c83a7d1905788af536361967394f96e81ca9a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dd69cc86dda9cf6db8e899989b69185ec3d98da50553548520657ca2b451557(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__daed97f9b4a16c26872ab836db35b07f2c65b9bae440309b3bbdd46d275b0e15(
+    *,
+    engine: typing.Optional[builtins.str] = None,
+    major_engine_version: typing.Optional[builtins.str] = None,
+    serverless_cache_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff17779014074c3a5e93426bbb1a7b4b089d75b04eb9a5d5e9ab3375b19541b1(
+    *,
+    serverless_cache_name: builtins.str,
+    serverless_cache_snapshot_name: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

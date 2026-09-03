@@ -88,6 +88,55 @@ class AssociationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ssm.CloudConnectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"cloud_connector_arn": "cloudConnectorArn"},
+)
+class CloudConnectorReference:
+    def __init__(self, *, cloud_connector_arn: builtins.str) -> None:
+        '''A reference to a CloudConnector resource.
+
+        :param cloud_connector_arn: The CloudConnectorArn of the CloudConnector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ssm as interfaces_ssm
+            
+            cloud_connector_reference = interfaces_ssm.CloudConnectorReference(
+                cloud_connector_arn="cloudConnectorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__67c0aeb3c250df3eaa9f4d1a2455fa6344099d5d43ef67b0700c7f3da92d2907)
+            check_type(argname="argument cloud_connector_arn", value=cloud_connector_arn, expected_type=type_hints["cloud_connector_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cloud_connector_arn": cloud_connector_arn,
+        }
+
+    @builtins.property
+    def cloud_connector_arn(self) -> builtins.str:
+        '''The CloudConnectorArn of the CloudConnector resource.'''
+        result = self._values.get("cloud_connector_arn")
+        assert result is not None, "Required property 'cloud_connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudConnectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ssm.DocumentReference",
     jsii_struct_bases=[],
     name_mapping={"document_name": "documentName"},
@@ -179,6 +228,51 @@ class _IAssociationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAssociationRef).__jsii_proxy_class__ = lambda : _IAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.ICloudConnectorRef")
+class ICloudConnectorRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudConnector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudConnectorRef")
+    def cloud_connector_ref(self) -> "CloudConnectorReference":
+        '''(experimental) A reference to a CloudConnector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICloudConnectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudConnector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ssm.ICloudConnectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudConnectorRef")
+    def cloud_connector_ref(self) -> "CloudConnectorReference":
+        '''(experimental) A reference to a CloudConnector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CloudConnectorReference", jsii.get(self, "cloudConnectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICloudConnectorRef).__jsii_proxy_class__ = lambda : _ICloudConnectorRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IDocumentRef")
@@ -586,49 +680,49 @@ class _IResourcePolicyRefProxy(
 typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.ISessionRef")
-class ISessionRef(
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IServiceSettingRef")
+class IServiceSettingRef(
     _constructs_77d1e7e8.IConstruct,
     _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Session.
+    '''(experimental) Indicates that this resource can be referenced as a ServiceSetting.
 
     :stability: experimental
     '''
 
     @builtins.property
-    @jsii.member(jsii_name="sessionRef")
-    def session_ref(self) -> "SessionReference":
-        '''(experimental) A reference to a Session resource.
+    @jsii.member(jsii_name="serviceSettingRef")
+    def service_setting_ref(self) -> "ServiceSettingReference":
+        '''(experimental) A reference to a ServiceSetting resource.
 
         :stability: experimental
         '''
         ...
 
 
-class _ISessionRefProxy(
+class _IServiceSettingRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
     jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Session.
+    '''(experimental) Indicates that this resource can be referenced as a ServiceSetting.
 
     :stability: experimental
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ssm.ISessionRef"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ssm.IServiceSettingRef"
 
     @builtins.property
-    @jsii.member(jsii_name="sessionRef")
-    def session_ref(self) -> "SessionReference":
-        '''(experimental) A reference to a Session resource.
+    @jsii.member(jsii_name="serviceSettingRef")
+    def service_setting_ref(self) -> "ServiceSettingReference":
+        '''(experimental) A reference to a ServiceSetting resource.
 
         :stability: experimental
         '''
-        return typing.cast("SessionReference", jsii.get(self, "sessionRef"))
+        return typing.cast("ServiceSettingReference", jsii.get(self, "serviceSettingRef"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISessionRef).__jsii_proxy_class__ = lambda : _ISessionRefProxy
+typing.cast(typing.Any, IServiceSettingRef).__jsii_proxy_class__ = lambda : _IServiceSettingRefProxy
 
 
 @jsii.data_type(
@@ -1083,15 +1177,15 @@ class ResourcePolicyReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_ssm.SessionReference",
+    jsii_type="aws-cdk-lib.interfaces.aws_ssm.ServiceSettingReference",
     jsii_struct_bases=[],
-    name_mapping={"session_arn": "sessionArn"},
+    name_mapping={"service_setting_arn": "serviceSettingArn"},
 )
-class SessionReference:
-    def __init__(self, *, session_arn: builtins.str) -> None:
-        '''A reference to a Session resource.
+class ServiceSettingReference:
+    def __init__(self, *, service_setting_arn: builtins.str) -> None:
+        '''A reference to a ServiceSetting resource.
 
-        :param session_arn: The Arn of the Session resource.
+        :param service_setting_arn: The Arn of the ServiceSetting resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1101,22 +1195,22 @@ class SessionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ssm as interfaces_ssm
             
-            session_reference = interfaces_ssm.SessionReference(
-                session_arn="sessionArn"
+            service_setting_reference = interfaces_ssm.ServiceSettingReference(
+                service_setting_arn="serviceSettingArn"
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__19e1ab370d854b293525f232adf7211fc4c5c9b3928e72c018351e885e19bb22)
-            check_type(argname="argument session_arn", value=session_arn, expected_type=type_hints["session_arn"])
+            type_hints = cached_type_hints(_typecheckingstub__cd646cd093078abe85046328da0225b07b29d4fb68198e44c76087901bd62f0f)
+            check_type(argname="argument service_setting_arn", value=service_setting_arn, expected_type=type_hints["service_setting_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "session_arn": session_arn,
+            "service_setting_arn": service_setting_arn,
         }
 
     @builtins.property
-    def session_arn(self) -> builtins.str:
-        '''The Arn of the Session resource.'''
-        result = self._values.get("session_arn")
-        assert result is not None, "Required property 'session_arn' is missing"
+    def service_setting_arn(self) -> builtins.str:
+        '''The Arn of the ServiceSetting resource.'''
+        result = self._values.get("service_setting_arn")
+        assert result is not None, "Required property 'service_setting_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1126,15 +1220,17 @@ class SessionReference:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "SessionReference(%s)" % ", ".join(
+        return "ServiceSettingReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
 
 __all__ = [
     "AssociationReference",
+    "CloudConnectorReference",
     "DocumentReference",
     "IAssociationRef",
+    "ICloudConnectorRef",
     "IDocumentRef",
     "IMaintenanceWindowRef",
     "IMaintenanceWindowTargetRef",
@@ -1144,7 +1240,7 @@ __all__ = [
     "IPatchBaselineRef",
     "IResourceDataSyncRef",
     "IResourcePolicyRef",
-    "ISessionRef",
+    "IServiceSettingRef",
     "MaintenanceWindowReference",
     "MaintenanceWindowTargetReference",
     "MaintenanceWindowTaskReference",
@@ -1153,7 +1249,7 @@ __all__ = [
     "PatchBaselineReference",
     "ResourceDataSyncReference",
     "ResourcePolicyReference",
-    "SessionReference",
+    "ServiceSettingReference",
 ]
 
 publication.publish()
@@ -1161,6 +1257,13 @@ publication.publish()
 def _typecheckingstub__775cc1fff0c5bb13a3195ec65e12083c34d45a6e8ae92b01ac08b89b1d2dc956(
     *,
     association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67c0aeb3c250df3eaa9f4d1a2455fa6344099d5d43ef67b0700c7f3da92d2907(
+    *,
+    cloud_connector_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1232,12 +1335,12 @@ def _typecheckingstub__624afa9dab00ea919f3780ec78ff1eba149e1b5a7a7f48fbce5c7d0bf
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__19e1ab370d854b293525f232adf7211fc4c5c9b3928e72c018351e885e19bb22(
+def _typecheckingstub__cd646cd093078abe85046328da0225b07b29d4fb68198e44c76087901bd62f0f(
     *,
-    session_arn: builtins.str,
+    service_setting_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-for cls in [IAssociationRef, IDocumentRef, IMaintenanceWindowRef, IMaintenanceWindowTargetRef, IMaintenanceWindowTaskRef, IOpsItemRef, IParameterRef, IPatchBaselineRef, IResourceDataSyncRef, IResourcePolicyRef, ISessionRef]:
+for cls in [IAssociationRef, ICloudConnectorRef, IDocumentRef, IMaintenanceWindowRef, IMaintenanceWindowTargetRef, IMaintenanceWindowTaskRef, IOpsItemRef, IParameterRef, IPatchBaselineRef, IResourceDataSyncRef, IResourcePolicyRef, IServiceSettingRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

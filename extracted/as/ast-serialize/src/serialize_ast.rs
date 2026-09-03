@@ -11,10 +11,11 @@ use ruff_python_parser::{Mode, ParseOptions, parse_unchecked};
 use ruff_source_file::LineIndex;
 use ruff_text_size::{Ranged, TextRange};
 use sha1::{Digest, Sha1};
+use thin_vec::ThinVec;
 
 use crate::func_effect_visitor;
 use crate::options::{
-    CV_HANDLER_LOCATIONS, CV_IMPORT_FLAGS, CV_RAW_EXPRESSION_TYPE_NOTES, Options,
+    CV_DICT_KEY_OPT, CV_HANDLER_LOCATIONS, CV_IMPORT_FLAGS, CV_RAW_EXPRESSION_TYPE_NOTES, Options,
 };
 use crate::reachability::TruthValue::AlwaysTrue;
 use crate::reachability::{
@@ -581,7 +582,7 @@ impl<'a> Serializer<'a> {
     }
 
     // fallback_range = None means deserializer can handle situations when this block is empty.
-    fn serialize_block(&mut self, block: &Vec<ast::Stmt>, fallback_range: Option<TextRange>) {
+    fn serialize_block(&mut self, block: &ThinVec<ast::Stmt>, fallback_range: Option<TextRange>) {
         self.write_tag(TAG_BLOCK);
         self.write_tag(TAG_LIST_GEN);
         self.write_usize(block.len());
@@ -851,6 +852,22 @@ fn function_comment_to_expr(
 /// Used for BytesExpr in expression contexts where we need a human-readable form
 fn serialize_bytes_to_escaped_string(bytes_lit: &ast::ExprBytesLiteral) -> Vec<u8> {
     let mut result = Vec::new();
+
+    // This replicates "smart-quote" logic in PyBytes_Repr (which is used by old parser)
+    let mut squotes = false;
+    let mut dquotes = false;
+    for bytes_part in bytes_lit.value.iter() {
+        for &byte in bytes_part.value.iter() {
+            if byte == b'\'' {
+                squotes = true;
+            }
+            if byte == b'"' {
+                dquotes = true;
+            }
+        }
+    }
+    let escape_quote = squotes && dquotes;
+
     for bytes_part in bytes_lit.value.iter() {
         for &byte in bytes_part.value.iter() {
             match byte {
@@ -858,7 +875,7 @@ fn serialize_bytes_to_escaped_string(bytes_lit: &ast::ExprBytesLiteral) -> Vec<u
                 b'\n' => result.extend_from_slice(b"\\n"),
                 b'\t' => result.extend_from_slice(b"\\t"),
                 b'\\' => result.extend_from_slice(b"\\\\"),
-                b'\'' => result.extend_from_slice(b"\\'"),
+                b'\'' if escape_quote => result.extend_from_slice(b"\\'"),
                 // Printable ASCII characters (space to ~)
                 32..=126 => result.push(byte),
                 // Everything else as hex escape
@@ -1169,13 +1186,16 @@ fn find_func_type_comment(
         return (arg_types, ret_type);
     }
     let first_stmt = func.body[0].start();
+    if ser.tokens.is_none() {
+        return (arg_types, ret_type);
+    }
     let tokens = ser.tokens.unwrap();
     let tokens_before = tokens.before(first_stmt);
     let mut idx = tokens_before.len() - 1;
     loop {
         // Look for function type comments between colon in `def foo(...):` anr first statement.
         let token = tokens_before[idx].kind();
-        if token == TokenKind::Colon {
+        if idx == 0 || token == TokenKind::Colon {
             break;
         }
         if token == TokenKind::Comment {
@@ -2233,7 +2253,19 @@ impl Ser for ast::Expr {
             ast::Expr::DictComp(dc) => {
                 ser.write_tag(TAG_DICT_COMPREHENSION);
                 // Serialize key expression
-                dc.key.serialize(ser);
+                if ser.options.cache_version() >= CV_DICT_KEY_OPT {
+                    dc.key.serialize(ser);
+                } else {
+                    if dc.key.is_some() {
+                        dc.key.as_ref().unwrap().serialize(ser);
+                    } else {
+                        ser.add_error("PEP 798 is not supported yet".to_string(), dc.range(), true);
+                        // Recover by serializing key as None.
+                        ser.write_tag(TAG_NAME_EXPR);
+                        ser.write_bytes(b"None");
+                        ser.write_location(dc.range());
+                    }
+                }
                 // Serialize value expression
                 dc.value.serialize(ser);
                 // Serialize number of generators
@@ -2647,9 +2679,9 @@ fn serialize_fstring_elements(ser: &mut Serializer, elems: Vec<&ast::Interpolate
                 let mut use_r = false;
                 if let Some(debug_text) = &interp.debug_text {
                     let range = interp.expression.range();
-                    let text = String::from(&debug_text.leading)
+                    let text = String::from(debug_text.leading())
                         + &ser.text[range]
-                        + debug_text.trailing.as_str();
+                        + debug_text.trailing();
                     ser.write_bytes(text.as_bytes());
                     ser.write_location(range);
                     // This logic mimics _get_interpolation_conversion() in Python parser: only
@@ -3577,6 +3609,58 @@ mod tests {
 
         assert!(ser.is_all_ascii);
         assert!(ser.lines_with_non_ascii.is_empty()); // No per-line tracking
+    }
+
+    #[test]
+    fn test_syntax_error_empty_func() {
+        // Test that we do not panic on invalid function definition.
+        let text = "def hello()\n    pass\n";
+        let mut ser = make_ser(text);
+        let opt = ParseOptions::from(PySourceType::Python);
+        let parsed = parse_unchecked(text, opt);
+        let ast = parsed.syntax();
+
+        // Should not panic
+        ast.serialize(&mut ser);
+
+        // Syntax error is reported normally
+        assert!(ser.extra_errors.is_empty());
+    }
+
+    #[test]
+    fn test_syntax_error_empty_func_2() {
+        // Same as above, but after a valid function.
+        let text = "def ok():\n    pass\ndef hello()\n    pass\n";
+        let mut ser = make_ser(text);
+        let opt = ParseOptions::from(PySourceType::Python);
+        let parsed = parse_unchecked(text, opt);
+        let ast = parsed.syntax();
+
+        // Should not panic
+        ast.serialize(&mut ser);
+
+        // Syntax error is reported normally
+        assert!(ser.extra_errors.is_empty());
+    }
+
+    #[test]
+    fn test_syntax_error_broken_args() {
+        // Test that we do not panic on invalid function arguments.
+        let source = "def f(x, (y, z)): pass\n";
+        let path = write_temp_py("test_source", source);
+        // Simply check that we do not panic
+        let _ = serialize_python_file(&path, None, false, Options::default()).unwrap();
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_syntax_error_broken_args_2() {
+        // Same as above, but after a valid function.
+        let source = "def ok(x): pass\ndef f(x, (y, z)): pass\n";
+        let path = write_temp_py("test_source", source);
+        // Simply check that we do not panic
+        let _ = serialize_python_file(&path, None, false, Options::default()).unwrap();
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

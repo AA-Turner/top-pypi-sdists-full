@@ -26,6 +26,8 @@ class ContractType(str, Enum, metaclass=StrEnumMeta):
     NETWORK = "network"
     CORE = "core"
     VPS = "vps"
+    STORAGE = "storage"
+    TRANSACTIONAL_EMAIL = "transactional_email"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -48,6 +50,15 @@ class ListProjectsRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
     CREATED_AT_DESC = "created_at_desc"
     NAME_ASC = "name_asc"
     NAME_DESC = "name_desc"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class ProjectStatus(str, Enum, metaclass=StrEnumMeta):
+    UNKNOWN_STATUS = "unknown_status"
+    ACTIVE = "active"
+    DELETING = "deleting"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -296,6 +307,11 @@ class Project:
     Description of the Project.
     """
 
+    status: ProjectStatus
+    """
+    Status of the Project.
+    """
+
     created_at: Optional[datetime] = None
     """
     Creation date of the Project.
@@ -458,6 +474,19 @@ class ProjectApiCreateProjectRequest:
 
 @dataclass
 class ProjectApiDeleteProjectRequest:
+    project_id: Optional[str] = None
+    """
+    Project ID of the Project.
+    """
+
+
+@dataclass
+class ProjectApiDeleteProjectWithResourcesRequest:
+    project_name: str
+    """
+    Name of the Project to delete. This is used as a safeguard confirmation.
+    """
+
     project_id: Optional[str] = None
     """
     Project ID of the Project.

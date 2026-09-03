@@ -16,7 +16,7 @@ from rich.console import Console
 from rich.table import Table
 
 from plato._generated.errors import APIError
-from plato._generated.models import SessionStateResponse
+from plato._generated.models import ArtifactMcpConfig, SessionStateResponse
 from plato.cli.utils import require_api_key
 from plato.v2.sandbox_store import (
     NAME_ENV_VAR,
@@ -29,7 +29,7 @@ from plato.v2.sandbox_store import (
     slugify,
     stop_heartbeat,
 )
-from plato.v2.sync.sandbox import SandboxClient
+from plato.v2.sync.sandbox import SandboxClient, describe_mcp_config
 
 # =============================================================================
 # COMMON ARG TYPES
@@ -632,7 +632,18 @@ def sandbox_start(
     disk: int = typer.Option(10240, "--disk", help="Disk MB (blank VM)", rich_help_panel="Blank Mode"),
     # general args
     dataset: str = typer.Option("base", "--dataset", "-d", help="Dataset we are using"),
-    connect_network: bool = typer.Option(True, "--network/--no-network", help="Connect WireGuard to the sandbox"),
+    connect_network: bool = typer.Option(
+        True,
+        "--network/--no-network",
+        help="Make the VM discoverable and reachable over the network (WireGuard) after boot, "
+        "so SSH, port-forwarding, --manual-control and the other VM-access commands work "
+        "(default: on). This controls whether you can REACH the VM, not the VM's own "
+        "connectivity: --no-network does NOT disable networking or internet inside the VM. "
+        "It leaves the VM unreachable from outside except through its public sim URL "
+        "(port 80 through the router), so SSH and friends will not work. Usually leave it on; "
+        "a VM started with --no-network can be made reachable later with "
+        "`plato sandbox connect-network`.",
+    ),
     timeout: int = typer.Option(1800, "--timeout", "-t", help="VM lifetime in seconds"),
     provider: str | None = typer.Option(
         None,
@@ -693,7 +704,8 @@ def sandbox_start(
         err_console = Console(stderr=True)
         if not connect_network:
             err_console.print(
-                "[red]--manual-control needs SSH, which needs the sandbox network; drop --no-network[/red]"
+                "[red]--manual-control needs SSH, which needs the VM reachable over the sandbox "
+                "network; drop --no-network[/red]"
             )
             raise typer.Exit(1)
         if (blank or from_config) and provider != "qemu":
@@ -783,6 +795,28 @@ def sandbox_start(
         out.success(state, "Sandbox started")
 
 
+def mcp_config_from_flags(enabled: bool | None, port: int | None, path: str | None) -> ArtifactMcpConfig | None:
+    """Assemble the artifact MCP config from the --mcp-* flags.
+
+    Returns ``None`` when none of them was passed, so the backend inherits the
+    parent artifact's config instead of being handed an all-empty override.
+    ``--mcp-port``/``--mcp-path`` on their own mean "serve MCP here", so they
+    imply ``enabled=True``.
+    """
+    if enabled is None and port is None and path is None:
+        return None
+    if port is not None and not 1 <= port <= 65535:
+        raise typer.BadParameter("must be between 1 and 65535", param_hint="--mcp-port")
+    if path is not None and (path.split() != [path] or not path.startswith("/")):
+        raise typer.BadParameter(
+            "must start with '/' and contain no whitespace, e.g. /api/mcp", param_hint="--mcp-path"
+        )
+    # model_validate, not the constructor: port/path are root models on the generated type
+    return ArtifactMcpConfig.model_validate(
+        {"enabled": True if enabled is None else enabled, "port": port, "path": path}
+    )
+
+
 # CHECKED
 @sandbox_app.command(name="snapshot")
 def sandbox_snapshot(
@@ -806,6 +840,23 @@ def sandbox_snapshot(
             help="Routing target domain stored on the artifact, e.g. <sim>.web.plato.so; inherited from the parent artifact when omitted.",
         ),
     ] = None,
+    mcp_enabled: Annotated[
+        bool | None,
+        typer.Option(
+            "--mcp-enabled/--no-mcp-enabled",
+            help="Turn the artifact's MCP endpoint on/off. Pass none of the --mcp-* flags to inherit the parent artifact's config.",
+        ),
+    ] = None,
+    mcp_port: Annotated[
+        int | None,
+        typer.Option("--mcp-port", help="Port the MCP endpoint is served on (1-65535). Implies --mcp-enabled."),
+    ] = None,
+    mcp_path: Annotated[
+        str | None,
+        typer.Option(
+            "--mcp-path", help="HTTP path the MCP endpoint is served at, e.g. /api/mcp. Implies --mcp-enabled."
+        ),
+    ] = None,
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):
@@ -818,7 +869,12 @@ def sandbox_snapshot(
         plato sandbox snapshot --mode config      # Override to pass local plato-config.yml, flows and login credentials to artifact
         plato sandbox snapshot --job              # Snapshot one env in a multi-env (unified) session
         plato sandbox snapshot --target grist.web.plato.so   # Record the routing domain on the artifact
+        plato sandbox snapshot --mcp-port 3000 --mcp-path /api/mcp   # Serve MCP from the artifact (implies --mcp-enabled)
+        plato sandbox snapshot --no-mcp-enabled   # Turn the artifact's MCP endpoint off
     """
+    # Raised outside sandbox_context so a bad flag is a usage error, not a run failure.
+    mcp = mcp_config_from_flags(mcp_enabled, mcp_port, mcp_path)
+
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
         _renew_lease()
         if not job and state_field("attached"):
@@ -830,7 +886,7 @@ def sandbox_snapshot(
                 raise SandboxStateError("job_id")
             out.console.print("[dim]Attached sandbox — full snapshot of only this env's job[/dim]")
             full_response = client.snapshot_job_full(
-                job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target
+                job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target, mcp=mcp
             )
             out.success(full_response, "Snapshot created")
             return
@@ -838,7 +894,9 @@ def sandbox_snapshot(
             if not job_id:
                 raise SandboxStateError("job_id")
             out.console.print("Creating job checkpoint...")
-            response = client.snapshot_job(job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target)
+            response = client.snapshot_job(
+                job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target, mcp=mcp
+            )
             out.success(response, "Snapshot created")
             return
 
@@ -848,6 +906,7 @@ def sandbox_snapshot(
             mode=require(mode, "mode"),
             dataset=require(dataset, "dataset"),
             target=target,
+            mcp=mcp,
         )
         out.success(response, "Snapshot created")
 
@@ -1035,11 +1094,13 @@ def sandbox_artifact(
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):
-    """Show an artifact record: status, parent, dataset and the login credentials stored on it.
+    """Show an artifact record: status, parent, dataset, login credentials and MCP config.
 
     Config-mode snapshots derive the credentials from plato-config.yml
-    (``metadata.credentials`` or the login ``variables``); this is how to check
-    what an artifact actually carries.
+    (``metadata.credentials`` or the login ``variables``); the MCP config comes
+    from the ``--mcp-*`` snapshot flags. This is how to check what an artifact
+    actually carries — ``mcp_config`` is what is stored on it, ``mcp`` what the
+    backend resolves after the simulator/parent fallbacks.
 
     Examples:
         plato sandbox artifact                       # The slot's last snapshot
@@ -1049,7 +1110,11 @@ def sandbox_artifact(
         target = artifact_id or state_field("artifact_id")
         if not target:
             raise SandboxStateError("artifact_id")
-        out.success(client.artifact_info(str(target)), "Artifact")
+        info = client.artifact_info(str(target))
+        out.success(info, "Artifact")
+        if not json_output:
+            out.super_console.print(f"[dim]MCP stored: {describe_mcp_config(info.mcp_config)}[/dim]")
+            out.super_console.print(f"[dim]MCP resolved: {describe_mcp_config(info.mcp)}[/dim]")
 
 
 # CHECKED

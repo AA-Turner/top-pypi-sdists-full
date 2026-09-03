@@ -597,6 +597,29 @@ class AgentMonitorSelectExpressionType(pycarlo.lib.types.Enum):
     )
 
 
+class AgentRawDataAccessMode(pycarlo.lib.types.Enum):
+    """Cutover mode for the Agent Observability raw-content access gate
+    (YET-2463).      - ``off``     – today's behavior: the AO-760
+    wiring decides and the new gate is inert.     - ``shadow``  –
+    evaluate the new gate and log a would-deny, but the old gate still
+    decides.     - ``enforce`` – the new gate decides.      Distinct
+    from ``agent_raw_data_denial.RawDataDenialMode``, which is a
+    closed two-state     *recording* enum. ``off`` short-circuits
+    before the gate is evaluated, so it has no recording
+    counterpart; ``shadow`` and ``enforce`` map onto it through
+    ``resolve_raw_data_denial_mode``.
+
+    Enumeration Choices:
+
+    * `ENFORCE`None
+    * `OFF`None
+    * `SHADOW`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ENFORCE", "OFF", "SHADOW")
+
+
 class AgentSourceType(pycarlo.lib.types.Enum):
     """Source type indicating where agent data originates from.
 
@@ -6136,6 +6159,8 @@ class Permission(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
+    * `AgentObservabilityAccess`None
+    * `AgentObservabilityContent`None
     * `AiAgentsAccess`None
     * `AiAgentsTriageEdit`None
     * `AiAgentsTroubleshootingAccess`None
@@ -6263,6 +6288,8 @@ class Permission(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AgentObservabilityAccess",
+        "AgentObservabilityContent",
         "AiAgentsAccess",
         "AiAgentsTriageEdit",
         "AiAgentsTroubleshootingAccess",
@@ -6959,6 +6986,21 @@ class RateType(pycarlo.lib.types.Enum):
     __choices__ = ("COMPUTE", "STORAGE")
 
 
+class RawContentWithheldReason(pycarlo.lib.types.Enum):
+    """Why a surface withheld raw agent content. Null when nothing was
+    withheld. Only NO_CONTENT_PERMISSION is fixed by a role grant.
+
+    Enumeration Choices:
+
+    * `NO_CONTENT_PERMISSION`None
+    * `SAMPLING_DISABLED`None
+    * `UNAVAILABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("NO_CONTENT_PERMISSION", "SAMPLING_DISABLED", "UNAVAILABLE")
+
+
 class RcaJobsModelJobType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -7255,6 +7297,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
+    * `AgentObservabilityAll`None
+    * `AgentObservabilityPropose`None
+    * `AgentObservabilityRead`None
+    * `AgentObservabilityWrite`None
     * `AiAgentsAll`None
     * `AiAgentsPropose`None
     * `AiAgentsRead`None
@@ -7473,6 +7519,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AgentObservabilityAll",
+        "AgentObservabilityPropose",
+        "AgentObservabilityRead",
+        "AgentObservabilityWrite",
         "AiAgentsAll",
         "AiAgentsPropose",
         "AiAgentsRead",
@@ -11117,6 +11167,25 @@ class AthenaUpdateConnectionDetails(sgqlc.types.Input):
     """AWS region"""
 
 
+class AudienceConditionByUuidInput(sgqlc.types.Input):
+    """Narrows one of a monitor's audiences to the triage priorities that
+    reach it.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("audience_uuid", "triage_priority")
+    audience_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="audienceUuid")
+    """UUID of the audience this condition narrows."""
+
+    triage_priority = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RoutableTriagePriority))),
+        graphql_name="triagePriority",
+    )
+    """Triage priorities that should notify this audience. At least one
+    is required; omit the audience entirely to leave it unconditional.
+    """
+
+
 class AudienceConditionInput(sgqlc.types.Input):
     """Narrows one of a monitor's audiences to the triage priorities that
     reach it.
@@ -11131,7 +11200,9 @@ class AudienceConditionInput(sgqlc.types.Input):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RoutableTriagePriority))),
         graphql_name="triagePriority",
     )
-    """Triage priorities that notify this audience. Never empty."""
+    """Triage priorities that should notify this audience. At least one
+    is required; omit the audience entirely to leave it unconditional.
+    """
 
 
 class AudienceNotificationSettingInput(sgqlc.types.Input):
@@ -20658,8 +20729,10 @@ class Account(sgqlc.types.Type):
         "enable_exception_management",
         "enable_domain_metrics_digest",
         "enable_platform_agent_domain_filtering",
+        "agent_raw_data_access_mode",
         "enable_pr_agent_paid_tier",
         "enable_pr_agent_metering",
+        "enable_proactive_tune_creator_notifications",
         "enable_cost_agent_paid_tier",
         "agent_monitor_default_collection_lag_hours",
         "validate_monitor_domains",
@@ -21284,6 +21357,17 @@ class Account(sgqlc.types.Type):
     )
     """Indicates whether domain filtering is enabled for platform agents"""
 
+    agent_raw_data_access_mode = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentRawDataAccessMode), graphql_name="agentRawDataAccessMode"
+    )
+    """Rollout stage of the Agent Observability raw-content access gate
+    for this account. OFF means the legacy sampling gate decides.
+    SHADOW means the new gate is evaluated and logged but the legacy
+    gate still decides, so denials are not user-visible. ENFORCE means
+    the new gate decides and a user without the agent-
+    observability/content permission is blocked.
+    """
+
     enable_pr_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enablePrAgentPaidTier")
     """Whether the PR Agent is unrestricted for the account: a full
     review on every pull request, billed for reviews beyond the
@@ -21296,6 +21380,14 @@ class Account(sgqlc.types.Type):
     """Whether PR Agent usage is metered and billed for the account. When
     false, reviews are not recorded for billing and the paid-tier
     setting has no billing effect.
+    """
+
+    enable_proactive_tune_creator_notifications = sgqlc.types.Field(
+        Boolean, graphql_name="enableProactiveTuneCreatorNotifications"
+    )
+    """Whether monitor creators receive proactive tuning recommendation
+    digests and see tuning views that highlight the monitors they
+    created.
     """
 
     enable_cost_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enableCostAgentPaidTier")
@@ -22702,7 +22794,15 @@ class AgentEvaluationRunSampleRow(sgqlc.types.Type):
 
 class AgentEvaluationRunSamplesResult(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("status", "message", "unsupported_reason", "rows", "total_count", "has_more")
+    __field_names__ = (
+        "status",
+        "message",
+        "unsupported_reason",
+        "rows",
+        "total_count",
+        "has_more",
+        "content_withheld_reason",
+    )
     status = sgqlc.types.Field(
         sgqlc.types.non_null(AgentEvaluationRunSamplesStatus), graphql_name="status"
     )
@@ -22730,6 +22830,16 @@ class AgentEvaluationRunSamplesResult(sgqlc.types.Type):
 
     has_more = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasMore")
     """Whether another page is available"""
+
+    content_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="contentWithheldReason"
+    )
+    """Why the judge's explanation was withheld, or null when it was not.
+    Rows still carry scores and timestamps either way, so an absent
+    explanation alone cannot say whether none was stored or the caller
+    may not read it. Only NO_CONTENT_PERMISSION is fixed by a role
+    grant.
+    """
 
 
 class AgentGraph(sgqlc.types.Type):
@@ -29354,6 +29464,7 @@ class ConversationClusterType(sgqlc.types.Type):
         "description",
         "classification_criteria",
         "exemplars",
+        "exemplars_withheld_reason",
         "ordinal",
         "taxonomy_version",
         "derivation",
@@ -29387,6 +29498,16 @@ class ConversationClusterType(sgqlc.types.Type):
     """Representative user asks for this cluster. Empty when data
     sampling is disabled for the owning warehouse or the caller lacks
     raw-data access.
+    """
+
+    exemplars_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="exemplarsWithheldReason"
+    )
+    """Why exemplars were withheld, or null when they were not. Read
+    alongside exemplars: an empty list with a null reason means the
+    cluster has none, and an empty list with a reason means the caller
+    may not see the ones it has. Only NO_CONTENT_PERMISSION is fixed
+    by a role grant.
     """
 
     ordinal = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="ordinal")
@@ -30702,11 +30823,14 @@ class CreateOrUpdateAgent(sgqlc.types.Type):
     """Result validating the provided parameters."""
 
     auto_enabled = sgqlc.types.Field(Boolean, graphql_name="autoEnabled")
-    """True when the update completed an AWS assume-role stub
-    registration (supplying the role and endpoint after the ExternalId
-    was minted) and the agent was enabled in the same call. Always
-    false on initial registration and on updates that do not
-    transition a stub agent into a fully configured one.
+    """True when the agent was disabled before the update and the update
+    enabled it. That happens once everything it was missing is
+    supplied: its endpoint, and the credentials its platform and
+    authentication type require. No separate updateAgentEnabled call
+    is needed then. Always false on initial registration and on an
+    update that leaves the enabled state unchanged. Also always false
+    for Snowflake and generic agents, which are enabled with
+    updateAgentEnabled instead.
     """
 
 
@@ -45353,6 +45477,7 @@ class MonitorTuningSuggestion(sgqlc.types.Type):
         "recommendation_titles",
         "breach_count7d",
         "auto_apply_enabled",
+        "created_by_me",
     )
     monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
 
@@ -45399,6 +45524,14 @@ class MonitorTuningSuggestion(sgqlc.types.Type):
     automatically, so the recommendations shown here may already be on
     their way in without the user acting. Applied entries and their
     revert are in getMonitorTuningAutoApplies.
+    """
+
+    created_by_me = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="createdByMe")
+    """True when the requesting user created the monitor. False when
+    anyone else did, and for monitors created by an agent, with no
+    recorded creator, or whose creator has left the account. A
+    Monitors-as-Code monitor applied with a human's API key records
+    that human as the creator.
     """
 
 
@@ -62404,6 +62537,7 @@ class Mutation(sgqlc.types.Type):
         graphql_name="exportAgentTrace",
         args=sgqlc.types.ArgDict(
             (
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
                 (
                     "mcon",
                     sgqlc.types.Arg(
@@ -62426,6 +62560,10 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `agent_name` (`String`): Agent the trace belongs to.
+      Disambiguates which agent's content permissions apply when the
+      trace table hosts more than one agent; it does not filter what
+      the export contains.
     * `mcon` (`String!`): MCON of the agent trace table. Find this in
       the trace page URL in the Monte Carlo UI, or in the response of
       getAgentSpanGroups.
@@ -63662,6 +63800,14 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionByUuidInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "audience_uuids",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
@@ -63689,11 +63835,21 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `audience_conditions` (`[AudienceConditionByUuidInput!]`):
+      Narrows individual audiences to the triage priorities that reach
+      them. Always a full replace. Omitting the argument (or passing
+      null) makes every audience in `audienceUuids` unconditional, the
+      same as passing an empty list. A non-empty list replaces the
+      conditions wholesale. Every audience named here must also appear
+      in `audienceUuids`, which stays the monitor's full audience set.
+      A condition narrows when one of those audiences is notified; it
+      does not add one.
     * `audience_uuids` (`[UUID!]`): Audiences to route the created
       monitors' notifications to, replacing whatever the staged config
-      asked for. Omitted or empty leaves the config's own routing
-      alone. An audience that does not exist in this account rejects
-      the whole request, so nothing is half-applied.
+      asked for — including any per-audience triage conditions it
+      carried. Omitted or empty leaves the config's own routing alone.
+      An audience that does not exist in this account rejects the
+      whole request, so nothing is half-applied.
     * `finding_uuid` (`UUID!`)None
     * `mode` (`MonitorApplyMode!`)None
     """
@@ -63703,6 +63859,14 @@ class Mutation(sgqlc.types.Type):
         graphql_name="applyMonitoringPlan",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionByUuidInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
                 (
                     "audience_uuids",
                     sgqlc.types.Arg(
@@ -63732,11 +63896,21 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `audience_conditions` (`[AudienceConditionByUuidInput!]`):
+      Narrows individual audiences to the triage priorities that reach
+      them. Always a full replace. Omitting the argument (or passing
+      null) makes every audience in `audienceUuids` unconditional, the
+      same as passing an empty list. A non-empty list replaces the
+      conditions wholesale. Every audience named here must also appear
+      in `audienceUuids`, which stays the monitor's full audience set.
+      A condition narrows when one of those audiences is notified; it
+      does not add one.
     * `audience_uuids` (`[UUID!]`): Audiences to route the created
       monitors' notifications to, replacing whatever the staged config
-      asked for. Omitted or empty leaves the config's own routing
-      alone. An audience that does not exist in this account rejects
-      the whole request, so nothing is half-applied.
+      asked for — including any per-audience triage conditions it
+      carried. Omitted or empty leaves the config's own routing alone.
+      An audience that does not exist in this account rejects the
+      whole request, so nothing is half-applied.
     * `mode` (`MonitorApplyMode!`)None
     * `plan_uuid` (`UUID!`): planUuid of the monitoring plan to apply.
     """
@@ -63746,6 +63920,14 @@ class Mutation(sgqlc.types.Type):
         graphql_name="applyMonitoringPlanSubset",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionByUuidInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
                 (
                     "audience_uuids",
                     sgqlc.types.Arg(
@@ -63785,11 +63967,21 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `audience_conditions` (`[AudienceConditionByUuidInput!]`):
+      Narrows individual audiences to the triage priorities that reach
+      them. Always a full replace. Omitting the argument (or passing
+      null) makes every audience in `audienceUuids` unconditional, the
+      same as passing an empty list. A non-empty list replaces the
+      conditions wholesale. Every audience named here must also appear
+      in `audienceUuids`, which stays the monitor's full audience set.
+      A condition narrows when one of those audiences is notified; it
+      does not add one.
     * `audience_uuids` (`[UUID!]`): Audiences to route the created
       monitors' notifications to, replacing whatever the staged config
-      asked for. Omitted or empty leaves the config's own routing
-      alone. An audience that does not exist in this account rejects
-      the whole request, so nothing is half-applied.
+      asked for — including any per-audience triage conditions it
+      carried. Omitted or empty leaves the config's own routing alone.
+      An audience that does not exist in this account rejects the
+      whole request, so nothing is half-applied.
     * `mode` (`MonitorApplyMode!`)None
     * `monitor_finding_uuids` (`[UUID!]!`): Findings of the individual
       monitors to apply — the `uuid` of each monitor-creation leaf
@@ -69890,7 +70082,7 @@ class Mutation(sgqlc.types.Type):
       tagged by supported warehouse classification tags. Defaults to
       true for ALERT mode, false for SCAN mode.
     * `skip_user_defined_warehouse_tags` (`Boolean`): Exclude columns
-      with Snowflake user-defined warehouse tags. Defaults to false.
+      with supported user-defined warehouse tags. Defaults to false.
       (default: `false`)
     * `split_large_selection` (`Boolean`): When true, create multiple
       PII monitors if the selected scope is larger than the per-
@@ -73994,9 +74186,7 @@ class PiiTypeInfo(sgqlc.types.Type):
 
 
 class PiiWarehouseTagSummary(sgqlc.types.Type):
-    """Bounded summary of Snowflake warehouse tags available for PII
-    setup.
-    """
+    """Bounded summary of warehouse tags available for PII setup."""
 
     __schema__ = schema
     __field_names__ = (
@@ -74022,13 +74212,13 @@ class PiiWarehouseTagSummary(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanWarehouseTag))),
         graphql_name="sampleSystemTags",
     )
-    """At most two Snowflake system classification tag examples."""
+    """At most two system classification tag examples."""
 
     sample_user_defined_tags = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanWarehouseTag))),
         graphql_name="sampleUserDefinedTags",
     )
-    """At most two Snowflake user-defined tag examples."""
+    """At most two user-defined warehouse tag examples."""
 
 
 class PineconeVectorIndexMetadata(sgqlc.types.Type):
@@ -74948,9 +75138,14 @@ class QPMonitorSimulationType(sgqlc.types.Type):
 
 class QueriedTable(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("table", "count")
+    __field_names__ = ("table", "mcon", "count")
     table = sgqlc.types.Field(String, graphql_name="table")
     """Full table ID of the table"""
+
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+    """MCON of the table, or null when the catalog does not hold this
+    path (dropped, never ingested, or not a table).
+    """
 
     count = sgqlc.types.Field(Int, graphql_name="count")
     """Number of times the table was queried"""
@@ -78714,8 +78909,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Return a bounded existence summary for Snowflake
-    system classification and user-defined warehouse tags on fields.
+    """(experimental) Return a bounded existence summary for system
+    classification and user-defined warehouse tags on fields.
 
     Arguments:
 
@@ -82669,10 +82864,18 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="limit", default=None),
                 ),
                 ("user", sgqlc.types.Arg(String, graphql_name="user", default=None)),
+                (
+                    "restrict_to_accessible_domains",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="restrictToAccessibleDomains", default=None
+                    ),
+                ),
             )
         ),
     )
-    """(experimental) List of tables queried by a given user
+    """(experimental) Tables queried in the period, most-queried first. A
+    table path present in more than one warehouse yields one row per
+    warehouse, so `limit` bounds paths rather than rows.
 
     Arguments:
 
@@ -82680,6 +82883,11 @@ class Query(sgqlc.types.Type):
     * `end_time` (`DateTime!`): End of the period to consider
     * `limit` (`Int!`): Number of tables to return.
     * `user` (`String`): Filter queries by user (email)
+    * `restrict_to_accessible_domains` (`Boolean`): Drop tables the
+      caller cannot prove access to. Off by default, which answers
+      over the whole account. `limit` bounds the table paths read
+      before narrowing, so a restricted caller may receive fewer rows
+      than requested, and a row with no `mcon` is always dropped.
     """
 
     get_notification_settings = sgqlc.types.Field(
@@ -101317,6 +101525,7 @@ class SQLResponse(sgqlc.types.Type):
         "error",
         "sampling_disabled",
         "sampling_restricted",
+        "content_withheld_reason",
         "rate_limit_exceeded",
         "idempotent_status",
         "download_url",
@@ -101350,6 +101559,15 @@ class SQLResponse(sgqlc.types.Type):
 
     sampling_restricted = sgqlc.types.Field(Boolean, graphql_name="samplingRestricted")
     """Indicates if sampling has been restricted for the user."""
+
+    content_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="contentWithheldReason"
+    )
+    """Why raw agent content was withheld from this result, or null when
+    nothing was. The non-content columns are still returned, so their
+    presence alone cannot say whether content was absent or withheld.
+    Only NO_CONTENT_PERMISSION is fixed by a role grant.
+    """
 
     rate_limit_exceeded = sgqlc.types.Field(Boolean, graphql_name="rateLimitExceeded")
     """Indicates if the rate limit was exceeded."""

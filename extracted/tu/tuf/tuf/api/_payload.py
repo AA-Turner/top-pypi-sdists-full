@@ -1,4 +1,4 @@
-# Copyright the TUF contributors
+# Copyright 2020-2026, the TUF contributors
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
 
@@ -311,7 +311,7 @@ class Role:
         )
 
     def __hash__(self) -> int:
-        return hash((self.keyids, self.threshold, self.unrecognized_fields))
+        return hash((tuple(self.keyids), self.threshold))
 
     @classmethod
     def from_dict(cls, role_dict: dict[str, Any]) -> Role:
@@ -530,7 +530,7 @@ class Root(Signed, _DelegatorMixin):
 
     type = _ROOT
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         version: int | None = None,
         spec_version: str | None = None,
@@ -1089,7 +1089,7 @@ class DelegatedRole(Role):
         ValueError: Invalid arguments.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         name: str,
         keyids: list[str],
@@ -1131,13 +1131,19 @@ class DelegatedRole(Role):
         )
 
     def __hash__(self) -> int:
+        paths = tuple(self.paths) if self.paths is not None else None
+        prefixes = (
+            tuple(self.path_hash_prefixes)
+            if self.path_hash_prefixes is not None
+            else None
+        )
         return hash(
             (
                 super().__hash__(),
                 self.name,
                 self.terminating,
-                self.path,
-                self.path_hash_prefixes,
+                paths,
+                prefixes,
             )
         )
 
@@ -1710,7 +1716,7 @@ class Targets(Signed, _DelegatorMixin):
 
     type = _TARGETS
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         version: int | None = None,
         spec_version: str | None = None,

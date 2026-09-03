@@ -14614,6 +14614,15 @@ class CfnReceiptRule(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrRuleName")
+    def attr_rule_name(self) -> builtins.str:
+        '''The name of the rule.
+
+        :cloudformationAttribute: RuleName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRuleName"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -16152,14 +16161,6 @@ class CfnReceiptRuleSet(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -17415,6 +17416,77 @@ class CloudWatchDimensionSource(enum.Enum):
 
     :see: https://docs.aws.amazon.com/ses/latest/dg/monitor-using-event-publishing.html#event-publishing-how-works
     '''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetEventDestinationAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_set": "configurationSet",
+        "configuration_set_event_destination_id": "configurationSetEventDestinationId",
+    },
+)
+class ConfigurationSetEventDestinationAttributes:
+    def __init__(
+        self,
+        *,
+        configuration_set: "_aws_ses_9999e6ba.IConfigurationSetRef",
+        configuration_set_event_destination_id: builtins.str,
+    ) -> None:
+        '''Properties of a reference to an existing configuration set event destination.
+
+        :param configuration_set: The configuration set that the event destination belongs to.
+        :param configuration_set_event_destination_id: The ID of the configuration set event destination.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            from aws_cdk.interfaces import aws_ses as interfaces_ses
+            
+            # configuration_set_ref: interfaces_ses.IConfigurationSetRef
+            
+            configuration_set_event_destination_attributes = ses.ConfigurationSetEventDestinationAttributes(
+                configuration_set=configuration_set_ref,
+                configuration_set_event_destination_id="configurationSetEventDestinationId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b318e9deaf445653d8ee5d0ad09d895fa6986418596161829b191a38fbaa22bc)
+            check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
+            check_type(argname="argument configuration_set_event_destination_id", value=configuration_set_event_destination_id, expected_type=type_hints["configuration_set_event_destination_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_set": configuration_set,
+            "configuration_set_event_destination_id": configuration_set_event_destination_id,
+        }
+
+    @builtins.property
+    def configuration_set(self) -> "_aws_ses_9999e6ba.IConfigurationSetRef":
+        '''The configuration set that the event destination belongs to.'''
+        result = self._values.get("configuration_set")
+        assert result is not None, "Required property 'configuration_set' is missing"
+        return typing.cast("_aws_ses_9999e6ba.IConfigurationSetRef", result)
+
+    @builtins.property
+    def configuration_set_event_destination_id(self) -> builtins.str:
+        '''The ID of the configuration set event destination.'''
+        result = self._values.get("configuration_set_event_destination_id")
+        assert result is not None, "Required property 'configuration_set_event_destination_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationSetEventDestinationAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -19731,6 +19803,33 @@ class ReceiptRule(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="fromReceiptRuleAttributes")
+    @builtins.classmethod
+    def from_receipt_rule_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        receipt_rule_name: builtins.str,
+        rule_set: "_aws_ses_9999e6ba.IReceiptRuleSetRef",
+    ) -> "IReceiptRule":
+        '''Import an existing receipt rule from its attributes.
+
+        :param scope: -
+        :param id: -
+        :param receipt_rule_name: The name of the receipt rule.
+        :param rule_set: The rule set that the receipt rule belongs to.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__32c384b556069510f97cdbdd9dd645494f24a4540d0be240990cf3d7387a6808)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = ReceiptRuleAttributes(
+            receipt_rule_name=receipt_rule_name, rule_set=rule_set
+        )
+
+        return typing.cast("IReceiptRule", jsii.sinvoke(cls, "fromReceiptRuleAttributes", [scope, id, attrs]))
+
     @jsii.member(jsii_name="fromReceiptRuleName")
     @builtins.classmethod
     def from_receipt_rule_name(
@@ -19739,7 +19838,11 @@ class ReceiptRule(
         id: builtins.str,
         receipt_rule_name: builtins.str,
     ) -> "IReceiptRule":
-        '''
+        '''Import an existing receipt rule by its name.
+
+        A name alone does not identify the rule set the rule belongs to, so ``ruleSetName`` is not available
+        on the returned reference. Use ``fromReceiptRuleAttributes()`` if you need it.
+
         :param scope: -
         :param id: -
         :param receipt_rule_name: -
@@ -19960,6 +20063,74 @@ class ReceiptRuleActionConfig:
 
     def __repr__(self) -> str:
         return "ReceiptRuleActionConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleAttributes",
+    jsii_struct_bases=[],
+    name_mapping={"receipt_rule_name": "receiptRuleName", "rule_set": "ruleSet"},
+)
+class ReceiptRuleAttributes:
+    def __init__(
+        self,
+        *,
+        receipt_rule_name: builtins.str,
+        rule_set: "_aws_ses_9999e6ba.IReceiptRuleSetRef",
+    ) -> None:
+        '''Properties of a reference to an existing receipt rule.
+
+        :param receipt_rule_name: The name of the receipt rule.
+        :param rule_set: The rule set that the receipt rule belongs to.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            from aws_cdk.interfaces import aws_ses as interfaces_ses
+            
+            # receipt_rule_set_ref: interfaces_ses.IReceiptRuleSetRef
+            
+            receipt_rule_attributes = ses.ReceiptRuleAttributes(
+                receipt_rule_name="receiptRuleName",
+                rule_set=receipt_rule_set_ref
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__324c0cc53d68bedfe616972cb0c95ae482550c4f5b803d93bfc69754115b3de5)
+            check_type(argname="argument receipt_rule_name", value=receipt_rule_name, expected_type=type_hints["receipt_rule_name"])
+            check_type(argname="argument rule_set", value=rule_set, expected_type=type_hints["rule_set"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "receipt_rule_name": receipt_rule_name,
+            "rule_set": rule_set,
+        }
+
+    @builtins.property
+    def receipt_rule_name(self) -> builtins.str:
+        '''The name of the receipt rule.'''
+        result = self._values.get("receipt_rule_name")
+        assert result is not None, "Required property 'receipt_rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_set(self) -> "_aws_ses_9999e6ba.IReceiptRuleSetRef":
+        '''The rule set that the receipt rule belongs to.'''
+        result = self._values.get("rule_set")
+        assert result is not None, "Required property 'rule_set' is missing"
+        return typing.cast("_aws_ses_9999e6ba.IReceiptRuleSetRef", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptRuleAttributes(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -21361,6 +21532,34 @@ class ConfigurationSetEventDestination(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="fromConfigurationSetEventDestinationAttributes")
+    @builtins.classmethod
+    def from_configuration_set_event_destination_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        configuration_set: "_aws_ses_9999e6ba.IConfigurationSetRef",
+        configuration_set_event_destination_id: builtins.str,
+    ) -> "IConfigurationSetEventDestination":
+        '''Import an existing event destination from its attributes.
+
+        :param scope: -
+        :param id: -
+        :param configuration_set: The configuration set that the event destination belongs to.
+        :param configuration_set_event_destination_id: The ID of the configuration set event destination.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__693fa01923bd29f4543cf1c4bb3765dceb7691dc44d849eff1af51ed40019fd7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = ConfigurationSetEventDestinationAttributes(
+            configuration_set=configuration_set,
+            configuration_set_event_destination_id=configuration_set_event_destination_id,
+        )
+
+        return typing.cast("IConfigurationSetEventDestination", jsii.sinvoke(cls, "fromConfigurationSetEventDestinationAttributes", [scope, id, attrs]))
+
     @jsii.member(jsii_name="fromConfigurationSetEventDestinationId")
     @builtins.classmethod
     def from_configuration_set_event_destination_id(
@@ -21369,7 +21568,11 @@ class ConfigurationSetEventDestination(
         id: builtins.str,
         configuration_set_event_destination_id: builtins.str,
     ) -> "IConfigurationSetEventDestination":
-        '''Use an existing configuration set.
+        '''Import an existing event destination by its ID.
+
+        An ID alone does not identify the configuration set the destination belongs to, so
+        ``configurationSetName`` is not available on the returned reference. Use
+        ``fromConfigurationSetEventDestinationAttributes()`` if you need it.
 
         :param scope: -
         :param id: -
@@ -21938,6 +22141,7 @@ __all__ = [
     "CloudWatchDimensionSource",
     "ConfigurationSet",
     "ConfigurationSetEventDestination",
+    "ConfigurationSetEventDestinationAttributes",
     "ConfigurationSetEventDestinationOptions",
     "ConfigurationSetEventDestinationProps",
     "ConfigurationSetProps",
@@ -21972,6 +22176,7 @@ __all__ = [
     "ReceiptFilterProps",
     "ReceiptRule",
     "ReceiptRuleActionConfig",
+    "ReceiptRuleAttributes",
     "ReceiptRuleOptions",
     "ReceiptRuleProps",
     "ReceiptRuleSet",
@@ -24364,6 +24569,14 @@ def _typecheckingstub__c718e80d3dd746209ff12fd14d08ce529bed18f85e0af362c1a2df8b5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b318e9deaf445653d8ee5d0ad09d895fa6986418596161829b191a38fbaa22bc(
+    *,
+    configuration_set: _aws_ses_9999e6ba.IConfigurationSetRef,
+    configuration_set_event_destination_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__80b5162c2d2ea9081e7450a4b5db43212eaf82f433a217fb2be6e012977034b6(
     *,
     destination: EventDestination,
@@ -24593,6 +24806,16 @@ def _typecheckingstub__a6538ae0354b52c95d3f59e885aa37e670088031cd04d3731f535129e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__32c384b556069510f97cdbdd9dd645494f24a4540d0be240990cf3d7387a6808(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    receipt_rule_name: builtins.str,
+    rule_set: _aws_ses_9999e6ba.IReceiptRuleSetRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a2938a672425842bfae972477b62457f138b21842405c6d5cb21988892d92c7c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -24616,6 +24839,14 @@ def _typecheckingstub__e54c86543028b77ffed9d64cfee35a01463cb4a33a112de436e67beaf
     sns_action: typing.Optional[typing.Union[SNSActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     stop_action: typing.Optional[typing.Union[StopActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     workmail_action: typing.Optional[typing.Union[WorkmailActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__324c0cc53d68bedfe616972cb0c95ae482550c4f5b803d93bfc69754115b3de5(
+    *,
+    receipt_rule_name: builtins.str,
+    rule_set: _aws_ses_9999e6ba.IReceiptRuleSetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24806,6 +25037,16 @@ def _typecheckingstub__cf213dc05e866bbe3e9422388bafa084e54ef674803fa10657e5b96b9
     configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[builtins.bool] = None,
     events: typing.Optional[typing.Sequence[EmailSendingEvent]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__693fa01923bd29f4543cf1c4bb3765dceb7691dc44d849eff1af51ed40019fd7(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    configuration_set: _aws_ses_9999e6ba.IConfigurationSetRef,
+    configuration_set_event_destination_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

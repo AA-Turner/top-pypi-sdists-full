@@ -12,10 +12,26 @@ from typing import Any, Dict, List, Union, Optional
 from lxml import etree as ET
 
 from edgar.core import log
-from edgar.xbrl.core import NAMESPACES, classify_duration
+from edgar.xbrl.core import NAMESPACES, classify_duration, duration_days
 from edgar.xbrl.models import Context, Fact, XBRLProcessingError
 
 from .base import BaseParser
+
+XLINK_NS = "{http://www.w3.org/1999/xlink}"
+LINKBASE_NS = "{http://www.xbrl.org/2003/linkbase}"
+XML_NS = "{http://www.w3.org/XML/1998/namespace}"
+
+# Elements whose content is a block: a break belongs after them, or the last
+# word of one runs into the first word of the next.
+_BLOCK_ELEMENTS = frozenset({
+    'address', 'article', 'blockquote', 'br', 'div', 'dd', 'dl', 'dt',
+    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3',
+    'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre',
+    'section', 'table', 'tbody', 'tfoot', 'thead', 'tr', 'ul',
+})
+
+# Cells sit side by side on one line, so they take a space rather than a break.
+_CELL_ELEMENTS = frozenset({'td', 'th'})
 
 
 class InstanceParser(BaseParser):
@@ -130,6 +146,11 @@ class InstanceParser(BaseParser):
         # Parse content with optimized settings
         root = ET.XML(content_bytes, parser)
 
+        # Namespace -> prefix, and prefix -> namespace, so two namespaces are
+        # never counted as one concept
+        counted_prefixes = {}
+        counted_claims = {}
+
         # Fast path to identify non-fact elements to skip
         skip_tag_endings = {'}context', '}unit', '}schemaRef'}
 
@@ -170,9 +191,8 @@ class InstanceParser(BaseParser):
                     break
 
             if not prefix and namespace:
-                # Try to extract prefix from the namespace
-                parts = namespace.split('/')
-                prefix = parts[-1] if parts else ''
+                prefix = counted_prefixes.get(namespace) or self._resolve_prefix(
+                    namespace, element, counted_prefixes, counted_claims)
 
             # Construct element ID with optimized string concatenation
             if prefix:
@@ -329,6 +349,54 @@ class InstanceParser(BaseParser):
         except Exception as e:
             raise XBRLProcessingError(f"Error extracting units: {str(e)}") from e
 
+    def _resolve_prefix(self, namespace: str, element,
+                        prefix_map: Dict[str, str],
+                        claimed: Dict[str, str]) -> str:
+        """
+        The prefix for a namespace, resolved so that distinct namespaces keep
+        distinct identities.
+
+        The expanded name — namespace URI plus local name — is what identifies a
+        concept; the prefix is a display choice. Deriving the prefix from the
+        URI's final path segment made that display choice load-bearing, and two
+        taxonomies whose URIs end in the same segment (.../alpha/2024 and
+        .../beta/2024) collapsed into one concept string.
+
+        Two things prevent that. A namespace declared on the fact element rather
+        than the instance root is read from the element's own in-scope
+        declarations, which is where its real prefix is. Where no prefix is
+        declared at all and the URI segment must be used, a segment already
+        claimed by a different namespace is suffixed rather than shared.
+
+        The result is cached in prefix_map, so an unknown namespace is resolved
+        once per document.
+        """
+        prefix = None
+
+        # The prefix the document itself declares, wherever it declares it
+        nsmap = getattr(element, 'nsmap', None)
+        if nsmap:
+            for declared_prefix, declared_uri in nsmap.items():
+                if declared_uri == namespace and declared_prefix:
+                    prefix = declared_prefix
+                    break
+
+        if not prefix:
+            # Nothing declared: fall back to the URI's final path segment
+            parts = namespace.rstrip('/').split('/')
+            prefix = parts[-1] if parts and parts[-1] else namespace
+
+        # Never let two namespaces share one prefix
+        if claimed.get(prefix) not in (None, namespace):
+            base, suffix = prefix, 2
+            while claimed.get(f"{base}_{suffix}") not in (None, namespace):
+                suffix += 1
+            prefix = f"{base}_{suffix}"
+
+        claimed[prefix] = namespace
+        prefix_map[namespace] = prefix
+        return prefix
+
     def _extract_facts(self, root: ET.Element) -> None:
         """Extract facts from instance document."""
         try:
@@ -350,6 +418,9 @@ class InstanceParser(BaseParser):
                         else:
                             prefix = attr_name.split(':', 1)[1]
                         prefix_map[attr_value] = prefix
+
+            # prefix -> namespace, so a prefix is never shared by two namespaces
+            claimed_prefixes = {prefix: uri for uri, prefix in prefix_map.items()}
 
             # Initialize counters and tracking
             fact_count = 0
@@ -401,8 +472,8 @@ class InstanceParser(BaseParser):
                     # Try to extract prefix from the namespace
                     prefix = prefix_map.get(namespace)
                     if not prefix:
-                        parts = namespace.split('/')
-                        prefix = parts[-1] if parts else ''
+                        prefix = self._resolve_prefix(
+                            namespace, element, prefix_map, claimed_prefixes)
                 else:
                     element_name = tag
                     prefix = ''
@@ -427,9 +498,22 @@ class InstanceParser(BaseParser):
                 # Get decimals attribute - direct access
                 decimals = element.get('decimals')
 
-                # Optimize numeric conversion with faster try/except
+                # Optimize numeric conversion with faster try/except.
+                #
+                # A unitRef is what makes a fact numeric. XBRL requires one on
+                # every numeric item and forbids one on non-numeric items, so
+                # its presence is an exact test here, where the element catalog
+                # (and with it the declared type) is not reachable.
+                #
+                # Without the check, float() succeeded on anything that merely
+                # looked like a number, so unitless metadata carried a
+                # numeric_value: dei:DocumentFiscalYearFocus is a gYear, and a
+                # query for facts valued near 2023 returned the fiscal-year
+                # focus alongside real monetary facts. numeric_value is the
+                # field consumers read as "this is a numeric fact", so every
+                # one of them inherited the misclassification (gh #1220).
                 numeric_value = None
-                if value:
+                if value and unit_ref:
                     try:
                         numeric_value = float(value)
                     except (ValueError, TypeError):
@@ -498,9 +582,11 @@ class InstanceParser(BaseParser):
     def _extract_footnotes(self, root: ET.Element) -> None:
         """Extract footnotes from instance document.
 
-        Footnotes in XBRL are linked to facts via footnoteLink elements that contain:
-        1. footnote elements with the actual text content
-        2. footnoteArc elements that connect fact IDs to footnote IDs
+        A footnoteLink is an extended link, and everything in it resolves
+        WITHIN it: `xlink:from` names a `link:loc` whose `xlink:href` fragment
+        is the fact id, and `xlink:to` names a `link:footnote` in the same link.
+        Two links may legitimately reuse a label, so resources are matched per
+        link and only disambiguated in the store when they actually collide.
         """
         try:
             from edgar.xbrl.models import Footnote
@@ -508,66 +594,56 @@ class InstanceParser(BaseParser):
             # Track undefined footnotes for deduplication
             undefined_footnotes = set()
 
-            # Find all footnoteLink elements
-            for footnote_link in root.findall('.//{http://www.xbrl.org/2003/linkbase}footnoteLink'):
-                # First, extract all footnote definitions
-                for footnote_elem in footnote_link.findall('{http://www.xbrl.org/2003/linkbase}footnote'):
+            for footnote_link in root.findall(f'.//{LINKBASE_NS}footnoteLink'):
+                # label -> the key this link's resource was stored under
+                resources = {}
+                for footnote_elem in footnote_link.findall(f'{LINKBASE_NS}footnote'):
                     # Prioritize xlink:label over id attribute for footnote identification.
                     # FootnoteArcs reference footnotes using xlink:to, which corresponds to xlink:label.
                     # In pre-2016 filings, these attributes often differ (e.g., xlink:label="lbl_footnote_0"
                     # vs id="FN_0"), so we must use xlink:label to match arc references correctly.
-                    footnote_id = footnote_elem.get('{http://www.w3.org/1999/xlink}label') or footnote_elem.get('id')
-                    if not footnote_id:
+                    label = (footnote_elem.get(f'{XLINK_NS}label')
+                             or footnote_elem.get('id'))
+                    if not label:
                         continue
 
-                    # Get footnote attributes
-                    lang = footnote_elem.get('{http://www.w3.org/XML/1998/namespace}lang', 'en-US')
-                    role = footnote_elem.get('{http://www.w3.org/1999/xlink}role')
-
-                    # Extract text content, handling XHTML formatting
-                    footnote_text = ""
-                    # Check for XHTML content
-                    xhtml_divs = footnote_elem.findall('.//{http://www.w3.org/1999/xhtml}div')
-                    if xhtml_divs:
-                        # Concatenate all text within XHTML elements
-                        for div in xhtml_divs:
-                            footnote_text += "".join(div.itertext()).strip()
-                    else:
-                        # Fall back to direct text content
-                        footnote_text = "".join(footnote_elem.itertext()).strip()
-
-                    # Create Footnote object
-                    footnote = Footnote(
-                        footnote_id=footnote_id,
-                        text=footnote_text,
-                        lang=lang,
-                        role=role,
+                    key = self._footnote_storage_key(label)
+                    self.footnotes[key] = Footnote(
+                        footnote_id=key,
+                        text=self._footnote_text(footnote_elem),
+                        lang=footnote_elem.get(f'{XML_NS}lang', 'en-US'),
+                        role=footnote_elem.get(f'{XLINK_NS}role'),
                         related_fact_ids=[]
                     )
-                    self.footnotes[footnote_id] = footnote
+                    resources[label] = key
 
-                # Second, process footnoteArc elements to link facts to footnotes
-                for arc_elem in footnote_link.findall('{http://www.xbrl.org/2003/linkbase}footnoteArc'):
-                    fact_id = arc_elem.get('{http://www.w3.org/1999/xlink}from')
-                    footnote_id = arc_elem.get('{http://www.w3.org/1999/xlink}to')
+                # A locator's label is not the fact id; its href fragment is.
+                locators = {
+                    loc.get(f'{XLINK_NS}label'): (loc.get(f'{XLINK_NS}href') or '').split('#')[-1]
+                    for loc in footnote_link.findall(f'{LINKBASE_NS}loc')
+                }
 
-                    if fact_id and footnote_id:
-                        # Add fact ID to footnote's related facts
-                        if footnote_id in self.footnotes:
-                            self.footnotes[footnote_id].related_fact_ids.append(fact_id)
-                        else:
-                            # Track undefined footnote (common in older filings due to naming inconsistencies)
-                            if footnote_id not in undefined_footnotes:
-                                undefined_footnotes.add(footnote_id)
-                                log.debug(f"Footnote arc references undefined footnote: {footnote_id}")
+                for arc_elem in footnote_link.findall(f'{LINKBASE_NS}footnoteArc'):
+                    from_ref = arc_elem.get(f'{XLINK_NS}from')
+                    to_ref = arc_elem.get(f'{XLINK_NS}to')
+                    if not from_ref or not to_ref:
+                        continue
 
-                        # Also update the fact's footnotes list if we can find it
-                        # This requires finding the fact by its fact_id
-                        for fact in self.facts.values():
-                            if fact.fact_id == fact_id:
-                                if footnote_id not in fact.footnotes:
-                                    fact.footnotes.append(footnote_id)
-                                break
+                    # Fall back to the label when the arc names no locator —
+                    # that is how this resolved for filings where it resolved.
+                    fact_id = locators.get(from_ref) or from_ref
+                    footnote_key = resources.get(to_ref)
+
+                    if footnote_key is None:
+                        # Track undefined footnote (common in older filings due
+                        # to naming inconsistencies)
+                        if to_ref not in undefined_footnotes:
+                            undefined_footnotes.add(to_ref)
+                            log.debug(f"Footnote arc references undefined footnote: {to_ref}")
+                        continue
+
+                    self.footnotes[footnote_key].related_fact_ids.append(fact_id)
+                    self._attach_footnote_to_fact(fact_id, footnote_key)
 
             # Summary message for undefined footnotes (non-critical)
             if undefined_footnotes:
@@ -578,6 +654,71 @@ class InstanceParser(BaseParser):
         except Exception as e:
             # Log the error but don't fail - footnotes are optional
             log.warning(f"Error extracting footnotes: {str(e)}")
+
+    def _footnote_storage_key(self, label: str) -> str:
+        """
+        The key a footnote resource is stored under.
+
+        Labels are unique within their own extended link, not across the
+        document, so a label already taken by an earlier link is suffixed. The
+        overwhelmingly common case is one link and no collision, where the key
+        stays exactly the label.
+        """
+        if label not in self.footnotes:
+            return label
+
+        suffix = 2
+        while f"{label}#{suffix}" in self.footnotes:
+            suffix += 1
+        return f"{label}#{suffix}"
+
+    def _attach_footnote_to_fact(self, fact_id: str, footnote_key: str) -> None:
+        """Record the footnote on the fact it annotates."""
+        for fact in self.facts.values():
+            if fact.fact_id == fact_id:
+                if footnote_key not in fact.footnotes:
+                    fact.footnotes.append(footnote_key)
+                return
+
+    def _footnote_text(self, footnote_elem) -> str:
+        """
+        The full text of a footnote resource, in document order.
+
+        Reading only descendant `<div>`s dropped direct-child and sibling text
+        and, because `findall('.//div')` returns nested divs alongside their
+        ancestors while `itertext()` already descends, emitted nested text
+        twice. One ordered walk visits every character exactly once, inserting a
+        break after a block so the last word of one does not glue to the first
+        word of the next.
+        """
+        parts: List[str] = []
+        self._collect_footnote_text(footnote_elem, parts)
+
+        lines = []
+        for raw_line in ''.join(parts).split('\n'):
+            line = ' '.join(raw_line.split())
+            if line:
+                lines.append(line)
+        return '\n'.join(lines)
+
+    def _collect_footnote_text(self, node, parts: List[str]) -> None:
+        """Append this node's text, its children's, and their tails, in order."""
+        if node.text:
+            parts.append(node.text)
+
+        for child in node:
+            tag = child.tag
+            name = tag.rsplit('}', 1)[-1].lower() if isinstance(tag, str) else ''
+
+            self._collect_footnote_text(child, parts)
+
+            if name in _BLOCK_ELEMENTS:
+                parts.append('\n')
+            elif name in _CELL_ELEMENTS:
+                parts.append(' ')
+
+            if child.tail:
+                parts.append(child.tail)
 
     def _extract_entity_info(self) -> None:
         """Extract entity information from contexts and DEI facts."""
@@ -737,8 +878,9 @@ class InstanceParser(BaseParser):
                     formatted_start = start_obj.strftime('%B %d, %Y')
                     formatted_end = end_obj.strftime('%B %d, %Y')
 
-                    # Calculate duration in days
-                    days = (end_obj - start_obj).days
+                    # Both endpoints belong to the period: a date-only endDate
+                    # runs to 24:00 on that day (issue #1247).
+                    days = duration_days(start_obj, end_obj)
 
                     # Determine period type based on duration
                     period_description = classify_duration(days)

@@ -7,10 +7,11 @@ from detect_installer import detect_installer
 
 
 def main() -> None:
-    info = detect_installer("detect-installer")
+    package_name = sys.argv[1] if len(sys.argv) > 1 else "detect-installer"
+    info = detect_installer(package_name)
 
     if info is None:
-        print("Could not detect installer for detect-installer")
+        print(f"Could not detect installer for {package_name}")
         sys.exit(1)
 
     json.dump(

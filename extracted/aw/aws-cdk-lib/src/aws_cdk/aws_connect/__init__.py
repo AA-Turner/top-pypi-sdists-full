@@ -13873,6 +13873,1352 @@ class CfnIntegrationAssociationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connect_b79b68b2.IMetricRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnMetric(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnMetric",
+):
+    '''Resource Type definition for AWS::Connect::Metric, a custom metric configured for an Amazon Connect instance.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html
+    :cloudformationResource: AWS::Connect::Metric
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_metric = connect.CfnMetric(self, "MyCfnMetric",
+            instance_arn="instanceArn",
+        
+            # the properties below are optional
+            description="description",
+            metric_calculation=connect.CfnMetric.MetricCalculationProperty(
+                calculation="calculation",
+                calculation_components=[connect.CfnMetric.CalculationComponentProperty(
+                    alias="alias",
+        
+                    # the properties below are optional
+                    metric_filters=[connect.CfnMetric.MetricFilterProperty(
+                        metric_filter_key="metricFilterKey",
+        
+                        # the properties below are optional
+                        boolean_condition=connect.CfnMetric.MetricFilterBooleanConditionProperty(
+                            comparison="comparison"
+                        ),
+                        negate=False,
+                        number_condition=connect.CfnMetric.MetricFilterNumberConditionProperty(
+                            comparison="comparison",
+                            values=[123]
+                        ),
+                        string_condition=connect.CfnMetric.MetricFilterStringConditionProperty(
+                            comparison="comparison",
+                            values=["values"]
+                        )
+                    )],
+                    metric_id="metricId",
+                    metric_name="metricName"
+                )]
+            ),
+            name="name",
+            positive_trend_indicator="positiveTrendIndicator",
+            status="status",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            unit="unit"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        instance_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        metric_calculation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricCalculationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        positive_trend_indicator: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        unit: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Connect::Metric``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param description: The description of the custom metric.
+        :param metric_calculation: The calculation configuration for the metric.
+        :param name: The name of the custom metric.
+        :param positive_trend_indicator: Indicates how to classify a positive trend in metric data on the UI.
+        :param status: The status of the custom metric.
+        :param tags: One or more tags.
+        :param unit: Display unit for the metric data.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8adf65a3d67ca4d8710b9df1abeacfb835303e70cec07aaec38a04b78891c735)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMetricProps(
+            instance_arn=instance_arn,
+            description=description,
+            metric_calculation=metric_calculation,
+            name=name,
+            positive_trend_indicator=positive_trend_indicator,
+            status=status,
+            tags=tags,
+            unit=unit,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMetric")
+    @builtins.classmethod
+    def arn_for_metric(
+        cls,
+        resource: "_aws_connect_b79b68b2.IMetricRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d6286ce9bfbd5832949561a9fd8a8386dd7734a3b7792423d6c10d800f64fcca)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMetric", [resource]))
+
+    @jsii.member(jsii_name="isCfnMetric")
+    @builtins.classmethod
+    def is_cfn_metric(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMetric.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__022affc323a73ca6a24d3b7fc8835079649b529d8423d0e7216c3de732155a4a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMetric", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a0f9ec91f5e34ad18b8818fa758480f86c92cdb51dd79c60b34c5c49e6169211)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a201bc6581d509a00e92e5f8cb2ced76f17b099bfae965a6c4523db9ad1ba6f5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCategory")
+    def attr_category(self) -> builtins.str:
+        '''The category of the custom metric.
+
+        :cloudformationAttribute: Category
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCategory"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTime")
+    def attr_created_time(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The timestamp where the metric was created.
+
+        :cloudformationAttribute: CreatedTime
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCreatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedUser")
+    def attr_created_user(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''
+        :cloudformationAttribute: CreatedUser
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCreatedUser"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationMethod")
+    def attr_creation_method(self) -> builtins.str:
+        '''Whether the metric was built with the guided Service Level (SL) experience, or with the free-form metric builder.
+
+        :cloudformationAttribute: CreationMethod
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationMethod"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEffectiveTime")
+    def attr_effective_time(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Earliest time that can be queried for this metric.
+
+        :cloudformationAttribute: EffectiveTime
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEffectiveTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFilters")
+    def attr_filters(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''List of filter types that may be used with this metric.
+
+        :cloudformationAttribute: Filters
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFilters"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGroupings")
+    def attr_groupings(self) -> typing.List[builtins.str]:
+        '''List of groupings that may be used with this metric.
+
+        :cloudformationAttribute: Groupings
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrGroupings"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedRegion")
+    def attr_last_modified_region(self) -> builtins.str:
+        '''The AWS region where the metric was last modified.
+
+        :cloudformationAttribute: LastModifiedRegion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The timestamp where the metric was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedUser")
+    def attr_last_modified_user(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''
+        :cloudformationAttribute: LastModifiedUser
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLastModifiedUser"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMetricArn")
+    def attr_metric_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the custom metric.
+
+        :cloudformationAttribute: MetricArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMetricArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPrimaryEventSource")
+    def attr_primary_event_source(self) -> builtins.str:
+        '''Main provider of the document/row-level data for the metric;
+
+        should match Data Lake table names
+
+        :cloudformationAttribute: PrimaryEventSource
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPrimaryEventSource"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPrimaryEventSourceEffectiveTimestampType")
+    def attr_primary_event_source_effective_timestamp_type(self) -> builtins.str:
+        '''Identifies the timestamp used to place the metrics on a time-series;
+
+        should match public attribute name
+
+        :cloudformationAttribute: PrimaryEventSourceEffectiveTimestampType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPrimaryEventSourceEffectiveTimestampType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRefreshRate")
+    def attr_refresh_rate(self) -> jsii.Number:
+        '''Recommended time to wait between each refresh of data for the metric.
+
+        :cloudformationAttribute: RefreshRate
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrRefreshRate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSupportedStats")
+    def attr_supported_stats(self) -> typing.List[builtins.str]:
+        '''List of stat aggregations available for the metric.
+
+        :cloudformationAttribute: SupportedStats
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrSupportedStats"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSupportsCustomCalculation")
+    def attr_supports_custom_calculation(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The metric may be used to compose other (custom) metrics.
+
+        :cloudformationAttribute: SupportsCustomCalculation
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrSupportsCustomCalculation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSupportsPreaggregateCalculation")
+    def attr_supports_preaggregate_calculation(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The metric may be used to compose other (custom) metrics, meaning it can be used inside of aggregate stat functions.
+
+        :cloudformationAttribute: SupportsPreaggregateCalculation
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrSupportsPreaggregateCalculation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''Whether the metric is provided out-of-the-box or created by each customer.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="metricRef")
+    def metric_ref(self) -> "_aws_connect_b79b68b2.MetricReference":
+        '''A reference to a Metric resource.'''
+        return typing.cast("_aws_connect_b79b68b2.MetricReference", jsii.get(self, "metricRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__193f2325d7d60ddd902aa70ab085d95028079e4b4f60beff6fa8f0b5cba0dd80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the custom metric.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__240535a1eb51af4a98e7fd6caa4f9be5c0adc6ff617126789cfb0d0ee16aa63f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metricCalculation")
+    def metric_calculation(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]]:
+        '''The calculation configuration for the metric.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]], jsii.get(self, "metricCalculation"))
+
+    @metric_calculation.setter
+    def metric_calculation(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3e45172628fc5231c49f67784d0bfa0bc338f6295f4045e46087e66363979ab0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricCalculation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the custom metric.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__23c556e569bbf473ba838dbc58b516bb53185361c8468acae90cbb3d03e80e6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="positiveTrendIndicator")
+    def positive_trend_indicator(self) -> typing.Optional[builtins.str]:
+        '''Indicates how to classify a positive trend in metric data on the UI.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "positiveTrendIndicator"))
+
+    @positive_trend_indicator.setter
+    def positive_trend_indicator(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__76e76b25ef3b04aa975823af067d618255377b8c1b40a3f7b027a699fae2d92b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "positiveTrendIndicator", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the custom metric.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__16d748f05bc65ce2c64b7a50b62da86ff60e619ac463e35073e1a905ba82cc1c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''One or more tags.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1d9797912da0e5d355023e2e3d416eddb59e94603667a88c45c126c55c75a100)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="unit")
+    def unit(self) -> typing.Optional[builtins.str]:
+        '''Display unit for the metric data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "unit"))
+
+    @unit.setter
+    def unit(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__71c2f3fa3c28fac24a124598bd9e944bb3a2d6ea6c334d13a6ecc7123ec45fee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnMetric.AvailableFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"id": "id", "type": "type"},
+    )
+    class AvailableFilterProperty:
+        def __init__(self, *, id: builtins.str, type: builtins.str) -> None:
+            '''
+            :param id: 
+            :param type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-availablefilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                available_filter_property = connect.CfnMetric.AvailableFilterProperty(
+                    id="id",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__01721d6c94181c2acc8f4ec5aaee5336add65c2ed7dc71544dd8e911d048aef9)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+                "type": type,
+            }
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-availablefilter.html#cfn-connect-metric-availablefilter-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-availablefilter.html#cfn-connect-metric-availablefilter-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AvailableFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnMetric.CalculationComponentProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "alias": "alias",
+            "metric_filters": "metricFilters",
+            "metric_id": "metricId",
+            "metric_name": "metricName",
+        },
+    )
+    class CalculationComponentProperty:
+        def __init__(
+            self,
+            *,
+            alias: builtins.str,
+            metric_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_id: typing.Optional[builtins.str] = None,
+            metric_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param alias: Metric calculation component alias for use within a calculation.
+            :param metric_filters: 
+            :param metric_id: 
+            :param metric_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-calculationcomponent.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                calculation_component_property = connect.CfnMetric.CalculationComponentProperty(
+                    alias="alias",
+                
+                    # the properties below are optional
+                    metric_filters=[connect.CfnMetric.MetricFilterProperty(
+                        metric_filter_key="metricFilterKey",
+                
+                        # the properties below are optional
+                        boolean_condition=connect.CfnMetric.MetricFilterBooleanConditionProperty(
+                            comparison="comparison"
+                        ),
+                        negate=False,
+                        number_condition=connect.CfnMetric.MetricFilterNumberConditionProperty(
+                            comparison="comparison",
+                            values=[123]
+                        ),
+                        string_condition=connect.CfnMetric.MetricFilterStringConditionProperty(
+                            comparison="comparison",
+                            values=["values"]
+                        )
+                    )],
+                    metric_id="metricId",
+                    metric_name="metricName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3ce059205f66ed341b66ae0bbc5defd0a1a5d2b32081bab737234ada4f8bdfa5)
+                check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
+                check_type(argname="argument metric_filters", value=metric_filters, expected_type=type_hints["metric_filters"])
+                check_type(argname="argument metric_id", value=metric_id, expected_type=type_hints["metric_id"])
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "alias": alias,
+            }
+            if metric_filters is not None:
+                self._values["metric_filters"] = metric_filters
+            if metric_id is not None:
+                self._values["metric_id"] = metric_id
+            if metric_name is not None:
+                self._values["metric_name"] = metric_name
+
+        @builtins.property
+        def alias(self) -> builtins.str:
+            '''Metric calculation component alias for use within a calculation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-calculationcomponent.html#cfn-connect-metric-calculationcomponent-alias
+            '''
+            result = self._values.get("alias")
+            assert result is not None, "Required property 'alias' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def metric_filters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-calculationcomponent.html#cfn-connect-metric-calculationcomponent-metricfilters
+            '''
+            result = self._values.get("metric_filters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricFilterProperty"]]]], result)
+
+        @builtins.property
+        def metric_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-calculationcomponent.html#cfn-connect-metric-calculationcomponent-metricid
+            '''
+            result = self._values.get("metric_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def metric_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-calculationcomponent.html#cfn-connect-metric-calculationcomponent-metricname
+            '''
+            result = self._values.get("metric_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CalculationComponentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnMetric.CreatedByInfoProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aws_identity_arn": "awsIdentityArn",
+            "connect_user_arn": "connectUserArn",
+        },
+    )
+    class CreatedByInfoProperty:
+        def __init__(
+            self,
+            *,
+            aws_identity_arn: typing.Optional[builtins.str] = None,
+            connect_user_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param aws_identity_arn: STS or IAM ARN representing the identity of API Caller. SDK users cannot populate this and this value is calculated automatically if ConnectUserArn is not provided.
+            :param connect_user_arn: An agent ARN representing a connect user.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-createdbyinfo.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                created_by_info_property = connect.CfnMetric.CreatedByInfoProperty(
+                    aws_identity_arn="awsIdentityArn",
+                    connect_user_arn="connectUserArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f1bd28a1e237f2928858588a4a6f9ea679db9484b94242ad7cdbce0537b09c71)
+                check_type(argname="argument aws_identity_arn", value=aws_identity_arn, expected_type=type_hints["aws_identity_arn"])
+                check_type(argname="argument connect_user_arn", value=connect_user_arn, expected_type=type_hints["connect_user_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aws_identity_arn is not None:
+                self._values["aws_identity_arn"] = aws_identity_arn
+            if connect_user_arn is not None:
+                self._values["connect_user_arn"] = connect_user_arn
+
+        @builtins.property
+        def aws_identity_arn(self) -> typing.Optional[builtins.str]:
+            '''STS or IAM ARN representing the identity of API Caller.
+
+            SDK users cannot populate this and this value is calculated automatically if ConnectUserArn is not provided.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-createdbyinfo.html#cfn-connect-metric-createdbyinfo-awsidentityarn
+            '''
+            result = self._values.get("aws_identity_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def connect_user_arn(self) -> typing.Optional[builtins.str]:
+            '''An agent ARN representing a connect user.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-createdbyinfo.html#cfn-connect-metric-createdbyinfo-connectuserarn
+            '''
+            result = self._values.get("connect_user_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreatedByInfoProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnMetric.MetricCalculationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "calculation": "calculation",
+            "calculation_components": "calculationComponents",
+        },
+    )
+    class MetricCalculationProperty:
+        def __init__(
+            self,
+            *,
+            calculation: builtins.str,
+            calculation_components: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.CalculationComponentProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The calculation configuration for the metric.
+
+            :param calculation: The calculation formula.
+            :param calculation_components: The calculation components for the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metriccalculation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                metric_calculation_property = connect.CfnMetric.MetricCalculationProperty(
+                    calculation="calculation",
+                    calculation_components=[connect.CfnMetric.CalculationComponentProperty(
+                        alias="alias",
+                
+                        # the properties below are optional
+                        metric_filters=[connect.CfnMetric.MetricFilterProperty(
+                            metric_filter_key="metricFilterKey",
+                
+                            # the properties below are optional
+                            boolean_condition=connect.CfnMetric.MetricFilterBooleanConditionProperty(
+                                comparison="comparison"
+                            ),
+                            negate=False,
+                            number_condition=connect.CfnMetric.MetricFilterNumberConditionProperty(
+                                comparison="comparison",
+                                values=[123]
+                            ),
+                            string_condition=connect.CfnMetric.MetricFilterStringConditionProperty(
+                                comparison="comparison",
+                                values=["values"]
+                            )
+                        )],
+                        metric_id="metricId",
+                        metric_name="metricName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__af2978116c90e5339f3a8f3a8685f6927a6d51f6c364094443cc0ab27551c884)
+                check_type(argname="argument calculation", value=calculation, expected_type=type_hints["calculation"])
+                check_type(argname="argument calculation_components", value=calculation_components, expected_type=type_hints["calculation_components"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "calculation": calculation,
+                "calculation_components": calculation_components,
+            }
+
+        @builtins.property
+        def calculation(self) -> builtins.str:
+            '''The calculation formula.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metriccalculation.html#cfn-connect-metric-metriccalculation-calculation
+            '''
+            result = self._values.get("calculation")
+            assert result is not None, "Required property 'calculation' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def calculation_components(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.CalculationComponentProperty"]]]:
+            '''The calculation components for the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metriccalculation.html#cfn-connect-metric-metriccalculation-calculationcomponents
+            '''
+            result = self._values.get("calculation_components")
+            assert result is not None, "Required property 'calculation_components' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.CalculationComponentProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricCalculationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnMetric.MetricFilterBooleanConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"comparison": "comparison"},
+    )
+    class MetricFilterBooleanConditionProperty:
+        def __init__(self, *, comparison: builtins.str) -> None:
+            '''
+            :param comparison: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilterbooleancondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                metric_filter_boolean_condition_property = connect.CfnMetric.MetricFilterBooleanConditionProperty(
+                    comparison="comparison"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e89e090e28bcd10819898a6040ac1516705ff6e42774af58a3dc6f2a0e8f700d)
+                check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "comparison": comparison,
+            }
+
+        @builtins.property
+        def comparison(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilterbooleancondition.html#cfn-connect-metric-metricfilterbooleancondition-comparison
+            '''
+            result = self._values.get("comparison")
+            assert result is not None, "Required property 'comparison' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricFilterBooleanConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnMetric.MetricFilterNumberConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"comparison": "comparison", "values": "values"},
+    )
+    class MetricFilterNumberConditionProperty:
+        def __init__(
+            self,
+            *,
+            comparison: builtins.str,
+            values: typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''
+            :param comparison: 
+            :param values: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilternumbercondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                metric_filter_number_condition_property = connect.CfnMetric.MetricFilterNumberConditionProperty(
+                    comparison="comparison",
+                    values=[123]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__76dde2b5b67f12d5909381f9a5b2847d09b70607da2f2ed887916d7ebe02c14c)
+                check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "comparison": comparison,
+                "values": values,
+            }
+
+        @builtins.property
+        def comparison(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilternumbercondition.html#cfn-connect-metric-metricfilternumbercondition-comparison
+            '''
+            result = self._values.get("comparison")
+            assert result is not None, "Required property 'comparison' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(
+            self,
+        ) -> typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilternumbercondition.html#cfn-connect-metric-metricfilternumbercondition-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricFilterNumberConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnMetric.MetricFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "metric_filter_key": "metricFilterKey",
+            "boolean_condition": "booleanCondition",
+            "negate": "negate",
+            "number_condition": "numberCondition",
+            "string_condition": "stringCondition",
+        },
+    )
+    class MetricFilterProperty:
+        def __init__(
+            self,
+            *,
+            metric_filter_key: builtins.str,
+            boolean_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricFilterBooleanConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            negate: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            number_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricFilterNumberConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            string_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricFilterStringConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param metric_filter_key: 
+            :param boolean_condition: 
+            :param negate: 
+            :param number_condition: 
+            :param string_condition: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                metric_filter_property = connect.CfnMetric.MetricFilterProperty(
+                    metric_filter_key="metricFilterKey",
+                
+                    # the properties below are optional
+                    boolean_condition=connect.CfnMetric.MetricFilterBooleanConditionProperty(
+                        comparison="comparison"
+                    ),
+                    negate=False,
+                    number_condition=connect.CfnMetric.MetricFilterNumberConditionProperty(
+                        comparison="comparison",
+                        values=[123]
+                    ),
+                    string_condition=connect.CfnMetric.MetricFilterStringConditionProperty(
+                        comparison="comparison",
+                        values=["values"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__991fc564b67f2c21981f090b21e9b4b72fc1c6bcefd422b501d4f727a55f1179)
+                check_type(argname="argument metric_filter_key", value=metric_filter_key, expected_type=type_hints["metric_filter_key"])
+                check_type(argname="argument boolean_condition", value=boolean_condition, expected_type=type_hints["boolean_condition"])
+                check_type(argname="argument negate", value=negate, expected_type=type_hints["negate"])
+                check_type(argname="argument number_condition", value=number_condition, expected_type=type_hints["number_condition"])
+                check_type(argname="argument string_condition", value=string_condition, expected_type=type_hints["string_condition"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric_filter_key": metric_filter_key,
+            }
+            if boolean_condition is not None:
+                self._values["boolean_condition"] = boolean_condition
+            if negate is not None:
+                self._values["negate"] = negate
+            if number_condition is not None:
+                self._values["number_condition"] = number_condition
+            if string_condition is not None:
+                self._values["string_condition"] = string_condition
+
+        @builtins.property
+        def metric_filter_key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilter.html#cfn-connect-metric-metricfilter-metricfilterkey
+            '''
+            result = self._values.get("metric_filter_key")
+            assert result is not None, "Required property 'metric_filter_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def boolean_condition(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricFilterBooleanConditionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilter.html#cfn-connect-metric-metricfilter-booleancondition
+            '''
+            result = self._values.get("boolean_condition")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricFilterBooleanConditionProperty"]], result)
+
+        @builtins.property
+        def negate(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilter.html#cfn-connect-metric-metricfilter-negate
+            '''
+            result = self._values.get("negate")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def number_condition(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricFilterNumberConditionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilter.html#cfn-connect-metric-metricfilter-numbercondition
+            '''
+            result = self._values.get("number_condition")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricFilterNumberConditionProperty"]], result)
+
+        @builtins.property
+        def string_condition(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricFilterStringConditionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilter.html#cfn-connect-metric-metricfilter-stringcondition
+            '''
+            result = self._values.get("string_condition")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricFilterStringConditionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnMetric.MetricFilterStringConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"comparison": "comparison", "values": "values"},
+    )
+    class MetricFilterStringConditionProperty:
+        def __init__(
+            self,
+            *,
+            comparison: builtins.str,
+            values: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            :param comparison: 
+            :param values: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilterstringcondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                metric_filter_string_condition_property = connect.CfnMetric.MetricFilterStringConditionProperty(
+                    comparison="comparison",
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0821e24eb6d93144022ca1f02baab27bbaf27ecbb82c1d44072a5ee4a44092f0)
+                check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "comparison": comparison,
+                "values": values,
+            }
+
+        @builtins.property
+        def comparison(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilterstringcondition.html#cfn-connect-metric-metricfilterstringcondition-comparison
+            '''
+            result = self._values.get("comparison")
+            assert result is not None, "Required property 'comparison' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-metric-metricfilterstringcondition.html#cfn-connect-metric-metricfilterstringcondition-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricFilterStringConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnMetricProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "description": "description",
+        "metric_calculation": "metricCalculation",
+        "name": "name",
+        "positive_trend_indicator": "positiveTrendIndicator",
+        "status": "status",
+        "tags": "tags",
+        "unit": "unit",
+    },
+)
+class CfnMetricProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        metric_calculation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricCalculationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        positive_trend_indicator: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        unit: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMetric``.
+
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param description: The description of the custom metric.
+        :param metric_calculation: The calculation configuration for the metric.
+        :param name: The name of the custom metric.
+        :param positive_trend_indicator: Indicates how to classify a positive trend in metric data on the UI.
+        :param status: The status of the custom metric.
+        :param tags: One or more tags.
+        :param unit: Display unit for the metric data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_metric_props = connect.CfnMetricProps(
+                instance_arn="instanceArn",
+            
+                # the properties below are optional
+                description="description",
+                metric_calculation=connect.CfnMetric.MetricCalculationProperty(
+                    calculation="calculation",
+                    calculation_components=[connect.CfnMetric.CalculationComponentProperty(
+                        alias="alias",
+            
+                        # the properties below are optional
+                        metric_filters=[connect.CfnMetric.MetricFilterProperty(
+                            metric_filter_key="metricFilterKey",
+            
+                            # the properties below are optional
+                            boolean_condition=connect.CfnMetric.MetricFilterBooleanConditionProperty(
+                                comparison="comparison"
+                            ),
+                            negate=False,
+                            number_condition=connect.CfnMetric.MetricFilterNumberConditionProperty(
+                                comparison="comparison",
+                                values=[123]
+                            ),
+                            string_condition=connect.CfnMetric.MetricFilterStringConditionProperty(
+                                comparison="comparison",
+                                values=["values"]
+                            )
+                        )],
+                        metric_id="metricId",
+                        metric_name="metricName"
+                    )]
+                ),
+                name="name",
+                positive_trend_indicator="positiveTrendIndicator",
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                unit="unit"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__23e8ace52e47b83d918f6644427b9c8e23df4e90359fd2fb2f5e2483a23e4c0f)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metric_calculation", value=metric_calculation, expected_type=type_hints["metric_calculation"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument positive_trend_indicator", value=positive_trend_indicator, expected_type=type_hints["positive_trend_indicator"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if metric_calculation is not None:
+            self._values["metric_calculation"] = metric_calculation
+        if name is not None:
+            self._values["name"] = name
+        if positive_trend_indicator is not None:
+            self._values["positive_trend_indicator"] = positive_trend_indicator
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+        if unit is not None:
+            self._values["unit"] = unit
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the custom metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metric_calculation(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]]:
+        '''The calculation configuration for the metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-metriccalculation
+        '''
+        result = self._values.get("metric_calculation")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the custom metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def positive_trend_indicator(self) -> typing.Optional[builtins.str]:
+        '''Indicates how to classify a positive trend in metric data on the UI.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-positivetrendindicator
+        '''
+        result = self._values.get("positive_trend_indicator")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the custom metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''One or more tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def unit(self) -> typing.Optional[builtins.str]:
+        '''Display unit for the metric data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-unit
+        '''
+        result = self._values.get("unit")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMetricProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connect_b79b68b2.INotificationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnNotification(
     _aws_cdk_0cae9daa.CfnResource,
@@ -15966,6 +17312,24 @@ class CfnQueue(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedRegion")
+    def attr_last_modified_region(self) -> builtins.str:
+        '''The AWS Region where this resource was last modified.
+
+        :cloudformationAttribute: LastModifiedRegion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The timestamp when this resource was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLastModifiedTime"))
 
     @builtins.property
     @jsii.member(jsii_name="attrQueueArn")
@@ -29604,6 +30968,8 @@ __all__ = [
     "CfnInstanceStorageConfigProps",
     "CfnIntegrationAssociation",
     "CfnIntegrationAssociationProps",
+    "CfnMetric",
+    "CfnMetricProps",
     "CfnNotification",
     "CfnNotificationProps",
     "CfnPhoneNumber",
@@ -31561,6 +32927,176 @@ def _typecheckingstub__fe194aedf3230ea702915cbc89ea1228fbcd7507b4352cd6ca6f2c8b3
     integration_arn: builtins.str,
     integration_type: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8adf65a3d67ca4d8710b9df1abeacfb835303e70cec07aaec38a04b78891c735(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    instance_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    metric_calculation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricCalculationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    positive_trend_indicator: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    unit: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6286ce9bfbd5832949561a9fd8a8386dd7734a3b7792423d6c10d800f64fcca(
+    resource: _aws_connect_b79b68b2.IMetricRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__022affc323a73ca6a24d3b7fc8835079649b529d8423d0e7216c3de732155a4a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0f9ec91f5e34ad18b8818fa758480f86c92cdb51dd79c60b34c5c49e6169211(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a201bc6581d509a00e92e5f8cb2ced76f17b099bfae965a6c4523db9ad1ba6f5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__193f2325d7d60ddd902aa70ab085d95028079e4b4f60beff6fa8f0b5cba0dd80(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__240535a1eb51af4a98e7fd6caa4f9be5c0adc6ff617126789cfb0d0ee16aa63f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e45172628fc5231c49f67784d0bfa0bc338f6295f4045e46087e66363979ab0(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMetric.MetricCalculationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23c556e569bbf473ba838dbc58b516bb53185361c8468acae90cbb3d03e80e6a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76e76b25ef3b04aa975823af067d618255377b8c1b40a3f7b027a699fae2d92b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16d748f05bc65ce2c64b7a50b62da86ff60e619ac463e35073e1a905ba82cc1c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d9797912da0e5d355023e2e3d416eddb59e94603667a88c45c126c55c75a100(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71c2f3fa3c28fac24a124598bd9e944bb3a2d6ea6c334d13a6ecc7123ec45fee(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01721d6c94181c2acc8f4ec5aaee5336add65c2ed7dc71544dd8e911d048aef9(
+    *,
+    id: builtins.str,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ce059205f66ed341b66ae0bbc5defd0a1a5d2b32081bab737234ada4f8bdfa5(
+    *,
+    alias: builtins.str,
+    metric_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_id: typing.Optional[builtins.str] = None,
+    metric_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1bd28a1e237f2928858588a4a6f9ea679db9484b94242ad7cdbce0537b09c71(
+    *,
+    aws_identity_arn: typing.Optional[builtins.str] = None,
+    connect_user_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af2978116c90e5339f3a8f3a8685f6927a6d51f6c364094443cc0ab27551c884(
+    *,
+    calculation: builtins.str,
+    calculation_components: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.CalculationComponentProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e89e090e28bcd10819898a6040ac1516705ff6e42774af58a3dc6f2a0e8f700d(
+    *,
+    comparison: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76dde2b5b67f12d5909381f9a5b2847d09b70607da2f2ed887916d7ebe02c14c(
+    *,
+    comparison: builtins.str,
+    values: typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__991fc564b67f2c21981f090b21e9b4b72fc1c6bcefd422b501d4f727a55f1179(
+    *,
+    metric_filter_key: builtins.str,
+    boolean_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricFilterBooleanConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    negate: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    number_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricFilterNumberConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    string_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricFilterStringConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0821e24eb6d93144022ca1f02baab27bbaf27ecbb82c1d44072a5ee4a44092f0(
+    *,
+    comparison: builtins.str,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23e8ace52e47b83d918f6644427b9c8e23df4e90359fd2fb2f5e2483a23e4c0f(
+    *,
+    instance_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    metric_calculation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricCalculationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    positive_trend_indicator: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    unit: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

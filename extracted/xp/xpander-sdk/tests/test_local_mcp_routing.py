@@ -166,3 +166,95 @@ def test_the_late_collapse_never_drops_a_remote_server(bridge, monkeypatch):
     assert len(tools) == 1
     assert not isinstance(tools[0], workspace_mcp.WorkspaceMCPTools)
     assert len(agent.tools._dynamic_mcp_proxies) == 60
+
+
+def _task() -> SimpleNamespace:
+    return SimpleNamespace(
+        id="task1",
+        organization_id="org1",
+        configuration=None,
+        mcp_servers=[],
+        user_tokens=None,
+        input=None,
+    )
+
+
+def _capture_start_events(monkeypatch):
+    events = {"requests": [], "results": []}
+
+    async def _req(task, request_id, operation_id, **kwargs):
+        events["requests"].append({"operation_id": operation_id, **kwargs})
+
+    async def _res(task, request_id, operation_id, result, is_error=False, **kwargs):
+        events["results"].append(
+            {"operation_id": operation_id, "result": result, "is_error": is_error}
+        )
+
+    monkeypatch.setattr(agno_module, "report_tool_call_request", _req)
+    monkeypatch.setattr(agno_module, "report_tool_call_result", _res)
+    return events
+
+
+def test_a_local_server_start_is_a_visible_step(bridge, monkeypatch):
+    events = _capture_start_events(monkeypatch)
+
+    tools = asyncio.run(
+        agno_module._resolve_agent_tools(agent=_agent([_local_mcp()]), task=_task())
+    )
+
+    assert len(tools) == 1
+    starts = [e for e in events["requests"] if e["operation_id"] == "start_mcp_server"]
+    assert starts and starts[0]["payload"] == {"server": "Some MCP"}
+    results = [e for e in events["results"] if e["operation_id"] == "start_mcp_server"]
+    assert results and results[0]["is_error"] is False
+    assert "ready" in results[0]["result"]
+
+
+def test_a_failed_local_server_start_reports_an_error_step(monkeypatch):
+    events = _capture_start_events(monkeypatch)
+
+    class _BrokenClient:
+        async def make_request(self, *a, **k):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        workspace_mcp, "APIClient", lambda configuration=None: _BrokenClient()
+    )
+    notes = []
+
+    tools = asyncio.run(
+        agno_module._resolve_agent_tools(
+            agent=_agent([_local_mcp()]), task=_task(), skipped_notes=notes
+        )
+    )
+
+    assert tools == []
+    assert any("temporarily unavailable" in n for n in notes)
+    results = [e for e in events["results"] if e["operation_id"] == "start_mcp_server"]
+    assert results and results[0]["is_error"] is True
+
+
+def test_a_timed_out_local_server_start_names_the_budget(monkeypatch):
+    events = _capture_start_events(monkeypatch)
+
+    class _HungClient:
+        async def make_request(self, *a, **k):
+            await asyncio.sleep(999)
+
+    monkeypatch.setattr(
+        workspace_mcp, "APIClient", lambda configuration=None: _HungClient()
+    )
+    monkeypatch.setattr(workspace_mcp, "STARTUP_TIMEOUT", 0)
+    monkeypatch.setattr(workspace_mcp, "STARTUP_GRACE", 0.2)
+    notes = []
+
+    tools = asyncio.run(
+        agno_module._resolve_agent_tools(
+            agent=_agent([_local_mcp()]), task=_task(), skipped_notes=notes
+        )
+    )
+
+    assert tools == []
+    assert any("did not answer within" in n for n in notes)
+    results = [e for e in events["results"] if e["operation_id"] == "start_mcp_server"]
+    assert results and results[0]["is_error"] is True

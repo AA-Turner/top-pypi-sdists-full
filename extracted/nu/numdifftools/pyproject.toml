@@ -40,7 +40,7 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-version = "0.11.0"
+version = "0.11.1"
 
 [project.license]
 file = "LICENSE.txt"

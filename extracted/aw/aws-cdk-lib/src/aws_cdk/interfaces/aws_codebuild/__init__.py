@@ -222,51 +222,6 @@ class _IReportGroupRefProxy(
 typing.cast(typing.Any, IReportGroupRef).__jsii_proxy_class__ = lambda : _IReportGroupRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codebuild.ISandboxRef")
-class ISandboxRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a Sandbox.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="sandboxRef")
-    def sandbox_ref(self) -> "SandboxReference":
-        '''(experimental) A reference to a Sandbox resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISandboxRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Sandbox.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_codebuild.ISandboxRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="sandboxRef")
-    def sandbox_ref(self) -> "SandboxReference":
-        '''(experimental) A reference to a Sandbox resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SandboxReference", jsii.get(self, "sandboxRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISandboxRef).__jsii_proxy_class__ = lambda : _ISandboxRefProxy
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codebuild.ISourceCredentialRef")
 class ISourceCredentialRef(
     _constructs_77d1e7e8.IConstruct,
@@ -427,64 +382,15 @@ class ReportGroupReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_codebuild.SandboxReference",
-    jsii_struct_bases=[],
-    name_mapping={"sandbox_arn": "sandboxArn"},
-)
-class SandboxReference:
-    def __init__(self, *, sandbox_arn: builtins.str) -> None:
-        '''A reference to a Sandbox resource.
-
-        :param sandbox_arn: The Arn of the Sandbox resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_codebuild as interfaces_codebuild
-            
-            sandbox_reference = interfaces_codebuild.SandboxReference(
-                sandbox_arn="sandboxArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__7b4f8a0943a06f04c7199270647555bcf7ce3788a376fea324075702ba30e480)
-            check_type(argname="argument sandbox_arn", value=sandbox_arn, expected_type=type_hints["sandbox_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "sandbox_arn": sandbox_arn,
-        }
-
-    @builtins.property
-    def sandbox_arn(self) -> builtins.str:
-        '''The Arn of the Sandbox resource.'''
-        result = self._values.get("sandbox_arn")
-        assert result is not None, "Required property 'sandbox_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SandboxReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_codebuild.SourceCredentialReference",
     jsii_struct_bases=[],
-    name_mapping={"source_credential_id": "sourceCredentialId"},
+    name_mapping={"source_credential_arn": "sourceCredentialArn"},
 )
 class SourceCredentialReference:
-    def __init__(self, *, source_credential_id: builtins.str) -> None:
+    def __init__(self, *, source_credential_arn: builtins.str) -> None:
         '''A reference to a SourceCredential resource.
 
-        :param source_credential_id: The Id of the SourceCredential resource.
+        :param source_credential_arn: The Arn of the SourceCredential resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -495,21 +401,21 @@ class SourceCredentialReference:
             from aws_cdk.interfaces import aws_codebuild as interfaces_codebuild
             
             source_credential_reference = interfaces_codebuild.SourceCredentialReference(
-                source_credential_id="sourceCredentialId"
+                source_credential_arn="sourceCredentialArn"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1401c6ca94e02a490ee8ba6e38db6ee0841aa4f2e47c6995257d49aa5711a95c)
-            check_type(argname="argument source_credential_id", value=source_credential_id, expected_type=type_hints["source_credential_id"])
+            check_type(argname="argument source_credential_arn", value=source_credential_arn, expected_type=type_hints["source_credential_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "source_credential_id": source_credential_id,
+            "source_credential_arn": source_credential_arn,
         }
 
     @builtins.property
-    def source_credential_id(self) -> builtins.str:
-        '''The Id of the SourceCredential resource.'''
-        result = self._values.get("source_credential_id")
-        assert result is not None, "Required property 'source_credential_id' is missing"
+    def source_credential_arn(self) -> builtins.str:
+        '''The Arn of the SourceCredential resource.'''
+        result = self._values.get("source_credential_arn")
+        assert result is not None, "Required property 'source_credential_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -529,11 +435,9 @@ __all__ = [
     "IFleetRef",
     "IProjectRef",
     "IReportGroupRef",
-    "ISandboxRef",
     "ISourceCredentialRef",
     "ProjectReference",
     "ReportGroupReference",
-    "SandboxReference",
     "SourceCredentialReference",
 ]
 
@@ -561,19 +465,12 @@ def _typecheckingstub__7cd46ecb1a45984facc4fba5861d8c76e61cb467c28f418886f84499d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7b4f8a0943a06f04c7199270647555bcf7ce3788a376fea324075702ba30e480(
-    *,
-    sandbox_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1401c6ca94e02a490ee8ba6e38db6ee0841aa4f2e47c6995257d49aa5711a95c(
     *,
-    source_credential_id: builtins.str,
+    source_credential_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-for cls in [IFleetRef, IProjectRef, IReportGroupRef, ISandboxRef, ISourceCredentialRef]:
+for cls in [IFleetRef, IProjectRef, IReportGroupRef, ISourceCredentialRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: compliance-trestle
-Version: 5.0.0
+Version: 5.1.0
 Summary: Tools to manage & autogenerate python objects representing the OSCAL layers/models
 Project-URL: Homepage, https://oscal-compass.github.io/compliance-trestle
 Project-URL: Documentation, https://oscal-compass.github.io/compliance-trestle
@@ -17,10 +17,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: Microsoft
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
 Requires-Dist: attrs
 Requires-Dist: cmarkgfm<2025.11,>=2024.1
 Requires-Dist: cryptography>=46.0.7
@@ -32,7 +33,7 @@ Requires-Dist: jinja2==3.1.6
 Requires-Dist: openpyxl~=3.0
 Requires-Dist: orjson
 Requires-Dist: paramiko==5.0.0
-Requires-Dist: pydantic[email]>=2.0.0
+Requires-Dist: pydantic[email]>=2.11.0
 Requires-Dist: python-dotenv>=0.10.4
 Requires-Dist: python-frontmatter
 Requires-Dist: pywin32>=1.0; platform_system == 'Windows'
@@ -50,9 +51,9 @@ Requires-Dist: mike; extra == 'dev'
 Requires-Dist: mkdocs-awesome-pages-plugin; extra == 'dev'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin; extra == 'dev'
 Requires-Dist: mkdocs-htmlproofer-plugin; extra == 'dev'
-Requires-Dist: mkdocs-material; extra == 'dev'
+Requires-Dist: mkdocs-material<10.0.0,>=9.0.0; extra == 'dev'
 Requires-Dist: mkdocs-minify-plugin; extra == 'dev'
-Requires-Dist: mkdocs>=1.6.0; extra == 'dev'
+Requires-Dist: mkdocs<2.0.0,>=1.6.0; extra == 'dev'
 Requires-Dist: mkdocstrings[python]>=0.25.2; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
@@ -72,9 +73,9 @@ Requires-Dist: mike; extra == 'docs'
 Requires-Dist: mkdocs-awesome-pages-plugin; extra == 'docs'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin; extra == 'docs'
 Requires-Dist: mkdocs-htmlproofer-plugin; extra == 'docs'
-Requires-Dist: mkdocs-material; extra == 'docs'
+Requires-Dist: mkdocs-material<10.0.0,>=9.0.0; extra == 'docs'
 Requires-Dist: mkdocs-minify-plugin; extra == 'docs'
-Requires-Dist: mkdocs>=1.6.0; extra == 'docs'
+Requires-Dist: mkdocs<2.0.0,>=1.6.0; extra == 'docs'
 Requires-Dist: mkdocstrings[python]>=0.25.2; extra == 'docs'
 Requires-Dist: pillow; extra == 'docs'
 Requires-Dist: pymdown-extensions; extra == 'docs'
@@ -159,6 +160,11 @@ See [Install trestle in a python virtual environment](https://oscal-compass.gith
 ## Complete documentation and tutorials
 
 Complete documentation, tutorials, and background on compliance can be found [here](https://oscal-compass.github.io/compliance-trestle/latest).
+
+## Agentic Agile Authoring
+
+Compliance authoring for OSCAL artifacts based on the OSCAL Compass MCP Server and a GenAI agentic solution with Human-in-the-Loop (HITL) by design, as authoring skills run inside your IDE (Claude Code, OpenCode).
+More information can be found [here](https://github.com/oscal-compass/agentic-agile-authoring).
 
 ## Agile Authoring
 
@@ -246,6 +252,8 @@ We are a Cloud Native Computing Foundation sandbox project.
   <img src="https://www.cncf.io/wp-content/uploads/2022/07/cncf-color-bg.svg" width=300 />
 </picture>
 
-The Linux Foundation® (TLF) has registered trademarks and uses trademarks. For a list of TLF trademarks, see [Trademark Usage](https://www.linuxfoundation.org/legal/trademark-usage)".
+The Linux Foundation® (TLF) has registered trademarks and uses trademarks. For a list of TLF trademarks, see [Trademark Usage](https://www.linuxfoundation.org/legal/trademark-usage).
 
-*Trestle was originally created by IBM.*
+*OSCAL Compass is an independent open source project. It is not affiliated with, endorsed by, or sponsored by the National Institute of Standards and Technology (NIST) or any other government agency.*
+
+*OSCAL Compass was originally contributed by IBM.*

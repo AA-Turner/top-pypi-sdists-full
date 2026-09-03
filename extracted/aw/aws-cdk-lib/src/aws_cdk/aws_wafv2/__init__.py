@@ -2456,483 +2456,7 @@ class CfnRuleGroup(
 
             Example::
 
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_wafv2 as wafv2
                 
-                # all: Any
-                # all_query_arguments: Any
-                # and_statement_property_: wafv2.CfnRuleGroup.AndStatementProperty
-                # asn: Any
-                # forwarded_ip: Any
-                # http_method: Any
-                # ip: Any
-                # method: Any
-                # query_string: Any
-                # single_header: Any
-                # single_query_argument: Any
-                # statement_property_: wafv2.CfnRuleGroup.StatementProperty
-                # uri_path: Any
-                
-                and_statement_property = wafv2.CfnRuleGroup.AndStatementProperty(
-                    statements=[wafv2.CfnRuleGroup.StatementProperty(
-                        and_statement=and_statement_property_,
-                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
-                            asn_list=[123],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            positional_constraint="positionalConstraint",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            search_string="searchString",
-                            search_string_base64="searchStringBase64"
-                        ),
-                        geo_match_statement=wafv2.CfnRuleGroup.GeoMatchStatementProperty(
-                            country_codes=["countryCodes"],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        ip_set_reference_statement={
-                            "arn": "arn",
-                
-                            # the properties below are optional
-                            "ip_set_forwarded_ip_config": {
-                                "fallback_behavior": "fallbackBehavior",
-                                "header_name": "headerName",
-                                "position": "position"
-                            }
-                        },
-                        label_match_statement=wafv2.CfnRuleGroup.LabelMatchStatementProperty(
-                            key="key",
-                            scope="scope"
-                        ),
-                        not_statement=wafv2.CfnRuleGroup.NotStatementProperty(
-                            statement=statement_property_
-                        ),
-                        or_statement=wafv2.CfnRuleGroup.OrStatementProperty(
-                            statements=[statement_property_]
-                        ),
-                        rate_based_statement=wafv2.CfnRuleGroup.RateBasedStatementProperty(
-                            aggregate_key_type="aggregateKeyType",
-                            limit=123,
-                
-                            # the properties below are optional
-                            custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
-                                asn=asn,
-                                cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                forwarded_ip=forwarded_ip,
-                                header=wafv2.CfnRuleGroup.RateLimitHeaderProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                http_method=http_method,
-                                ip=ip,
-                                ja3_fingerprint=wafv2.CfnRuleGroup.RateLimitJA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.RateLimitJA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                label_namespace=wafv2.CfnRuleGroup.RateLimitLabelNamespaceProperty(
-                                    namespace="namespace"
-                                ),
-                                query_argument=wafv2.CfnRuleGroup.RateLimitQueryArgumentProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                query_string=wafv2.CfnRuleGroup.RateLimitQueryStringProperty(
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                uri_path=wafv2.CfnRuleGroup.RateLimitUriPathProperty(
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                )
-                            )],
-                            evaluation_window_sec=123,
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            ),
-                            scope_down_statement=statement_property_
-                        ),
-                        regex_match_statement=wafv2.CfnRuleGroup.RegexMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            regex_string="regexString",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        regex_pattern_set_reference_statement=wafv2.CfnRuleGroup.RegexPatternSetReferenceStatementProperty(
-                            arn="arn",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        size_constraint_statement=wafv2.CfnRuleGroup.SizeConstraintStatementProperty(
-                            comparison_operator="comparisonOperator",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            size=123,
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        sqli_match_statement=wafv2.CfnRuleGroup.SqliMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            sensitivity_level="sensitivityLevel"
-                        ),
-                        xss_match_statement=wafv2.CfnRuleGroup.XssMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        )
-                    )]
-                )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__563d7c7c3c7b0cea107ea61895bf83f08deacaa77dd306915bce9745256ed662)
@@ -3198,6 +2722,7 @@ class CfnRuleGroup(
             "field_to_match": "fieldToMatch",
             "positional_constraint": "positionalConstraint",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
             "search_string": "searchString",
             "search_string_base64": "searchStringBase64",
         },
@@ -3209,6 +2734,7 @@ class CfnRuleGroup(
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             positional_constraint: builtins.str,
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             search_string: typing.Optional[builtins.str] = None,
             search_string_base64: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -3219,6 +2745,7 @@ class CfnRuleGroup(
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param positional_constraint: The area within the portion of the web request that you want AWS WAF to search for ``SearchString`` . Valid values include the following: *CONTAINS* The specified part of the web request must include the value of ``SearchString`` , but the location doesn't matter. *CONTAINS_WORD* The specified part of the web request must include the value of ``SearchString`` , and ``SearchString`` must contain only alphanumeric characters or underscore (A-Z, a-z, 0-9, or _). In addition, ``SearchString`` must be a word, which means that both of the following are true: - ``SearchString`` is at the beginning of the specified part of the web request or is preceded by a character other than an alphanumeric character or underscore (_). Examples include the value of a header and ``;BadBot`` . - ``SearchString`` is at the end of the specified part of the web request or is followed by a character other than an alphanumeric character or underscore (_), for example, ``BadBot;`` and ``-BadBot;`` . *EXACTLY* The value of the specified part of the web request must exactly match the value of ``SearchString`` . *STARTS_WITH* The value of ``SearchString`` must appear at the beginning of the specified part of the web request. *ENDS_WITH* The value of ``SearchString`` must appear at the end of the specified part of the web request.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
             :param search_string: A string value that you want AWS WAF to search for. AWS WAF searches only in the part of web requests that you designate for inspection in ``FieldToMatch`` . The maximum length of the value is 200 bytes. For alphabetic characters A-Z and a-z, the value is case sensitive. Don't encode this string. Provide the value that you want AWS WAF to search for. AWS CloudFormation automatically base64 encodes the value for you. For example, suppose the value of ``Type`` is ``HEADER`` and the value of ``Data`` is ``User-Agent`` . If you want to search the ``User-Agent`` header for the value ``BadBot`` , you provide the string ``BadBot`` in the value of ``SearchString`` . You must specify either ``SearchString`` or ``SearchStringBase64`` in a ``ByteMatchStatement`` .
             :param search_string_base64: String to search for in a web request component, base64-encoded. If you don't want to encode the string, specify the unencoded value in ``SearchString`` instead. You must specify either ``SearchString`` or ``SearchStringBase64`` in a ``ByteMatchStatement`` .
 
@@ -3299,6 +2826,10 @@ class CfnRuleGroup(
                     )],
                 
                     # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnRuleGroup.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
+                    )],
                     search_string="searchString",
                     search_string_base64="searchStringBase64"
                 )
@@ -3308,6 +2839,7 @@ class CfnRuleGroup(
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument positional_constraint", value=positional_constraint, expected_type=type_hints["positional_constraint"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
                 check_type(argname="argument search_string", value=search_string, expected_type=type_hints["search_string"])
                 check_type(argname="argument search_string_base64", value=search_string_base64, expected_type=type_hints["search_string_base64"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3315,6 +2847,8 @@ class CfnRuleGroup(
                 "positional_constraint": positional_constraint,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
             if search_string is not None:
                 self._values["search_string"] = search_string
             if search_string_base64 is not None:
@@ -3380,6 +2914,16 @@ class CfnRuleGroup(
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.TextTransformationProperty"]]], result)
+
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-bytematchstatement.html#cfn-wafv2-rulegroup-bytematchstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]], result)
 
         @builtins.property
         def search_string(self) -> typing.Optional[builtins.str]:
@@ -6186,483 +5730,7 @@ class CfnRuleGroup(
 
             Example::
 
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_wafv2 as wafv2
                 
-                # all: Any
-                # all_query_arguments: Any
-                # asn: Any
-                # forwarded_ip: Any
-                # http_method: Any
-                # ip: Any
-                # method: Any
-                # not_statement_property_: wafv2.CfnRuleGroup.NotStatementProperty
-                # query_string: Any
-                # single_header: Any
-                # single_query_argument: Any
-                # statement_property_: wafv2.CfnRuleGroup.StatementProperty
-                # uri_path: Any
-                
-                not_statement_property = wafv2.CfnRuleGroup.NotStatementProperty(
-                    statement=wafv2.CfnRuleGroup.StatementProperty(
-                        and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
-                            statements=[statement_property_]
-                        ),
-                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
-                            asn_list=[123],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            positional_constraint="positionalConstraint",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            search_string="searchString",
-                            search_string_base64="searchStringBase64"
-                        ),
-                        geo_match_statement=wafv2.CfnRuleGroup.GeoMatchStatementProperty(
-                            country_codes=["countryCodes"],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        ip_set_reference_statement={
-                            "arn": "arn",
-                
-                            # the properties below are optional
-                            "ip_set_forwarded_ip_config": {
-                                "fallback_behavior": "fallbackBehavior",
-                                "header_name": "headerName",
-                                "position": "position"
-                            }
-                        },
-                        label_match_statement=wafv2.CfnRuleGroup.LabelMatchStatementProperty(
-                            key="key",
-                            scope="scope"
-                        ),
-                        not_statement=not_statement_property_,
-                        or_statement=wafv2.CfnRuleGroup.OrStatementProperty(
-                            statements=[statement_property_]
-                        ),
-                        rate_based_statement=wafv2.CfnRuleGroup.RateBasedStatementProperty(
-                            aggregate_key_type="aggregateKeyType",
-                            limit=123,
-                
-                            # the properties below are optional
-                            custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
-                                asn=asn,
-                                cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                forwarded_ip=forwarded_ip,
-                                header=wafv2.CfnRuleGroup.RateLimitHeaderProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                http_method=http_method,
-                                ip=ip,
-                                ja3_fingerprint=wafv2.CfnRuleGroup.RateLimitJA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.RateLimitJA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                label_namespace=wafv2.CfnRuleGroup.RateLimitLabelNamespaceProperty(
-                                    namespace="namespace"
-                                ),
-                                query_argument=wafv2.CfnRuleGroup.RateLimitQueryArgumentProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                query_string=wafv2.CfnRuleGroup.RateLimitQueryStringProperty(
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                uri_path=wafv2.CfnRuleGroup.RateLimitUriPathProperty(
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                )
-                            )],
-                            evaluation_window_sec=123,
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            ),
-                            scope_down_statement=statement_property_
-                        ),
-                        regex_match_statement=wafv2.CfnRuleGroup.RegexMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            regex_string="regexString",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        regex_pattern_set_reference_statement=wafv2.CfnRuleGroup.RegexPatternSetReferenceStatementProperty(
-                            arn="arn",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        size_constraint_statement=wafv2.CfnRuleGroup.SizeConstraintStatementProperty(
-                            comparison_operator="comparisonOperator",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            size=123,
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        sqli_match_statement=wafv2.CfnRuleGroup.SqliMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            sensitivity_level="sensitivityLevel"
-                        ),
-                        xss_match_statement=wafv2.CfnRuleGroup.XssMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        )
-                    )
-                )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__5739539e5cf7f8d7c902a07e2068450067fcde040af783d61ea32e816467f4b0)
@@ -6718,483 +5786,7 @@ class CfnRuleGroup(
 
             Example::
 
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_wafv2 as wafv2
                 
-                # all: Any
-                # all_query_arguments: Any
-                # asn: Any
-                # forwarded_ip: Any
-                # http_method: Any
-                # ip: Any
-                # method: Any
-                # or_statement_property_: wafv2.CfnRuleGroup.OrStatementProperty
-                # query_string: Any
-                # single_header: Any
-                # single_query_argument: Any
-                # statement_property_: wafv2.CfnRuleGroup.StatementProperty
-                # uri_path: Any
-                
-                or_statement_property = wafv2.CfnRuleGroup.OrStatementProperty(
-                    statements=[wafv2.CfnRuleGroup.StatementProperty(
-                        and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
-                            statements=[statement_property_]
-                        ),
-                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
-                            asn_list=[123],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            positional_constraint="positionalConstraint",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            search_string="searchString",
-                            search_string_base64="searchStringBase64"
-                        ),
-                        geo_match_statement=wafv2.CfnRuleGroup.GeoMatchStatementProperty(
-                            country_codes=["countryCodes"],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        ip_set_reference_statement={
-                            "arn": "arn",
-                
-                            # the properties below are optional
-                            "ip_set_forwarded_ip_config": {
-                                "fallback_behavior": "fallbackBehavior",
-                                "header_name": "headerName",
-                                "position": "position"
-                            }
-                        },
-                        label_match_statement=wafv2.CfnRuleGroup.LabelMatchStatementProperty(
-                            key="key",
-                            scope="scope"
-                        ),
-                        not_statement=wafv2.CfnRuleGroup.NotStatementProperty(
-                            statement=statement_property_
-                        ),
-                        or_statement=or_statement_property_,
-                        rate_based_statement=wafv2.CfnRuleGroup.RateBasedStatementProperty(
-                            aggregate_key_type="aggregateKeyType",
-                            limit=123,
-                
-                            # the properties below are optional
-                            custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
-                                asn=asn,
-                                cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                forwarded_ip=forwarded_ip,
-                                header=wafv2.CfnRuleGroup.RateLimitHeaderProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                http_method=http_method,
-                                ip=ip,
-                                ja3_fingerprint=wafv2.CfnRuleGroup.RateLimitJA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.RateLimitJA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                label_namespace=wafv2.CfnRuleGroup.RateLimitLabelNamespaceProperty(
-                                    namespace="namespace"
-                                ),
-                                query_argument=wafv2.CfnRuleGroup.RateLimitQueryArgumentProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                query_string=wafv2.CfnRuleGroup.RateLimitQueryStringProperty(
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                uri_path=wafv2.CfnRuleGroup.RateLimitUriPathProperty(
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                )
-                            )],
-                            evaluation_window_sec=123,
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            ),
-                            scope_down_statement=statement_property_
-                        ),
-                        regex_match_statement=wafv2.CfnRuleGroup.RegexMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            regex_string="regexString",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        regex_pattern_set_reference_statement=wafv2.CfnRuleGroup.RegexPatternSetReferenceStatementProperty(
-                            arn="arn",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        size_constraint_statement=wafv2.CfnRuleGroup.SizeConstraintStatementProperty(
-                            comparison_operator="comparisonOperator",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            size=123,
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        sqli_match_statement=wafv2.CfnRuleGroup.SqliMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            sensitivity_level="sensitivityLevel"
-                        ),
-                        xss_match_statement=wafv2.CfnRuleGroup.XssMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        )
-                    )]
-                )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__ac0f7a31c2c062eaaca70b7d43c11c1e6b78ce7502ec2206e832cabc7d2428c0)
@@ -7320,6 +5912,72 @@ class CfnRuleGroup(
 
         def __repr__(self) -> str:
             return "PaymentNetworkProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.PreParseTextTransformationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"priority": "priority", "type": "type"},
+    )
+    class PreParseTextTransformationProperty:
+        def __init__(self, *, priority: jsii.Number, type: builtins.str) -> None:
+            '''Text Transformation applied before parsing the query string.
+
+            :param priority: Priority of PreParseTextTransformation being applied.
+            :param type: Type of pre-parse text transformation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-preparsetexttransformation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                pre_parse_text_transformation_property = wafv2.CfnRuleGroup.PreParseTextTransformationProperty(
+                    priority=123,
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e9db37ebf01e61410b5c520566368a25121a983f86dda63b92848d19747f924e)
+                check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "priority": priority,
+                "type": type,
+            }
+
+        @builtins.property
+        def priority(self) -> jsii.Number:
+            '''Priority of PreParseTextTransformation being applied.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-preparsetexttransformation.html#cfn-wafv2-rulegroup-preparsetexttransformation-priority
+            '''
+            result = self._values.get("priority")
+            assert result is not None, "Required property 'priority' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Type of pre-parse text transformation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-preparsetexttransformation.html#cfn-wafv2-rulegroup-preparsetexttransformation-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PreParseTextTransformationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -7791,483 +6449,7 @@ class CfnRuleGroup(
 
             Example::
 
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_wafv2 as wafv2
                 
-                # all: Any
-                # all_query_arguments: Any
-                # asn: Any
-                # forwarded_ip: Any
-                # http_method: Any
-                # ip: Any
-                # method: Any
-                # query_string: Any
-                # rate_based_statement_property_: wafv2.CfnRuleGroup.RateBasedStatementProperty
-                # single_header: Any
-                # single_query_argument: Any
-                # statement_property_: wafv2.CfnRuleGroup.StatementProperty
-                # uri_path: Any
-                
-                rate_based_statement_property = wafv2.CfnRuleGroup.RateBasedStatementProperty(
-                    aggregate_key_type="aggregateKeyType",
-                    limit=123,
-                
-                    # the properties below are optional
-                    custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
-                        asn=asn,
-                        cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
-                            name="name",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        forwarded_ip=forwarded_ip,
-                        header=wafv2.CfnRuleGroup.RateLimitHeaderProperty(
-                            name="name",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        http_method=http_method,
-                        ip=ip,
-                        ja3_fingerprint=wafv2.CfnRuleGroup.RateLimitJA3FingerprintProperty(
-                            fallback_behavior="fallbackBehavior"
-                        ),
-                        ja4_fingerprint=wafv2.CfnRuleGroup.RateLimitJA4FingerprintProperty(
-                            fallback_behavior="fallbackBehavior"
-                        ),
-                        label_namespace=wafv2.CfnRuleGroup.RateLimitLabelNamespaceProperty(
-                            namespace="namespace"
-                        ),
-                        query_argument=wafv2.CfnRuleGroup.RateLimitQueryArgumentProperty(
-                            name="name",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        query_string=wafv2.CfnRuleGroup.RateLimitQueryStringProperty(
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        uri_path=wafv2.CfnRuleGroup.RateLimitUriPathProperty(
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        )
-                    )],
-                    evaluation_window_sec=123,
-                    forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                        fallback_behavior="fallbackBehavior",
-                        header_name="headerName"
-                    ),
-                    scope_down_statement=wafv2.CfnRuleGroup.StatementProperty(
-                        and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
-                            statements=[statement_property_]
-                        ),
-                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
-                            asn_list=[123],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            positional_constraint="positionalConstraint",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            search_string="searchString",
-                            search_string_base64="searchStringBase64"
-                        ),
-                        geo_match_statement=wafv2.CfnRuleGroup.GeoMatchStatementProperty(
-                            country_codes=["countryCodes"],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        ip_set_reference_statement={
-                            "arn": "arn",
-                
-                            # the properties below are optional
-                            "ip_set_forwarded_ip_config": {
-                                "fallback_behavior": "fallbackBehavior",
-                                "header_name": "headerName",
-                                "position": "position"
-                            }
-                        },
-                        label_match_statement=wafv2.CfnRuleGroup.LabelMatchStatementProperty(
-                            key="key",
-                            scope="scope"
-                        ),
-                        not_statement=wafv2.CfnRuleGroup.NotStatementProperty(
-                            statement=statement_property_
-                        ),
-                        or_statement=wafv2.CfnRuleGroup.OrStatementProperty(
-                            statements=[statement_property_]
-                        ),
-                        rate_based_statement=rate_based_statement_property_,
-                        regex_match_statement=wafv2.CfnRuleGroup.RegexMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            regex_string="regexString",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        regex_pattern_set_reference_statement=wafv2.CfnRuleGroup.RegexPatternSetReferenceStatementProperty(
-                            arn="arn",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        size_constraint_statement=wafv2.CfnRuleGroup.SizeConstraintStatementProperty(
-                            comparison_operator="comparisonOperator",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            size=123,
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        sqli_match_statement=wafv2.CfnRuleGroup.SqliMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            sensitivity_level="sensitivityLevel"
-                        ),
-                        xss_match_statement=wafv2.CfnRuleGroup.XssMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        )
-                    )
-                )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__39e60064f8f4286866d2fa7f3c5494f2a2f33a4179f5370836b825ab35a02e19)
@@ -8962,6 +7144,7 @@ class CfnRuleGroup(
             "field_to_match": "fieldToMatch",
             "regex_string": "regexString",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
         },
     )
     class RegexMatchStatementProperty:
@@ -8971,12 +7154,14 @@ class CfnRuleGroup(
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             regex_string: builtins.str,
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement used to search web request components for a match against a single regular expression.
 
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param regex_string: The string representing the regular expression.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-regexmatchstatement.html
             :exampleMetadata: fixture=_generated
@@ -9052,6 +7237,12 @@ class CfnRuleGroup(
                     text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
                         priority=123,
                         type="type"
+                    )],
+                
+                    # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnRuleGroup.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
                     )]
                 )
             '''
@@ -9060,11 +7251,14 @@ class CfnRuleGroup(
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument regex_string", value=regex_string, expected_type=type_hints["regex_string"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "field_to_match": field_to_match,
                 "regex_string": regex_string,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
 
         @builtins.property
         def field_to_match(
@@ -9102,6 +7296,16 @@ class CfnRuleGroup(
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-regexmatchstatement.html#cfn-wafv2-rulegroup-regexmatchstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -9120,6 +7324,7 @@ class CfnRuleGroup(
             "arn": "arn",
             "field_to_match": "fieldToMatch",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
         },
     )
     class RegexPatternSetReferenceStatementProperty:
@@ -9129,6 +7334,7 @@ class CfnRuleGroup(
             arn: builtins.str,
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement used to search web request components for matches with regular expressions.
 
@@ -9139,6 +7345,7 @@ class CfnRuleGroup(
             :param arn: The Amazon Resource Name (ARN) of the ``RegexPatternSet`` that this statement references.
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-regexpatternsetreferencestatement.html
             :exampleMetadata: fixture=_generated
@@ -9214,6 +7421,12 @@ class CfnRuleGroup(
                     text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
                         priority=123,
                         type="type"
+                    )],
+                
+                    # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnRuleGroup.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
                     )]
                 )
             '''
@@ -9222,11 +7435,14 @@ class CfnRuleGroup(
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "arn": arn,
                 "field_to_match": field_to_match,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
 
         @builtins.property
         def arn(self) -> builtins.str:
@@ -9263,6 +7479,16 @@ class CfnRuleGroup(
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.TextTransformationProperty"]]], result)
+
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-regexpatternsetreferencestatement.html#cfn-wafv2-rulegroup-regexpatternsetreferencestatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9762,6 +7988,7 @@ class CfnRuleGroup(
             "field_to_match": "fieldToMatch",
             "size": "size",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
         },
     )
     class SizeConstraintStatementProperty:
@@ -9772,6 +7999,7 @@ class CfnRuleGroup(
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             size: jsii.Number,
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement that compares a number of bytes against the size of a request component, using a comparison operator, such as greater than (>) or less than (<).
 
@@ -9785,6 +8013,7 @@ class CfnRuleGroup(
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param size: The size, in byte, to compare to the request part, after any transformations.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-sizeconstraintstatement.html
             :exampleMetadata: fixture=_generated
@@ -9861,6 +8090,12 @@ class CfnRuleGroup(
                     text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
                         priority=123,
                         type="type"
+                    )],
+                
+                    # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnRuleGroup.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
                     )]
                 )
             '''
@@ -9870,12 +8105,15 @@ class CfnRuleGroup(
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument size", value=size, expected_type=type_hints["size"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "comparison_operator": comparison_operator,
                 "field_to_match": field_to_match,
                 "size": size,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
 
         @builtins.property
         def comparison_operator(self) -> builtins.str:
@@ -9923,6 +8161,16 @@ class CfnRuleGroup(
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-sizeconstraintstatement.html#cfn-wafv2-rulegroup-sizeconstraintstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -9940,6 +8188,7 @@ class CfnRuleGroup(
         name_mapping={
             "field_to_match": "fieldToMatch",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
             "sensitivity_level": "sensitivityLevel",
         },
     )
@@ -9949,6 +8198,7 @@ class CfnRuleGroup(
             *,
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             sensitivity_level: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A rule statement that inspects for malicious SQL code.
@@ -9957,6 +8207,7 @@ class CfnRuleGroup(
 
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
             :param sensitivity_level: The sensitivity that you want AWS WAF to use to inspect for SQL injection attacks. ``HIGH`` detects more attacks, but might generate more false positives, especially if your web requests frequently contain unusual strings. For information about identifying and mitigating false positives, see `Testing and tuning <https://docs.aws.amazon.com/waf/latest/developerguide/web-acl-testing.html>`_ in the *AWS WAF Developer Guide* . ``LOW`` is generally a better choice for resources that already have other protections against SQL injection attacks or that have a low tolerance for false positives. Default: ``LOW``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-sqlimatchstatement.html
@@ -10035,6 +8286,10 @@ class CfnRuleGroup(
                     )],
                 
                     # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnRuleGroup.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
+                    )],
                     sensitivity_level="sensitivityLevel"
                 )
             '''
@@ -10042,11 +8297,14 @@ class CfnRuleGroup(
                 type_hints = cached_type_hints(_typecheckingstub__b9ae549bd77f9cf10d97954d1e78a797db181843dcc5510b91fc32672eee8542)
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
                 check_type(argname="argument sensitivity_level", value=sensitivity_level, expected_type=type_hints["sensitivity_level"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "field_to_match": field_to_match,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
             if sensitivity_level is not None:
                 self._values["sensitivity_level"] = sensitivity_level
 
@@ -10075,6 +8333,16 @@ class CfnRuleGroup(
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.TextTransformationProperty"]]], result)
+
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-sqlimatchstatement.html#cfn-wafv2-rulegroup-sqlimatchstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]], result)
 
         @builtins.property
         def sensitivity_level(self) -> typing.Optional[builtins.str]:
@@ -10163,482 +8431,7 @@ class CfnRuleGroup(
 
             Example::
 
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_wafv2 as wafv2
                 
-                # all: Any
-                # all_query_arguments: Any
-                # asn: Any
-                # forwarded_ip: Any
-                # http_method: Any
-                # ip: Any
-                # method: Any
-                # query_string: Any
-                # single_header: Any
-                # single_query_argument: Any
-                # statement_property_: wafv2.CfnRuleGroup.StatementProperty
-                # uri_path: Any
-                
-                statement_property = wafv2.CfnRuleGroup.StatementProperty(
-                    and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
-                        statements=[statement_property_]
-                    ),
-                    asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
-                        asn_list=[123],
-                        forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                            fallback_behavior="fallbackBehavior",
-                            header_name="headerName"
-                        )
-                    ),
-                    byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
-                        field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                            all_query_arguments=all_query_arguments,
-                            body=wafv2.CfnRuleGroup.BodyProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                    all=all,
-                                    excluded_cookies=["excludedCookies"],
-                                    included_cookies=["includedCookies"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                    all=all,
-                                    excluded_headers=["excludedHeaders"],
-                                    included_headers=["includedHeaders"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                    all=all,
-                                    included_paths=["includedPaths"]
-                                ),
-                                match_scope="matchScope",
-                
-                                # the properties below are optional
-                                invalid_fallback_behavior="invalidFallbackBehavior",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            method=method,
-                            query_string=query_string,
-                            single_header=single_header,
-                            single_query_argument=single_query_argument,
-                            uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            uri_path=uri_path
-                        ),
-                        positional_constraint="positionalConstraint",
-                        text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                            priority=123,
-                            type="type"
-                        )],
-                
-                        # the properties below are optional
-                        search_string="searchString",
-                        search_string_base64="searchStringBase64"
-                    ),
-                    geo_match_statement=wafv2.CfnRuleGroup.GeoMatchStatementProperty(
-                        country_codes=["countryCodes"],
-                        forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                            fallback_behavior="fallbackBehavior",
-                            header_name="headerName"
-                        )
-                    ),
-                    ip_set_reference_statement={
-                        "arn": "arn",
-                
-                        # the properties below are optional
-                        "ip_set_forwarded_ip_config": {
-                            "fallback_behavior": "fallbackBehavior",
-                            "header_name": "headerName",
-                            "position": "position"
-                        }
-                    },
-                    label_match_statement=wafv2.CfnRuleGroup.LabelMatchStatementProperty(
-                        key="key",
-                        scope="scope"
-                    ),
-                    not_statement=wafv2.CfnRuleGroup.NotStatementProperty(
-                        statement=statement_property_
-                    ),
-                    or_statement=wafv2.CfnRuleGroup.OrStatementProperty(
-                        statements=[statement_property_]
-                    ),
-                    rate_based_statement=wafv2.CfnRuleGroup.RateBasedStatementProperty(
-                        aggregate_key_type="aggregateKeyType",
-                        limit=123,
-                
-                        # the properties below are optional
-                        custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
-                            asn=asn,
-                            cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
-                                name="name",
-                                text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                    priority=123,
-                                    type="type"
-                                )]
-                            ),
-                            forwarded_ip=forwarded_ip,
-                            header=wafv2.CfnRuleGroup.RateLimitHeaderProperty(
-                                name="name",
-                                text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                    priority=123,
-                                    type="type"
-                                )]
-                            ),
-                            http_method=http_method,
-                            ip=ip,
-                            ja3_fingerprint=wafv2.CfnRuleGroup.RateLimitJA3FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            ja4_fingerprint=wafv2.CfnRuleGroup.RateLimitJA4FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            label_namespace=wafv2.CfnRuleGroup.RateLimitLabelNamespaceProperty(
-                                namespace="namespace"
-                            ),
-                            query_argument=wafv2.CfnRuleGroup.RateLimitQueryArgumentProperty(
-                                name="name",
-                                text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                    priority=123,
-                                    type="type"
-                                )]
-                            ),
-                            query_string=wafv2.CfnRuleGroup.RateLimitQueryStringProperty(
-                                text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                    priority=123,
-                                    type="type"
-                                )]
-                            ),
-                            uri_path=wafv2.CfnRuleGroup.RateLimitUriPathProperty(
-                                text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                    priority=123,
-                                    type="type"
-                                )]
-                            )
-                        )],
-                        evaluation_window_sec=123,
-                        forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                            fallback_behavior="fallbackBehavior",
-                            header_name="headerName"
-                        ),
-                        scope_down_statement=statement_property_
-                    ),
-                    regex_match_statement=wafv2.CfnRuleGroup.RegexMatchStatementProperty(
-                        field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                            all_query_arguments=all_query_arguments,
-                            body=wafv2.CfnRuleGroup.BodyProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                    all=all,
-                                    excluded_cookies=["excludedCookies"],
-                                    included_cookies=["includedCookies"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                    all=all,
-                                    excluded_headers=["excludedHeaders"],
-                                    included_headers=["includedHeaders"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                    all=all,
-                                    included_paths=["includedPaths"]
-                                ),
-                                match_scope="matchScope",
-                
-                                # the properties below are optional
-                                invalid_fallback_behavior="invalidFallbackBehavior",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            method=method,
-                            query_string=query_string,
-                            single_header=single_header,
-                            single_query_argument=single_query_argument,
-                            uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            uri_path=uri_path
-                        ),
-                        regex_string="regexString",
-                        text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                            priority=123,
-                            type="type"
-                        )]
-                    ),
-                    regex_pattern_set_reference_statement=wafv2.CfnRuleGroup.RegexPatternSetReferenceStatementProperty(
-                        arn="arn",
-                        field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                            all_query_arguments=all_query_arguments,
-                            body=wafv2.CfnRuleGroup.BodyProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                    all=all,
-                                    excluded_cookies=["excludedCookies"],
-                                    included_cookies=["includedCookies"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                    all=all,
-                                    excluded_headers=["excludedHeaders"],
-                                    included_headers=["includedHeaders"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                    all=all,
-                                    included_paths=["includedPaths"]
-                                ),
-                                match_scope="matchScope",
-                
-                                # the properties below are optional
-                                invalid_fallback_behavior="invalidFallbackBehavior",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            method=method,
-                            query_string=query_string,
-                            single_header=single_header,
-                            single_query_argument=single_query_argument,
-                            uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            uri_path=uri_path
-                        ),
-                        text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                            priority=123,
-                            type="type"
-                        )]
-                    ),
-                    size_constraint_statement=wafv2.CfnRuleGroup.SizeConstraintStatementProperty(
-                        comparison_operator="comparisonOperator",
-                        field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                            all_query_arguments=all_query_arguments,
-                            body=wafv2.CfnRuleGroup.BodyProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                    all=all,
-                                    excluded_cookies=["excludedCookies"],
-                                    included_cookies=["includedCookies"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                    all=all,
-                                    excluded_headers=["excludedHeaders"],
-                                    included_headers=["includedHeaders"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                    all=all,
-                                    included_paths=["includedPaths"]
-                                ),
-                                match_scope="matchScope",
-                
-                                # the properties below are optional
-                                invalid_fallback_behavior="invalidFallbackBehavior",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            method=method,
-                            query_string=query_string,
-                            single_header=single_header,
-                            single_query_argument=single_query_argument,
-                            uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            uri_path=uri_path
-                        ),
-                        size=123,
-                        text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                            priority=123,
-                            type="type"
-                        )]
-                    ),
-                    sqli_match_statement=wafv2.CfnRuleGroup.SqliMatchStatementProperty(
-                        field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                            all_query_arguments=all_query_arguments,
-                            body=wafv2.CfnRuleGroup.BodyProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                    all=all,
-                                    excluded_cookies=["excludedCookies"],
-                                    included_cookies=["includedCookies"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                    all=all,
-                                    excluded_headers=["excludedHeaders"],
-                                    included_headers=["includedHeaders"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                    all=all,
-                                    included_paths=["includedPaths"]
-                                ),
-                                match_scope="matchScope",
-                
-                                # the properties below are optional
-                                invalid_fallback_behavior="invalidFallbackBehavior",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            method=method,
-                            query_string=query_string,
-                            single_header=single_header,
-                            single_query_argument=single_query_argument,
-                            uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            uri_path=uri_path
-                        ),
-                        text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                            priority=123,
-                            type="type"
-                        )],
-                
-                        # the properties below are optional
-                        sensitivity_level="sensitivityLevel"
-                    ),
-                    xss_match_statement=wafv2.CfnRuleGroup.XssMatchStatementProperty(
-                        field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                            all_query_arguments=all_query_arguments,
-                            body=wafv2.CfnRuleGroup.BodyProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                    all=all,
-                                    excluded_cookies=["excludedCookies"],
-                                    included_cookies=["includedCookies"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
-                                oversize_handling="oversizeHandling"
-                            ),
-                            headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                    all=all,
-                                    excluded_headers=["excludedHeaders"],
-                                    included_headers=["includedHeaders"]
-                                ),
-                                match_scope="matchScope",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                    all=all,
-                                    included_paths=["includedPaths"]
-                                ),
-                                match_scope="matchScope",
-                
-                                # the properties below are optional
-                                invalid_fallback_behavior="invalidFallbackBehavior",
-                                oversize_handling="oversizeHandling"
-                            ),
-                            method=method,
-                            query_string=query_string,
-                            single_header=single_header,
-                            single_query_argument=single_query_argument,
-                            uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                fallback_behavior="fallbackBehavior"
-                            ),
-                            uri_path=uri_path
-                        ),
-                        text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                            priority=123,
-                            type="type"
-                        )]
-                    )
-                )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__c10bc3e3f69d89ad06f25a44daee62e7de586ae4280e39230f29c24092fe4a4f)
@@ -11189,6 +8982,7 @@ class CfnRuleGroup(
         name_mapping={
             "field_to_match": "fieldToMatch",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
         },
     )
     class XssMatchStatementProperty:
@@ -11197,6 +8991,7 @@ class CfnRuleGroup(
             *,
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement that inspects for cross-site scripting (XSS) attacks.
 
@@ -11204,6 +8999,7 @@ class CfnRuleGroup(
 
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-xssmatchstatement.html
             :exampleMetadata: fixture=_generated
@@ -11278,6 +9074,12 @@ class CfnRuleGroup(
                     text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
                         priority=123,
                         type="type"
+                    )],
+                
+                    # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnRuleGroup.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
                     )]
                 )
             '''
@@ -11285,10 +9087,13 @@ class CfnRuleGroup(
                 type_hints = cached_type_hints(_typecheckingstub__e502ec1c8bc4096eb797b55f6c0a1f9c506e23db360770a855cc273d36ce4b4a)
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "field_to_match": field_to_match,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
 
         @builtins.property
         def field_to_match(
@@ -11315,6 +9120,16 @@ class CfnRuleGroup(
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.TextTransformationProperty"]]], result)
+
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-xssmatchstatement.html#cfn-wafv2-rulegroup-xssmatchstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PreParseTextTransformationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13172,6 +10987,7 @@ class CfnWebACL(
             "field_to_match": "fieldToMatch",
             "positional_constraint": "positionalConstraint",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
             "search_string": "searchString",
             "search_string_base64": "searchStringBase64",
         },
@@ -13183,6 +10999,7 @@ class CfnWebACL(
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             positional_constraint: builtins.str,
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             search_string: typing.Optional[builtins.str] = None,
             search_string_base64: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -13193,6 +11010,7 @@ class CfnWebACL(
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param positional_constraint: The area within the portion of the web request that you want AWS WAF to search for ``SearchString`` . Valid values include the following: *CONTAINS* The specified part of the web request must include the value of ``SearchString`` , but the location doesn't matter. *CONTAINS_WORD* The specified part of the web request must include the value of ``SearchString`` , and ``SearchString`` must contain only alphanumeric characters or underscore (A-Z, a-z, 0-9, or _). In addition, ``SearchString`` must be a word, which means that both of the following are true: - ``SearchString`` is at the beginning of the specified part of the web request or is preceded by a character other than an alphanumeric character or underscore (_). Examples include the value of a header and ``;BadBot`` . - ``SearchString`` is at the end of the specified part of the web request or is followed by a character other than an alphanumeric character or underscore (_), for example, ``BadBot;`` and ``-BadBot;`` . *EXACTLY* The value of the specified part of the web request must exactly match the value of ``SearchString`` . *STARTS_WITH* The value of ``SearchString`` must appear at the beginning of the specified part of the web request. *ENDS_WITH* The value of ``SearchString`` must appear at the end of the specified part of the web request.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
             :param search_string: A string value that you want AWS WAF to search for. AWS WAF searches only in the part of web requests that you designate for inspection in ``FieldToMatch`` . The maximum length of the value is 200 bytes. For alphabetic characters A-Z and a-z, the value is case sensitive. Don't encode this string. Provide the value that you want AWS WAF to search for. AWS CloudFormation automatically base64 encodes the value for you. For example, suppose the value of ``Type`` is ``HEADER`` and the value of ``Data`` is ``User-Agent`` . If you want to search the ``User-Agent`` header for the value ``BadBot`` , you provide the string ``BadBot`` in the value of ``SearchString`` . You must specify either ``SearchString`` or ``SearchStringBase64`` in a ``ByteMatchStatement`` .
             :param search_string_base64: String to search for in a web request component, base64-encoded. If you don't want to encode the string, specify the unencoded value in ``SearchString`` instead. You must specify either ``SearchString`` or ``SearchStringBase64`` in a ``ByteMatchStatement`` .
 
@@ -13273,6 +11091,10 @@ class CfnWebACL(
                     )],
                 
                     # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnWebACL.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
+                    )],
                     search_string="searchString",
                     search_string_base64="searchStringBase64"
                 )
@@ -13282,6 +11104,7 @@ class CfnWebACL(
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument positional_constraint", value=positional_constraint, expected_type=type_hints["positional_constraint"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
                 check_type(argname="argument search_string", value=search_string, expected_type=type_hints["search_string"])
                 check_type(argname="argument search_string_base64", value=search_string_base64, expected_type=type_hints["search_string_base64"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13289,6 +11112,8 @@ class CfnWebACL(
                 "positional_constraint": positional_constraint,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
             if search_string is not None:
                 self._values["search_string"] = search_string
             if search_string_base64 is not None:
@@ -13354,6 +11179,16 @@ class CfnWebACL(
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.TextTransformationProperty"]]], result)
+
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-bytematchstatement.html#cfn-wafv2-webacl-bytematchstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]], result)
 
         @builtins.property
         def search_string(self) -> typing.Optional[builtins.str]:
@@ -17651,6 +15486,72 @@ class CfnWebACL(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.PreParseTextTransformationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"priority": "priority", "type": "type"},
+    )
+    class PreParseTextTransformationProperty:
+        def __init__(self, *, priority: jsii.Number, type: builtins.str) -> None:
+            '''Text Transformation applied before parsing the query string.
+
+            :param priority: Priority of PreParseTextTransformation being applied.
+            :param type: Type of pre-parse text transformation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-preparsetexttransformation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                pre_parse_text_transformation_property = wafv2.CfnWebACL.PreParseTextTransformationProperty(
+                    priority=123,
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1b6e70298b7998bee8de6ca29a7314c1e15d3cb7331127077a5aa66fe3b1d6a6)
+                check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "priority": priority,
+                "type": type,
+            }
+
+        @builtins.property
+        def priority(self) -> jsii.Number:
+            '''Priority of PreParseTextTransformation being applied.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-preparsetexttransformation.html#cfn-wafv2-webacl-preparsetexttransformation-priority
+            '''
+            result = self._values.get("priority")
+            assert result is not None, "Required property 'priority' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Type of pre-parse text transformation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-preparsetexttransformation.html#cfn-wafv2-webacl-preparsetexttransformation-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PreParseTextTransformationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.PriceProperty",
         jsii_struct_bases=[],
         name_mapping={"amount": "amount", "currency": "currency"},
@@ -18813,6 +16714,7 @@ class CfnWebACL(
             "field_to_match": "fieldToMatch",
             "regex_string": "regexString",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
         },
     )
     class RegexMatchStatementProperty:
@@ -18822,12 +16724,14 @@ class CfnWebACL(
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             regex_string: builtins.str,
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement used to search web request components for a match against a single regular expression.
 
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param regex_string: The string representing the regular expression.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regexmatchstatement.html
             :exampleMetadata: fixture=_generated
@@ -18903,6 +16807,12 @@ class CfnWebACL(
                     text_transformations=[wafv2.CfnWebACL.TextTransformationProperty(
                         priority=123,
                         type="type"
+                    )],
+                
+                    # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnWebACL.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
                     )]
                 )
             '''
@@ -18911,11 +16821,14 @@ class CfnWebACL(
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument regex_string", value=regex_string, expected_type=type_hints["regex_string"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "field_to_match": field_to_match,
                 "regex_string": regex_string,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
 
         @builtins.property
         def field_to_match(
@@ -18953,6 +16866,16 @@ class CfnWebACL(
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.TextTransformationProperty"]]], result)
 
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regexmatchstatement.html#cfn-wafv2-webacl-regexmatchstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -18971,6 +16894,7 @@ class CfnWebACL(
             "arn": "arn",
             "field_to_match": "fieldToMatch",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
         },
     )
     class RegexPatternSetReferenceStatementProperty:
@@ -18980,6 +16904,7 @@ class CfnWebACL(
             arn: builtins.str,
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement used to search web request components for matches with regular expressions.
 
@@ -18990,6 +16915,7 @@ class CfnWebACL(
             :param arn: The Amazon Resource Name (ARN) of the ``RegexPatternSet`` that this statement references.
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regexpatternsetreferencestatement.html
             :exampleMetadata: fixture=_generated
@@ -19065,6 +16991,12 @@ class CfnWebACL(
                     text_transformations=[wafv2.CfnWebACL.TextTransformationProperty(
                         priority=123,
                         type="type"
+                    )],
+                
+                    # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnWebACL.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
                     )]
                 )
             '''
@@ -19073,11 +17005,14 @@ class CfnWebACL(
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "arn": arn,
                 "field_to_match": field_to_match,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
 
         @builtins.property
         def arn(self) -> builtins.str:
@@ -19114,6 +17049,16 @@ class CfnWebACL(
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.TextTransformationProperty"]]], result)
+
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regexpatternsetreferencestatement.html#cfn-wafv2-webacl-regexpatternsetreferencestatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20971,6 +18916,7 @@ class CfnWebACL(
             "field_to_match": "fieldToMatch",
             "size": "size",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
         },
     )
     class SizeConstraintStatementProperty:
@@ -20981,6 +18927,7 @@ class CfnWebACL(
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             size: jsii.Number,
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement that compares a number of bytes against the size of a request component, using a comparison operator, such as greater than (>) or less than (<).
 
@@ -20994,6 +18941,7 @@ class CfnWebACL(
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param size: The size, in byte, to compare to the request part, after any transformations.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-sizeconstraintstatement.html
             :exampleMetadata: fixture=_generated
@@ -21070,6 +19018,12 @@ class CfnWebACL(
                     text_transformations=[wafv2.CfnWebACL.TextTransformationProperty(
                         priority=123,
                         type="type"
+                    )],
+                
+                    # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnWebACL.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
                     )]
                 )
             '''
@@ -21079,12 +19033,15 @@ class CfnWebACL(
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument size", value=size, expected_type=type_hints["size"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "comparison_operator": comparison_operator,
                 "field_to_match": field_to_match,
                 "size": size,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
 
         @builtins.property
         def comparison_operator(self) -> builtins.str:
@@ -21132,6 +19089,16 @@ class CfnWebACL(
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.TextTransformationProperty"]]], result)
 
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-sizeconstraintstatement.html#cfn-wafv2-webacl-sizeconstraintstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -21149,6 +19116,7 @@ class CfnWebACL(
         name_mapping={
             "field_to_match": "fieldToMatch",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
             "sensitivity_level": "sensitivityLevel",
         },
     )
@@ -21158,6 +19126,7 @@ class CfnWebACL(
             *,
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             sensitivity_level: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A rule statement that inspects for malicious SQL code.
@@ -21166,6 +19135,7 @@ class CfnWebACL(
 
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
             :param sensitivity_level: The sensitivity that you want AWS WAF to use to inspect for SQL injection attacks. ``HIGH`` detects more attacks, but might generate more false positives, especially if your web requests frequently contain unusual strings. For information about identifying and mitigating false positives, see `Testing and tuning <https://docs.aws.amazon.com/waf/latest/developerguide/web-acl-testing.html>`_ in the *AWS WAF Developer Guide* . ``LOW`` is generally a better choice for resources that already have other protections against SQL injection attacks or that have a low tolerance for false positives. Default: ``LOW``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-sqlimatchstatement.html
@@ -21244,6 +19214,10 @@ class CfnWebACL(
                     )],
                 
                     # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnWebACL.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
+                    )],
                     sensitivity_level="sensitivityLevel"
                 )
             '''
@@ -21251,11 +19225,14 @@ class CfnWebACL(
                 type_hints = cached_type_hints(_typecheckingstub__58178c25f953747f989ea51846855e784a44825b0202fe8e0a5c3920acbe2ac5)
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
                 check_type(argname="argument sensitivity_level", value=sensitivity_level, expected_type=type_hints["sensitivity_level"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "field_to_match": field_to_match,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
             if sensitivity_level is not None:
                 self._values["sensitivity_level"] = sensitivity_level
 
@@ -21284,6 +19261,16 @@ class CfnWebACL(
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.TextTransformationProperty"]]], result)
+
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-sqlimatchstatement.html#cfn-wafv2-webacl-sqlimatchstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]], result)
 
         @builtins.property
         def sensitivity_level(self) -> typing.Optional[builtins.str]:
@@ -21968,6 +19955,7 @@ class CfnWebACL(
         name_mapping={
             "field_to_match": "fieldToMatch",
             "text_transformations": "textTransformations",
+            "pre_parse_text_transformations": "preParseTextTransformations",
         },
     )
     class XssMatchStatementProperty:
@@ -21976,6 +19964,7 @@ class CfnWebACL(
             *,
             field_to_match: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             text_transformations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            pre_parse_text_transformations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.PreParseTextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement that inspects for cross-site scripting (XSS) attacks.
 
@@ -21983,6 +19972,7 @@ class CfnWebACL(
 
             :param field_to_match: The part of the web request that you want AWS WAF to inspect.
             :param text_transformations: Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection. If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
+            :param pre_parse_text_transformations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-xssmatchstatement.html
             :exampleMetadata: fixture=_generated
@@ -22057,6 +20047,12 @@ class CfnWebACL(
                     text_transformations=[wafv2.CfnWebACL.TextTransformationProperty(
                         priority=123,
                         type="type"
+                    )],
+                
+                    # the properties below are optional
+                    pre_parse_text_transformations=[wafv2.CfnWebACL.PreParseTextTransformationProperty(
+                        priority=123,
+                        type="type"
                     )]
                 )
             '''
@@ -22064,10 +20060,13 @@ class CfnWebACL(
                 type_hints = cached_type_hints(_typecheckingstub__bc50e62f942321b2fd5e76527c23bd2d8b80156e06fa520936982b5d3b72a9ae)
                 check_type(argname="argument field_to_match", value=field_to_match, expected_type=type_hints["field_to_match"])
                 check_type(argname="argument text_transformations", value=text_transformations, expected_type=type_hints["text_transformations"])
+                check_type(argname="argument pre_parse_text_transformations", value=pre_parse_text_transformations, expected_type=type_hints["pre_parse_text_transformations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "field_to_match": field_to_match,
                 "text_transformations": text_transformations,
             }
+            if pre_parse_text_transformations is not None:
+                self._values["pre_parse_text_transformations"] = pre_parse_text_transformations
 
         @builtins.property
         def field_to_match(
@@ -22094,6 +20093,16 @@ class CfnWebACL(
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.TextTransformationProperty"]]], result)
+
+        @builtins.property
+        def pre_parse_text_transformations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-xssmatchstatement.html#cfn-wafv2-webacl-xssmatchstatement-preparsetexttransformations
+            '''
+            result = self._values.get("pre_parse_text_transformations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.PreParseTextTransformationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -23160,6 +21169,7 @@ def _typecheckingstub__e374dcbd15c82dd0423abc3fb66bf99c31bc4d6a714fc65deb3dbdbc8
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     positional_constraint: builtins.str,
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     search_string: typing.Optional[builtins.str] = None,
     search_string_base64: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -23435,6 +21445,14 @@ def _typecheckingstub__2a70700a7a89cbf7428537b29eebe42b8bc2bd7d0e7c48deacb7f77d3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e9db37ebf01e61410b5c520566368a25121a983f86dda63b92848d19747f924e(
+    *,
+    priority: jsii.Number,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e51c42b2b4bbf11a63c396ba4b795def07bec59a9bdabca53d4e6f18da269045(
     *,
     amount: builtins.str,
@@ -23537,6 +21555,7 @@ def _typecheckingstub__19f93168f4e99e1fefe30605a0c36c70d5669dc501d923863dc01b02e
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     regex_string: builtins.str,
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23546,6 +21565,7 @@ def _typecheckingstub__6910c2b882b693ee6a9ebfe30a376f3d75e7230122900daff24df6b39
     arn: builtins.str,
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23596,6 +21616,7 @@ def _typecheckingstub__b4e71477ea891ae9537f70f2a7ad51756ce844f8e608371a6a7e0b43d
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     size: jsii.Number,
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23604,6 +21625,7 @@ def _typecheckingstub__b9ae549bd77f9cf10d97954d1e78a797db181843dcc5510b91fc32672
     *,
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     sensitivity_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -23657,6 +21679,7 @@ def _typecheckingstub__e502ec1c8bc4096eb797b55f6c0a1f9c506e23db360770a855cc273d3
     *,
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23922,6 +21945,7 @@ def _typecheckingstub__aa15ef2b16644ae01b4e67c309786112c6345b088bd7dc3abcd5ef657
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     positional_constraint: builtins.str,
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     search_string: typing.Optional[builtins.str] = None,
     search_string_base64: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -24295,6 +22319,14 @@ def _typecheckingstub__ea1f7c61c4159dbe7b1e466dfe3a5f65c1b64a9ae484d772434803f3c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1b6e70298b7998bee8de6ca29a7314c1e15d3cb7331127077a5aa66fe3b1d6a6(
+    *,
+    priority: jsii.Number,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c315232258226b8cdec302b0fb765565339df784546af812ee60763b654ff158(
     *,
     amount: builtins.str,
@@ -24397,6 +22429,7 @@ def _typecheckingstub__f56d815e9b33978239f84bdcfda0c264d936fd6082896142455107561
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     regex_string: builtins.str,
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24406,6 +22439,7 @@ def _typecheckingstub__02b7d36560bfd4ed2bd6508818cf89b216972c719200032cdc4b3a04e
     arn: builtins.str,
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24553,6 +22587,7 @@ def _typecheckingstub__865b49e379fa7b3164d1c8e64243430f9e779fe36a4a5e82ae22f6406
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     size: jsii.Number,
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24561,6 +22596,7 @@ def _typecheckingstub__58178c25f953747f989ea51846855e784a44825b0202fe8e0a5c3920a
     *,
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     sensitivity_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24616,6 +22652,7 @@ def _typecheckingstub__bc50e62f942321b2fd5e76527c23bd2d8b80156e06fa520936982b5d3
     *,
     field_to_match: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     text_transformations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pre_parse_text_transformations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.PreParseTextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -141,3 +141,25 @@ async def test_other_xp_tools_still_skipped():
     await opt.layer_1_microcompact([msg])
     await opt.layer_1_microcompact([msg])
     assert msg.compressed_content is None
+
+
+def test_a_payload_filling_half_the_window_skips_the_free_pass():
+    """The free pass is for payloads worth one full look; this one would fill the window.
+
+    It also covers the resumed session, whose history can hold an oversized retrieve the
+    inline cap never saw.
+    """
+    opt = _make_optimizer(estimated_tokens=0)
+    # ~half the window in tokens, at the optimizer's own chars/4*1.2 estimate
+    huge = "z" * int(opt._auto_compact_threshold / 1.2 * 4)
+    msg = Message(
+        role="tool",
+        content=huge,
+        tool_name="xpworkspace-context-retrieve",
+        tool_call_id="call-huge",
+        tool_args={"payload": {"body_params": {"context_id": "ctx-huge"}}},
+    )
+
+    assert opt._maybe_reoffload_retrieve(msg) is True
+    assert msg.compressed_content
+    assert len(msg.compressed_content) < len(huge)

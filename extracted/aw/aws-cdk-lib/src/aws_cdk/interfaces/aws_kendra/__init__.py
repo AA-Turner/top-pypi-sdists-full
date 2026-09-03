@@ -331,6 +331,98 @@ class _IIndexRefProxy(
 typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_kendra.IQuerySuggestionsBlockListRef"
+)
+class IQuerySuggestionsBlockListRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a QuerySuggestionsBlockList.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="querySuggestionsBlockListRef")
+    def query_suggestions_block_list_ref(self) -> "QuerySuggestionsBlockListReference":
+        '''(experimental) A reference to a QuerySuggestionsBlockList resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQuerySuggestionsBlockListRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a QuerySuggestionsBlockList.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_kendra.IQuerySuggestionsBlockListRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="querySuggestionsBlockListRef")
+    def query_suggestions_block_list_ref(self) -> "QuerySuggestionsBlockListReference":
+        '''(experimental) A reference to a QuerySuggestionsBlockList resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QuerySuggestionsBlockListReference", jsii.get(self, "querySuggestionsBlockListRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQuerySuggestionsBlockListRef).__jsii_proxy_class__ = lambda : _IQuerySuggestionsBlockListRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kendra.IThesaurusRef")
+class IThesaurusRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Thesaurus.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="thesaurusRef")
+    def thesaurus_ref(self) -> "ThesaurusReference":
+        '''(experimental) A reference to a Thesaurus resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IThesaurusRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Thesaurus.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_kendra.IThesaurusRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="thesaurusRef")
+    def thesaurus_ref(self) -> "ThesaurusReference":
+        '''(experimental) A reference to a Thesaurus resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ThesaurusReference", jsii.get(self, "thesaurusRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IThesaurusRef).__jsii_proxy_class__ = lambda : _IThesaurusRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_kendra.IndexReference",
     jsii_struct_bases=[],
@@ -391,13 +483,115 @@ class IndexReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_kendra.QuerySuggestionsBlockListReference",
+    jsii_struct_bases=[],
+    name_mapping={"query_suggestions_block_list_arn": "querySuggestionsBlockListArn"},
+)
+class QuerySuggestionsBlockListReference:
+    def __init__(self, *, query_suggestions_block_list_arn: builtins.str) -> None:
+        '''A reference to a QuerySuggestionsBlockList resource.
+
+        :param query_suggestions_block_list_arn: The Arn of the QuerySuggestionsBlockList resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_kendra as interfaces_kendra
+            
+            query_suggestions_block_list_reference = interfaces_kendra.QuerySuggestionsBlockListReference(
+                query_suggestions_block_list_arn="querySuggestionsBlockListArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3cd164c2542e3f3d69a0c3786f4c34b507541cc2e0ff5af22805b95a4abe5490)
+            check_type(argname="argument query_suggestions_block_list_arn", value=query_suggestions_block_list_arn, expected_type=type_hints["query_suggestions_block_list_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "query_suggestions_block_list_arn": query_suggestions_block_list_arn,
+        }
+
+    @builtins.property
+    def query_suggestions_block_list_arn(self) -> builtins.str:
+        '''The Arn of the QuerySuggestionsBlockList resource.'''
+        result = self._values.get("query_suggestions_block_list_arn")
+        assert result is not None, "Required property 'query_suggestions_block_list_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QuerySuggestionsBlockListReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_kendra.ThesaurusReference",
+    jsii_struct_bases=[],
+    name_mapping={"thesaurus_arn": "thesaurusArn"},
+)
+class ThesaurusReference:
+    def __init__(self, *, thesaurus_arn: builtins.str) -> None:
+        '''A reference to a Thesaurus resource.
+
+        :param thesaurus_arn: The Arn of the Thesaurus resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_kendra as interfaces_kendra
+            
+            thesaurus_reference = interfaces_kendra.ThesaurusReference(
+                thesaurus_arn="thesaurusArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__87761e4ee89c383eafe612f2a14a47629565230e0e54cc12c5e7dea61c3387d2)
+            check_type(argname="argument thesaurus_arn", value=thesaurus_arn, expected_type=type_hints["thesaurus_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "thesaurus_arn": thesaurus_arn,
+        }
+
+    @builtins.property
+    def thesaurus_arn(self) -> builtins.str:
+        '''The Arn of the Thesaurus resource.'''
+        result = self._values.get("thesaurus_arn")
+        assert result is not None, "Required property 'thesaurus_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ThesaurusReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "DataSourceReference",
     "FaqReference",
     "IDataSourceRef",
     "IFaqRef",
     "IIndexRef",
+    "IQuerySuggestionsBlockListRef",
+    "IThesaurusRef",
     "IndexReference",
+    "QuerySuggestionsBlockListReference",
+    "ThesaurusReference",
 ]
 
 publication.publish()
@@ -428,5 +622,19 @@ def _typecheckingstub__90cd6d290fb63a85515086873543ef20c61d2faa02b3955c1c27c2870
     """Type checking stubs"""
     pass
 
-for cls in [IDataSourceRef, IFaqRef, IIndexRef]:
+def _typecheckingstub__3cd164c2542e3f3d69a0c3786f4c34b507541cc2e0ff5af22805b95a4abe5490(
+    *,
+    query_suggestions_block_list_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87761e4ee89c383eafe612f2a14a47629565230e0e54cc12c5e7dea61c3387d2(
+    *,
+    thesaurus_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IDataSourceRef, IFaqRef, IIndexRef, IQuerySuggestionsBlockListRef, IThesaurusRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

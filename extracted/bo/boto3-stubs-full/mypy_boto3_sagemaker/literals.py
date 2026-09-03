@@ -2498,7 +2498,7 @@ StageStatusType = Literal[
 ]
 StatisticType = Literal["Average", "Maximum", "Minimum", "SampleCount", "Sum"]
 StepStatusType = Literal["Executing", "Failed", "Starting", "Stopped", "Stopping", "Succeeded"]
-StorageTypeType = Literal["InMemory", "Standard"]
+StorageTypeType = Literal["InMemory", "Standard", "Standard_V2"]
 StudioLifecycleConfigAppTypeType = Literal[
     "CodeEditor", "JupyterLab", "JupyterServer", "KernelGateway"
 ]

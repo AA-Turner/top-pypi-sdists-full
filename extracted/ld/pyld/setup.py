@@ -9,7 +9,7 @@ PyLD_ is a Python JSON-LD_ library.
 .. _JSON-LD: https://json-ld.org/
 """
 
-from distutils.core import setup
+from setuptools import setup
 import os
 
 # get meta data
@@ -33,6 +33,8 @@ setup(
     packages=[
         'c14n',
         'pyld',
+        'pyld.cli',
+        'pyld.cli.commands',
         'pyld.documentloader',
         'pyld.documentloader.frozen',
     ],
@@ -64,5 +66,11 @@ setup(
         'requests-cache': ['requests-cache>=1.3'],
         'cachetools': ['cachetools'],
         'frozendict': ['frozendict'],
-    }
+        'cli': ['typer>=0.27', 'requests-cache>=1.3'],
+    },
+    entry_points={
+        'console_scripts': [
+            'pyld = pyld.cli.entry:main',
+        ],
+    },
 )

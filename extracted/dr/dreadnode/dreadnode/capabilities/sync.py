@@ -299,6 +299,9 @@ class CapabilitySyncClient:
             # Check cache
             digest_file = cap_dir / ".runtime_digest"
             if digest_file.exists() and digest_file.read_text().strip() == digest:
+                from dreadnode.capabilities.command_tools import write_resolved_commands
+
+                write_resolved_commands(cap_dir, cap_info.get("commands", []))
                 logger.debug("Capability '{}' unchanged (digest match), using cache", name)
                 result.cached.append(name)
                 continue
@@ -307,6 +310,10 @@ class CapabilitySyncClient:
             temp_dir = self._cache_dir / f".tmp-{encoded}"
             try:
                 self._download_capability(cap_info, temp_dir)
+
+                from dreadnode.capabilities.command_tools import write_resolved_commands
+
+                write_resolved_commands(temp_dir, cap_info.get("commands", []))
 
                 # Write digest marker
                 (temp_dir / ".runtime_digest").write_text(digest)

@@ -170,7 +170,7 @@ def cmd_search(argv):
             if reranked:
                 scored, ranker = reranked, "Claude Haiku relevance"
         else:
-            out.warn(ai.fallback_note(), wrap=True)
+            out.warn(ai.fallback_note(), wrap=True, stream=sys.stderr)
     shown = scored[:args.limit]
     # The dot marks "a skill by this name is installed" — a name match, with
     # the known homonym caveat (13 real skills share `code-reviewer`). A lock
@@ -1897,9 +1897,12 @@ def cmd_count(argv):
     dpath = _discovery_path()
     if dpath.exists():
         try:
-            discovery = len(json.loads(dpath.read_text(encoding="utf-8")).get("items") or [])
+            data = json.loads(dpath.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            discovery = None
+            data = None
+        if isinstance(data, dict):
+            items = data.get("items")
+            discovery = len(items) if isinstance(items, list) else None
     if args.as_json:
         print(json.dumps({"installed": installed_n,
                           "skills": by_kind["skill"], "rules": by_kind["rule"],

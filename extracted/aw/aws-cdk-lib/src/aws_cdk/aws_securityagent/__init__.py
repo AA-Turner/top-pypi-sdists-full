@@ -1393,6 +1393,329 @@ class CfnApplicationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_securityagent_9b0edcbe.IArtifactRef)
+class CfnArtifact(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securityagent.CfnArtifact",
+):
+    '''Uploads an artifact to an agent space.
+
+    Artifacts provide additional context for security testing, such as architecture diagrams, API specifications, or configuration files.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-artifact.html
+    :cloudformationResource: AWS::SecurityAgent::Artifact
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securityagent as securityagent
+        
+        cfn_artifact = securityagent.CfnArtifact(self, "MyCfnArtifact",
+            agent_space_id="agentSpaceId",
+            artifact_type="artifactType",
+            file_name="fileName",
+        
+            # the properties below are optional
+            artifact_content="artifactContent"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        agent_space_id: builtins.str,
+        artifact_type: builtins.str,
+        file_name: builtins.str,
+        artifact_content: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::SecurityAgent::Artifact``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param agent_space_id: The unique identifier of the agent space to add the artifact to.
+        :param artifact_type: The file type of the artifact.
+        :param file_name: The file name of the artifact.
+        :param artifact_content: The binary content of the artifact to upload, encoded as a Base64 string.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2aeae9075c57a66967596c4441ca667d993def7092e2374e14e3ab2f55c839c6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnArtifactProps(
+            agent_space_id=agent_space_id,
+            artifact_type=artifact_type,
+            file_name=file_name,
+            artifact_content=artifact_content,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForArtifact")
+    @builtins.classmethod
+    def arn_for_artifact(
+        cls,
+        resource: "_aws_securityagent_9b0edcbe.IArtifactRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6da39aa1a743d5f0984954d1c21c3821b2f753f9a593e9e703d5fc8d1bd459b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForArtifact", [resource]))
+
+    @jsii.member(jsii_name="isCfnArtifact")
+    @builtins.classmethod
+    def is_cfn_artifact(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnArtifact.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b9f9b10fcbbbfdc52a4b5d30a95543f66559b83ebb8b3fd12865282618df120d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnArtifact", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e6e04dcea1931bf9714002572b78ff6327e0acfc98e322c24569129cba0f88bd)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__670272b1b4cbd98bb73e4e2a98f40913f6a8e291fcc90b65191df4f9b68fdb1c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactRef")
+    def artifact_ref(self) -> "_aws_securityagent_9b0edcbe.ArtifactReference":
+        '''A reference to a Artifact resource.'''
+        return typing.cast("_aws_securityagent_9b0edcbe.ArtifactReference", jsii.get(self, "artifactRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the artifact.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArtifactId")
+    def attr_artifact_id(self) -> builtins.str:
+        '''The unique identifier assigned to the uploaded artifact.
+
+        :cloudformationAttribute: ArtifactId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArtifactId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The date and time the artifact was last updated, in ISO 8601 format.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentSpaceId")
+    def agent_space_id(self) -> builtins.str:
+        '''The unique identifier of the agent space to add the artifact to.'''
+        return typing.cast(builtins.str, jsii.get(self, "agentSpaceId"))
+
+    @agent_space_id.setter
+    def agent_space_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0e027881f2feb2626cce1ad62e3380c1babbfc5eebb04954f6fbd8ffc4cbd7bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "agentSpaceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactType")
+    def artifact_type(self) -> builtins.str:
+        '''The file type of the artifact.'''
+        return typing.cast(builtins.str, jsii.get(self, "artifactType"))
+
+    @artifact_type.setter
+    def artifact_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eeb35f9f107b405c63ea5cd093ad66613f5e543a5fb489b2956f865c9140c030)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fileName")
+    def file_name(self) -> builtins.str:
+        '''The file name of the artifact.'''
+        return typing.cast(builtins.str, jsii.get(self, "fileName"))
+
+    @file_name.setter
+    def file_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ff3531cdf58cbc18ee68f9169c4f37c7ea8824d3a7561be9ef0adfca56af7ff1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fileName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactContent")
+    def artifact_content(self) -> typing.Optional[builtins.str]:
+        '''The binary content of the artifact to upload, encoded as a Base64 string.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "artifactContent"))
+
+    @artifact_content.setter
+    def artifact_content(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d11b4d86e34bb5739f9125626c94ad92eff9409232f3a84868d7fa679b445106)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactContent", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityagent.CfnArtifactProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_space_id": "agentSpaceId",
+        "artifact_type": "artifactType",
+        "file_name": "fileName",
+        "artifact_content": "artifactContent",
+    },
+)
+class CfnArtifactProps:
+    def __init__(
+        self,
+        *,
+        agent_space_id: builtins.str,
+        artifact_type: builtins.str,
+        file_name: builtins.str,
+        artifact_content: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnArtifact``.
+
+        :param agent_space_id: The unique identifier of the agent space to add the artifact to.
+        :param artifact_type: The file type of the artifact.
+        :param file_name: The file name of the artifact.
+        :param artifact_content: The binary content of the artifact to upload, encoded as a Base64 string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-artifact.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityagent as securityagent
+            
+            cfn_artifact_props = securityagent.CfnArtifactProps(
+                agent_space_id="agentSpaceId",
+                artifact_type="artifactType",
+                file_name="fileName",
+            
+                # the properties below are optional
+                artifact_content="artifactContent"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__48cd641a0788e520772cf73c095b52fe278e4c8a907daa7f9155058af397e557)
+            check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
+            check_type(argname="argument artifact_type", value=artifact_type, expected_type=type_hints["artifact_type"])
+            check_type(argname="argument file_name", value=file_name, expected_type=type_hints["file_name"])
+            check_type(argname="argument artifact_content", value=artifact_content, expected_type=type_hints["artifact_content"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_space_id": agent_space_id,
+            "artifact_type": artifact_type,
+            "file_name": file_name,
+        }
+        if artifact_content is not None:
+            self._values["artifact_content"] = artifact_content
+
+    @builtins.property
+    def agent_space_id(self) -> builtins.str:
+        '''The unique identifier of the agent space to add the artifact to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-artifact.html#cfn-securityagent-artifact-agentspaceid
+        '''
+        result = self._values.get("agent_space_id")
+        assert result is not None, "Required property 'agent_space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def artifact_type(self) -> builtins.str:
+        '''The file type of the artifact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-artifact.html#cfn-securityagent-artifact-artifacttype
+        '''
+        result = self._values.get("artifact_type")
+        assert result is not None, "Required property 'artifact_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def file_name(self) -> builtins.str:
+        '''The file name of the artifact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-artifact.html#cfn-securityagent-artifact-filename
+        '''
+        result = self._values.get("file_name")
+        assert result is not None, "Required property 'file_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def artifact_content(self) -> typing.Optional[builtins.str]:
+        '''The binary content of the artifact to upload, encoded as a Base64 string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-artifact.html#cfn-securityagent-artifact-artifactcontent
+        '''
+        result = self._values.get("artifact_content")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnArtifactProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_securityagent_9b0edcbe.IPentestRef)
 class CfnPentest(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1420,7 +1743,9 @@ class CfnPentest(
                         value="value"
                     ),
                     description="description",
+                    enable_email_mfa=False,
                     identifier="identifier",
+                    mfa_forwarding_address="mfaForwardingAddress",
                     uris=["uris"]
                 )],
                 documents=[securityagent.CfnPentest.DocumentInfoProperty(
@@ -1432,10 +1757,20 @@ class CfnPentest(
                 )],
                 integrated_repositories=[securityagent.CfnPentest.IntegratedRepositoryProperty(
                     integration_id="integrationId",
-                    provider_resource_id="providerResourceId"
+                    provider_resource_id="providerResourceId",
+        
+                    # the properties below are optional
+                    branch="branch"
                 )],
                 source_code=[securityagent.CfnPentest.SourceCodeRepositoryProperty(
                     s3_location="s3Location"
+                )],
+                trusted_ca_certificates=[securityagent.CfnPentest.TrustedCaCertificateProperty(
+                    source=securityagent.CfnPentest.CaCertificateSourceProperty(
+                        artifact_id="artifactId",
+                        inline_pem="inlinePem",
+                        s3_location="s3Location"
+                    )
                 )]
             ),
             service_role="serviceRole",
@@ -1782,7 +2117,9 @@ class CfnPentest(
         name_mapping={
             "authentication": "authentication",
             "description": "description",
+            "enable_email_mfa": "enableEmailMfa",
             "identifier": "identifier",
+            "mfa_forwarding_address": "mfaForwardingAddress",
             "uris": "uris",
         },
     )
@@ -1792,14 +2129,18 @@ class CfnPentest(
             *,
             authentication: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.AuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
+            enable_email_mfa: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             identifier: typing.Optional[builtins.str] = None,
+            mfa_forwarding_address: typing.Optional[builtins.str] = None,
             uris: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''An authenticated actor to be used during pentest execution.
 
             :param authentication: Authentication configuration for a pentest actor.
             :param description: Description of the actor.
+            :param enable_email_mfa: Whether email-based MFA is enabled for this actor.
             :param identifier: Identifier for the actor.
+            :param mfa_forwarding_address: Server-generated email forwarding address for receiving MFA codes.
             :param uris: List of URIs this actor is authorized to access.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html
@@ -1817,7 +2158,9 @@ class CfnPentest(
                         value="value"
                     ),
                     description="description",
+                    enable_email_mfa=False,
                     identifier="identifier",
+                    mfa_forwarding_address="mfaForwardingAddress",
                     uris=["uris"]
                 )
             '''
@@ -1825,15 +2168,21 @@ class CfnPentest(
                 type_hints = cached_type_hints(_typecheckingstub__789552d2a299b54f21a25572baa25b7b652499c9578bcdf16e84796ef97b2678)
                 check_type(argname="argument authentication", value=authentication, expected_type=type_hints["authentication"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument enable_email_mfa", value=enable_email_mfa, expected_type=type_hints["enable_email_mfa"])
                 check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
+                check_type(argname="argument mfa_forwarding_address", value=mfa_forwarding_address, expected_type=type_hints["mfa_forwarding_address"])
                 check_type(argname="argument uris", value=uris, expected_type=type_hints["uris"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if authentication is not None:
                 self._values["authentication"] = authentication
             if description is not None:
                 self._values["description"] = description
+            if enable_email_mfa is not None:
+                self._values["enable_email_mfa"] = enable_email_mfa
             if identifier is not None:
                 self._values["identifier"] = identifier
+            if mfa_forwarding_address is not None:
+                self._values["mfa_forwarding_address"] = mfa_forwarding_address
             if uris is not None:
                 self._values["uris"] = uris
 
@@ -1858,12 +2207,32 @@ class CfnPentest(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def enable_email_mfa(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether email-based MFA is enabled for this actor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html#cfn-securityagent-pentest-actor-enableemailmfa
+            '''
+            result = self._values.get("enable_email_mfa")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
         def identifier(self) -> typing.Optional[builtins.str]:
             '''Identifier for the actor.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html#cfn-securityagent-pentest-actor-identifier
             '''
             result = self._values.get("identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def mfa_forwarding_address(self) -> typing.Optional[builtins.str]:
+            '''Server-generated email forwarding address for receiving MFA codes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html#cfn-securityagent-pentest-actor-mfaforwardingaddress
+            '''
+            result = self._values.get("mfa_forwarding_address")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -1895,6 +2264,7 @@ class CfnPentest(
             "endpoints": "endpoints",
             "integrated_repositories": "integratedRepositories",
             "source_code": "sourceCode",
+            "trusted_ca_certificates": "trustedCaCertificates",
         },
     )
     class AssetsProperty:
@@ -1906,6 +2276,7 @@ class CfnPentest(
             endpoints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             integrated_repositories: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.IntegratedRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             source_code: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.SourceCodeRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            trusted_ca_certificates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.TrustedCaCertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Collection of assets to be tested during the pentest.
 
@@ -1914,6 +2285,7 @@ class CfnPentest(
             :param endpoints: List of endpoints to test.
             :param integrated_repositories: List of repositories connected via provider integrations.
             :param source_code: List of source code repositories to analyze.
+            :param trusted_ca_certificates: Trust anchors for validating target endpoint TLS certificates, for endpoints served by a private or internal CA, an intermediate CA, or a self-signed certificate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html
             :exampleMetadata: fixture=_generated
@@ -1931,7 +2303,9 @@ class CfnPentest(
                             value="value"
                         ),
                         description="description",
+                        enable_email_mfa=False,
                         identifier="identifier",
+                        mfa_forwarding_address="mfaForwardingAddress",
                         uris=["uris"]
                     )],
                     documents=[securityagent.CfnPentest.DocumentInfoProperty(
@@ -1943,10 +2317,20 @@ class CfnPentest(
                     )],
                     integrated_repositories=[securityagent.CfnPentest.IntegratedRepositoryProperty(
                         integration_id="integrationId",
-                        provider_resource_id="providerResourceId"
+                        provider_resource_id="providerResourceId",
+                
+                        # the properties below are optional
+                        branch="branch"
                     )],
                     source_code=[securityagent.CfnPentest.SourceCodeRepositoryProperty(
                         s3_location="s3Location"
+                    )],
+                    trusted_ca_certificates=[securityagent.CfnPentest.TrustedCaCertificateProperty(
+                        source=securityagent.CfnPentest.CaCertificateSourceProperty(
+                            artifact_id="artifactId",
+                            inline_pem="inlinePem",
+                            s3_location="s3Location"
+                        )
                     )]
                 )
             '''
@@ -1957,6 +2341,7 @@ class CfnPentest(
                 check_type(argname="argument endpoints", value=endpoints, expected_type=type_hints["endpoints"])
                 check_type(argname="argument integrated_repositories", value=integrated_repositories, expected_type=type_hints["integrated_repositories"])
                 check_type(argname="argument source_code", value=source_code, expected_type=type_hints["source_code"])
+                check_type(argname="argument trusted_ca_certificates", value=trusted_ca_certificates, expected_type=type_hints["trusted_ca_certificates"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if actors is not None:
                 self._values["actors"] = actors
@@ -1968,6 +2353,8 @@ class CfnPentest(
                 self._values["integrated_repositories"] = integrated_repositories
             if source_code is not None:
                 self._values["source_code"] = source_code
+            if trusted_ca_certificates is not None:
+                self._values["trusted_ca_certificates"] = trusted_ca_certificates
 
         @builtins.property
         def actors(
@@ -2023,6 +2410,17 @@ class CfnPentest(
             '''
             result = self._values.get("source_code")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.SourceCodeRepositoryProperty"]]]], result)
+
+        @builtins.property
+        def trusted_ca_certificates(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.TrustedCaCertificateProperty"]]]]:
+            '''Trust anchors for validating target endpoint TLS certificates, for endpoints served by a private or internal CA, an intermediate CA, or a self-signed certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html#cfn-securityagent-pentest-assets-trustedcacertificates
+            '''
+            result = self._values.get("trusted_ca_certificates")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.TrustedCaCertificateProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2102,6 +2500,97 @@ class CfnPentest(
 
         def __repr__(self) -> str:
             return "AuthenticationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.CaCertificateSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "artifact_id": "artifactId",
+            "inline_pem": "inlinePem",
+            "s3_location": "s3Location",
+        },
+    )
+    class CaCertificateSourceProperty:
+        def __init__(
+            self,
+            *,
+            artifact_id: typing.Optional[builtins.str] = None,
+            inline_pem: typing.Optional[builtins.str] = None,
+            s3_location: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Source of a trusted CA certificate.
+
+            Exactly one member must be set.
+
+            :param artifact_id: Artifact ID of an uploaded certificate file.
+            :param inline_pem: PEM-encoded X.509 certificate supplied inline.
+            :param s3_location: Amazon S3 location URI of a customer-staged certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cacertificatesource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                ca_certificate_source_property = securityagent.CfnPentest.CaCertificateSourceProperty(
+                    artifact_id="artifactId",
+                    inline_pem="inlinePem",
+                    s3_location="s3Location"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__741d0c1b37ba42224dc8748fd99cde2fc44dd027a962d753ef89c24da685af09)
+                check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
+                check_type(argname="argument inline_pem", value=inline_pem, expected_type=type_hints["inline_pem"])
+                check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if artifact_id is not None:
+                self._values["artifact_id"] = artifact_id
+            if inline_pem is not None:
+                self._values["inline_pem"] = inline_pem
+            if s3_location is not None:
+                self._values["s3_location"] = s3_location
+
+        @builtins.property
+        def artifact_id(self) -> typing.Optional[builtins.str]:
+            '''Artifact ID of an uploaded certificate file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cacertificatesource.html#cfn-securityagent-pentest-cacertificatesource-artifactid
+            '''
+            result = self._values.get("artifact_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def inline_pem(self) -> typing.Optional[builtins.str]:
+            '''PEM-encoded X.509 certificate supplied inline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cacertificatesource.html#cfn-securityagent-pentest-cacertificatesource-inlinepem
+            '''
+            result = self._values.get("inline_pem")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_location(self) -> typing.Optional[builtins.str]:
+            '''Amazon S3 location URI of a customer-staged certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cacertificatesource.html#cfn-securityagent-pentest-cacertificatesource-s3location
+            '''
+            result = self._values.get("s3_location")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CaCertificateSourceProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2372,6 +2861,7 @@ class CfnPentest(
         name_mapping={
             "integration_id": "integrationId",
             "provider_resource_id": "providerResourceId",
+            "branch": "branch",
         },
     )
     class IntegratedRepositoryProperty:
@@ -2380,11 +2870,13 @@ class CfnPentest(
             *,
             integration_id: builtins.str,
             provider_resource_id: builtins.str,
+            branch: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A repository connected via a provider integration.
 
             :param integration_id: Unique identifier of the provider integration.
             :param provider_resource_id: Identifier of the resource within the provider integration.
+            :param branch: An optional override for the repository branch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-integratedrepository.html
             :exampleMetadata: fixture=_generated
@@ -2397,17 +2889,23 @@ class CfnPentest(
                 
                 integrated_repository_property = securityagent.CfnPentest.IntegratedRepositoryProperty(
                     integration_id="integrationId",
-                    provider_resource_id="providerResourceId"
+                    provider_resource_id="providerResourceId",
+                
+                    # the properties below are optional
+                    branch="branch"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__68c1c48352289031e291e4b2d1c94656660c67be9e64899490c98b8ea5799b99)
                 check_type(argname="argument integration_id", value=integration_id, expected_type=type_hints["integration_id"])
                 check_type(argname="argument provider_resource_id", value=provider_resource_id, expected_type=type_hints["provider_resource_id"])
+                check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "integration_id": integration_id,
                 "provider_resource_id": provider_resource_id,
             }
+            if branch is not None:
+                self._values["branch"] = branch
 
         @builtins.property
         def integration_id(self) -> builtins.str:
@@ -2428,6 +2926,15 @@ class CfnPentest(
             result = self._values.get("provider_resource_id")
             assert result is not None, "Required property 'provider_resource_id' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def branch(self) -> typing.Optional[builtins.str]:
+            '''An optional override for the repository branch.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-integratedrepository.html#cfn-securityagent-pentest-integratedrepository-branch
+            '''
+            result = self._values.get("branch")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2666,6 +3173,70 @@ class CfnPentest(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.TrustedCaCertificateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source": "source"},
+    )
+    class TrustedCaCertificateProperty:
+        def __init__(
+            self,
+            *,
+            source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.CaCertificateSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Trust anchor used when validating a target endpoint's TLS certificate.
+
+            :param source: Source of a trusted CA certificate. Exactly one member must be set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-trustedcacertificate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                trusted_ca_certificate_property = securityagent.CfnPentest.TrustedCaCertificateProperty(
+                    source=securityagent.CfnPentest.CaCertificateSourceProperty(
+                        artifact_id="artifactId",
+                        inline_pem="inlinePem",
+                        s3_location="s3Location"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__62147eacc3cf3d4cbb63e23291b19ba8a092a70202a6ea7ada93428034aa3148)
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source": source,
+            }
+
+        @builtins.property
+        def source(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.CaCertificateSourceProperty"]:
+            '''Source of a trusted CA certificate.
+
+            Exactly one member must be set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-trustedcacertificate.html#cfn-securityagent-pentest-trustedcacertificate-source
+            '''
+            result = self._values.get("source")
+            assert result is not None, "Required property 'source' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.CaCertificateSourceProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrustedCaCertificateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.VpcConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2819,7 +3390,9 @@ class CfnPentestProps:
                             value="value"
                         ),
                         description="description",
+                        enable_email_mfa=False,
                         identifier="identifier",
+                        mfa_forwarding_address="mfaForwardingAddress",
                         uris=["uris"]
                     )],
                     documents=[securityagent.CfnPentest.DocumentInfoProperty(
@@ -2831,10 +3404,20 @@ class CfnPentestProps:
                     )],
                     integrated_repositories=[securityagent.CfnPentest.IntegratedRepositoryProperty(
                         integration_id="integrationId",
-                        provider_resource_id="providerResourceId"
+                        provider_resource_id="providerResourceId",
+            
+                        # the properties below are optional
+                        branch="branch"
                     )],
                     source_code=[securityagent.CfnPentest.SourceCodeRepositoryProperty(
                         s3_location="s3Location"
+                    )],
+                    trusted_ca_certificates=[securityagent.CfnPentest.TrustedCaCertificateProperty(
+                        source=securityagent.CfnPentest.CaCertificateSourceProperty(
+                            artifact_id="artifactId",
+                            inline_pem="inlinePem",
+                            s3_location="s3Location"
+                        )
                     )]
                 ),
                 service_role="serviceRole",
@@ -4161,6 +4744,8 @@ __all__ = [
     "CfnAgentSpaceProps",
     "CfnApplication",
     "CfnApplicationProps",
+    "CfnArtifact",
+    "CfnArtifactProps",
     "CfnPentest",
     "CfnPentestProps",
     "CfnSecurityRequirementPack",
@@ -4389,6 +4974,76 @@ def _typecheckingstub__9b36d9297d6d873ed09ead98b35106a55f3a507c8ce2351f00ffb2594
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2aeae9075c57a66967596c4441ca667d993def7092e2374e14e3ab2f55c839c6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    agent_space_id: builtins.str,
+    artifact_type: builtins.str,
+    file_name: builtins.str,
+    artifact_content: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6da39aa1a743d5f0984954d1c21c3821b2f753f9a593e9e703d5fc8d1bd459b(
+    resource: _aws_securityagent_9b0edcbe.IArtifactRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9f9b10fcbbbfdc52a4b5d30a95543f66559b83ebb8b3fd12865282618df120d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6e04dcea1931bf9714002572b78ff6327e0acfc98e322c24569129cba0f88bd(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__670272b1b4cbd98bb73e4e2a98f40913f6a8e291fcc90b65191df4f9b68fdb1c(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e027881f2feb2626cce1ad62e3380c1babbfc5eebb04954f6fbd8ffc4cbd7bd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eeb35f9f107b405c63ea5cd093ad66613f5e543a5fb489b2956f865c9140c030(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff3531cdf58cbc18ee68f9169c4f37c7ea8824d3a7561be9ef0adfca56af7ff1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d11b4d86e34bb5739f9125626c94ad92eff9409232f3a84868d7fa679b445106(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48cd641a0788e520772cf73c095b52fe278e4c8a907daa7f9155058af397e557(
+    *,
+    agent_space_id: builtins.str,
+    artifact_type: builtins.str,
+    file_name: builtins.str,
+    artifact_content: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3d83c0f79102402315ab2667cd779997a2fd84704dc25119af31f0018a831848(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4496,7 +5151,9 @@ def _typecheckingstub__789552d2a299b54f21a25572baa25b7b652499c9578bcdf16e84796ef
     *,
     authentication: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.AuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    enable_email_mfa: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     identifier: typing.Optional[builtins.str] = None,
+    mfa_forwarding_address: typing.Optional[builtins.str] = None,
     uris: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4509,6 +5166,7 @@ def _typecheckingstub__90ac541f4598ca1ed36733bf9d5a278158f6b2a40ecc4723d2aa1ebff
     endpoints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     integrated_repositories: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.IntegratedRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     source_code: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.SourceCodeRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    trusted_ca_certificates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.TrustedCaCertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4517,6 +5175,15 @@ def _typecheckingstub__3532134765f42b5beced42cd2054d3ee1cba754ed2a8662007413abe8
     *,
     provider_type: typing.Optional[builtins.str] = None,
     value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__741d0c1b37ba42224dc8748fd99cde2fc44dd027a962d753ef89c24da685af09(
+    *,
+    artifact_id: typing.Optional[builtins.str] = None,
+    inline_pem: typing.Optional[builtins.str] = None,
+    s3_location: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4556,6 +5223,7 @@ def _typecheckingstub__68c1c48352289031e291e4b2d1c94656660c67be9e64899490c98b8ea
     *,
     integration_id: builtins.str,
     provider_resource_id: builtins.str,
+    branch: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4580,6 +5248,13 @@ def _typecheckingstub__346479bc3d7bb9e27fe6c61adba2e4e5fca86ff3607b3c398cef04141
 def _typecheckingstub__ac9ae05bfdd52d767951d638cfa69e9ccda258b973752d2d20a628d9a31eaa37(
     *,
     s3_location: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62147eacc3cf3d4cbb63e23291b19ba8a092a70202a6ea7ada93428034aa3148(
+    *,
+    source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.CaCertificateSourceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

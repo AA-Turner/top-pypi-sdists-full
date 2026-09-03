@@ -4,8 +4,10 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.computer_lifecycle_response_out import ComputerLifecycleResponseOut
 from ..types.deploy_computer_response_out import DeployComputerResponseOut
 from ..types.revoke_ssh_access_response_out import RevokeSshAccessResponseOut
+from ..types.ssh_access_info_out import SshAccessInfoOut
 from ..types.ssh_access_response_out import SshAccessResponseOut
 from .raw_client import AsyncRawComputerClient, RawComputerClient
 
@@ -66,6 +68,38 @@ class ComputerClient:
         )
         """
         _response = self._raw_client.deploy_computer(asset_id, port=port, request_options=request_options)
+        return _response.data
+
+    def get_ssh_access(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> SshAccessInfoOut:
+        """
+        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. Returns 409 when the computer's provider does not support SSH.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SshAccessInfoOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.computer.get_ssh_access(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.get_ssh_access(asset_id, request_options=request_options)
         return _response.data
 
     def create_ssh_access(
@@ -146,6 +180,70 @@ class ComputerClient:
         _response = self._raw_client.revoke_ssh_access(asset_id, token=token, request_options=request_options)
         return _response.data
 
+    def start_computer(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ComputerLifecycleResponseOut:
+        """
+        Start a stopped computer's runtime and wait for it to come up — the same operation as the Start button in Athena. Idempotent for a running computer. Returns 409 when the computer's provider does not support lifecycle operations.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ComputerLifecycleResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.computer.start_computer(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.start_computer(asset_id, request_options=request_options)
+        return _response.data
+
+    def stop_computer(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ComputerLifecycleResponseOut:
+        """
+        Stop (suspend) a running computer's runtime — the same operation as the Stop button in Athena. The computer's files persist and it can be started again with `start_computer`. Returns 409 when the provider does not support lifecycle operations or when the stop was refused because the workspace could not be saved (the computer is left running; retry).
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ComputerLifecycleResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.computer.stop_computer(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.stop_computer(asset_id, request_options=request_options)
+        return _response.data
+
 
 class AsyncComputerClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -208,6 +306,46 @@ class AsyncComputerClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.deploy_computer(asset_id, port=port, request_options=request_options)
+        return _response.data
+
+    async def get_ssh_access(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> SshAccessInfoOut:
+        """
+        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. Returns 409 when the computer's provider does not support SSH.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SshAccessInfoOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.computer.get_ssh_access(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_ssh_access(asset_id, request_options=request_options)
         return _response.data
 
     async def create_ssh_access(
@@ -302,4 +440,84 @@ class AsyncComputerClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.revoke_ssh_access(asset_id, token=token, request_options=request_options)
+        return _response.data
+
+    async def start_computer(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ComputerLifecycleResponseOut:
+        """
+        Start a stopped computer's runtime and wait for it to come up — the same operation as the Start button in Athena. Idempotent for a running computer. Returns 409 when the computer's provider does not support lifecycle operations.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ComputerLifecycleResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.computer.start_computer(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.start_computer(asset_id, request_options=request_options)
+        return _response.data
+
+    async def stop_computer(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ComputerLifecycleResponseOut:
+        """
+        Stop (suspend) a running computer's runtime — the same operation as the Stop button in Athena. The computer's files persist and it can be started again with `start_computer`. Returns 409 when the provider does not support lifecycle operations or when the stop was refused because the workspace could not be saved (the computer is left running; retry).
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ComputerLifecycleResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.computer.stop_computer(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.stop_computer(asset_id, request_options=request_options)
         return _response.data

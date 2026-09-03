@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: django-otp
-Version: 1.7.0
+Version: 1.7.1
 Summary: A pluggable framework for adding two-factor authentication to Django using one-time passwords.
 Project-URL: Homepage, https://github.com/django-otp/django-otp
 Project-URL: Documentation, https://django-otp-official.readthedocs.io/

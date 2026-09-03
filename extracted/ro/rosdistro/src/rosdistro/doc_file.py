@@ -44,7 +44,9 @@ class DocFile(object):
         assert 'type' in data and data['type'] != 'doc', "Unable to handle 'doc' format anymore, please update your 'doc' file to the latest specification"
         assert 'type' in data and data['type'] == DocFile._type
         assert 'version' in data
-        assert int(data['version']) == 1, "Unable to handle '%s' format version '%d', please update rosdistro (e.g. on Ubuntu/Debian use: sudo apt-get update && sudo apt-get install --only-upgrade python-rosdistro)" % (DocFile._type, int(data['version']))
+        if int(data['version']) != 1:
+            from . import FormatVersionError
+            raise FormatVersionError(DocFile._type, data['version'], [1], self.name)
         self.version = data['version']
 
         self.repositories = {}

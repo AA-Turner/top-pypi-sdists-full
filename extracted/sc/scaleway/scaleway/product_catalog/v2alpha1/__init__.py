@@ -3,8 +3,12 @@
 from .types import ListPublicCatalogProductsRequestProductType
 from .types import ListPublicCatalogProductsRequestStatus
 from .types import PublicCatalogProductProductBadge
+from .types import PublicCatalogProductPropertiesApacheKafkaAvailableVolumeType
 from .types import PublicCatalogProductPropertiesGenerativeApisConsumptionMode
+from .types import PublicCatalogProductPropertiesGenerativeApisTask
+from .types import PublicCatalogProductPropertiesGenerativeApisTokenType
 from .types import PublicCatalogProductPropertiesHardwareCPUArch
+from .types import PublicCatalogProductPropertiesHardwareRAMECCType
 from .types import PublicCatalogProductPropertiesManagedMongoDBStorageTypeStorageClass
 from .types import (
     PublicCatalogProductPropertiesManagedRelationalDatabaseStorageTypeStorageClass,
@@ -18,6 +22,10 @@ from .types import PublicCatalogProductStatus
 from .types import PublicCatalogProductUnitOfMeasureCountableUnit
 from .types import PublicCatalogProductPropertiesHardwareCPUPhysical
 from .types import PublicCatalogProductPropertiesHardwareCPUVirtual
+from .types import PublicCatalogProductPropertiesApacheKafkaNodeType
+from .types import PublicCatalogProductPropertiesApacheKafkaStorageType
+from .types import PublicCatalogProductPropertiesBlockStorageSnapshotType
+from .types import PublicCatalogProductPropertiesBlockStorageVolumeType
 from .types import PublicCatalogProductPropertiesHardwareCPU
 from .types import PublicCatalogProductPropertiesHardwareGPU
 from .types import PublicCatalogProductPropertiesHardwareNetwork
@@ -28,6 +36,12 @@ from .types import PublicCatalogProductPropertiesKubernetesKosmosControlPlaneTyp
 from .types import PublicCatalogProductPropertiesKubernetesKosmosNodeType
 from .types import PublicCatalogProductPropertiesLoadBalancerIPV4Type
 from .types import PublicCatalogProductPropertiesLoadBalancerNodeType
+from .types import (
+    PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage,
+)
+from .types import (
+    PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment,
+)
 from .types import PublicCatalogProductPropertiesManagedMongoDBManagementType
 from .types import PublicCatalogProductPropertiesManagedMongoDBNodeType
 from .types import PublicCatalogProductPropertiesManagedMongoDBStorageType
@@ -39,13 +53,26 @@ from .types import PublicCatalogProductPropertiesObjectStorageClassType
 from .types import PublicCatalogProductPropertiesObjectStorageInternetTrafficType
 from .types import PublicCatalogProductPropertiesObjectStorageRegionTrafficType
 from .types import PublicCatalogProductPropertiesObjectStorageRestoreType
+from .types import PublicCatalogProductPropertiesServerlessContainersCPUType
+from .types import PublicCatalogProductPropertiesServerlessContainersMemoryType
+from .types import PublicCatalogProductPropertiesServerlessFunctionsConsumptionType
+from .types import PublicCatalogProductPropertiesServerlessFunctionsFreeTierType
+from .types import PublicCatalogProductPropertiesServerlessFunctionsProvisionType
+from .types import PublicCatalogProductPropertiesServerlessFunctionsRequestType
+from .types import PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource
+from .types import PublicCatalogProductPropertiesServerlessJobsCPUType
+from .types import PublicCatalogProductPropertiesServerlessJobsMemoryType
+from .types import PublicCatalogProductPropertiesApacheKafka
 from .types import PublicCatalogProductPropertiesAppleSilicon
 from .types import PublicCatalogProductPropertiesBlockStorage
 from .types import PublicCatalogProductPropertiesDedibox
 from .types import PublicCatalogProductPropertiesElasticMetal
+from .types import PublicCatalogProductPropertiesFileStorage
 from .types import PublicCatalogProductPropertiesGenerativeApis
 from .types import PublicCatalogProductPropertiesHardware
 from .types import PublicCatalogProductPropertiesInstance
+from .types import PublicCatalogProductPropertiesInstanceLocalSSDSnapshot
+from .types import PublicCatalogProductPropertiesInstanceLocalSSDStorage
 from .types import PublicCatalogProductPropertiesKeyManager
 from .types import PublicCatalogProductPropertiesKubernetes
 from .types import PublicCatalogProductPropertiesLoadBalancer
@@ -54,7 +81,12 @@ from .types import PublicCatalogProductPropertiesManagedMongoDB
 from .types import PublicCatalogProductPropertiesManagedRedisDatabase
 from .types import PublicCatalogProductPropertiesManagedRelationalDatabase
 from .types import PublicCatalogProductPropertiesObjectStorage
+from .types import PublicCatalogProductPropertiesOpenSearch
 from .types import PublicCatalogProductPropertiesSecretManager
+from .types import PublicCatalogProductPropertiesServerlessContainers
+from .types import PublicCatalogProductPropertiesServerlessFunctions
+from .types import PublicCatalogProductPropertiesServerlessJobs
+from .types import PublicCatalogProductPropertiesServerlessSqlDatabase
 from .types import PublicCatalogProductEnvironmentalImpactEstimation
 from .types import PublicCatalogProductLocality
 from .types import PublicCatalogProductPrice
@@ -69,8 +101,12 @@ __all__ = [
     "ListPublicCatalogProductsRequestProductType",
     "ListPublicCatalogProductsRequestStatus",
     "PublicCatalogProductProductBadge",
+    "PublicCatalogProductPropertiesApacheKafkaAvailableVolumeType",
     "PublicCatalogProductPropertiesGenerativeApisConsumptionMode",
+    "PublicCatalogProductPropertiesGenerativeApisTask",
+    "PublicCatalogProductPropertiesGenerativeApisTokenType",
     "PublicCatalogProductPropertiesHardwareCPUArch",
+    "PublicCatalogProductPropertiesHardwareRAMECCType",
     "PublicCatalogProductPropertiesManagedMongoDBStorageTypeStorageClass",
     "PublicCatalogProductPropertiesManagedRelationalDatabaseStorageTypeStorageClass",
     "PublicCatalogProductPropertiesObjectStorageClassTypeStorageClass",
@@ -80,6 +116,10 @@ __all__ = [
     "PublicCatalogProductUnitOfMeasureCountableUnit",
     "PublicCatalogProductPropertiesHardwareCPUPhysical",
     "PublicCatalogProductPropertiesHardwareCPUVirtual",
+    "PublicCatalogProductPropertiesApacheKafkaNodeType",
+    "PublicCatalogProductPropertiesApacheKafkaStorageType",
+    "PublicCatalogProductPropertiesBlockStorageSnapshotType",
+    "PublicCatalogProductPropertiesBlockStorageVolumeType",
     "PublicCatalogProductPropertiesHardwareCPU",
     "PublicCatalogProductPropertiesHardwareGPU",
     "PublicCatalogProductPropertiesHardwareNetwork",
@@ -90,6 +130,8 @@ __all__ = [
     "PublicCatalogProductPropertiesKubernetesKosmosNodeType",
     "PublicCatalogProductPropertiesLoadBalancerIPV4Type",
     "PublicCatalogProductPropertiesLoadBalancerNodeType",
+    "PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage",
+    "PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment",
     "PublicCatalogProductPropertiesManagedMongoDBManagementType",
     "PublicCatalogProductPropertiesManagedMongoDBNodeType",
     "PublicCatalogProductPropertiesManagedMongoDBStorageType",
@@ -101,13 +143,26 @@ __all__ = [
     "PublicCatalogProductPropertiesObjectStorageInternetTrafficType",
     "PublicCatalogProductPropertiesObjectStorageRegionTrafficType",
     "PublicCatalogProductPropertiesObjectStorageRestoreType",
+    "PublicCatalogProductPropertiesServerlessContainersCPUType",
+    "PublicCatalogProductPropertiesServerlessContainersMemoryType",
+    "PublicCatalogProductPropertiesServerlessFunctionsConsumptionType",
+    "PublicCatalogProductPropertiesServerlessFunctionsFreeTierType",
+    "PublicCatalogProductPropertiesServerlessFunctionsProvisionType",
+    "PublicCatalogProductPropertiesServerlessFunctionsRequestType",
+    "PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource",
+    "PublicCatalogProductPropertiesServerlessJobsCPUType",
+    "PublicCatalogProductPropertiesServerlessJobsMemoryType",
+    "PublicCatalogProductPropertiesApacheKafka",
     "PublicCatalogProductPropertiesAppleSilicon",
     "PublicCatalogProductPropertiesBlockStorage",
     "PublicCatalogProductPropertiesDedibox",
     "PublicCatalogProductPropertiesElasticMetal",
+    "PublicCatalogProductPropertiesFileStorage",
     "PublicCatalogProductPropertiesGenerativeApis",
     "PublicCatalogProductPropertiesHardware",
     "PublicCatalogProductPropertiesInstance",
+    "PublicCatalogProductPropertiesInstanceLocalSSDSnapshot",
+    "PublicCatalogProductPropertiesInstanceLocalSSDStorage",
     "PublicCatalogProductPropertiesKeyManager",
     "PublicCatalogProductPropertiesKubernetes",
     "PublicCatalogProductPropertiesLoadBalancer",
@@ -116,7 +171,12 @@ __all__ = [
     "PublicCatalogProductPropertiesManagedRedisDatabase",
     "PublicCatalogProductPropertiesManagedRelationalDatabase",
     "PublicCatalogProductPropertiesObjectStorage",
+    "PublicCatalogProductPropertiesOpenSearch",
     "PublicCatalogProductPropertiesSecretManager",
+    "PublicCatalogProductPropertiesServerlessContainers",
+    "PublicCatalogProductPropertiesServerlessFunctions",
+    "PublicCatalogProductPropertiesServerlessJobs",
+    "PublicCatalogProductPropertiesServerlessSqlDatabase",
     "PublicCatalogProductEnvironmentalImpactEstimation",
     "PublicCatalogProductLocality",
     "PublicCatalogProductPrice",

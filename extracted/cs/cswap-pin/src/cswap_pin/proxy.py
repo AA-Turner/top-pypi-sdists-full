@@ -2824,6 +2824,11 @@ def slow_report_ms(certdir) -> "float | None":
 #: clear line and `deaf_bridges` must reason about the same population.
 _DEAF_WINDOW_S = 300.0
 
+#: A bridge opens its ear seconds after its first post; until then it has
+#: lost nothing. The stream GET follows register within seconds and Claude
+#: Code's own reconnect backoff tops out at 16s, so 30s covers it.
+_DEAF_STARTUP_GRACE_S = 30.0
+
 DEAF_REPORT_MARK = "post but hold no inbound stream"
 DEAF_REPORT_CLEAR = "every posting bridge holds an inbound stream"
 # THE THIRD ANSWER, because two of them leak the case that actually happens.
@@ -11720,6 +11725,19 @@ class PinProxy:
     def _reset_bridge_traffic(self) -> None:
         """Start the per-bridge accounting. Safe to call more than once."""
         self._bridge_posts: dict = {}
+        #: bridge id -> monotonic instant of the FIRST post this daemon saw
+        #: from it, never overwritten, and set ONLY for a bridge whose
+        #: create THIS daemon served within the startup grace. A bridge
+        #: inherited on a handover, or one whose create predates this
+        #: daemon's own `_last_create`, never gets an entry and is judged
+        #: at once. `deaf_bridges` uses this to give a just-registered
+        #: bridge time to open its stream.
+        self._bridge_first_post: dict = {}
+        #: monotonic instant of the last `POST /v1/code/sessions` this
+        #: daemon itself served, or None. Tells a bridge born here from one
+        #: this daemon only inherited on a handover, which never posted a
+        #: create to it at all.
+        self._last_create: "float | None" = None
         # conn -> bridge id, for connections carrying that bridge's inbound
         # stream. NOT "when a stream was last opened": the stream is issued
         # once and held for the life of the session, so a recency stamp ages
@@ -11758,7 +11776,15 @@ class PinProxy:
                     # population `deaf_for` is ever asked about.
                     self._stream_lost.pop(bid.group(1), None)
             else:
+                # NEW TO THIS DAEMON, checked BEFORE the record below moves
+                # it in: an old bridge posting again must never backdate its
+                # own grace off a create that has nothing to do with it.
+                is_new = bid.group(1) not in self._bridge_posts
                 self._bridge_posts[bid.group(1)] = stamp
+                last_create = getattr(self, "_last_create", None)
+                if (is_new and last_create is not None
+                        and stamp - last_create < _DEAF_STARTUP_GRACE_S):
+                    self._bridge_first_post.setdefault(bid.group(1), stamp)
         except Exception:  # noqa: BLE001 — a statistic must not cost a request
             pass
 
@@ -11993,6 +12019,15 @@ class PinProxy:
             # bridge NOT deaf. So an empty local answer cannot be changed by
             # anything a predecessor holds, and there is nothing to ask.
             if not self.deaf_bridges():
+                # A GRACED CLEAR IS NOT A VERDICT while the ungraced list
+                # still names someone: the empty graced list came from
+                # shielding a just-registered bridge, not from judging it,
+                # and "every posting bridge holds a stream" over bridges
+                # nobody judged is the false CLEAR the grace must never
+                # produce. No claim either way; the next sweep, past the
+                # grace, judges it for real.
+                if self.deaf_bridges(grace=0.0):
+                    return
                 prev = getattr(self, "_last_deaf", None)
                 if [] == prev:
                     return
@@ -12022,6 +12057,14 @@ class PinProxy:
             posted = self._posting_now()
             prev = getattr(self, "_last_deaf", None)
             if now == prev:
+                return
+            # SAME GUARD AS THE CHEAP BRANCH, for the same reason: a mute
+            # tuple is not a clear (nothing was judged, `DEAF_REPORT_BLIND`
+            # says so already), but an EMPTY `now` from the union is, and
+            # must not be one while grace still hides a bridge the union
+            # never got the chance to remove either.
+            if not mute and not now and self.deaf_bridges(elsewhere=elsewhere,
+                                                            grace=0.0):
                 return
             self._last_deaf = now
             if mute:
@@ -12057,7 +12100,8 @@ class PinProxy:
         return bid if age is None else f"{bid} (deaf {int(age)}s)"
 
     def deaf_bridges(self, window: float = _DEAF_WINDOW_S, now=None,
-                     elsewhere: "set | None" = None) -> list:
+                     elsewhere: "set | None" = None,
+                     grace: "float | None" = None) -> list:
         """Bridge ids that POSTED inside ``window`` and hold no inbound stream.
 
         THE PAIR, as everywhere else here. Posting alone is not the signal --
@@ -12077,8 +12121,15 @@ class PinProxy:
         called every long-lived session deaf; the external 45s capture has the
         same defect and disagreed with itself three times in an hour on one
         machine (6, 9, 1).
+
+        ``grace`` defaults to `_DEAF_STARTUP_GRACE_S`, bound HERE rather than
+        in the signature, so a caller that monkeypatches the module constant
+        moves this too. `grace=0.0` is the ungraced list, which
+        `_report_deaf_bridges` uses to tell a shielded bridge from a real
+        clear.
         """
         stamp = time.monotonic() if now is None else now
+        grace = _DEAF_STARTUP_GRACE_S if grace is None else grace
         posts = getattr(self, "_bridge_posts", None)
         if not posts:
             return []
@@ -12088,6 +12139,18 @@ class PinProxy:
         holding |= _outbound_only_bridge_ids()
         out = [bid for bid, last in posts.items()
                if stamp - last <= window and bid not in holding]
+        # A BRIDGE THAT HAS JUST REGISTERED IS NOT YET DEAF. Its stream GET
+        # follows its first post within seconds; this daemon judging it in
+        # that gap is the state itself, not a loss, and no timer ever
+        # retracts a transition-only report. Shielded only while this daemon
+        # never saw its stream go -- a REAL loss (`deaf_for` answers a
+        # number) is reported at once, grace or not.
+        first_post = getattr(self, "_bridge_first_post", None) or {}
+        deaf_for = getattr(self, "deaf_for", None)
+        out = [bid for bid in out
+               if not ((deaf_for is None or deaf_for(bid, now=stamp) is None)
+                       and stamp - first_post.get(bid, -1e9)
+                       < grace)]
         # AND THE SERVER MUST BE HOLDING IT. Posting without a stream has two
         # readings and our own sockets cannot separate them: a bridge that
         # LOST its ear, and one claude.ai is not attached to at all -- a
@@ -12745,11 +12808,16 @@ class PinProxy:
         """
         if method != "POST":
             return False
+        stamp = time.monotonic() if now is None else now
         if path == "/v1/code/sessions":
+            # STAMPED HERE, not in `_note_bridge_traffic`: this is the one
+            # site every create this daemon itself served passes through
+            # unconditionally, and it is what tells a bridge born here from
+            # one only inherited on a handover -- see `_bridge_first_post`.
+            self._last_create = stamp
             return True
         if not (_PRESENCE.search(path) or _WORKER_SUBTREE.search(path)):
             return False
-        stamp = time.monotonic() if now is None else now
         last = getattr(self, "_last_bridge_sweep", None)
         if last is not None and stamp - last < _BRIDGE_SWEEP_COOLDOWN_S:
             return False

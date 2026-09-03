@@ -10,6 +10,7 @@ import importlib.util
 import inspect
 import json
 import logging
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,9 +20,9 @@ from urllib.parse import parse_qs, unquote, urlparse
 import pytest
 
 from notebooklm import ConversationTurnKey, MagicArtifactType
-from notebooklm._chat.wire import (
+from notebooklm._web.params.chat_stream import build_streaming_chat_request
+from notebooklm._web.rows.chat_stream import (
     StreamingChatParseResult,
-    build_streaming_chat_request,
     extract_answer_and_refs_from_chunk,
     extract_fragment_range,
     extract_score,
@@ -32,10 +33,22 @@ from notebooklm._chat.wire import (
     parse_streaming_chat_response,
     raise_if_rate_limited,
 )
-from notebooklm.exceptions import ChatError, UnknownRPCMethodError
+from notebooklm.exceptions import ChatError, RateLimitError, UnknownRPCMethodError
 from notebooklm.rpc.types import get_query_url
 
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "notebooklm"
+PROJECT_ROOT = SRC_ROOT.parents[1]
+
+
+def _run_import_probe(source: str) -> None:
+    result = subprocess.run(
+        [sys.executable, "-c", source],
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def _snapshot(
@@ -326,7 +339,7 @@ def test_xssi_prefix_strip_matches_shared_helper_on_real_wire_format() -> None:
 
 def test_chat_parser_uses_shared_strip_anti_xssi(monkeypatch) -> None:
     """``parse_streaming_chat_response`` calls the shared ``strip_anti_xssi``."""
-    import notebooklm._chat.wire as chat_wire
+    import notebooklm._web.rows.chat_stream as chat_wire
 
     seen: list[str] = []
     real_strip = chat_wire.strip_anti_xssi
@@ -678,7 +691,7 @@ def test_skipped_citation_row_leaves_numbering_hole_for_markers(caplog) -> None:
     the skipped row leaves a hole: marker ``[2]`` resolves to ``None`` and
     its anchor is dropped — never mis-anchored.
     """
-    from notebooklm._chat.notes import _resolve_reference
+    from notebooklm._chat import _resolve_reference
 
     good_1 = _citation(source_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", chunk_id="chunk-1")
     bad_2 = ["present-but-unusable"]
@@ -841,7 +854,7 @@ def test_drifted_answer_row_raises(drifted_inner: Any) -> None:
     soft-mode opt-out was retired in v0.7.0), so this raises
     :class:`UnknownRPCMethodError` instead of silently collapsing to an empty
     answer — that silent collapse was the gap the
-    ``architecture-gap-review`` flagged for ``_chat.wire`` (ADR-0011:38).
+    ``architecture-gap-review`` flagged for the chat stream parser (ADR-0011:38).
     """
     from notebooklm.exceptions import UnknownRPCMethodError
 
@@ -967,15 +980,38 @@ def test_e_terminator_frame_does_not_break_successful_answer() -> None:
     assert result.answer == "Real answer."
 
 
+def test_error_only_e_terminator_surfaces_rate_limit() -> None:
+    """A payload-free terminal frame is the Web chat-quota response.
+
+    Android reports the same live account state as RESOURCE_EXHAUSTED. The
+    sequence value remains diagnostic bookkeeping, not a status code: the
+    quota response used 3, while successful streams carry values such as 15.
+    """
+    body = _length_prefixed(
+        json.dumps([["di", 651], ["af.httprm", 651, "redacted-request", 15]]),
+        json.dumps([["e", 3, None, None, 91]]),
+    )
+
+    with pytest.raises(RateLimitError) as raised:
+        parse_streaming_chat_response(body)
+
+    message = str(raised.value)
+    assert "before the server returned an RPC payload" in message
+    assert "terminal stream sequence 3" in message
+    assert "rate limit" in message.lower()
+    assert raised.value.rpc_code == "STREAM_TERMINATED_WITHOUT_RPC_PAYLOAD"
+    assert "redacted-request" not in message
+
+
 def test_chat_wire_static_import_guard() -> None:
     forbidden = {
         "notebooklm",
         "notebooklm.client",
         "notebooklm._chat",
         "notebooklm._core",
-        "notebooklm.rpc.overrides",
+        "notebooklm._web.wire.overrides",
     }
-    tree = ast.parse((SRC_ROOT / "_chat" / "wire.py").read_text(encoding="utf-8"))
+    tree = ast.parse((SRC_ROOT / "_web" / "rows" / "chat_stream.py").read_text(encoding="utf-8"))
 
     imports: set[str] = set()
     for node in ast.walk(tree):
@@ -1000,9 +1036,9 @@ def test_chat_wire_runtime_import_does_not_request_forbidden_modules(monkeypatch
         "notebooklm.client",
         "notebooklm._chat",
         "notebooklm._core",
-        "notebooklm.rpc.overrides",
+        "notebooklm._web.wire.overrides",
     }
-    sys.modules.pop("notebooklm._chat.wire", None)
+    sys.modules.pop("notebooklm._web.rows.chat_stream", None)
     real_import = builtins.__import__
 
     def guarded_import(
@@ -1027,28 +1063,47 @@ def test_chat_wire_runtime_import_does_not_request_forbidden_modules(monkeypatch
 
     monkeypatch.setattr(builtins, "__import__", guarded_import)
 
-    module = importlib.import_module("notebooklm._chat.wire")
-    assert module.__name__ == "notebooklm._chat.wire"
+    module = importlib.import_module("notebooklm._web.rows.chat_stream")
+    assert module.__name__ == "notebooklm._web.rows.chat_stream"
 
 
 def test_chat_wire_and_chat_smoke_import_order() -> None:
-    for name in ("notebooklm._chat", "notebooklm._chat.wire"):
-        sys.modules.pop(name, None)
-    protocol = importlib.import_module("notebooklm._chat.wire")
-    chat = importlib.import_module("notebooklm._chat")
-    assert protocol.__name__ == "notebooklm._chat.wire"
-    assert chat.__name__ == "notebooklm._chat"
+    for first, second in (
+        ("notebooklm._web.rows.chat_stream", "notebooklm._chat"),
+        ("notebooklm._chat", "notebooklm._web.rows.chat_stream"),
+    ):
+        _run_import_probe(
+            f"""
+import importlib
+first = importlib.import_module({first!r})
+second = importlib.import_module({second!r})
+assert first.__name__ == {first!r}
+assert second.__name__ == {second!r}
+"""
+        )
 
-    for name in ("notebooklm._chat", "notebooklm._chat.wire"):
-        sys.modules.pop(name, None)
-    chat = importlib.import_module("notebooklm._chat")
-    protocol = importlib.import_module("notebooklm._chat.wire")
-    assert chat.__name__ == "notebooklm._chat"
-    assert protocol.__name__ == "notebooklm._chat.wire"
+
+def test_chat_module_turn_helper_is_a_lazy_identity_shim() -> None:
+    """The neutral module loads no Web parser until the legacy name is read."""
+    _run_import_probe(
+        """
+import importlib
+import sys
+import notebooklm
+module_name = "notebooklm._web.rows.chat_stream"
+sys.modules.pop("notebooklm._chat", None)
+sys.modules.pop(module_name, None)
+chat = importlib.import_module("notebooklm._chat")
+assert module_name not in sys.modules
+helper = chat._extract_next_turn_content
+parser = importlib.import_module(module_name)
+assert helper is parser._extract_next_turn_content
+"""
+    )
 
 
 def test_chat_module_keeps_only_delegating_stream_parser_wrappers() -> None:
-    tree = ast.parse((SRC_ROOT / "_chat" / "api.py").read_text(encoding="utf-8"))
+    tree = ast.parse((SRC_ROOT / "_web" / "chat.py").read_text(encoding="utf-8"))
     wrapper_names = {
         "_parse_ask_response_with_references",
         "_extract_answer_and_refs_from_chunk",

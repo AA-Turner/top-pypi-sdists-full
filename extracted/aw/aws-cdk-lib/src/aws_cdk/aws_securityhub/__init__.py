@@ -6971,8 +6971,7 @@ class CfnConnector(
             *,
             azure: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.AzureProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''The CSPM provider configuration for the connector.
-
+            '''
             :param azure: The configuration for connecting to an Azure environment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-provider.html

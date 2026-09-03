@@ -6,6 +6,7 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .list_businesses_response_data_item_account import ListBusinessesResponseDataItemAccount
+from .list_businesses_response_data_item_blueprint_partner import ListBusinessesResponseDataItemBlueprintPartner
 from .list_businesses_response_data_item_earnings_usd import ListBusinessesResponseDataItemEarningsUsd
 from .list_businesses_response_data_item_first_tier_partner import ListBusinessesResponseDataItemFirstTierPartner
 from .list_businesses_response_data_item_my_partner_tier import ListBusinessesResponseDataItemMyPartnerTier
@@ -21,6 +22,11 @@ class ListBusinessesResponseDataItem(UniversalBaseModel):
     account: typing.Optional[ListBusinessesResponseDataItemAccount] = pydantic.Field(default=None)
     """
     Referred account.
+    """
+
+    blueprint_partner: typing.Optional[ListBusinessesResponseDataItemBlueprintPartner] = pydantic.Field(default=None)
+    """
+    The partner whose blueprint the business deployed. Null unless this is a blueprint referral.
     """
 
     created_at: dt.datetime = pydantic.Field()
@@ -41,7 +47,7 @@ class ListBusinessesResponseDataItem(UniversalBaseModel):
 
     my_partner_tier: ListBusinessesResponseDataItemMyPartnerTier = pydantic.Field()
     """
-    Which tier the caller earns on for this business: `first` (they referred the owner) or `second` (they referred the first-tier partner).
+    Which tier the caller earns on for this business: `first` (they referred the owner), `second` (they referred the first-tier partner), or `blueprint` (the business deployed a site from their blueprint).
     """
 
     object: ListBusinessesResponseDataItemObject

@@ -125,10 +125,12 @@ from .labels import (
 )
 from .language import SUPPORTED_LANGUAGES, LanguageConfigStore, is_supported_language, language_name
 from .notebooks import (
+    NotebookCopyResult,
     NotebookCreateResult,
     NotebookDescribeResult,
     NotebookMetadataResult,
     NotebookRenameResult,
+    execute_notebook_copy,
     execute_notebook_create,
     execute_notebook_delete,
     execute_notebook_describe,
@@ -198,6 +200,7 @@ from .skill import (
     get_installed_content,
     get_package_version,
     get_scope_root,
+    get_skill_content_mismatch,
     get_skill_path,
     get_skill_version,
     iter_targets,
@@ -268,6 +271,12 @@ from .source_mutations import (
     require_yes_in_json,
     resolve_source_by_exact_title,
     resolve_source_for_delete,
+)
+from .source_play_books import (
+    SourceAddPlayBookPlan,
+    SourceAddPlayBookResult,
+    execute_source_add_play_book,
+    fetch_play_books,
 )
 from .source_wait import (
     SourceWaitNotFound,
@@ -388,10 +397,12 @@ __all__ = [
     "is_supported_language",
     "language_name",
     # notebooks
+    "NotebookCopyResult",
     "NotebookCreateResult",
     "NotebookDescribeResult",
     "NotebookMetadataResult",
     "NotebookRenameResult",
+    "execute_notebook_copy",
     "execute_notebook_create",
     "execute_notebook_delete",
     "execute_notebook_describe",
@@ -435,6 +446,7 @@ __all__ = [
     "get_installed_content",
     "get_package_version",
     "get_scope_root",
+    "get_skill_content_mismatch",
     "get_skill_path",
     "get_skill_version",
     "iter_targets",
@@ -490,6 +502,11 @@ __all__ = [
     "execute_source_stale",
     # source_listing
     "fetch_sources",
+    # source_play_books
+    "SourceAddPlayBookPlan",
+    "SourceAddPlayBookResult",
+    "execute_source_add_play_book",
+    "fetch_play_books",
     # source_mutations
     "DriveMimeChoice",
     "SourceAddDrivePlan",

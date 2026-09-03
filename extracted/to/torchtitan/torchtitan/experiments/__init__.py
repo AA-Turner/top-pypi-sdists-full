@@ -6,14 +6,19 @@
 
 _supported_experiments = frozenset(
     [
-        "simple_fsdp.llama3",
-        "simple_fsdp.deepseek_v3",
-        "vlm",
-        "compiler_toolkit.deepseek_v3",
-        "compiler_toolkit.llama3",
+        "graph_trainer.llama3",
+        "graph_trainer.deepseek_v3",
+        "graph_trainer.qwen3",
+        "graph_trainer.muse_glimmer",
         "transformers_modeling_backend",
         "autoparallel.llama3",
-        "autoparallel.deepseek_v3",
         "autoparallel.local_map_deepseek_v3",
+        "torchft.llama3",
+        "rl",
+        # RL examples own a per-example config_registry under rl/examples/<name>;
+        # listed here so `--module <name>` resolves (see ConfigManager).
+        "alphabet_sort",
+        "dapo_math",
+        "search_r1",
     ]
 )

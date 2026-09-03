@@ -47,7 +47,9 @@ class ReleaseFile(object):
         assert data['type'] == ReleaseFile._type, "Expected file type is '%s', not '%s'" % (ReleaseFile._type, data['type'])
 
         assert 'version' in data, "Release file for '%s' lacks required version information" % self.name
-        assert int(data['version']) == 1, "Unable to handle '%s' format version '%d', please update rosdistro (e.g. on Ubuntu/Debian use: sudo apt-get update && sudo apt-get install --only-upgrade python-rosdistro)" % (ReleaseFile._type, int(data['version']))
+        if int(data['version']) != 1:
+            from . import FormatVersionError
+            raise FormatVersionError(ReleaseFile._type, data['version'], [1], self.name)
         self.version = int(data['version'])
 
         self.repositories = {}

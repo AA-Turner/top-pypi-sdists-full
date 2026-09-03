@@ -9,20 +9,23 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 class ToolsMlModelDetailSchema(UniversalBaseModel):
     """
-    ToolsMLModelSchema plus the active version's training state, so a
-    caller that started a training run can poll one flat object for progress,
-    failure detail, and final metrics.
+    Called by API tools to carry information about models.
+
+    This is called by the SDK/MCP tools surface and provides everything about
+    a model, including columns, dataset_id, version number, and training
+    timing details.
     """
 
     id: str
     name: str
     description: typing.Optional[str] = None
     task_type: str
-    status: typing.Optional[str] = None
     target_column: typing.Optional[str] = None
     feature_columns: typing.Optional[typing.List[str]] = None
     image_columns: typing.Optional[typing.List[str]] = None
     problem_type: typing.Optional[str] = None
+    currently_active: typing.Optional[bool] = None
+    status: typing.Optional[str] = None
     version_number: typing.Optional[int] = None
     dataset_id: typing.Optional[str] = None
     quality_preset: typing.Optional[str] = None

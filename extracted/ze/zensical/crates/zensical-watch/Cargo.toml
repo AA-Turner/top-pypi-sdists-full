@@ -23,7 +23,7 @@
 
 [package]
 name = "zensical-watch"
-version = "0.0.5"
+version = "0.0.6"
 description = "Resilient file watcher"
 edition.workspace = true
 rust-version.workspace = true
@@ -46,7 +46,6 @@ pyo3.workspace = true
 thiserror.workspace = true
 tracing = { workspace = true, optional = true }
 walkdir.workspace = true
-zrx.workspace = true
 
 [features]
 default = []

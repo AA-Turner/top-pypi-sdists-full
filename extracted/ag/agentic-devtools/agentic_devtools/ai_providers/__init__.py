@@ -1,5 +1,18 @@
 from typing import Any
 
+from .agent_tasks_payload import (
+    AGENT_TASKS_API_VERSION,
+    AGENT_TASKS_ENDPOINT_TEMPLATE,
+    AGENT_TASKS_HTTP_METHOD,
+    AGENT_TASKS_VALIDATION_ORDER,
+    REQUIRED_CUSTOM_AGENT,
+    AgentTasksPayload,
+    assert_headers_equal_redacted,
+    build_agent_tasks_payload,
+    get_agent_tasks_headers,
+    redact_authorization_header,
+    validate_agent_tasks_payload,
+)
 from .copilot import CopilotProvider, CopilotProviderConfig
 from .dispatch_policy import (
     MAX_DISPATCHES_PER_SHA,
@@ -50,6 +63,17 @@ from .tier_selector import (
 
 __all__ = [
     "ProviderError",
+    "AGENT_TASKS_API_VERSION",
+    "AGENT_TASKS_ENDPOINT_TEMPLATE",
+    "AGENT_TASKS_HTTP_METHOD",
+    "AGENT_TASKS_VALIDATION_ORDER",
+    "REQUIRED_CUSTOM_AGENT",
+    "AgentTasksPayload",
+    "assert_headers_equal_redacted",
+    "build_agent_tasks_payload",
+    "get_agent_tasks_headers",
+    "redact_authorization_header",
+    "validate_agent_tasks_payload",
     "ModelRecord",
     "TaskRequest",
     "AgentTaskSpec",

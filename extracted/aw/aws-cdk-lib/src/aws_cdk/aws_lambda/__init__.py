@@ -4845,7 +4845,7 @@ class CfnCapacityProvider(
         :param kms_key_arn: The ARN of the KMS key used to encrypt the capacity provider's resources.
         :param propagate_tags: Configuration that defines how tags are propagated to managed resources.
         :param tags: A key-value pair that provides metadata for the capacity provider.
-        :param telemetry_config: 
+        :param telemetry_config: Configuration that specifies the telemetry collection for the capacity provider.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a330cee966095402be57b20cbf348c99c8e7dbae1f12bacb4337a86817b66c21)
@@ -5138,6 +5138,7 @@ class CfnCapacityProvider(
     def telemetry_config(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapacityProvider.CapacityProviderTelemetryConfigProperty"]]:
+        '''Configuration that specifies the telemetry collection for the capacity provider.'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapacityProvider.CapacityProviderTelemetryConfigProperty"]], jsii.get(self, "telemetryConfig"))
 
     @telemetry_config.setter
@@ -5164,8 +5165,8 @@ class CfnCapacityProvider(
         ) -> None:
             '''The capacity provider's Amazon CloudWatch Logs configuration settings.
 
-            :param log_group: 
-            :param system_log_level: 
+            :param log_group: The name of the Amazon CloudWatch log group the capacity provider sends logs to. By default, Lambda capacity providers send logs to a default log group named ``/aws/lambda/capacity-provider/<capacity provider name>``. To use a different log group, enter an existing log group or enter a new log group name.
+            :param system_log_level: Set this property to filter the system logs for your capacity provider that Lambda sends to CloudWatch. Lambda only sends system logs at the selected level of detail and lower, where ``DEBUG`` is the highest level and ``WARN`` is the lowest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityproviderloggingconfig.html
             :exampleMetadata: fixture=_generated
@@ -5193,7 +5194,10 @@ class CfnCapacityProvider(
 
         @builtins.property
         def log_group(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The name of the Amazon CloudWatch log group the capacity provider sends logs to.
+
+            By default, Lambda capacity providers send logs to a default log group named ``/aws/lambda/capacity-provider/<capacity provider name>``. To use a different log group, enter an existing log group or enter a new log group name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityproviderloggingconfig.html#cfn-lambda-capacityprovider-capacityproviderloggingconfig-loggroup
             '''
             result = self._values.get("log_group")
@@ -5201,7 +5205,10 @@ class CfnCapacityProvider(
 
         @builtins.property
         def system_log_level(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Set this property to filter the system logs for your capacity provider that Lambda sends to CloudWatch.
+
+            Lambda only sends system logs at the selected level of detail and lower, where ``DEBUG`` is the highest level and ``WARN`` is the lowest.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityproviderloggingconfig.html#cfn-lambda-capacityprovider-capacityproviderloggingconfig-systemloglevel
             '''
             result = self._values.get("system_log_level")
@@ -5383,7 +5390,7 @@ class CfnCapacityProvider(
         ) -> None:
             '''Configuration that specifies the telemetry collection for the capacity provider.
 
-            :param logging_config: 
+            :param logging_config: The capacity provider's Amazon CloudWatch Logs configuration settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityprovidertelemetryconfig.html
             :exampleMetadata: fixture=_generated
@@ -5412,7 +5419,8 @@ class CfnCapacityProvider(
         def logging_config(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapacityProvider.CapacityProviderLoggingConfigProperty"]]:
-            '''
+            '''The capacity provider's Amazon CloudWatch Logs configuration settings.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityprovidertelemetryconfig.html#cfn-lambda-capacityprovider-capacityprovidertelemetryconfig-loggingconfig
             '''
             result = self._values.get("logging_config")
@@ -5788,7 +5796,7 @@ class CfnCapacityProviderProps:
         :param kms_key_arn: The ARN of the KMS key used to encrypt the capacity provider's resources.
         :param propagate_tags: Configuration that defines how tags are propagated to managed resources.
         :param tags: A key-value pair that provides metadata for the capacity provider.
-        :param telemetry_config: 
+        :param telemetry_config: Configuration that specifies the telemetry collection for the capacity provider.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-capacityprovider.html
         :exampleMetadata: fixture=_generated
@@ -5961,7 +5969,8 @@ class CfnCapacityProviderProps:
     def telemetry_config(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapacityProvider.CapacityProviderTelemetryConfigProperty"]]:
-        '''
+        '''Configuration that specifies the telemetry collection for the capacity provider.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-capacityprovider.html#cfn-lambda-capacityprovider-telemetryconfig
         '''
         result = self._values.get("telemetry_config")
@@ -9744,7 +9753,12 @@ class CfnFunction(
             ),
             file_system_configs=[lambda.CfnFunction.FileSystemConfigProperty(
                 arn="arn",
-                local_mount_path="localMountPath"
+                local_mount_path="localMountPath",
+        
+                # the properties below are optional
+                s3_files_config=lambda.CfnFunction.S3FilesConfigProperty(
+                    direct_s3_read="directS3Read"
+                )
             )],
             function_name="functionName",
             function_scaling_config=lambda.CfnFunction.FunctionScalingConfigProperty(
@@ -10661,7 +10675,7 @@ class CfnFunction(
             :param image_uri: URI of a `container image <https://docs.aws.amazon.com/lambda/latest/dg/lambda-images.html>`_ in the Amazon ECR registry.
             :param s3_bucket: An Amazon S3 bucket in the same AWS Region as your function. The bucket can be in a different AWS account .
             :param s3_key: The Amazon S3 key of the deployment package.
-            :param s3_object_storage_mode: 
+            :param s3_object_storage_mode: Specifies the storage mode for the deployment package. Use ``COPY`` to store the package in LAMlong-managed storage. Use ``REFERENCE`` to read the package directly from the Amazon S3 bucket. If omitted, the default is ``COPY``.
             :param s3_object_version: For versioned objects, the version of the deployment package object to use.
             :param source_kms_key_arn: The ARN of the AWS Key Management Service ( AWS ) customer managed key that's used to encrypt your function's .zip deployment package. If you don't provide a customer managed key, Lambda uses an `AWS owned key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-owned-cmk>`_ .
             :param zip_file: (Node.js and Python) The source code of your Lambda function. If you include your function source inline with this parameter, CloudFormation places it in a file named ``index`` and zips it to create a `deployment package <https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-package.html>`_ . This zip file cannot exceed 4MB. For the ``Handler`` property, the first part of the handler identifier must be ``index`` . For example, ``index.handler`` . .. epigraph:: When you specify source code inline for a Node.js function, the ``index`` file that CloudFormation creates uses the extension ``.js`` . This means that Node.js treats the file as a CommonJS module. When using Node.js 24 or later, Node.js can automatically detect if a ``.js`` file should be treated as CommonJS or as an ES module. To enable auto-detection, add the ``--experimental-detect-module`` flag to the ``NODE_OPTIONS`` environment variable. For more information, see `Experimental Node.js features <https://docs.aws.amazon.com//lambda/latest/dg/lambda-nodejs.html#nodejs-experimental-features>`_ . For JSON, you must escape quotes and special characters such as newline ( ``\\n`` ) with a backslash. If you specify a function that interacts with an AWS CloudFormation custom resource, you don't have to write your own functions to send responses to the custom resource that invoked the function. AWS CloudFormation provides a response module ( `cfn-response <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html>`_ ) that simplifies sending responses. See `Using AWS Lambda with AWS CloudFormation <https://docs.aws.amazon.com/lambda/latest/dg/services-cloudformation.html>`_ for details.
@@ -10741,7 +10755,10 @@ class CfnFunction(
 
         @builtins.property
         def s3_object_storage_mode(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the storage mode for the deployment package.
+
+            Use ``COPY`` to store the package in LAMlong-managed storage. Use ``REFERENCE`` to read the package directly from the Amazon S3 bucket. If omitted, the default is ``COPY``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-s3objectstoragemode
             '''
             result = self._values.get("s3_object_storage_mode")
@@ -10866,7 +10883,7 @@ class CfnFunction(
             '''Configuration settings for `durable functions <https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html>`_ , including execution timeout and retention period for execution history.
 
             :param execution_timeout: The maximum time (in seconds) that a durable execution can run before timing out. This timeout applies to the entire durable execution, not individual function invocations.
-            :param kms_key_arn: 
+            :param kms_key_arn: The ARN of the KMSlong (KMS) customer managed key that is used to encrypt your durable execution's payload data, including input, output, and error payloads.
             :param retention_period_in_days: The number of days to retain execution history after a durable execution completes. After this period, execution history is no longer available through the GetDurableExecutionHistory API. Default: - 14
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-durableconfig.html
@@ -10913,7 +10930,8 @@ class CfnFunction(
 
         @builtins.property
         def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The ARN of the KMSlong (KMS) customer managed key that is used to encrypt your durable execution's payload data, including input, output, and error payloads.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-durableconfig.html#cfn-lambda-function-durableconfig-kmskeyarn
             '''
             result = self._values.get("kms_key_arn")
@@ -11063,7 +11081,11 @@ class CfnFunction(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnFunction.FileSystemConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"arn": "arn", "local_mount_path": "localMountPath"},
+        name_mapping={
+            "arn": "arn",
+            "local_mount_path": "localMountPath",
+            "s3_files_config": "s3FilesConfig",
+        },
     )
     class FileSystemConfigProperty:
         def __init__(
@@ -11071,11 +11093,13 @@ class CfnFunction(
             *,
             arn: builtins.str,
             local_mount_path: builtins.str,
+            s3_files_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.S3FilesConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Details about the connection between a Lambda function and an `Amazon EFS file system <https://docs.aws.amazon.com/lambda/latest/dg/configuration-filesystem.html>`_ .
 
             :param arn: The Amazon Resource Name (ARN) of the Amazon EFS access point that provides access to the file system.
             :param local_mount_path: The path where the function can access the file system, starting with ``/mnt/`` .
+            :param s3_files_config: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-filesystemconfig.html
             :exampleMetadata: fixture=_generated
@@ -11088,17 +11112,25 @@ class CfnFunction(
                 
                 file_system_config_property = lambda.CfnFunction.FileSystemConfigProperty(
                     arn="arn",
-                    local_mount_path="localMountPath"
+                    local_mount_path="localMountPath",
+                
+                    # the properties below are optional
+                    s3_files_config=lambda.CfnFunction.S3FilesConfigProperty(
+                        direct_s3_read="directS3Read"
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__c0060fc6e723ccc0f68bebab137926b678e758f90348279d34ce1f7ff1522bc6)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument local_mount_path", value=local_mount_path, expected_type=type_hints["local_mount_path"])
+                check_type(argname="argument s3_files_config", value=s3_files_config, expected_type=type_hints["s3_files_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "arn": arn,
                 "local_mount_path": local_mount_path,
             }
+            if s3_files_config is not None:
+                self._values["s3_files_config"] = s3_files_config
 
         @builtins.property
         def arn(self) -> builtins.str:
@@ -11119,6 +11151,16 @@ class CfnFunction(
             result = self._values.get("local_mount_path")
             assert result is not None, "Required property 'local_mount_path' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_files_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.S3FilesConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-filesystemconfig.html#cfn-lambda-function-filesystemconfig-s3filesconfig
+            '''
+            result = self._values.get("s3_files_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.S3FilesConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11595,6 +11637,60 @@ class CfnFunction(
 
         def __repr__(self) -> str:
             return "RuntimeManagementConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnFunction.S3FilesConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"direct_s3_read": "directS3Read"},
+    )
+    class S3FilesConfigProperty:
+        def __init__(
+            self,
+            *,
+            direct_s3_read: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param direct_s3_read: Specifies if a function reads from the file system for the lowest latency, or through Amazon S3 Files feature "direct Amazon S3 bucket reads" for the highest throughput.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-s3filesconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                s3_files_config_property = lambda.CfnFunction.S3FilesConfigProperty(
+                    direct_s3_read="directS3Read"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__19d693a968f01c4e21fd47d82faffdaa33ba7a5364fd864ea3f1e61d1c5c6393)
+                check_type(argname="argument direct_s3_read", value=direct_s3_read, expected_type=type_hints["direct_s3_read"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if direct_s3_read is not None:
+                self._values["direct_s3_read"] = direct_s3_read
+
+        @builtins.property
+        def direct_s3_read(self) -> typing.Optional[builtins.str]:
+            '''Specifies if a function reads from the file system for the lowest latency, or through Amazon S3 Files feature "direct Amazon S3 bucket reads" for the highest throughput.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-s3filesconfig.html#cfn-lambda-function-s3filesconfig-directs3read
+            '''
+            result = self._values.get("direct_s3_read")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3FilesConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12089,7 +12185,12 @@ class CfnFunctionProps:
                 ),
                 file_system_configs=[lambda.CfnFunction.FileSystemConfigProperty(
                     arn="arn",
-                    local_mount_path="localMountPath"
+                    local_mount_path="localMountPath",
+            
+                    # the properties below are optional
+                    s3_files_config=lambda.CfnFunction.S3FilesConfigProperty(
+                        direct_s3_read="directS3Read"
+                    )
                 )],
                 function_name="functionName",
                 function_scaling_config=lambda.CfnFunction.FunctionScalingConfigProperty(
@@ -16066,6 +16167,236 @@ class CfnPermissionProps:
 
     def __repr__(self) -> str:
         return "CfnPermissionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lambda_aaab8031.IResourcePolicyRef)
+class CfnResourcePolicy(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnResourcePolicy",
+):
+    '''Use the ``AWS::Lambda::ResourcePolicy`` resource to attach a resource-based policy to a LAM resource.
+
+    A resource-based policy applies to a single LAM resource, for example, a function, function version, or function alias. To learn more about using resource-based policies with LAM, see `Working with resource-based policies in <https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html>`_ in the *Developer Guide*.
+    You can use resource-based policies to grant permissions to other AWS services, AWS accounts and organizations, and IAM users and roles to access your LAM resource. You can also deny access to specific entities, and use the full range of IAM global condition keys to further restrict who has access to your LAM resource. For example, you can limit access to calls originating from a specified IP address or VPC.
+    A resource-based policy is a JSON document containing a number of statements. Each statement defines the entities you want to grant permission to, the API actions you want to allow or deny, and the LAM resource you want the statement to apply to. A statement can also optionally include an array of logical conditions using the IAM global condition keys.
+    To use the ``AWS::Lambda::ResourcePolicy`` resource, make sure that you have the `resource-based policy permissions for Lambda <https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html#access-control-resource-based-permissions>`_.
+    To learn more about creating resource-based policies, see `Policies and permissions in <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html>`_ in the *User Guide*. For more information about example policies for providing permissions to AWS services, other AWS accounts, and IAM users and roles, see `Example resource-based policies for functions <https://docs.aws.amazon.com/lambda/latest/dg/permissions-function-examples.html>`_ in the *Developer Guide*.
+    **Avoid mixing permission resource types**
+    To grant permissions to access your function, we recommend using the ``AWS::Lambda::ResourcePolicy`` resource to set access permissions. With this resource, you have more flexibility and fine-grained control than ``AWS::Lambda::Permission``. This resource grants an AWS service or another account permission to call a particular API action on a function.
+    You can also use the ``AWS::Lambda::Permission`` resource, however using both ``AWS::Lambda::Permission`` and ``AWS::Lambda::ResourcePolicy`` to set permissions on a function can result in errors. Permissions defined in ``AWS::Lambda::Permission`` can be unintentionally overwritten, whether in a single CFN stack or across multiple stacks. Don't use both resource types to set permissions on a function.
+    To migrate existing permissions for a function from ``AWS::Lambda::Permission`` to ``AWS::Lambda::ResourcePolicy``, do the following:
+
+    1. Set a ``Retain```deletion policy <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-deletionpolicy.html>`_ on the ``AWS::Lambda::Permission`` resources you want to migrate. This is necessary so that Lambda does not delete statements with the same statement ID when you delete these resources.
+    2. Use the `GetResourcePolicy <https://docs.aws.amazon.com/lambda/latest/api/API_GetResourcePolicy.html>`_LAM API to retrieve the resource-based policy currently attached to the function.
+    3. Use this policy to create a new ``AWS::Lambda::ResourcePolicy`` resource.
+    4. Delete all the existing ``AWS::Lambda::Permission`` resources for the function.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-resourcepolicy.html
+    :cloudformationResource: AWS::Lambda::ResourcePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        # policy_document: Any
+        
+        cfn_resource_policy = lambda_.CfnResourcePolicy(self, "MyCfnResourcePolicy",
+            policy_document=policy_document,
+            resource_arn="resourceArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_document: typing.Any,
+        resource_arn: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::ResourcePolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_document: The policy document you want to add to your LAM resource. This is formatted as a JSON string. For more information, see `Working with resource-based policies in <https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html>`_ in the *Developer Guide*.
+        :param resource_arn: The Amazon Resource Name (ARN) of the LAM resource you want to add the policy to. For a function, you can use a qualified or an unqualified ARN. The value must be a complete ARN, and the operation does not accept wildcard characters.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f0d757597efb0a34c4403ed42d8fb86bd812be37571f27a4a825572982775554)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourcePolicyProps(
+            policy_document=policy_document, resource_arn=resource_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnResourcePolicy")
+    @builtins.classmethod
+    def is_cfn_resource_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourcePolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4337d9b417d175510d0ca93f486d9effc8706fd3639540facfb89755c1eb29be)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a6ac84491a296021f21c5978e0947e90b44bf82c8e43d2ba951da3864b6242a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3db6107343e2bfde7ec5e3522322369d356c75c42289861c6b10275a6bf65bf3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "_aws_lambda_aaab8031.ResourcePolicyReference":
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast("_aws_lambda_aaab8031.ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The policy document you want to add to your LAM resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__543cfd942113f5308693cbd8ffab9229cc5efc2f4d7050d8b7af99a8464c70d1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArn")
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the LAM resource you want to add the policy to.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
+
+    @resource_arn.setter
+    def resource_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__805ecf778c1a7ce607368336acda66d9b5d7fcaff6dddd8ca09687967d3eed27)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy_document": "policyDocument", "resource_arn": "resourceArn"},
+)
+class CfnResourcePolicyProps:
+    def __init__(
+        self,
+        *,
+        policy_document: typing.Any,
+        resource_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy_document: The policy document you want to add to your LAM resource. This is formatted as a JSON string. For more information, see `Working with resource-based policies in <https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html>`_ in the *Developer Guide*.
+        :param resource_arn: The Amazon Resource Name (ARN) of the LAM resource you want to add the policy to. For a function, you can use a qualified or an unqualified ARN. The value must be a complete ARN, and the operation does not accept wildcard characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            # policy_document: Any
+            
+            cfn_resource_policy_props = lambda.CfnResourcePolicyProps(
+                policy_document=policy_document,
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9bb1280bae21ab11982d71cbc771eaa1e21fc26fe2f3acd57eaaab0ea45987ba)
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_document": policy_document,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def policy_document(self) -> typing.Any:
+        '''The policy document you want to add to your LAM resource.
+
+        This is formatted as a JSON string.
+        For more information, see `Working with resource-based policies in <https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html>`_ in the *Developer Guide*.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-resourcepolicy.html#cfn-lambda-resourcepolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the LAM resource you want to add the policy to.
+
+        For a function, you can use a qualified or an unqualified ARN. The value must be a complete ARN, and the operation does not accept wildcard characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-resourcepolicy.html#cfn-lambda-resourcepolicy-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -37709,6 +38040,8 @@ __all__ = [
     "CfnParametersCodeProps",
     "CfnPermission",
     "CfnPermissionProps",
+    "CfnResourcePolicy",
+    "CfnResourcePolicyProps",
     "CfnUrl",
     "CfnUrlProps",
     "CfnVersion",
@@ -39182,6 +39515,7 @@ def _typecheckingstub__c0060fc6e723ccc0f68bebab137926b678e758f90348279d34ce1f7ff
     *,
     arn: builtins.str,
     local_mount_path: builtins.str,
+    s3_files_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.S3FilesConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39226,6 +39560,13 @@ def _typecheckingstub__30a323208760254dc626db9a6b7cd7d96fe15c4516882e470f8d0fcbc
     *,
     update_runtime_on: builtins.str,
     runtime_version_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19d693a968f01c4e21fd47d82faffdaa33ba7a5364fd864ea3f1e61d1c5c6393(
+    *,
+    direct_s3_read: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39883,6 +40224,54 @@ def _typecheckingstub__b0c90e5a512dc08c54978bc1f6bf13992ad2d1d5c793f2b05fc82eef3
     principal_org_id: typing.Optional[builtins.str] = None,
     source_account: typing.Optional[builtins.str] = None,
     source_arn: typing.Optional[typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iam_632e20f6.IRoleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f0d757597efb0a34c4403ed42d8fb86bd812be37571f27a4a825572982775554(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_document: typing.Any,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4337d9b417d175510d0ca93f486d9effc8706fd3639540facfb89755c1eb29be(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a6ac84491a296021f21c5978e0947e90b44bf82c8e43d2ba951da3864b6242a(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3db6107343e2bfde7ec5e3522322369d356c75c42289861c6b10275a6bf65bf3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__543cfd942113f5308693cbd8ffab9229cc5efc2f4d7050d8b7af99a8464c70d1(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__805ecf778c1a7ce607368336acda66d9b5d7fcaff6dddd8ca09687967d3eed27(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bb1280bae21ab11982d71cbc771eaa1e21fc26fe2f3acd57eaaab0ea45987ba(
+    *,
+    policy_document: typing.Any,
+    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

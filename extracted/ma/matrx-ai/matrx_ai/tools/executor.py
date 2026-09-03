@@ -33,19 +33,21 @@ CONTEXT_PATCH_NO_MATCH_KIND = "context_patch_no_match"
 TOOL_ARGUMENT_VALIDATION_FAILED_KIND = "tool_argument_validation_failed"
 TOOL_EXECUTION_FAILED_KIND = "tool_execution_failed"
 TOOL_RESULT_KIND_MISSING_KIND = "tool_result_kind_missing"
+TOOL_RESULT_KIND_UNAVAILABLE_KIND = "tool_result_kind_unavailable"
 TOOL_RESULT_SIZE_UNMANAGED_KIND = "tool_result_size_unmanaged"
 
 
 def _is_expected_domain_failure(*, tool_name: str, error_type: str) -> bool:
     """Return true for deliberate tool refusals that are not operational errors."""
-    if error_type.lower() in {
+    normalized_error_type = error_type.lower()
+    if normalized_error_type in {
         "auth_required",
         "invalid_arguments",
         "missing_context",
         "not_allowed",
         "not_found",
         "validation",
-    }:
+    } or normalized_error_type.endswith("_not_found"):
         return True
     return (tool_name, error_type) in {
         ("code_execute_python", "python_error"),
@@ -174,6 +176,28 @@ async def _capture_tool_result_kind_missing(
         route="tool_executor.content_ir_output",
         error_type="ToolResultKindMissing",
         context={"tool_name": tool_name, "output_kind": output_kind},
+    )
+
+
+async def _capture_tool_result_kind_unavailable(
+    *, ctx: ToolContext, tool_name: str, output_kind: str, degraded_reason: str
+) -> None:
+    """Capture a successful kinded result whose registry contract was unavailable."""
+    from matrx_connect.streaming.error_capture import capture_error
+
+    await capture_error(
+        RuntimeError(f"Declared tool result kind was unavailable: {tool_name}"),
+        kind=TOOL_RESULT_KIND_UNAVAILABLE_KIND,
+        request_id=ctx.request_id or None,
+        user_id=ctx.user_id or None,
+        conversation_id=ctx.conversation_id or None,
+        route="tool_executor.content_ir_output",
+        error_type="ToolResultKindUnavailable",
+        context={
+            "tool_name": tool_name,
+            "output_kind": output_kind,
+            "degraded_reason": degraded_reason,
+        },
     )
 
 
@@ -1565,14 +1589,23 @@ class ToolExecutor:
                     kind_check.errors,
                 )
             elif not kind_check.checked:
+                degraded_reason = (
+                    kind_check.degraded_reason.value
+                    if kind_check.degraded_reason is not None
+                    else "unknown"
+                )
                 logger.warning(
                     "[Content IR] tool result kind check SKIPPED for %s (%s): %s "
                     "— a skipped check is never a pass.",
                     canonical_name,
                     curated_kind,
-                    kind_check.degraded_reason.value
-                    if kind_check.degraded_reason is not None
-                    else "unknown",
+                    degraded_reason,
+                )
+                await _capture_tool_result_kind_unavailable(
+                    ctx=ctx,
+                    tool_name=canonical_name,
+                    output_kind=curated_kind,
+                    degraded_reason=degraded_reason,
                 )
 
         # Failed tools have no successful output to validate. Their ToolError

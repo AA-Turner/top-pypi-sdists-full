@@ -2288,7 +2288,7 @@ class SlackChannelConfiguration(
 
         :param scope: The parent creating construct.
         :param id: The construct's name.
-        :param slack_channel_configuration_arn: configuration ARN (i.e. arn:aws:chatbot::1234567890:chat-configuration/slack-channel/my-slack).
+        :param slack_channel_configuration_arn: configuration ARN (i.e. arn:aws:chatbot::123456789012:chat-configuration/slack-channel/my-slack).
 
         :return: a reference to the existing Slack channel configuration
         '''

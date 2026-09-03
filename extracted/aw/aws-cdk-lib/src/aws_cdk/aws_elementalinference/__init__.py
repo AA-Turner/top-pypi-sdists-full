@@ -407,17 +407,23 @@ class CfnFeed(
         # The values are placeholders you should change.
         from aws_cdk import aws_elementalinference as elementalinference
         
-        # cropping: Any
-        
         cfn_feed = elementalinference.CfnFeed(self, "MyCfnFeed",
             name="name",
             outputs=[elementalinference.CfnFeed.GetOutputProperty(
                 name="name",
                 output_config=elementalinference.CfnFeed.OutputConfigProperty(
                     clipping=elementalinference.CfnFeed.ClippingConfigProperty(
-                        callback_metadata="callbackMetadata"
+                        callback_metadata="callbackMetadata",
+                        data_source_configuration=elementalinference.CfnFeed.DataSourceConfigurationProperty(
+                            fixture_id="fixtureId"
+                        )
                     ),
-                    cropping=cropping,
+                    cropping=elementalinference.CfnFeed.CroppingConfigProperty(
+                        template_groups=[elementalinference.CfnFeed.TemplateGroupProperty(
+                            name="name",
+                            template_uris=["templateUris"]
+                        )]
+                    ),
                     subtitling=elementalinference.CfnFeed.SubtitlingConfigProperty(
                         language="language",
         
@@ -437,6 +443,7 @@ class CfnFeed(
             )],
         
             # the properties below are optional
+            access_role_arn="accessRoleArn",
             tags={
                 "tags_key": "tags"
             }
@@ -450,6 +457,7 @@ class CfnFeed(
         *,
         name: builtins.str,
         outputs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeed.GetOutputProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        access_role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::ElementalInference::Feed``.
@@ -458,13 +466,16 @@ class CfnFeed(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: 
         :param outputs: 
+        :param access_role_arn: 
         :param tags: 
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__086c1fcdd22f4573bbf9e5858e698d4a67c6e5f5679291a457c0399ac83d35d6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnFeedProps(name=name, outputs=outputs, tags=tags)
+        props = CfnFeedProps(
+            name=name, outputs=outputs, access_role_arn=access_role_arn, tags=tags
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -600,6 +611,18 @@ class CfnFeed(
         jsii.set(self, "outputs", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="accessRoleArn")
+    def access_role_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "accessRoleArn"))
+
+    @access_role_arn.setter
+    def access_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0cec7d77ff0c70d567b933bae195ed89ba736dcd21743aa3f9078e59dde626a6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accessRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
@@ -680,16 +703,21 @@ class CfnFeed(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elementalinference.CfnFeed.ClippingConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"callback_metadata": "callbackMetadata"},
+        name_mapping={
+            "callback_metadata": "callbackMetadata",
+            "data_source_configuration": "dataSourceConfiguration",
+        },
     )
     class ClippingConfigProperty:
         def __init__(
             self,
             *,
             callback_metadata: typing.Optional[builtins.str] = None,
+            data_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeed.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param callback_metadata: 
+            :param data_source_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-clippingconfig.html
             :exampleMetadata: fixture=_generated
@@ -701,15 +729,21 @@ class CfnFeed(
                 from aws_cdk import aws_elementalinference as elementalinference
                 
                 clipping_config_property = elementalinference.CfnFeed.ClippingConfigProperty(
-                    callback_metadata="callbackMetadata"
+                    callback_metadata="callbackMetadata",
+                    data_source_configuration=elementalinference.CfnFeed.DataSourceConfigurationProperty(
+                        fixture_id="fixtureId"
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__e6a4ba370813bfb444bc9ceafafb712ea485e1284fa02f399aac4531d0015262)
                 check_type(argname="argument callback_metadata", value=callback_metadata, expected_type=type_hints["callback_metadata"])
+                check_type(argname="argument data_source_configuration", value=data_source_configuration, expected_type=type_hints["data_source_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if callback_metadata is not None:
                 self._values["callback_metadata"] = callback_metadata
+            if data_source_configuration is not None:
+                self._values["data_source_configuration"] = data_source_configuration
 
         @builtins.property
         def callback_metadata(self) -> typing.Optional[builtins.str]:
@@ -719,6 +753,16 @@ class CfnFeed(
             result = self._values.get("callback_metadata")
             return typing.cast(typing.Optional[builtins.str], result)
 
+        @builtins.property
+        def data_source_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.DataSourceConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-clippingconfig.html#cfn-elementalinference-feed-clippingconfig-datasourceconfiguration
+            '''
+            result = self._values.get("data_source_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.DataSourceConfigurationProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -727,6 +771,114 @@ class CfnFeed(
 
         def __repr__(self) -> str:
             return "ClippingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elementalinference.CfnFeed.CroppingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"template_groups": "templateGroups"},
+    )
+    class CroppingConfigProperty:
+        def __init__(
+            self,
+            *,
+            template_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeed.TemplateGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param template_groups: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-croppingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elementalinference as elementalinference
+                
+                cropping_config_property = elementalinference.CfnFeed.CroppingConfigProperty(
+                    template_groups=[elementalinference.CfnFeed.TemplateGroupProperty(
+                        name="name",
+                        template_uris=["templateUris"]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5cc4f807794b7274bf9c514b2958efe7c8139433e1d50c19a8687aa8e989ed76)
+                check_type(argname="argument template_groups", value=template_groups, expected_type=type_hints["template_groups"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if template_groups is not None:
+                self._values["template_groups"] = template_groups
+
+        @builtins.property
+        def template_groups(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.TemplateGroupProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-croppingconfig.html#cfn-elementalinference-feed-croppingconfig-templategroups
+            '''
+            result = self._values.get("template_groups")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.TemplateGroupProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CroppingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elementalinference.CfnFeed.DataSourceConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"fixture_id": "fixtureId"},
+    )
+    class DataSourceConfigurationProperty:
+        def __init__(self, *, fixture_id: builtins.str) -> None:
+            '''
+            :param fixture_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-datasourceconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elementalinference as elementalinference
+                
+                data_source_configuration_property = elementalinference.CfnFeed.DataSourceConfigurationProperty(
+                    fixture_id="fixtureId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5da212fff1917d5ffbc0367ac3d7f565a9127ab3eef7843d80bf316f6bd74350)
+                check_type(argname="argument fixture_id", value=fixture_id, expected_type=type_hints["fixture_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fixture_id": fixture_id,
+            }
+
+        @builtins.property
+        def fixture_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-datasourceconfiguration.html#cfn-elementalinference-feed-datasourceconfiguration-fixtureid
+            '''
+            result = self._values.get("fixture_id")
+            assert result is not None, "Required property 'fixture_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DataSourceConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -764,15 +916,21 @@ class CfnFeed(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_elementalinference as elementalinference
                 
-                # cropping: Any
-                
                 get_output_property = elementalinference.CfnFeed.GetOutputProperty(
                     name="name",
                     output_config=elementalinference.CfnFeed.OutputConfigProperty(
                         clipping=elementalinference.CfnFeed.ClippingConfigProperty(
-                            callback_metadata="callbackMetadata"
+                            callback_metadata="callbackMetadata",
+                            data_source_configuration=elementalinference.CfnFeed.DataSourceConfigurationProperty(
+                                fixture_id="fixtureId"
+                            )
                         ),
-                        cropping=cropping,
+                        cropping=elementalinference.CfnFeed.CroppingConfigProperty(
+                            template_groups=[elementalinference.CfnFeed.TemplateGroupProperty(
+                                name="name",
+                                template_uris=["templateUris"]
+                            )]
+                        ),
                         subtitling=elementalinference.CfnFeed.SubtitlingConfigProperty(
                             language="language",
                 
@@ -867,7 +1025,7 @@ class CfnFeed(
             self,
             *,
             clipping: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeed.ClippingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cropping: typing.Any = None,
+            cropping: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeed.CroppingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             subtitling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeed.SubtitlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
@@ -884,13 +1042,19 @@ class CfnFeed(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_elementalinference as elementalinference
                 
-                # cropping: Any
-                
                 output_config_property = elementalinference.CfnFeed.OutputConfigProperty(
                     clipping=elementalinference.CfnFeed.ClippingConfigProperty(
-                        callback_metadata="callbackMetadata"
+                        callback_metadata="callbackMetadata",
+                        data_source_configuration=elementalinference.CfnFeed.DataSourceConfigurationProperty(
+                            fixture_id="fixtureId"
+                        )
                     ),
-                    cropping=cropping,
+                    cropping=elementalinference.CfnFeed.CroppingConfigProperty(
+                        template_groups=[elementalinference.CfnFeed.TemplateGroupProperty(
+                            name="name",
+                            template_uris=["templateUris"]
+                        )]
+                    ),
                     subtitling=elementalinference.CfnFeed.SubtitlingConfigProperty(
                         language="language",
                 
@@ -928,12 +1092,14 @@ class CfnFeed(
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.ClippingConfigProperty"]], result)
 
         @builtins.property
-        def cropping(self) -> typing.Any:
+        def cropping(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.CroppingConfigProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-outputconfig.html#cfn-elementalinference-feed-outputconfig-cropping
             '''
             result = self._values.get("cropping")
-            return typing.cast(typing.Any, result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.CroppingConfigProperty"]], result)
 
         @builtins.property
         def subtitling(
@@ -1064,11 +1230,84 @@ class CfnFeed(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elementalinference.CfnFeed.TemplateGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "template_uris": "templateUris"},
+    )
+    class TemplateGroupProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            template_uris: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            :param name: 
+            :param template_uris: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-templategroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elementalinference as elementalinference
+                
+                template_group_property = elementalinference.CfnFeed.TemplateGroupProperty(
+                    name="name",
+                    template_uris=["templateUris"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6c0d96861e696386c42a9d2e4b9b5a7e1c0f4fc381aed2107adf35e37a7be787)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument template_uris", value=template_uris, expected_type=type_hints["template_uris"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "template_uris": template_uris,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-templategroup.html#cfn-elementalinference-feed-templategroup-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def template_uris(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-templategroup.html#cfn-elementalinference-feed-templategroup-templateuris
+            '''
+            result = self._values.get("template_uris")
+            assert result is not None, "Required property 'template_uris' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TemplateGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elementalinference.CfnFeedProps",
     jsii_struct_bases=[],
-    name_mapping={"name": "name", "outputs": "outputs", "tags": "tags"},
+    name_mapping={
+        "name": "name",
+        "outputs": "outputs",
+        "access_role_arn": "accessRoleArn",
+        "tags": "tags",
+    },
 )
 class CfnFeedProps:
     def __init__(
@@ -1076,12 +1315,14 @@ class CfnFeedProps:
         *,
         name: builtins.str,
         outputs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeed.GetOutputProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        access_role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFeed``.
 
         :param name: 
         :param outputs: 
+        :param access_role_arn: 
         :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elementalinference-feed.html
@@ -1093,17 +1334,23 @@ class CfnFeedProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_elementalinference as elementalinference
             
-            # cropping: Any
-            
             cfn_feed_props = elementalinference.CfnFeedProps(
                 name="name",
                 outputs=[elementalinference.CfnFeed.GetOutputProperty(
                     name="name",
                     output_config=elementalinference.CfnFeed.OutputConfigProperty(
                         clipping=elementalinference.CfnFeed.ClippingConfigProperty(
-                            callback_metadata="callbackMetadata"
+                            callback_metadata="callbackMetadata",
+                            data_source_configuration=elementalinference.CfnFeed.DataSourceConfigurationProperty(
+                                fixture_id="fixtureId"
+                            )
                         ),
-                        cropping=cropping,
+                        cropping=elementalinference.CfnFeed.CroppingConfigProperty(
+                            template_groups=[elementalinference.CfnFeed.TemplateGroupProperty(
+                                name="name",
+                                template_uris=["templateUris"]
+                            )]
+                        ),
                         subtitling=elementalinference.CfnFeed.SubtitlingConfigProperty(
                             language="language",
             
@@ -1123,6 +1370,7 @@ class CfnFeedProps:
                 )],
             
                 # the properties below are optional
+                access_role_arn="accessRoleArn",
                 tags={
                     "tags_key": "tags"
                 }
@@ -1132,11 +1380,14 @@ class CfnFeedProps:
             type_hints = cached_type_hints(_typecheckingstub__b20c116466754eabef3c4516fae5bfe05f1720d03f7fdf1d8e53dfff7e268dd1)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
+            check_type(argname="argument access_role_arn", value=access_role_arn, expected_type=type_hints["access_role_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "outputs": outputs,
         }
+        if access_role_arn is not None:
+            self._values["access_role_arn"] = access_role_arn
         if tags is not None:
             self._values["tags"] = tags
 
@@ -1159,6 +1410,14 @@ class CfnFeedProps:
         result = self._values.get("outputs")
         assert result is not None, "Required property 'outputs' is missing"
         return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.GetOutputProperty"]]], result)
+
+    @builtins.property
+    def access_role_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elementalinference-feed.html#cfn-elementalinference-feed-accessrolearn
+        '''
+        result = self._values.get("access_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -1265,6 +1524,7 @@ def _typecheckingstub__086c1fcdd22f4573bbf9e5858e698d4a67c6e5f5679291a457c0399ac
     *,
     name: builtins.str,
     outputs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeed.GetOutputProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    access_role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1306,6 +1566,12 @@ def _typecheckingstub__b5c56fe45498c7c2ef7666681ed87b6d6305ad4ea8b27076706113d35
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0cec7d77ff0c70d567b933bae195ed89ba736dcd21743aa3f9078e59dde626a6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e9e0bc362d8a7be8bdb4db49c0fb751ca65a9bf66da03ffdc2fb00af3e5efb90(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
@@ -1323,6 +1589,21 @@ def _typecheckingstub__792d393b28a32ab459f4a4c4e6d800f3397b80f9a65080813eac36da3
 def _typecheckingstub__e6a4ba370813bfb444bc9ceafafb712ea485e1284fa02f399aac4531d0015262(
     *,
     callback_metadata: typing.Optional[builtins.str] = None,
+    data_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeed.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cc4f807794b7274bf9c514b2958efe7c8139433e1d50c19a8687aa8e989ed76(
+    *,
+    template_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeed.TemplateGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5da212fff1917d5ffbc0367ac3d7f565a9127ab3eef7843d80bf316f6bd74350(
+    *,
+    fixture_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1340,7 +1621,7 @@ def _typecheckingstub__d7c0accadaf3abd8820d59ff8ea7b283716805039f5029d7aafb4b9c6
 def _typecheckingstub__2903ddb4ce42c6a1ffd01fed7c6276e891d4bc19ee8d5416c7af548c5968e928(
     *,
     clipping: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeed.ClippingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cropping: typing.Any = None,
+    cropping: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeed.CroppingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     subtitling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeed.SubtitlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1356,10 +1637,19 @@ def _typecheckingstub__055a064b675d2d5bd0b0c8c5622cbbab95267c2ca5e1f1c134ef928ed
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6c0d96861e696386c42a9d2e4b9b5a7e1c0f4fc381aed2107adf35e37a7be787(
+    *,
+    name: builtins.str,
+    template_uris: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b20c116466754eabef3c4516fae5bfe05f1720d03f7fdf1d8e53dfff7e268dd1(
     *,
     name: builtins.str,
     outputs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeed.GetOutputProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    access_role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

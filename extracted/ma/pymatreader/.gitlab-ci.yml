@@ -20,7 +20,7 @@ include:
   - component: $CI_SERVER_FQDN/thht-ci-components/python/test@1.5.2
     inputs:
       job_name: test
-      test_environments: ['testpy310np2', 'testpy311np2', 'testpy312np2', 'testpy313np2', 'testpy314np2']
+      test_environments: ['testpy310oldlibs', 'testpy310np2', 'testpy311np2', 'testpy312np2', 'testpy313np2', 'testpy314np2']
       coverage_folder: "pymatreader"
 
   - component: $CI_SERVER_FQDN/thht-ci-components/python/test@1.5.2

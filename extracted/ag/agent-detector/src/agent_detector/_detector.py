@@ -18,6 +18,8 @@ AgentName = Literal[
     "cursor-cli",
     "gemini-cli",
     "goose",
+    "grok",
+    "grok-bot",
     "kiro",
     "opencode",
     "pi",
@@ -37,6 +39,8 @@ KNOWN_AGENTS: frozenset[AgentName] = frozenset(
         "cursor-cli",
         "gemini-cli",
         "goose",
+        "grok",
+        "grok-bot",
         "kiro",
         "opencode",
         "pi",
@@ -133,6 +137,24 @@ def detect_agent(
     for signal in ("CLAUDECODE", "CLAUDE_CODE"):
         if values.get(signal):
             candidates.append(DetectionResult("claude-code", "medium", "environment", signal))
+
+    # Grok Build injects GROK_SESSION_ID into child processes and hooks.
+    if values.get("GROK_SESSION_ID"):
+        candidates.append(DetectionResult("grok", "high", "environment", "GROK_SESSION_ID"))
+
+    # GROK_AGENT is also a user-facing profile selector, so presence alone is
+    # a weaker signal than the session id.
+    if values.get("GROK_AGENT"):
+        candidates.append(DetectionResult("grok", "medium", "environment", "GROK_AGENT"))
+
+    # Grok Bot runs through Cursor and also sets CURSOR_AGENT. Its observed,
+    # undocumented Sand computer IDs distinguish it from Cursor CLI.
+    if (
+        values.get("CURSOR_AGENT")
+        and values.get("SAND_BOX_BOOT_ID")
+        and values.get("SAND_BOX_STORE_ID")
+    ):
+        candidates.append(DetectionResult("grok-bot", "high", "environment", "SAND_BOX_BOOT_ID"))
 
     # Cursor IDE and Cursor CLI are distinguishable when both signals exist.
     if values.get("CURSOR_TRACE_ID"):

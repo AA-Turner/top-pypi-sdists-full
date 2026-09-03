@@ -88902,6 +88902,9 @@ class PreferencesEdit(bpy_struct):
     connect_strips_by_default: bool
     """ Connect newly added movie strips by default if they have multiple channels (default True)"""
 
+    default_strip_length: float
+    """ Duration of newly added strips that have no inherent length, such as color, text and image strips (in [0, 36000], default 1.0)"""
+
     fcurve_new_auto_smoothing: typing.Literal[
         bpy.stub_internal.rna_enums.FcurveAutoSmoothingItems
     ]
@@ -149663,6 +149666,10 @@ USERPREF_PT_edit_objects_duplicate_data: (
 USERPREF_PT_edit_objects_new: bl_ui.space_userpref.USERPREF_PT_edit_objects_new
 
 USERPREF_PT_edit_sequence_editor: bl_ui.space_userpref.USERPREF_PT_edit_sequence_editor
+
+USERPREF_PT_edit_sequence_editor_new_strips: (
+    bl_ui.space_userpref.USERPREF_PT_edit_sequence_editor_new_strips
+)
 
 USERPREF_PT_edit_text_editor: bl_ui.space_userpref.USERPREF_PT_edit_text_editor
 

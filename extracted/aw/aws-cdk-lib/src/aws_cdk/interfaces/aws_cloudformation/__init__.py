@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.ChangeSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"change_set_id": "changeSetId"},
+)
+class ChangeSetReference:
+    def __init__(self, *, change_set_id: builtins.str) -> None:
+        '''A reference to a ChangeSet resource.
+
+        :param change_set_id: The ChangeSetId of the ChangeSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudformation as interfaces_cloudformation
+            
+            change_set_reference = interfaces_cloudformation.ChangeSetReference(
+                change_set_id="changeSetId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d57fa0c31a6983fa3adcd55ed0c47b249f806ce7951674d138d325310eed9986)
+            check_type(argname="argument change_set_id", value=change_set_id, expected_type=type_hints["change_set_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "change_set_id": change_set_id,
+        }
+
+    @builtins.property
+    def change_set_id(self) -> builtins.str:
+        '''The ChangeSetId of the ChangeSet resource.'''
+        result = self._values.get("change_set_id")
+        assert result is not None, "Required property 'change_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChangeSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.CustomResourceReference",
     jsii_struct_bases=[],
     name_mapping={"custom_resource_id": "customResourceId"},
@@ -330,6 +379,51 @@ class HookVersionReference:
         return "HookVersionReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.IChangeSetRef")
+class IChangeSetRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ChangeSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="changeSetRef")
+    def change_set_ref(self) -> "ChangeSetReference":
+        '''(experimental) A reference to a ChangeSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChangeSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ChangeSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudformation.IChangeSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="changeSetRef")
+    def change_set_ref(self) -> "ChangeSetReference":
+        '''(experimental) A reference to a ChangeSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ChangeSetReference", jsii.get(self, "changeSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChangeSetRef).__jsii_proxy_class__ = lambda : _IChangeSetRefProxy
 
 
 @jsii.interface(
@@ -931,51 +1025,6 @@ class _IResourceDefaultVersionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IResourceDefaultVersionRef).__jsii_proxy_class__ = lambda : _IResourceDefaultVersionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.IResourceScanRef")
-class IResourceScanRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourceScan.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceScanRef")
-    def resource_scan_ref(self) -> "ResourceScanReference":
-        '''(experimental) A reference to a ResourceScan resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResourceScanRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourceScan.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudformation.IResourceScanRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceScanRef")
-    def resource_scan_ref(self) -> "ResourceScanReference":
-        '''(experimental) A reference to a ResourceScan resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResourceScanReference", jsii.get(self, "resourceScanRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourceScanRef).__jsii_proxy_class__ = lambda : _IResourceScanRefProxy
 
 
 @jsii.interface(
@@ -1600,55 +1649,6 @@ class ResourceDefaultVersionReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.ResourceScanReference",
-    jsii_struct_bases=[],
-    name_mapping={"resource_scan_id": "resourceScanId"},
-)
-class ResourceScanReference:
-    def __init__(self, *, resource_scan_id: builtins.str) -> None:
-        '''A reference to a ResourceScan resource.
-
-        :param resource_scan_id: The ResourceScanId of the ResourceScan resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_cloudformation as interfaces_cloudformation
-            
-            resource_scan_reference = interfaces_cloudformation.ResourceScanReference(
-                resource_scan_id="resourceScanId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__4033c5c8378e8e3b2cb0c984ac9814ffba61625d245cffee84ecac77a7ecde78)
-            check_type(argname="argument resource_scan_id", value=resource_scan_id, expected_type=type_hints["resource_scan_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_scan_id": resource_scan_id,
-        }
-
-    @builtins.property
-    def resource_scan_id(self) -> builtins.str:
-        '''The ResourceScanId of the ResourceScan resource.'''
-        result = self._values.get("resource_scan_id")
-        assert result is not None, "Required property 'resource_scan_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResourceScanReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.ResourceVersionReference",
     jsii_struct_bases=[],
     name_mapping={"resource_version_arn": "resourceVersionArn"},
@@ -1943,12 +1943,14 @@ class WaitConditionReference:
 
 
 __all__ = [
+    "ChangeSetReference",
     "CustomResourceReference",
     "GeneratedTemplateReference",
     "GuardHookReference",
     "HookDefaultVersionReference",
     "HookTypeConfigReference",
     "HookVersionReference",
+    "IChangeSetRef",
     "ICustomResourceRef",
     "IGeneratedTemplateRef",
     "IGuardHookRef",
@@ -1962,7 +1964,6 @@ __all__ = [
     "IPublicTypeVersionRef",
     "IPublisherRef",
     "IResourceDefaultVersionRef",
-    "IResourceScanRef",
     "IResourceVersionRef",
     "IStackRef",
     "IStackSetRef",
@@ -1976,7 +1977,6 @@ __all__ = [
     "PublicTypeVersionReference",
     "PublisherReference",
     "ResourceDefaultVersionReference",
-    "ResourceScanReference",
     "ResourceVersionReference",
     "StackReference",
     "StackSetReference",
@@ -1986,6 +1986,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__d57fa0c31a6983fa3adcd55ed0c47b249f806ce7951674d138d325310eed9986(
+    *,
+    change_set_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__5b7c6fc64f1a76292b3e9c451ff5d2ef2906f21f9ee7be7f2213d5cbc5e2d8d0(
     *,
@@ -2078,13 +2085,6 @@ def _typecheckingstub__fd89a00f795ff43273f16fd4e8d86052b8de8d8cdc1cf2ef6bafe998f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4033c5c8378e8e3b2cb0c984ac9814ffba61625d245cffee84ecac77a7ecde78(
-    *,
-    resource_scan_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e7afe7f88b7b3fcd57c7d29a6b5b149948932e7b0307ab06381241d082b4405c(
     *,
     resource_version_arn: builtins.str,
@@ -2127,5 +2127,5 @@ def _typecheckingstub__d396cb2698def31eae15c415fd26053d72bd38dd3d779cb62542b599b
     """Type checking stubs"""
     pass
 
-for cls in [ICustomResourceRef, IGeneratedTemplateRef, IGuardHookRef, IHookDefaultVersionRef, IHookTypeConfigRef, IHookVersionRef, ILambdaHookRef, IMacroRef, IModuleDefaultVersionRef, IModuleVersionRef, IPublicTypeVersionRef, IPublisherRef, IResourceDefaultVersionRef, IResourceScanRef, IResourceVersionRef, IStackRef, IStackSetRef, ITypeActivationRef, IWaitConditionHandleRef, IWaitConditionRef]:
+for cls in [IChangeSetRef, ICustomResourceRef, IGeneratedTemplateRef, IGuardHookRef, IHookDefaultVersionRef, IHookTypeConfigRef, IHookVersionRef, ILambdaHookRef, IMacroRef, IModuleDefaultVersionRef, IModuleVersionRef, IPublicTypeVersionRef, IPublisherRef, IResourceDefaultVersionRef, IResourceVersionRef, IStackRef, IStackSetRef, ITypeActivationRef, IWaitConditionHandleRef, IWaitConditionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,0 +1,2568 @@
+"""Analysis engine.
+
+Owns the Analysis family of operations on a Dataset. Accessed as
+``ds.analysis``; the Dataset exposes same-named facade methods so
+``ds.<method>(...)`` and ``ds.analysis.<method>(...)`` are equivalent.
+"""
+
+from __future__ import annotations
+
+import warnings
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
+
+import numpy as np
+import pandas as pd
+from geopandas.geodataframe import GeoDataFrame
+from hpc.indexing import get_indices2, get_pixels2
+from osgeo import gdal
+from pandas import DataFrame
+
+from pyramids.base._domain import inside_domain, is_no_data
+from pyramids.base._errors import AlignmentError, OutOfBoundsError, ReadOnlyError
+from pyramids.base._utils import gdal_to_numpy_dtype, require_cleopatra
+from pyramids.dataset._mask import MaskFlags
+from pyramids.dataset._plot_helpers import (
+    ModeSpec,
+    RenderRequest,
+    RgbSpec,
+    render_array,
+)
+from pyramids.dataset.window import Window
+from pyramids.feature import FeatureCollection
+
+if TYPE_CHECKING:
+    from cleopatra.basemap.geo import Basemap
+    from cleopatra.glyphs.gridded.array_glyph import ArrayGlyph
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
+
+    from pyramids.dataset.dataset import Dataset
+
+from pyramids.base.crs import crs_spec
+from pyramids.base.georeference import GeoReference
+from pyramids.dataset.engines._base import _Engine
+from pyramids.dataset.engines._validate import (
+    resolve_band_indices,
+    validate_band_index,
+)
+
+# A windowed point-sample read is worth it while the points' bounding box stays
+# under this many pixels, or within this multiple of the point count -- beyond
+# that the pixels read but discarded cost more than the per-point GDAL calls.
+_POINT_WINDOW_MIN_PIXELS = 4096
+_POINT_WINDOW_MAX_WASTE = 16
+# The waste ratio alone bounds nothing absolute: ten million clustered points
+# would authorise a 160-megapixel read (~1.3 GB at float64). This caps the block
+# at roughly 64 MB of float64 regardless of how many points asked for it; past
+# it, the per-point reads are the cheaper failure mode.
+_POINT_WINDOW_MAX_PIXELS = 8_000_000
+
+
+@dataclass(frozen=True)
+class _PointWindow:
+    """One windowed read covering a batch of in-bounds sample points."""
+
+    x_off: int
+    y_off: int
+    x_size: int
+    y_size: int
+    strip_rows: int
+    in_rows: np.ndarray
+    in_cols: np.ndarray
+
+
+def _point_sample_fill(gdal_band: gdal.Band) -> tuple[Any, np.dtype]:
+    """Value and dtype for cells a point sample does not reach.
+
+    An integer band with no no-data value has no in-range sentinel to spare, so
+    the output is promoted to float and the gaps filled with `NaN`.
+
+    Args:
+        gdal_band: The band being sampled.
+
+    Returns:
+        tuple[Any, numpy.dtype]: The fill value and the output dtype.
+    """
+    no_data_value = gdal_band.GetNoDataValue()
+    band_dtype = np.dtype(gdal_to_numpy_dtype(gdal_band.DataType))
+    if no_data_value is None:
+        out_dtype = (
+            band_dtype
+            if np.issubdtype(band_dtype, np.floating)
+            else np.dtype("float64")
+        )
+        return np.nan, out_dtype
+    return no_data_value, band_dtype
+
+
+class Analysis(_Engine["Dataset"]):
+    """Mixin providing analysis, statistics, and data extraction operations for Dataset."""
+
+    def stats(
+        self,
+        band: int | None = None,
+        mask: GeoDataFrame | None = None,
+        *,
+        approx_ok: bool = True,
+    ) -> DataFrame:
+        """Get statistics of a band [Min, max, mean, std].
+
+        Args:
+            band (int, optional):
+                Band index. If None, the statistics of all bands will be returned.
+            mask (Polygon GeoDataFrame or Dataset, optional):
+                GeodataFrame with a geometry of polygon type.
+            approx_ok (bool, optional):
+                Allow GDAL to answer from overviews or a subsample rather than
+                reading every pixel. Default `True`, which is fast but can return
+                values that differ from the exact ones -- pass `False` when the
+                figures must be exact.
+
+        Returns:
+            DataFrame:
+                DataFrame wit the stats of each band, the dataframe has the following columns
+                [min, max, mean, std], the index of the dataframe is the band names.
+
+                ```text
+
+                                   Min         max        mean       std
+                    Band_1  270.369720  270.762299  270.551361  0.154270
+                    Band_2  269.611938  269.744751  269.673645  0.043788
+                    Band_3  273.641479  274.168823  273.953979  0.198447
+                    Band_4  273.991516  274.540344  274.310669  0.205754
+                ```
+
+        Raises:
+            ValueError: The `mask` does not overlap the dataset, or `band` is
+                outside the band range.
+            RuntimeError: GDAL could not compute statistics for a band -- most
+                often a band with no valid pixels at all.
+
+        Notes:
+            - The value of the stats will be stored in an xml file by the name of the raster file with the extension of
+              .aux.xml.
+            - The content of the file will be like the following:
+
+              ```xml
+
+                  <PAMDataset>
+                    <PAMRasterBand band="1">
+                      <Description>Band_1</Description>
+                      <Metadata>
+                        <MDI key="RepresentationType">ATHEMATIC</MDI>
+                        <MDI key="STATISTICS_MAXIMUM">88</MDI>
+                        <MDI key="STATISTICS_MEAN">7.9662921348315</MDI>
+                        <MDI key="STATISTICS_MINIMUM">0</MDI>
+                        <MDI key="STATISTICS_STDDEV">18.294377743948</MDI>
+                        <MDI key="STATISTICS_VALID_PERCENT">48.9</MDI>
+                      </Metadata>
+                    </PAMRasterBand>
+                  </PAMDataset>
+
+              ```
+
+        Examples:
+            - Get the statistics of all bands in the dataset:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> arr = np.random.rand(4, 10, 10)
+              >>> geotransform = (0, 0.05, 0, 0, 0, -0.05)
+              >>> dataset = Dataset.from_array(arr, geo_ref=GeoReference(geo=geotransform, epsg=4326))
+              >>> print(dataset.stats()) # doctest: +SKIP
+                           min       max      mean       std
+              Band_1  0.006443  0.942943  0.468935  0.266634
+              Band_2  0.020377  0.978130  0.477189  0.306864
+              Band_3  0.019652  0.992184  0.537215  0.286502
+              Band_4  0.011955  0.984313  0.503616  0.295852
+              >>> print(dataset.stats(band=1))  # doctest: +SKIP
+                           min      max      mean       std
+              Band_2  0.020377  0.97813  0.477189  0.306864
+
+              ```
+
+            - Get the statistics of all the bands using a mask polygon.
+
+              - Create the polygon using shapely polygon, and use the xmin, ymin, xmax, ymax = [0.1, -0.2,
+                0.2 -0.1] to cover the 4 cells.
+              ```python
+              >>> from shapely.geometry import Polygon
+              >>> import geopandas as gpd
+              >>> mask = gpd.GeoDataFrame(geometry=[Polygon([(0.1, -0.1), (0.1, -0.2), (0.2, -0.2), (0.2, -0.1)])],crs=4326)
+              >>> print(dataset.stats(mask=mask))  # doctest: +SKIP
+                           min       max      mean       std
+              Band_1  0.193441  0.702108  0.541478  0.202932
+              Band_2  0.281281  0.932573  0.665602  0.239410
+              Band_3  0.031395  0.982235  0.493086  0.377608
+              Band_4  0.079562  0.930965  0.591025  0.341578
+
+              ```
+
+        """
+        # Ahead of the band_names lookup below, which would otherwise surface a
+        # bare IndexError where every other band-taking entry point raises a
+        # ValueError naming the range.
+        validate_band_index(band, self._ds.band_count)
+        dst: Dataset | None = None
+        if mask is not None:
+            dst = self._ds.crop(mask, touch=True)
+
+        if band is None:
+            df = pd.DataFrame(
+                index=self._ds.band_names,
+                columns=["min", "max", "mean", "std"],
+                dtype=np.float32,
+            )
+            for i in range(self._ds.band_count):
+                if mask is not None and dst is not None:
+                    df.iloc[i, :] = dst.analysis._get_stats(i, approx_ok=approx_ok)
+                else:
+                    df.iloc[i, :] = self._get_stats(i, approx_ok=approx_ok)
+        else:
+            df = pd.DataFrame(
+                index=[self._ds.band_names[band]],
+                columns=["min", "max", "mean", "std"],
+                dtype=np.float32,
+            )
+            if mask is not None and dst is not None:
+                df.iloc[0, :] = dst.analysis._get_stats(band, approx_ok=approx_ok)
+            else:
+                df.iloc[0, :] = self._get_stats(band, approx_ok=approx_ok)
+
+        return df
+
+    def _get_stats(
+        self, band: int | None = None, *, approx_ok: bool = True
+    ) -> list[float]:
+        """Return summary statistics for one band.
+
+        Reads GDAL band statistics, computing them on the fly when the cached values are
+        absent or empty.
+
+        Args:
+            band (int | None):
+                Zero-based band index. Defaults to the first band (0) when None.
+            approx_ok (bool):
+                Let GDAL answer from overviews or a subsample rather than
+                scanning every cell. Default `True`, the historical behaviour.
+                Ignored by the recovery path below, which is always exact.
+
+        Returns:
+            list[float]: The ``[minimum, maximum, mean, standard_deviation]`` values.
+        """
+        band_index = band if band is not None else 0
+        band_i = self._ds._iloc(band_index)
+        try:
+            # First argument is GDAL's `approx_ok`: True lets it answer from
+            # overviews or a subsample. It was hard-coded, so `stats()` could
+            # silently return approximated figures with no way to ask for exact
+            # ones; it is now the caller's choice, defaulting to the old
+            # behaviour.
+            vals = band_i.GetStatistics(approx_ok, True)
+        except RuntimeError:
+            # when the GetStatistics gives an error "RuntimeError: Failed to compute statistics, no valid pixels
+            # found in sampling."
+            vals = [0]
+
+        if sum(vals) == 0:
+            warnings.warn(
+                f"Band {band} has no statistics, and the statistics are going to be calculate"
+            )
+            # Deliberately exact, even when the caller asked for approximate.
+            # This branch is only reached because the approximate route already
+            # failed or returned nothing usable, so repeating it either raises
+            # the same error or answers from the same overviews -- on a sparse
+            # band those give min == max and a zero deviation where the full
+            # scan gives the real spread. The full scan is the recovery.
+            vals = band_i.ComputeStatistics(False)
+
+        return list(vals)
+
+    def count_domain_cells(self, band: int = 0) -> int:
+        """Count cells inside the domain.
+
+        Args:
+            band (int):
+                Band index. Default is 0.
+
+        Returns:
+            int:
+                Number of cells.
+        """
+        no_data_value = self._ds.no_data_value[band]
+
+        # Count the no-data cells directly rather than counting the *non-zero* values
+        # among them. `count_nonzero(arr[mask])` asks "how many no-data cells hold a
+        # non-zero value", which equals the no-data count only while the sentinel
+        # happens to be non-zero; with `no_data_value == 0` it is always 0, so nothing
+        # was subtracted and every cell counted as domain.
+        def _count(acc: int, strip: np.ndarray, _window: list[int]) -> int:
+            return acc + int(is_no_data(strip, no_data_value).sum())
+
+        # Stream the count in row strips so a very large or /vsicurl source is never
+        # read whole (#967). A summed count is order-independent, so the tiled total
+        # is byte-identical to the whole-band count.
+        no_data_count = self._ds.io.stream_reduce(_count, 0, band=band)
+        domain_count = self._ds.rows * self._ds.columns - no_data_count
+        return int(domain_count)
+
+    def apply(
+        self,
+        func,
+        band: int = 0,
+        inplace: bool = False,
+        *,
+        elementwise: bool = False,
+    ) -> Dataset | None:
+        """Apply a function to all domain cells.
+
+        - apply method executes a mathematical operation on the raster array.
+        - The function is applied to all domain cells at once using vectorized NumPy operations.
+
+        Args:
+            func (function):
+                Defined function that takes one input (the cell value).
+            band (int):
+                Band number.
+            inplace (bool):
+                If True, the original dataset will be modified. If False, a new dataset will be created.
+                Default is False.
+            elementwise (bool):
+                Opt-in streaming mode. When `True`, `func` is applied one tile at
+                a time instead of to the whole band at once, so a very large or
+                `/vsicurl` source is never materialised whole. Only pass `True`
+                when `func` is a genuine **per-pixel** map (e.g. `np.abs`,
+                `lambda v: v * 2 + 1`): the tiled result is then byte-identical to
+                the default whole-array pass. A `func` that depends on the whole
+                array -- a min/max normalisation, a rank, any global reduction --
+                would give a different result tiled, so it must keep the default
+                `False`. Default `False` (whole-array, unchanged behaviour).
+
+        Returns:
+            Dataset | None:
+                A new Dataset with the function applied, or ``None`` when
+                ``inplace=True`` -- the :meth:`Dataset.apply` facade
+                substitutes the real ``self`` in that case (this collaborator
+                only holds a ``weakref.proxy`` back-reference, so it cannot
+                satisfy an ``is`` identity check itself).
+
+        Examples:
+            - Create a dataset from an array filled with values between -1 and 1:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> arr = np.random.uniform(-1, 1, size=(5, 5))
+              >>> top_left_corner = (0, 0)
+              >>> cell_size = 0.05
+              >>> dataset = Dataset.from_array(
+              ...     arr,
+              ...     geo_ref=GeoReference(top_left_corner=top_left_corner, cell_size=cell_size, epsg=4326),
+              ... )
+              >>> print(dataset.read_array()) # doctest: +SKIP
+              [[ 0.94997539 -0.80083622 -0.30948769 -0.77439961 -0.83836424]
+               [-0.36810158 -0.23979251  0.88051216 -0.46882913  0.64511056]
+               [ 0.50585374 -0.46905902  0.67856589  0.2779605   0.05589759]
+               [ 0.63382852 -0.49259597  0.18471423 -0.49308984 -0.52840286]
+               [-0.34076174 -0.53073014 -0.18485789 -0.40033474 -0.38962938]]
+
+              ```
+
+            - Apply the absolute function to the dataset:
+
+              ```python
+              >>> abs_dataset = dataset.apply(np.abs)
+              >>> print(abs_dataset.read_array()) # doctest: +SKIP
+              [[0.94997539 0.80083622 0.30948769 0.77439961 0.83836424]
+               [0.36810158 0.23979251 0.88051216 0.46882913 0.64511056]
+               [0.50585374 0.46905902 0.67856589 0.2779605  0.05589759]
+               [0.63382852 0.49259597 0.18471423 0.49308984 0.52840286]
+               [0.34076174 0.53073014 0.18485789 0.40033474 0.38962938]]
+
+              ```
+        """
+        if not callable(func):
+            raise TypeError("The second argument should be a function")
+
+        no_data_value = self._ds.no_data_value[band]
+        dtype = self._ds.gdal_dtype[band]
+
+        dst_obj = self._ds.__class__._build_dataset(
+            self._ds.columns,
+            self._ds.rows,
+            1,
+            dtype,
+            self._ds.geotransform,
+            self._ds.crs,
+            no_data_value,
+        )
+        if elementwise:
+            self._apply_elementwise_tiled(func, band, no_data_value, dst_obj)
+        else:
+            # `band=` as a keyword, never positional: NetCDF.read_array puts
+            # `variable` first, so read_array(band) mis-binds on a variable view.
+            src_array = self._ds.read_array(band=band)
+            new_array = np.full(
+                (self._ds.rows, self._ds.columns),
+                no_data_value,
+                dtype=src_array.dtype,
+            )
+            self._apply_func_to_domain(func, src_array, new_array, no_data_value)
+            dst_obj.raster.GetRasterBand(1).WriteArray(new_array)
+
+        if inplace:
+            self._ds._update_inplace(dst_obj.raster)
+            return None
+        return dst_obj
+
+    @staticmethod
+    def _apply_func_to_domain(func, src_array, out_array, no_data_value) -> None:
+        """Apply `func` to the domain (non-no-data) cells of `src_array` into `out_array`.
+
+        Args:
+            func: The per-domain-values callable to apply.
+            src_array: The source array supplying the domain values.
+            out_array: The pre-filled output array written in place.
+            no_data_value: The value marking cells to exclude from the domain.
+        """
+        domain_mask = inside_domain(src_array, no_data_value)
+        domain_values = src_array[domain_mask]
+        # An empty domain (an all-no-data tile, common when streaming) needs no
+        # write -- out_array is already the no-data fill -- and short-circuiting
+        # here avoids `np.vectorize(func)` raising "cannot call 'vectorize' on
+        # size 0 inputs" on a fully-masked tile, keeping the tiled path
+        # byte-identical to the whole-array pass (#969).
+        if domain_values.size == 0:
+            return
+        try:
+            out_array[domain_mask] = func(domain_values)
+        except (ValueError, TypeError):
+            out_array[domain_mask] = np.vectorize(func)(domain_values)
+
+    def _apply_elementwise_tiled(self, func, band, no_data_value, dst_obj) -> None:
+        """Apply an elementwise `func` over one band tile by tile, out of core.
+
+        Reads the band a square window at a time, applies `func` to that tile's
+        domain values, and writes the block straight into `dst_obj`, so the full
+        band is never materialised. For a per-pixel `func` the result is
+        byte-identical to the whole-array path (#969).
+
+        Args:
+            func: The per-pixel callable to apply to each tile's domain values.
+            band: Zero-based index of the source band to transform.
+            no_data_value: The source no-data value, preserved in excluded cells.
+            dst_obj: The single-band destination Dataset written in place.
+        """
+        dst_band = dst_obj.raster.GetRasterBand(1)
+        for xoff, yoff, xsize, ysize in self._ds.io._tile_offsets():
+            tile = self._ds.read_array(band=band, window=[xoff, yoff, xsize, ysize])
+            new_tile = np.full(tile.shape, no_data_value, dtype=tile.dtype)
+            self._apply_func_to_domain(func, tile, new_tile, no_data_value)
+            dst_band.WriteArray(new_tile, xoff, yoff)
+
+    def fill(
+        self, value: float | int, inplace: bool = False, path: str | Path | None = None
+    ) -> Dataset | None:
+        """Fill the domain cells with a certain value.
+
+            Fill takes a raster and fills it with one value
+
+        Args:
+            value (float | int):
+                Numeric value to fill.
+            inplace (bool):
+                If True, the original dataset will be modified. If False, a new dataset will be created. Default is False.
+            path (str):
+                Path including the extension (.tif).
+
+        Returns:
+            Dataset | None:
+                A new Dataset with cells filled, or ``None`` when
+                ``inplace=True`` -- see :meth:`apply` for why.
+
+        Examples:
+            - Create a Dataset with 1 band, 5 rows, 5 columns, at the point lon/lat (0, 0):
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> arr = np.random.randint(1, 5, size=(5, 5))
+              >>> top_left_corner = (0, 0)
+              >>> cell_size = 0.05
+              >>> dataset = Dataset.from_array(
+              ...     arr,
+              ...     geo_ref=GeoReference(top_left_corner=top_left_corner, cell_size=cell_size, epsg=4326),
+              ... )
+              >>> print(dataset.read_array()) # doctest: +SKIP
+              [[1 1 3 1 2]
+               [2 2 2 1 2]
+               [2 2 3 1 3]
+               [3 4 3 3 4]
+               [4 4 2 1 1]]
+              >>> new_dataset = dataset.fill(10)
+              >>> print(new_dataset.read_array())
+              [[10 10 10 10 10]
+               [10 10 10 10 10]
+               [10 10 10 10 10]
+               [10 10 10 10 10]
+               [10 10 10 10 10]]
+
+              ```
+        """
+        no_data_value = self._ds.no_data_value[0]
+
+        def _fill_tile(tile: np.ndarray) -> np.ndarray:
+            # rtol=1e-6 is intentionally tighter than the package default (1e-3):
+            # `fill` writes user-supplied values into every domain cell, so a
+            # too-loose match would clobber legitimate cells that happen to lie
+            # within ~0.1% of the no-data sentinel.
+            tile[inside_domain(tile, no_data_value, rtol=0.000001)] = value
+            return tile
+
+        # Stream the fill tile-by-tile so a very large or /vsicurl source is never
+        # read whole (#967). The domain mask is per-pixel, so tiling is byte-identical.
+        dst = self._ds.io.stream_transform(_fill_tile, path=path)
+        if inplace:
+            self._ds._update_inplace(dst.raster)
+            return None
+        return dst
+
+    def _extract_streamed(
+        self, band: int | None, exclude_list: list
+    ) -> np.typing.NDArray:
+        """Stream the maskless `extract` in full-width row strips (see `extract`).
+
+        `get_pixels2` selects from band 0 in row-major order within each strip;
+        full-width top-to-bottom strips keep that order across the raster, so
+        concatenating the strips reproduces the whole-array selection exactly (#967).
+
+        Args:
+            band (int, optional):
+                Band to read, or `None` for all bands.
+            exclude_list (list):
+                Values to exclude (no-data, and `exclude_value` when given).
+
+        Returns:
+            np.ndarray:
+                The extracted values, byte-identical to the eager whole-array pass.
+        """
+
+        def _collect(
+            acc: list[np.ndarray], strip: np.ndarray, _window: list[int]
+        ) -> list[np.ndarray]:
+            acc.append(get_pixels2(strip, exclude_list))
+            return acc
+
+        parts = [
+            part
+            for part in self._ds.io.stream_reduce(_collect, [], band=band)
+            if part.size
+        ]
+        multiband = band is None and self._ds.band_count > 1
+        if parts:
+            return np.concatenate(parts, axis=1 if multiband else 0)
+        return np.asarray([])
+
+    def extract(
+        self,
+        band: int | None = None,
+        exclude_value: Any | None = None,
+        mask: FeatureCollection | GeoDataFrame | None = None,
+    ) -> np.typing.NDArray:
+        """Extract.
+
+        - Extract method gets all the values in a raster, and excludes the values in the exclude_value parameter.
+        - If the mask parameter is given, the raster will be clipped to the extent of the given mask and the
+          values within the mask are extracted.
+
+        Args:
+            band (int, optional):
+                Band index. Default is None.
+            exclude_value (Numeric, optional):
+                Values to exclude from extracted values. If the dataset is multi-band, the values in `exclude_value`
+                will be filtered out from the first band only.
+            mask (FeatureCollection | GeoDataFrame, optional):
+                Vector data containing point geometries at which to extract the values. Default is None.
+
+        Returns:
+            np.ndarray:
+                The extracted values from each band in the dataset will be in one row in the returned array.
+
+        Examples:
+            - Extract all values from the dataset:
+
+              - First, create a dataset with 2 bands, 4 rows and 4 columns:
+
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> arr = np.random.randint(1, 5, size=(2, 4, 4))
+                >>> top_left_corner = (0, 0)
+                >>> cell_size = 0.05
+                >>> dataset = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=top_left_corner, cell_size=cell_size, epsg=4326),
+                ... )
+                >>> (dataset.band_count, dataset.rows, dataset.columns)
+                (2, 4, 4)
+                >>> dataset.band_names
+                ['Band_1', 'Band_2']
+                >>> print(dataset.read_array()) # doctest: +SKIP
+                [[[1 3 3 4]
+                  [1 4 2 4]
+                  [2 4 2 1]
+                  [1 3 2 3]]
+                 [[3 2 1 3]
+                  [4 3 2 2]
+                  [2 2 3 4]
+                  [1 4 1 4]]]
+
+                ```
+
+              - Now, extract the values in the dataset:
+
+                ```python
+                >>> values = dataset.extract()
+                >>> print(values) # doctest: +SKIP
+                [[1 3 3 4 1 4 2 4 2 4 2 1 1 3 2 3]
+                 [3 2 1 3 4 3 2 2 2 2 3 4 1 4 1 4]]
+
+                ```
+
+              - Extract all the values except 2:
+
+                ```python
+                >>> values = dataset.extract(exclude_value=2)
+                >>> print(values) # doctest: +SKIP
+
+                ```
+
+            - Extract values at the location of the given point geometries:
+
+              ```python
+              >>> import geopandas as gpd
+              >>> from shapely.geometry import Point
+
+              ```
+
+              - Create the points using shapely and GeoPandas to cover the 4 cells with xmin, ymin, xmax, ymax = [0.1, -0.2, 0.2, -0.1]:
+
+                ```python
+                >>> points = gpd.GeoDataFrame(geometry=[Point(0.1, -0.1), Point(0.1, -0.2), Point(0.2, -0.2), Point(0.2, -0.1)],crs=4326)
+                >>> values = dataset.extract(mask=points)
+                >>> print(values) # doctest: +SKIP
+                [[4 3 3 4]
+                 [3 4 4 2]]
+
+                ```
+        """
+        no_data_value = (
+            self._ds.no_data_value[0]
+            if self._ds.no_data_value[0] is not None
+            else np.nan
+        )
+        if mask is None:
+            exclude_list = (
+                [no_data_value, exclude_value]
+                if exclude_value is not None
+                else [no_data_value]
+            )
+            values = self._extract_streamed(band, exclude_list)
+        else:
+            arr = self._ds.read_array(band=band)
+            geom_types = set(getattr(mask, "geom_type", []))
+            # map(str, ...) — missing geometries yield float nan, which is not
+            # orderable against the str type names.
+            if geom_types - {"Point"}:
+                raise ValueError(
+                    "extract(mask=...) expects Point geometries — one value is read "
+                    f"per point; got {sorted(map(str, geom_types))}. For polygon "
+                    "zones use Dataset.zonal_stats(); to clip a raster use "
+                    "Dataset.crop(); explode MultiPoint masks into single points "
+                    "first."
+                )
+            indices = self._ds.map_to_array_coordinates(mask)
+            if arr.ndim > 2:
+                values = arr[:, indices[:, 0], indices[:, 1]]
+            else:
+                values = arr[indices[:, 0], indices[:, 1]]
+
+        return np.asarray(values)
+
+    def _points_to_xy(
+        self, points: FeatureCollection | GeoDataFrame | DataFrame
+    ) -> np.typing.NDArray:
+        """Extract an ``(N, 2)`` float array of ``(x, y)`` coordinates from points.
+
+        Args:
+            points: A point :class:`~pyramids.feature.FeatureCollection` /
+                :class:`~geopandas.GeoDataFrame`, or a :class:`~pandas.DataFrame`
+                carrying ``x`` and ``y`` columns.
+
+        Returns:
+            np.ndarray: Coordinates with shape ``(N, 2)`` as ``float``.
+
+        Raises:
+            ValueError: A ``DataFrame`` lacking ``x``/``y`` columns.
+            TypeError: ``points`` is not a supported type.
+        """
+        if isinstance(points, FeatureCollection):
+            verts = points.with_coordinates()
+            return cast(
+                np.typing.NDArray, verts.loc[:, ["x", "y"]].to_numpy(dtype=float)
+            )
+        if isinstance(points, GeoDataFrame):
+            verts = FeatureCollection(points).with_coordinates()
+            return cast(
+                np.typing.NDArray, verts.loc[:, ["x", "y"]].to_numpy(dtype=float)
+            )
+        if isinstance(points, DataFrame):
+            if not all(col in points.columns for col in ("x", "y")):
+                raise ValueError(
+                    "If the input is a DataFrame, it must have 'x' and 'y' columns."
+                )
+            return cast(
+                np.typing.NDArray, points.loc[:, ["x", "y"]].to_numpy(dtype=float)
+            )
+        raise TypeError(
+            "points must be a FeatureCollection, GeoDataFrame, or DataFrame with "
+            f"x/y columns - given {type(points)}."
+        )
+
+    def sample(
+        self,
+        points: FeatureCollection | GeoDataFrame | DataFrame,
+        *,
+        bands: int | list[int] | None = None,
+        masked: bool = False,
+        on_out_of_bounds: str = "nodata",
+    ) -> np.typing.NDArray:
+        """Sample band values at point coordinates.
+
+        The memory- and out-of-bounds-safe counterpart to
+        :meth:`extract` with a point mask. Each point is mapped to its
+        containing pixel with a **vectorised inverse geotransform** (``O(1)`` per
+        point) and read with a **1x1 windowed read** — so a handful of points on
+        a multi-gigabyte raster touches only those pixels, never the whole array.
+        Points falling outside the raster are handled explicitly instead of being
+        silently snapped to the nearest edge cell.
+
+        Args:
+            points (FeatureCollection | GeoDataFrame | DataFrame):
+                Point locations to sample. A ``FeatureCollection`` /
+                ``GeoDataFrame`` with point geometry, or a ``DataFrame`` with
+                ``x`` and ``y`` columns. Coordinates must already be in the
+                raster's CRS (no reprojection is performed).
+            bands (int | list[int] | None):
+                Which band(s) to sample, zero-based. ``None`` (default) samples
+                every band and returns a ``(n_bands, n_points)`` array; a single
+                ``int`` returns a 1-D ``(n_points,)`` array; a list returns a
+                ``(len(bands), n_points)`` array in the requested order.
+            masked (bool):
+                When ``True`` return a :class:`numpy.ma.MaskedArray` with
+                out-of-bounds points masked. Defaults to ``False``.
+            on_out_of_bounds (str):
+                How to treat points outside the raster extent:
+
+                - ``"nodata"`` (default): fill with the band's no-data value
+                  (``NaN`` when the band has none).
+                - ``"raise"``: raise :class:`OutOfBoundsError`.
+                - ``"snap"``: clamp to the nearest edge pixel (the legacy
+                  :meth:`extract` behaviour).
+
+        Returns:
+            np.ndarray:
+                Sampled values, ordered to match ``points``. Shape is
+                ``(n_points,)`` for a single ``int`` band, otherwise
+                ``(n_bands, n_points)``. A :class:`numpy.ma.MaskedArray` when
+                ``masked=True``.
+
+        Raises:
+            ValueError: ``on_out_of_bounds`` is not one of the allowed values, or
+                ``bands`` references a band outside the raster.
+            OutOfBoundsError: ``on_out_of_bounds="raise"`` and a point lies
+                outside the raster extent.
+            TypeError: ``points`` is not a supported type.
+
+        Examples:
+            - Sample a 2-band raster at three points and read the per-band values:
+                ```python
+                >>> import numpy as np
+                >>> from geopandas import GeoDataFrame
+                >>> from shapely.geometry import Point
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> arr = np.arange(2 * 5 * 5, dtype="float32").reshape(2, 5, 5)
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 5), cell_size=1.0, epsg=4326),
+                ... )
+                >>> pts = GeoDataFrame(
+                ...     geometry=[Point(0.5, 4.5), Point(2.5, 2.5)], crs=4326
+                ... )
+                >>> ds.sample(pts).tolist()
+                [[0.0, 12.0], [25.0, 37.0]]
+
+                ```
+            - Sample a single band and get a flat array of values:
+                ```python
+                >>> import numpy as np
+                >>> from geopandas import GeoDataFrame
+                >>> from shapely.geometry import Point
+                >>> from pyramids.dataset import Dataset
+                >>> arr = np.arange(25, dtype="float32").reshape(1, 5, 5)
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 5), cell_size=1.0, epsg=4326),
+                ... )
+                >>> pts = GeoDataFrame(geometry=[Point(0.5, 4.5), Point(4.5, 0.5)], crs=4326)
+                >>> ds.sample(pts, bands=0).tolist()
+                [0.0, 24.0]
+
+                ```
+            - Points outside the extent become no-data instead of snapping:
+                ```python
+                >>> import numpy as np
+                >>> from geopandas import GeoDataFrame
+                >>> from shapely.geometry import Point
+                >>> from pyramids.dataset import Dataset
+                >>> arr = np.arange(25, dtype="float32").reshape(1, 5, 5)
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     no_data_value=-9999.0,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 5), cell_size=1.0, epsg=4326),
+                ... )
+                >>> pts = GeoDataFrame(geometry=[Point(2.5, 2.5), Point(100, 100)], crs=4326)
+                >>> ds.sample(pts, bands=0).tolist()
+                [12.0, -9999.0]
+
+                ```
+        """
+        if on_out_of_bounds not in ("nodata", "raise", "snap"):
+            raise ValueError(
+                "on_out_of_bounds must be one of 'nodata', 'raise', 'snap'; got "
+                f"{on_out_of_bounds!r}."
+            )
+
+        band_list, squeeze = self._resolve_sample_bands(bands, self._ds.band_count)
+
+        xy = self._points_to_xy(points)
+        n_points = xy.shape[0]
+
+        x0, dx, rxy, y0, ryx, dy = self._ds.geotransform
+        det = dx * dy - rxy * ryx
+        delta_x = xy[:, 0] - x0
+        delta_y = xy[:, 1] - y0
+        col = np.floor((dy * delta_x - rxy * delta_y) / det).astype(int)
+        row = np.floor((-ryx * delta_x + dx * delta_y) / det).astype(int)
+
+        n_rows, n_cols = self._ds.rows, self._ds.columns
+        out_of_bounds = (row < 0) | (row >= n_rows) | (col < 0) | (col >= n_cols)
+        if on_out_of_bounds == "raise" and out_of_bounds.any():
+            raise OutOfBoundsError(
+                f"{int(out_of_bounds.sum())} of {n_points} points fall outside the "
+                "raster extent."
+            )
+        if on_out_of_bounds == "snap":
+            row = np.clip(row, 0, n_rows - 1)
+            col = np.clip(col, 0, n_cols - 1)
+            out_of_bounds = np.zeros(n_points, dtype=bool)
+
+        in_bounds_idx = np.flatnonzero(~out_of_bounds)
+        rows_out = self._read_point_samples(
+            band_list, col, row, in_bounds_idx, n_points
+        )
+
+        stacked = np.vstack(rows_out) if rows_out else np.empty((0, n_points))
+        result: np.ndarray = stacked[0] if squeeze else stacked
+        if masked:
+            mask = (
+                out_of_bounds
+                if squeeze
+                else np.broadcast_to(out_of_bounds, result.shape)
+            )
+            result = np.ma.masked_array(result, mask=np.array(mask))
+        return result
+
+    @staticmethod
+    def _resolve_sample_bands(
+        bands: int | list[int] | None, band_count: int
+    ) -> tuple[list[int], bool]:
+        """Resolve the band list and squeeze flag for :meth:`sample`.
+
+        Args:
+            bands: ``None`` (all bands), a single ``int``, or a list of indices.
+            band_count: Number of bands in the dataset.
+
+        Returns:
+            ``(band_list, squeeze)`` — the resolved zero-based band indices and
+            whether a single-``int`` request should collapse the leading axis.
+
+        Raises:
+            ValueError: A requested band is outside ``[0, band_count)``.
+        """
+        return resolve_band_indices(bands, band_count)
+
+    def _read_point_samples(
+        self,
+        band_list: list[int],
+        col: np.ndarray,
+        row: np.ndarray,
+        in_bounds_idx: np.ndarray,
+        n_points: int,
+    ) -> list[np.ndarray]:
+        """Sample the in-bounds points from each band in ``band_list``.
+
+        Two strategies, chosen per call from how tightly the points cluster:
+
+        * **A windowed read** over their bounding box, then array indexing —
+          one GDAL call per band instead of one per point.
+        * **A 1x1 read per point**, kept for sparse or widely scattered points,
+          where the bounding box would pull in far more pixels than were asked
+          for.
+
+        The switch compares the bounding box area against the point count, so a
+        handful of scattered points never drags in a near-full-raster read while
+        a dense batch stops paying per-point GDAL overhead.
+
+        A window that clears that test but is large in absolute terms is read in
+        horizontal strips of at most ``_POINT_WINDOW_MAX_PIXELS`` rather than in
+        one block, so the peak allocation is bounded without falling back to
+        per-point reads. That fallback would be the wrong answer here by
+        construction: a batch big enough to trip an absolute ceiling is a dense
+        one, and dense is exactly the case per-point reads are slowest for.
+
+        Out-of-bounds points keep the fill value — the band's no-data value, or
+        ``NaN`` when it has none (which promotes an integer band to float).
+
+        Returns:
+            One ``(n_points,)`` array per band, in ``band_list`` order.
+        """
+        plan = self._plan_point_window(col, row, in_bounds_idx)
+        rows_out: list[np.ndarray] = []
+        for b in band_list:
+            gdal_band = self._ds.raster.GetRasterBand(b + 1)
+            fill, out_dtype = _point_sample_fill(gdal_band)
+            band_values = np.full(n_points, fill, dtype=out_dtype)
+            if plan is None:
+                self._sample_per_point(gdal_band, band_values, col, row, in_bounds_idx)
+            else:
+                self._sample_windowed(gdal_band, band_values, in_bounds_idx, plan)
+            rows_out.append(band_values)
+        return rows_out
+
+    @staticmethod
+    def _plan_point_window(
+        col: np.ndarray, row: np.ndarray, in_bounds_idx: np.ndarray
+    ) -> _PointWindow | None:
+        """Decide whether one windowed read beats a read per point.
+
+        Args:
+            col: Fractional column of every requested point.
+            row: Fractional row of every requested point.
+            in_bounds_idx: Indices of the points that fall inside the raster.
+
+        Returns:
+            _PointWindow | None: The window to read, or `None` when the points
+                are too sparse for one to pay off.
+        """
+        n_in_bounds = int(len(in_bounds_idx))
+        if n_in_bounds <= 1:
+            return None
+        in_cols = col[in_bounds_idx].astype(int)
+        in_rows = row[in_bounds_idx].astype(int)
+        x_off, y_off = int(in_cols.min()), int(in_rows.min())
+        x_size = int(in_cols.max()) - x_off + 1
+        y_size = int(in_rows.max()) - y_off + 1
+        # Worth reading as a window only while the box stays a small multiple of
+        # the points themselves; past that the wasted pixels cost more than the
+        # per-point calls they would save.
+        if x_size * y_size > max(
+            _POINT_WINDOW_MIN_PIXELS, n_in_bounds * _POINT_WINDOW_MAX_WASTE
+        ):
+            return None
+        # Rows per read, so a box that clears the ratio test but is large in
+        # absolute terms is still bounded. One strip covers the whole box in the
+        # common case, which is a single read exactly as before.
+        strip_rows = max(1, _POINT_WINDOW_MAX_PIXELS // max(x_size, 1))
+        return _PointWindow(
+            x_off=x_off,
+            y_off=y_off,
+            x_size=x_size,
+            y_size=y_size,
+            strip_rows=strip_rows,
+            in_rows=in_rows,
+            in_cols=in_cols,
+        )
+
+    @staticmethod
+    def _sample_windowed(
+        gdal_band: gdal.Band,
+        band_values: np.ndarray,
+        in_bounds_idx: np.ndarray,
+        plan: _PointWindow,
+    ) -> None:
+        """Fill `band_values` from strip reads over the planned window.
+
+        Args:
+            gdal_band: The band to read.
+            band_values: Output array, modified in place.
+            in_bounds_idx: Indices of the points that fall inside the raster.
+            plan: The window and strip height to read.
+        """
+        for strip_start in range(0, plan.y_size, plan.strip_rows):
+            strip_height = min(plan.strip_rows, plan.y_size - strip_start)
+            block = np.asarray(
+                gdal_band.ReadAsArray(
+                    plan.x_off, plan.y_off + strip_start, plan.x_size, strip_height
+                )
+            )
+            local_rows = plan.in_rows - plan.y_off - strip_start
+            in_strip = (local_rows >= 0) & (local_rows < strip_height)
+            if in_strip.any():
+                band_values[in_bounds_idx[in_strip]] = block[
+                    local_rows[in_strip], plan.in_cols[in_strip] - plan.x_off
+                ]
+
+    @staticmethod
+    def _sample_per_point(
+        gdal_band: gdal.Band,
+        band_values: np.ndarray,
+        col: np.ndarray,
+        row: np.ndarray,
+        in_bounds_idx: np.ndarray,
+    ) -> None:
+        """Fill `band_values` with one 1x1 read per point.
+
+        Args:
+            gdal_band: The band to read.
+            band_values: Output array, modified in place.
+            col: Fractional column of every requested point.
+            row: Fractional row of every requested point.
+            in_bounds_idx: Indices of the points that fall inside the raster.
+        """
+        for i in in_bounds_idx:
+            window = gdal_band.ReadAsArray(int(col[i]), int(row[i]), 1, 1)
+            band_values[i] = window[0, 0]
+
+    def sieve(
+        self,
+        threshold: int,
+        *,
+        band: int = 0,
+        connectedness: int = 4,
+        mask: Dataset | None = None,
+    ) -> Dataset:
+        """Remove small pixel clumps with ``gdal.SieveFilter``.
+
+        Raster polygons — connected groups of identical-value pixels — smaller
+        than ``threshold`` pixels are dissolved into their largest neighbour.
+        This is the standard clean-up for "salt-and-pepper" speckle in
+        classification rasters. Implemented natively via GDAL; returns a new
+        single-band :class:`~pyramids.dataset.Dataset`.
+
+        Args:
+            threshold (int):
+                Minimum polygon size to keep, in pixels. Clumps with fewer
+                pixels are merged away. Must be ``>= 1``.
+            band (int):
+                Zero-based index of the band to sieve. Defaults to ``0``.
+            connectedness (int):
+                Pixel connectivity used to define a clump: ``4`` (edge-adjacent,
+                the default) or ``8`` (edge- and diagonal-adjacent).
+            mask (Dataset | None):
+                Optional single-band mask. Pixels where the mask is zero are
+                excluded from sieving. ``None`` (default) uses the source band's
+                no-data mask.
+
+        Returns:
+            Dataset:
+                A new single-band dataset with small clumps removed, sharing the
+                source geotransform, CRS, and no-data value.
+
+        Raises:
+            ValueError: ``threshold < 1``, ``connectedness`` is not 4 or 8, or
+                ``band`` is out of range.
+
+        Examples:
+            - Remove an isolated speckle pixel from a classified raster:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> arr = np.ones((6, 6), dtype="int32")
+                >>> arr[0:3, 0:3] = 2      # a 9-pixel clump (kept)
+                >>> arr[5, 5] = 2          # a lone pixel (removed)
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 6), cell_size=1.0, epsg=4326),
+                ... )
+                >>> cleaned = ds.sieve(threshold=4).read_array()
+                >>> int(cleaned[5, 5])     # merged into the background
+                1
+                >>> int(cleaned[0, 0])     # large clump survives
+                2
+
+                ```
+            - 8-connectivity joins diagonal neighbours that 4-connectivity keeps
+              separate:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset
+                >>> arr = np.ones((5, 5), dtype="int32")
+                >>> arr[1, 1] = 2
+                >>> arr[2, 2] = 2          # touches (1,1) only diagonally
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 5), cell_size=1.0, epsg=4326),
+                ... )
+                >>> int(ds.sieve(threshold=2, connectedness=8).read_array()[1, 1])
+                2
+
+                ```
+        """
+        if threshold < 1:
+            raise ValueError(f"threshold must be >= 1, got {threshold}.")
+        if connectedness not in (4, 8):
+            raise ValueError(f"connectedness must be 4 or 8, got {connectedness}.")
+        validate_band_index(band, self._ds.band_count)
+
+        # Seed the sieve target with GDAL's block-based copy of the one band
+        # (geotransform, CRS, dtype, and no-data carried across in the C layer)
+        # instead of a full-band ``ReadAsArray`` -> ``WriteArray`` NumPy round
+        # trip, so the whole band is never materialised as a NumPy array (#969).
+        # gdal.Translate also carries the band's color table / RAT / scale-offset
+        # onto the result (the old bare-MEM seed dropped them); the sieved pixels
+        # are unchanged either way, so this only preserves more metadata.
+        out_ds = gdal.Translate("", self._ds.raster, format="MEM", bandList=[band + 1])
+        dst_band = out_ds.GetRasterBand(1)
+
+        mask_band = mask.raster.GetRasterBand(1) if mask is not None else None
+        gdal.SieveFilter(dst_band, mask_band, dst_band, threshold, connectedness)
+        dst_band.FlushCache()
+        return self._ds.__class__(out_ds, access="write")
+
+    def proximity(
+        self,
+        *,
+        band: int = 0,
+        target_values: list[int] | None = None,
+        distance_units: str = "GEO",
+        max_distance: float | None = None,
+        nodata: float | None = None,
+    ) -> Dataset:
+        """Compute per-pixel distance to the nearest target pixel (``gdal.ComputeProximity``).
+
+        The GDAL-native equivalent of ``gdal_proximity``: every output pixel
+        holds the Euclidean distance to the closest "target" pixel in the source
+        band. Targets are the pixels whose value is in ``target_values`` (or any
+        non-zero pixel when ``target_values`` is ``None``). Useful for
+        distance-to-coast, distance-to-river, buffer analyses, etc.
+
+        Args:
+            band (int):
+                Zero-based index of the source band. Defaults to ``0``.
+            target_values (list[int] | None):
+                Pixel values that count as targets. ``None`` (default) treats
+                every non-zero pixel as a target.
+            distance_units (str):
+                ``"GEO"`` (default) measures distance in the CRS's georeferenced
+                units; ``"PIXEL"`` measures it in pixels.
+            max_distance (float | None):
+                Stop searching beyond this distance. Pixels farther than this get
+                ``nodata`` when given, otherwise ``max_distance``. ``None``
+                (default) searches the whole raster.
+            nodata (float | None):
+                Value written to the output band's no-data slot and used to fill
+                pixels beyond ``max_distance``. ``None`` (default) sets no
+                no-data value.
+
+        Returns:
+            Dataset:
+                A new single-band ``Float32`` dataset of distances, sharing the
+                source geotransform and CRS.
+
+        Raises:
+            ValueError: ``distance_units`` is not ``"GEO"``/``"PIXEL"``,
+                ``band`` is out of range, or ``max_distance`` is negative.
+
+        Examples:
+            - Distance (in pixels) from every cell to a single target pixel:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> arr = np.zeros((5, 5), dtype="int32")
+                >>> arr[2, 2] = 1
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 5), cell_size=1.0, epsg=4326),
+                ... )
+                >>> dist = ds.proximity(distance_units="PIXEL").read_array()
+                >>> float(dist[2, 2])      # the target itself
+                0.0
+                >>> float(dist[2, 0])      # two cells to the left
+                2.0
+
+                ```
+            - GEO units scale distances by the cell size:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset
+                >>> arr = np.zeros((5, 5), dtype="int32")
+                >>> arr[2, 2] = 1
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 10), cell_size=2.0, epsg=4326),
+                ... )
+                >>> dist = ds.proximity(distance_units="GEO").read_array()
+                >>> float(dist[2, 0])      # two cells x 2.0 units
+                4.0
+
+                ```
+        """
+        if distance_units not in ("GEO", "PIXEL"):
+            raise ValueError(
+                f"distance_units must be 'GEO' or 'PIXEL', got {distance_units!r}."
+            )
+        validate_band_index(band, self._ds.band_count)
+        if max_distance is not None and max_distance < 0:
+            raise ValueError(f"max_distance must be >= 0, got {max_distance}.")
+
+        src_band = self._ds.raster.GetRasterBand(band + 1)
+        out_ds = gdal.GetDriverByName("MEM").Create(
+            "", self._ds.columns, self._ds.rows, 1, gdal.GDT_Float32
+        )
+        out_ds.SetGeoTransform(self._ds.geotransform)
+        out_ds.SetProjection(self._ds.crs)
+        prox_band = out_ds.GetRasterBand(1)
+
+        options = [f"DISTUNITS={distance_units}"]
+        if target_values is not None:
+            options.append("VALUES=" + ",".join(str(v) for v in target_values))
+        if max_distance is not None:
+            options.append(f"MAXDIST={max_distance}")
+        if nodata is not None:
+            options.append(f"NODATA={nodata}")
+            prox_band.SetNoDataValue(float(nodata))
+
+        gdal.ComputeProximity(src_band, prox_band, options=options)
+        prox_band.FlushCache()
+        return self._ds.__class__(out_ds, access="write")
+
+    def overlay(
+        self,
+        classes_map,
+        band: int = 0,
+        exclude_value: float | int | None = None,
+    ) -> dict[float, list[float]]:
+        """Overlay.
+
+        Overlay method extracts all the values in the dataset for each class in the given class map.
+
+        Args:
+            classes_map (Dataset):
+                Dataset object for the raster that has classes you want to overlay with the raster.
+            band (int):
+                If the raster is multi-band, choose the band you want to overlay with the classes map. Default is 0.
+            exclude_value (Numeric, optional):
+                Values you want to exclude from extracted values. Default is None.
+
+        Returns:
+            Dict:
+                Dictionary with class values as keys (from the class map), and for each key a list of all the intersected
+                values in the base map.
+
+        Examples:
+            - Build a small value raster and an aligned class raster in memory:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> values = np.array([[10.0, 20.0], [30.0, 40.0]], dtype="float32")
+              >>> dataset = Dataset.from_array(
+              ...     values,
+              ...     geo_ref=GeoReference(top_left_corner=(0, 2), cell_size=1.0, epsg=4326),
+              ... )
+              >>> class_map = np.array([[1, 1], [2, 2]], dtype="int32")
+              >>> classes = Dataset.from_array(
+              ...     class_map,
+              ...     geo_ref=GeoReference(top_left_corner=(0, 2), cell_size=1.0, epsg=4326),
+              ... )
+
+              ```
+
+            - Overlay the value raster with the class raster. The result maps each
+              class to the list of values that fall inside it:
+
+              ```python
+              >>> overlaid = dataset.overlay(classes)
+              >>> sorted(int(key) for key in overlaid)
+              [1, 2]
+
+              ```
+
+            - Use a class key to read the values that overlay that class:
+
+              ```python
+              >>> [float(value) for value in sorted(overlaid[1], key=float)]
+              [10.0, 20.0]
+              >>> [float(value) for value in sorted(overlaid[2], key=float)]
+              [30.0, 40.0]
+
+              ```
+        """
+        if not self._ds.spatial._check_alignment(classes_map):
+            raise AlignmentError(
+                "The class Dataset is not aligned with the current raster, please use the method "
+                "'align' to align both rasters."
+            )
+        no_data_value = (
+            self._ds.no_data_value[0]
+            if self._ds.no_data_value[0] is not None
+            else np.nan
+        )
+        mask = (
+            [no_data_value, exclude_value]
+            if exclude_value is not None
+            else [no_data_value]
+        )
+
+        def _group(
+            acc: dict[Any, list[Any]], strip: np.ndarray, window: list[int]
+        ) -> dict[Any, list[Any]]:
+            # Read the aligned class strip over the same window; the rasters are
+            # aligned (checked above), so the windows index the same cells.
+            classes = classes_map.read_array(window=window)
+            for ind_i in get_indices2(strip, mask):
+                key = classes[ind_i[0], ind_i[1]]
+                if key not in acc:
+                    acc[key] = []
+                acc[key].append(strip[ind_i[0], ind_i[1]])
+            return acc
+
+        # Stream base + class rasters in row strips so neither is read whole (#967).
+        # Full-width top-to-bottom strips keep row-major order, so each class's value
+        # list is byte-identical to the whole-array pass.
+        values: dict[Any, list[Any]] = self._ds.io.stream_reduce(_group, {}, band=band)
+        return values
+
+    def get_mask(self, band: int = 0) -> np.typing.NDArray:
+        """Get the mask array.
+
+        Args:
+            band (int):
+                Band index. Default is 0.
+
+        Returns:
+            np.ndarray:
+                Array of the mask. 0 value for cells out of the domain, and 255 for cells in the domain.
+        """
+        arr = np.asarray(self._ds._iloc(band).GetMaskBand().ReadAsArray())
+        return arr
+
+    def mask_flags(self, band: int = 0) -> MaskFlags:
+        """Decode the GDAL mask flags of ``band`` into a :class:`MaskFlags`.
+
+        Tells you *why* a band is masked (or not): a fully-valid band, a shared
+        per-dataset mask, an alpha-band mask, or a no-data-derived mask.
+
+        Args:
+            band: Band index. Default 0.
+
+        Returns:
+            MaskFlags: the four decoded boolean flags.
+
+        Examples:
+            - A band with a no-data value reports ``nodata``:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> ds = Dataset.from_array(
+                ...     np.ones((4, 4), "float32"),
+                ...     no_data_value=-9999.0,
+                ...     geo_ref=GeoReference(top_left_corner=(0.0, 4.0), cell_size=1.0),
+                ... )
+                >>> ds.mask_flags().nodata
+                True
+
+                ```
+        """
+        flags = self._ds._iloc(band).GetMaskFlags()
+        return MaskFlags(
+            all_valid=bool(flags & gdal.GMF_ALL_VALID),
+            per_dataset=bool(flags & gdal.GMF_PER_DATASET),
+            alpha=bool(flags & gdal.GMF_ALPHA),
+            nodata=bool(flags & gdal.GMF_NODATA),
+        )
+
+    def read_masks(
+        self,
+        band: int | None = None,
+        *,
+        window: Window | None = None,
+    ) -> np.typing.NDArray:
+        """Read per-band mask arrays (``0`` invalid, ``255`` valid).
+
+        The companion to :meth:`Dataset.read_array(masked=True) <read_array>`:
+        instead of applying the mask, it returns the mask itself, so you can
+        inspect *which* pixels are masked.
+
+        Args:
+            band: Band index. ``None`` (default) returns every band's mask
+                stacked as ``(band_count, rows, cols)``; an index returns a
+                single ``(rows, cols)`` mask.
+            window: Optional :class:`Window` to read only a sub-block.
+
+        Returns:
+            numpy.ndarray: the mask array(s); ``0`` marks out-of-domain pixels
+            and ``255`` marks valid pixels.
+
+        Examples:
+            - The mask of a no-data raster is ``0`` exactly at the no-data cells:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> arr = np.array([[1.0, -9999.0, 3.0, 4.0]] * 4, dtype="float32")
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     no_data_value=-9999.0,
+                ...     geo_ref=GeoReference(top_left_corner=(0.0, 4.0), cell_size=1.0),
+                ... )
+                >>> mask = ds.read_masks(0)
+                >>> mask.shape
+                (4, 4)
+                >>> bool((mask[:, 1] == 0).all())
+                True
+
+                ```
+        """
+        if window is None:
+            read_args: tuple = ()
+        else:
+            clamped = window.crop(self._ds.rows, self._ds.columns)
+            if clamped is None:
+                raise OutOfBoundsError(
+                    f"window {window} lies entirely outside the raster "
+                    f"({self._ds.rows}x{self._ds.columns})."
+                )
+            read_args = clamped.to_read_args()
+        bands = [band] if band is not None else range(self._ds.band_count)
+        masks = [
+            np.asarray(self._ds._iloc(index).GetMaskBand().ReadAsArray(*read_args))
+            for index in bands
+        ]
+        result = masks[0] if band is not None else np.stack(masks)
+        return result
+
+    def create_mask_band(self, *, per_dataset: bool = True) -> None:
+        """Create a mask band on the dataset.
+
+        Args:
+            per_dataset: ``True`` (default) creates a single mask shared by every
+                band (``GMF_PER_DATASET``); ``False`` creates a per-band mask.
+
+        Raises:
+            ReadOnlyError: The dataset is opened read-only.
+
+        Examples:
+            - After creating a per-dataset mask, the flags report it:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> import tempfile, os
+                >>> path = os.path.join(tempfile.mkdtemp(), "m.tif")
+                >>> Dataset.from_array(
+                ...     np.ones((4, 4), "float32"),
+                ...     geo_ref=GeoReference(top_left_corner=(0.0, 4.0), cell_size=1.0),
+                ... ).to_file(path)
+                >>> ds = Dataset.read_file(path, read_only=False)
+                >>> ds.create_mask_band()
+                >>> ds.mask_flags().per_dataset
+                True
+
+                ```
+        """
+        if self._ds.access == "read_only":
+            raise ReadOnlyError(
+                "The Dataset is opened read-only. Please read the dataset using "
+                "read_only=False to create a mask band."
+            )
+        self._ds.raster.CreateMaskBand(gdal.GMF_PER_DATASET if per_dataset else 0)
+
+    def _warn_if_nodata_absent(self, arr: np.ndarray, no_data_val: Any) -> None:
+        """Warn when the band's nodata value does not actually appear in the data."""
+        if no_data_val is None:
+            if not np.isnan(arr).any():
+                self._ds.logger.warning(
+                    "The nodata value stored in the raster does not exist in the raster "
+                    "so either the raster extent is all full of data, or the no_data_value stored in the raster is"
+                    " not correct"
+                )
+        else:
+            if not np.isclose(arr, no_data_val, rtol=0.00001).any():
+                self._ds.logger.warning(
+                    "the nodata value stored in the raster does not exist in the raster "
+                    "so either the raster extent is all full of data, or the no_data_value stored in the raster is"
+                    " not correct"
+                )
+
+    @staticmethod
+    def _apply_exclude_values(
+        arr: np.ndarray, exclude_values: list[Any], no_data_val: Any
+    ) -> np.ndarray:
+        """Set cells matching any exclude value to nodata, promoting to float if needed."""
+        for val in exclude_values:
+            try:
+                # None nodata on an int array raises (None reads as float); promote.
+                arr[np.isclose(arr, val)] = no_data_val
+            except TypeError:
+                arr = arr.astype(np.float32)
+                arr[np.isclose(arr, val)] = no_data_val
+        return arr
+
+    @staticmethod
+    def _coverage_mask(arr: np.ndarray, no_data_val: Any) -> np.ndarray:
+        """Boolean mask of covered (non-nodata) cells; NaN and value fills both handled.
+
+        A NaN fill may be stored as None or a float nan (GDAL returns nan), and
+        ``np.isclose(x, nan)`` is always False, so both go through ``np.isnan``.
+        """
+        if no_data_val is None or (
+            isinstance(no_data_val, float) and np.isnan(no_data_val)
+        ):
+            valid = ~np.isnan(arr)
+        else:
+            valid = ~np.isclose(arr, no_data_val, rtol=0.00001)
+        return valid
+
+    def footprint(
+        self,
+        band: int = 0,
+        exclude_values: list[Any] | None = None,
+        *,
+        max_samples: int | None = None,
+    ) -> GeoDataFrame | None:
+        """Extract the real coverage of the values in a certain band.
+
+        Args:
+            band (int):
+                Band index. Default is 0.
+            exclude_values (List[Any] | None):
+                If you want to exclude a certain value in the raster with another value inter the two values as a
+                list of tuples a [(value_to_be_exclude_valuesd, new_value)].
+
+                - Example of exclude_values usage:
+
+                  ```python
+                  >>> exclude_values = [0]
+
+                  ```
+
+                - This parameter is introduced particularly in the case of rasters that has the no_data_value stored in
+                  the `no_data_value` property does not match the value stored in the band, so this option can correct
+                  this behavior.
+            max_samples (int, optional):
+                Opt-in cap on how many pixels of the band are read to build the
+                coverage mask. When set and the band has more than
+                ``max_samples`` cells, GDAL reads a nearest-neighbour
+                **decimated** grid (~``max_samples`` cells) instead of the full
+                band, so a very large raster is footprinted without materialising
+                it whole. The extracted polygon is then **approximate** -- traced
+                on the coarser grid, so its edges and area are coarser than the
+                exact footprint. ``None`` (default) reads every pixel, so the
+                footprint is exact.
+
+        Returns:
+            GeoDataFrame:
+                - geodataframe containing the polygon representing the extent of the raster. the extent column should
+                  contain a value of 2 only.
+                - if the dataset had separate polygons, each polygon will be in a separate row.
+
+        Examples:
+            - Build a raster whose non-flooded cells are ``0`` and whose flooded cells
+              carry a positive depth. Excluding the zero cells extracts the flood extent
+              as one polygon per connected region:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> arr = np.zeros((4, 4), dtype="float32")
+              >>> arr[1:3, 1:3] = 5.0    # a 2x2 block of flooded cells
+              >>> dataset = Dataset.from_array(
+              ...     arr,
+              ...     geo_ref=GeoReference(top_left_corner=(0, 4), cell_size=1.0, epsg=4326),
+              ... )
+
+              ```
+
+            - Extract the footprint of the flooded cells by excluding the zero-depth
+              cells. Covered cells are flagged with the value ``2``:
+
+              ```python
+              >>> extent = dataset.footprint(band=0, exclude_values=[0])
+              >>> extent.shape
+              (1, 2)
+              >>> list(extent.columns)
+              ['Band_1', 'geometry']
+              >>> float(extent["Band_1"].iloc[0])
+              2.0
+              >>> float(extent.geometry.iloc[0].area)
+              4.0
+              >>> extent.plot()  # doctest: +SKIP
+              <Axes: >
+
+              ```
+        """
+        arr = self._read_decimated(band, max_samples)
+        no_data_val = self._ds.no_data_value[band]
+        # A decimated read spans the same extent with fewer, larger cells, so the
+        # mask's geotransform must scale its pixel size (and rotation terms) to
+        # the coarser grid; the origin is unchanged. Full-resolution reads leave
+        # the geotransform untouched.
+        geotransform = self._scaled_geotransform(arr.shape)
+
+        self._warn_if_nodata_absent(arr, no_data_val)
+        if exclude_values:
+            arr = self._apply_exclude_values(arr, exclude_values, no_data_val)
+
+        # Build the coverage mask: covered cells -> 2, nodata cells -> 0.
+        valid = self._coverage_mask(arr, no_data_val)
+        if not valid.any():
+            self._ds.logger.warning("the raster is full of no_data_value")
+            return None
+        # _band_to_polygon polygonises the mask using the band as its own Polygonize
+        # mask, which drops mask==0 cells, so only the covered (2) cells are collected
+        # for any source nodata value. float32 keeps the mask lightweight.
+        arr = np.where(valid, 2, 0).astype(np.float32)
+        # The scratch mask must be a plain raster Dataset that exposes GetRasterBand for
+        # polygonisation. self._ds.from_array would build a bandless NetCDF
+        # container for a variable view, so call the base Dataset classmethod explicitly.
+        # Local import breaks the engines <-> Dataset import cycle.
+        from pyramids.dataset.dataset import Dataset
+
+        new_dataset = Dataset.from_array(
+            arr,
+            no_data_value=0,
+            geo_ref=GeoReference(
+                geo=geotransform, epsg=crs_spec(self._ds.epsg, self._ds.crs)
+            ),
+        )
+        # The mask is always single-band (the one extracted band flagged as 2 / nodata),
+        # so polygonise its first band regardless of the source band index.
+        gdf = new_dataset.to_polygons(band=0)
+        names = self._ds.band_names
+        col_name = names[band] if band < len(names) else f"Band_{band + 1}"
+        gdf.rename(columns={"Band_1": col_name}, inplace=True)
+
+        return gdf
+
+    @staticmethod
+    def normalize(array: np.ndarray) -> np.typing.NDArray:
+        """Normalize numpy arrays into scale 0.0-1.0.
+
+        Args:
+            array (np.ndarray): Numpy array to normalize.
+
+        Returns:
+            np.ndarray: Normalized array.
+        """
+        array_min = array.min()
+        array_max = array.max()
+        val = (array - array_min) / (array_max - array_min)
+        return np.asarray(val)
+
+    @staticmethod
+    def _rescale(
+        array: np.ndarray, min_value: float, max_value: float
+    ) -> np.typing.NDArray:
+        val = (array - min_value) / (max_value - min_value)
+        return val
+
+    def get_histogram(
+        self,
+        band: int = 0,
+        bins: int = 6,
+        min_value: float | None = None,
+        max_value: float | None = None,
+        include_out_of_range: bool = False,
+        approx_ok: bool = False,
+    ) -> tuple[list, list[tuple[Any, Any]]]:
+        """Get histogram.
+
+        Args:
+            band (int, optional):
+                Band index. Default is 1.
+            bins (int, optional):
+                Number of bins. Default is 6.
+            min_value (float, optional):
+                Minimum value. Default is None.
+            max_value (float, optional):
+                Maximum value. Default is None.
+            include_out_of_range (bool, optional):
+                If True, add out-of-range values into the first and last buckets. Default is False.
+            approx_ok (bool, optional):
+                If True, compute an approximate histogram by using subsampling or overviews. Default is False.
+
+        Returns:
+            tuple[list, list[tuple[Any, Any]]]:
+                Histogram values and bin edges.
+
+        Hint:
+            - The value of the histogram will be stored in an xml file by the name of the raster file with the extension
+                of .aux.xml.
+
+            - The content of the file will be like the following:
+              ```xml
+
+                  <PAMDataset>
+                    <PAMRasterBand band="1">
+                      <Description>Band_1</Description>
+                      <Histograms>
+                        <HistItem>
+                          <HistMin>0</HistMin>
+                          <HistMax>88</HistMax>
+                          <BucketCount>6</BucketCount>
+                          <IncludeOutOfRange>0</IncludeOutOfRange>
+                          <Approximate>0</Approximate>
+                          <HistCounts>75|6|0|4|2|1</HistCounts>
+                        </HistItem>
+                      </Histograms>
+                    </PAMRasterBand>
+                  </PAMDataset>
+
+              ```
+
+        Examples:
+            - Create `Dataset` consists of 4 bands, 10 rows, 10 columns, at the point lon/lat (0, 0).
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> arr = np.random.default_rng(1337).integers(1, 12, size=(10, 10))
+              >>> print(arr)
+              [[ 7 10  8  3  6 11  5 11  4 10]
+               [ 6  2  1  3  2  4  4  6  7 10]
+               [ 3  1  6  3 10  9  2  5  4  1]
+               [ 9  5  6  4  3  1  1 10  6  1]
+               [ 5 10 11  6 10  1  1  9  4  9]
+               [ 6  8  7  1  8  7 11 11  9  9]
+               [ 4  3  5  1  1 11  4  9  6 11]
+               [ 7  9  9  2  8  2  4  3  5  7]
+               [11  8  1  9  5  5  4  4  7 10]
+               [ 6  2 10  3  8  4  1  9  3  6]]
+              >>> top_left_corner = (0, 0)
+              >>> cell_size = 0.05
+              >>> dataset = Dataset.from_array(
+              ...     arr,
+              ...     geo_ref=GeoReference(top_left_corner=top_left_corner, cell_size=cell_size, epsg=4326),
+              ... )
+
+              ```
+
+            - Now, let's get the histogram of the first band using the `get_histogram` method with the default
+                parameters:
+                ```python
+                >>> hist, ranges = dataset.get_histogram(band=0)
+                >>> print(hist)
+                [19, 21, 8, 18, 17, 9]
+                >>> print([(round(low, 2), round(high, 2)) for low, high in ranges])
+                [(1.0, 2.67), (2.67, 4.33), (4.33, 6.0), (6.0, 7.67), (7.67, 9.33), (9.33, 11.0)]
+
+                ```
+            - we can also exclude values from the histogram by using the `min_value` and `max_value`. The bucket
+                edges then span the requested `[min_value, max_value]` window rather than the band's own range:
+                ```python
+                >>> hist, ranges = dataset.get_histogram(band=0, min_value=5, max_value=10)
+                >>> print(hist)
+                [8, 11, 7, 6, 11, 0]
+                >>> print([(round(low, 2), round(high, 2)) for low, high in ranges])
+                [(5.0, 5.83), (5.83, 6.67), (6.67, 7.5), (7.5, 8.33), (8.33, 9.17), (9.17, 10.0)]
+
+                ```
+            - For datasets with big dimensions, computing the histogram can take some time; approximating the computation
+                of the histogram can save a lot of computation time. When using the parameter `approx_ok` with a `True`
+                value the histogram will be calculated from resampling the band or from the overviews if they exist.
+                ```python
+                >>> hist, ranges = dataset.get_histogram(band=0, approx_ok=True)
+                >>> print(hist)
+                [19, 21, 8, 18, 17, 9]
+                >>> print([(round(low, 2), round(high, 2)) for low, high in ranges])
+                [(1.0, 2.67), (2.67, 4.33), (4.33, 6.0), (6.0, 7.67), (7.67, 9.33), (9.33, 11.0)]
+
+                ```
+            - As you see for small datasets, the approximation of the histogram will be the same as without approximation.
+
+        """
+        band_obj = self._ds._iloc(band)
+        min_val, max_val = band_obj.ComputeRasterMinMax()
+        if min_value is None:
+            min_value = min_val
+        if max_value is None:
+            max_value = max_val
+
+        bin_width = (max_value - min_value) / bins
+        # Anchor the edges at `min_value`, the range the buckets were actually
+        # computed over, not at the raster minimum. When a caller narrowed the
+        # range the two differ, so the returned edges described buckets that
+        # `GetHistogram` never filled.
+        ranges = [
+            (min_value + i * bin_width, min_value + (i + 1) * bin_width)
+            for i in range(bins)
+        ]
+
+        hist = band_obj.GetHistogram(
+            min=min_value,
+            max=max_value,
+            buckets=bins,
+            include_out_of_range=include_out_of_range,
+            approx_ok=approx_ok,
+        )
+        return hist, ranges
+
+    def _read_decimated(self, band: int, max_samples: int | None) -> np.ndarray:
+        """Read a band whole, or a nearest-neighbour decimated version of it.
+
+        When `max_samples` is set and the band has more cells than that, GDAL
+        reads a coarser grid of roughly `max_samples` cells (decimated in the C
+        layer) so the whole band is never materialised; otherwise the full band
+        is read. Nearest-neighbour keeps the samples real pixel values.
+
+        Args:
+            band: Zero-based band index to read.
+            max_samples: Approximate pixel budget, or `None` for an exact read.
+
+        Returns:
+            np.ndarray: The band array, full-resolution or decimated.
+
+        Raises:
+            ValueError: `max_samples` is not `None` and is less than 1.
+        """
+        if max_samples is not None and max_samples < 1:
+            raise ValueError(
+                f"max_samples must be a positive integer or None, got {max_samples}."
+            )
+        rows = self._ds.rows
+        cols = self._ds.columns
+        total = rows * cols
+        if max_samples is None or total <= max_samples:
+            return cast(np.ndarray, self._ds.read_array(band=band))
+        factor = (total / max_samples) ** 0.5
+        out_rows = max(1, round(rows / factor))
+        out_cols = max(1, round(cols / factor))
+        return cast(
+            np.ndarray,
+            self._ds.read_array(
+                band=band, out_shape=(out_rows, out_cols), resampling="nearest"
+            ),
+        )
+
+    def _scaled_geotransform(
+        self, shape: tuple[int, ...]
+    ) -> tuple[float, float, float, float, float, float]:
+        """Geotransform for an array covering the source extent at `shape` cells.
+
+        A full-resolution `shape` returns the source geotransform unchanged; a
+        decimated `shape` (fewer/larger cells over the same extent) scales the
+        pixel-size and rotation terms by the row/column decimation factors while
+        keeping the origin fixed.
+
+        Args:
+            shape: The `(rows, cols)` of the (possibly decimated) array.
+
+        Returns:
+            tuple[float, float, float, float, float, float]: The six-element
+            geotransform for that grid.
+        """
+        d_rows, d_cols = shape
+        gt = self._ds.geotransform
+        if (d_rows, d_cols) == (self._ds.rows, self._ds.columns):
+            return (gt[0], gt[1], gt[2], gt[3], gt[4], gt[5])
+        sx = self._ds.columns / d_cols
+        sy = self._ds.rows / d_rows
+        return (gt[0], gt[1] * sx, gt[2] * sy, gt[3], gt[4] * sx, gt[5] * sy)
+
+    def plot_histogram(
+        self,
+        band: int = 0,
+        bins: int = 15,
+        exclude_value: Any | None = None,
+        ax: Axes | None = None,
+        *,
+        max_samples: int | None = None,
+        **kwargs: Any,
+    ):
+        """Plot the value distribution of a band as a histogram.
+
+        Backed by cleopatra's
+        :class:`~cleopatra.glyphs.stats.histogram_glyph.HistogramGlyph`. The band is
+        read into memory, the band's no-data value and ``exclude_value``
+        (and any ``NaN`` for floating-point bands) are dropped, and only the
+        remaining valid samples reach the glyph. Requires the ``[viz]`` extra.
+
+        Args:
+            band (int, optional):
+                Band index to read. Default is ``0``.
+            bins (int, optional):
+                Number of histogram bins. Default is ``15``.
+            exclude_value (Any, optional):
+                An extra value to drop from the samples, in addition to the
+                band's no-data value and ``NaN``. Default is ``None``.
+            ax (matplotlib.axes.Axes, optional):
+                Draw the histogram into these axes instead of creating them, so it can
+                sit in a caller-owned layout. An axes already carries its figure, so
+                ``ax`` on its own is sufficient and there is no separate ``fig``
+                parameter here. A new figure/axes is created when left unset. Default is
+                ``None``.
+            max_samples (int, optional):
+                Opt-in cap on how many pixels are read. When set and the band
+                has more than ``max_samples`` cells, GDAL reads a
+                nearest-neighbour **decimated** version (~``max_samples`` cells)
+                instead of the full band, so a very large raster is histogrammed
+                without materialising it whole. The distribution is then
+                **approximate** -- a subsample of the pixels, the usual
+                expectation for a large raster. ``None`` (default) reads every
+                pixel, so the histogram is exact.
+            **kwargs:
+                Style options forwarded to the ``HistogramGlyph``
+                constructor, filtered via
+                :meth:`HistogramGlyph.filter_kwargs` so only accepted keys
+                are passed.
+
+        Returns:
+            tuple:
+                ``(fig, ax, hist)`` from
+                :meth:`HistogramGlyph.histogram` — the
+                :class:`matplotlib.figure.Figure`, the
+                :class:`matplotlib.axes.Axes`, and the histogram ``dict``.
+
+        Raises:
+            ValueError: If the band has no valid samples left after masking
+                the no-data value, ``exclude_value``, and ``NaN``.
+
+        Examples:
+            - Plot the distribution of a band and reuse the matplotlib
+              handles (tagged ``+SKIP`` — needs the ``[viz]`` extra):
+
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> arr = np.arange(100, dtype="float32").reshape(10, 10)
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 0), cell_size=1.0, epsg=4326),
+                ... )
+                >>> fig, ax, hist = ds.plot_histogram(band=0, bins=8)  # doctest: +SKIP
+                >>> _ = ax.set_title("band 0 distribution")  # doctest: +SKIP
+
+                ```
+            - Drop a sentinel value before binning:
+
+                ```python
+                >>> arr = np.array([[1.0, 2.0, 99.0], [3.0, 4.0, 99.0]], dtype="float32")
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 0), cell_size=1.0, epsg=4326),
+                ... )
+                >>> fig, ax, hist = ds.plot_histogram(band=0, exclude_value=99.0)  # doctest: +SKIP
+
+                ```
+        """
+        require_cleopatra()
+        from cleopatra.glyphs.stats.histogram_glyph import HistogramGlyph
+
+        arr = self._read_decimated(band, max_samples).flatten()
+        no_data_value = self._ds.no_data_value[band]
+        mask = np.ones(arr.shape, dtype=bool)
+        if np.issubdtype(arr.dtype, np.floating):
+            mask &= ~np.isnan(arr)
+        if no_data_value is not None and not (
+            isinstance(no_data_value, float) and np.isnan(no_data_value)
+        ):
+            mask &= arr != no_data_value
+        if exclude_value is not None:
+            mask &= arr != exclude_value
+        values = arr[mask]
+        if values.size == 0:
+            raise ValueError(
+                f"Band {band} has no valid samples to histogram after masking "
+                "no-data / exclude_value / NaN."
+            )
+        glyph = HistogramGlyph(values, ax=ax, **HistogramGlyph.filter_kwargs(kwargs))
+        result = glyph.histogram(bins=bins)
+        return result
+
+    def to_image(
+        self,
+        band: int = 0,
+        cmap: str = "viridis",
+        exclude_value: Any | None = None,
+    ):
+        """Export a band as a colour-mapped RGB image.
+
+        Reads the band, masks the no-data value (and an optional
+        ``exclude_value``), applies a matplotlib colormap via cleopatra's
+        :meth:`ArrayGlyph.apply_colormap`, and returns the result as a
+        :class:`PIL.Image.Image`. Masked / no-data pixels are rendered with
+        the colormap's "bad" fill colour. Requires the ``[viz]`` extra.
+
+        Args:
+            band (int, optional):
+                Band index to export. Default is ``0``.
+            cmap (str, optional):
+                Matplotlib colormap name. Default is ``"viridis"``.
+            exclude_value (Any, optional):
+                An extra value to mask out, in addition to the band's
+                no-data value. Default is ``None``.
+
+        Returns:
+            PIL.Image.Image:
+                An RGB image of the colour-mapped band, the same width and
+                height as the raster band.
+
+        Raises:
+            ValueError: If the band has no valid (non-nodata) pixels left
+                after masking the no-data value, ``exclude_value``, and
+                ``NaN`` — there is then nothing to colour-map.
+
+        Examples:
+            - Export a band as a viridis thumbnail, inspect its size, and
+              save it to disk (tagged ``+SKIP`` — needs the ``[viz]`` extra):
+
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> arr = np.arange(48, dtype="float32").reshape(6, 8)
+                >>> ds = Dataset.from_array(
+                ...     arr,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 0), cell_size=1.0, epsg=4326),
+                ... )
+                >>> img = ds.to_image(band=0, cmap="viridis")  # doctest: +SKIP
+                >>> img.size  # (width, height) == (columns, rows)  # doctest: +SKIP
+                (8, 6)
+                >>> img.save("band0.png")  # doctest: +SKIP
+
+                ```
+        """
+        require_cleopatra()
+        from cleopatra.glyphs.gridded.array_glyph import ArrayGlyph
+
+        arr = self._ds.read_array(band=band)
+        no_data_value = self._ds.no_data_value[band]
+        exclude: list = []
+        if no_data_value is not None and not (
+            isinstance(no_data_value, float) and np.isnan(no_data_value)
+        ):
+            exclude.append(no_data_value)
+        if exclude_value is not None:
+            exclude.append(exclude_value)
+        valid = np.ones(arr.shape, dtype=bool)
+        if np.issubdtype(arr.dtype, np.floating):
+            valid &= ~np.isnan(arr)
+        for excluded in exclude:
+            valid &= arr != excluded
+        if not valid.any():
+            raise ValueError(
+                f"Band {band} has no valid (non-nodata) pixels to render to "
+                "an image after masking no-data / exclude_value / NaN."
+            )
+        glyph = ArrayGlyph(arr, exclude_value=exclude if exclude else np.nan)
+        image = glyph.to_image(glyph.apply_colormap(cmap))
+        return image
+
+    def plot_vector_field(
+        self,
+        u_band: int = 0,
+        v_band: int = 1,
+        kind: str = "quiver",
+        ax: Axes | None = None,
+        **kwargs: Any,
+    ):
+        """Plot two bands as a 2-component vector field.
+
+        Reads ``u_band`` and ``v_band`` as the vector components over the
+        dataset's cell-centre coordinate grid (built from the geotransform)
+        and renders them via cleopatra's
+        :class:`~cleopatra.glyphs.gridded.vector_glyph.VectorGlyph` as arrows, wind barbs,
+        or streamlines, coloured by vector magnitude. Requires the ``[viz]``
+        extra.
+
+        The grid is taken from the dataset's 1-D ``x``/``y`` cell-centre
+        arrays, so an **axis-aligned (north-up, unrotated)** geotransform is
+        assumed — as elsewhere in pyramids' extent-based plotting. ``v`` is
+        treated as the northward (``+y``) component. Because ``streamplot``
+        requires strictly-increasing coordinates while a north-up raster's
+        ``y`` is descending, the axis is flipped to ascending and the data
+        rows/cols are mirrored to match; this is a pure relabelling, so each
+        vector stays at its true location for every ``kind``.
+
+        Args:
+            u_band (int, optional):
+                Band index of the x-component (``u``). Default is ``0``.
+            v_band (int, optional):
+                Band index of the y-component (``v``). Default is ``1``.
+            kind (str, optional):
+                Render kind: ``"quiver"`` (default), ``"barbs"``, or
+                ``"streamplot"``.
+            ax (matplotlib.axes.Axes, optional):
+                Draw the vector field into these axes instead of creating them, which is
+                what lets it be composed onto a shared map (pair it with
+                ``add_colorbar=False``). An axes already carries its figure, so ``ax`` on
+                its own is sufficient and there is no separate ``fig`` parameter here. A
+                new figure/axes is created when left unset. Default is ``None``.
+            **kwargs:
+                Style options forwarded to the ``VectorGlyph`` constructor,
+                filtered via :meth:`VectorGlyph.filter_kwargs` (e.g.
+                ``density``, ``scale``, ``cmap``, ``add_colorbar``). Pass
+                ``add_colorbar=False`` when composing onto a shared map.
+
+        Returns:
+            tuple:
+                ``(fig, ax, im)`` from :meth:`VectorGlyph.plot` — the
+                :class:`matplotlib.figure.Figure`, the
+                :class:`matplotlib.axes.Axes`, and the mappable coloured by
+                vector magnitude.
+
+        Raises:
+            ValueError: If ``u_band`` or ``v_band`` is out of range for the
+                dataset, or if ``kind`` is not one of ``"quiver"``,
+                ``"barbs"``, or ``"streamplot"``.
+
+        Examples:
+            - Render a two-band ``(u, v)`` stack as arrows (tagged ``+SKIP``
+              — needs the ``[viz]`` extra):
+
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> rng = np.random.default_rng(0)
+                >>> uv = rng.standard_normal((2, 6, 6)).astype("float32")
+                >>> ds = Dataset.from_array(
+                ...     uv,
+                ...     geo_ref=GeoReference(top_left_corner=(0, 0), cell_size=1.0, epsg=4326),
+                ... )
+                >>> fig, ax, im = ds.plot_vector_field(u_band=0, v_band=1, kind="quiver")  # doctest: +SKIP
+
+                ```
+            - Draw streamlines without the magnitude colorbar (e.g. to add a
+              shared one later):
+
+                ```python
+                >>> fig, ax, im = ds.plot_vector_field(kind="streamplot", add_colorbar=False)  # doctest: +SKIP
+
+                ```
+        """
+        require_cleopatra()
+        from cleopatra.glyphs.gridded.vector_glyph import VectorGlyph
+
+        band_count = self._ds.band_count
+        for name, idx in (("u_band", u_band), ("v_band", v_band)):
+            validate_band_index(
+                idx,
+                band_count,
+                name=name,
+                hint=(" plot_vector_field needs two in-range bands (u, v components)."),
+            )
+        u = self._ds.read_array(band=u_band)
+        v = self._ds.read_array(band=v_band)
+        x = self._ds.x
+        y = self._ds.y
+        # matplotlib's ``streamplot`` requires strictly-increasing 1-D
+        # coordinates, but a north-up raster's ``y`` (and occasionally ``x``)
+        # is descending. Flip the axis to ascending and mirror the data
+        # rows/cols so the field stays spatially correct for every kind
+        # (``quiver``/``barbs`` are direction-agnostic; ``streamplot`` is not).
+        if y[0] > y[-1]:
+            y = y[::-1]
+            u = u[::-1, :]
+            v = v[::-1, :]
+        if x[0] > x[-1]:
+            x = x[::-1]
+            u = u[:, ::-1]
+            v = v[:, ::-1]
+        xx, yy = np.meshgrid(x, y)
+        glyph = VectorGlyph(xx, yy, u, v, ax=ax, **VectorGlyph.filter_kwargs(kwargs))
+        result = glyph.plot(kind=kind)
+        return result
+
+    def plot(
+        self,
+        band: int,
+        exclude_value: Any | None = None,
+        rgb: list[int] | None = None,
+        surface_reflectance: int | None = None,
+        cutoff: list | None = None,
+        overview: bool | None = False,
+        overview_index: int | None = 0,
+        percentile: int | None = None,
+        basemap: bool | str | dict[str, Any] | Basemap | None = None,
+        *,
+        fig: Figure | None = None,
+        ax: Axes | None = None,
+        **kwargs: Any,
+    ) -> ArrayGlyph:
+        """Plot the values/overviews of a given band.
+
+        This is the generic rendering engine. It assumes ``band`` has already been resolved
+        by the caller (typically a per-class facade such as :meth:`Dataset.plot` or
+        :meth:`NetCDF.plot`). It does **not** apply any band-resolution policy (no RGB
+        heuristic, no `ColorInterpretation` lookup, no default-to-zero fallback) \u2014 those
+        are dataset-type-specific decisions that belong on the facades.
+
+        When the resolved band carries a GDAL colour table and the caller passes neither
+        ``cmap`` nor ``color``, the raster renders through that palette: the colour table is
+        turned into a colormap and handed to cleopatra with
+        ``color=ColorScaling.boundary(bounds=...)`` so each pixel value shows its own colour
+        (#913). An explicit ``cmap`` / ``color`` opts out.
+
+        The plot function uses `cleopatra` as a backend to plot the raster data; for more
+        information see the
+        [ArrayGlyph reference](https://serapeum-org.github.io/cleopatra/latest/api/array-glyph-class/).
+
+        Implementation note: this method is a thin caller around the
+        shared :func:`pyramids.dataset._plot_helpers.render_array`
+        helper. It resolves the data (``arr``), extent, exclude value,
+        and curvilinear coords from the underlying ``Dataset``, then
+        forwards to ``render_array(..., mode="plot", ...)`` for a
+        single 2-D slice or ``mode="facet"`` when ``NetCDF.plot``
+        injects a pre-built ``_facet_stack`` and ``facet_kwargs``.
+        ``DatasetCollection.plot`` reuses the same helper with
+        ``mode="animate"``. The shared helper owns the actual
+        ``ArrayGlyph`` construction and dispatch — see the module
+        docstring of :mod:`pyramids.dataset._plot_helpers` for the
+        three-mode contract.
+
+        Args:
+            band (int):
+                Concrete band index to render. Must be provided \u2014 the engine does not resolve
+                bands.
+            exclude_value (Any, optional):
+                Value to exclude from the plot. Default is None.
+            rgb (List[int], optional):
+                The indices of the red, green, and blue bands in the `Dataset`. the `rgb` parameter can be a list of
+                three values, or a list of four values if the alpha band is also included. Only meaningful for
+                Sentinel-style multi-band rasters; pass-through to cleopatra.
+            surface_reflectance (int, optional):
+                Surface reflectance value for normalizing satellite data, by default None.
+                Typically 10000 for Sentinel-2 data.
+            cutoff (List, optional):
+                clip the range of pixel values for each band. (take only the pixel values from 0 to the value of the cutoff
+                and scale them back to between 0 and 1). Default is None.
+            overview (bool, optional):
+                True if you want to plot the overview. Default is False.
+            overview_index (int, optional):
+                Index of the overview. Default is 0.
+            percentile: int
+                The percentile value to be used for scaling.
+            basemap (bool, str, or Basemap, optional):
+                Reference layer under the plot, dispatched by type. ``True`` or a tile-provider
+                string (e.g. "CartoDB.Positron") draws a pyramids web-tile basemap. A
+                ``pyramids.plot.Basemap(relief=..., features=...)`` draws a
+                shaded-relief / coastline reference layer instead. Default is None (no basemap).
+                Requires the [viz] extra (mercantile, xyzservices, Pillow). A ``Basemap`` is not
+                supported on the faceted path.
+            fig (matplotlib.figure.Figure, optional):
+                Draw into this figure instead of creating one. Pass it alongside ``ax``;
+                supplying ``fig`` on its own currently raises inside cleopatra
+                (serapeum-org/cleopatra#326). Default is ``None``.
+            ax (matplotlib.axes.Axes, optional):
+                Draw into these axes instead of creating them. This is what lets several
+                rasters share one figure — e.g. a ``plt.subplots`` grid where each panel is
+                a different band or dataset — while every panel keeps the georeferenced
+                extent and nodata masking this method applies. An axes already carries its
+                figure, so ``ax`` on its own is sufficient. The returned glyph exposes both
+                objects back as ``cleo.fig`` / ``cleo.ax``. Default is ``None``.
+        kwargs:
+                Colour-scale, contour, cell-value and data-style options moved onto typed
+                render groups (all re-exported from ``pyramids.plot``): pass
+                ``color=ColorScaling(...)`` / ``contour=Contour(...)`` /
+                ``cells=CellValues(...)`` / ``data_style=DataStyle(...)``, the colour bar as
+                ``colorbar=ColorBar(...)``, and point overlays as ``points=PointOverlay(...)``.
+                The loose forms they replace — ``color_scale`` / ``gamma`` / ``bounds`` /
+                ``midpoint`` / ``line_*`` / ``levels`` / ``display_cell_value`` / ``num_size`` /
+                ``background_color_threshold`` / ``style`` / ``hillshade`` / ``point_*`` /
+                ``cbar_*`` / ``ticks_spacing`` — are no longer accepted and now raise. The
+                remaining still-loose kwargs pass through to cleopatra:
+
+                - `points` (array | PointOverlay): Point overlay. A bare 3-column array
+                  `(value, row, col)` draws unstyled points; pass a
+                  `pyramids.plot.PointOverlay(points, color=..., size=..., ...)` to style them.
+                - `cmap` (str, optional): Color map style. Default is `'coolwarm_r'`.
+                - `figsize` (tuple, optional): Figure size. Default is `(8, 8)`.
+                - `title` (str, optional): Title of the plot. Default is `'Total Discharge'`.
+                - `title_size` (int, optional): Title size. Default is `15`.
+                - `add_colorbar` (bool, optional): Whether to draw the colour bar. Default is
+                  `True`; when `False` the returned glyph's `cbar` is `None`.
+                - `colorbar` (bool | ColorBar, optional): Colour-bar spec
+                  `pyramids.plot.ColorBar(label=..., orientation=..., ...)` — replaces the
+                  removed loose `cbar_*` / `ticks_spacing` kwargs. `False` hides it, `None`
+                  uses the default.
+                - `full_bleed` (bool | str, optional): Chrome-free layout: drop axes/margins
+                  so the array fills the figure. Default `False`.
+        Returns:
+            ArrayGlyph:
+                A cleopatra ``ArrayGlyph`` wrapping the rendered figure. The underlying matplotlib
+                primitives are exposed on the glyph \u2014 use them as the escape hatch when you need
+                to further customise the plot with raw matplotlib calls:
+
+                - ``cleo.fig`` / ``cleo.ax`` \u2014 the :class:`matplotlib.figure.Figure` and
+                  :class:`matplotlib.axes.Axes`.
+                - ``cleo.im`` \u2014 the colour-mapped mappable, populated for every ``kind=``
+                  (imshow/pcolormesh/contour/contourf); e.g. ``cleo.im.set_clim(0, 100)``.
+                - ``cleo.cbar`` \u2014 the auto-created :class:`matplotlib.colorbar.Colorbar`, or
+                  ``None`` when ``add_colorbar=False`` (or for RGB renders).
+                - ``cleo.apply_style(style)`` (cleopatra >= 0.25) — re-apply
+                  a ``DATA_STYLES`` preset by name in place, without re-plotting.
+
+                For the full ``ArrayGlyph`` API see the
+                [ArrayGlyph reference](https://serapeum-org.github.io/cleopatra/latest/api/array-glyph-class/).
+        Examples:
+            - Plot a certain band:
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> arr = np.random.rand(4, 10, 10)
+              >>> top_left_corner = (0, 0)
+              >>> cell_size = 0.05
+              >>> dataset = Dataset.from_array(
+              ...     arr,
+              ...     geo_ref=GeoReference(top_left_corner=top_left_corner, cell_size=cell_size, epsg=4326),
+              ... )
+              >>> dataset.plot(band=0)  # doctest: +SKIP
+              (<Figure size 800x800 with 2 Axes>, <Axes: >)
+
+              ```
+            - plot using a power scale.
+              ```python
+              >>> from pyramids.plot import ColorScaling  # doctest: +SKIP
+              >>> dataset.plot(band=0, color=ColorScaling.power(gamma=0.7))  # doctest: +SKIP
+              (<Figure size 800x800 with 2 Axes>, <Axes: >)
+
+              ```
+            - plot using a SymLogNorm scale.
+              ```python
+              >>> dataset.plot(band=0, color=ColorScaling.sym_log())  # doctest: +SKIP
+              (<Figure size 800x800 with 2 Axes>, <Axes: >)
+
+              ```
+            - plot using a BoundaryNorm scale.
+              ```python
+              >>> dataset.plot(band=0, color=ColorScaling.boundary(bounds=[0, 0.2, 0.4, 0.6, 0.8, 1]))  # doctest: +SKIP
+              (<Figure size 800x800 with 2 Axes>, <Axes: >)
+
+              ```
+            - plot using a midpoint scale.
+              ```python
+              >>> dataset.plot(band=0, color=ColorScaling.midpoint(at=0))  # doctest: +SKIP
+              (<Figure size 800x800 with 2 Axes>, <Axes: >)
+
+              ```
+        """
+        no_data_value = [np.nan if i is None else i for i in self._ds.no_data_value]
+        # `coords` is the PR-3 curvilinear kwarg; the helper handles the
+        # mutually-exclusive `extent` swap. `facet_kwargs` (PR-4) is
+        # forwarded by `NetCDF.plot` to switch the helper to the
+        # `mode="facet"` branch; the pre-built stack arrives alongside as
+        # `_facet_stack` and its spatial extent as `_extent` (the facet
+        # stack is *injected*, not read from `self._ds`, so the engine
+        # can't derive the extent from `self._ds.bbox` — the caller must
+        # supply it). `_chunks` (PR-5) is injected by `NetCDF.plot` to
+        # switch the static-plot read path to the dask-backed lazy read;
+        # only the rendered slice is materialised.
+        coords = kwargs.pop("coords", None)
+        facet_kwargs = kwargs.pop("facet_kwargs", None)
+        facet_stack = kwargs.pop("_facet_stack", None)
+        injected_extent = kwargs.pop("_extent", None)
+        chunks = kwargs.pop("_chunks", None)
+        mode = "facet" if facet_kwargs else "plot"
+        arr = self._resolve_plot_array(
+            band, rgb, overview, overview_index, mode, facet_stack, chunks
+        )
+        exclude_value = (
+            [no_data_value[band], exclude_value]
+            if exclude_value is not None
+            else [no_data_value[band]]
+        )
+        # On the self-read paths (`mode="plot"` / `_chunks`) the data and
+        # the extent both come from `self._ds`. On the injected-stack path
+        # (`mode="facet"`) the caller passes `_extent` so the panels are
+        # placed at the stack's own spatial domain rather than implicitly
+        # trusting that it matches `self._ds.bbox`.
+        effective_extent = (
+            injected_extent if injected_extent is not None else self._ds.bbox
+        )
+        # Render a paletted band through its GDAL colour table (#913): build a discrete
+        # colormap from the palette and hand it to cleopatra as an explicit ``cmap`` plus a
+        # boundary-norm ``color=ColorScaling.boundary(bounds=...)`` (cleopatra 0.30 moved the
+        # colour scale onto the typed group). Only the single-band static path (no ``rgb``,
+        # no facet) carries a palette, and an explicit ``cmap`` / ``color`` from the caller
+        # wins over it.
+        if (
+            mode == "plot"
+            and rgb is None
+            and kwargs.get("cmap") is None
+            and kwargs.get("color") is None
+        ):
+            # Read only the resolved band's colour table, not every band's — the
+            # full-dataset ``color_table`` rebuilds a row per entry for all bands.
+            band_color_table = self._ds.bands._get_color_table(band=band)
+            if not band_color_table.empty:
+                from cleopatra.styling.scaling import ColorScaling
+
+                cmap, bounds = self._palette_colormap(band_color_table)
+                kwargs["cmap"] = cmap
+                kwargs["color"] = ColorScaling.boundary(bounds=bounds)
+        return render_array(
+            RenderRequest(
+                arr=arr,
+                extent=effective_extent,
+                coords=coords,
+                exclude_value=exclude_value,
+                rgb=RgbSpec(
+                    rgb=rgb,
+                    surface_reflectance=surface_reflectance,
+                    cutoff=cutoff,
+                    percentile=percentile,
+                ),
+                mode=ModeSpec(mode=mode, facet_kwargs=facet_kwargs),
+                ax=ax,
+                fig=fig,
+                basemap=basemap,
+                basemap_epsg=self._ds.epsg,
+            ),
+            **kwargs,
+        )
+
+    def _resolve_plot_array(
+        self,
+        band: int,
+        rgb: list[int] | None,
+        overview: bool | None,
+        overview_index: int | None,
+        mode: str,
+        facet_stack: Any,
+        chunks: Any,
+    ) -> Any:
+        """Resolve the array to render for :meth:`plot`.
+
+        - ``mode="facet"``: use the caller-injected ``_facet_stack``.
+        - ``_chunks`` injected: lazy-read and materialise only the requested band
+          (see :meth:`_read_plot_lazy_array`).
+        - otherwise: eager-read the band — or the full ``(bands, rows, cols)``
+          array when ``rgb`` is set so cleopatra can pick the colour channels —
+          from an overview when ``overview`` is truthy.
+        """
+        if mode == "facet":
+            arr = facet_stack
+        elif chunks is not None:
+            arr = self._read_plot_lazy_array(band, chunks)
+        else:
+            read_band = None if rgb is not None else band
+            if overview:
+                arr = self._ds.read_overview_array(
+                    band=read_band,
+                    overview_index=(
+                        overview_index if overview_index is not None else 0
+                    ),
+                )
+            else:
+                arr = self._ds.read_array(band=read_band)
+        return arr
+
+    def _read_plot_lazy_array(self, band: int, chunks: Any) -> np.ndarray:
+        """Lazy-read path for :meth:`plot` (``_chunks`` injected by ``NetCDF.plot``).
+
+        Builds a dask array of the variable and materialises only the requested
+        slice. ``read_array(chunks=...)`` keeps the variable's native
+        ``(d0, ..., rows, cols)`` shape, so a >2-D result is reshaped to
+        ``(-1, rows, cols)`` to match the eager ``read_array`` band flattening
+        before ``band`` indexes it; only that band's chunks are computed.
+        """
+        lazy = self._ds.read_array(chunks=chunks)
+        if not hasattr(lazy, "compute"):
+            result = lazy if band is None else lazy[band]
+        elif lazy.ndim > 2:
+            lazy = lazy.reshape(-1, *lazy.shape[-2:])
+            result = np.asarray(lazy[band].compute())
+        else:
+            result = np.asarray(lazy.compute())
+        return cast(np.ndarray, result)
+
+    @staticmethod
+    def _process_color_table(color_table: DataFrame) -> DataFrame:
+        require_cleopatra()
+        from cleopatra.styling.colors import Colors
+
+        # if the color_table does not contain the red, green, and blue columns, assume it has one column with
+        # the color as hex and then, convert the color to rgb.
+        if all(elem in color_table.columns for elem in ["red", "green", "blue"]):
+            color_df = color_table.loc[:, ["values", "red", "green", "blue"]]
+        elif "color" in color_table.columns:
+            color = Colors(color_table["color"].tolist())
+            color_rgb = color.to_rgb(normalized=False)
+            color_df = DataFrame(columns=["values"])
+            color_df["values"] = color_table["values"].to_list()
+            color_df.loc[:, ["red", "green", "blue"]] = color_rgb
+        else:
+            raise ValueError(
+                f"color_table must contain either red, green, blue, or color columns. given columns are: "
+                f"{color_table.columns}"
+            )
+        if "alpha" not in color_table.columns:
+            color_df.loc[:, "alpha"] = 255
+        else:
+            color_df.loc[:, "alpha"] = color_table["alpha"]
+        return color_df
+
+    @staticmethod
+    def _palette_colormap(color_table: DataFrame) -> tuple[Any, list[float]]:
+        """Build a colormap + boundary edges from a GDAL colour table.
+
+        Normalises the ``[values, red, green, blue, alpha]`` colour table (via
+        :meth:`_process_color_table`) into a matplotlib ``ListedColormap`` carrying the
+        palette's exact colours, and derives the ``BoundaryNorm`` bin edges from
+        cleopatra's ``category_boundaries``. The colormap is handed to cleopatra as an
+        explicit ``cmap`` with ``color=ColorScaling.boundary(bounds=...)`` so a paletted
+        raster renders through its own colours — pyramids only builds the mapping; cleopatra
+        draws it.
+
+        cleopatra renders with ``BoundaryNorm(bounds, ncolors=256)``, so the palette is
+        turned into a **256-entry step lookup** whose slots are filled by asking that
+        exact norm which slot each class maps to and placing the class's colour there.
+        Each class then indexes its own exact, opaque colour regardless of the
+        palette's value range. (A fixed round-trip formula mis-indexes once the
+        densified entry count exceeds ~131, because the norm stretches regions to slots
+        by truncation; a ``LinearSegmentedColormap`` would instead interpolate between
+        stops, bleeding alpha toward GDAL's transparent ``(0, 0, 0, 0)`` gap-filler
+        entries — GDAL densifies a colour table to ``0..maxvalue``.) An exact
+        one-swatch-per-class rendering with a discrete legend would need a first-class
+        categorical colour-table API on cleopatra's ``ArrayGlyph``; see the follow-up
+        tracked for #913.
+
+        Args:
+            color_table (DataFrame):
+                The band's colour table — ``values`` plus ``red``/``green``/``blue``
+                (and optional ``alpha``), or a hex ``color`` column. Must be non-empty
+                (the plot path only calls this once a colour table is present).
+
+        Returns:
+            tuple[matplotlib.colors.ListedColormap, list[float]]:
+                The 256-entry step colormap and the ``len(values) + 1`` ascending
+                boundary edges, sorted by colour-table value.
+        """
+        require_cleopatra()
+        from cleopatra.styling.colors import category_boundaries
+        from matplotlib.colors import BoundaryNorm, ListedColormap
+
+        processed = Analysis._process_color_table(color_table).sort_values("values")
+        rgba = (
+            processed[["red", "green", "blue", "alpha"]].to_numpy(dtype=float) / 255.0
+        )
+        values = [float(v) for v in processed["values"].to_list()]
+        bounds = category_boundaries(values)
+        norm = BoundaryNorm(bounds, 256)
+        slots = np.asarray(norm(np.asarray(values))).astype(int)
+        lut = np.tile(rgba[0], (256, 1))
+        lut[slots] = rgba
+        cmap = ListedColormap(lut)
+        return cmap, bounds

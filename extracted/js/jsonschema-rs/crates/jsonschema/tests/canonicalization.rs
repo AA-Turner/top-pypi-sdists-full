@@ -22,6 +22,225 @@ fn unsupported_document_round_trips_verbatim(schema: &Value) {
     assert!(matches!(canonical.view(), CanonicalView::Raw(_)));
 }
 
+const PET_DOCUMENT: &str = r##"{
+    "$defs": {
+        "Named": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+        "Pet": {"allOf": [
+            {"$ref": "#/$defs/Named"},
+            {"properties": {"age": {"type": "integer", "minimum": 0}}}
+        ]},
+        "Tree": {"type": "object", "properties": {
+            "kids": {"type": "array", "items": {"$ref": "#/$defs/Tree"}},
+            "leaf": {"$ref": "#/$defs/Named"}
+        }},
+        "Dead": {"allOf": [{"type": "integer", "minimum": 5}, {"maximum": 3}]},
+        "Opaque": {"if": {}, "unevaluatedProperties": false}
+    },
+    "type": "object",
+    "properties": {"pet": {"$ref": "#/$defs/Pet"}}
+}"##;
+
+fn canonicalize_at(
+    document: &Value,
+    pointer: &str,
+) -> Result<CanonicalSchema, CanonicalizationError> {
+    options().prepare(document)?.canonicalize_at(pointer)
+}
+
+fn pet_document() -> Value {
+    serde_json::from_str(PET_DOCUMENT).expect("valid JSON")
+}
+
+// Preparing once and selecting many times must answer exactly as the one-shot entry points do.
+#[test]
+fn prepared_document_answers_as_the_one_shot_entry_points() {
+    let document = pet_document();
+    let prepared = options().prepare(&document).expect("prepares");
+
+    assert_eq!(
+        prepared
+            .canonicalize()
+            .expect("canonicalizes")
+            .to_json_schema(),
+        canonicalize(&document)
+            .expect("canonicalizes")
+            .to_json_schema()
+    );
+    for pointer in [
+        "/$defs/Pet",
+        "/$defs/Tree",
+        "/$defs/Dead",
+        "/$defs/Opaque",
+        "/properties/pet",
+    ] {
+        assert_eq!(
+            prepared
+                .canonicalize_at(pointer)
+                .expect("canonicalizes")
+                .to_json_schema(),
+            canonicalize_at(&document, pointer)
+                .expect("canonicalizes")
+                .to_json_schema(),
+            "{pointer}"
+        );
+    }
+}
+
+#[test]
+fn prepared_document_rejects_the_same_pointers() {
+    let document = pet_document();
+    let prepared = options().prepare(&document).expect("prepares");
+
+    assert!(matches!(
+        prepared.canonicalize_at("/$defs/Missing"),
+        Err(CanonicalizationError::PointerNotFound(_))
+    ));
+    assert!(matches!(
+        prepared.canonicalize_at("/$defs/Named/required/0"),
+        Err(CanonicalizationError::InvalidSchemaType(_))
+    ));
+}
+
+// An unknown draft leaves the document unresolvable, and every selection verbatim.
+#[test]
+fn prepared_document_of_an_unknown_draft_passes_selections_through() {
+    let document = json!({
+        "$schema": "https://example.com/unknown-meta-schema",
+        "$defs": {"A": {"type": "string"}}
+    });
+    let prepared = options().prepare(&document).expect("prepares");
+
+    assert_eq!(prepared.draft(), Draft::Unknown);
+    assert_eq!(
+        prepared
+            .canonicalize_at("/$defs/A")
+            .expect("canonicalizes")
+            .kind(),
+        CanonicalKind::Raw
+    );
+}
+
+#[test]
+fn subschema_resolves_references_into_its_document() {
+    let canonical =
+        canonicalize_at(&pet_document(), "/$defs/Pet").expect("canonicalizes in document context");
+    assert_eq!(
+        canonical.to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {"age": {"type": "integer", "minimum": 0}, "name": {"type": "string"}},
+            "required": ["name"]
+        })
+    );
+}
+
+// A selected subschema is the root of what comes back, so its own recursion spells `#`.
+#[test]
+fn recursive_subschema_keeps_the_definitions_it_needs() {
+    let canonical = canonicalize_at(&pet_document(), "/$defs/Tree").expect("canonicalizes");
+    let emitted = canonical.to_json_schema();
+    assert_eq!(emitted["properties"]["kids"]["items"], json!({"$ref": "#"}));
+    assert_eq!(
+        emitted["$defs"]["Named"],
+        json!({
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"]
+        })
+    );
+}
+
+#[test]
+fn unsatisfiable_subschema_collapses() {
+    let canonical = canonicalize_at(&pet_document(), "/$defs/Dead").expect("canonicalizes");
+    assert_eq!(canonical.satisfiability(), Satisfiability::No);
+}
+
+// The pass-through applies to the selection, not just to a whole document.
+#[test]
+fn unsupported_subschema_round_trips_verbatim() {
+    let document = pet_document();
+    let canonical = canonicalize_at(&document, "/$defs/Opaque").expect("canonicalizes");
+    assert_eq!(canonical.kind(), CanonicalKind::Raw);
+    assert_eq!(&canonical.to_json_schema(), &document["$defs"]["Opaque"]);
+}
+
+// The draft comes from the document, so a draft-7 `definitions` is a reference target.
+#[test_case("http://json-schema.org/draft-07/schema#"; "draft 7")]
+#[test_case("http://json-schema.org/draft-06/schema#"; "draft 6")]
+#[test_case("http://json-schema.org/draft-04/schema#"; "draft 4")]
+fn subschema_of_an_older_draft_resolves_references(meta_schema: &str) {
+    let document = json!({
+        "$schema": meta_schema,
+        "definitions": {
+            "Short": {"type": "string", "maxLength": 5},
+            "Word": {"allOf": [{"$ref": "#/definitions/Short"}, {"minLength": 2}]}
+        }
+    });
+
+    let emitted = canonicalize_at(&document, "/definitions/Word")
+        .expect("canonicalizes")
+        .to_json_schema();
+    assert_eq!(emitted["type"], json!("string"));
+    assert_eq!(emitted["minLength"], json!(2));
+    assert_eq!(emitted["maxLength"], json!(5));
+}
+
+// A root `$id` is what the document's own references resolve against.
+#[test]
+fn subschema_of_an_identified_document_resolves_references() {
+    let document = json!({
+        "$id": "https://example.com/pets.json",
+        "$defs": {
+            "Short": {"type": "string", "maxLength": 5},
+            "Word": {"allOf": [{"$ref": "#/$defs/Short"}, {"minLength": 2}]}
+        }
+    });
+
+    assert_eq!(
+        canonicalize_at(&document, "/$defs/Word")
+            .expect("canonicalizes")
+            .to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 5
+        })
+    );
+}
+
+#[test]
+fn empty_pointer_selects_the_whole_document() {
+    let document = pet_document();
+    assert_eq!(
+        canonicalize_at(&document, "")
+            .expect("canonicalizes")
+            .to_json_schema(),
+        canonicalize(&document)
+            .expect("canonicalizes")
+            .to_json_schema()
+    );
+}
+
+#[test_case("/$defs/Missing"; "no such definition")]
+#[test_case("/nope/deeper"; "no such branch")]
+fn pointer_naming_nothing_is_rejected(pointer: &str) {
+    assert!(matches!(
+        canonicalize_at(&pet_document(), pointer),
+        Err(CanonicalizationError::PointerNotFound(_))
+    ));
+}
+
+#[test]
+fn pointer_naming_a_non_schema_is_rejected() {
+    assert!(matches!(
+        canonicalize_at(&pet_document(), "/$defs/Named/required/0"),
+        Err(CanonicalizationError::InvalidSchemaType(_))
+    ));
+}
+
 #[test]
 fn reference_view_exposes_its_canonical_definition() {
     let canonical = canonicalize(&json!({

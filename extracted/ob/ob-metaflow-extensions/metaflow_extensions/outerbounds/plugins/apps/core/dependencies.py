@@ -55,6 +55,8 @@ def bake_deployment_image(
     dependencies = app_config.get_state("dependencies", {})
     pypi_packages = {}
     conda_packages = {}
+    channels = None
+    extra_configs = dependencies.get("extra_configs", None)
 
     parsed_packages = {}
 
@@ -77,8 +79,11 @@ def bake_deployment_image(
 
     elif dependencies.get("conda"):
         conda_packages = dependencies.get("conda", {}) or {}
-    if "python" in dependencies:
-        python_version = dependencies.get("python", python_version) or python_version
+    elif dependencies.get("anaconda"):
+        conda_packages = dependencies.get("anaconda", {}) or {}
+
+    if dependencies.get("python"):
+        python_version = dependencies["python"]
 
     python_packages_exist = len(pypi_packages) > 0 or len(conda_packages) > 0
     if (not python_packages_exist) or app_config.get_state("skip_dependencies", False):
@@ -108,6 +113,8 @@ def bake_deployment_image(
         python=python_version,
         base_image=image,
         logger=logger,
+        channels=channels,
+        extra_configs=extra_configs,
     )
     if fb_response.failure:
         raise ImageBakingException(f"Failed to bake image: {fb_response.response}")

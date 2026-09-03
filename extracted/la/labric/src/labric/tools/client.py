@@ -7,26 +7,15 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.batch_write_options import BatchWriteOptions
 from ..types.batch_write_response import BatchWriteResponse
-from ..types.dataset_schema import DatasetSchema
 from ..types.labric_upload_file_schema import LabricUploadFileSchema
-from ..types.ml_model_task_type import MlModelTaskType
-from ..types.ml_problem_type import MlProblemType
-from ..types.predict_response_schema import PredictResponseSchema
-from ..types.quality_preset import QualityPreset
 from ..types.query_result import QueryResult
-from ..types.revert_result_schema import RevertResultSchema
-from ..types.start_job_execution_schema import StartJobExecutionSchema
 from ..types.table_schema_info_schema import TableSchemaInfoSchema
 from ..types.tools_file_content_schema import ToolsFileContentSchema
 from ..types.tools_file_info_schema import ToolsFileInfoSchema
-from ..types.tools_job_execution_schema import ToolsJobExecutionSchema
-from ..types.tools_ml_model_detail_schema import ToolsMlModelDetailSchema
-from ..types.tools_ml_model_schema import ToolsMlModelSchema
 from .raw_client import AsyncRawToolsClient, RawToolsClient
 from .types.labric_read_schema_mode import LabricReadSchemaMode
 from .types.labric_read_schema_target_type import LabricReadSchemaTargetType
 from .types.labric_write_schema_target_type import LabricWriteSchemaTargetType
-from .types.update_job_execution_status_schema_status import UpdateJobExecutionStatusSchemaStatus
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -46,57 +35,6 @@ class ToolsClient:
         RawToolsClient
         """
         return self._raw_client
-
-    def create_segmentation_dataset(
-        self,
-        *,
-        label_id: str,
-        name: typing.Optional[str] = OMIT,
-        description: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> DatasetSchema:
-        """
-        Create an (image, mask) training dataset from an annotation label's
-        human-vetted masks.
-
-        label_id is the id of an image annotation label (the
-        core_imageannotationlabel table); the dataset contains one row per
-        human-vetted annotation with that label, with columns 'image' (the image
-        file id) and 'mask' (the mask blob path). Pass the returned dataset id to
-        the train-ml-model tool with task_type 'segmentation', target_column
-        'mask', and image_columns ['image'].
-
-        Parameters
-        ----------
-        label_id : str
-
-        name : typing.Optional[str]
-
-        description : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        DatasetSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.create_segmentation_dataset(
-            label_id="label_id",
-        )
-        """
-        _response = self._raw_client.create_segmentation_dataset(
-            label_id=label_id, name=name, description=description, request_options=request_options
-        )
-        return _response.data
 
     def write(
         self,
@@ -121,6 +59,8 @@ class ToolsClient:
         inserts, upserts with match columns, default value functions (DATETIME_NOW,
         UUID4), and optional dry-run validation. A job execution is created
         automatically if one is not provided.
+
+        Requires an API key with the `write` scope.
 
         Parameters
         ----------
@@ -211,6 +151,8 @@ class ToolsClient:
         Use 'single' mode to retrieve exactly one record, or 'multiple' mode
         to retrieve all matching records.
 
+        Requires an API key with the `read` scope.
+
         Parameters
         ----------
         target_name : str
@@ -271,6 +213,8 @@ class ToolsClient:
         carry an _id suffix in SQL (e.g. a 'sample' reference is the 'sample_id'
         column).
 
+        Requires an API key with the `read` scope.
+
         Parameters
         ----------
         query : str
@@ -318,6 +262,8 @@ class ToolsClient:
         Sync app cannot reach, which attaches the file to that instrument so
         instrument triggers and parsers pick it up.
 
+        Requires an API key with the `write` scope.
+
         Parameters
         ----------
         file : core.File
@@ -363,6 +309,8 @@ class ToolsClient:
         This is the map a parser writes into: use it to plan which tables to
         populate and how rows link.
 
+        Requires an API key with the `read` scope.
+
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
@@ -401,6 +349,8 @@ class ToolsClient:
         Filter by instrument_id, comma-separated file extensions (e.g. "csv,txt"),
         or a substring of the file name. Use the file-content tool to inspect a
         file's raw contents.
+
+        Requires an API key with the `read` scope.
 
         Parameters
         ----------
@@ -448,6 +398,8 @@ class ToolsClient:
         the start of the file. Large files return a URL only (no inline preview);
         fetch the full bytes via the URL when needed.
 
+        Requires an API key with the `read` scope.
+
         Parameters
         ----------
         file_id : str
@@ -474,137 +426,6 @@ class ToolsClient:
         _response = self._raw_client.get_file_content(file_id, request_options=request_options)
         return _response.data
 
-    def start_job_execution(
-        self,
-        *,
-        request: typing.Optional[StartJobExecutionSchema] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ToolsJobExecutionSchema:
-        """
-        Open a job execution for a script running outside the platform.
-
-        Returns a job_execution_id to pass to the write and upload-file tools, so
-        everything a single script run produces is attributed to one execution and
-        can be inspected or reverted as a unit. Run under an existing job by passing
-        its job_id, or pass a job_name to run under a job of that name, creating it
-        if it does not exist; with neither, the execution lands under a default
-        off-platform job. The execution is marked running immediately; close it with
-        the update-status tool when the script finishes. Pass timeout_minutes to
-        have the platform fail the execution after that duration elapses, if the
-        script has not closed it in time. This prevents crashed scripts from
-        leaving jobs marked as running forever on the platform.
-
-        Parameters
-        ----------
-        request : typing.Optional[StartJobExecutionSchema]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsJobExecutionSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric, StartJobExecutionSchema
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.start_job_execution(
-            request=StartJobExecutionSchema(),
-        )
-        """
-        _response = self._raw_client.start_job_execution(request=request, request_options=request_options)
-        return _response.data
-
-    def update_job_execution_status(
-        self,
-        execution_id: str,
-        *,
-        status: UpdateJobExecutionStatusSchemaStatus,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ToolsJobExecutionSchema:
-        """
-        Close a job execution as completed or failed.
-
-        Use this when an off-platform script finishes, so the platform stops
-        reporting the run as in progress. Either status is final: re-sending the
-        status the execution already has is a no-op, but changing it afterwards is
-        rejected. Only executions opened by the start tool are accepted — every
-        other execution's status is recorded by the platform itself.
-
-        Parameters
-        ----------
-        execution_id : str
-
-        status : UpdateJobExecutionStatusSchemaStatus
-            How the run ended. Either status is final: the execution cannot change status afterwards.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsJobExecutionSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.update_job_execution_status(
-            execution_id="execution_id",
-            status="completed",
-        )
-        """
-        _response = self._raw_client.update_job_execution_status(
-            execution_id, status=status, request_options=request_options
-        )
-        return _response.data
-
-    def revert_job_execution(
-        self, execution_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> RevertResultSchema:
-        """
-        Revert a test parse by deleting the rows it created.
-
-        Deletes the CREATE'd objects of a job execution and their linked raw rows,
-        in a single transaction. Use this to undo a test write whose validation
-        failed. UPDATE and DELETE operations cannot be reversed and are surfaced as
-        warnings in the result.
-
-        Parameters
-        ----------
-        execution_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        RevertResultSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.revert_job_execution(
-            execution_id="execution_id",
-        )
-        """
-        _response = self._raw_client.revert_job_execution(execution_id, request_options=request_options)
-        return _response.data
-
     def batch_write(
         self,
         *,
@@ -625,6 +446,8 @@ class ToolsClient:
         Committed writes are recorded against a job execution (created automatically
         if not supplied) and the job_execution_id is returned, so the write can be
         reverted as a unit.
+
+        Requires an API key with the `write` scope.
 
         Parameters
         ----------
@@ -656,328 +479,6 @@ class ToolsClient:
         _response = self._raw_client.batch_write(tables=tables, options=options, request_options=request_options)
         return _response.data
 
-    def predict(
-        self,
-        *,
-        data: typing.Sequence[typing.Dict[str, typing.Any]],
-        ml_model_id: typing.Optional[str] = OMIT,
-        ml_model_name: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> PredictResponseSchema:
-        """
-        Run predictions with a trained ML model.
-
-        Identify the model by ml_model_id, or by ml_model_name (the name of a
-        non-archived model). Each row in data maps the model's feature columns to
-        values -- use the ml-models tool to discover models and the columns each
-        expects. Returns one prediction per input row, plus per-class
-        probabilities for classifiers.
-
-        Parameters
-        ----------
-        data : typing.Sequence[typing.Dict[str, typing.Any]]
-
-        ml_model_id : typing.Optional[str]
-
-        ml_model_name : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        PredictResponseSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.predict(
-            data=[{"key": "value"}],
-        )
-        """
-        _response = self._raw_client.predict(
-            data=data, ml_model_id=ml_model_id, ml_model_name=ml_model_name, request_options=request_options
-        )
-        return _response.data
-
-    def list_ml_models(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[ToolsMlModelSchema]:
-        """
-        List the organization's ML models and the inputs each expects.
-
-        Returns each non-archived model with its serving status and prediction
-        interface: feature_columns (plus image_columns for image models) are the
-        fields each data row passed to the predict tool should contain, and
-        target_column is what the model predicts. Only models with status 'ready'
-        can serve predictions.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[ToolsMlModelSchema]
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.list_ml_models()
-        """
-        _response = self._raw_client.list_ml_models(request_options=request_options)
-        return _response.data
-
-    def train_ml_model(
-        self,
-        *,
-        name: str,
-        target_column: str,
-        dataset_id: str,
-        description: typing.Optional[str] = OMIT,
-        task_type: typing.Optional[MlModelTaskType] = OMIT,
-        quality_preset: typing.Optional[QualityPreset] = OMIT,
-        feature_columns: typing.Optional[typing.Sequence[str]] = OMIT,
-        image_columns: typing.Optional[typing.Sequence[str]] = OMIT,
-        problem_type: typing.Optional[MlProblemType] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ToolsMlModelDetailSchema:
-        """
-        Create an ML model and start training it on a dataset.
-
-        Training is asynchronous: the response has status 'pending', and the
-        model trains in the cloud (minutes to hours, depending on data size and
-        quality_preset). Poll the get-ml-model tool until status is 'ready' or
-        'failed'. For task_type 'tabular', the model learns to predict
-        target_column from the dataset's other columns (restrict inputs with
-        feature_columns). For 'segmentation', train on a dataset from the
-        create-segmentation-dataset tool with target_column 'mask' and
-        image_columns ['image']. All referenced columns must exist in the
-        dataset.
-
-        Parameters
-        ----------
-        name : str
-
-        target_column : str
-
-        dataset_id : str
-
-        description : typing.Optional[str]
-
-        task_type : typing.Optional[MlModelTaskType]
-
-        quality_preset : typing.Optional[QualityPreset]
-
-        feature_columns : typing.Optional[typing.Sequence[str]]
-
-        image_columns : typing.Optional[typing.Sequence[str]]
-
-        problem_type : typing.Optional[MlProblemType]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsMlModelDetailSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.train_ml_model(
-            name="name",
-            target_column="target_column",
-            dataset_id="dataset_id",
-        )
-        """
-        _response = self._raw_client.train_ml_model(
-            name=name,
-            target_column=target_column,
-            dataset_id=dataset_id,
-            description=description,
-            task_type=task_type,
-            quality_preset=quality_preset,
-            feature_columns=feature_columns,
-            image_columns=image_columns,
-            problem_type=problem_type,
-            request_options=request_options,
-        )
-        return _response.data
-
-    def retrain_ml_model(
-        self,
-        ml_model_id: str,
-        *,
-        target_column: str,
-        dataset_id: str,
-        description: typing.Optional[str] = OMIT,
-        task_type: typing.Optional[MlModelTaskType] = OMIT,
-        quality_preset: typing.Optional[QualityPreset] = OMIT,
-        feature_columns: typing.Optional[typing.Sequence[str]] = OMIT,
-        image_columns: typing.Optional[typing.Sequence[str]] = OMIT,
-        problem_type: typing.Optional[MlProblemType] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ToolsMlModelDetailSchema:
-        """
-        Retrain an existing ML model as a new version.
-
-        Use after the training data has changed (for example, more vetted
-        annotations) or to try a different configuration. The model keeps its
-        name and identity; an omitted task_type inherits the model's existing
-        one. Training is asynchronous like train-ml-model: poll the get-ml-model
-        tool until status is 'ready' or 'failed'. While the new version trains,
-        the model cannot serve predictions.
-
-        Parameters
-        ----------
-        ml_model_id : str
-
-        target_column : str
-
-        dataset_id : str
-
-        description : typing.Optional[str]
-
-        task_type : typing.Optional[MlModelTaskType]
-
-        quality_preset : typing.Optional[QualityPreset]
-
-        feature_columns : typing.Optional[typing.Sequence[str]]
-
-        image_columns : typing.Optional[typing.Sequence[str]]
-
-        problem_type : typing.Optional[MlProblemType]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsMlModelDetailSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.retrain_ml_model(
-            ml_model_id="ml_model_id",
-            target_column="target_column",
-            dataset_id="dataset_id",
-        )
-        """
-        _response = self._raw_client.retrain_ml_model(
-            ml_model_id,
-            target_column=target_column,
-            dataset_id=dataset_id,
-            description=description,
-            task_type=task_type,
-            quality_preset=quality_preset,
-            feature_columns=feature_columns,
-            image_columns=image_columns,
-            problem_type=problem_type,
-            request_options=request_options,
-        )
-        return _response.data
-
-    def get_ml_model(
-        self, ml_model_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ToolsMlModelDetailSchema:
-        """
-        Get one ML model's training status and results.
-
-        Poll this after starting a training run: status moves from 'pending'
-        through 'training' to 'ready', or to 'failed' with the reason in
-        error_message. Status always reflects the model's most recent training
-        run; after a failed retrain, the previous ready version keeps serving
-        predictions. Once ready, evaluation_metrics holds the holdout metrics
-        and the model can serve predictions via the predict tool. A cloud job
-        that died without reporting back is settled to 'failed' by a background
-        reconciler, so keep polling through an unresponsive job.
-
-        Parameters
-        ----------
-        ml_model_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsMlModelDetailSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.get_ml_model(
-            ml_model_id="ml_model_id",
-        )
-        """
-        _response = self._raw_client.get_ml_model(ml_model_id, request_options=request_options)
-        return _response.data
-
-    def cancel_ml_model_training(
-        self, ml_model_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ToolsMlModelDetailSchema:
-        """
-        Cancel the model's in-flight training runs.
-
-        Overlapping retrains can leave several versions pending or training at
-        once, so the cancel is model-wide: every in-flight version is marked
-        'cancelled' and its cloud training jobs are stopped. Returns 400 when
-        no training is pending or running.
-
-        Parameters
-        ----------
-        ml_model_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsMlModelDetailSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.cancel_ml_model_training(
-            ml_model_id="ml_model_id",
-        )
-        """
-        _response = self._raw_client.cancel_ml_model_training(ml_model_id, request_options=request_options)
-        return _response.data
-
 
 class AsyncToolsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -993,65 +494,6 @@ class AsyncToolsClient:
         AsyncRawToolsClient
         """
         return self._raw_client
-
-    async def create_segmentation_dataset(
-        self,
-        *,
-        label_id: str,
-        name: typing.Optional[str] = OMIT,
-        description: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> DatasetSchema:
-        """
-        Create an (image, mask) training dataset from an annotation label's
-        human-vetted masks.
-
-        label_id is the id of an image annotation label (the
-        core_imageannotationlabel table); the dataset contains one row per
-        human-vetted annotation with that label, with columns 'image' (the image
-        file id) and 'mask' (the mask blob path). Pass the returned dataset id to
-        the train-ml-model tool with task_type 'segmentation', target_column
-        'mask', and image_columns ['image'].
-
-        Parameters
-        ----------
-        label_id : str
-
-        name : typing.Optional[str]
-
-        description : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        DatasetSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.create_segmentation_dataset(
-                label_id="label_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.create_segmentation_dataset(
-            label_id=label_id, name=name, description=description, request_options=request_options
-        )
-        return _response.data
 
     async def write(
         self,
@@ -1076,6 +518,8 @@ class AsyncToolsClient:
         inserts, upserts with match columns, default value functions (DATETIME_NOW,
         UUID4), and optional dry-run validation. A job execution is created
         automatically if one is not provided.
+
+        Requires an API key with the `write` scope.
 
         Parameters
         ----------
@@ -1174,6 +618,8 @@ class AsyncToolsClient:
         Use 'single' mode to retrieve exactly one record, or 'multiple' mode
         to retrieve all matching records.
 
+        Requires an API key with the `read` scope.
+
         Parameters
         ----------
         target_name : str
@@ -1242,6 +688,8 @@ class AsyncToolsClient:
         carry an _id suffix in SQL (e.g. a 'sample' reference is the 'sample_id'
         column).
 
+        Requires an API key with the `read` scope.
+
         Parameters
         ----------
         query : str
@@ -1297,6 +745,8 @@ class AsyncToolsClient:
         Sync app cannot reach, which attaches the file to that instrument so
         instrument triggers and parsers pick it up.
 
+        Requires an API key with the `write` scope.
+
         Parameters
         ----------
         file : core.File
@@ -1350,6 +800,8 @@ class AsyncToolsClient:
         This is the map a parser writes into: use it to plan which tables to
         populate and how rows link.
 
+        Requires an API key with the `read` scope.
+
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
@@ -1396,6 +848,8 @@ class AsyncToolsClient:
         Filter by instrument_id, comma-separated file extensions (e.g. "csv,txt"),
         or a substring of the file name. Use the file-content tool to inspect a
         file's raw contents.
+
+        Requires an API key with the `read` scope.
 
         Parameters
         ----------
@@ -1451,6 +905,8 @@ class AsyncToolsClient:
         the start of the file. Large files return a URL only (no inline preview);
         fetch the full bytes via the URL when needed.
 
+        Requires an API key with the `read` scope.
+
         Parameters
         ----------
         file_id : str
@@ -1485,161 +941,6 @@ class AsyncToolsClient:
         _response = await self._raw_client.get_file_content(file_id, request_options=request_options)
         return _response.data
 
-    async def start_job_execution(
-        self,
-        *,
-        request: typing.Optional[StartJobExecutionSchema] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ToolsJobExecutionSchema:
-        """
-        Open a job execution for a script running outside the platform.
-
-        Returns a job_execution_id to pass to the write and upload-file tools, so
-        everything a single script run produces is attributed to one execution and
-        can be inspected or reverted as a unit. Run under an existing job by passing
-        its job_id, or pass a job_name to run under a job of that name, creating it
-        if it does not exist; with neither, the execution lands under a default
-        off-platform job. The execution is marked running immediately; close it with
-        the update-status tool when the script finishes. Pass timeout_minutes to
-        have the platform fail the execution after that duration elapses, if the
-        script has not closed it in time. This prevents crashed scripts from
-        leaving jobs marked as running forever on the platform.
-
-        Parameters
-        ----------
-        request : typing.Optional[StartJobExecutionSchema]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsJobExecutionSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric, StartJobExecutionSchema
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.start_job_execution(
-                request=StartJobExecutionSchema(),
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.start_job_execution(request=request, request_options=request_options)
-        return _response.data
-
-    async def update_job_execution_status(
-        self,
-        execution_id: str,
-        *,
-        status: UpdateJobExecutionStatusSchemaStatus,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ToolsJobExecutionSchema:
-        """
-        Close a job execution as completed or failed.
-
-        Use this when an off-platform script finishes, so the platform stops
-        reporting the run as in progress. Either status is final: re-sending the
-        status the execution already has is a no-op, but changing it afterwards is
-        rejected. Only executions opened by the start tool are accepted — every
-        other execution's status is recorded by the platform itself.
-
-        Parameters
-        ----------
-        execution_id : str
-
-        status : UpdateJobExecutionStatusSchemaStatus
-            How the run ended. Either status is final: the execution cannot change status afterwards.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsJobExecutionSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.update_job_execution_status(
-                execution_id="execution_id",
-                status="completed",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.update_job_execution_status(
-            execution_id, status=status, request_options=request_options
-        )
-        return _response.data
-
-    async def revert_job_execution(
-        self, execution_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> RevertResultSchema:
-        """
-        Revert a test parse by deleting the rows it created.
-
-        Deletes the CREATE'd objects of a job execution and their linked raw rows,
-        in a single transaction. Use this to undo a test write whose validation
-        failed. UPDATE and DELETE operations cannot be reversed and are surfaced as
-        warnings in the result.
-
-        Parameters
-        ----------
-        execution_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        RevertResultSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.revert_job_execution(
-                execution_id="execution_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.revert_job_execution(execution_id, request_options=request_options)
-        return _response.data
-
     async def batch_write(
         self,
         *,
@@ -1660,6 +961,8 @@ class AsyncToolsClient:
         Committed writes are recorded against a job execution (created automatically
         if not supplied) and the job_execution_id is returned, so the write can be
         reverted as a unit.
+
+        Requires an API key with the `write` scope.
 
         Parameters
         ----------
@@ -1697,374 +1000,4 @@ class AsyncToolsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.batch_write(tables=tables, options=options, request_options=request_options)
-        return _response.data
-
-    async def predict(
-        self,
-        *,
-        data: typing.Sequence[typing.Dict[str, typing.Any]],
-        ml_model_id: typing.Optional[str] = OMIT,
-        ml_model_name: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> PredictResponseSchema:
-        """
-        Run predictions with a trained ML model.
-
-        Identify the model by ml_model_id, or by ml_model_name (the name of a
-        non-archived model). Each row in data maps the model's feature columns to
-        values -- use the ml-models tool to discover models and the columns each
-        expects. Returns one prediction per input row, plus per-class
-        probabilities for classifiers.
-
-        Parameters
-        ----------
-        data : typing.Sequence[typing.Dict[str, typing.Any]]
-
-        ml_model_id : typing.Optional[str]
-
-        ml_model_name : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        PredictResponseSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.predict(
-                data=[{"key": "value"}],
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.predict(
-            data=data, ml_model_id=ml_model_id, ml_model_name=ml_model_name, request_options=request_options
-        )
-        return _response.data
-
-    async def list_ml_models(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[ToolsMlModelSchema]:
-        """
-        List the organization's ML models and the inputs each expects.
-
-        Returns each non-archived model with its serving status and prediction
-        interface: feature_columns (plus image_columns for image models) are the
-        fields each data row passed to the predict tool should contain, and
-        target_column is what the model predicts. Only models with status 'ready'
-        can serve predictions.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[ToolsMlModelSchema]
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.list_ml_models()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.list_ml_models(request_options=request_options)
-        return _response.data
-
-    async def train_ml_model(
-        self,
-        *,
-        name: str,
-        target_column: str,
-        dataset_id: str,
-        description: typing.Optional[str] = OMIT,
-        task_type: typing.Optional[MlModelTaskType] = OMIT,
-        quality_preset: typing.Optional[QualityPreset] = OMIT,
-        feature_columns: typing.Optional[typing.Sequence[str]] = OMIT,
-        image_columns: typing.Optional[typing.Sequence[str]] = OMIT,
-        problem_type: typing.Optional[MlProblemType] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ToolsMlModelDetailSchema:
-        """
-        Create an ML model and start training it on a dataset.
-
-        Training is asynchronous: the response has status 'pending', and the
-        model trains in the cloud (minutes to hours, depending on data size and
-        quality_preset). Poll the get-ml-model tool until status is 'ready' or
-        'failed'. For task_type 'tabular', the model learns to predict
-        target_column from the dataset's other columns (restrict inputs with
-        feature_columns). For 'segmentation', train on a dataset from the
-        create-segmentation-dataset tool with target_column 'mask' and
-        image_columns ['image']. All referenced columns must exist in the
-        dataset.
-
-        Parameters
-        ----------
-        name : str
-
-        target_column : str
-
-        dataset_id : str
-
-        description : typing.Optional[str]
-
-        task_type : typing.Optional[MlModelTaskType]
-
-        quality_preset : typing.Optional[QualityPreset]
-
-        feature_columns : typing.Optional[typing.Sequence[str]]
-
-        image_columns : typing.Optional[typing.Sequence[str]]
-
-        problem_type : typing.Optional[MlProblemType]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsMlModelDetailSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.train_ml_model(
-                name="name",
-                target_column="target_column",
-                dataset_id="dataset_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.train_ml_model(
-            name=name,
-            target_column=target_column,
-            dataset_id=dataset_id,
-            description=description,
-            task_type=task_type,
-            quality_preset=quality_preset,
-            feature_columns=feature_columns,
-            image_columns=image_columns,
-            problem_type=problem_type,
-            request_options=request_options,
-        )
-        return _response.data
-
-    async def retrain_ml_model(
-        self,
-        ml_model_id: str,
-        *,
-        target_column: str,
-        dataset_id: str,
-        description: typing.Optional[str] = OMIT,
-        task_type: typing.Optional[MlModelTaskType] = OMIT,
-        quality_preset: typing.Optional[QualityPreset] = OMIT,
-        feature_columns: typing.Optional[typing.Sequence[str]] = OMIT,
-        image_columns: typing.Optional[typing.Sequence[str]] = OMIT,
-        problem_type: typing.Optional[MlProblemType] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ToolsMlModelDetailSchema:
-        """
-        Retrain an existing ML model as a new version.
-
-        Use after the training data has changed (for example, more vetted
-        annotations) or to try a different configuration. The model keeps its
-        name and identity; an omitted task_type inherits the model's existing
-        one. Training is asynchronous like train-ml-model: poll the get-ml-model
-        tool until status is 'ready' or 'failed'. While the new version trains,
-        the model cannot serve predictions.
-
-        Parameters
-        ----------
-        ml_model_id : str
-
-        target_column : str
-
-        dataset_id : str
-
-        description : typing.Optional[str]
-
-        task_type : typing.Optional[MlModelTaskType]
-
-        quality_preset : typing.Optional[QualityPreset]
-
-        feature_columns : typing.Optional[typing.Sequence[str]]
-
-        image_columns : typing.Optional[typing.Sequence[str]]
-
-        problem_type : typing.Optional[MlProblemType]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsMlModelDetailSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.retrain_ml_model(
-                ml_model_id="ml_model_id",
-                target_column="target_column",
-                dataset_id="dataset_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.retrain_ml_model(
-            ml_model_id,
-            target_column=target_column,
-            dataset_id=dataset_id,
-            description=description,
-            task_type=task_type,
-            quality_preset=quality_preset,
-            feature_columns=feature_columns,
-            image_columns=image_columns,
-            problem_type=problem_type,
-            request_options=request_options,
-        )
-        return _response.data
-
-    async def get_ml_model(
-        self, ml_model_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ToolsMlModelDetailSchema:
-        """
-        Get one ML model's training status and results.
-
-        Poll this after starting a training run: status moves from 'pending'
-        through 'training' to 'ready', or to 'failed' with the reason in
-        error_message. Status always reflects the model's most recent training
-        run; after a failed retrain, the previous ready version keeps serving
-        predictions. Once ready, evaluation_metrics holds the holdout metrics
-        and the model can serve predictions via the predict tool. A cloud job
-        that died without reporting back is settled to 'failed' by a background
-        reconciler, so keep polling through an unresponsive job.
-
-        Parameters
-        ----------
-        ml_model_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsMlModelDetailSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.get_ml_model(
-                ml_model_id="ml_model_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_ml_model(ml_model_id, request_options=request_options)
-        return _response.data
-
-    async def cancel_ml_model_training(
-        self, ml_model_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ToolsMlModelDetailSchema:
-        """
-        Cancel the model's in-flight training runs.
-
-        Overlapping retrains can leave several versions pending or training at
-        once, so the cancel is model-wide: every in-flight version is marked
-        'cancelled' and its cloud training jobs are stopped. Returns 400 when
-        no training is pending or running.
-
-        Parameters
-        ----------
-        ml_model_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsMlModelDetailSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.cancel_ml_model_training(
-                ml_model_id="ml_model_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.cancel_ml_model_training(ml_model_id, request_options=request_options)
         return _response.data

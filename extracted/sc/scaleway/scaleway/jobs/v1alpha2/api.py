@@ -40,6 +40,7 @@ from .types import (
     Trigger,
     UpdateJobDefinitionRequest,
     UpdateJobDefinitionRequestCronScheduleConfig,
+    UpdateJobDefinitionRequestUpdateRetryPolicy,
     UpdateSecretRequest,
     UpdateTriggerRequest,
     UpdateTriggerRequestCronConfig,
@@ -109,7 +110,7 @@ class JobsV1Alpha2API(API):
         :param environment_variables: Environment variables of the job.
         :param job_timeout: Timeout of the job in seconds.
         :param cron_schedule: Configure a cron for the job.
-        :param retry_policy: Retry behaviour in case of job failure.
+        :param retry_policy: Retry policy upon a job failure.
         :return: :class:`JobDefinition <JobDefinition>`
 
         Usage:
@@ -294,7 +295,7 @@ class JobsV1Alpha2API(API):
         description: Optional[str] = None,
         job_timeout: Optional[str] = None,
         cron_schedule: Optional[UpdateJobDefinitionRequestCronScheduleConfig] = None,
-        retry_policy: Optional[RetryPolicy] = None,
+        retry_policy: Optional[UpdateJobDefinitionRequestUpdateRetryPolicy] = None,
     ) -> JobDefinition:
         """
         Update an existing job definition associated with the specified unique identifier.
@@ -314,7 +315,7 @@ class JobsV1Alpha2API(API):
         :param description: Description of the job.
         :param job_timeout: Timeout of the job in seconds.
         :param cron_schedule: Configure a cron for the job.
-        :param retry_policy: Retry behaviour in case of job failure.
+        :param retry_policy: Retry policy upon a job failure.
         :return: :class:`JobDefinition <JobDefinition>`
 
         Usage:

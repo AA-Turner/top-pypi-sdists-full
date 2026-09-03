@@ -11,13 +11,14 @@ from .types import (
     Subnet,
     PrivateNetwork,
     Route,
+    IngressRule,
     VPCConnectorPeerInfo,
     VPCConnector,
     VPC,
-    AddSubnetsResponse,
-    DeleteSubnetsResponse,
+    AddPrivateNetworkObjectStoragePrivateAccessResponse,
     AclRule,
     GetAclResponse,
+    ListIngressRulesResponse,
     ListPrivateNetworksResponse,
     ListSubnetOverlapsResponseSubnetOverlap,
     ListSubnetOverlapsResponse,
@@ -25,13 +26,16 @@ from .types import (
     ListVPCConnectorsResponse,
     ListVPCsResponse,
     SetAclResponse,
-    AddSubnetsRequest,
+    SetPrivateNetworksObjectStoragePrivateAccessResponse,
+    AddPrivateNetworkObjectStoragePrivateAccessRequest,
+    CreateIngressRuleRequest,
     CreatePrivateNetworkRequest,
     CreateRouteRequest,
     CreateVPCConnectorRequest,
     CreateVPCRequest,
-    DeleteSubnetsRequest,
     SetAclRequest,
+    SetPrivateNetworksObjectStoragePrivateAccessRequest,
+    UpdateIngressRuleRequest,
     UpdatePrivateNetworkRequest,
     UpdateRouteRequest,
     UpdateVPCConnectorRequest,
@@ -76,6 +80,12 @@ def unmarshal_Subnet(data: Any) -> Subnet:
         args["vpc_id"] = field
     else:
         args["vpc_id"] = None
+
+    field = data.get("region", None)
+    if field is not None:
+        args["region"] = field
+    else:
+        args["region"] = None
 
     field = data.get("created_at", None)
     if field is not None:
@@ -144,6 +154,18 @@ def unmarshal_PrivateNetwork(data: Any) -> PrivateNetwork:
     else:
         args["subnets"] = []
 
+    field = data.get("created_at", None)
+    if field is not None:
+        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["created_at"] = None
+
+    field = data.get("updated_at", None)
+    if field is not None:
+        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["updated_at"] = None
+
     field = data.get("vpc_id", None)
     if field is not None:
         args["vpc_id"] = field
@@ -162,17 +184,11 @@ def unmarshal_PrivateNetwork(data: Any) -> PrivateNetwork:
     else:
         args["default_route_propagation_enabled"] = False
 
-    field = data.get("created_at", None)
+    field = data.get("has_object_storage_private_access", None)
     if field is not None:
-        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
+        args["has_object_storage_private_access"] = field
     else:
-        args["created_at"] = None
-
-    field = data.get("updated_at", None)
-    if field is not None:
-        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
-    else:
-        args["updated_at"] = None
+        args["has_object_storage_private_access"] = False
 
     return PrivateNetwork(**args)
 
@@ -264,6 +280,95 @@ def unmarshal_Route(data: Any) -> Route:
         args["type_"] = RouteType.UNKNOWN_ROUTE_TYPE
 
     return Route(**args)
+
+
+def unmarshal_IngressRule(data: Any) -> IngressRule:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'IngressRule' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("id", None)
+    if field is not None:
+        args["id"] = field
+    else:
+        args["id"] = None
+
+    field = data.get("vpc_id", None)
+    if field is not None:
+        args["vpc_id"] = field
+    else:
+        args["vpc_id"] = None
+
+    field = data.get("is_ipv6", None)
+    if field is not None:
+        args["is_ipv6"] = field
+    else:
+        args["is_ipv6"] = False
+
+    field = data.get("source", None)
+    if field is not None:
+        args["source"] = field
+    else:
+        args["source"] = None
+
+    field = data.get("nexthop_resource_ip", None)
+    if field is not None:
+        args["nexthop_resource_ip"] = field
+    else:
+        args["nexthop_resource_ip"] = None
+
+    field = data.get("nexthop_private_network_id", None)
+    if field is not None:
+        args["nexthop_private_network_id"] = field
+    else:
+        args["nexthop_private_network_id"] = None
+
+    field = data.get("created_at", None)
+    if field is not None:
+        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["created_at"] = None
+
+    field = data.get("updated_at", None)
+    if field is not None:
+        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["updated_at"] = None
+
+    field = data.get("description", None)
+    if field is not None:
+        args["description"] = field
+    else:
+        args["description"] = None
+
+    field = data.get("tags", None)
+    if field is not None:
+        args["tags"] = field
+    else:
+        args["tags"] = []
+
+    field = data.get("organization_id", None)
+    if field is not None:
+        args["organization_id"] = field
+    else:
+        args["organization_id"] = None
+
+    field = data.get("project_id", None)
+    if field is not None:
+        args["project_id"] = field
+    else:
+        args["project_id"] = None
+
+    field = data.get("region", None)
+    if field is not None:
+        args["region"] = field
+    else:
+        args["region"] = None
+
+    return IngressRule(**args)
 
 
 def unmarshal_VPCConnectorPeerInfo(data: Any) -> VPCConnectorPeerInfo:
@@ -446,6 +551,18 @@ def unmarshal_VPC(data: Any) -> VPC:
     else:
         args["custom_routes_propagation_enabled"] = False
 
+    field = data.get("transitivity_enabled", None)
+    if field is not None:
+        args["transitivity_enabled"] = field
+    else:
+        args["transitivity_enabled"] = False
+
+    field = data.get("object_storage_private_access_enabled", None)
+    if field is not None:
+        args["object_storage_private_access_enabled"] = field
+    else:
+        args["object_storage_private_access_enabled"] = False
+
     field = data.get("created_at", None)
     if field is not None:
         args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
@@ -461,38 +578,29 @@ def unmarshal_VPC(data: Any) -> VPC:
     return VPC(**args)
 
 
-def unmarshal_AddSubnetsResponse(data: Any) -> AddSubnetsResponse:
+def unmarshal_AddPrivateNetworkObjectStoragePrivateAccessResponse(
+    data: Any,
+) -> AddPrivateNetworkObjectStoragePrivateAccessResponse:
     if not isinstance(data, dict):
         raise TypeError(
-            "Unmarshalling the type 'AddSubnetsResponse' failed as data isn't a dictionary."
+            "Unmarshalling the type 'AddPrivateNetworkObjectStoragePrivateAccessResponse' failed as data isn't a dictionary."
         )
 
     args: dict[str, Any] = {}
 
-    field = data.get("subnets", None)
+    field = data.get("vpc_id", None)
     if field is not None:
-        args["subnets"] = field
+        args["vpc_id"] = field
     else:
-        args["subnets"] = None
+        args["vpc_id"] = None
 
-    return AddSubnetsResponse(**args)
-
-
-def unmarshal_DeleteSubnetsResponse(data: Any) -> DeleteSubnetsResponse:
-    if not isinstance(data, dict):
-        raise TypeError(
-            "Unmarshalling the type 'DeleteSubnetsResponse' failed as data isn't a dictionary."
-        )
-
-    args: dict[str, Any] = {}
-
-    field = data.get("subnets", None)
+    field = data.get("private_network_ids", None)
     if field is not None:
-        args["subnets"] = field
+        args["private_network_ids"] = field
     else:
-        args["subnets"] = None
+        args["private_network_ids"] = []
 
-    return DeleteSubnetsResponse(**args)
+    return AddPrivateNetworkObjectStoragePrivateAccessResponse(**args)
 
 
 def unmarshal_AclRule(data: Any) -> AclRule:
@@ -583,6 +691,31 @@ def unmarshal_GetAclResponse(data: Any) -> GetAclResponse:
         args["default_policy"] = None
 
     return GetAclResponse(**args)
+
+
+def unmarshal_ListIngressRulesResponse(data: Any) -> ListIngressRulesResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ListIngressRulesResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("rules", None)
+    if field is not None:
+        args["rules"] = (
+            [unmarshal_IngressRule(v) for v in field] if field is not None else None
+        )
+    else:
+        args["rules"] = None
+
+    field = data.get("total_count", None)
+    if field is not None:
+        args["total_count"] = field
+    else:
+        args["total_count"] = None
+
+    return ListIngressRulesResponse(**args)
 
 
 def unmarshal_ListPrivateNetworksResponse(data: Any) -> ListPrivateNetworksResponse:
@@ -772,14 +905,66 @@ def unmarshal_SetAclResponse(data: Any) -> SetAclResponse:
     return SetAclResponse(**args)
 
 
-def marshal_AddSubnetsRequest(
-    request: AddSubnetsRequest,
+def unmarshal_SetPrivateNetworksObjectStoragePrivateAccessResponse(
+    data: Any,
+) -> SetPrivateNetworksObjectStoragePrivateAccessResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'SetPrivateNetworksObjectStoragePrivateAccessResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("vpc_id", None)
+    if field is not None:
+        args["vpc_id"] = field
+    else:
+        args["vpc_id"] = None
+
+    field = data.get("private_network_ids", None)
+    if field is not None:
+        args["private_network_ids"] = field
+    else:
+        args["private_network_ids"] = []
+
+    return SetPrivateNetworksObjectStoragePrivateAccessResponse(**args)
+
+
+def marshal_AddPrivateNetworkObjectStoragePrivateAccessRequest(
+    request: AddPrivateNetworkObjectStoragePrivateAccessRequest,
     defaults: ProfileDefaults,
 ) -> dict[str, Any]:
     output: dict[str, Any] = {}
 
-    if request.subnets is not None:
-        output["subnets"] = request.subnets
+    if request.private_network_id is not None:
+        output["private_network_id"] = request.private_network_id
+
+    return output
+
+
+def marshal_CreateIngressRuleRequest(
+    request: CreateIngressRuleRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.vpc_id is not None:
+        output["vpc_id"] = request.vpc_id
+
+    if request.source is not None:
+        output["source"] = request.source
+
+    if request.nexthop_resource_ip is not None:
+        output["nexthop_resource_ip"] = request.nexthop_resource_ip
+
+    if request.nexthop_private_network_id is not None:
+        output["nexthop_private_network_id"] = request.nexthop_private_network_id
+
+    if request.description is not None:
+        output["description"] = request.description
+
+    if request.tags is not None:
+        output["tags"] = request.tags
 
     return output
 
@@ -875,6 +1060,9 @@ def marshal_CreateVPCRequest(
     if request.enable_routing is not None:
         output["enable_routing"] = request.enable_routing
 
+    if request.enable_transitivity is not None:
+        output["enable_transitivity"] = request.enable_transitivity
+
     if request.name is not None:
         output["name"] = request.name
 
@@ -885,18 +1073,6 @@ def marshal_CreateVPCRequest(
 
     if request.tags is not None:
         output["tags"] = request.tags
-
-    return output
-
-
-def marshal_DeleteSubnetsRequest(
-    request: DeleteSubnetsRequest,
-    defaults: ProfileDefaults,
-) -> dict[str, Any]:
-    output: dict[str, Any] = {}
-
-    if request.subnets is not None:
-        output["subnets"] = request.subnets
 
     return output
 
@@ -951,6 +1127,42 @@ def marshal_SetAclRequest(
 
     if request.default_policy is not None:
         output["default_policy"] = request.default_policy
+
+    return output
+
+
+def marshal_SetPrivateNetworksObjectStoragePrivateAccessRequest(
+    request: SetPrivateNetworksObjectStoragePrivateAccessRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.private_network_ids is not None:
+        output["private_network_ids"] = request.private_network_ids
+
+    return output
+
+
+def marshal_UpdateIngressRuleRequest(
+    request: UpdateIngressRuleRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.source is not None:
+        output["source"] = request.source
+
+    if request.nexthop_resource_ip is not None:
+        output["nexthop_resource_ip"] = request.nexthop_resource_ip
+
+    if request.nexthop_private_network_id is not None:
+        output["nexthop_private_network_id"] = request.nexthop_private_network_id
+
+    if request.description is not None:
+        output["description"] = request.description
+
+    if request.tags is not None:
+        output["tags"] = request.tags
 
     return output
 

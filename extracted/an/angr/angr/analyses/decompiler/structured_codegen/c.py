@@ -121,6 +121,12 @@ def qualifies_for_simple_cast(ty1, ty2):
     )
 
 
+def qualifies_for_width_cast(ty):
+    # converting ty to a different width - can a scalar cast do it?
+    # floats are excluded because a float cast converts the value, not the representation
+    return isinstance(ty, (SimTypeInt, SimTypeChar, SimTypeNum, SimTypePointer, SimTypeBottom))
+
+
 def qualifies_for_implicit_cast(ty1, ty2):
     # converting ty1 to ty2 - can this happen without a cast?
     # used to decide whether to omit typecasts from output during promotion
@@ -267,7 +273,7 @@ def _is_anonymous_struct_or_union(ty) -> bool:
     return isinstance(ty, SimUnion) and ty.name == "<anon>"
 
 
-def _anonymous_struct_union_to_c_repr_chunks(ty, name, name_type, indent_str: str, indent_delta: int):
+def _anonymous_struct_union_to_c_repr_chunks(ty, name, name_type, indent_str: str, indent_delta: int, memo: set[int]):
     """
     Render an anonymous struct or union inline, as ``struct { ... } name``.
     """
@@ -275,6 +281,7 @@ def _anonymous_struct_union_to_c_repr_chunks(ty, name, name_type, indent_str: st
     yield ("union {\n" if isinstance(ty, SimUnion) else "struct {\n"), None
 
     new_indent_str = (" " * indent_delta) + indent_str
+    memo.add(id(ty))
     members = ty.members if isinstance(ty, SimUnion) else ty.fields
     for k, v in members.items():
         yield from type_to_c_repr_chunks(
@@ -284,8 +291,10 @@ def _anonymous_struct_union_to_c_repr_chunks(ty, name, name_type, indent_str: st
             full=False,
             indent_str=new_indent_str,
             indent_delta=indent_delta,
+            memo=memo,
         )
         yield ";\n", None
+    memo.discard(id(ty))
 
     yield indent_str, None
     yield "} ", None
@@ -293,32 +302,59 @@ def _anonymous_struct_union_to_c_repr_chunks(ty, name, name_type, indent_str: st
 
 
 def type_to_c_repr_chunks(
-    ty: SimType, name=None, name_type=None, full=False, indent_str="", indent_delta: int = INDENT_DELTA
+    ty: SimType,
+    name=None,
+    name_type=None,
+    full=False,
+    indent_str="",
+    indent_delta: int = INDENT_DELTA,
+    memo: set[int] | None = None,
 ):
     """
     Helper generator function to turn a SimType into generated tuples of (C-string, AST node).
 
     :param indent_delta:    Number of space characters used to indent each struct field one level deeper.
+    :param memo:            IDs of the aggregates currently being rendered further up the stack, so that a
+                            self-referential type is elided instead of recursed into. An aggregate is added
+                            before its members are rendered and removed once they are done.
     """
+    if memo is None:
+        memo = set()
+
     if not full and name is not None and _is_anonymous_struct_or_union(ty):
+        if id(ty) in memo:
+            # A recovered type can contain itself. An anonymous aggregate has no name to refer back to,
+            # so the cycle is elided rather than named.
+            yield indent_str, None
+            yield ("union { /* recursive */ } " if isinstance(ty, SimUnion) else "struct { /* recursive */ } "), None
+            yield name, name_type
+            return
         # anonymous structs and unions must be output inline
         yield from _anonymous_struct_union_to_c_repr_chunks(
-            ty, name, name_type, indent_str=indent_str, indent_delta=indent_delta
+            ty, name, name_type, indent_str=indent_str, indent_delta=indent_delta, memo=memo
         )
     elif isinstance(ty, SimStruct):
         if full:
             # struct def preamble
             yield indent_str, None
             if isinstance(ty, SimCppClass):
+                # A class name reaches codegen spelled either way: angr's C++ parser keeps the
+                # elaborated form on the class branch of _cpp_decl_to_type, while the STL
+                # definitions keep the plain one. SimCppClass.__repr__ already accounts for
+                # that; emitting the class-key unconditionally beside the name did not, so an
+                # elaborated name came out as "class class Ns::Type".
+                type_name = ty.name.removeprefix("class ")
                 yield "class ", None
             else:
+                type_name = ty.name
                 yield "typedef struct ", None
-            yield ty.name, ty
+            yield type_name, ty
             yield " {\n", None
 
             # each of the fields
             # fields should be indented
             new_indent_str = (" " * indent_delta) + indent_str
+            memo.add(id(ty))
             for k, v in ty.fields.items():
                 yield from type_to_c_repr_chunks(
                     v,
@@ -327,12 +363,14 @@ def type_to_c_repr_chunks(
                     full=False,
                     indent_str=new_indent_str,
                     indent_delta=indent_delta,
+                    memo=memo,
                 )
                 yield ";\n", None
+            memo.discard(id(ty))
 
             # struct def postamble
             yield "} ", None
-            yield ty.name, ty
+            yield type_name, ty
             yield ";\n\n", None
 
         else:
@@ -1818,7 +1856,9 @@ class CGoto(CStatement):
             if isinstance(self.target, int):
                 yield f"LABEL_{self.target:#x}", None
             else:
+                yield "*((void *)(", None
                 yield from self.target.c_repr_chunks()
+                yield "))", None
         else:
             yield lbl.name, lbl
         yield ";", self
@@ -3607,7 +3647,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
 
             # nothing has the ability to escape the kernel
             # go in deeper
-            if isinstance(kernel_type, SimStruct):
+            if isinstance(kernel_type, SimStruct) and kernel_type.offsets:
                 field_name, field_offset = max(
                     ((x, y) for x, y in kernel_type.offsets.items() if y <= constant), key=lambda x: x[1]
                 )
@@ -3821,8 +3861,23 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
     def _handle_Stmt_Store(self, stmt: Stmt.Store, **kwargs):
         cdata = self._handle(stmt.data)
 
-        if cdata.type is not None and cdata.type.size != stmt.size * self.project.arch.byte_width:
-            l.error("Store data lifted to a C type with a different size. Decompilation output will be wrong.")
+        store_bits = stmt.size * self.project.arch.byte_width
+        if cdata.type is not None and cdata.type.size != store_bits:
+            if cdata.type.size is not None:
+                l.error(
+                    "Store data lifted to a C type of a different size: %s is %d bits, the store is %d bits. "
+                    "Using the store width.",
+                    cdata.type,
+                    cdata.type.size,
+                    store_bits,
+                )
+            if qualifies_for_width_cast(unpack_typeref(cdata.type)):
+                cdata = CTypeCast(
+                    cdata.type,
+                    self.default_simtype_from_bits(store_bits, signed=getattr(cdata.type, "signed", False)),
+                    cdata,
+                    codegen=self,
+                )
 
         def negotiate(old_ty, proposed_ty):
             # transfer casts from the dst to the src if possible

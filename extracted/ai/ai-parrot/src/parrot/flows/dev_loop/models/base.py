@@ -17,7 +17,7 @@ See ``sdd/specs/feat-129-upgrades.spec.md`` §3 Module 1 for the FEAT-132
 
 from __future__ import annotations
 
-from typing import Annotated, Any, ClassVar, Dict, List, Literal, Optional, Union
+from typing import Annotated, Any, ClassVar, Dict, List, Literal, Optional, Union, get_args
 
 from pydantic import (
     AliasChoices,
@@ -216,6 +216,20 @@ class WorkBrief(BaseModel):
             "'shared'), when unset."
         ),
     )
+    flow_type: Optional[Literal["feature", "hotfix"]] = Field(
+        default=None,
+        description=(
+            "FEAT-466 per-run override of the SDD flow type. None ⇒ derive "
+            "from `kind` (bug ⇒ hotfix, otherwise feature)."
+        ),
+    )
+    base_branch: Optional[str] = Field(
+        default=None,
+        description=(
+            "FEAT-466 per-run override of the base branch. None ⇒ derive from "
+            "`flow_type`/`kind` (hotfix ⇒ main, feature ⇒ dev)."
+        ),
+    )
 
 
 # Back-compat alias: existing `from parrot.flows.dev_loop import BugBrief`
@@ -374,6 +388,16 @@ class ResearchOutput(BaseModel):
         default_factory=list,
         description="Short, redacted log excerpts gathered during research.",
     )
+    base_branch: str = Field(
+        default="",
+        description=(
+            "Branch this run's branch was cut from, resolved deterministically "
+            "by ResearchNode from the COMMITTED spec frontmatter — never from "
+            "the subagent's self-report. '' means unresolved; handoff nodes "
+            "must block rather than guess a default (FEAT-466)."
+        ),
+        validation_alias=AliasChoices("base_branch", "base"),
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -393,15 +417,9 @@ class DevAgentSpec(BaseModel):
     backend/model share the same dispatcher (and its semaphore).
     """
 
-    agent: DevAgentBackend = Field(
-        ..., description="Backend → existing dispatcher (claude-code, codex, ...)."
-    )
-    model: str = Field(
-        default="", description="'' ⇒ use the backend's default model."
-    )
-    count: int = Field(
-        default=1, ge=1, description="Number of replicas of this spec in the pool."
-    )
+    agent: DevAgentBackend = Field(..., description="Backend → existing dispatcher (claude-code, codex, ...).")
+    model: str = Field(default="", description="'' ⇒ use the backend's default model.")
+    count: int = Field(default=1, ge=1, description="Number of replicas of this spec in the pool.")
     escalation_model: str = Field(
         default="",
         description=(
@@ -426,9 +444,7 @@ class DevAgentPoolConfig(BaseModel):
     path unchanged.
     """
 
-    agents: List[DevAgentSpec] = Field(
-        ..., min_length=1, description="Dev-agent specs that make up the pool."
-    )
+    agents: List[DevAgentSpec] = Field(..., min_length=1, description="Dev-agent specs that make up the pool.")
     isolation_mode: Literal["shared", "isolated"] = Field(
         default="shared",
         description=(
@@ -449,6 +465,17 @@ class TaskScopedBrief(BaseModel):
 
     research: ResearchOutput
     task_id: str = Field(..., description="TASK-NNN id this dispatch must implement.")
+    task_file: str = Field(
+        default="",
+        description=(
+            "Repo-relative path of the task's markdown artifact, e.g. "
+            "'sdd/tasks/active/TASK-2719-tests-fable-research-primary.md'. "
+            "Read THIS path — do NOT reconstruct the filename from "
+            "`task_id`: the slug is per-task and is NOT the feature slug, "
+            "so a reconstructed name is a guess that costs a turn. Empty "
+            "when the per-spec index entry carries no `file`."
+        ),
+    )
 
 
 class WorkerSummary(BaseModel):
@@ -459,24 +486,31 @@ class WorkerSummary(BaseModel):
     runs in pool mode.
     """
 
-    worker_id: str = Field(
-        ..., description="Synthetic node id, e.g. 'development.w1'."
-    )
+    worker_id: str = Field(..., description="Synthetic node id, e.g. 'development.w1'.")
     agent: str = Field(..., description="Backend used for this worker, e.g. 'codex'.")
     model: str = Field(..., description="Model name/id used by this worker.")
-    tasks_completed: List[str] = Field(
-        default_factory=list, description="TASK-NNN ids completed by this worker."
-    )
-    tasks_failed: List[str] = Field(
-        default_factory=list, description="TASK-NNN ids that failed on this worker."
-    )
+    tasks_completed: List[str] = Field(default_factory=list, description="TASK-NNN ids completed by this worker.")
+    tasks_failed: List[str] = Field(default_factory=list, description="TASK-NNN ids that failed on this worker.")
     summary: str = Field(default="", description="Free-text summary from the worker.")
 
 
 class DevelopmentOutput(BaseModel):
     """Structured output from the ``sdd-worker`` dispatch."""
 
-    files_changed: List[str]
+    files_changed: List[str] = Field(
+        ...,
+        description=(
+            "EVERY file this dispatch created, modified, or deleted — "
+            "repo-relative paths (e.g. "
+            "'packages/ai-parrot/src/parrot/loaders/base.py'). This MUST "
+            "include the test modules you created or edited, not just the "
+            "source files: downstream QA scopes the test run to these "
+            "paths, so a test module you omit here is a test that never "
+            "runs. Derive the list from "
+            "`git diff --name-only <base>...HEAD` plus "
+            "`git status --porcelain`, never from memory."
+        ),
+    )
     commit_shas: List[str]
     summary: str
     incomplete_tasks: List[str] = Field(
@@ -492,6 +526,21 @@ class DevelopmentOutput(BaseModel):
         description=(
             "Per-worker summaries when dispatched via a ``DevAgentPool`` "
             "(FEAT-323). Empty for the single-agent path."
+        ),
+    )
+    merge_performed: bool = Field(
+        default=False,
+        description=(
+            "True only when a ``SubWorktreeManager`` actually merged at "
+            "least one wave of sub-worktrees back into the integrated "
+            "feature worktree (pool path, ``isolation_mode='isolated'``). "
+            "False for the single-agent path, for ``isolation_mode="
+            "'shared'`` (no sub-worktrees exist, so nothing is ever "
+            "merged), and for any payload an agent emits itself — an "
+            "``sdd-worker`` dispatch has no way to know whether the "
+            "orchestrator will merge anything afterwards. Read by "
+            "``SynthesisNode`` to decide whether post-merge reconciliation "
+            "has anything to reconcile at all."
         ),
     )
 
@@ -543,12 +592,7 @@ class QAReport(BaseModel):
         CodeReviewFinding-shaped dicts instead of strings.
         """
         if isinstance(v, list):
-            return [
-                item.get("message", "") or str(item)
-                if isinstance(item, dict)
-                else item
-                for item in v
-            ]
+            return [item.get("message", "") or str(item) if isinstance(item, dict) else item for item in v]
         return v
 
     attempt: int = Field(
@@ -716,6 +760,54 @@ class DispatchEvent(BaseModel):
     )
 
 
+class DispatchLabels(BaseModel):
+    """Identity of the work a dispatch is doing (FEAT-496).
+
+    Stamped onto every ``DispatchEvent`` payload published during the
+    dispatch, so any single event answers "what task, which seat, which
+    agent". Every field defaults to empty — a dispatch without labels
+    publishes exactly the payloads it publishes today, minus the labels.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    task_id: str = ""
+    task_title: str = ""
+    task_file: str = ""
+    seat: str = ""
+    agent: str = ""
+    model: str = ""
+    subagent: str = ""
+    judge_id: str = ""
+    attempt: int = 1
+
+    def as_payload(self) -> Dict[str, Any]:
+        """Return only the non-empty fields, never padding a payload with blanks.
+
+        Returns:
+            A dict of non-default field values suitable for merging into a
+            dispatch event payload. ``attempt`` is included only when it is
+            greater than ``1`` (the default first-attempt value).
+        """
+        out: Dict[str, Any] = {}
+        for field_name in (
+            "task_id",
+            "task_title",
+            "task_file",
+            "seat",
+            "agent",
+            "model",
+            "subagent",
+            "judge_id",
+        ):
+            value = getattr(self, field_name, "")
+            if value:
+                out[field_name] = value
+        if self.attempt != 1:
+            out["attempt"] = self.attempt
+        return out
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Feature-mode contracts (FEAT-378) — document-driven planning, judge
 # panel, synthesis and feedback-router outputs, feature handoff.
@@ -818,8 +910,7 @@ class FeatureBrief(BaseModel):
         for suffix, expected_kind in suffix_map.items():
             if name.endswith(suffix) and expected_kind != self.document_kind:
                 logging.getLogger(__name__).warning(
-                    "FeatureBrief.document_kind=%r does not match the "
-                    "filename convention for %r (expected %r)",
+                    "FeatureBrief.document_kind=%r does not match the " "filename convention for %r (expected %r)",
                     self.document_kind,
                     name,
                     expected_kind,
@@ -827,34 +918,48 @@ class FeatureBrief(BaseModel):
         return self
 
 
+#: Backends that may sit on the QA judge panel.
+#:
+#: Deliberately NOT :data:`DevAgentBackend`. The two sets used to be the
+#: same thing — a judge was "a dev-agent used for review" — but they have
+#: diverged in both directions:
+#:
+#: * ``"gemini"`` and ``"google_coding"`` (the ``agy`` CLI) are dev-agent
+#:   backends that are BANNED as reviewers. See ``CLAUDE.md``
+#:   ("Adversarial Second Opinion"): ``agy`` was withdrawn on 2026-09-01
+#:   after returning a fabricated review — an invented 188-test pytest
+#:   run whose test names do not exist in the branch under review. A
+#:   reviewer that hallucinates passing evidence is worse than no
+#:   reviewer, because its output reads like corroboration. That ban was
+#:   applied to the ``/sdd-*`` commands at the time but never to this
+#:   flow, so the dev-loop QA panel kept dispatching Gemini.
+#: * ``"mantle"`` is a reviewer that is NOT a dev-agent backend at all:
+#:   ``MantleAdversarialReviewDispatcher`` drives ``BedrockMantleClient``
+#:   directly and has no ``build_dispatcher()`` branch, so it can never be
+#:   expressed as a ``DevAgentSpec``.
+JudgeBackend = Literal["claude-code", "codex", "mantle"]
+
+
 class JudgeSpec(BaseModel):
     """A single judge declaration inside a :class:`JudgePanelConfig`.
 
-    Reuses the 7-backend :data:`DevAgentBackend` Literal for the field's
-    type — a judge is materialized into a dispatcher via
-    ``build_dispatcher()`` exactly like a dev-agent, just used for review
-    instead of development — but only 3 backends actually have a review
-    profile (see :class:`JudgePanelReviewDispatcher._build_judge` in
-    ``code_review.py``): ``agent`` is validated eagerly against that same
-    supported set so a misconfigured ``DEV_LOOP_JUDGE_PANEL`` (or
-    programmatic ``JudgePanelConfig``) fails at config-load time with a
-    clear message, instead of surfacing as a swallowed
+    ``agent`` is validated eagerly against :data:`JudgeBackend` so a
+    misconfigured ``DEV_LOOP_JUDGE_PANEL`` (or a programmatic
+    ``JudgePanelConfig``) fails at config-load time with a clear message
+    instead of surfacing as a swallowed
     ``asyncio.gather(..., return_exceptions=True)`` failure deep inside
     ``JudgePanelReviewDispatcher.review()`` at dispatch time (code-review
-    finding).
+    finding). The Literal alone already rejects an unknown backend; the
+    explicit validator exists so the error NAMES the supported set.
     """
 
-    agent: DevAgentBackend = Field(
-        ..., description="Backend → existing dispatcher (claude-code, codex, ...)."
-    )
-    model: str = Field(
-        default="", description="'' ⇒ use the backend's default model."
-    )
+    agent: JudgeBackend = Field(..., description="Review backend (claude-code, codex, mantle).")
+    model: str = Field(default="", description="'' ⇒ use the backend's default model.")
 
     @field_validator("agent")
     @classmethod
     def _agent_must_have_review_profile(cls, v: str) -> str:
-        supported = ("claude-code", "codex", "gemini")
+        supported = get_args(JudgeBackend)
         if v not in supported:
             raise ValueError(
                 f"JudgeSpec.agent={v!r} has no review profile — "
@@ -877,8 +982,21 @@ class JudgePanelConfig(BaseModel):
 def default_judge_panel() -> JudgePanelConfig:
     """Return the resolved default 3-judge panel (spec §2).
 
-    claude-code/claude-sonnet-4-6 + codex/gpt-5.5 (the adversarial judge,
-    dispatched via the ``sdd-secondopinion`` profile) + gemini/auto.
+    claude-code/claude-sonnet-4-6 (write-enabled) + codex/gpt-5.5 and
+    mantle/gpt-5.6-sol (both read-only adversarial seats, dispatched via
+    the ``sdd-secondopinion`` profile and ``BedrockMantleClient``
+    respectively).
+
+    The third seat used to be ``gemini/auto``. It is now ``mantle``: the
+    Gemini/``agy`` family is banned from every reviewer role (see
+    :data:`JudgeBackend`), and the panel must stay at THREE judges rather
+    than simply losing one. ``JudgePanelReviewDispatcher.review()`` is
+    fail-closed on ``errored_count * 2 >= panel_size``, so a two-judge
+    panel would (a) require unanimity to pass and (b) collapse to
+    ``passed=False`` the moment a single judge hit an infra error —
+    exactly the Gemini ``IneligibleTierError`` failure mode that motivated
+    the removal. Three judges keep a real 2-of-3 majority and tolerate one
+    judge being down.
 
     Returns:
         The default :class:`JudgePanelConfig`.
@@ -887,7 +1005,7 @@ def default_judge_panel() -> JudgePanelConfig:
         judges=[
             JudgeSpec(agent="claude-code", model="claude-sonnet-4-6"),
             JudgeSpec(agent="codex", model="gpt-5.5"),
-            JudgeSpec(agent="gemini", model=""),
+            JudgeSpec(agent="mantle", model=""),
         ],
         decision="majority",
     )
@@ -902,9 +1020,7 @@ class PlannerOutput(BaseModel):
     """
 
     spec_path: str = Field(..., description="Path to the spec, inside the worktree.")
-    task_index_path: str = Field(
-        ..., description="Path to the per-spec task index JSON."
-    )
+    task_index_path: str = Field(..., description="Path to the per-spec task index JSON.")
     feat_id: str = Field(..., description="e.g. 'FEAT-378'")
     branch_name: str = Field(..., description="e.g. 'feat-378-devloop-enhancement'")
     worktree_path: str = Field(..., description="Absolute on-disk worktree path.")

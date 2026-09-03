@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: homeassistant
-Version: 2026.8.3
+Version: 2026.9.0
 Summary: Open-source home automation platform running on Python 3.
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License-Expression: Apache-2.0
@@ -40,7 +40,7 @@ Requires-Dist: certifi>=2021.5.30
 Requires-Dist: ciso8601==2.3.3
 Requires-Dist: cronsim==2.7
 Requires-Dist: fnv-hash-fast==2.0.3
-Requires-Dist: hass-nabucasa==2.2.0
+Requires-Dist: hass-nabucasa==2.7.0
 Requires-Dist: httpx==0.28.1
 Requires-Dist: home-assistant-bluetooth==2.0.0
 Requires-Dist: ifaddr==0.2.0
@@ -51,26 +51,24 @@ Requires-Dist: cryptography==48.0.1
 Requires-Dist: Pillow==12.3.0
 Requires-Dist: propcache==0.5.2
 Requires-Dist: pyOpenSSL==26.2.0
-Requires-Dist: orjson==3.11.9
+Requires-Dist: orjson==3.12.0
 Requires-Dist: packaging>=23.1
 Requires-Dist: psutil-home-assistant==0.0.1
 Requires-Dist: python-slugify==8.0.4
 Requires-Dist: PyYAML==6.0.3
 Requires-Dist: requests==2.34.2
 Requires-Dist: securetar==2026.4.1
-Requires-Dist: SQLAlchemy==2.0.51
+Requires-Dist: SQLAlchemy==2.0.52
 Requires-Dist: standard-aifc==3.13.0
 Requires-Dist: standard-telnetlib==3.13.0
-Requires-Dist: typing-extensions<5.0,>=4.15.0
+Requires-Dist: typing-extensions<5.0,>=4.16.0
 Requires-Dist: ulid-transform==2.2.9
 Requires-Dist: urllib3>=2.0
-Requires-Dist: uv==0.11.31
-Requires-Dist: voluptuous==0.15.2
-Requires-Dist: voluptuous-serialize==2.7.0
-Requires-Dist: voluptuous-openapi==0.4.1
+Requires-Dist: uv==0.12.5
+Requires-Dist: probatio==0.11.4
 Requires-Dist: yarl==1.24.5
 Requires-Dist: webrtc-models==0.3.0
-Requires-Dist: zeroconf==0.150.0
+Requires-Dist: zeroconf==0.151.1
 Dynamic: license-file
 
 Home Assistant |Chat Status|

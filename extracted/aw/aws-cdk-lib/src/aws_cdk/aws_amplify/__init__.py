@@ -3515,6 +3515,343 @@ class CfnDomainProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amplify_c332c42d.IWebhookRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnWebhook(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_amplify.CfnWebhook",
+):
+    '''Resource Type definition for AWS::Amplify::Webhook.
+
+    Creates a webhook on an Amplify app.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-webhook.html
+    :cloudformationResource: AWS::Amplify::Webhook
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_amplify as amplify
+        
+        cfn_webhook = amplify.CfnWebhook(self, "MyCfnWebhook",
+            branch_name="branchName",
+        
+            # the properties below are optional
+            app_id="appId",
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        branch_name: builtins.str,
+        app_id: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Amplify::Webhook``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param branch_name: The name for a branch that is part of an Amplify app.
+        :param app_id: The unique ID for an Amplify app.
+        :param description: The description for a webhook.
+        :param tags: Tags for the webhook.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__764d5444e2da93b02f049c7c8f8b38b065cd89481a8561191d6222a515c72b8a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWebhookProps(
+            branch_name=branch_name, app_id=app_id, description=description, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForWebhook")
+    @builtins.classmethod
+    def arn_for_webhook(
+        cls,
+        resource: "_aws_amplify_c332c42d.IWebhookRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b6eec073aae68ac2c043d89921cd0a6d731ceb17fd01bbfb64b5526b16491d84)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWebhook", [resource]))
+
+    @jsii.member(jsii_name="isCfnWebhook")
+    @builtins.classmethod
+    def is_cfn_webhook(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebhook.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c26bad8a65fae0d51bbdb177a8a8f942f8e3d4630ba33f898da94cce04849738)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebhook", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8ef3d85c4dd76583db6776ea0184069de21b6243b25a322ef25446494b59ee28)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f1f9bbedaae389bad03e34b2884bbf02064fa18802c76a33e85a688dea7d0cb8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the webhook.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWebhookId")
+    def attr_webhook_id(self) -> builtins.str:
+        '''The unique ID for a webhook.
+
+        :cloudformationAttribute: WebhookId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWebhookId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWebhookUrl")
+    def attr_webhook_url(self) -> builtins.str:
+        '''The URL of the webhook.
+
+        :cloudformationAttribute: WebhookUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWebhookUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webhookRef")
+    def webhook_ref(self) -> "_aws_amplify_c332c42d.WebhookReference":
+        '''A reference to a Webhook resource.'''
+        return typing.cast("_aws_amplify_c332c42d.WebhookReference", jsii.get(self, "webhookRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="branchName")
+    def branch_name(self) -> builtins.str:
+        '''The name for a branch that is part of an Amplify app.'''
+        return typing.cast(builtins.str, jsii.get(self, "branchName"))
+
+    @branch_name.setter
+    def branch_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__49273096074f4a714d775f19fcc5aabfb22b6f1268cd2bc11ea2a9782e640b12)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "branchName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="appId")
+    def app_id(self) -> typing.Optional[builtins.str]:
+        '''The unique ID for an Amplify app.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "appId"))
+
+    @app_id.setter
+    def app_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__abc7d8c31866d325bd52cf8d1622e15a01edebd28ea2125843a6ee372cccaa34)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "appId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description for a webhook.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e66c6335f4c3cd3fb4ce73859ed8f00008b363473c2147ccbdefc45373ea4086)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags for the webhook.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__34ef02b08b21a7e7c922f4debb3b92804b40adddb035df05baf88238227cd28b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplify.CfnWebhookProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "branch_name": "branchName",
+        "app_id": "appId",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnWebhookProps:
+    def __init__(
+        self,
+        *,
+        branch_name: builtins.str,
+        app_id: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWebhook``.
+
+        :param branch_name: The name for a branch that is part of an Amplify app.
+        :param app_id: The unique ID for an Amplify app.
+        :param description: The description for a webhook.
+        :param tags: Tags for the webhook.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-webhook.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplify as amplify
+            
+            cfn_webhook_props = amplify.CfnWebhookProps(
+                branch_name="branchName",
+            
+                # the properties below are optional
+                app_id="appId",
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4431002a12ccea5bfb43e531e5811b6ed0ba198e9079fde4197650952df09580)
+            check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
+            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "branch_name": branch_name,
+        }
+        if app_id is not None:
+            self._values["app_id"] = app_id
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def branch_name(self) -> builtins.str:
+        '''The name for a branch that is part of an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-webhook.html#cfn-amplify-webhook-branchname
+        '''
+        result = self._values.get("branch_name")
+        assert result is not None, "Required property 'branch_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_id(self) -> typing.Optional[builtins.str]:
+        '''The unique ID for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-webhook.html#cfn-amplify-webhook-appid
+        '''
+        result = self._values.get("app_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description for a webhook.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-webhook.html#cfn-amplify-webhook-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags for the webhook.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-webhook.html#cfn-amplify-webhook-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebhookProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnApp",
     "CfnAppProps",
@@ -3522,6 +3859,8 @@ __all__ = [
     "CfnBranchProps",
     "CfnDomain",
     "CfnDomainProps",
+    "CfnWebhook",
+    "CfnWebhookProps",
 ]
 
 publication.publish()
@@ -4071,6 +4410,76 @@ def _typecheckingstub__88c16eb1917ed2b27dcef2eed98ca7097349329b83222123ac70b435f
     auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
     certificate_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.CertificateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__764d5444e2da93b02f049c7c8f8b38b065cd89481a8561191d6222a515c72b8a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    branch_name: builtins.str,
+    app_id: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6eec073aae68ac2c043d89921cd0a6d731ceb17fd01bbfb64b5526b16491d84(
+    resource: _aws_amplify_c332c42d.IWebhookRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c26bad8a65fae0d51bbdb177a8a8f942f8e3d4630ba33f898da94cce04849738(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ef3d85c4dd76583db6776ea0184069de21b6243b25a322ef25446494b59ee28(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1f9bbedaae389bad03e34b2884bbf02064fa18802c76a33e85a688dea7d0cb8(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49273096074f4a714d775f19fcc5aabfb22b6f1268cd2bc11ea2a9782e640b12(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abc7d8c31866d325bd52cf8d1622e15a01edebd28ea2125843a6ee372cccaa34(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e66c6335f4c3cd3fb4ce73859ed8f00008b363473c2147ccbdefc45373ea4086(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34ef02b08b21a7e7c922f4debb3b92804b40adddb035df05baf88238227cd28b(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4431002a12ccea5bfb43e531e5811b6ed0ba198e9079fde4197650952df09580(
+    *,
+    branch_name: builtins.str,
+    app_id: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

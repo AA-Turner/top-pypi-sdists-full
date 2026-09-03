@@ -354,6 +354,74 @@ class EnvironmentReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_appconfig.ExperimentDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "experiment_definition_id": "experimentDefinitionId",
+    },
+)
+class ExperimentDefinitionReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        experiment_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a ExperimentDefinition resource.
+
+        :param application_id: The ApplicationId of the ExperimentDefinition resource.
+        :param experiment_definition_id: The Id of the ExperimentDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_appconfig as interfaces_appconfig
+            
+            experiment_definition_reference = interfaces_appconfig.ExperimentDefinitionReference(
+                application_id="applicationId",
+                experiment_definition_id="experimentDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__45e65f9608c17d925bc0c900856551c48ebf0888c2a645891a6a8d41f0f14f5d)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument experiment_definition_id", value=experiment_definition_id, expected_type=type_hints["experiment_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "experiment_definition_id": experiment_definition_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the ExperimentDefinition resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def experiment_definition_id(self) -> builtins.str:
+        '''The Id of the ExperimentDefinition resource.'''
+        result = self._values.get("experiment_definition_id")
+        assert result is not None, "Required property 'experiment_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExperimentDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_appconfig.ExtensionAssociationReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -797,6 +865,53 @@ typing.cast(typing.Any, IEnvironmentRef).__jsii_proxy_class__ = lambda : _IEnvir
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_appconfig.IExperimentDefinitionRef"
+)
+class IExperimentDefinitionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ExperimentDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="experimentDefinitionRef")
+    def experiment_definition_ref(self) -> "ExperimentDefinitionReference":
+        '''(experimental) A reference to a ExperimentDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IExperimentDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ExperimentDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_appconfig.IExperimentDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="experimentDefinitionRef")
+    def experiment_definition_ref(self) -> "ExperimentDefinitionReference":
+        '''(experimental) A reference to a ExperimentDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ExperimentDefinitionReference", jsii.get(self, "experimentDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IExperimentDefinitionRef).__jsii_proxy_class__ = lambda : _IExperimentDefinitionRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_appconfig.IExtensionAssociationRef"
 )
 class IExtensionAssociationRef(
@@ -941,6 +1056,7 @@ __all__ = [
     "DeploymentReference",
     "DeploymentStrategyReference",
     "EnvironmentReference",
+    "ExperimentDefinitionReference",
     "ExtensionAssociationReference",
     "ExtensionReference",
     "HostedConfigurationVersionReference",
@@ -949,6 +1065,7 @@ __all__ = [
     "IDeploymentRef",
     "IDeploymentStrategyRef",
     "IEnvironmentRef",
+    "IExperimentDefinitionRef",
     "IExtensionAssociationRef",
     "IExtensionRef",
     "IHostedConfigurationVersionRef",
@@ -995,6 +1112,14 @@ def _typecheckingstub__d864f328e31745137bf18010cdd90ca921175c6eb59dea6ebef0e3cd9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__45e65f9608c17d925bc0c900856551c48ebf0888c2a645891a6a8d41f0f14f5d(
+    *,
+    application_id: builtins.str,
+    experiment_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__10652230237f0fd40d5218c4e7677bbb09b1c6ca5ed3c7fc2394c9e2b9d792d3(
     *,
     extension_association_arn: builtins.str,
@@ -1020,5 +1145,5 @@ def _typecheckingstub__1125b772c448b6fa13e89374f217c3b5cc8085c39232473151424bcc5
     """Type checking stubs"""
     pass
 
-for cls in [IApplicationRef, IConfigurationProfileRef, IDeploymentRef, IDeploymentStrategyRef, IEnvironmentRef, IExtensionAssociationRef, IExtensionRef, IHostedConfigurationVersionRef]:
+for cls in [IApplicationRef, IConfigurationProfileRef, IDeploymentRef, IDeploymentStrategyRef, IEnvironmentRef, IExperimentDefinitionRef, IExtensionAssociationRef, IExtensionRef, IHostedConfigurationVersionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

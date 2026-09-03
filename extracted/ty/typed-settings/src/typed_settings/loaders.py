@@ -32,7 +32,6 @@ from .exceptions import (
     UnknownFormatError,
 )
 from .types import (
-    CollectionChildOptions,
     LoadedSettings,
     LoaderMeta,
     OptionInfo,
@@ -49,6 +48,7 @@ __all__ = [
     "FileFormat",
     "FileLoader",
     "InstanceLoader",
+    "JsonFormat",
     "Loader",
     "OnePasswordLoader",
     "PythonFormat",
@@ -541,6 +541,64 @@ class PythonFormat:
         return module
 
 
+class JsonFormat:
+    """
+    Support for JSON files.  Read settings from the given *section*.
+
+    Use `orjson <https://github.com/ijl/orjson>_` if it is available.  Otherwise, use
+    :mod:`json`.
+
+    Args:
+        section: The config file section to load settings from.
+    """
+
+    def __init__(self, section: str | None) -> None:
+        self.section = section
+
+        try:
+            import orjson
+
+            self._json = orjson
+        except ImportError:
+            import json
+
+            self._json = json  # type: ignore[misc]
+
+    def __call__(
+        self, path: Path, settings_cls: SettingsClass, options: OptionList
+    ) -> SettingsDict:
+        """
+        Load settings from a TOML file and return them as a dict.
+
+        Args:
+            path: The path to the config file.
+            options: The list of available settings.
+            settings_cls: The base settings class for all options.  If ``None``, load
+                top level settings.
+
+        Return:
+            A dict with the loaded settings.
+
+        Raise:
+            ConfigFileNotFoundError: If *path* does not exist.
+            ConfigFileLoadError: If *path* cannot be read/loaded/decoded.
+        """
+        try:
+            settings = self._json.loads(path.read_bytes())
+        except FileNotFoundError as e:
+            raise ConfigFileNotFoundError(str(e)) from e
+        except (PermissionError, self._json.JSONDecodeError) as e:
+            raise ConfigFileLoadError(str(e)) from e
+        if self.section is not None:
+            sections = self.section.split(".")
+            for s in sections:
+                try:
+                    settings = settings[s]
+                except KeyError:
+                    return {}
+        return cast(SettingsDict, settings)
+
+
 class TomlFormat:
     """
     Support for TOML files.  Read settings from the given *section*.
@@ -577,6 +635,66 @@ class TomlFormat:
         except FileNotFoundError as e:
             raise ConfigFileNotFoundError(str(e)) from e
         except (PermissionError, tomllib.TOMLDecodeError) as e:
+            raise ConfigFileLoadError(str(e)) from e
+        if self.section is not None:
+            sections = self.section.split(".")
+            for s in sections:
+                try:
+                    settings = settings[s]
+                except KeyError:
+                    return {}
+        return cast(SettingsDict, settings)
+
+
+class YamlFormat:
+    """
+    Support for yaml files.  Read settings from the given *section*.
+
+    Use `oryaml <https://github.com/ijl/oryaml>_` if it is available.  Otherwise, use
+    :mod:`yaml`.
+
+    Args:
+        section: The config file section to load settings from.
+    """
+
+    def __init__(self, section: str | None) -> None:
+        self.section = section
+
+        try:
+            import yaml
+
+            self._yaml = yaml
+        except ImportError as e:
+            raise ModuleNotFoundError(
+                "Module 'pyyaml' not installed.  Please run "
+                "'python -m pip install -U typed-settings[yam]'"
+            ) from e
+
+    def __call__(
+        self, path: Path, settings_cls: SettingsClass, options: OptionList
+    ) -> SettingsDict:
+        """
+        Load settings from a TOML file and return them as a dict.
+
+        Args:
+            path: The path to the config file.
+            options: The list of available settings.
+            settings_cls: The base settings class for all options.  If ``None``, load
+                top level settings.
+
+        Return:
+            A dict with the loaded settings.
+
+        Raise:
+            ConfigFileNotFoundError: If *path* does not exist.
+            ConfigFileLoadError: If *path* cannot be read/loaded/decoded.
+        """
+        try:
+            with path.open("rb") as f:
+                settings = self._yaml.safe_load(f)
+        except FileNotFoundError as e:
+            raise ConfigFileNotFoundError(str(e)) from e
+        except (PermissionError, self._yaml.YAMLError) as e:
             raise ConfigFileLoadError(str(e)) from e
         if self.section is not None:
             sections = self.section.split(".")
@@ -634,15 +752,18 @@ class _SettingsCleaner:
     """
 
     def __init__(self) -> None:
-        self._invalid_paths: list[str] = []
-        self._valid_paths: dict[str, OptionInfo] = {}
         self._cleaned: SettingsDict = {}
+        self._invalid_paths: list[str] = []
 
     def clean_settings(
         self, settings: SettingsDict, options: OptionList, source: Any
     ) -> SettingsDict:
         """
         Recursively check settings for invalid entries and raise an error.
+
+        This functions is called once per loader.  Thus, the *settings* dict will not
+        necessarily be total.  That's why can just let Cattrs or Pdantic do the job
+        but check each loaded value individually.
 
         An error is not raised until all options have been checked.  It then lists
         all invalid options that have been found.
@@ -658,11 +779,11 @@ class _SettingsCleaner:
         Raise:
             InvalidOptionsError: If invalid settings have been found.
         """
-        self._invalid_paths = []
-        self._valid_paths = {o.path: o for o in options}
         self._cleaned = {}
+        self._invalid_paths = []
 
-        self._iter_dict(settings, "")
+        valid_paths = {o.path: o for o in options}
+        self._iter_dict(settings, "", valid_paths)
 
         if self._invalid_paths:
             joined_paths = ", ".join(sorted(self._invalid_paths))
@@ -672,62 +793,49 @@ class _SettingsCleaner:
 
         return self._cleaned
 
-    def _iter_dict(self, d: SettingsDict, prefix: str) -> None:
-        if not isinstance(d, dict):
+    def _iter_dict(
+        self,
+        settings_dict: SettingsDict | object,
+        prefix: str,
+        valid_paths: dict[str, OptionInfo],
+    ) -> None:
+        """
+        Check all all keys in *settings* dict.
+
+        Recurse if a value represents a nested settings dict.
+        """
+        if not isinstance(settings_dict, dict):
             self._invalid_paths.append(f"{prefix} (is not a settings dict)")
             return
 
-        for key, val in d.items():
+        for key, val in settings_dict.items():
             key = key.replace("-", "_")
             path = f"{prefix}{key}"
 
-            option = self._valid_paths.get(path)
+            option = valid_paths.get(path)
 
             if option:
                 # Handle special case where val is a collection with another SettingCls
                 # i.e. Mapping[str, SettingsCls] or list[SettingsCls]
                 # It requires to generate valid subpaths
                 # see https://gitlab.com/sscherfke/typed-settings/-/issues/67
-                if option.collection_child_options:
-                    self._handle_nested_collection(
-                        option.collection_child_options, path, val
-                    )
+                if option.nested_options:
+                    try:
+                        init_data = option.nested_options.init_data(path, val)
+                        nested_data = option.nested_options.handle_nested(path, val)
+                    except TypeError as e:
+                        self._invalid_paths.append(str(e))
+                    else:
+                        set_path(self._cleaned, path, init_data)
+                        for n_data, n_prefix, n_valid_paths in nested_data:
+                            self._iter_dict(n_data, n_prefix, n_valid_paths)
                 else:
                     set_path(self._cleaned, path, val)
             elif isinstance(val, dict):
-                self._iter_dict(val, f"{path}.")
+                # Plain nested settings (i.e., "sub_setting: SubSettings")
+                self._iter_dict(val, f"{path}.", valid_paths)
             else:
                 self._invalid_paths.append(path)
-
-    def _handle_nested_collection(
-        self, collection_options: CollectionChildOptions, path: str, val: object
-    ) -> None:
-        collection_type = collection_options.collection
-        child_options = collection_options.options
-
-        if collection_type == "mapping" and isinstance(val, dict):
-            for subkey, sub_d in val.items():
-                subprefix = f"{path}.{subkey}."
-                self._valid_paths.update(
-                    {f"{subprefix}{o.path}": o for o in child_options}
-                )
-                self._iter_dict(sub_d, subprefix)
-        elif collection_type == "sequence" and isinstance(val, list):
-            # init empty list with empty dicts,
-            # in order for set_path to work
-            set_path(self._cleaned, path, [{} for _ in val])
-            for i, sub_d in enumerate(val):
-                subprefix = f"{path}.{i}."
-                self._valid_paths.update(
-                    {f"{subprefix}{o.path}": o for o in child_options}
-                )
-                self._iter_dict(sub_d, subprefix)
-        else:
-            # TODO: This is actually an InvalidValueError, maybe raise it?
-            #       Or should just set the value as before and
-            #       let the conversation later one handle it?
-            #       Maybe some pre-processor changes the value?
-            self._invalid_paths.append(f"{path} (needs to be {collection_type})")
 
 
 def clean_settings(

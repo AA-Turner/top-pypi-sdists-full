@@ -4,6 +4,9 @@
 from typing import Optional
 
 from scaleway_core.api import API
+from scaleway_core.bridge import (
+    Region as ScwRegion,
+)
 from scaleway_core.utils import (
     WaitForOptions,
     validate_path_param,
@@ -19,6 +22,7 @@ from .types import (
     ListPurgeRequestsRequestOrderBy,
     ListRouteStagesRequestOrderBy,
     ListTLSStagesRequestOrderBy,
+    ListVPCEndpointsRequestOrderBy,
     ListWafStagesRequestOrderBy,
     PlanName,
     SearchBackendStagesRequestOrderBy,
@@ -43,6 +47,7 @@ from .types import (
     CreatePurgeRequestRequest,
     CreateRouteStageRequest,
     CreateTLSStageRequest,
+    CreateVPCEndpointRequest,
     CreateWafStageRequest,
     DNSStage,
     GetBillingResponse,
@@ -59,6 +64,7 @@ from .types import (
     ListRouteRulesResponse,
     ListRouteStagesResponse,
     ListTLSStagesResponse,
+    ListVPCEndpointsResponse,
     ListWafStagesResponse,
     Pipeline,
     PipelineStages,
@@ -75,6 +81,8 @@ from .types import (
     SetHeadStageRequestAddNewHeadStage,
     SetHeadStageRequestRemoveHeadStage,
     SetHeadStageRequestSwapHeadStage,
+    SetPipelineVPCEndpointsRequest,
+    SetPipelineVPCEndpointsResponse,
     SetRouteRulesRequest,
     SetRouteRulesRequestRouteRule,
     SetRouteRulesResponse,
@@ -88,6 +96,7 @@ from .types import (
     UpdateRouteStageRequest,
     UpdateTLSStageRequest,
     UpdateWafStageRequest,
+    VPCEndpoint,
     WafStage,
 )
 from .content import (
@@ -103,6 +112,7 @@ from .marshalling import (
     unmarshal_TLSStage,
     unmarshal_WafStage,
     unmarshal_PurgeRequest,
+    unmarshal_VPCEndpoint,
     unmarshal_AddRouteRulesResponse,
     unmarshal_CheckDomainResponse,
     unmarshal_CheckLbOriginResponse,
@@ -120,8 +130,10 @@ from .marshalling import (
     unmarshal_ListRouteRulesResponse,
     unmarshal_ListRouteStagesResponse,
     unmarshal_ListTLSStagesResponse,
+    unmarshal_ListVPCEndpointsResponse,
     unmarshal_ListWafStagesResponse,
     unmarshal_Plan,
+    unmarshal_SetPipelineVPCEndpointsResponse,
     unmarshal_SetRouteRulesResponse,
     marshal_AddRouteRulesRequest,
     marshal_CheckDomainRequest,
@@ -134,9 +146,11 @@ from .marshalling import (
     marshal_CreatePurgeRequestRequest,
     marshal_CreateRouteStageRequest,
     marshal_CreateTLSStageRequest,
+    marshal_CreateVPCEndpointRequest,
     marshal_CreateWafStageRequest,
     marshal_SelectPlanRequest,
     marshal_SetHeadStageRequest,
+    marshal_SetPipelineVPCEndpointsRequest,
     marshal_SetRouteRulesRequest,
     marshal_UpdateBackendStageRequest,
     marshal_UpdateCacheStageRequest,
@@ -494,6 +508,218 @@ class EdgeServicesV1Beta1API(API):
 
         self._throw_on_error(res)
 
+    def get_vpc_endpoint(
+        self,
+        *,
+        vpc_endpoint_id: str,
+    ) -> VPCEndpoint:
+        """
+        Get VPC Endpoint.
+        Retrieve information about an existing VPC Endpoint, specified by its `vpc_endpoint_id`.
+        :param vpc_endpoint_id: The VPC Endpoint ID.
+        :return: :class:`VPCEndpoint <VPCEndpoint>`
+
+        Usage:
+        ::
+
+            result = api.get_vpc_endpoint(
+                vpc_endpoint_id="example",
+            )
+        """
+
+        param_vpc_endpoint_id = validate_path_param("vpc_endpoint_id", vpc_endpoint_id)
+
+        res = self._request(
+            "GET",
+            f"/edge-services/v1beta1/vpc-endpoints/{param_vpc_endpoint_id}",
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_VPCEndpoint(res.json())
+
+    def list_vpc_endpoints(
+        self,
+        *,
+        order_by: Optional[ListVPCEndpointsRequestOrderBy] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        project_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
+    ) -> ListVPCEndpointsResponse:
+        """
+        List VPC Endpoints.
+        List all VPC Endpoints, for a Scaleway Organization or Scaleway Project. By default, the VPC Endpoints returned in the list are ordered by creation date in ascending order, though this can be modified via the `order_by` field.
+        :param order_by: Sort order of VPC Endpoints in the response.
+        :param page: Page number to return, from the paginated results.
+        :param page_size: Number of VPC Endpoints to return per page.
+        :param project_id: Project ID to filter for. Only VPC Endpoints from this project will be returned.
+        :param organization_id: Organization ID to filter for. Only VPC Endpoints from this Organization will be returned.
+        :return: :class:`ListVPCEndpointsResponse <ListVPCEndpointsResponse>`
+
+        Usage:
+        ::
+
+            result = api.list_vpc_endpoints()
+        """
+
+        res = self._request(
+            "GET",
+            "/edge-services/v1beta1/vpc-endpoints",
+            params={
+                "order_by": order_by,
+                "organization_id": organization_id
+                or self.client.default_organization_id,
+                "page": page,
+                "page_size": page_size or self.client.default_page_size,
+                "project_id": project_id or self.client.default_project_id,
+            },
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_ListVPCEndpointsResponse(res.json())
+
+    def list_vpc_endpoints_all(
+        self,
+        *,
+        order_by: Optional[ListVPCEndpointsRequestOrderBy] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        project_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
+    ) -> list[VPCEndpoint]:
+        """
+        List VPC Endpoints.
+        List all VPC Endpoints, for a Scaleway Organization or Scaleway Project. By default, the VPC Endpoints returned in the list are ordered by creation date in ascending order, though this can be modified via the `order_by` field.
+        :param order_by: Sort order of VPC Endpoints in the response.
+        :param page: Page number to return, from the paginated results.
+        :param page_size: Number of VPC Endpoints to return per page.
+        :param project_id: Project ID to filter for. Only VPC Endpoints from this project will be returned.
+        :param organization_id: Organization ID to filter for. Only VPC Endpoints from this Organization will be returned.
+        :return: :class:`list[VPCEndpoint] <list[VPCEndpoint]>`
+
+        Usage:
+        ::
+
+            result = api.list_vpc_endpoints_all()
+        """
+
+        return fetch_all_pages(
+            type=ListVPCEndpointsResponse,
+            key="vpc_endpoints",
+            fetcher=self.list_vpc_endpoints,
+            args={
+                "order_by": order_by,
+                "page": page,
+                "page_size": page_size,
+                "project_id": project_id,
+                "organization_id": organization_id,
+            },
+        )
+
+    def create_vpc_endpoint(
+        self,
+        *,
+        private_network_id: str,
+        project_id: Optional[str] = None,
+        region: Optional[ScwRegion] = None,
+    ) -> VPCEndpoint:
+        """
+        Create VPC Endpoint.
+        Create a new VPC Endpoint. You must specify a `private_network_id` to define to which Private Network the VPC endpoint will be attached to.
+        :param private_network_id: Private Network ID of the VPC Endpoint.
+        :param project_id: Project ID of the VPC Endpoint.
+        :param region: Zone of the VPC Endpoint.
+        :return: :class:`VPCEndpoint <VPCEndpoint>`
+
+        Usage:
+        ::
+
+            result = api.create_vpc_endpoint(
+                private_network_id="example",
+            )
+        """
+
+        res = self._request(
+            "POST",
+            "/edge-services/v1beta1/vpc-endpoints",
+            body=marshal_CreateVPCEndpointRequest(
+                CreateVPCEndpointRequest(
+                    private_network_id=private_network_id,
+                    project_id=project_id,
+                    region=region,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_VPCEndpoint(res.json())
+
+    def delete_vpc_endpoint(
+        self,
+        *,
+        vpc_endpoint_id: str,
+    ) -> None:
+        """
+        Delete VPC Endpoint.
+        Delete an existing VPC Endpoint, specified by its `vpc_endpoint_id`.
+        :param vpc_endpoint_id: The VPC Endpoint ID.
+
+        Usage:
+        ::
+
+            result = api.delete_vpc_endpoint(
+                vpc_endpoint_id="example",
+            )
+        """
+
+        param_vpc_endpoint_id = validate_path_param("vpc_endpoint_id", vpc_endpoint_id)
+
+        res = self._request(
+            "DELETE",
+            f"/edge-services/v1beta1/vpc-endpoints/{param_vpc_endpoint_id}",
+        )
+
+        self._throw_on_error(res)
+
+    def set_pipeline_vpc_endpoints(
+        self,
+        *,
+        pipeline_id: str,
+        vpc_endpoint_ids: Optional[list[str]] = None,
+    ) -> SetPipelineVPCEndpointsResponse:
+        """
+        Attach VPC Endpoints.
+        Attach VPC Endpoint to the given Pipeline. You must specify a `pipeline_id` and `vpc_endpoint_ids` which contains the list of VPC Endpoints.
+        :param pipeline_id: Pipeline ID for which VPC Endpoints must be set.
+        :param vpc_endpoint_ids: List of VPC Endpoints to attach.
+        :return: :class:`SetPipelineVPCEndpointsResponse <SetPipelineVPCEndpointsResponse>`
+
+        Usage:
+        ::
+
+            result = api.set_pipeline_vpc_endpoints(
+                pipeline_id="example",
+            )
+        """
+
+        param_pipeline_id = validate_path_param("pipeline_id", pipeline_id)
+
+        res = self._request(
+            "PUT",
+            f"/edge-services/v1beta1/pipelines/{param_pipeline_id}/vpc-endpoints",
+            body=marshal_SetPipelineVPCEndpointsRequest(
+                SetPipelineVPCEndpointsRequest(
+                    pipeline_id=pipeline_id,
+                    vpc_endpoint_ids=vpc_endpoint_ids,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_SetPipelineVPCEndpointsResponse(res.json())
+
     def list_head_stages(
         self,
         *,
@@ -702,6 +928,7 @@ class EdgeServicesV1Beta1API(API):
         backend_stage_id: Optional[str] = None,
         pipeline_id: str,
         wildcard_domain: Optional[bool] = None,
+        full_private: Optional[bool] = None,
     ) -> DNSStage:
         """
         Create DNS stage.
@@ -715,6 +942,7 @@ class EdgeServicesV1Beta1API(API):
         One-Of ('next'): at most one of 'tls_stage_id', 'cache_stage_id', 'backend_stage_id' could be set.
         :param pipeline_id: Pipeline ID the DNS stage belongs to.
         :param wildcard_domain: Support of wildcard (subdomains) for the given domain (a wildcard certificate is required to make it work).
+        :param full_private: When true, Fully Qualified Domain Names are accessible exclusively within the VPC.
         :return: :class:`DNSStage <DNSStage>`
 
         Usage:
@@ -735,6 +963,7 @@ class EdgeServicesV1Beta1API(API):
                     fqdns=fqdns,
                     pipeline_id=pipeline_id,
                     wildcard_domain=wildcard_domain,
+                    full_private=full_private,
                     tls_stage_id=tls_stage_id,
                     cache_stage_id=cache_stage_id,
                     backend_stage_id=backend_stage_id,
@@ -784,6 +1013,7 @@ class EdgeServicesV1Beta1API(API):
         cache_stage_id: Optional[str] = None,
         backend_stage_id: Optional[str] = None,
         wildcard_domain: Optional[bool] = None,
+        full_private: Optional[bool] = None,
     ) -> DNSStage:
         """
         Update DNS stage.
@@ -797,6 +1027,7 @@ class EdgeServicesV1Beta1API(API):
         :param backend_stage_id: Backend stage ID the DNS stage will be linked to.
         One-Of ('next'): at most one of 'tls_stage_id', 'cache_stage_id', 'backend_stage_id' could be set.
         :param wildcard_domain: Support of wildcard (subdomains) for the given domain (a wildcard certificate is required to make it work).
+        :param full_private: When true, Fully Qualified Domain Names are accessible exclusively within the VPC.
         :return: :class:`DNSStage <DNSStage>`
 
         Usage:
@@ -817,6 +1048,7 @@ class EdgeServicesV1Beta1API(API):
                     dns_stage_id=dns_stage_id,
                     fqdns=fqdns,
                     wildcard_domain=wildcard_domain,
+                    full_private=full_private,
                     tls_stage_id=tls_stage_id,
                     cache_stage_id=cache_stage_id,
                     backend_stage_id=backend_stage_id,
@@ -1463,15 +1695,15 @@ class EdgeServicesV1Beta1API(API):
     ) -> BackendStage:
         """
         Create backend stage.
-        Create a new backend stage. You must specify either a `scaleway_s3` (for a Scaleway Object Storage bucket) or `scaleway_lb` (for a Scaleway Load Balancer) field to configure the origin.
+        Create a new backend stage. You must specify a type of backend (`scaleway_s3`, `scaleway_lb`, etc.) to configure the origin.
         :param scaleway_s3: Scaleway Object Storage origin bucket (S3) linked to the backend stage.
         One-Of ('backend_config'): at most one of 'scaleway_s3', 'scaleway_lb', 'scaleway_serverless_container', 'scaleway_serverless_function' could be set.
         :param scaleway_lb: Scaleway Load Balancer origin linked to the backend stage.
         One-Of ('backend_config'): at most one of 'scaleway_s3', 'scaleway_lb', 'scaleway_serverless_container', 'scaleway_serverless_function' could be set.
         :param pipeline_id: Pipeline ID the Backend stage belongs to.
-        :param scaleway_serverless_container:
+        :param scaleway_serverless_container: Scaleway Serverless container origin linked to the backend stage.
         One-Of ('backend_config'): at most one of 'scaleway_s3', 'scaleway_lb', 'scaleway_serverless_container', 'scaleway_serverless_function' could be set.
-        :param scaleway_serverless_function:
+        :param scaleway_serverless_function: Scaleway Serverless function origin linked to the backend stage.
         One-Of ('backend_config'): at most one of 'scaleway_s3', 'scaleway_lb', 'scaleway_serverless_container', 'scaleway_serverless_function' could be set.
         :return: :class:`BackendStage <BackendStage>`
 
@@ -1510,7 +1742,7 @@ class EdgeServicesV1Beta1API(API):
     ) -> BackendStage:
         """
         Get backend stage.
-        Retrieve information about an existing backend stage, specified by its `backend_stage_id`. Its full details, including `scaleway_s3` or `scaleway_lb`, are returned in the response object.
+        Retrieve information about an existing backend stage, specified by its `backend_stage_id`. Its full details are returned in the response object.
         :param backend_stage_id: ID of the requested backend stage.
         :return: :class:`BackendStage <BackendStage>`
 
@@ -1557,9 +1789,9 @@ class EdgeServicesV1Beta1API(API):
         One-Of ('backend_config'): at most one of 'scaleway_s3', 'scaleway_lb', 'scaleway_serverless_container', 'scaleway_serverless_function' could be set.
         :param scaleway_lb: Scaleway Load Balancer origin linked to the backend stage.
         One-Of ('backend_config'): at most one of 'scaleway_s3', 'scaleway_lb', 'scaleway_serverless_container', 'scaleway_serverless_function' could be set.
-        :param scaleway_serverless_container:
+        :param scaleway_serverless_container: Scaleway Serverless container origin linked to the backend stage.
         One-Of ('backend_config'): at most one of 'scaleway_s3', 'scaleway_lb', 'scaleway_serverless_container', 'scaleway_serverless_function' could be set.
-        :param scaleway_serverless_function:
+        :param scaleway_serverless_function: Scaleway Serverless function origin linked to the backend stage.
         One-Of ('backend_config'): at most one of 'scaleway_s3', 'scaleway_lb', 'scaleway_serverless_container', 'scaleway_serverless_function' could be set.
         :return: :class:`BackendStage <BackendStage>`
 
@@ -2269,7 +2501,7 @@ class EdgeServicesV1Beta1API(API):
         project_id: Optional[str] = None,
     ) -> ListRouteRulesResponse:
         """
-        List route rules.
+        Search route rules.
         List all route rules of an organization or project.
         :param order_by:
         :param page:
@@ -2396,7 +2628,7 @@ class EdgeServicesV1Beta1API(API):
         :param order_by: Sort order of purge requests in the response.
         :param page: Page number to return, from the paginated results.
         :param page_size: Number of purge requests to return per page.
-        :param organization_id: Organization ID to filter for. Only purge requests from this Project will be returned.
+        :param organization_id: Organization ID to filter for. Only purge requests from this Organization will be returned.
         :param project_id: Project ID to filter for. Only purge requests from this Project will be returned.
         :param pipeline_id: Pipeline ID to filter for. Only purge requests from this pipeline will be returned.
         :return: :class:`ListPurgeRequestsResponse <ListPurgeRequestsResponse>`
@@ -2440,7 +2672,7 @@ class EdgeServicesV1Beta1API(API):
         :param order_by: Sort order of purge requests in the response.
         :param page: Page number to return, from the paginated results.
         :param page_size: Number of purge requests to return per page.
-        :param organization_id: Organization ID to filter for. Only purge requests from this Project will be returned.
+        :param organization_id: Organization ID to filter for. Only purge requests from this Organization will be returned.
         :param project_id: Project ID to filter for. Only purge requests from this Project will be returned.
         :param pipeline_id: Pipeline ID to filter for. Only purge requests from this pipeline will be returned.
         :return: :class:`list[PurgeRequest] <list[PurgeRequest]>`
@@ -2606,6 +2838,8 @@ class EdgeServicesV1Beta1API(API):
         self,
     ) -> ListPlansResponse:
         """
+        List plans.
+        List all available Edge Services subscription plans.
 
         :return: :class:`ListPlansResponse <ListPlansResponse>`
 
@@ -2630,6 +2864,8 @@ class EdgeServicesV1Beta1API(API):
         plan_name: Optional[PlanName] = None,
     ) -> Plan:
         """
+        Select plan.
+        Subscribe to the Edge Services subscription plan of your choice, for the given Scaleway Project.
         :param project_id:
         :param plan_name:
         :return: :class:`Plan <Plan>`
@@ -2661,6 +2897,8 @@ class EdgeServicesV1Beta1API(API):
         project_id: Optional[str] = None,
     ) -> Plan:
         """
+        Get plan.
+        Get the current Edge Services subscription plan for your Scaleway Project.
         :param project_id:
         :return: :class:`Plan <Plan>`
 
@@ -2688,6 +2926,8 @@ class EdgeServicesV1Beta1API(API):
         project_id: Optional[str] = None,
     ) -> None:
         """
+        Delete plan.
+        Unsubscribe from the current Edge Services subscription plan for your Scaleway Project.
         :param project_id:
 
         Usage:

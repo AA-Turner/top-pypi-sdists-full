@@ -29,6 +29,7 @@ class JobRunReason(str, Enum, metaclass=StrEnumMeta):
     SECRET_DISABLED = "secret_disabled"
     SECRET_NOT_FOUND = "secret_not_found"
     QUOTA_EXCEEDED = "quota_exceeded"
+    APPLICATION_NOT_STARTED = "application_not_started"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -391,7 +392,7 @@ class JobRun:
 
     attempts: Optional[int] = 0
     """
-    Number of retry attempts.
+    Number of run attempts.
     """
 
 
@@ -429,6 +430,11 @@ class Trigger:
 class UpdateJobDefinitionRequestCronScheduleConfig:
     schedule: Optional[str] = None
     timezone: Optional[str] = None
+
+
+@dataclass
+class UpdateJobDefinitionRequestUpdateRetryPolicy:
+    max_retries: Optional[int] = None
 
 
 @dataclass
@@ -530,7 +536,7 @@ Environment variables and secrets can be included, and will be expanded before t
 
     retry_policy: Optional[RetryPolicy] = None
     """
-    Retry behaviour in case of job failure.
+    Retry policy upon a job failure.
     """
 
 
@@ -948,9 +954,9 @@ Environment variables and secrets can be included, and will be expanded before t
     Configure a cron for the job.
     """
 
-    retry_policy: Optional[RetryPolicy] = None
+    retry_policy: Optional[UpdateJobDefinitionRequestUpdateRetryPolicy] = None
     """
-    Retry behaviour in case of job failure.
+    Retry policy upon a job failure.
     """
 
 

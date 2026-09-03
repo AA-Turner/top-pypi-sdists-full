@@ -320,6 +320,100 @@ class _IDomainRefProxy(
 typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_amplify.IWebhookRef")
+class IWebhookRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Webhook.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="webhookRef")
+    def webhook_ref(self) -> "WebhookReference":
+        '''(experimental) A reference to a Webhook resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWebhookRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Webhook.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_amplify.IWebhookRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="webhookRef")
+    def webhook_ref(self) -> "WebhookReference":
+        '''(experimental) A reference to a Webhook resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WebhookReference", jsii.get(self, "webhookRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWebhookRef).__jsii_proxy_class__ = lambda : _IWebhookRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_amplify.WebhookReference",
+    jsii_struct_bases=[],
+    name_mapping={"webhook_arn": "webhookArn"},
+)
+class WebhookReference:
+    def __init__(self, *, webhook_arn: builtins.str) -> None:
+        '''A reference to a Webhook resource.
+
+        :param webhook_arn: The Arn of the Webhook resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_amplify as interfaces_amplify
+            
+            webhook_reference = interfaces_amplify.WebhookReference(
+                webhook_arn="webhookArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__29ee2e79b2e6aef3af8da9ab7e409710c2458372717ed5c74dfed12335909a5d)
+            check_type(argname="argument webhook_arn", value=webhook_arn, expected_type=type_hints["webhook_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "webhook_arn": webhook_arn,
+        }
+
+    @builtins.property
+    def webhook_arn(self) -> builtins.str:
+        '''The Arn of the Webhook resource.'''
+        result = self._values.get("webhook_arn")
+        assert result is not None, "Required property 'webhook_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebhookReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AppReference",
     "BranchReference",
@@ -327,6 +421,8 @@ __all__ = [
     "IAppRef",
     "IBranchRef",
     "IDomainRef",
+    "IWebhookRef",
+    "WebhookReference",
 ]
 
 publication.publish()
@@ -352,5 +448,12 @@ def _typecheckingstub__3c9905854ff8dd39e3209f2f3215976ebe6df84235c273eb22124aec8
     """Type checking stubs"""
     pass
 
-for cls in [IAppRef, IBranchRef, IDomainRef]:
+def _typecheckingstub__29ee2e79b2e6aef3af8da9ab7e409710c2458372717ed5c74dfed12335909a5d(
+    *,
+    webhook_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAppRef, IBranchRef, IDomainRef, IWebhookRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

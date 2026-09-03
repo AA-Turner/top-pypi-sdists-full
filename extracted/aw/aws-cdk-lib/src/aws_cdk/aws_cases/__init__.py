@@ -77,6 +77,365 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cases_06da68ef.ICaseRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnCase(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cases.CfnCase",
+):
+    '''Creates a case in the specified Cases domain.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-case.html
+    :cloudformationResource: AWS::Cases::Case
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cases as cases
+        
+        cfn_case = cases.CfnCase(self, "MyCfnCase",
+            customer_id="customerId",
+            domain_id="domainId",
+            template_id="templateId",
+            title="title",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        customer_id: builtins.str,
+        domain_id: builtins.str,
+        template_id: builtins.str,
+        title: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Cases::Case``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param customer_id: The full customer profile ARN for the case.
+        :param domain_id: The unique identifier of the Cases domain.
+        :param template_id: A unique identifier of a template.
+        :param title: The title of the case.
+        :param tags: A list of tags for the case.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2cb74831406b79bbcc899fef18089f754f2b174432d1a1dd57b087088a887b47)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCaseProps(
+            customer_id=customer_id,
+            domain_id=domain_id,
+            template_id=template_id,
+            title=title,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCase")
+    @builtins.classmethod
+    def arn_for_case(cls, resource: "_aws_cases_06da68ef.ICaseRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__070f21e77211b591f2983ad46c5905c0f327f462f6450f36c291efed8e7c7077)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCase", [resource]))
+
+    @jsii.member(jsii_name="isCfnCase")
+    @builtins.classmethod
+    def is_cfn_case(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCase.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__700826e2bedb862d568e18e48fe9b9ccb172d531612774c8721667cba7cf3a93)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCase", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e2c5f0a9bc72637ad99302ee0b534e02368dd5ae9418e5f5a26f1a05affb9070)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6c3ddcd42bdca4037c50d505b167b1512a5db687cbde02f5eb19d63c1a05a0a9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the case.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCaseId")
+    def attr_case_id(self) -> builtins.str:
+        '''A unique identifier of the case.
+
+        :cloudformationAttribute: CaseId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCaseId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="caseRef")
+    def case_ref(self) -> "_aws_cases_06da68ef.CaseReference":
+        '''A reference to a Case resource.'''
+        return typing.cast("_aws_cases_06da68ef.CaseReference", jsii.get(self, "caseRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="customerId")
+    def customer_id(self) -> builtins.str:
+        '''The full customer profile ARN for the case.'''
+        return typing.cast(builtins.str, jsii.get(self, "customerId"))
+
+    @customer_id.setter
+    def customer_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__37a2ec2e70f35831d6c674fbfd3d4d5554410e546b641ff092acb421dc783bdf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customerId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domainId")
+    def domain_id(self) -> builtins.str:
+        '''The unique identifier of the Cases domain.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainId"))
+
+    @domain_id.setter
+    def domain_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0fdc3094a4110af1c4738c066ccc9fe781608c03711899d741153eaeef71e8f1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="templateId")
+    def template_id(self) -> builtins.str:
+        '''A unique identifier of a template.'''
+        return typing.cast(builtins.str, jsii.get(self, "templateId"))
+
+    @template_id.setter
+    def template_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__725a49807192c845855c3c0f1b1b98c963beb260adda88d0bf9a1321f1a35091)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "templateId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="title")
+    def title(self) -> builtins.str:
+        '''The title of the case.'''
+        return typing.cast(builtins.str, jsii.get(self, "title"))
+
+    @title.setter
+    def title(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d55ca7c99a983ea052d806f9866f493b7702bdd6dea8263aae8b67b19338f21d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags for the case.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__add69f6e0e6150fd79d4ea5ed1094dea05afd35055f52e59ec6aac9ac5c00443)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cases.CfnCaseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "customer_id": "customerId",
+        "domain_id": "domainId",
+        "template_id": "templateId",
+        "title": "title",
+        "tags": "tags",
+    },
+)
+class CfnCaseProps:
+    def __init__(
+        self,
+        *,
+        customer_id: builtins.str,
+        domain_id: builtins.str,
+        template_id: builtins.str,
+        title: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCase``.
+
+        :param customer_id: The full customer profile ARN for the case.
+        :param domain_id: The unique identifier of the Cases domain.
+        :param template_id: A unique identifier of a template.
+        :param title: The title of the case.
+        :param tags: A list of tags for the case.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-case.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cases as cases
+            
+            cfn_case_props = cases.CfnCaseProps(
+                customer_id="customerId",
+                domain_id="domainId",
+                template_id="templateId",
+                title="title",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7df6d7d2380ff816a1f1e319914c5374bce1c48296b0db27af26d237a5569199)
+            check_type(argname="argument customer_id", value=customer_id, expected_type=type_hints["customer_id"])
+            check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+            check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "customer_id": customer_id,
+            "domain_id": domain_id,
+            "template_id": template_id,
+            "title": title,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def customer_id(self) -> builtins.str:
+        '''The full customer profile ARN for the case.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-case.html#cfn-cases-case-customerid
+        '''
+        result = self._values.get("customer_id")
+        assert result is not None, "Required property 'customer_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_id(self) -> builtins.str:
+        '''The unique identifier of the Cases domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-case.html#cfn-cases-case-domainid
+        '''
+        result = self._values.get("domain_id")
+        assert result is not None, "Required property 'domain_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_id(self) -> builtins.str:
+        '''A unique identifier of a template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-case.html#cfn-cases-case-templateid
+        '''
+        result = self._values.get("template_id")
+        assert result is not None, "Required property 'template_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def title(self) -> builtins.str:
+        '''The title of the case.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-case.html#cfn-cases-case-title
+        '''
+        result = self._values.get("title")
+        assert result is not None, "Required property 'title' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags for the case.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-case.html#cfn-cases-case-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cases_06da68ef.ICaseRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCaseRule(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3704,6 +4063,8 @@ class CfnTemplateProps:
 
 
 __all__ = [
+    "CfnCase",
+    "CfnCaseProps",
     "CfnCaseRule",
     "CfnCaseRuleProps",
     "CfnDomain",
@@ -3717,6 +4078,84 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__2cb74831406b79bbcc899fef18089f754f2b174432d1a1dd57b087088a887b47(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    customer_id: builtins.str,
+    domain_id: builtins.str,
+    template_id: builtins.str,
+    title: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__070f21e77211b591f2983ad46c5905c0f327f462f6450f36c291efed8e7c7077(
+    resource: _aws_cases_06da68ef.ICaseRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__700826e2bedb862d568e18e48fe9b9ccb172d531612774c8721667cba7cf3a93(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2c5f0a9bc72637ad99302ee0b534e02368dd5ae9418e5f5a26f1a05affb9070(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c3ddcd42bdca4037c50d505b167b1512a5db687cbde02f5eb19d63c1a05a0a9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37a2ec2e70f35831d6c674fbfd3d4d5554410e546b641ff092acb421dc783bdf(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fdc3094a4110af1c4738c066ccc9fe781608c03711899d741153eaeef71e8f1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__725a49807192c845855c3c0f1b1b98c963beb260adda88d0bf9a1321f1a35091(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d55ca7c99a983ea052d806f9866f493b7702bdd6dea8263aae8b67b19338f21d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__add69f6e0e6150fd79d4ea5ed1094dea05afd35055f52e59ec6aac9ac5c00443(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7df6d7d2380ff816a1f1e319914c5374bce1c48296b0db27af26d237a5569199(
+    *,
+    customer_id: builtins.str,
+    domain_id: builtins.str,
+    template_id: builtins.str,
+    title: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__be714901cc3ca1265b6c09c9f45312daac0e3e7940822b521a65617830120426(
     scope: _constructs_77d1e7e8.Construct,

@@ -98,7 +98,7 @@ class RawEventsClient:
             Full event names to filter by, comma-separated (payment.completed, pixel.lead, pixel.page, pixel.custom:<name>) — the same vocabulary the events / people metrics use.
 
         source : typing.Optional[str]
-            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct). Restricts the list to conversion targets attributed to that source — the debuggability twin of a metric cell's source parameter.
+            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct). Restricts the list to conversion targets attributed to that source — the debuggability twin of a metric cell's source parameter. A whop:... source combined with non-conversion event names (event=pixel.page) instead lists the events whose ad click resolved to that entity — the page views an ad drove.
 
         attribution_model : typing.Optional[ListEventsRequestAttributionModel]
             Attribution model for the source filter (defaults to last_touch).
@@ -236,6 +236,8 @@ class RawEventsClient:
         account_id: str,
         event_name: str,
         action_source: typing.Optional[CreateEventsRequestActionSource] = OMIT,
+        app_build_id: typing.Optional[str] = OMIT,
+        app_id: typing.Optional[str] = OMIT,
         context: typing.Optional[CreateEventsRequestContext] = OMIT,
         currency: typing.Optional[CreateEventsRequestCurrency] = OMIT,
         custom_name: typing.Optional[str] = OMIT,
@@ -268,6 +270,12 @@ class RawEventsClient:
 
         action_source : typing.Optional[CreateEventsRequestActionSource]
             Where the event originated.
+
+        app_build_id : typing.Optional[str]
+            The build of the hosted app that served the page where the event occurred.
+
+        app_id : typing.Optional[str]
+            The hosted app that served the page where the event occurred.
 
         context : typing.Optional[CreateEventsRequestContext]
             Tracking and attribution context.
@@ -328,6 +336,8 @@ class RawEventsClient:
             json={
                 "account_id": account_id,
                 "action_source": action_source,
+                "app_build_id": app_build_id,
+                "app_id": app_id,
                 "context": convert_and_respect_annotation_metadata(
                     object_=context, annotation=typing.Optional[CreateEventsRequestContext], direction="write"
                 ),
@@ -637,7 +647,7 @@ class AsyncRawEventsClient:
             Full event names to filter by, comma-separated (payment.completed, pixel.lead, pixel.page, pixel.custom:<name>) — the same vocabulary the events / people metrics use.
 
         source : typing.Optional[str]
-            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct). Restricts the list to conversion targets attributed to that source — the debuggability twin of a metric cell's source parameter.
+            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct). Restricts the list to conversion targets attributed to that source — the debuggability twin of a metric cell's source parameter. A whop:... source combined with non-conversion event names (event=pixel.page) instead lists the events whose ad click resolved to that entity — the page views an ad drove.
 
         attribution_model : typing.Optional[ListEventsRequestAttributionModel]
             Attribution model for the source filter (defaults to last_touch).
@@ -778,6 +788,8 @@ class AsyncRawEventsClient:
         account_id: str,
         event_name: str,
         action_source: typing.Optional[CreateEventsRequestActionSource] = OMIT,
+        app_build_id: typing.Optional[str] = OMIT,
+        app_id: typing.Optional[str] = OMIT,
         context: typing.Optional[CreateEventsRequestContext] = OMIT,
         currency: typing.Optional[CreateEventsRequestCurrency] = OMIT,
         custom_name: typing.Optional[str] = OMIT,
@@ -810,6 +822,12 @@ class AsyncRawEventsClient:
 
         action_source : typing.Optional[CreateEventsRequestActionSource]
             Where the event originated.
+
+        app_build_id : typing.Optional[str]
+            The build of the hosted app that served the page where the event occurred.
+
+        app_id : typing.Optional[str]
+            The hosted app that served the page where the event occurred.
 
         context : typing.Optional[CreateEventsRequestContext]
             Tracking and attribution context.
@@ -870,6 +888,8 @@ class AsyncRawEventsClient:
             json={
                 "account_id": account_id,
                 "action_source": action_source,
+                "app_build_id": app_build_id,
+                "app_id": app_id,
                 "context": convert_and_respect_annotation_metadata(
                     object_=context, annotation=typing.Optional[CreateEventsRequestContext], direction="write"
                 ),

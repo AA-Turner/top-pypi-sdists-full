@@ -1,6 +1,6 @@
 """Data types for NotebookLM API client.
 
-This module contains all dataclasses and re-exports enums from rpc/types.py
+This module contains all dataclasses and re-exports transport-neutral enums
 for convenient access.
 
 Usage:
@@ -24,15 +24,20 @@ from ._types.artifact_content import (
 )
 from ._types.artifacts import (
     Artifact,
+    ArtifactCustomizationChoices,
     ArtifactType,
+    CopiedArtifact,
+    CustomizationChoice,
     GenerationState,
     GenerationStatus,
+    ReportPreset,
     ReportSuggestion,
 )
 from ._types.chat import (
     AskResult,
     ChatMode,
     ChatReference,
+    ChatSessionStatus,
     ChatSettings,
     ConversationTurn,
     ConversationTurnKey,
@@ -60,60 +65,7 @@ from ._types.documents import (
     TextSpan,
     utf16_len,
 )
-from ._types.labels import Label
-from ._types.mind_maps import MindMap, MindMapKind
-from ._types.notebooks import (
-    ChatSession,
-    Notebook,
-    NotebookDescription,
-    NotebookMetadata,
-    PremiumFeatureInfo,
-    PromptSuggestion,
-    SourceSummary,
-    SuggestedTopic,
-)
-from ._types.notes import Note
-from ._types.research import (
-    MindMapResult,
-    ResearchSource,
-    ResearchSourceInput,
-    ResearchStart,
-    ResearchStatus,
-    ResearchTask,
-    ResearchTerminationReason,
-    SourceGuide,
-)
-from ._types.sharing import SharedUser, ShareStatus
-from ._types.sources import (
-    Source,
-    SourceFulltext,
-    SourceType,
-)
-
-# Import exceptions from centralized module (re-export for backward compatibility)
-from .exceptions import (
-    ArtifactDownloadError,
-    ArtifactError,
-    ArtifactFeatureUnavailableError,
-    ArtifactInProgressTimeoutError,
-    ArtifactNotFoundError,
-    ArtifactNotReadyError,
-    ArtifactParseError,
-    ArtifactPendingTimeoutError,
-    ArtifactTimeoutError,
-    CollectionError,
-    CollectionNotFoundError,
-    LabelError,
-    LabelNotFoundError,
-    SourceAddError,
-    SourceError,
-    SourceNotFoundError,
-    SourceProcessingError,
-    SourceTimeoutError,
-)
-
-# Re-export enums from rpc/types.py for convenience
-from .rpc.types import (
+from ._types.enums import (
     SOURCE_STATUS_LABELS,
     ArtifactStatus,
     AudioFormat,
@@ -145,17 +97,73 @@ from .rpc.types import (
     share_permission_to_str,
     source_status_to_str,
 )
-from .rpc.types import (
+from ._types.enums import (
     ArtifactTypeCode as _ArtifactTypeCode,
 )
-from .rpc.types import (
+from ._types.enums import (
     GrpcStatusCode as _GrpcStatusCode,
 )
-from .rpc.types import (
+from ._types.enums import (
     normalize_grpc_status as _normalize_grpc_status,
 )
-from .rpc.types import (
+from ._types.enums import (
     normalize_rpc_code as _normalize_rpc_code,
+)
+from ._types.labels import Label
+from ._types.mind_maps import MindMap, MindMapKind
+from ._types.notebooks import (
+    ChatSession,
+    Notebook,
+    NotebookDescription,
+    NotebookMetadata,
+    PremiumFeatureInfo,
+    PromptSuggestion,
+    SourceSummary,
+    SuggestedTopic,
+)
+from ._types.notes import Note
+from ._types.research import (
+    MindMapResult,
+    ResearchSource,
+    ResearchSourceInput,
+    ResearchStart,
+    ResearchStatus,
+    ResearchTask,
+    ResearchTerminationReason,
+    SourceGuide,
+)
+from ._types.sharing import SharedUser, ShareStatus
+from ._types.sources import (
+    CopiedSource,
+    ExpertIntelligenceSourceMetadata,
+    PlayBook,
+    PlayBookExportReason,
+    RelevantChunk,
+    Source,
+    SourceFulltext,
+    SourceType,
+)
+
+# Import exceptions from centralized module (re-export for backward compatibility)
+from .exceptions import (
+    ArtifactDownloadError,
+    ArtifactError,
+    ArtifactFeatureUnavailableError,
+    ArtifactInProgressTimeoutError,
+    ArtifactNotFoundError,
+    ArtifactNotReadyError,
+    ArtifactParseError,
+    ArtifactPendingTimeoutError,
+    ArtifactTimeoutError,
+    CollectionError,
+    CollectionNotFoundError,
+    LabelError,
+    LabelNotFoundError,
+    SourceAddError,
+    SourceError,
+    SourceNotFoundError,
+    SourceProcessingError,
+    SourceTimeoutError,
 )
 
 # Keep private facade names that first-party tests and external callers have
@@ -217,6 +225,11 @@ __all__ = [
     "SuggestedTopic",
     "Source",
     "SourceFulltext",
+    "RelevantChunk",
+    "CopiedSource",
+    "PlayBook",
+    "PlayBookExportReason",
+    "ExpertIntelligenceSourceMetadata",
     "SourceSummary",
     "Artifact",
     "ArtifactInfographic",
@@ -230,6 +243,10 @@ __all__ = [
     "GenerationState",
     "GenerationStatus",
     "ReportSuggestion",
+    "CopiedArtifact",
+    "CustomizationChoice",
+    "ReportPreset",
+    "ArtifactCustomizationChoices",
     "Note",
     "Label",
     "Collection",
@@ -237,6 +254,7 @@ __all__ = [
     "ConversationTurnKey",
     "NextStepSuggestion",
     "ChatReference",
+    "ChatSessionStatus",
     "BlockKind",
     "BlockStyle",
     "DocumentAnnotation",
@@ -338,6 +356,7 @@ del _public_common_type
 
 for _public_moved_type in (
     Artifact,
+    ArtifactCustomizationChoices,
     ArtifactInfographic,
     ArtifactMedia,
     ArtifactMediaType,
@@ -349,11 +368,15 @@ for _public_moved_type in (
     AskResult,
     ChatMode,
     ChatReference,
+    ChatSessionStatus,
     ChatSettings,
     ChatSession,
     Collection,
     ConversationTurn,
     ConversationTurnKey,
+    CopiedArtifact,
+    CopiedSource,
+    CustomizationChoice,
     NextStepSuggestion,
     GenerationState,
     GenerationStatus,
@@ -367,6 +390,7 @@ for _public_moved_type in (
     NotebookMetadata,
     PremiumFeatureInfo,
     PromptSuggestion,
+    ReportPreset,
     ReportSuggestion,
     ResearchSource,
     ResearchStart,
@@ -375,6 +399,10 @@ for _public_moved_type in (
     ResearchTerminationReason,
     SharedUser,
     ShareStatus,
+    ExpertIntelligenceSourceMetadata,
+    PlayBook,
+    PlayBookExportReason,
+    RelevantChunk,
     Source,
     SourceFulltext,
     SourceGuide,

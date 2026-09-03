@@ -2164,6 +2164,7 @@ class main_menu(TUIMenu):
                     self.collision_scheme = self.__class__.collision_scheme(service, version, mode, path + ["collision_scheme"])
                     self.enabled = self.__class__.enabled(service, version, mode, path + ["enabled"])
                     self.real_to_simulated_particle_ratio = self.__class__.real_to_simulated_particle_ratio(service, version, mode, path + ["real_to_simulated_particle_ratio"])
+                    self.reference_mean_collision_time = self.__class__.reference_mean_collision_time(service, version, mode, path + ["reference_mean_collision_time"])
                     self.reset_macroscopic_solution = self.__class__.reset_macroscopic_solution(service, version, mode, path + ["reset_macroscopic_solution"])
                     self.sampling_begin_iteration = self.__class__.sampling_begin_iteration(service, version, mode, path + ["sampling_begin_iteration"])
                     self.target_number_of_particle_per_subcell = self.__class__.target_number_of_particle_per_subcell(service, version, mode, path + ["target_number_of_particle_per_subcell"])
@@ -2182,6 +2183,10 @@ class main_menu(TUIMenu):
                     Enable/disable Direct Simulation Monte Carlo (DSMC) model.
                     """
                 class real_to_simulated_particle_ratio(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class reference_mean_collision_time(TUIMethod):
                     """
                     No help available.
                     """
@@ -15611,7 +15616,7 @@ class main_menu(TUIMenu):
 
         class project_beta(TUIMenu):
             """
-            Enter to create new project, open project, save and archive project.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.simulation = self.__class__.simulation(service, version, mode, path + ["simulation"])
@@ -15624,32 +15629,32 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class archive(TUIMethod):
                 """
-                Archive Project.
+                No help available.
                 """
             class new(TUIMethod):
                 """
-                Create New Project.
+                No help available.
                 """
             class open(TUIMethod):
                 """
-                Open project.
+                No help available.
                 """
             class save(TUIMethod):
                 """
-                Save Project.
+                No help available.
                 """
             class save_as(TUIMethod):
                 """
-                Save As Project.
+                No help available.
                 """
             class save_as_copy(TUIMethod):
                 """
-                Save As Copy.
+                No help available.
                 """
 
             class simulation(TUIMenu):
                 """
-                Enter to create, duplicate, or delete a simulation.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.run = self.__class__.run(service, version, mode, path + ["run"])
@@ -15659,20 +15664,20 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class delete(TUIMethod):
                     """
-                    Delete A Simulation.
+                    No help available.
                     """
                 class new_simulation(TUIMethod):
                     """
-                    Create New Simulation.
+                    No help available.
                     """
                 class set_as_current(TUIMethod):
                     """
-                    Set the Current Simulation.
+                    No help available.
                     """
 
                 class run(TUIMenu):
                     """
-                    Enter to create, duplicate, or delete a run.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
@@ -15681,15 +15686,15 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class delete(TUIMethod):
                         """
-                        Delete A Run.
+                        No help available.
                         """
                     class new_run(TUIMethod):
                         """
-                        Create a New Run.
+                        No help available.
                         """
                     class set_as_current(TUIMethod):
                         """
-                        Set the Current Run.
+                        No help available.
                         """
 
         class solution_files(TUIMenu):
@@ -32183,6 +32188,7 @@ class main_menu(TUIMenu):
                     self.collision_scheme = self.__class__.collision_scheme(service, version, mode, path + ["collision_scheme"])
                     self.enabled = self.__class__.enabled(service, version, mode, path + ["enabled"])
                     self.real_to_simulated_particle_ratio = self.__class__.real_to_simulated_particle_ratio(service, version, mode, path + ["real_to_simulated_particle_ratio"])
+                    self.reference_mean_collision_time = self.__class__.reference_mean_collision_time(service, version, mode, path + ["reference_mean_collision_time"])
                     self.reset_macroscopic_solution = self.__class__.reset_macroscopic_solution(service, version, mode, path + ["reset_macroscopic_solution"])
                     self.sampling_begin_iteration = self.__class__.sampling_begin_iteration(service, version, mode, path + ["sampling_begin_iteration"])
                     self.target_number_of_particle_per_subcell = self.__class__.target_number_of_particle_per_subcell(service, version, mode, path + ["target_number_of_particle_per_subcell"])
@@ -32201,6 +32207,10 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class real_to_simulated_particle_ratio(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class reference_mean_collision_time(TUIMethod):
                     """
                     No help available.
                     """
@@ -33581,6 +33591,7 @@ class main_menu(TUIMenu):
                     self.collision_scheme = self.__class__.collision_scheme(service, version, mode, path + ["collision_scheme"])
                     self.enabled = self.__class__.enabled(service, version, mode, path + ["enabled"])
                     self.real_to_simulated_particle_ratio = self.__class__.real_to_simulated_particle_ratio(service, version, mode, path + ["real_to_simulated_particle_ratio"])
+                    self.reference_mean_collision_time = self.__class__.reference_mean_collision_time(service, version, mode, path + ["reference_mean_collision_time"])
                     self.reset_macroscopic_solution = self.__class__.reset_macroscopic_solution(service, version, mode, path + ["reset_macroscopic_solution"])
                     self.sampling_begin_iteration = self.__class__.sampling_begin_iteration(service, version, mode, path + ["sampling_begin_iteration"])
                     self.target_number_of_particle_per_subcell = self.__class__.target_number_of_particle_per_subcell(service, version, mode, path + ["target_number_of_particle_per_subcell"])
@@ -33599,6 +33610,10 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class real_to_simulated_particle_ratio(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class reference_mean_collision_time(TUIMethod):
                     """
                     No help available.
                     """
@@ -37599,6 +37614,7 @@ class main_menu(TUIMenu):
                     self.collision_scheme = self.__class__.collision_scheme(service, version, mode, path + ["collision_scheme"])
                     self.enabled = self.__class__.enabled(service, version, mode, path + ["enabled"])
                     self.real_to_simulated_particle_ratio = self.__class__.real_to_simulated_particle_ratio(service, version, mode, path + ["real_to_simulated_particle_ratio"])
+                    self.reference_mean_collision_time = self.__class__.reference_mean_collision_time(service, version, mode, path + ["reference_mean_collision_time"])
                     self.reset_macroscopic_solution = self.__class__.reset_macroscopic_solution(service, version, mode, path + ["reset_macroscopic_solution"])
                     self.sampling_begin_iteration = self.__class__.sampling_begin_iteration(service, version, mode, path + ["sampling_begin_iteration"])
                     self.target_number_of_particle_per_subcell = self.__class__.target_number_of_particle_per_subcell(service, version, mode, path + ["target_number_of_particle_per_subcell"])
@@ -37617,6 +37633,10 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class real_to_simulated_particle_ratio(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class reference_mean_collision_time(TUIMethod):
                     """
                     No help available.
                     """

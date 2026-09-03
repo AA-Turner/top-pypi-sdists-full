@@ -762,7 +762,7 @@ class IP:
 class Offer:
     id: int
     """
-    ID of the offer.
+    ID of the offer (aka product.id).
     """
 
     name: str
@@ -783,6 +783,11 @@ class Offer:
     pricing: Optional[Money] = None
     """
     Price of the offer.
+    """
+
+    offer_id: Optional[int] = 0
+    """
+    Original Dedibox ID of the offer.
     """
 
     server_info: Optional[OfferServerInfo] = None
@@ -979,7 +984,7 @@ class ServiceLevel:
 class RpnSan:
     id: int
     """
-    RPN SAN  ID.
+    RPN SAN ID.
     """
 
     datacenter_name: str
@@ -1706,7 +1711,7 @@ class RpnGroupMember:
 class RpnSanSummary:
     id: int
     """
-    RPN SAN  ID.
+    RPN SAN ID.
     """
 
     datacenter_name: str
@@ -2938,11 +2943,6 @@ class ListIpsResponse:
 
 @dataclass
 class ListOSRequest:
-    server_id: int
-    """
-    Filter OS by compatible server ID.
-    """
-
     zone: Optional[ScwZone] = None
     """
     Zone to target. If none is passed will use default zone from the config.
@@ -2972,6 +2972,10 @@ class ListOSRequest:
     """
     Project ID.
     """
+
+    server_id: Optional[int] = 0
+
+    offer_id: Optional[int] = 0
 
 
 @dataclass

@@ -25,6 +25,8 @@ from notebooklm._app.research import (
     ResearchWaitPlan,
     ResearchWaitResult,
     cancel_research,
+    classify_research_task,
+    discover_and_classify,
     execute_research_wait,
     poll_and_classify,
     poll_importable_research,
@@ -443,6 +445,25 @@ async def test_wait_resolves_notebook_id_through_injected_resolver() -> None:
     assert result.notebook_id == "nb_resolved"
 
 
+async def test_wait_threads_an_explicit_task_id_without_changing_default_calls() -> None:
+    client = _client(wait=_task(status=ResearchStatus.COMPLETED, task_id="task_exact"))
+    plan = ResearchWaitPlan(
+        notebook_id="nb_1",
+        timeout=300,
+        interval=5,
+        task_id="task_exact",
+    )
+
+    await execute_research_wait(plan, client=client, resolve_id=_resolve_passthrough)
+
+    client.research.wait_for_completion.assert_awaited_once_with(
+        "nb_1",
+        "task_exact",
+        timeout=300.0,
+        initial_interval=5.0,
+    )
+
+
 # ===========================================================================
 # execute_research_wait — import gating
 # ===========================================================================
@@ -737,3 +758,50 @@ async def test_unmappable_discovery_mode_reaches_the_transports_as_unknown() -> 
     )
     result = await poll_and_classify(client, "nb_1")
     assert result.discovery_mode == "unknown"
+
+
+# ===========================================================================
+# discover_and_classify
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_discover_and_classify_projects_the_completed_task_like_a_poll() -> None:
+    task = _task(
+        status=ResearchStatus.COMPLETED,
+        task_id="job_001",
+        query="history of the transistor",
+        sources=[{"title": "Source 1", "url": "http://example.com/1", "hint": "why"}],
+        summary="An overview.",
+        status_code=2,
+        source_type=1,
+        discovery_mode=DiscoveryMode.RAW_SEARCH,
+    )
+    client = MagicMock()
+    client.research = MagicMock()
+    client.research.discover = AsyncMock(return_value=task)
+
+    result = await discover_and_classify(client, "nb_1", "history of the transistor", "raw")
+
+    client.research.discover.assert_awaited_once_with(
+        "nb_1", "history of the transistor", mode="raw"
+    )
+    assert result == classify_research_task(task)
+    assert result.kind == "completed" and result.task_id == "job_001"
+    assert result.summary == "An overview." and result.report == ""
+    assert result.sources == [
+        {"url": "http://example.com/1", "title": "Source 1", "result_type": 1, "hint": "why"}
+    ]
+    assert result.public_dict == task.to_public_dict()
+    assert result.status_code == 2 and result.discovery_mode == "raw_search"
+    assert result.termination_reason == "completed"
+    assert result.reason_message is None and result.hint is None
+
+
+@pytest.mark.asyncio
+async def test_discover_and_classify_defaults_to_the_default_mode() -> None:
+    client = MagicMock()
+    client.research = MagicMock()
+    client.research.discover = AsyncMock(return_value=_task(status=ResearchStatus.COMPLETED))
+    await discover_and_classify(client, "nb_1", "q")
+    client.research.discover.assert_awaited_once_with("nb_1", "q", mode="default")

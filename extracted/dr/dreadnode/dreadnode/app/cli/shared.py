@@ -16,6 +16,7 @@ if t.TYPE_CHECKING:
     from dreadnode.app.main import Dreadnode
 
 from dreadnode.core.log import console
+from dreadnode.packaging.egress import validate_target_list
 
 # Label-column width for detail views (2-space indent + label text + padding).
 # Shared so every domain renders key/value blocks with consistent alignment.
@@ -277,6 +278,29 @@ def merge_env_model_overrides(
     if parsed:
         merged.update(parsed)
     return merged or None
+
+
+def parse_egress_targets(
+    values: list[str] | None,
+    *,
+    where: str = "--egress",
+) -> list[str] | None:
+    """Parse repeatable ``--egress TARGET`` flags into a canonical target list.
+
+    Also used for the equivalent block loaded from a manifest -- pass ``where``
+    so the error names the field the author actually wrote.
+
+    Validated against the same grammar the task contract uses (``TSK-EGR-002``)
+    so a bad target is named here rather than after a round trip. Whether a
+    target is *reachable* depends on the deployment's egress floor, which only
+    the platform can judge, so that check stays at provision (``TSK-EGR-005``).
+
+    Returns ``None`` when no flags are given -- distinct from an empty list,
+    which is a declaration in its own right.
+    """
+    if values is None:
+        return None
+    return validate_target_list(values, where=where)
 
 
 def _parse_ref(value: str) -> tuple[str | None, str, str | None]:

@@ -50,6 +50,7 @@ EXTRA_PUBLIC_PACKAGES = ("rpc",)
 CLIENT_NAMESPACE_ATTRIBUTES = (
     "artifacts",
     "chat",
+    "collections",
     "labels",
     "mind_maps",
     "notes",
@@ -218,6 +219,16 @@ VALUE_TRACKED = (
     else {}
 )
 
+# Domain enums are canonically implemented in the neutral private module, but
+# ``notebooklm.rpc.types`` remains their compatibility spelling. Normalize the
+# implementation-only home when comparing annotations so moving the same class
+# object does not masquerade as a public return-type change. This is applied to
+# both baseline and current collection; older baselines simply contain no
+# matching private prefix.
+ANNOTATION_MODULE_ALIASES = {
+    f"{PKG}._types.enums.": f"{PKG}.rpc.types.",
+}
+
 
 def discover_modules() -> list[str]:
     package_dir = ROOT / "src" / PKG
@@ -261,7 +272,10 @@ def annotation_repr(annotation, obj=None):
             )["return"]
         except Exception:
             return annotation
-    return inspect.formatannotation(annotation)
+    rendered = inspect.formatannotation(annotation)
+    for private_prefix, compatibility_prefix in ANNOTATION_MODULE_ALIASES.items():
+        rendered = rendered.replace(private_prefix, compatibility_prefix)
+    return rendered
 
 
 def signature_payload(obj):
@@ -603,10 +617,16 @@ def _accepts_positional(param: dict[str, Any]) -> bool:
 
 def _signature_breakage(old: dict[str, Any] | None, new: dict[str, Any] | None) -> str | None:
     """Return a short incompatibility reason, or ``None`` when old calls still fit."""
-    if old is None or new is None:
-        if old != new:
-            return f"signature changed from {old!r} to {new!r}"
+    # A baseline signature can be unavailable even when the callable itself is
+    # unchanged.  Python 3.14, for example, cannot inspect v0.8.1 class-body
+    # ``list[...]`` annotations when the same class also defines ``list``.  A
+    # newly inspectable signature gives us more information but cannot prove a
+    # compatibility break.  The reverse direction remains a break: losing a
+    # previously inspectable signature is itself an observable regression.
+    if old is None:
         return None
+    if new is None:
+        return f"signature changed from {old!r} to None"
 
     old_params = old["parameters"]
     new_params = new["parameters"]

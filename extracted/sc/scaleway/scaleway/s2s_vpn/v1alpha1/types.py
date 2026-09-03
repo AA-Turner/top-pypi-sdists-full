@@ -200,10 +200,9 @@ class VpnGatewayPublicConfig:
 
 
 @dataclass
-class CreateConnectionRequestBgpConfig:
-    routing_policy_id: str
-    private_ip: Optional[str] = None
-    peer_private_ip: Optional[str] = None
+class ChangeConnectionPskRequestSecret:
+    id: str
+    revision: Optional[int] = None
 
 
 @dataclass
@@ -332,6 +331,19 @@ class Connection:
     """
     BGP IPv6 session, including status, interco private IPv6 subnet and attached routing policy.
     """
+
+
+@dataclass
+class CreateConnectionRequestBgpConfig:
+    routing_policy_id: str
+    private_ip: Optional[str] = None
+    peer_private_ip: Optional[str] = None
+
+
+@dataclass
+class CreateConnectionRequestSecret:
+    id: str
+    revision: Optional[int] = None
 
 
 @dataclass
@@ -570,6 +582,32 @@ class VpnGateway:
 
 
 @dataclass
+class ChangeConnectionPskRequest:
+    connection_id: str
+    """
+    ID of the connection to renew the PSK.
+    """
+
+    secret: ChangeConnectionPskRequestSecret
+    """
+    New PSK Secret of the connection.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+
+@dataclass
+class ChangeConnectionPskResponse:
+    connection: Optional[Connection] = None
+    """
+    This connection.
+    """
+
+
+@dataclass
 class CreateConnectionRequest:
     name: str
     """
@@ -624,6 +662,11 @@ class CreateConnectionRequest:
     tags: Optional[list[str]] = field(default_factory=list)
     """
     List of tags to apply to the connection.
+    """
+
+    secret: Optional[CreateConnectionRequestSecret] = None
+    """
+    Specifies the pre-shared key used for the IPsec tunnel.
     """
 
     bgp_config_ipv4: Optional[CreateConnectionRequestBgpConfig] = None
@@ -1241,6 +1284,11 @@ class RenewConnectionPskRequest:
     region: Optional[ScwRegion] = None
     """
     Region to target. If none is passed will use default region from the config.
+    """
+
+    generate_revision: Optional[bool] = False
+    """
+    Generate a new revision or update to the latest existing one.
     """
 
 

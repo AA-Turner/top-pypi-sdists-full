@@ -41,13 +41,13 @@ else:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_docdb.DBClusterParameterGroupReference",
     jsii_struct_bases=[],
-    name_mapping={"db_cluster_parameter_group_id": "dbClusterParameterGroupId"},
+    name_mapping={"db_cluster_parameter_group_name": "dbClusterParameterGroupName"},
 )
 class DBClusterParameterGroupReference:
-    def __init__(self, *, db_cluster_parameter_group_id: builtins.str) -> None:
+    def __init__(self, *, db_cluster_parameter_group_name: builtins.str) -> None:
         '''A reference to a DBClusterParameterGroup resource.
 
-        :param db_cluster_parameter_group_id: The Id of the DBClusterParameterGroup resource.
+        :param db_cluster_parameter_group_name: The Name of the DBClusterParameterGroup resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -58,21 +58,21 @@ class DBClusterParameterGroupReference:
             from aws_cdk.interfaces import aws_docdb as interfaces_docdb
             
             d_b_cluster_parameter_group_reference = interfaces_docdb.DBClusterParameterGroupReference(
-                db_cluster_parameter_group_id="dbClusterParameterGroupId"
+                db_cluster_parameter_group_name="dbClusterParameterGroupName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59ad0ed86fca2825742e2479fd25a959020db5a0431b40c09e95b63413733fd1)
-            check_type(argname="argument db_cluster_parameter_group_id", value=db_cluster_parameter_group_id, expected_type=type_hints["db_cluster_parameter_group_id"])
+            check_type(argname="argument db_cluster_parameter_group_name", value=db_cluster_parameter_group_name, expected_type=type_hints["db_cluster_parameter_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "db_cluster_parameter_group_id": db_cluster_parameter_group_id,
+            "db_cluster_parameter_group_name": db_cluster_parameter_group_name,
         }
 
     @builtins.property
-    def db_cluster_parameter_group_id(self) -> builtins.str:
-        '''The Id of the DBClusterParameterGroup resource.'''
-        result = self._values.get("db_cluster_parameter_group_id")
-        assert result is not None, "Required property 'db_cluster_parameter_group_id' is missing"
+    def db_cluster_parameter_group_name(self) -> builtins.str:
+        '''The Name of the DBClusterParameterGroup resource.'''
+        result = self._values.get("db_cluster_parameter_group_name")
+        assert result is not None, "Required property 'db_cluster_parameter_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -188,13 +188,13 @@ class DBInstanceReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_docdb.DBSubnetGroupReference",
     jsii_struct_bases=[],
-    name_mapping={"db_subnet_group_id": "dbSubnetGroupId"},
+    name_mapping={"db_subnet_group_name": "dbSubnetGroupName"},
 )
 class DBSubnetGroupReference:
-    def __init__(self, *, db_subnet_group_id: builtins.str) -> None:
+    def __init__(self, *, db_subnet_group_name: builtins.str) -> None:
         '''A reference to a DBSubnetGroup resource.
 
-        :param db_subnet_group_id: The Id of the DBSubnetGroup resource.
+        :param db_subnet_group_name: The DBSubnetGroupName of the DBSubnetGroup resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -205,21 +205,21 @@ class DBSubnetGroupReference:
             from aws_cdk.interfaces import aws_docdb as interfaces_docdb
             
             d_b_subnet_group_reference = interfaces_docdb.DBSubnetGroupReference(
-                db_subnet_group_id="dbSubnetGroupId"
+                db_subnet_group_name="dbSubnetGroupName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ed49d8d68c7ea117d936be5f042ed3494a607b7eef69ae511b442f6c345e85f8)
-            check_type(argname="argument db_subnet_group_id", value=db_subnet_group_id, expected_type=type_hints["db_subnet_group_id"])
+            check_type(argname="argument db_subnet_group_name", value=db_subnet_group_name, expected_type=type_hints["db_subnet_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "db_subnet_group_id": db_subnet_group_id,
+            "db_subnet_group_name": db_subnet_group_name,
         }
 
     @builtins.property
-    def db_subnet_group_id(self) -> builtins.str:
-        '''The Id of the DBSubnetGroup resource.'''
-        result = self._values.get("db_subnet_group_id")
-        assert result is not None, "Required property 'db_subnet_group_id' is missing"
+    def db_subnet_group_name(self) -> builtins.str:
+        '''The DBSubnetGroupName of the DBSubnetGroup resource.'''
+        result = self._values.get("db_subnet_group_name")
+        assert result is not None, "Required property 'db_subnet_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -642,7 +642,7 @@ publication.publish()
 
 def _typecheckingstub__59ad0ed86fca2825742e2479fd25a959020db5a0431b40c09e95b63413733fd1(
     *,
-    db_cluster_parameter_group_id: builtins.str,
+    db_cluster_parameter_group_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -663,7 +663,7 @@ def _typecheckingstub__c13d32d14b52ba9e057053cdb7c67f20d9d269dab44a4960780f1c37e
 
 def _typecheckingstub__ed49d8d68c7ea117d936be5f042ed3494a607b7eef69ae511b442f6c345e85f8(
     *,
-    db_subnet_group_id: builtins.str,
+    db_subnet_group_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -312,6 +312,51 @@ class _ITestGridProjectRefProxy(
 typing.cast(typing.Any, ITestGridProjectRef).__jsii_proxy_class__ = lambda : _ITestGridProjectRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.IUploadRef")
+class IUploadRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Upload.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="uploadRef")
+    def upload_ref(self) -> "UploadReference":
+        '''(experimental) A reference to a Upload resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUploadRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Upload.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_devicefarm.IUploadRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="uploadRef")
+    def upload_ref(self) -> "UploadReference":
+        '''(experimental) A reference to a Upload resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UploadReference", jsii.get(self, "uploadRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUploadRef).__jsii_proxy_class__ = lambda : _IUploadRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.IVPCEConfigurationRef"
 )
@@ -556,6 +601,55 @@ class TestGridProjectReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.UploadReference",
+    jsii_struct_bases=[],
+    name_mapping={"upload_arn": "uploadArn"},
+)
+class UploadReference:
+    def __init__(self, *, upload_arn: builtins.str) -> None:
+        '''A reference to a Upload resource.
+
+        :param upload_arn: The Arn of the Upload resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_devicefarm as interfaces_devicefarm
+            
+            upload_reference = interfaces_devicefarm.UploadReference(
+                upload_arn="uploadArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6d616c4adf79057600800377daa21a99ae8e2cb8aa1b24fc0cccf620cb88dc38)
+            check_type(argname="argument upload_arn", value=upload_arn, expected_type=type_hints["upload_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "upload_arn": upload_arn,
+        }
+
+    @builtins.property
+    def upload_arn(self) -> builtins.str:
+        '''The Arn of the Upload resource.'''
+        result = self._values.get("upload_arn")
+        assert result is not None, "Required property 'upload_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UploadReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.VPCEConfigurationReference",
     jsii_struct_bases=[],
     name_mapping={"vpce_configuration_arn": "vpceConfigurationArn"},
@@ -611,11 +705,13 @@ __all__ = [
     "INetworkProfileRef",
     "IProjectRef",
     "ITestGridProjectRef",
+    "IUploadRef",
     "IVPCEConfigurationRef",
     "InstanceProfileReference",
     "NetworkProfileReference",
     "ProjectReference",
     "TestGridProjectReference",
+    "UploadReference",
     "VPCEConfigurationReference",
 ]
 
@@ -656,6 +752,13 @@ def _typecheckingstub__87f265414f05bd136bba63546376bc2e436efa434aab240574ffa93da
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6d616c4adf79057600800377daa21a99ae8e2cb8aa1b24fc0cccf620cb88dc38(
+    *,
+    upload_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b288bcd87f2c0fa8d760d6c34b871baa157a88f4015e77c240ef6abf4db384a5(
     *,
     vpce_configuration_arn: builtins.str,
@@ -663,5 +766,5 @@ def _typecheckingstub__b288bcd87f2c0fa8d760d6c34b871baa157a88f4015e77c240ef6abf4
     """Type checking stubs"""
     pass
 
-for cls in [IDevicePoolRef, IInstanceProfileRef, INetworkProfileRef, IProjectRef, ITestGridProjectRef, IVPCEConfigurationRef]:
+for cls in [IDevicePoolRef, IInstanceProfileRef, INetworkProfileRef, IProjectRef, ITestGridProjectRef, IUploadRef, IVPCEConfigurationRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

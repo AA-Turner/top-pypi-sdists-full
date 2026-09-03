@@ -293,16 +293,15 @@ class Script:
         Also note that according to standarardness rules (BIP-62) the minimum
         possible PUSHDATA operator must be used!
         """
-        
-        data_bytes = h_to_b(data) # Assuming string is hexadecimal
+        data_bytes = h_to_b(data)
 
         if len(data_bytes) < 0x4C:
             return bytes([len(data_bytes)]) + data_bytes
-        elif len(data_bytes) < 0xFF:
+        elif len(data_bytes) <= 0xFF:
             return b"\x4c" + bytes([len(data_bytes)]) + data_bytes
-        elif len(data_bytes) < 0xFFFF:
+        elif len(data_bytes) <= 0xFFFF:
             return b"\x4d" + struct.pack("<H", len(data_bytes)) + data_bytes
-        elif len(data_bytes) < 0xFFFFFFFF:
+        elif len(data_bytes) <= 0xFFFFFFFF:
             return b"\x4e" + struct.pack("<I", len(data_bytes)) + data_bytes
         else:
             raise ValueError("Data too large. Cannot push into script")
@@ -360,14 +359,14 @@ class Script:
 
     @staticmethod
     def from_raw(scriptrawhex: Union[str, bytes], has_segwit: bool = False):
-        """
-        Imports a Script commands list from raw hexadecimal data
-            Attributes
-            ----------
-            txinputraw : string (hex)
-                The hexadecimal raw string representing the Script commands
-            has_segwit : boolean
-                Is the Tx Input segwit or not
+        """Import a Script commands list from raw hexadecimal data.
+
+        Parameters
+        ----------
+        scriptrawhex : str or bytes
+            The raw script as hexadecimal text or bytes.
+        has_segwit : bool
+            Whether to parse using SegWit-specific script handling.
         """
         if isinstance(scriptrawhex, str):
             scriptraw = h_to_b(scriptrawhex)
@@ -453,3 +452,67 @@ class Script:
         if not isinstance(_other, Script):
             return False
         return self.script == _other.script
+
+
+def is_p2pkh(script: Script) -> bool:
+    """Returns True for a P2PKH scriptPubKey."""
+
+    s = script.script
+    return (
+        len(s) == 5
+        and s[0] == "OP_DUP"
+        and s[1] == "OP_HASH160"
+        and isinstance(s[2], str)
+        and len(s[2]) == 40
+        and s[3] == "OP_EQUALVERIFY"
+        and s[4] == "OP_CHECKSIG"
+    )
+
+
+def is_p2sh(script: Script) -> bool:
+    """Returns True for OP_HASH160 <20-byte-hash> OP_EQUAL."""
+
+    s = script.script
+    return (
+        len(s) == 3
+        and s[0] == "OP_HASH160"
+        and isinstance(s[1], str)
+        and len(s[1]) == 40
+        and s[2] == "OP_EQUAL"
+    )
+
+
+def is_p2wpkh(script: Script) -> bool:
+    """Returns True for OP_0 <20-byte-hash>."""
+
+    s = script.script
+    return (
+        len(s) == 2
+        and s[0] == "OP_0"
+        and isinstance(s[1], str)
+        and len(s[1]) == 40
+    )
+
+
+def is_p2wsh(script: Script) -> bool:
+    """Returns True for OP_0 <32-byte-hash>."""
+
+    s = script.script
+    return (
+        len(s) == 2
+        and s[0] == "OP_0"
+        and isinstance(s[1], str)
+        and len(s[1]) == 64
+    )
+
+
+def is_p2tr(script: Script) -> bool:
+    """Returns True for OP_1 <32-byte-key>."""
+
+    s = script.script
+    return (
+        len(s) == 2
+        and s[0] == "OP_1"
+        and isinstance(s[1], str)
+        and len(s[1]) == 64
+    )

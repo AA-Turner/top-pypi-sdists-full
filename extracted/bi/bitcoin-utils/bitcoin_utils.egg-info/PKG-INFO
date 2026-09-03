@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bitcoin-utils
-Version: 0.8.2
+Version: 0.8.5
 Summary: Bitcoin utility functions
 Home-page: https://github.com/karask/python-bitcoin-utils
 Author: Konstantinos Karasavvas
@@ -15,11 +15,19 @@ python-bitcoin-utils
 
 This is a bitcoin library that provides tools/utilities to interact with the Bitcoin network. One of the primary goals of the library is to explain the low-level details of Bitcoin. The code is easy to read and properly documented explaining in detail all the thorny aspects of the implementation. It is a low-level library which assumes some high-level understanding of how Bitcoin works. In the future this might change.
 
-The library (v0.8.2) currently supports private/public keys, all type of addresses and creation of any transaction, incl. segwit and taproot, with all SIGHASH types. All script op codes are included. Block parsing is also handled so you can read raw blocks directly. PSBT (BIP-174) is supported. Extra functionality will be added continuously and the documentation will be improved as the work progresses.
+The library (v0.8.5) currently supports private/public keys, all type of addresses and creation of any transaction, incl. segwit and taproot, with all SIGHASH types. All script op codes are included. Block parsing is also handled so you can read raw blocks directly. PSBT (BIP-174) is supported. A small fixed-key output descriptor module is also included for converting common descriptors such as ``wpkh(KEY)``, ``sh(wpkh(KEY))``, ``wsh(multi(...))``, ``tr(KEY)``, ``addr(ADDRESS)`` and ``raw(HEX)`` into scripts and addresses. Extra functionality will be added continuously and the documentation will be improved as the work progresses.
 
 The API documentation can be build with Sphinx but is also available as a PDF for convenience. One can currently use the library for experimenting and learning the inner workings of Bitcoin. It is not meant for production yet and parts of the API might be updated with new versions.
 
 Complementary to this library is a CC BY-SA 4.0 licensed `Bitcoin programming book <https://github.com/karask/bitcoin-textbook>`_.
+
+Security model
+--------------
+This library is intentionally pure Python and educational. Private-key operations, including ECDSA signing and Taproot/Schnorr signing, are not side-channel hardened and should not be used to protect real funds in timing-observable environments. 
+
+The ``python-ecdsa`` dependency has a known Minerva timing-attack advisory (CVE-2024-23342) with no patched pure-Python release. Keeping the library pure Python means this class of side-channel risk cannot be fully eliminated. Use the library for learning, tests, testnet, offline experiments, and transaction construction; use production wallets, hardware signers, or hardened native cryptographic libraries for real funds.
+
+Private-key warnings are enabled by default on mainnet and can be disabled with ``bitcoinutils.setup.set_security_warnings(False)``. Testnet, testnet4, signet and regtest do not emit the warning by default, so educational examples stay quiet.
 
 
 Notes
@@ -151,6 +159,11 @@ Partially Signed Bitcoin Transactions (PSBT)
 
 Multisig (2-of-3) example with PSBT to transfer intermediate tx states
 https://github.com/karask/python-bitcoin-utils/blob/master/examples/psbt/ - folder explains workflow and script usage
+
+Output Descriptors
+------------------
+
+Fixed-key output descriptors are supported through ``bitcoinutils.descriptors``. The module parses a practical educational subset of Bitcoin Core descriptors, validates/generates descriptor checksums, and converts descriptors to ``Script`` and address objects.
 
 
 Other

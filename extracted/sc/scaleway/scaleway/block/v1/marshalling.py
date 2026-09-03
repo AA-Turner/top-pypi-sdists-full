@@ -166,6 +166,24 @@ def unmarshal_Snapshot(data: Any) -> Snapshot:
     else:
         args["status"] = SnapshotStatus.UNKNOWN_STATUS
 
+    field = data.get("parent_volume", None)
+    if field is not None:
+        args["parent_volume"] = unmarshal_SnapshotParentVolume(field)
+    else:
+        args["parent_volume"] = None
+
+    field = data.get("created_at", None)
+    if field is not None:
+        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["created_at"] = None
+
+    field = data.get("updated_at", None)
+    if field is not None:
+        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["updated_at"] = None
+
     field = data.get("tags", None)
     if field is not None:
         args["tags"] = field
@@ -184,23 +202,17 @@ def unmarshal_Snapshot(data: Any) -> Snapshot:
     else:
         args["class_"] = StorageClass.UNKNOWN_STORAGE_CLASS
 
-    field = data.get("parent_volume", None)
+    field = data.get("public", None)
     if field is not None:
-        args["parent_volume"] = unmarshal_SnapshotParentVolume(field)
+        args["public"] = field
     else:
-        args["parent_volume"] = None
+        args["public"] = False
 
-    field = data.get("created_at", None)
+    field = data.get("kms_key_id", None)
     if field is not None:
-        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
+        args["kms_key_id"] = field
     else:
-        args["created_at"] = None
-
-    field = data.get("updated_at", None)
-    if field is not None:
-        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
-    else:
-        args["updated_at"] = None
+        args["kms_key_id"] = None
 
     return Snapshot(**args)
 
@@ -324,6 +336,12 @@ def unmarshal_Volume(data: Any) -> Volume:
     else:
         args["last_detached_at"] = None
 
+    field = data.get("kms_key_id", None)
+    if field is not None:
+        args["kms_key_id"] = field
+    else:
+        args["kms_key_id"] = None
+
     return Volume(**args)
 
 
@@ -365,6 +383,12 @@ def unmarshal_VolumeType(data: Any) -> VolumeType:
         args["type_"] = field
     else:
         args["type_"] = None
+
+    field = data.get("zone", None)
+    if field is not None:
+        args["zone"] = field
+    else:
+        args["zone"] = None
 
     field = data.get("pricing", None)
     if field is not None:
@@ -445,6 +469,9 @@ def marshal_CreateSnapshotRequest(
 
     if request.volume_id is not None:
         output["volume_id"] = request.volume_id
+
+    if request.public is not None:
+        output["public"] = request.public
 
     if request.name is not None:
         output["name"] = request.name
@@ -529,6 +556,9 @@ def marshal_CreateVolumeRequest(
     if request.tags is not None:
         output["tags"] = request.tags
 
+    if request.kms_key_id is not None:
+        output["kms_key_id"] = request.kms_key_id
+
     return output
 
 
@@ -587,6 +617,9 @@ def marshal_UpdateSnapshotRequest(
 
     if request.tags is not None:
         output["tags"] = request.tags
+
+    if request.public is not None:
+        output["public"] = request.public
 
     return output
 

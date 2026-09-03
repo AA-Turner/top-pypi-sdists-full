@@ -10,6 +10,7 @@ from .types import ListPipelinesWithStagesRequestOrderBy
 from .types import ListPurgeRequestsRequestOrderBy
 from .types import ListRouteStagesRequestOrderBy
 from .types import ListTLSStagesRequestOrderBy
+from .types import ListVPCEndpointsRequestOrderBy
 from .types import ListWafStagesRequestOrderBy
 from .types import PipelineErrorCode
 from .types import PipelineErrorSeverity
@@ -26,6 +27,7 @@ from .types import RuleHttpMatchPathFilterPathFilterType
 from .types import SearchBackendStagesRequestOrderBy
 from .types import SearchRouteRulesRequestOrderBy
 from .types import SearchWafStagesRequestOrderBy
+from .types import StageStatus
 from .types import WafStageMode
 from .types import ScalewayLb
 from .types import RuleHttpMatchHostFilter
@@ -53,6 +55,7 @@ from .types import HeadStageResponseHeadStage
 from .types import ListHeadStagesResponseHeadStage
 from .types import PipelineStages
 from .types import PurgeRequest
+from .types import VPCEndpoint
 from .types import SetHeadStageRequestAddNewHeadStage
 from .types import SetHeadStageRequestRemoveHeadStage
 from .types import SetHeadStageRequestSwapHeadStage
@@ -72,6 +75,7 @@ from .types import CreatePipelineRequest
 from .types import CreatePurgeRequestRequest
 from .types import CreateRouteStageRequest
 from .types import CreateTLSStageRequest
+from .types import CreateVPCEndpointRequest
 from .types import CreateWafStageRequest
 from .types import DeleteBackendStageRequest
 from .types import DeleteCacheStageRequest
@@ -80,6 +84,7 @@ from .types import DeleteDNSStageRequest
 from .types import DeletePipelineRequest
 from .types import DeleteRouteStageRequest
 from .types import DeleteTLSStageRequest
+from .types import DeleteVPCEndpointRequest
 from .types import DeleteWafStageRequest
 from .types import GetBackendStageRequest
 from .types import GetBillingRequest
@@ -91,6 +96,7 @@ from .types import GetPipelineRequest
 from .types import GetPurgeRequestRequest
 from .types import GetRouteStageRequest
 from .types import GetTLSStageRequest
+from .types import GetVPCEndpointRequest
 from .types import GetWafStageRequest
 from .types import HeadStageResponse
 from .types import ListBackendStagesRequest
@@ -114,6 +120,8 @@ from .types import ListRouteStagesRequest
 from .types import ListRouteStagesResponse
 from .types import ListTLSStagesRequest
 from .types import ListTLSStagesResponse
+from .types import ListVPCEndpointsRequest
+from .types import ListVPCEndpointsResponse
 from .types import ListWafStagesRequest
 from .types import ListWafStagesResponse
 from .types import Plan
@@ -122,6 +130,8 @@ from .types import SearchRouteRulesRequest
 from .types import SearchWafStagesRequest
 from .types import SelectPlanRequest
 from .types import SetHeadStageRequest
+from .types import SetPipelineVPCEndpointsRequest
+from .types import SetPipelineVPCEndpointsResponse
 from .types import SetRouteRulesRequest
 from .types import SetRouteRulesResponse
 from .types import UpdateBackendStageRequest
@@ -144,6 +154,7 @@ __all__ = [
     "ListPurgeRequestsRequestOrderBy",
     "ListRouteStagesRequestOrderBy",
     "ListTLSStagesRequestOrderBy",
+    "ListVPCEndpointsRequestOrderBy",
     "ListWafStagesRequestOrderBy",
     "PipelineErrorCode",
     "PipelineErrorSeverity",
@@ -160,6 +171,7 @@ __all__ = [
     "SearchBackendStagesRequestOrderBy",
     "SearchRouteRulesRequestOrderBy",
     "SearchWafStagesRequestOrderBy",
+    "StageStatus",
     "WafStageMode",
     "ScalewayLb",
     "RuleHttpMatchHostFilter",
@@ -187,6 +199,7 @@ __all__ = [
     "ListHeadStagesResponseHeadStage",
     "PipelineStages",
     "PurgeRequest",
+    "VPCEndpoint",
     "SetHeadStageRequestAddNewHeadStage",
     "SetHeadStageRequestRemoveHeadStage",
     "SetHeadStageRequestSwapHeadStage",
@@ -206,6 +219,7 @@ __all__ = [
     "CreatePurgeRequestRequest",
     "CreateRouteStageRequest",
     "CreateTLSStageRequest",
+    "CreateVPCEndpointRequest",
     "CreateWafStageRequest",
     "DeleteBackendStageRequest",
     "DeleteCacheStageRequest",
@@ -214,6 +228,7 @@ __all__ = [
     "DeletePipelineRequest",
     "DeleteRouteStageRequest",
     "DeleteTLSStageRequest",
+    "DeleteVPCEndpointRequest",
     "DeleteWafStageRequest",
     "GetBackendStageRequest",
     "GetBillingRequest",
@@ -225,6 +240,7 @@ __all__ = [
     "GetPurgeRequestRequest",
     "GetRouteStageRequest",
     "GetTLSStageRequest",
+    "GetVPCEndpointRequest",
     "GetWafStageRequest",
     "HeadStageResponse",
     "ListBackendStagesRequest",
@@ -248,6 +264,8 @@ __all__ = [
     "ListRouteStagesResponse",
     "ListTLSStagesRequest",
     "ListTLSStagesResponse",
+    "ListVPCEndpointsRequest",
+    "ListVPCEndpointsResponse",
     "ListWafStagesRequest",
     "ListWafStagesResponse",
     "Plan",
@@ -256,6 +274,8 @@ __all__ = [
     "SearchWafStagesRequest",
     "SelectPlanRequest",
     "SetHeadStageRequest",
+    "SetPipelineVPCEndpointsRequest",
+    "SetPipelineVPCEndpointsResponse",
     "SetRouteRulesRequest",
     "SetRouteRulesResponse",
     "UpdateBackendStageRequest",

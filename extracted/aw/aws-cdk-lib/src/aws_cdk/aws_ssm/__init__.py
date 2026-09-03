@@ -1444,6 +1444,814 @@ class CfnAssociationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssm_dd9d8611.ICloudConnectorRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnCloudConnector(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector",
+):
+    '''Resource Type definition for AWS::SSM::CloudConnector.
+
+    Enables AWS Systems Manager to manage resources in external cloud providers.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html
+    :cloudformationResource: AWS::SSM::CloudConnector
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ssm as ssm
+        
+        cfn_cloud_connector = ssm.CfnCloudConnector(self, "MyCfnCloudConnector",
+            config_connector_arn="configConnectorArn",
+            configuration=ssm.CfnCloudConnector.CloudConnectorConfigurationProperty(
+                azure_configuration=ssm.CfnCloudConnector.AzureConfigurationProperty(
+                    application_id="applicationId",
+                    tenant_id="tenantId",
+        
+                    # the properties below are optional
+                    application_display_name="applicationDisplayName",
+                    targets=ssm.CfnCloudConnector.ConfigurationTargetsProperty(
+                        subscriptions=[ssm.CfnCloudConnector.AzureSubscriptionProperty(
+                            id="id",
+        
+                            # the properties below are optional
+                            display_name="displayName"
+                        )]
+                    ),
+                    tenant_display_name="tenantDisplayName"
+                )
+            ),
+            display_name="displayName",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        config_connector_arn: builtins.str,
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.CloudConnectorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        display_name: builtins.str,
+        role_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SSM::CloudConnector``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param config_connector_arn: The ARN of the AWS Config connector.
+        :param configuration: The configuration for the cloud connector. Currently supports Azure.
+        :param display_name: The display name of the cloud connector.
+        :param role_arn: The IAM role ARN used by the cloud connector.
+        :param description: The description of the cloud connector.
+        :param tags: Tags to apply to the cloud connector.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__76cc41afa247d58b44823034466a8fbcd578cd9550d4fa4c192ca350b7ec7671)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCloudConnectorProps(
+            config_connector_arn=config_connector_arn,
+            configuration=configuration,
+            display_name=display_name,
+            role_arn=role_arn,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCloudConnector")
+    @builtins.classmethod
+    def arn_for_cloud_connector(
+        cls,
+        resource: "_aws_ssm_dd9d8611.ICloudConnectorRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b9ffbfd748ede71ed9ee55afc6e3a619fb2dec1ec8edcde0327b4982c8e19f4e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCloudConnector", [resource]))
+
+    @jsii.member(jsii_name="isCfnCloudConnector")
+    @builtins.classmethod
+    def is_cfn_cloud_connector(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCloudConnector.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0473a9f9d6b0f6b33f69d294283ef0cc66f6c88ebd4a1a9b6377b394c8eb2c95)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCloudConnector", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2719dc50d07e70a4601189d7d8eef2c7bf8556529b63a1314e0679bddb9cb7d0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1e17c807fff340eea6d892c9e1cebeb8e6a3208702ba2122a7a8b581488c0be7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCloudConnectorArn")
+    def attr_cloud_connector_arn(self) -> builtins.str:
+        '''The ARN of the cloud connector.
+
+        :cloudformationAttribute: CloudConnectorArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCloudConnectorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCloudConnectorId")
+    def attr_cloud_connector_id(self) -> builtins.str:
+        '''The unique identifier of the cloud connector.
+
+        :cloudformationAttribute: CloudConnectorId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCloudConnectorId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the cloud connector was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the cloud connector was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudConnectorRef")
+    def cloud_connector_ref(self) -> "_aws_ssm_dd9d8611.CloudConnectorReference":
+        '''A reference to a CloudConnector resource.'''
+        return typing.cast("_aws_ssm_dd9d8611.CloudConnectorReference", jsii.get(self, "cloudConnectorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configConnectorArn")
+    def config_connector_arn(self) -> builtins.str:
+        '''The ARN of the AWS Config connector.'''
+        return typing.cast(builtins.str, jsii.get(self, "configConnectorArn"))
+
+    @config_connector_arn.setter
+    def config_connector_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__73ca53d4fb5e5806e681257a3fa3d8f59f507828c4a36272d29f8cc98958992d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configConnectorArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="configuration")
+    def configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.CloudConnectorConfigurationProperty"]:
+        '''The configuration for the cloud connector.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.CloudConnectorConfigurationProperty"], jsii.get(self, "configuration"))
+
+    @configuration.setter
+    def configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.CloudConnectorConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51fbed13821506077eede25269654ed250b7724b6011ffc0d11a0861719b36e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> builtins.str:
+        '''The display name of the cloud connector.'''
+        return typing.cast(builtins.str, jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9bebdb6d98c58ee11427528e556da36c4fee934414789c5ea1182da75cd57a08)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The IAM role ARN used by the cloud connector.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__43012dd8da9a4ccf8ef45905e0abf2437e616a843374d25c263fa91deb594b6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the cloud connector.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__76a616f2b748716d2913dede4bcbd252f4ebb4cee78f5d5db316500b1c0c22ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to apply to the cloud connector.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bb6dd4a2369c15cad8fd529cab736ca27a5aaf6e885a6df4939fbce0f0ba7463)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector.AzureConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_id": "applicationId",
+            "tenant_id": "tenantId",
+            "application_display_name": "applicationDisplayName",
+            "targets": "targets",
+            "tenant_display_name": "tenantDisplayName",
+        },
+    )
+    class AzureConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            application_id: builtins.str,
+            tenant_id: builtins.str,
+            application_display_name: typing.Optional[builtins.str] = None,
+            targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.ConfigurationTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tenant_display_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for connecting to Azure.
+
+            :param application_id: The Azure AD application ID.
+            :param tenant_id: The Azure AD tenant ID. Cannot be changed after creation.
+            :param application_display_name: The display name of the Azure AD application.
+            :param targets: The targets for the cloud connector. If omitted, the entire tenant is targeted.
+            :param tenant_display_name: The display name of the Azure AD tenant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azureconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ssm as ssm
+                
+                azure_configuration_property = ssm.CfnCloudConnector.AzureConfigurationProperty(
+                    application_id="applicationId",
+                    tenant_id="tenantId",
+                
+                    # the properties below are optional
+                    application_display_name="applicationDisplayName",
+                    targets=ssm.CfnCloudConnector.ConfigurationTargetsProperty(
+                        subscriptions=[ssm.CfnCloudConnector.AzureSubscriptionProperty(
+                            id="id",
+                
+                            # the properties below are optional
+                            display_name="displayName"
+                        )]
+                    ),
+                    tenant_display_name="tenantDisplayName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__569c018fa175153d38e057cf699630d56421038d057aab2b9410a116a2cdf970)
+                check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+                check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+                check_type(argname="argument application_display_name", value=application_display_name, expected_type=type_hints["application_display_name"])
+                check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+                check_type(argname="argument tenant_display_name", value=tenant_display_name, expected_type=type_hints["tenant_display_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_id": application_id,
+                "tenant_id": tenant_id,
+            }
+            if application_display_name is not None:
+                self._values["application_display_name"] = application_display_name
+            if targets is not None:
+                self._values["targets"] = targets
+            if tenant_display_name is not None:
+                self._values["tenant_display_name"] = tenant_display_name
+
+        @builtins.property
+        def application_id(self) -> builtins.str:
+            '''The Azure AD application ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azureconfiguration.html#cfn-ssm-cloudconnector-azureconfiguration-applicationid
+            '''
+            result = self._values.get("application_id")
+            assert result is not None, "Required property 'application_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tenant_id(self) -> builtins.str:
+            '''The Azure AD tenant ID.
+
+            Cannot be changed after creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azureconfiguration.html#cfn-ssm-cloudconnector-azureconfiguration-tenantid
+            '''
+            result = self._values.get("tenant_id")
+            assert result is not None, "Required property 'tenant_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def application_display_name(self) -> typing.Optional[builtins.str]:
+            '''The display name of the Azure AD application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azureconfiguration.html#cfn-ssm-cloudconnector-azureconfiguration-applicationdisplayname
+            '''
+            result = self._values.get("application_display_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def targets(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.ConfigurationTargetsProperty"]]:
+            '''The targets for the cloud connector.
+
+            If omitted, the entire tenant is targeted.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azureconfiguration.html#cfn-ssm-cloudconnector-azureconfiguration-targets
+            '''
+            result = self._values.get("targets")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.ConfigurationTargetsProperty"]], result)
+
+        @builtins.property
+        def tenant_display_name(self) -> typing.Optional[builtins.str]:
+            '''The display name of the Azure AD tenant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azureconfiguration.html#cfn-ssm-cloudconnector-azureconfiguration-tenantdisplayname
+            '''
+            result = self._values.get("tenant_display_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector.AzureSubscriptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"id": "id", "display_name": "displayName"},
+    )
+    class AzureSubscriptionProperty:
+        def __init__(
+            self,
+            *,
+            id: builtins.str,
+            display_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''An Azure subscription with its ID and optional display name.
+
+            :param id: The Azure subscription ID.
+            :param display_name: The display name of the Azure subscription.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azuresubscription.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ssm as ssm
+                
+                azure_subscription_property = ssm.CfnCloudConnector.AzureSubscriptionProperty(
+                    id="id",
+                
+                    # the properties below are optional
+                    display_name="displayName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ab1da5d76caa1a3d636cd4164aea1a490e828e57085ee7812968d9bd8d7affde)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+            }
+            if display_name is not None:
+                self._values["display_name"] = display_name
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''The Azure subscription ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azuresubscription.html#cfn-ssm-cloudconnector-azuresubscription-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def display_name(self) -> typing.Optional[builtins.str]:
+            '''The display name of the Azure subscription.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azuresubscription.html#cfn-ssm-cloudconnector-azuresubscription-displayname
+            '''
+            result = self._values.get("display_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureSubscriptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector.CloudConnectorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"azure_configuration": "azureConfiguration"},
+    )
+    class CloudConnectorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            azure_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.AzureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration for the cloud connector.
+
+            Currently supports Azure.
+
+            :param azure_configuration: Configuration for connecting to Azure.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-cloudconnectorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ssm as ssm
+                
+                cloud_connector_configuration_property = ssm.CfnCloudConnector.CloudConnectorConfigurationProperty(
+                    azure_configuration=ssm.CfnCloudConnector.AzureConfigurationProperty(
+                        application_id="applicationId",
+                        tenant_id="tenantId",
+                
+                        # the properties below are optional
+                        application_display_name="applicationDisplayName",
+                        targets=ssm.CfnCloudConnector.ConfigurationTargetsProperty(
+                            subscriptions=[ssm.CfnCloudConnector.AzureSubscriptionProperty(
+                                id="id",
+                
+                                # the properties below are optional
+                                display_name="displayName"
+                            )]
+                        ),
+                        tenant_display_name="tenantDisplayName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b752004e45e379f5c768656dd31ef409cdea6d750ac0a10905171bad6c2c976b)
+                check_type(argname="argument azure_configuration", value=azure_configuration, expected_type=type_hints["azure_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "azure_configuration": azure_configuration,
+            }
+
+        @builtins.property
+        def azure_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.AzureConfigurationProperty"]:
+            '''Configuration for connecting to Azure.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-cloudconnectorconfiguration.html#cfn-ssm-cloudconnector-cloudconnectorconfiguration-azureconfiguration
+            '''
+            result = self._values.get("azure_configuration")
+            assert result is not None, "Required property 'azure_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.AzureConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudConnectorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector.ConfigurationTargetsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"subscriptions": "subscriptions"},
+    )
+    class ConfigurationTargetsProperty:
+        def __init__(
+            self,
+            *,
+            subscriptions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.AzureSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The targets for the cloud connector.
+
+            If omitted, the entire tenant is targeted.
+
+            :param subscriptions: List of Azure subscriptions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-configurationtargets.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ssm as ssm
+                
+                configuration_targets_property = ssm.CfnCloudConnector.ConfigurationTargetsProperty(
+                    subscriptions=[ssm.CfnCloudConnector.AzureSubscriptionProperty(
+                        id="id",
+                
+                        # the properties below are optional
+                        display_name="displayName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5f7e178b1a40ac1d04b792fa03fcd99684b9f8160151d1cf73887a74a6891e80)
+                check_type(argname="argument subscriptions", value=subscriptions, expected_type=type_hints["subscriptions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "subscriptions": subscriptions,
+            }
+
+        @builtins.property
+        def subscriptions(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.AzureSubscriptionProperty"]]]:
+            '''List of Azure subscriptions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-configurationtargets.html#cfn-ssm-cloudconnector-configurationtargets-subscriptions
+            '''
+            result = self._values.get("subscriptions")
+            assert result is not None, "Required property 'subscriptions' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.AzureSubscriptionProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConfigurationTargetsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "config_connector_arn": "configConnectorArn",
+        "configuration": "configuration",
+        "display_name": "displayName",
+        "role_arn": "roleArn",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnCloudConnectorProps:
+    def __init__(
+        self,
+        *,
+        config_connector_arn: builtins.str,
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.CloudConnectorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        display_name: builtins.str,
+        role_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCloudConnector``.
+
+        :param config_connector_arn: The ARN of the AWS Config connector.
+        :param configuration: The configuration for the cloud connector. Currently supports Azure.
+        :param display_name: The display name of the cloud connector.
+        :param role_arn: The IAM role ARN used by the cloud connector.
+        :param description: The description of the cloud connector.
+        :param tags: Tags to apply to the cloud connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_cloud_connector_props = ssm.CfnCloudConnectorProps(
+                config_connector_arn="configConnectorArn",
+                configuration=ssm.CfnCloudConnector.CloudConnectorConfigurationProperty(
+                    azure_configuration=ssm.CfnCloudConnector.AzureConfigurationProperty(
+                        application_id="applicationId",
+                        tenant_id="tenantId",
+            
+                        # the properties below are optional
+                        application_display_name="applicationDisplayName",
+                        targets=ssm.CfnCloudConnector.ConfigurationTargetsProperty(
+                            subscriptions=[ssm.CfnCloudConnector.AzureSubscriptionProperty(
+                                id="id",
+            
+                                # the properties below are optional
+                                display_name="displayName"
+                            )]
+                        ),
+                        tenant_display_name="tenantDisplayName"
+                    )
+                ),
+                display_name="displayName",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__66699d1e907d30e169f33112b7ef87cd46156a48c922a3affff1598122bc9f92)
+            check_type(argname="argument config_connector_arn", value=config_connector_arn, expected_type=type_hints["config_connector_arn"])
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "config_connector_arn": config_connector_arn,
+            "configuration": configuration,
+            "display_name": display_name,
+            "role_arn": role_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def config_connector_arn(self) -> builtins.str:
+        '''The ARN of the AWS Config connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html#cfn-ssm-cloudconnector-configconnectorarn
+        '''
+        result = self._values.get("config_connector_arn")
+        assert result is not None, "Required property 'config_connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.CloudConnectorConfigurationProperty"]:
+        '''The configuration for the cloud connector.
+
+        Currently supports Azure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html#cfn-ssm-cloudconnector-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.CloudConnectorConfigurationProperty"], result)
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The display name of the cloud connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html#cfn-ssm-cloudconnector-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The IAM role ARN used by the cloud connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html#cfn-ssm-cloudconnector-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the cloud connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html#cfn-ssm-cloudconnector-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to apply to the cloud connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html#cfn-ssm-cloudconnector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCloudConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssm_dd9d8611.IDocumentRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDocument(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8474,16 +9282,18 @@ class CfnResourcePolicyProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssm_dd9d8611.ISessionRef)
-class CfnSession(
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssm_dd9d8611.IServiceSettingRef)
+class CfnServiceSetting(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_ssm.CfnSession",
+    jsii_type="aws-cdk-lib.aws_ssm.CfnServiceSetting",
 ):
-    '''Returns information about a Session Manager session.
+    '''Resource Type definition for AWS::SSM::ServiceSetting.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html
-    :cloudformationResource: AWS::SSM::Session
+    ServiceSetting is an account-level setting for an AWS service that defines how a user interacts with or uses a service or feature.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-servicesetting.html
+    :cloudformationResource: AWS::SSM::ServiceSetting
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -8492,9 +9302,9 @@ class CfnSession(
         # The values are placeholders you should change.
         from aws_cdk import aws_ssm as ssm
         
-        cfn_session = ssm.CfnSession(self, "MyCfnSession",
-            reason="reason",
-            target="target"
+        cfn_service_setting = ssm.CfnServiceSetting(self, "MyCfnServiceSetting",
+            setting_id="settingId",
+            setting_value="settingValue"
         )
     '''
 
@@ -8503,46 +9313,51 @@ class CfnSession(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        reason: typing.Optional[builtins.str] = None,
-        target: typing.Optional[builtins.str] = None,
+        setting_id: builtins.str,
+        setting_value: builtins.str,
     ) -> None:
-        '''Create a new ``AWS::SSM::Session``.
+        '''Create a new ``AWS::SSM::ServiceSetting``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param reason: The reason for connecting to the instance.
-        :param target: The managed node to connect to for the session.
+        :param setting_id: The ID of the service setting, such as /ssm/parameter-store/high-throughput-enabled.
+        :param setting_value: The value of the service setting.
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d0d0d1ff00915af59fe31cf083450991d3f03685688c773bf09447975ae636b7)
+            type_hints = cached_type_hints(_typecheckingstub__94496a4d6afa59d5accf515303a1f0ad03688210a697081a2bba773038f4be24)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnSessionProps(reason=reason, target=target)
+        props = CfnServiceSettingProps(
+            setting_id=setting_id, setting_value=setting_value
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForSession")
+    @jsii.member(jsii_name="arnForServiceSetting")
     @builtins.classmethod
-    def arn_for_session(cls, resource: "_aws_ssm_dd9d8611.ISessionRef") -> builtins.str:
+    def arn_for_service_setting(
+        cls,
+        resource: "_aws_ssm_dd9d8611.IServiceSettingRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__2301bde9706dbbfcd82dce3d88cce89aa97335c991a3dc0fa7c5efbacbd83ad4)
+            type_hints = cached_type_hints(_typecheckingstub__f7e9c9ec84768e0f587530a1eca54d0ee24cef635166ff93e012fd306532f65b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSession", [resource]))
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServiceSetting", [resource]))
 
-    @jsii.member(jsii_name="isCfnSession")
+    @jsii.member(jsii_name="isCfnServiceSetting")
     @builtins.classmethod
-    def is_cfn_session(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnSession.
+    def is_cfn_service_setting(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnServiceSetting.
 
         :param x: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ccac72a21482c6eefd34646509f1237804973837d42dfeccb3207a6b05e3a957)
+            type_hints = cached_type_hints(_typecheckingstub__131800a9bbc9fc485da49b06dfe0544070cd7a918578da4380ed2c618ccb88ef)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSession", [x]))
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceSetting", [x]))
 
     @jsii.member(jsii_name="inspect")
     def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
@@ -8551,7 +9366,7 @@ class CfnSession(
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__995da4d58803a4722e9d8c06d870074f9754cb6a4e3ac944bc38d1d884b3db0c)
+            type_hints = cached_type_hints(_typecheckingstub__8bfe8a8218e4ee8cf0d8f3347cb1cf6bdbb68046d0a92eb2884804e9fbabd5e8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -8564,7 +9379,7 @@ class CfnSession(
         :param props: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__c28304a6b6ad7ffb952383f43d6814235cfd62bbe9890b6adc1aa6f24e3e0e2d)
+            type_hints = cached_type_hints(_typecheckingstub__cba995aad7d7de36afa70065ec1919d4ed634c0936925f19c276c677636834c0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -8575,54 +9390,38 @@ class CfnSession(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrAccessType")
-    def attr_access_type(self) -> builtins.str:
-        '''The access type for the session.
-
-        :cloudformationAttribute: AccessType
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAccessType"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the session.
+        '''The ARN of the service setting.
 
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrOwner")
-    def attr_owner(self) -> builtins.str:
-        '''The ID of the Amazon Web Services user that started the session.
+    @jsii.member(jsii_name="attrLastModifiedDate")
+    def attr_last_modified_date(self) -> builtins.str:
+        '''The last time the service setting was modified.
 
-        :cloudformationAttribute: Owner
+        :cloudformationAttribute: LastModifiedDate
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrOwner"))
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedDate"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrSessionId")
-    def attr_session_id(self) -> builtins.str:
-        '''The ID of the session.
+    @jsii.member(jsii_name="attrLastModifiedUser")
+    def attr_last_modified_user(self) -> builtins.str:
+        '''The ARN of the last modified user.
 
-        :cloudformationAttribute: SessionId
+        :cloudformationAttribute: LastModifiedUser
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrSessionId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStartDate")
-    def attr_start_date(self) -> builtins.str:
-        '''The date and time, in ISO-8601 Extended format, when the session began.
-
-        :cloudformationAttribute: StartDate
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStartDate"))
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedUser"))
 
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''The status of the session.
+        '''The status of the service setting.
+
+        The value can be Default, Customized or PendingUpdate.
 
         :cloudformationAttribute: Status
         '''
@@ -8639,56 +9438,56 @@ class CfnSession(
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
-    @jsii.member(jsii_name="sessionRef")
-    def session_ref(self) -> "_aws_ssm_dd9d8611.SessionReference":
-        '''A reference to a Session resource.'''
-        return typing.cast("_aws_ssm_dd9d8611.SessionReference", jsii.get(self, "sessionRef"))
+    @jsii.member(jsii_name="serviceSettingRef")
+    def service_setting_ref(self) -> "_aws_ssm_dd9d8611.ServiceSettingReference":
+        '''A reference to a ServiceSetting resource.'''
+        return typing.cast("_aws_ssm_dd9d8611.ServiceSettingReference", jsii.get(self, "serviceSettingRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="reason")
-    def reason(self) -> typing.Optional[builtins.str]:
-        '''The reason for connecting to the instance.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "reason"))
+    @jsii.member(jsii_name="settingId")
+    def setting_id(self) -> builtins.str:
+        '''The ID of the service setting, such as /ssm/parameter-store/high-throughput-enabled.'''
+        return typing.cast(builtins.str, jsii.get(self, "settingId"))
 
-    @reason.setter
-    def reason(self, value: typing.Optional[builtins.str]) -> None:
+    @setting_id.setter
+    def setting_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__4f83075f0580838822738e1b43cd210b27a24d5c22d84434e4a217c0b900112a)
+            type_hints = cached_type_hints(_typecheckingstub__3b9e4a0467fad7804e32733116030f495727d0137537197f5e9d8deb00f2baf9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reason", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "settingId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="target")
-    def target(self) -> typing.Optional[builtins.str]:
-        '''The managed node to connect to for the session.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "target"))
+    @jsii.member(jsii_name="settingValue")
+    def setting_value(self) -> builtins.str:
+        '''The value of the service setting.'''
+        return typing.cast(builtins.str, jsii.get(self, "settingValue"))
 
-    @target.setter
-    def target(self, value: typing.Optional[builtins.str]) -> None:
+    @setting_value.setter
+    def setting_value(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__830f90303f871e5bd7dacc0916dc4d443e936b02e89d16c598fac92248ec5185)
+            type_hints = cached_type_hints(_typecheckingstub__4787bd36b58a3abbf75fd84b3789400b91961ddf6e7bd975234b05e4c3093403)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "target", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "settingValue", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnSessionProps",
+    jsii_type="aws-cdk-lib.aws_ssm.CfnServiceSettingProps",
     jsii_struct_bases=[],
-    name_mapping={"reason": "reason", "target": "target"},
+    name_mapping={"setting_id": "settingId", "setting_value": "settingValue"},
 )
-class CfnSessionProps:
+class CfnServiceSettingProps:
     def __init__(
         self,
         *,
-        reason: typing.Optional[builtins.str] = None,
-        target: typing.Optional[builtins.str] = None,
+        setting_id: builtins.str,
+        setting_value: builtins.str,
     ) -> None:
-        '''Properties for defining a ``CfnSession``.
+        '''Properties for defining a ``CfnServiceSetting``.
 
-        :param reason: The reason for connecting to the instance.
-        :param target: The managed node to connect to for the session.
+        :param setting_id: The ID of the service setting, such as /ssm/parameter-store/high-throughput-enabled.
+        :param setting_value: The value of the service setting.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-servicesetting.html
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -8697,38 +9496,39 @@ class CfnSessionProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_ssm as ssm
             
-            cfn_session_props = ssm.CfnSessionProps(
-                reason="reason",
-                target="target"
+            cfn_service_setting_props = ssm.CfnServiceSettingProps(
+                setting_id="settingId",
+                setting_value="settingValue"
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__aa1d3f61febff3cacf593725042372ae2e82970990eb2fdd9d5e7f900d1a3d9a)
-            check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
-            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if reason is not None:
-            self._values["reason"] = reason
-        if target is not None:
-            self._values["target"] = target
+            type_hints = cached_type_hints(_typecheckingstub__dabac4b3ed504e78505663798f372f8404bed4e93b0ffc8cd1b3c4161ef89891)
+            check_type(argname="argument setting_id", value=setting_id, expected_type=type_hints["setting_id"])
+            check_type(argname="argument setting_value", value=setting_value, expected_type=type_hints["setting_value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "setting_id": setting_id,
+            "setting_value": setting_value,
+        }
 
     @builtins.property
-    def reason(self) -> typing.Optional[builtins.str]:
-        '''The reason for connecting to the instance.
+    def setting_id(self) -> builtins.str:
+        '''The ID of the service setting, such as /ssm/parameter-store/high-throughput-enabled.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html#cfn-ssm-session-reason
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-servicesetting.html#cfn-ssm-servicesetting-settingid
         '''
-        result = self._values.get("reason")
-        return typing.cast(typing.Optional[builtins.str], result)
+        result = self._values.get("setting_id")
+        assert result is not None, "Required property 'setting_id' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
-    def target(self) -> typing.Optional[builtins.str]:
-        '''The managed node to connect to for the session.
+    def setting_value(self) -> builtins.str:
+        '''The value of the service setting.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html#cfn-ssm-session-target
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-servicesetting.html#cfn-ssm-servicesetting-settingvalue
         '''
-        result = self._values.get("target")
-        return typing.cast(typing.Optional[builtins.str], result)
+        result = self._values.get("setting_value")
+        assert result is not None, "Required property 'setting_value' is missing"
+        return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8737,7 +9537,7 @@ class CfnSessionProps:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "CfnSessionProps(%s)" % ", ".join(
+        return "CfnServiceSettingProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -10854,6 +11654,8 @@ class StringParameterProps(ParameterOptions):
 __all__ = [
     "CfnAssociation",
     "CfnAssociationProps",
+    "CfnCloudConnector",
+    "CfnCloudConnectorProps",
     "CfnDocument",
     "CfnDocumentProps",
     "CfnMaintenanceWindow",
@@ -10872,8 +11674,8 @@ __all__ = [
     "CfnResourceDataSyncProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
-    "CfnSession",
-    "CfnSessionProps",
+    "CfnServiceSetting",
+    "CfnServiceSettingProps",
     "CommonStringParameterAttributes",
     "IParameter",
     "IStringListParameter",
@@ -11113,6 +11915,125 @@ def _typecheckingstub__eb0c608fec68cefb540b911fce04c4316c075989d67e9aa888cb8f01c
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76cc41afa247d58b44823034466a8fbcd578cd9550d4fa4c192ca350b7ec7671(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    config_connector_arn: builtins.str,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.CloudConnectorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    display_name: builtins.str,
+    role_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9ffbfd748ede71ed9ee55afc6e3a619fb2dec1ec8edcde0327b4982c8e19f4e(
+    resource: _aws_ssm_dd9d8611.ICloudConnectorRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0473a9f9d6b0f6b33f69d294283ef0cc66f6c88ebd4a1a9b6377b394c8eb2c95(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2719dc50d07e70a4601189d7d8eef2c7bf8556529b63a1314e0679bddb9cb7d0(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e17c807fff340eea6d892c9e1cebeb8e6a3208702ba2122a7a8b581488c0be7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73ca53d4fb5e5806e681257a3fa3d8f59f507828c4a36272d29f8cc98958992d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51fbed13821506077eede25269654ed250b7724b6011ffc0d11a0861719b36e6(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudConnector.CloudConnectorConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bebdb6d98c58ee11427528e556da36c4fee934414789c5ea1182da75cd57a08(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43012dd8da9a4ccf8ef45905e0abf2437e616a843374d25c263fa91deb594b6c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76a616f2b748716d2913dede4bcbd252f4ebb4cee78f5d5db316500b1c0c22ab(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb6dd4a2369c15cad8fd529cab736ca27a5aaf6e885a6df4939fbce0f0ba7463(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__569c018fa175153d38e057cf699630d56421038d057aab2b9410a116a2cdf970(
+    *,
+    application_id: builtins.str,
+    tenant_id: builtins.str,
+    application_display_name: typing.Optional[builtins.str] = None,
+    targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.ConfigurationTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tenant_display_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab1da5d76caa1a3d636cd4164aea1a490e828e57085ee7812968d9bd8d7affde(
+    *,
+    id: builtins.str,
+    display_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b752004e45e379f5c768656dd31ef409cdea6d750ac0a10905171bad6c2c976b(
+    *,
+    azure_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.AzureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f7e178b1a40ac1d04b792fa03fcd99684b9f8160151d1cf73887a74a6891e80(
+    *,
+    subscriptions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.AzureSubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66699d1e907d30e169f33112b7ef87cd46156a48c922a3affff1598122bc9f92(
+    *,
+    config_connector_arn: builtins.str,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.CloudConnectorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    display_name: builtins.str,
+    role_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12303,56 +13224,56 @@ def _typecheckingstub__641aa0c71c4c89cb2aee737e31b19b3ae0745b8943985fb6855da9826
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d0d0d1ff00915af59fe31cf083450991d3f03685688c773bf09447975ae636b7(
+def _typecheckingstub__94496a4d6afa59d5accf515303a1f0ad03688210a697081a2bba773038f4be24(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    reason: typing.Optional[builtins.str] = None,
-    target: typing.Optional[builtins.str] = None,
+    setting_id: builtins.str,
+    setting_value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2301bde9706dbbfcd82dce3d88cce89aa97335c991a3dc0fa7c5efbacbd83ad4(
-    resource: _aws_ssm_dd9d8611.ISessionRef,
+def _typecheckingstub__f7e9c9ec84768e0f587530a1eca54d0ee24cef635166ff93e012fd306532f65b(
+    resource: _aws_ssm_dd9d8611.IServiceSettingRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ccac72a21482c6eefd34646509f1237804973837d42dfeccb3207a6b05e3a957(
+def _typecheckingstub__131800a9bbc9fc485da49b06dfe0544070cd7a918578da4380ed2c618ccb88ef(
     x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__995da4d58803a4722e9d8c06d870074f9754cb6a4e3ac944bc38d1d884b3db0c(
+def _typecheckingstub__8bfe8a8218e4ee8cf0d8f3347cb1cf6bdbb68046d0a92eb2884804e9fbabd5e8(
     inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c28304a6b6ad7ffb952383f43d6814235cfd62bbe9890b6adc1aa6f24e3e0e2d(
+def _typecheckingstub__cba995aad7d7de36afa70065ec1919d4ed634c0936925f19c276c677636834c0(
     props: typing.Mapping[builtins.str, typing.Any],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4f83075f0580838822738e1b43cd210b27a24d5c22d84434e4a217c0b900112a(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__3b9e4a0467fad7804e32733116030f495727d0137537197f5e9d8deb00f2baf9(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__830f90303f871e5bd7dacc0916dc4d443e936b02e89d16c598fac92248ec5185(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__4787bd36b58a3abbf75fd84b3789400b91961ddf6e7bd975234b05e4c3093403(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__aa1d3f61febff3cacf593725042372ae2e82970990eb2fdd9d5e7f900d1a3d9a(
+def _typecheckingstub__dabac4b3ed504e78505663798f372f8404bed4e93b0ffc8cd1b3c4161ef89891(
     *,
-    reason: typing.Optional[builtins.str] = None,
-    target: typing.Optional[builtins.str] = None,
+    setting_id: builtins.str,
+    setting_value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

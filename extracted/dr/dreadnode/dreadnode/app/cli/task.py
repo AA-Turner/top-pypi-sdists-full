@@ -754,6 +754,19 @@ def info(
     if tags and isinstance(tags, list):
         console.print(f"  [dim]tags:[/dim] {', '.join(str(tag) for tag in tags)}")
 
+    # Shown only when declared: absent means the task inherits the deployment's
+    # floor, and an empty allow list is a declaration in its own right, so the
+    # two must not read alike (TSK-EGR-003).
+    egress = task.get("egress")
+    if isinstance(egress, dict):
+        allowed = egress.get("allow") or []
+        egress_line = (
+            ", ".join(str(target) for target in allowed)
+            if allowed
+            else "[dim]declared, names nothing (platform destinations only)[/dim]"
+        )
+        console.print(f"  [dim]egress:[/dim] {egress_line}")
+
     instruction = task.get("instruction")
     if instruction:
         console.print()

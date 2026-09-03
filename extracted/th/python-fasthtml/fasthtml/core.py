@@ -55,7 +55,7 @@ __all__ = ['empty', 'htmx_hdrs', 'fh_cfg', 'htmx_resps', 'DEF_MAXPART', 'htmx_ex
            'MiddlewareBase', 'FtResponse', 'unqid']
 
 # %% ../nbs/api/00_core.ipynb #23503b9e
-import json,uuid,inspect,types,asyncio,inspect,random,contextlib,itsdangerous,hashlib
+import json,uuid,inspect,types,asyncio,inspect,random,contextlib,itsdangerous,hashlib,signal,subprocess
 from uuid import uuid5, NAMESPACE_URL
 
 from fastcore.utils import *
@@ -169,7 +169,7 @@ class HttpHeader:
 def _to_htmx_header(s): return 'HX-' + s.replace('_', '-').title()
 
 htmx_resps = dict(location=None, push_url=None, redirect=None, refresh=None, replace_url=None,
-                 reswap=None, retarget=None, reselect=None, trigger=None, trigger_after_settle=None, trigger_after_swap=None)
+    reswap=None, retarget=None, reselect=None, trigger=None, trigger_after_settle=None, trigger_after_swap=None)
 
 # %% ../nbs/api/00_core.ipynb #f6a2e62e
 @use_kwargs_dict(**htmx_resps)
@@ -544,6 +544,7 @@ async def _wrap_call(f, req, params):
     return await _handle(f, **wreq)
 
 # %% ../nbs/api/00_core.ipynb #b0d1cbbf
+# chkstyle: skip
 htmx_exts = {
     "morph": "https://cdn.jsdelivr.net/npm/idiomorph@0.7.3/dist/idiomorph-ext.min.js",
     "head-support": "https://cdn.jsdelivr.net/npm/htmx-ext-head-support@2.0.4/head-support.js",
@@ -555,16 +556,16 @@ htmx_exts = {
     "remove-me": "https://cdn.jsdelivr.net/npm/htmx-ext-remove-me@2.0.0/remove-me.js",
     "debug": "https://unpkg.com/htmx.org@1.9.12/dist/ext/debug.js",
     "ws": "https://cdn.jsdelivr.net/npm/htmx-ext-ws@2.0.3/ws.js",
-    "ws4": "https://unpkg.com/htmx.org@4.0.0-beta6/dist/ext/hx-ws.js",
+    "ws4": "https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-ws.min.js",
     "chunked-transfer": "https://cdn.jsdelivr.net/npm/htmx-ext-transfer-encoding-chunked@0.4.0/transfer-encoding-chunked.js",
-    "sse4": "https://unpkg.com/htmx.org@4.0.0-beta6/dist/ext/hx-sse.js",
-    "live": "https://unpkg.com/htmx.org@4.0.0-beta6/dist/ext/hx-live.js",
-    "multipart": "https://cdn.jsdelivr.net/gh/bigskysoftware/htmx@four/src/ext/hx-multipart.min.js"
+    "sse4": "https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-sse.min.js",
+    "live": "https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js",
+    "multipart": "https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-multipart.min.js"
 }
 
 # %% ../nbs/api/00_core.ipynb #60cb52ea
 htmxsrc   = Script(src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.js")
-htmx4src  = Script(src="https://unpkg.com/htmx.org@4.0.0-beta6/dist/htmx.js")
+htmx4src  = Script(src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js")
 fhjsscr   = Script(src="https://cdn.jsdelivr.net/gh/answerdotai/fasthtml-js@1.0.12/fasthtml.js")
 surrsrc   = Script(src="https://cdn.jsdelivr.net/gh/answerdotai/surreal@main/surreal.js")
 scopesrc  = Script(src="https://cdn.jsdelivr.net/gh/gnat/css-scope-inline@main/script.js")
@@ -618,13 +619,11 @@ def def_hdrs(htmx=True, htmx4=False, surreal=True):
         meta_cfg = Meta(name="htmx-config", content=json.dumps({"metaCharacter": "-"}))
         hdrs = [meta_cfg, htmx4src,fhjsscr] + hdrs 
         # TODO: Check if fhjsscr works with htmx4
-    elif htmx:
-        hdrs = [htmxsrc,fhjsscr] + hdrs
+    elif htmx: hdrs = [htmxsrc,fhjsscr] + hdrs
     return [charset, viewport] + hdrs
 
 # %% ../nbs/api/00_core.ipynb #2c5285ae
-cors_allow = Middleware(CORSMiddleware, allow_credentials=True,
-                        allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+cors_allow = Middleware(CORSMiddleware, allow_credentials=True, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
 
 iframe_scr = Script(NotStr("""
     function sendmsg() {
@@ -674,23 +673,21 @@ class Lifespan:
         else: yield
         for f in self.shutdown: await _handle(f)
 
-    def on_event(self, event_type):
-        return lambda f: (getattr(self, event_type)).append(f)
+    def on_event(self, event_type): return lambda f: (getattr(self, event_type)).append(f)
 
 # %% ../nbs/api/00_core.ipynb #3327a1e9
 class FastHTML(Starlette):
     "An HTML-first Starlette app: handler params filled from the request, FT returns rendered as pages or HTMX fragments"
     def __init__(self, debug=False, routes=None, middleware=None, title: str = "FastHTML page", exception_handlers=None,
-                 on_startup=None, on_shutdown=None, lifespan=None, hdrs=None, ftrs=None, exts=None,
-                 before=None, after=None, surreal=True, htmx=True, htmx4=False, default_hdrs=True, sess_cls=SessionMiddleware,
-                 secret_key=None, session_cookie='session_', max_age=365*24*3600, sess_path='/',
-                 same_site='lax', sess_https_only=False, sess_domain=None, key_fname='.sesskey',
-                 body_wrap=noop_body, htmlkw=None, nb_hdrs=False, canonical=True, max_part_size=DEF_MAXPART, **bodykw):
+        on_startup=None, on_shutdown=None, lifespan=None, hdrs=None, ftrs=None, exts=None,
+        before=None, after=None, surreal=True, htmx=True, htmx4=False, default_hdrs=True, sess_cls=SessionMiddleware,
+        secret_key=None, session_cookie='session_', max_age=365*24*3600, sess_path='/',
+        same_site='lax', sess_https_only=False, sess_domain=None, key_fname='.sesskey',
+        body_wrap=noop_body, htmlkw=None, nb_hdrs=False, canonical=True, max_part_size=DEF_MAXPART, **bodykw):
         middleware,before,after = map(_list, (middleware,before,after))
         self.title,self.canonical,self.session_cookie,self.key_fname = title,canonical,session_cookie,key_fname
         hdrs,ftrs,exts = map(listify, (hdrs,ftrs,exts))
-        if htmx4 and exts:
-            exts = ['ws4' if e in ('ws', 'ws4') else e for e in exts]
+        if htmx4 and exts: exts = ['ws4' if e in ('ws', 'ws4') else e for e in exts]
         exts = {k:htmx_exts[k] for k in exts}
         htmlkw = htmlkw or {}
         if default_hdrs: hdrs = def_hdrs(htmx, htmx4, surreal=surreal) + hdrs
@@ -705,9 +702,8 @@ class FastHTML(Starlette):
         self.body_wrap,self.before,self.after,self.htmlkw,self.bodykw,self.max_part_size = body_wrap,before,after,htmlkw,bodykw,max_part_size
         self.secret_key = get_key(secret_key, key_fname)
         if sess_cls:
-            sess = Middleware(sess_cls, secret_key=self.secret_key,session_cookie=session_cookie,
-                                max_age=max_age, path=sess_path, same_site=same_site,
-                                https_only=sess_https_only, domain=sess_domain)
+            sess = Middleware(sess_cls, secret_key=self.secret_key, session_cookie=session_cookie, max_age=max_age, path=sess_path,
+                same_site=same_site, https_only=sess_https_only, domain=sess_domain)
             middleware.append(sess)
         exception_handlers = ifnone(exception_handlers, {})
         if 404 not in exception_handlers:
@@ -742,8 +738,8 @@ def add_route(self:FastHTML, route):
     "Add or replace a route in the FastHTML app"
     route.methods = [m.upper() for m in listify(route.methods)]
     self.router.routes = [r for r in self.router.routes if not
-                   (r.path==route.path and r.name == route.name and
-                    ((route.methods is None) or (set(r.methods) == set(route.methods))))]
+        (r.path==route.path and r.name == route.name and
+            ((route.methods is None) or (set(r.methods) == set(route.methods))))]
     self.router.routes.append(route)
     self.router.routes.sort(key=lambda r: not getattr(r, 'host', None))
 
@@ -767,8 +763,7 @@ def _endp(self:FastHTML, f, body_wrap, before:Optional[Callable|tuple]=None):
             if not resp:
                 if isinstance(b, Beforeware): bf,skip = b.f,b.skip
                 else: bf,skip = b,[]
-                if not any(re.fullmatch(r, req.url.path) for r in skip):
-                    resp = await _wrap_call(bf, req, _params(bf))
+                if not any(re.fullmatch(r, req.url.path) for r in skip): resp = await _wrap_call(bf, req, _params(bf))
         for b in listify(before):
             if not resp: resp = await _wrap_call(b, req, _params(b))
         req.body_wrap = body_wrap
@@ -879,12 +874,13 @@ def set_lifespan(self:FastHTML, value):
 
 # %% ../nbs/api/00_core.ipynb #3a348474
 def serve(
-        appname=None, # Name of the module
-        app='app', # App instance to be served
-        host='0.0.0.0', # If host is 0.0.0.0 will convert to localhost
-        port=None, # If port is None it will default to 5001 or the PORT environment variable
-        reload=True, # Default is to reload the app upon code changes
-        **kwargs
+    appname=None, # Name of the module
+    app='app', # App instance to be served
+    host='0.0.0.0', # If host is 0.0.0.0 will convert to localhost
+    port=None, # If port is None it will default to 5001 or the PORT environment variable
+    reload=True, # Default is to reload the app upon code changes
+    procs=None, # Processes to run on consecutive ports from `port`; default 1 or the PROCS environment variable
+    **kwargs
     ):
     "Run the app in an async server, with live reload set as the default."
     from uvicorn import run
@@ -895,9 +891,19 @@ def serve(
         elif back and back.f_globals.get('__name__')=='__main__': appname = inspect.getmodule(bk).__name__
     if appname:
         if not port: port=int(os.getenv("PORT", default=5001))
+        if not procs: procs=int(os.getenv("PROCS", default=1))
+        if procs>1 and 'FH_PROCNUM' not in os.environ: return _spawn(procs)
+        port += int(os.getenv('FH_PROCNUM', 0))
         link = f'http://{"localhost" if host=="0.0.0.0" else host}:{port}'
         print('Link: '+ S.light_red.bold(link))
         run(f'{appname}:{app}', host=host, port=port, reload=reload, **kwargs)
+
+# %% ../nbs/api/00_core.ipynb #91b08e9a
+def _spawn(n):
+    "Run this script `n` times over, numbering each copy in `FH_PROCNUM`, and wait for them all"
+    ps = [subprocess.Popen([sys.executable, *sys.argv], env={**os.environ, 'FH_PROCNUM':str(i)}) for i in range(n)]
+    signal.signal(signal.SIGTERM, lambda *a: [p.terminate() for p in ps])
+    for p in ps: p.wait()
 
 # %% ../nbs/api/00_core.ipynb #c5220a0e
 async def _wait_disconnect(req):
@@ -1001,8 +1007,7 @@ def cookie(key: str, value="", max_age=None, expires=None, path="/", domain=None
     cookie = cookies.SimpleCookie()
     cookie[key] = value
     if max_age is not None: cookie[key]["max-age"] = max_age
-    if expires is not None:
-        cookie[key]["expires"] = format_datetime(expires, usegmt=True) if isinstance(expires, datetime) else expires
+    if expires is not None: cookie[key]["expires"] = format_datetime(expires, usegmt=True) if isinstance(expires, datetime) else expires
     if path is not None: cookie[key]["path"] = path
     if domain is not None: cookie[key]["domain"] = domain
     if secure: cookie[key]["secure"] = True
@@ -1159,8 +1164,7 @@ def devtools_json(self:FastHTML, path=None, uuid=None):
     if not path: path = Path().absolute()
     if not uuid: uuid = str(uuid5(NAMESPACE_URL, str(path)))
     @self.route(devtools_loc)
-    def devtools():
-        return dict(workspace=dict(root=str(path), uuid=uuid))
+    def devtools(): return dict(workspace=dict(root=str(path), uuid=uuid))
 
 # %% ../nbs/api/00_core.ipynb #e27908c0
 @patch
@@ -1192,8 +1196,7 @@ def get_testclient(self:FastHTML, **kw):
         "A Starlette TestClient with a `session` property"
         @property
         def session(self):
-            cookie = next((c.value for c in reversed(list(self.cookies.jar))
-                if c.name == self.app.session_cookie), None)
+            cookie = next((c.value for c in reversed(list(self.cookies.jar)) if c.name == self.app.session_cookie), None)
             return self.app.decode_session(cookie)
 
     return FastHTMLTestClient(self, cookies=self.get_client(**kw).cookies)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fasttransport
-Version: 0.0.2
+Version: 0.0.4
 Summary: Sync and async HTTP transports over httpx2, plus base classes for small REST clients
 Author-email: Jeremy Howard <github@jhoward.fastmail.fm>
 License: Apache-2.0

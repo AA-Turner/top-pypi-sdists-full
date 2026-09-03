@@ -134,7 +134,8 @@ def test_get_path(path: str, expected: int | type[Exception]) -> None:
     if isinstance(expected, int):
         assert dict_utils.get_path(dct, path) == expected
     else:
-        pytest.raises(expected, dict_utils.get_path, dct, path)
+        with pytest.raises(expected):
+            dict_utils.get_path(dct, path)
 
 
 def test_set_path() -> None:

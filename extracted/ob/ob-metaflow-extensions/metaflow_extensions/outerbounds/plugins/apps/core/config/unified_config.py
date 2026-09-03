@@ -742,6 +742,34 @@ class DependencyConfig(metaclass=ConfigMeta):
         behavior=FieldBehavior.NOT_ALLOWED,
         example={"numpy": "1.23.0", "pandas": ""},
     )
+    anaconda = ConfigField(
+        cli_meta=CLIOption(  # TODO: Can set CLI meta to None
+            name="anaconda",
+            cli_option_str="--anaconda",
+            hidden=True,  # Complex structure, better handled in config file
+        ),
+        field_type=dict,
+        help=(
+            "A dictionary of Anaconda dependencies to attach to the app. The key is the "
+            "package name and the value is the version."
+        ),
+        behavior=FieldBehavior.NOT_ALLOWED,
+        example={
+            "numpy": "1.23.0",
+        },
+    )
+
+    extra_configs = ConfigField(
+        cli_meta=CLIOption(
+            name="extra_configs",
+            cli_option_str="--deps-extra-configs",
+            hidden=True,  # Complex structure, better handled in config file
+        ),
+        field_type=dict,
+        help=("A dictionary of extra configuration passed to the image bakery."),
+        behavior=FieldBehavior.NOT_ALLOWED,
+        example={"channel_priority": "strict"},
+    )
 
     @staticmethod
     def validate(dependency_config: "DependencyConfig"):
@@ -758,29 +786,49 @@ class DependencyConfig(metaclass=ConfigMeta):
                 current_value=dependency_config.from_requirements_file,
                 message="Cannot set from_requirements_file and from_pyproject_toml at the same time",
             )
-        if any([dependency_config.pypi, dependency_config.conda]) and any(
+        if any(
+            [
+                dependency_config.pypi,
+                dependency_config.conda,
+                dependency_config.anaconda,
+            ]
+        ) and any(
             [
                 dependency_config.from_requirements_file,
                 dependency_config.from_pyproject_toml,
             ]
         ):
             raise ConfigValidationFailedException(
-                field_name="pypi" if dependency_config.pypi else "conda",
+                field_name="pypi"
+                if dependency_config.pypi
+                else ("conda" if dependency_config.conda else "anaconda"),
                 field_info=dependency_config._get_field(  # type: ignore
-                    "pypi" if dependency_config.pypi else "conda"
+                    "pypi"
+                    if dependency_config.pypi
+                    else ("conda" if dependency_config.conda else "anaconda")
                 ),
                 current_value=dependency_config.pypi or dependency_config.conda,
                 message="Cannot set pypi or conda when from_requirements_file or from_pyproject_toml is set",
             )
-        if more_than_n_not_none(1, dependency_config.pypi, dependency_config.conda):
+        if more_than_n_not_none(
+            1,
+            dependency_config.pypi,
+            dependency_config.conda,
+            dependency_config.anaconda,
+        ):
             raise ConfigValidationFailedException(
-                field_name="pypi" if dependency_config.pypi else "conda",
+                field_name="pypi"
+                if dependency_config.pypi
+                else ("conda" if dependency_config.conda else "anaconda"),
                 field_info=dependency_config._get_field(  # type: ignore
-                    "pypi" if dependency_config.pypi else "conda"
+                    "pypi"
+                    if dependency_config.pypi
+                    else ("conda" if dependency_config.conda else "anaconda")
                 ),
                 current_value=dependency_config.pypi or dependency_config.conda,
                 message="Cannot add dependencies from pypi and conda at the same time. Please use only one.",
             )
+
         return True
 
 

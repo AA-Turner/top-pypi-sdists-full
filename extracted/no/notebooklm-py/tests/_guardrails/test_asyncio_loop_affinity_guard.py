@@ -108,13 +108,13 @@ ALLOWLIST: tuple[_AllowlistEntry, ...] = (
     # binding so the next ``open()`` rebinds. A ``reset_after_open`` would be
     # a no-op here (the locks are never held across ``open()``).
     _AllowlistEntry(
-        "src/notebooklm/_runtime/auth.py",
+        "src/notebooklm/_web/transport/auth.py",
         "AuthRefreshCoordinator",
         "Guarded by set_bound_loop + call-site assert_bound_loop; the lazy "
         "Lock is never held across open() so reset_after_open is unnecessary.",
     ),
     _AllowlistEntry(
-        "src/notebooklm/_reqid_counter.py",
+        "src/notebooklm/_web/transport/reqid_counter.py",
         "ReqidCounter",
         "Guarded by set_bound_loop + call-site assert_bound_loop in "
         "next_reqid; the lazy Lock is never held across open().",
@@ -161,6 +161,16 @@ ALLOWLIST: tuple[_AllowlistEntry, ...] = (
         None,
         "Lifespan-local lock created and discarded within one FastAPI event "
         "loop; it is never retained by the reusable app across lifespan runs.",
+    ),
+    # Each close wave constructs its abort Event on the lifecycle's currently
+    # asserted loop and discards the whole wave before a later reopen. The
+    # primitive is neither cached nor reusable across generations/loops, so the
+    # collaborator reset protocol does not apply to this root-owned wave state.
+    _AllowlistEntry(
+        "src/notebooklm/_runtime/lifecycle.py",
+        "ClientLifecycle",
+        "Close-wave-local Event created after loop-affinity validation and "
+        "discarded with that wave before reopen; never cached across loops.",
     ),
 )
 

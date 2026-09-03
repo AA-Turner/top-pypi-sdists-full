@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: servestatic
-Version: 4.3.2
+Version: 4.3.3
 Summary: Production-grade static file server for Python WSGI & ASGI.
 Project-URL: Changelog, https://archmonger.github.io/ServeStatic/latest/changelog/
 Project-URL: Documentation, https://archmonger.github.io/ServeStatic/

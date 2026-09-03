@@ -48,6 +48,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FAKE_GOOGLE_API_KEY = "AIza" + "FAKE0" * 7
 assert len(FAKE_GOOGLE_API_KEY) == 39  # AIza + 35
 
+# Synthetic current-format Google authorization key. Runtime concatenation
+# keeps a contiguous credential-shaped literal out of the source file.
+FAKE_GOOGLE_AUTH_KEY = "AQ." + "FAKE0" * 10
+assert len(FAKE_GOOGLE_AUTH_KEY) == 53  # AQ. + 50
+
 # ---------------------------------------------------------------------------
 # Exports
 # ---------------------------------------------------------------------------
@@ -400,6 +405,20 @@ def test_longer_than_canonical_api_key_is_fully_scrubbed_no_partial_leak() -> No
     assert find_credential_leaks(text)
 
 
+def test_google_authorization_key_is_scrubbed_and_detected_in_unknown_field() -> None:
+    """An ``AQ.`` key is scrubbed and rejected without a known carrier name."""
+    text = f'{{"SomeUnknownField":"{FAKE_GOOGLE_AUTH_KEY}"}}'
+
+    scrubbed = scrub_string(text)
+
+    assert FAKE_GOOGLE_AUTH_KEY not in scrubbed
+    assert "AQ." not in scrubbed
+    assert "SCRUBBED" in scrubbed
+    assert is_clean(scrubbed)[0]
+    assert not is_clean(text)[0]
+    assert any("auth token" in leak for leak in find_credential_leaks(text))
+
+
 # ---------------------------------------------------------------------------
 # find_credential_leaks — high-severity-only subset (for fixture scanning)
 # ---------------------------------------------------------------------------
@@ -415,6 +434,17 @@ def test_find_credential_leaks_flags_auth_token() -> None:
     """A raw ``g.a000-`` auth token is reported by the credential-only scanner."""
     leaks = find_credential_leaks("Cookie: SID=g.a000-abcdefghijklmnop")
     assert any("auth token" in leak for leak in leaks)
+
+
+def test_find_credential_leaks_flags_durable_master_token() -> None:
+    """A raw ``aas_et/`` token is scrubbed and rejected outside known fields."""
+    master_token = "aas_et/mastertokenunderunknownfield"
+    raw = f'{{"unknown":"{master_token}"}}'
+
+    scrubbed = scrub_string(raw)
+
+    assert master_token not in scrubbed
+    assert any("auth token" in leak for leak in find_credential_leaks(raw))
 
 
 def test_find_credential_leaks_ignores_placeholder_fixture_content() -> None:
@@ -448,7 +478,8 @@ def test_find_credential_leaks_ignores_placeholder_fixture_content() -> None:
 # source file carries NO contiguous static credential-shaped literal — a 64-char
 # hex or 40+ char base64 string written inline would itself trip secret scanning
 # (Betterleaks flags it as a generic API key). The shapes are also distinct from
-# the known g.a000-/sidts-/ya29./AIza prefixes, and the deterministic mixes keep
+# the known ``aas_et/`` / ``g.a000-`` / ``sidts-`` / ``ya29.`` / ``AIza``
+# prefixes, and the deterministic mixes keep
 # the base64 entropy well above the 4.0 bits/char floor.
 NOVEL_BASE64_TOKEN = "".join(
     ("kJ8sLm2NpQr5TvWx", "Yz0AbCdEfGhIjKlM", "nOpQrStUvWxYz123", "45678AbCdEf")
@@ -922,6 +953,56 @@ def test_display_name_inside_wrb_payload_scrubbed() -> None:
     assert "ACg8ocXYZabc" not in scrubbed
     assert _esc("SCRUBBED_NAME") in scrubbed
     assert "SCRUBBED_AVATAR_URL" in scrubbed
+
+
+def test_gbar_config_display_name_scrubbed_and_detected() -> None:
+    """The Google account CONFIG positional name is redacted structurally."""
+    raw = (
+        '[["SCRUBBED_EMAIL@example.com","","opaque",0,0,null,"",1,'
+        '"Alice Example","https://lh3.googleusercontent.com/a/avatar=s32"]]'
+    )
+    ok, leaks = is_clean(
+        raw.replace("https://lh3.googleusercontent.com/a/avatar=s32", "SCRUBBED_AVATAR_URL")
+    )
+    assert not ok
+    assert any("gbar display name" in leak for leak in leaks)
+
+    scrubbed = scrub_string(raw)
+    assert "Alice Example" not in scrubbed
+    assert '"SCRUBBED_NAME","SCRUBBED_AVATAR_URL"' in scrubbed
+    assert is_clean(scrubbed) == (True, [])
+
+
+def test_gbar_config_account_id_scrubbed_and_detected() -> None:
+    """The opaque account-linked CONFIG value never reaches a cassette."""
+    raw = (
+        '[["SCRUBBED_EMAIL@example.com","","opaque-account-identifier",'
+        '0,0,null,"",1,"SCRUBBED_NAME","SCRUBBED_AVATAR_URL"]]'
+    )
+    ok, leaks = is_clean(raw)
+    assert not ok
+    assert any("gbar account ID" in leak for leak in leaks)
+
+    scrubbed = scrub_string(raw)
+    assert "opaque-account-identifier" not in scrubbed
+    assert "SCRUBBED_ACCOUNT_ID" in scrubbed
+    assert is_clean(scrubbed) == (True, [])
+
+
+def test_account_menu_display_name_scrubbed_and_detected() -> None:
+    """A profile-menu name adjacent to the account email cannot survive."""
+    raw = (
+        '<div class="build-name">Alice Example</div>'
+        '<div class="build-email">SCRUBBED_EMAIL@example.com</div>'
+    )
+    ok, leaks = is_clean(raw)
+    assert not ok
+    assert any("account-menu display name" in leak for leak in leaks)
+
+    scrubbed = scrub_string(raw)
+    assert "Alice Example" not in scrubbed
+    assert "SCRUBBED_NAME" in scrubbed
+    assert is_clean(scrubbed) == (True, [])
 
 
 def test_avatar_url_a_path_scrubbed() -> None:

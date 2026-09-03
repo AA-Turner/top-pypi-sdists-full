@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-28T18:11:58.406105                                                            #
+# Generated on 2026-09-02T23:51:38.087103                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.final_api
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.final_api
 
 from ..checkpoints.decorator import CheckpointDecorator as CheckpointDecorator
 from ..checkpoints.decorator import CurrentCheckpointer as CurrentCheckpointer

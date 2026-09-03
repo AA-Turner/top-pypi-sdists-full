@@ -88,6 +88,55 @@ class BatchScramSecretReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_msk.ChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_arn": "channelArn"},
+)
+class ChannelReference:
+    def __init__(self, *, channel_arn: builtins.str) -> None:
+        '''A reference to a Channel resource.
+
+        :param channel_arn: The ChannelArn of the Channel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_msk as interfaces_msk
+            
+            channel_reference = interfaces_msk.ChannelReference(
+                channel_arn="channelArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__82fdb81219ffd41f056b0a1f988720d13e725256330f4c8d5d97b5ad0074a43c)
+            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_arn": channel_arn,
+        }
+
+    @builtins.property
+    def channel_arn(self) -> builtins.str:
+        '''The ChannelArn of the Channel resource.'''
+        result = self._values.get("channel_arn")
+        assert result is not None, "Required property 'channel_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_msk.ClusterPolicyReference",
     jsii_struct_bases=[],
     name_mapping={"cluster_arn": "clusterArn"},
@@ -277,6 +326,51 @@ class _IBatchScramSecretRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IBatchScramSecretRef).__jsii_proxy_class__ = lambda : _IBatchScramSecretRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IChannelRef")
+class IChannelRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> "ChannelReference":
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_msk.IChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> "ChannelReference":
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ChannelReference", jsii.get(self, "channelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IClusterPolicyRef")
@@ -792,10 +886,12 @@ class VpcConnectionReference:
 
 __all__ = [
     "BatchScramSecretReference",
+    "ChannelReference",
     "ClusterPolicyReference",
     "ClusterReference",
     "ConfigurationReference",
     "IBatchScramSecretRef",
+    "IChannelRef",
     "IClusterPolicyRef",
     "IClusterRef",
     "IConfigurationRef",
@@ -814,6 +910,13 @@ publication.publish()
 def _typecheckingstub__9ae6fd3d6b9a92551a7fe3361254f3ecb9afe5a6d80aba771970693b48cccc54(
     *,
     cluster_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82fdb81219ffd41f056b0a1f988720d13e725256330f4c8d5d97b5ad0074a43c(
+    *,
+    channel_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -867,5 +970,5 @@ def _typecheckingstub__558a2bbe85670dfe0fc92872489481ed10c7f008336d8079d15854471
     """Type checking stubs"""
     pass
 
-for cls in [IBatchScramSecretRef, IClusterPolicyRef, IClusterRef, IConfigurationRef, IReplicatorRef, IServerlessClusterRef, ITopicRef, IVpcConnectionRef]:
+for cls in [IBatchScramSecretRef, IChannelRef, IClusterPolicyRef, IClusterRef, IConfigurationRef, IReplicatorRef, IServerlessClusterRef, ITopicRef, IVpcConnectionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

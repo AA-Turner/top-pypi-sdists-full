@@ -7,10 +7,11 @@ from pathlib import Path
 import cyclopts
 import yaml
 
-from dreadnode.app.api.client import NotFoundError
+from dreadnode.app.api.client import ConflictError, NotFoundError
 from dreadnode.app.cli.args import PlatformScopeArgs
 from dreadnode.app.cli.shared import (
     _FLAG_STATE,
+    _LABEL_W,
     _collect_cursor_pages,
     _hint,
     _render,
@@ -19,9 +20,11 @@ from dreadnode.app.cli.shared import (
     _status_color,
     confirm_destructive,
     console,
+    parse_egress_targets,
     print_info,
     print_success,
 )
+from dreadnode.packaging.egress import merge_targets, normalize_declaration
 
 RuntimeStatus = t.Literal["idle", "running", "paused"]
 
@@ -217,6 +220,35 @@ def _split_runtime_manifest(
     return identity, (config or None)
 
 
+def _apply_egress_targets(
+    config: dict[str, t.Any] | None,
+    cli_targets: list[str] | None,
+) -> dict[str, t.Any] | None:
+    """Merge ``--egress`` targets into ``sandbox.egress.allow`` (`RT-SBX-006`).
+
+    Also validates a ``sandbox.egress`` block loaded from ``runtime.yaml``, so a
+    malformed target is named here rather than after a round trip.
+
+    Absent stays absent (`RT-SBX-009`): with no declaration on either side the
+    sandbox inherits the operator's floor unchanged, which is not the same as
+    an empty allow list restricting it to the platform's own destinations.
+    """
+    sandbox_raw = (config or {}).get("sandbox")
+    if sandbox_raw is not None and not isinstance(sandbox_raw, dict):
+        raise TypeError("runtime.yaml sandbox must be a mapping")
+
+    declared = normalize_declaration((sandbox_raw or {}).get("egress"))
+    merged = merge_targets(declared, cli_targets)
+    if merged is None:
+        return config
+
+    updated = dict(config or {})
+    sandbox = dict(sandbox_raw or {})
+    sandbox["egress"] = {"allow": merged}
+    updated["sandbox"] = sandbox
+    return updated
+
+
 def _coalesce_manifest_value(
     explicit: str | None,
     manifest_identity: dict[str, t.Any],
@@ -365,12 +397,30 @@ def create(
         Path | None,
         cyclopts.Parameter(name="--file", help="Load runtime.yaml from a file or directory."),
     ] = None,
+    egress: t.Annotated[
+        list[str] | None,
+        cyclopts.Parameter(
+            name="--egress",
+            help=(
+                "Outbound destination this runtime's sandbox may reach "
+                "(e.g. --egress target.example.com, --egress '*.internal.corp', "
+                "--egress 10.20.0.0/16; repeatable). Adds to any "
+                "sandbox.egress.allow from --file. A declaration can only "
+                "narrow what the deployment already permits, and declaring "
+                "anything restricts the sandbox to what is named plus the "
+                "platform destinations the platform derives. Pass "
+                "--empty-egress to declare a scope that names nothing, "
+                "restricting the sandbox to the platform destinations alone."
+            ),
+        ),
+    ] = None,
     as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
     platform: PlatformScopeArgs = PlatformScopeArgs(),
 ) -> None:
     """Ensure a runtime exists for a project or the workspace default project.
 
     Idempotent — re-running against an existing runtime returns it unchanged.
+    Re-running with a *different* config is a conflict, not an update.
 
     Args:
         project_ref: Project key or UUID. Defaults to the active project scope,
@@ -379,6 +429,10 @@ def create(
         name: Runtime display name. Required with --key when no project is resolved.
         description: Optional runtime description.
         file: Load runtime.yaml from a file or directory.
+        egress: Outbound destination this runtime's sandbox may reach, as an
+            FQDN, a '*.suffix' wildcard, an IP, or a CIDR (repeatable). Adds to
+            any `sandbox.egress.allow` from --file. Narrowing only, so it needs
+            no permission beyond owning the runtime.
         as_json: Output as JSON.
     """
     api, profile = platform.connect()
@@ -386,6 +440,7 @@ def create(
     manifest_config: dict[str, t.Any] | None = None
     if file is not None:
         manifest_identity, manifest_config = _split_runtime_manifest(api, file)
+    manifest_config = _apply_egress_targets(manifest_config, parse_egress_targets(egress))
 
     resolved_project = (
         project_ref
@@ -414,12 +469,23 @@ def create(
     if manifest_config is not None:
         create_kwargs["config"] = manifest_config
 
-    payload = api.create_runtime(
-        profile.org_key,
-        profile.workspace_key,
-        resolved_project,
-        **create_kwargs,
-    )
+    try:
+        payload = api.create_runtime(
+            profile.org_key,
+            profile.workspace_key,
+            resolved_project,
+            **create_kwargs,
+        )
+    except ConflictError as exc:
+        # The runtime exists with a different configuration. Create is ensure,
+        # not update, so say where updates go rather than leaving the user
+        # to re-run the same command.
+        runtime_ref = resolved_key or "<runtime-id>"
+        raise ConflictError(
+            f"{exc} To change a runtime's configuration, run "
+            f"`dn runtime config-set {runtime_ref} --egress <target>` or "
+            f"`dn runtime config-set {runtime_ref} --file runtime.yaml`."
+        ) from exc
     if as_json:
         _render(payload, as_json=True, summary=_summarize_runtime)
         return
@@ -698,4 +764,162 @@ def reset(
         _render(result, as_json=True, summary=_summarize_runtime)
         return
     _print_lifecycle_result(str(result.get("id", runtime_id)), "reset", "red")
+    _hint(f"dn runtime start {runtime_id}")
+
+
+# ---------------------------------------------------------------------------
+# Durable configuration (RT-API-023 / RT-API-024)
+# ---------------------------------------------------------------------------
+
+
+def _summarize_runtime_config(payload: dict[str, t.Any]) -> str:
+    config = payload.get("config") or {}
+    sandbox = config.get("sandbox") or {}
+    egress = sandbox.get("egress")
+
+    if egress is None:
+        # RT-SBX-009: absent is not empty. Say which one this is, because the
+        # difference decides whether the sandbox inherits the deployment's
+        # floor or is restricted to the platform's own destinations.
+        egress_line = "[dim]inherits the deployment's floor[/dim]"
+    else:
+        allowed = egress.get("allow") or []
+        egress_line = (
+            ", ".join(str(target) for target in allowed)
+            if allowed
+            else "[dim]declared, names nothing (platform destinations only)[/dim]"
+        )
+
+    capabilities = config.get("capabilities") or []
+    return "\n".join(
+        [
+            f"[dim]{'runtime':<{_LABEL_W}}[/dim]{payload.get('runtime_id', 'unknown')}",
+            f"[dim]{'version':<{_LABEL_W}}[/dim]{config.get('version', 'unknown')}",
+            f"[dim]{'capabilities':<{_LABEL_W}}[/dim]{len(capabilities)}",
+            f"[dim]{'egress':<{_LABEL_W}}[/dim]{egress_line}",
+            f"[dim]{'digest':<{_LABEL_W}}[/dim]{payload.get('config_digest', 'unknown')}",
+        ]
+    )
+
+
+@cli.command(name="config-get", alias="config")
+def config_get(
+    runtime_id: t.Annotated[str, cyclopts.Parameter(name="runtime-id")],
+    *,
+    as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
+    platform: PlatformScopeArgs = PlatformScopeArgs(),
+) -> None:
+    """Show a runtime's durable configuration.
+
+    Workspace read access is enough to read a config; only the owner may
+    replace one. Use --json for the full document — the summary shows the
+    fields with a CLI surface.
+
+    Args:
+        runtime_id: Runtime key or UUID, as shown by `dn runtime list`.
+        as_json: Output as JSON.
+    """
+    api, profile = platform.connect()
+    payload = api.get_runtime_config(profile.org_key, profile.workspace_key, runtime_id)
+    _render(payload, as_json=as_json, summary=_summarize_runtime_config)
+    if not as_json:
+        _hint(f"dn runtime config-set {runtime_id} --egress <target>")
+
+
+@cli.command(name="config-set")
+def config_set(
+    runtime_id: t.Annotated[str, cyclopts.Parameter(name="runtime-id")],
+    *,
+    file: t.Annotated[
+        Path | None,
+        cyclopts.Parameter(
+            name="--file",
+            help=(
+                "Replace the whole configuration with this runtime.yaml. "
+                "Wholesale, not a merge: a field the file omits is reset to "
+                "its default. Without --file the stored configuration is "
+                "edited in place and every other field is preserved."
+            ),
+        ),
+    ] = None,
+    egress: t.Annotated[
+        list[str] | None,
+        cyclopts.Parameter(
+            name="--egress",
+            help=(
+                "Outbound destination this runtime's sandbox may reach "
+                "(e.g. --egress target.example.com, --egress '*.internal.corp', "
+                "--egress 10.20.0.0/16; repeatable). Adds to the scope already "
+                "stored, or to --file's when given. Pass --empty-egress to "
+                "declare a scope that names nothing, restricting the sandbox "
+                "to the platform destinations alone."
+            ),
+        ),
+    ] = None,
+    yes: t.Annotated[bool, cyclopts.Parameter(name="--yes", alias="-y", negative=())] = False,
+    as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
+    platform: PlatformScopeArgs = PlatformScopeArgs(),
+) -> None:
+    """Replace a runtime's durable configuration.
+
+    Only the runtime's owner may call this, and it does not alter an already
+    running sandbox — the new configuration applies from the next start.
+
+    A narrowing egress declaration needs no permission beyond owning the
+    runtime, and is re-checked against the deployment's egress floor at start,
+    so a target the floor denies fails the start naming the target rather than
+    starting without it.
+
+    Args:
+        runtime_id: Runtime key or UUID, as shown by `dn runtime list`.
+        file: Replace the whole configuration with this runtime.yaml. Wholesale,
+            not a merge — a field the file omits is reset to its default.
+        egress: Outbound destination this runtime's sandbox may reach, as an
+            FQDN, a '*.suffix' wildcard, an IP, or a CIDR (repeatable).
+        yes: Skip the confirmation prompt when replacing wholesale with --file.
+        as_json: Output as JSON.
+    """
+    if file is None and egress is None:
+        raise ValueError(
+            "dn runtime config-set requires --file or --egress. "
+            "Run `dn runtime config-get <runtime-id>` to see the current configuration."
+        )
+
+    api, profile = platform.connect()
+
+    if file is not None:
+        manifest_identity, base = _split_runtime_manifest(api, file)
+        if manifest_identity:
+            # Identity is not part of the configuration document, so silently
+            # dropping these would look like they had been applied.
+            raise ValueError(
+                "runtime.yaml passed to config-set may not carry identity fields: "
+                + ", ".join(sorted(manifest_identity))
+                + ". Set those with `dn runtime create`."
+            )
+        base = base or {}
+        if not confirm_destructive(
+            f"Replace the configuration of runtime '{runtime_id}' wholesale? "
+            "Fields absent from the file are reset to their defaults.",
+            yes=yes,
+        ):
+            print_info("Aborted")
+            return
+    else:
+        current = api.get_runtime_config(profile.org_key, profile.workspace_key, runtime_id)
+        base = dict(current.get("config") or {})
+
+    updated = _apply_egress_targets(base, parse_egress_targets(egress)) or {}
+    payload = api.update_runtime_config(
+        profile.org_key,
+        profile.workspace_key,
+        runtime_id,
+        updated,
+    )
+
+    if as_json:
+        _render(payload, as_json=True, summary=_summarize_runtime_config)
+        return
+    print_success(f"Updated configuration for runtime '{runtime_id}'")
+    console.print(_summarize_runtime_config(payload))
     _hint(f"dn runtime start {runtime_id}")

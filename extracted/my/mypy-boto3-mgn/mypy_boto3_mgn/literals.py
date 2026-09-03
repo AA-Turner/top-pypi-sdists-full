@@ -113,6 +113,7 @@ __all__ = (
     "TargetInstanceTypeRightSizingMethodType",
     "TargetNetworkTopologyType",
     "VolumeTypeType",
+    "VpcProvisioningStrategyType",
     "WaveHealthStatusType",
     "WaveProgressStatusType",
 )
@@ -334,14 +335,18 @@ TargetDeploymentType = Literal["MULTI_ACCOUNT", "SINGLE_ACCOUNT"]
 TargetInstanceTypeRightSizingMethodType = Literal["BASIC", "NONE"]
 TargetNetworkTopologyType = Literal["HUB_AND_SPOKE", "ISOLATED_VPC"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
+VpcProvisioningStrategyType = Literal["CREATE_NEW", "USE_EXISTING"]
 WaveHealthStatusType = Literal["ERROR", "HEALTHY", "LAGGING"]
 WaveProgressStatusType = Literal["COMPLETED", "IN_PROGRESS", "NOT_STARTED"]
 MgnServiceName = Literal["mgn"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -516,6 +521,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -530,8 +536,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -558,6 +562,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -625,10 +631,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -646,6 +652,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -711,7 +718,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -732,6 +738,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

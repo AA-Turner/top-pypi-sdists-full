@@ -1,14 +1,14 @@
 """Idempotency tests for CREATE_ARTIFACT and GENERATE_MIND_MAP (P0-3).
 
 These RPCs are mutating writes whose params carry no caller-supplied client
-token (see the ``generate_*`` methods and the ``_artifact.payloads.build_*``
+token (see the ``generate_*`` methods and the ``_web.params.artifacts.build_*``
 helpers in ``_artifacts.py`` for the CREATE_ARTIFACT / GENERATE_MIND_MAP
 param shapes). Every positional slot is structural — type code, source ids,
 language, config block — and the response is what surfaces a server-allocated
 ``artifact_id`` (``ArtifactsAPI._parse_generation_result`` in
 ``_artifacts.py`` reads ``result[0][0]``). Without a token slot,
 the only safe retry policy is
-:attr:`~notebooklm._idempotency.IdempotencyPolicy.PROBE_THEN_CREATE`, which
+:attr:`~notebooklm._web.policy.IdempotencyPolicy.PROBE_THEN_CREATE`, which
 forces the transport's inner retry loop OFF so a 5xx after server-side
 commit cannot trigger a duplicate write.
 
@@ -35,7 +35,7 @@ import httpx
 import pytest
 
 from notebooklm import NotebookLMClient, RateLimitError, ServerError
-from notebooklm._idempotency import IDEMPOTENCY_REGISTRY, IdempotencyPolicy
+from notebooklm._web.policy import IDEMPOTENCY_REGISTRY, IdempotencyPolicy
 from notebooklm.rpc import RPCMethod
 from tests._fixtures.kernel_test_helpers import install_http_client_for_test
 
@@ -109,25 +109,22 @@ def _get_notebook_response(notebook_id: str = "nb_test") -> str:
     )
 
 
-def _make_client_with_transport(
+async def _make_client_with_transport(
     transport: httpx.AsyncBaseTransport,
     auth_tokens: object,
     *,
     server_error_max_retries: int = 3,
 ) -> NotebookLMClient:
-    """Construct a ``NotebookLMClient`` wired to a mock transport.
-
-    Bypasses the real ``ClientLifecycle.open()`` path (which would build a real
-    ``httpx.AsyncClient`` + cookie jar) by stubbing in a pre-built
-    ``AsyncClient`` whose transport is the test's mock. Mirrors the helper
-    in ``tests/integration/concurrency/test_idempotency_create.py``.
-    """
+    """Open a real lifecycle generation, then install the mock transport."""
     client = NotebookLMClient(
         auth_tokens,  # type: ignore[arg-type]
         server_error_max_retries=server_error_max_retries,
     )
+    await client.__aenter__()
+    kernel = client._collaborators.kernel
+    await kernel.get_http_client(expected_epoch=1).aclose()
     install_http_client_for_test(
-        client._collaborators.kernel,
+        kernel,
         httpx.AsyncClient(
             transport=transport,
             headers={
@@ -223,12 +220,12 @@ async def test_create_artifact_503_does_not_re_post(auth_tokens) -> None:
         return httpx.Response(404, text=f"unexpected rpc: {rpc_id}")
 
     transport = httpx.MockTransport(handler)
-    client = _make_client_with_transport(transport, auth_tokens)
+    client = await _make_client_with_transport(transport, auth_tokens)
     try:
         with pytest.raises(ServerError):
             await client.artifacts.generate_audio(notebook_id="nb_test")
     finally:
-        await client._collaborators.kernel.get_http_client().aclose()
+        await client.close()
 
     # Exactly ONE CREATE_ARTIFACT POST despite ``server_error_max_retries=3``
     # being configured: the PROBE_THEN_CREATE policy forced retries off.
@@ -261,12 +258,12 @@ async def test_create_artifact_429_does_not_re_post(auth_tokens) -> None:
         return httpx.Response(404, text=f"unexpected rpc: {rpc_id}")
 
     transport = httpx.MockTransport(handler)
-    client = _make_client_with_transport(transport, auth_tokens)
+    client = await _make_client_with_transport(transport, auth_tokens)
     try:
         with pytest.raises(RateLimitError):
             await client.artifacts.generate_audio(notebook_id="nb_test")
     finally:
-        await client._collaborators.kernel.get_http_client().aclose()
+        await client.close()
 
     assert create_count == 1, f"expected 1 CREATE_ARTIFACT POST, got {create_count}"
 
@@ -294,12 +291,12 @@ async def test_generate_mind_map_503_does_not_re_post(auth_tokens) -> None:
         return httpx.Response(404, text=f"unexpected rpc: {rpc_id}")
 
     transport = httpx.MockTransport(handler)
-    client = _make_client_with_transport(transport, auth_tokens)
+    client = await _make_client_with_transport(transport, auth_tokens)
     try:
         with pytest.raises(ServerError):
             await client.artifacts.generate_mind_map(notebook_id="nb_test")
     finally:
-        await client._collaborators.kernel.get_http_client().aclose()
+        await client.close()
 
     assert mind_map_count == 1, f"expected 1 GENERATE_MIND_MAP POST, got {mind_map_count}"
     assert get_notebook_count == 1
@@ -332,11 +329,11 @@ async def test_create_artifact_happy_path_still_returns_artifact(auth_tokens) ->
         return httpx.Response(404, text=f"unexpected rpc: {rpc_id}")
 
     transport = httpx.MockTransport(handler)
-    client = _make_client_with_transport(transport, auth_tokens)
+    client = await _make_client_with_transport(transport, auth_tokens)
     try:
         status = await client.artifacts.generate_audio(notebook_id="nb_test")
     finally:
-        await client._collaborators.kernel.get_http_client().aclose()
+        await client.close()
 
     assert status.task_id == artifact_id
     assert create_count == 1
@@ -374,7 +371,7 @@ async def test_generate_mind_map_happy_path_still_returns_mind_map(auth_tokens) 
         return httpx.Response(404, text=f"unexpected rpc: {rpc_id}")
 
     transport = httpx.MockTransport(handler)
-    client = _make_client_with_transport(transport, auth_tokens)
+    client = await _make_client_with_transport(transport, auth_tokens)
 
     stub_note = Note(id="note_stub", notebook_id="nb_test", title="Test Mind Map", content="")
     client.artifacts._note_service.create_note = AsyncMock(return_value=stub_note)  # type: ignore[method-assign]
@@ -382,7 +379,7 @@ async def test_generate_mind_map_happy_path_still_returns_mind_map(auth_tokens) 
     try:
         result = await client.artifacts.generate_mind_map(notebook_id="nb_test")
     finally:
-        await client._collaborators.kernel.get_http_client().aclose()
+        await client.close()
 
     assert result.mind_map == mind_map_dict
     assert result.note_id == "note_stub"

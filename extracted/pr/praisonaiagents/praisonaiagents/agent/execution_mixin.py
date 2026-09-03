@@ -802,21 +802,31 @@ Write the complete compiled report:"""
         Args:
             new_model: The new model name to switch to (e.g., "gpt-4o", "claude-3-sonnet")
         """
-        # Store the new model name
-        self.llm = new_model
-        
-        # Recreate the LLM instance with the new model
-        try:
-            from ..llm.llm import LLM
-            self._llm_instance = LLM(
-                model=new_model,
-                base_url=self._openai_base_url,
-                api_key=self._openai_api_key,
-            )
-            self._using_custom_llm = True
-        except ImportError:
-            # If LLM class not available, just update the model string
-            pass
+        # Serialise against an in-flight sync model fallback (which also swaps
+        # self.llm / self._unified_dispatcher) so the two can't interleave.
+        with self._get_model_fallback_lock().sync():
+            # Store the new model name
+            self.llm = new_model
+
+            # Drop any cached dispatcher bound to the old model so the next
+            # chat()/achat() rebuilds against new_model. Without this, the
+            # OpenAI path keeps dispatching on the old model even though
+            # self.llm now reads the new name (mirrors _apply_default_llm).
+            if getattr(self, '_unified_dispatcher', None) is not None:
+                self._unified_dispatcher = None
+
+            # Recreate the LLM instance with the new model
+            try:
+                from ..llm.llm import LLM
+                self._llm_instance = LLM(
+                    model=new_model,
+                    base_url=self._openai_base_url,
+                    api_key=self._openai_api_key,
+                )
+                self._using_custom_llm = True
+            except ImportError:
+                # If LLM class not available, just update the model string
+                pass
 
     def start(self, prompt: Optional[str] = None, **kwargs: Any) -> Union[str, Generator[str, None, None], None]:
         """Start the agent interactively with verbose output.
@@ -1702,6 +1712,27 @@ Write the complete compiled report:"""
                     return policy_result  # Error dict
                 _, arguments = policy_result
 
+            # MCP tools first — parity with the sync path (_execute_tool_impl).
+            # Without this an MCP-backed tool call hard-fails via achat()/astart().
+            # Only consult MCP when searching the agent's own tools (no override),
+            # matching the sync path which resolves MCP against self.tools.
+            if tools_override is None:
+                resolve_mcp = getattr(self, "_resolve_mcp_tool_result", None)
+                if resolve_mcp is not None:
+                    found, mcp_result = resolve_mcp(function_name, arguments)
+                    if found:
+                        if inspect.isawaitable(mcp_result):
+                            mcp_result = await mcp_result
+                        # Normalize MCP transport/timeout failures into a native
+                        # error dict — parity with the sync path so an async MCP
+                        # timeout classifies as a retryable failure instead of
+                        # being handed to the model as a bare "Error: ..." string
+                        # that looks like a successful result.
+                        normalize_mcp = getattr(self, "_normalize_mcp_result", None)
+                        if normalize_mcp is not None:
+                            mcp_result = normalize_mcp(mcp_result)
+                        return mcp_result
+
             # Try to find the function in the override tools list first, then agent's tools list.
             # Resolve by BaseTool/FunctionTool ``.name`` (instances like BrowserBaseTool or
             # aliased decorated tools), plain callable ``__name__``, or class name so async
@@ -1720,8 +1751,36 @@ Write the complete compiled report:"""
                    (inspect.isclass(tool) and tool.__name__ == function_name):
                     func = tool
                     break
-            
+
+            # Name self-repair — parity with the sync path. A slightly hallucinated
+            # tool name (e.g. 'WebSearch' for 'web_search') is re-matched instead of
+            # hard-failing. Only over the agent's own active tools (no override).
+            if func is None and tools_override is None:
+                repair = getattr(self, "_self_repair_tool_name", None)
+                if repair is not None:
+                    func = repair(function_name)
+
             if func is None:
+                # Corrective, model-readable message with the available tools and a
+                # closest-match hint, mirroring the sync path so the model can retry.
+                available = None
+                if hasattr(self, "_available_active_tool_names"):
+                    try:
+                        available = self._available_active_tool_names()
+                    except Exception:
+                        available = None
+                if available is not None:
+                    suggestion = None
+                    try:
+                        import difflib
+                        near = difflib.get_close_matches(function_name, available, n=1, cutoff=0.5)
+                        suggestion = near[0] if near else None
+                    except Exception:
+                        pass
+                    hint = f" Did you mean '{suggestion}'?" if suggestion else ""
+                    error_msg = f"Tool '{function_name}' not found.{hint} Available tools: {available}"
+                    logging.error(error_msg)
+                    return {"error": error_msg, "available_tools": available}
                 logging.error(f"Function {function_name} not found in tools")
                 return {"error": f"Function {function_name} not found in tools"}
 
@@ -1800,17 +1859,42 @@ Write the complete compiled report:"""
                         call_arguments = dict(arguments)
                         call_arguments["idempotency_key"] = durable_key
 
+                # Establish the injection context (Injected[T] params, including
+                # the cooperative cancel_event) around dispatch so the async path
+                # matches the sync execute_tool path. Without this, a long-running
+                # tool (e.g. shell) executed via achat()/astart() never observes an
+                # interrupt and runs until its own timeout. Built lazily and reused
+                # for both the coroutine and executor branches.
+                from ..tools.injected import with_injection_context
+                _inject_state = None
+                if hasattr(self, "_build_agent_state"):
+                    try:
+                        _inject_state = self._build_agent_state()
+                    except Exception:
+                        _inject_state = None
+
                 async def _invoke():
                     # Set the tool-progress channel BEFORE dispatch so the sink
                     # propagates into the executor thread via contextvars, mirroring
                     # the sync execute_tool path.
                     if inspect.iscoroutinefunction(call_target):
                         logging.debug(f"Executing async function: {function_name}")
+                        if _inject_state is not None:
+                            with with_injection_context(_inject_state), tool_progress_channel(_progress_sink):
+                                return await call_target(**call_arguments)
                         with tool_progress_channel(_progress_sink):
                             return await call_target(**call_arguments)
                     logging.debug(f"Executing sync function in executor: {function_name}")
                     loop = asyncio.get_running_loop()
                     from ..trace.context_events import copy_context_to_callable
+                    # copy_context_to_callable snapshots the CURRENT context (incl.
+                    # the injection contextvar) into the executor thread, so setting
+                    # it here propagates cancel_event to the sync tool body too.
+                    if _inject_state is not None:
+                        with with_injection_context(_inject_state), tool_progress_channel(_progress_sink):
+                            return await loop.run_in_executor(
+                                None, copy_context_to_callable(lambda: call_target(**call_arguments))
+                            )
                     with tool_progress_channel(_progress_sink):
                         return await loop.run_in_executor(
                             None, copy_context_to_callable(lambda: call_target(**call_arguments))

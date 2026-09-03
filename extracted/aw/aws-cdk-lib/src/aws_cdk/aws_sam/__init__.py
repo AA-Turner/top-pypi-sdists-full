@@ -5232,7 +5232,7 @@ class CfnFunction(
                 from aws_cdk import aws_sam as sam
                 
                 event_source_property = sam.CfnFunction.EventSourceProperty(
-                    properties=sam.CfnFunction.AlexaSkillEventProperty(
+                    properties=sam.CfnFunction.DynamoDBEventProperty(
                         skill_id="skillId"
                     ),
                     type="type"
@@ -8647,7 +8647,7 @@ class CfnFunctionProps:
                 ),
                 events={
                     "events_key": sam.CfnFunction.EventSourceProperty(
-                        properties=sam.CfnFunction.AlexaSkillEventProperty(
+                        properties=sam.CfnFunction.DynamoDBEventProperty(
                             skill_id="skillId"
                         ),
                         type="type"

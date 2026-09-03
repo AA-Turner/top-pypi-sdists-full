@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: typed-settings
-Version: 25.3.0
+Version: 26.0.0
 Summary: Typed settings based on attrs classes
 Project-URL: Homepage, https://gitlab.com/sscherfke/typed-settings
 Project-URL: Documentation, https://typed-settings.readthedocs.io
@@ -51,9 +51,13 @@ Requires-Dist: jinja2; extra == 'jinja'
 Provides-Extra: option-groups
 Requires-Dist: click-option-group; extra == 'option-groups'
 Requires-Dist: click>=7; extra == 'option-groups'
+Provides-Extra: orjson
+Requires-Dist: orjson; extra == 'orjson'
 Provides-Extra: pydantic
 Requires-Dist: pydantic>=2.12.0a1; (python_version >= '3.14') and extra == 'pydantic'
 Requires-Dist: pydantic>=2; (python_version < '3.14') and extra == 'pydantic'
+Provides-Extra: yaml
+Requires-Dist: pyyaml; extra == 'yaml'
 Description-Content-Type: text/markdown
 
 # Typed Settings
@@ -127,6 +131,8 @@ Available features:
 - `typed-settings[click]`: Enable support for **Click** options.
 - `typed-settings[option-groups]`: Enable support for **Click** and **Click option groups**.
 - `typed-settings[dotenv]`: Enable support for reading `.env` files via **python-dotenv**.
+- `typed-settings[orjson]`: Use **orjson** instead of the built-in `json` module for loading JSON files.
+- `typed-settings[yaml]`: Enable support for loading YAML files.
 - `typed-settings[jinja]`: Enable support for value interpolation with **Jinja** templates.
 - `typed-settings[all]`: Install all optional requirements.
 

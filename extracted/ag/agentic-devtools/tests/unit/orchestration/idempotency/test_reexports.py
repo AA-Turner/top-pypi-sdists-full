@@ -38,6 +38,14 @@ class TestReexports:
 
         assert compute_operation_id is Canonical
 
+    def test_is_reconciliation_run_duplicate_importable(self) -> None:
+        from agentic_devtools.orchestration import idempotency
+        from agentic_devtools.orchestration.idempotency import (
+            is_reconciliation_run_duplicate,
+        )
+
+        assert is_reconciliation_run_duplicate is idempotency.is_reconciliation_run_duplicate
+
     def test_all_exports_listed(self) -> None:
         from agentic_devtools.orchestration import idempotency
 
@@ -46,4 +54,5 @@ class TestReexports:
             "OperationLog",
             "OperationLogRecord",
             "compute_operation_id",
+            "is_reconciliation_run_duplicate",
         }

@@ -12,6 +12,7 @@ from matrx_ai.tools.executor import (
     _capture_tool_result_kind_missing,
     _capture_tool_result_size_unmanaged,
     _is_expected_domain_failure,
+    _capture_tool_result_kind_unavailable,
 )
 from matrx_ai.tools.implementations.shell import shell_python
 from matrx_ai.tools.models import ToolDefinition
@@ -447,6 +448,40 @@ async def test_unmanaged_owned_tool_result_creates_bounded_capture(monkeypatch) 
 )
 def test_expected_tool_refusals_do_not_enter_error_queue(error_type: str) -> None:
     assert _is_expected_domain_failure(tool_name="any_tool", error_type=error_type)
+
+
+def test_namespaced_not_found_is_expected_tool_feedback() -> None:
+    assert _is_expected_domain_failure(tool_name="cms_site", error_type="cms_not_found")
+
+
+@pytest.mark.asyncio
+async def test_unavailable_result_kind_creates_bounded_capture(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_capture(exc: BaseException, **kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr("matrx_connect.streaming.error_capture.capture_error", fake_capture)
+    await _capture_tool_result_kind_unavailable(
+        ctx=SimpleNamespace(
+            request_id="req-1",
+            user_id="user-1",
+            conversation_id="conv-1",
+            call_id="call-1",
+            tool_name="html_page",
+        ),
+        tool_name="html_page",
+        output_kind="cms_html_page_result",
+        degraded_reason="kind_not_registered",
+    )
+
+    assert captured["kind"] == "tool_result_kind_unavailable"
+    assert captured["error_type"] == "ToolResultKindUnavailable"
+    assert captured["context"] == {
+        "tool_name": "html_page",
+        "output_kind": "cms_html_page_result",
+        "degraded_reason": "kind_not_registered",
+    }
 
 
 def test_database_failure_requires_structured_capture() -> None:

@@ -48,6 +48,12 @@ class TestRTSPConfig(unittest.TestCase):
                 connect_timeout_seconds = 5.0,
                 scene_change_threshold = 0.0,
                 gate_inference_name = '',
+                gate_retriever_id = '',
+                gate_retriever_min_score = 0.0,
+                gate_output_stage = '',
+                gate_output_field = '',
+                gate_output_op = 'gte',
+                gate_output_threshold = 1.337,
                 gate_on_error = 'publish',
                 gate_timeout_seconds = 1.0
             )

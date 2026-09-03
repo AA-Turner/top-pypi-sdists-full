@@ -22,11 +22,54 @@ from matrx_ai.config.message_config import UnifiedMessage
 from matrx_ai.config.unified_content import TextContent
 from matrx_ai.providers import cache_guard
 from matrx_ai.providers.anthropic.translator import AnthropicTranslator
+from matrx_ai.providers.openai.translator import OpenAITranslator
 from matrx_ai.testing.profile_factory import make_profile
 
 
 def _profile():
     return make_profile(model_name="claude-x", wire_format="anthropic_chat")
+
+
+def test_openai_request_carries_stable_opaque_cache_routing_key():
+    key = cache_guard.provider_prompt_cache_key("conversation-private", "request-private")
+    config = UnifiedConfig(
+        model="gpt-4.1",
+        system_instruction="stable system",
+        messages=[UnifiedMessage(role="user", content=[TextContent(text="hi")])],
+        prompt_cache_key=key,
+    )
+
+    payload = OpenAITranslator().build_request(
+        config, make_profile(model_name="gpt-4.1", wire_format="openai_responses")
+    )
+
+    assert payload["prompt_cache_key"] == key
+    assert key is not None and key.startswith("matrx_")
+    assert len(key) == cache_guard.OPENAI_PROMPT_CACHE_KEY_MAX_CHARS
+    assert "conversation-private" not in key
+    assert "request-private" not in key
+    assert "prompt_cache_key" not in config.to_storage_dict()["config"]
+
+
+def test_openai_translator_hashes_oversized_direct_cache_key_at_wire_boundary():
+    oversized = "caller-supplied-private-key-" * 4
+    config = UnifiedConfig(
+        model="gpt-4.1",
+        messages=[UnifiedMessage(role="user", content=[TextContent(text="hi")])],
+        prompt_cache_key=oversized,
+    )
+
+    first = OpenAITranslator().build_request(
+        config, make_profile(model_name="gpt-4.1", wire_format="openai_responses")
+    )["prompt_cache_key"]
+    second = OpenAITranslator().build_request(
+        config, make_profile(model_name="gpt-4.1", wire_format="openai_responses")
+    )["prompt_cache_key"]
+
+    assert first == second
+    assert first.startswith("matrx_")
+    assert len(first) == cache_guard.OPENAI_PROMPT_CACHE_KEY_MAX_CHARS
+    assert oversized not in first
 
 
 # ─────────────────────────────────────────────────────────────────────────────

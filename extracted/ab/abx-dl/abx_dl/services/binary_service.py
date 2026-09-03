@@ -12,9 +12,10 @@ from abxbus import BaseEvent, EventBus
 from abxpkg import BinProvider
 from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent
 
+from ..catalog import PluginCatalog
 from ..config import RuntimeConfig, get_config, get_plugin_env, get_required_binary_requests, is_path_like_env_value
 from ..events import CrawlAbortEvent, InstallEvent, MachineEvent
-from ..models import Plugin, Snapshot, filter_plugins, uuid7
+from ..models import Plugin, Snapshot, uuid7
 from .base import BaseService
 
 _TEMPLATE_NAME_RE = re.compile(r"^\{([A-Z0-9_]+)\}$")
@@ -23,13 +24,20 @@ _TEMPLATE_NAME_RE = re.compile(r"^\{([A-Z0-9_]+)\}$")
 async def build_plugin_process_env(
     bus: EventBus,
     *,
-    plugins: dict[str, Plugin],
+    catalog: PluginCatalog,
     plugin: Plugin,
     runtime_env: dict[str, str],
 ) -> dict[str, str]:
-    """Project resolved binary environments exactly as hook processes receive them."""
+    """Overlay provider-owned binary environment changes onto one hook run.
+
+    ``BinaryEvent.env`` is the fully materialized environment from the install
+    request.  A shared bus can reuse that binary for later snapshots, so
+    replaying the full mapping would also replay stale request context such as
+    ``SNAP_DIR`` and ``EXTRA_CONTEXT``.  Compare it to its request base and
+    carry forward only values the provider actually changed.
+    """
     env = runtime_env
-    env_plugin_names = set(filter_plugins(plugins, [plugin.name], include_providers=True))
+    env_plugin_names = set(catalog.select([plugin.name]))
     binary_events = await bus.filter(
         BinaryEvent,
         past=True,
@@ -37,9 +45,18 @@ async def build_plugin_process_env(
     )
     for binary_event in reversed(binary_events):
         if binary_event.env:
+            binary_request = await bus.find(
+                BinaryRequestEvent,
+                past=True,
+                future=False,
+                where=lambda candidate: candidate.event_id == binary_event.event_parent_id,
+            )
+            binary_env = binary_event.env
+            if isinstance(binary_request, BinaryRequestEvent) and binary_request.base_env is not None:
+                binary_env = {key: value for key, value in binary_event.env.items() if binary_request.base_env.get(key) != value}
             env = BinProvider.build_exec_env(
                 base_env=env,
-                extra_env=binary_event.env,
+                extra_env=binary_env,
             )
     return env
 
@@ -73,7 +90,7 @@ class PluginBinariesService(BaseService):
         self,
         bus: EventBus,
         *,
-        plugins: dict[str, Plugin],
+        catalog: PluginCatalog,
         auto_install: bool,
         install_plugins: list[Plugin] | None = None,
         output_dir: Path | None = None,
@@ -81,7 +98,7 @@ class PluginBinariesService(BaseService):
         abort_requested: Callable[[], bool | Awaitable[bool]] | None = None,
     ):
         self.auto_install = auto_install
-        self.plugins = plugins
+        self.catalog = catalog
         self.install_plugins = install_plugins or []
         self.output_dir = output_dir
         self.snapshot = snapshot
@@ -182,9 +199,9 @@ class PluginBinaryEnvService(BaseService):
     LISTENS_TO: ClassVar[list[type[BaseEvent]]] = [BinaryEvent]
     EMITS: ClassVar[list[type[BaseEvent]]] = [MachineEvent]
 
-    def __init__(self, bus: EventBus, *, plugins: dict[str, Plugin]):
+    def __init__(self, bus: EventBus, *, catalog: PluginCatalog):
         self.bus = bus
-        self.plugins = plugins
+        self.catalog = catalog
         super().__init__(bus)
         self.bus.on(BinaryEvent, self.on_BinaryEvent)
 
@@ -204,7 +221,7 @@ class PluginBinaryEnvService(BaseService):
     ) -> list[str]:
         plugin_name = str(event.extra_context.get("plugin_name") or "")
         output_dir = str(event.extra_context.get("output_dir") or "")
-        plugin = self.plugins.get(plugin_name)
+        plugin = self.catalog.get(plugin_name)
         if plugin is None:
             return []
 

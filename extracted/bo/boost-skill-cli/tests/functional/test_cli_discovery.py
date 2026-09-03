@@ -218,9 +218,11 @@ class TestSearch:
 
     def test_smart_without_ai_warns_and_keeps_base_ranker(self, boost, tapped):
         # Without AI, --smart warns and keeps the base ranking — which is now
-        # the BM25 default, not the heuristic.
+        # the BM25 default, not the heuristic. The warning goes to stderr so
+        # `search --smart 2>/dev/null` doesn't show it ahead of the results.
         r = boost("search", "workflow", "--smart")
-        assert "using the heuristic fallback" in " ".join(r.out.split())
+        assert "using the heuristic fallback" not in " ".join(r.out.split())
+        assert "using the heuristic fallback" in " ".join(r.err.split())
         assert "ranked by full-content BM25" in r.out
 
     def test_smart_with_ai_reorders_and_credits_haiku(self, boost, tapped,
@@ -1550,6 +1552,23 @@ class TestCount:
         assert json.loads(r.out) == {"installed": 0, "skills": 0, "rules": 0,
                                      "workflows": 0, "available": 0,
                                      "taps": 0, "discovery": None}
+
+    def test_list_shaped_discovery_json_counts_as_missing(self, boost, sandbox):
+        # Valid JSON, wrong top-level shape: the old code called .get("items")
+        # straight off the parsed value, so a top-level list crashed with
+        # AttributeError instead of degrading like the corrupt-JSON case above.
+        paths.ensure_dirs()
+        (paths.cache_dir() / "discovery.json").write_text("[1, 2, 3]", encoding="utf-8")
+        r = boost("count", "--json")
+        assert json.loads(r.out)["discovery"] is None
+
+    def test_non_list_items_field_counts_as_missing(self, boost, sandbox):
+        # {"items": 3}: "3 or []" evaluates truthy, so len(3) raised TypeError.
+        paths.ensure_dirs()
+        (paths.cache_dir() / "discovery.json").write_text(
+            json.dumps({"items": 3}), encoding="utf-8")
+        r = boost("count", "--json")
+        assert json.loads(r.out)["discovery"] is None
 
     def test_counts_rules_and_workflows_with_labels(self, boost, installed):
         # "installed 1" with a rule in the lock was a false total; the

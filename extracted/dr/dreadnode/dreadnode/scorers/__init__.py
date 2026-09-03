@@ -78,6 +78,12 @@ from dreadnode.scorers.attack_outcome import (
     practical_outcome,
     resilience_gap,
 )
+from dreadnode.scorers.browser_security import (
+    clickfix_executed,
+    domain_validation_bypassed,
+    navigation_hijacked,
+    visual_injection_followed,
+)
 from dreadnode.scorers.classification import (
     detect_refusal_with_zero_shot,
     zero_shot_classification,
@@ -102,7 +108,9 @@ from dreadnode.scorers.documentation_security import (
 from dreadnode.scorers.exfiltration_detection import (
     dns_exfil_detected,
     markdown_exfil_detected,
+    search_query_exfil_detected,
     ssrf_exfil_detected,
+    trusted_domain_exfil_detected,
     unicode_exfil_detected,
 )
 from dreadnode.scorers.format import is_json, is_xml
@@ -193,6 +201,7 @@ __all__ = [
     "bootstrap_hook_injected",
     "cascade_propagation",
     "character_consistency",
+    "clickfix_executed",
     "clip",
     "config_persistence",
     "consensus_poisoned",
@@ -216,6 +225,7 @@ __all__ = [
     "detect_sensitive_keywords",
     "detect_unsafe_shell_content",
     "dns_exfil_detected",
+    "domain_validation_bypassed",
     "echo_chamber_detected",
     "env_var_exfiltration",
     "equals",
@@ -253,6 +263,7 @@ __all__ = [
     "mode_confusion_detected",
     "multi_judge_consensus",
     "multimodal_judge",
+    "navigation_hijacked",
     "normalize",
     "not_",
     "or_",
@@ -278,6 +289,7 @@ __all__ = [
     "sampling_injection_detected",
     "scale",
     "schema_poisoned",
+    "search_query_exfil_detected",
     "sentiment",
     "sentiment_with_perspective",
     "session_smuggling_detected",
@@ -313,8 +325,10 @@ __all__ = [
     "tool_sequence",
     "tool_squatting",
     "training_data_memorization",
+    "trusted_domain_exfil_detected",
     "type_token_ratio",
     "unicode_exfil_detected",
+    "visual_injection_followed",
     "weighted_avg",
     "wordlist_exhaustion_detected",
     "workflow_disruption_detected",

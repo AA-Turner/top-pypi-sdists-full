@@ -85,53 +85,6 @@ class _INamespaceRefProxy(
 typing.cast(typing.Any, INamespaceRef).__jsii_proxy_class__ = lambda : _INamespaceRefProxy
 
 
-@jsii.interface(
-    jsii_type="aws-cdk-lib.interfaces.aws_redshiftserverless.IRecoveryPointRef"
-)
-class IRecoveryPointRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a RecoveryPoint.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="recoveryPointRef")
-    def recovery_point_ref(self) -> "RecoveryPointReference":
-        '''(experimental) A reference to a RecoveryPoint resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRecoveryPointRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RecoveryPoint.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_redshiftserverless.IRecoveryPointRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="recoveryPointRef")
-    def recovery_point_ref(self) -> "RecoveryPointReference":
-        '''(experimental) A reference to a RecoveryPoint resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RecoveryPointReference", jsii.get(self, "recoveryPointRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRecoveryPointRef).__jsii_proxy_class__ = lambda : _IRecoveryPointRefProxy
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshiftserverless.ISnapshotRef")
 class ISnapshotRef(
     _constructs_77d1e7e8.IConstruct,
@@ -274,55 +227,6 @@ class NamespaceReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_redshiftserverless.RecoveryPointReference",
-    jsii_struct_bases=[],
-    name_mapping={"recovery_point_arn": "recoveryPointArn"},
-)
-class RecoveryPointReference:
-    def __init__(self, *, recovery_point_arn: builtins.str) -> None:
-        '''A reference to a RecoveryPoint resource.
-
-        :param recovery_point_arn: The Arn of the RecoveryPoint resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_redshiftserverless as interfaces_redshiftserverless
-            
-            recovery_point_reference = interfaces_redshiftserverless.RecoveryPointReference(
-                recovery_point_arn="recoveryPointArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d17b3e3295bf630947500c3c2b7e08ff8ef4a18e2be634b3dc2d890269b40670)
-            check_type(argname="argument recovery_point_arn", value=recovery_point_arn, expected_type=type_hints["recovery_point_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "recovery_point_arn": recovery_point_arn,
-        }
-
-    @builtins.property
-    def recovery_point_arn(self) -> builtins.str:
-        '''The Arn of the RecoveryPoint resource.'''
-        result = self._values.get("recovery_point_arn")
-        assert result is not None, "Required property 'recovery_point_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RecoveryPointReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_redshiftserverless.SnapshotReference",
     jsii_struct_bases=[],
     name_mapping={"snapshot_name": "snapshotName"},
@@ -422,11 +326,9 @@ class WorkgroupReference:
 
 __all__ = [
     "INamespaceRef",
-    "IRecoveryPointRef",
     "ISnapshotRef",
     "IWorkgroupRef",
     "NamespaceReference",
-    "RecoveryPointReference",
     "SnapshotReference",
     "WorkgroupReference",
 ]
@@ -436,13 +338,6 @@ publication.publish()
 def _typecheckingstub__bb47b5ad1846229985e2e40d4fc80ad91bfd5c560018da49be206fd628154053(
     *,
     namespace_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d17b3e3295bf630947500c3c2b7e08ff8ef4a18e2be634b3dc2d890269b40670(
-    *,
-    recovery_point_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -461,5 +356,5 @@ def _typecheckingstub__55c1cec7cb09d8068c5498b75c2b2ce1723ddd0f4dcedf266da3ea604
     """Type checking stubs"""
     pass
 
-for cls in [INamespaceRef, IRecoveryPointRef, ISnapshotRef, IWorkgroupRef]:
+for cls in [INamespaceRef, ISnapshotRef, IWorkgroupRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

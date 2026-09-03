@@ -10,19 +10,15 @@ import contextlib
 import os
 import sys
 import warnings
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime, timezone
 from functools import lru_cache as _lru_cache
-from functools import partial as _partial
-from hashlib import sha256
 from pathlib import Path
-from threading import RLock
 from typing import (
     IO,
     TYPE_CHECKING,
     Any,
-    TextIO,
     TypeAlias,
     TypeVar,
     cast,
@@ -30,7 +26,37 @@ from typing import (
 from urllib.parse import ParseResult
 
 from datamodel_code_generator._process_state import PROCESS_STATE_LOCK
-from datamodel_code_generator._shared_types import DefaultPutDict, LiteralType
+from datamodel_code_generator._shared_types import (
+    DefaultPutDict,
+    LiteralType,
+    _CollapseRootModelsRecursionError,
+)
+from datamodel_code_generator._source import (
+    _clear_parser_source_data_cache as _clear_parser_source_data_cache,
+)
+from datamodel_code_generator._source import (
+    _is_json_text,
+    _is_protobuf_text,
+    _is_xml_text,
+    enable_parsed_source_cache,
+    load_data,
+    load_data_from_path,
+    load_yaml,
+    load_yaml_dict,
+    load_yaml_dict_from_path,
+)
+from datamodel_code_generator._source import (
+    _is_parsed_source_cache_enabled as _is_parsed_source_cache_enabled,
+)
+from datamodel_code_generator._source import (
+    _load_parser_source_data_from_path_bytes as _load_parser_source_data_from_path_bytes,
+)
+from datamodel_code_generator._source import (
+    _parser_source_data_cache as _parser_source_data_cache,
+)
+from datamodel_code_generator._source import (
+    _read_parser_source_data_from_path as _read_parser_source_data_from_path,
+)
 from datamodel_code_generator.enums import (
     DEFAULT_SHARED_MODULE_NAME,
     MAX_VERSION,
@@ -86,6 +112,7 @@ if TYPE_CHECKING:
         PythonVersion,
         PythonVersionMin,
     )
+    from datamodel_code_generator._parser_context import ParserSourceContext
     from datamodel_code_generator._publication import PublicationAnchor
     from datamodel_code_generator._python_type_annotation import PythonTypeExpr
     from datamodel_code_generator._types import (
@@ -99,17 +126,34 @@ if TYPE_CHECKING:
         XMLSchemaParserConfigDict,
     )
     from datamodel_code_generator._types.generate_config_dict import GenerateConfigDict
-    from datamodel_code_generator.config import GenerateConfig
+    from datamodel_code_generator.config import (
+        GenerateConfig,
+        ParserConfig,
+    )
     from datamodel_code_generator.model import DataModelSet
     from datamodel_code_generator.model_metadata import ModelMetadata
     from datamodel_code_generator.parser.base import Result
     from datamodel_code_generator.remote_lock import RemoteReferenceLock
 
 T = TypeVar("T")
+ParserConfigT = TypeVar("ParserConfigT", bound="ParserConfig")
+
+# Preserve the historical private facade identity for repr and pickling compatibility.
+_CollapseRootModelsRecursionError.__module__ = __name__
 
 YamlScalar: TypeAlias = str | int | float | bool | None
 YamlValue = TypeAliasType("YamlValue", "dict[str, YamlValue] | list[YamlValue] | YamlScalar")
 
+for _public_source_export in (
+    enable_parsed_source_cache,
+    load_data,
+    load_data_from_path,
+    load_yaml,
+    load_yaml_dict,
+    load_yaml_dict_from_path,
+):
+    _public_source_export.__module__ = __name__
+del _public_source_export
 
 if TYPE_CHECKING:
     _SchemaVersion = TypeVar(
@@ -196,268 +240,6 @@ def _apply_generate_config_preset(config: GenerateConfig) -> GenerateConfig:
 
 
 DEFAULT_BASE_CLASS: str = "pydantic.BaseModel"
-_IGNORED_TEXT_PREFIX_CHARS: frozenset[str] = frozenset({"\ufeff", " ", "\t", "\r", "\n"})
-_PARSER_SOURCE_DATA_CACHE_MAX_SIZE = 128
-_ParserSourceDataCacheKey: TypeAlias = tuple[Path, str, str, str]
-_ParserSourceDataSeenKey: TypeAlias = tuple[Path, str]
-# Serialized snapshots isolate mutable callers and are faster to restore than reparsing source text.
-_parser_source_data_cache: OrderedDict[_ParserSourceDataCacheKey, bytes] = OrderedDict()
-_parser_source_data_seen_keys: OrderedDict[_ParserSourceDataSeenKey, None] = OrderedDict()
-_parser_source_data_cache_lock = RLock()
-_parsed_source_cache_enable_count = 0
-_enable_parsed_source_cache = False
-
-
-def enable_parsed_source_cache() -> Callable[[], None]:
-    """Enable the process-local parsed source cache and return a restore callback."""
-    global _enable_parsed_source_cache, _parsed_source_cache_enable_count  # noqa: PLW0603
-
-    with _parser_source_data_cache_lock:
-        _parsed_source_cache_enable_count += 1
-        _enable_parsed_source_cache = True
-    restored = False
-
-    def restore() -> None:
-        nonlocal restored
-        global _enable_parsed_source_cache, _parsed_source_cache_enable_count  # noqa: PLW0603
-
-        with _parser_source_data_cache_lock:
-            if restored:
-                return
-            restored = True
-            _parsed_source_cache_enable_count -= 1
-            _enable_parsed_source_cache = _parsed_source_cache_enable_count > 0
-
-    return restore
-
-
-def _is_parsed_source_cache_enabled() -> bool:
-    return _enable_parsed_source_cache
-
-
-def load_yaml(stream: str | TextIO) -> YamlValue:
-    """Load YAML content using ryaml (if available) or PyYAML."""
-    from datamodel_code_generator.util import get_yaml_backend, reject_unsupported_yaml_tags  # noqa: PLC0415
-
-    text = stream if isinstance(stream, str) else stream.read()
-    reject_unsupported_yaml_tags(text)
-
-    if get_yaml_backend() == "ryaml":
-        import ryaml  # noqa: PLC0415  # ty: ignore[unresolved-import]
-
-        from datamodel_code_generator.util import warn_yaml_deprecated_bool_values  # noqa: PLC0415
-
-        warn_yaml_deprecated_bool_values(text)
-        return ryaml.loads(text)
-
-    import yaml  # noqa: PLC0415
-
-    from datamodel_code_generator.util import SafeLoader  # noqa: PLC0415
-
-    return yaml.load(text, Loader=SafeLoader)  # noqa: S506
-
-
-def load_yaml_dict(stream: str | TextIO) -> dict[str, YamlValue]:
-    """Load YAML and return as dict. Raises TypeError if result is not a dict."""
-    result = load_yaml(stream)
-    if not isinstance(result, dict):
-        msg = f"Expected dict, got {type(result).__name__}"
-        raise TypeError(msg)
-    return result
-
-
-def load_yaml_dict_from_path(path: Path, encoding: str) -> dict[str, YamlValue]:
-    """Load YAML and return as dict from a file path.
-
-    Uses LRU cache with (path, mtime) as key for performance optimization.
-    This avoids re-reading the same file multiple times during $ref resolution.
-    """
-    from datamodel_code_generator.util import record_watch_dependency  # noqa: PLC0415
-
-    record_watch_dependency(path)
-    return _load_yaml_dict_from_path_cached(path, path.stat().st_mtime, encoding)
-
-
-@_lru_cache(maxsize=128)
-def _load_yaml_dict_from_path_cached(
-    path: Path,
-    mtime: float,  # noqa: ARG001  # Used as cache key for invalidation
-    encoding: str,
-) -> dict[str, YamlValue]:
-    """Load YAML dict from path with caching (internal implementation)."""
-    with path.open(encoding=encoding) as f:
-        return load_yaml_dict(f)
-
-
-def _first_significant_text_char(text: str) -> str | None:
-    for ch in text:
-        if ch not in _IGNORED_TEXT_PREFIX_CHARS:
-            return ch
-    return None
-
-
-def _is_json_text(text: str) -> bool:
-    """Check if text likely contains JSON by examining the first non-whitespace character.
-
-    Skips BOM, spaces, tabs, carriage returns, and newlines.
-    Returns True if the first significant character is '{' or '['.
-    """
-    return _first_significant_text_char(text) in {"{", "["}
-
-
-def _is_xml_text(text: str) -> bool:
-    """Check if text likely contains XML by examining the first non-whitespace character."""
-    return _first_significant_text_char(text) == "<"
-
-
-def _is_protobuf_text(text: str) -> bool:
-    """Check if text likely contains a Protocol Buffers schema."""
-    for line in text.splitlines():
-        stripped = line.lstrip()
-        if not stripped or stripped.startswith("//"):
-            continue
-        if stripped.startswith("syntax"):
-            return '"proto2"' in stripped or '"proto3"' in stripped
-        if stripped.startswith("edition"):
-            return '"2023"' in stripped
-        if stripped.startswith(("package ", "import ", "message ", "enum ", "service ")):
-            return True
-    return False
-
-
-def load_data(text: str) -> dict[str, YamlValue]:
-    """Load text as JSON or YAML based on content.
-
-    For stdin/string input: tries JSON first if content looks like JSON,
-    falls back to YAML on failure.
-    """
-    import json  # noqa: PLC0415
-
-    if _is_json_text(text):
-        with contextlib.suppress(json.JSONDecodeError):
-            result = json.loads(text)
-            if isinstance(result, dict):
-                return result
-    return load_yaml_dict(text)
-
-
-def load_data_from_path(path: Path, encoding: str) -> dict[str, YamlValue]:
-    """Load file as JSON or YAML based on file extension.
-
-    For file input: tries json.load() for .json files (more efficient than
-    read_text + json.loads), falls back to YAML if JSON parsing fails
-    (e.g., trailing commas), and requires the parsed content to be a dict.
-    Uses YAML for all other extensions.
-    """
-    result = _load_parser_source_data_from_path(path, encoding)
-    if not isinstance(result, dict):
-        msg = f"Expected dict, got {type(result).__name__}"
-        raise TypeError(msg)
-    return result
-
-
-def _load_parser_source_data_from_path(
-    path: Path,
-    encoding: str,
-) -> YamlValue:
-    return _read_parser_source_data_from_path(path, encoding)[1]
-
-
-def _read_parser_source_data_from_path(path: Path, encoding: str) -> tuple[bytes, YamlValue]:
-    resolved_path = path.resolve()
-    from datamodel_code_generator.util import record_watch_dependency  # noqa: PLC0415
-
-    record_watch_dependency(resolved_path)
-    data = resolved_path.read_bytes()
-    return data, _load_parser_source_data_from_path_bytes(resolved_path, data, encoding)
-
-
-def _load_parser_source_data_from_path_bytes(resolved_path: Path, data: bytes, encoding: str) -> YamlValue:
-    seen_key = (resolved_path, encoding)
-    with _parser_source_data_cache_lock:
-        use_cache = seen_key in _parser_source_data_seen_keys
-        _parser_source_data_seen_keys[seen_key] = None
-        _parser_source_data_seen_keys.move_to_end(seen_key)
-        while len(_parser_source_data_seen_keys) > _PARSER_SOURCE_DATA_CACHE_MAX_SIZE:
-            _parser_source_data_seen_keys.popitem(last=False)
-
-    if not use_cache:
-        return _load_parser_source_data_from_bytes(resolved_path, data, encoding)
-
-    digest = sha256(data).hexdigest()
-    return _load_parser_source_data_from_bytes_with_cache(resolved_path, data, digest, encoding)
-
-
-def _load_cached_parser_source_data(cache_key: _ParserSourceDataCacheKey) -> YamlValue | None:
-    with _parser_source_data_cache_lock:
-        if (cached_data := _parser_source_data_cache.get(cache_key)) is None:
-            return None
-        _parser_source_data_cache.move_to_end(cache_key)
-
-    import marshal  # noqa: PLC0415
-
-    # Entries are process-local values emitted by marshal.dumps below, never external bytes.
-    return marshal.loads(cached_data)  # noqa: S302
-
-
-def _store_parser_source_data(cache_key: _ParserSourceDataCacheKey, parsed_data: YamlValue) -> YamlValue:
-    import marshal  # noqa: PLC0415
-
-    try:
-        cached_data = marshal.dumps(parsed_data)
-    except Exception:  # noqa: BLE001
-        # Values outside the primitive YamlValue shape remain valid uncached input.
-        return parsed_data
-    with _parser_source_data_cache_lock:
-        _parser_source_data_cache[cache_key] = cached_data
-        _parser_source_data_cache.move_to_end(cache_key)
-        while len(_parser_source_data_cache) > _PARSER_SOURCE_DATA_CACHE_MAX_SIZE:
-            _parser_source_data_cache.popitem(last=False)
-    return parsed_data
-
-
-def _load_parser_source_data_from_bytes_with_cache(
-    path: Path,
-    data: bytes,
-    digest: str,
-    encoding: str,
-) -> YamlValue:
-    import json  # noqa: PLC0415
-
-    text = data.decode(encoding)
-    if path.suffix.lower() == ".json":
-        cache_key = (path, digest, encoding, "json")
-        if (cached_data := _load_cached_parser_source_data(cache_key)) is not None:
-            return cached_data
-
-        with contextlib.suppress(json.JSONDecodeError):
-            return _store_parser_source_data(cache_key, json.loads(text))
-
-    from datamodel_code_generator.util import get_yaml_backend  # noqa: PLC0415
-
-    parser_backend = f"yaml:{get_yaml_backend()}"
-    cache_key = (path, digest, encoding, parser_backend)
-    if (cached_data := _load_cached_parser_source_data(cache_key)) is not None:
-        return cached_data
-
-    return _store_parser_source_data(cache_key, load_yaml(text))
-
-
-def _load_parser_source_data_from_bytes(path: Path, data: bytes, encoding: str) -> YamlValue:
-    import json  # noqa: PLC0415
-
-    text = data.decode(encoding)
-    if path.suffix.lower() == ".json":
-        with contextlib.suppress(json.JSONDecodeError):
-            return json.loads(text)
-
-    return load_yaml(text)
-
-
-def _clear_parser_source_data_cache() -> None:
-    with _parser_source_data_cache_lock:
-        _parser_source_data_cache.clear()
-        _parser_source_data_seen_keys.clear()
 
 
 @_lru_cache(maxsize=256)
@@ -623,10 +405,6 @@ class Error(Exception):
     def __str__(self) -> str:
         """Return string representation."""
         return self.message
-
-
-class _CollapseRootModelsRecursionError(RecursionError):
-    """Signal that collapsing root models needs its circular-reference fallback."""
 
 
 def _normalized_absolute_path(path: Path, *, resolve_aliases: bool = False) -> Path:
@@ -1070,7 +848,7 @@ def _build_module_content(
 
 @_lru_cache(maxsize=1)
 def _get_internal_parser_config_model() -> type[Any]:
-    """Return a lightweight Pydantic model for already-validated parser options."""
+    """Return the historical permissive parser config for private callers."""
     from pydantic import BaseModel, ConfigDict  # noqa: PLC0415
 
     class _InternalParserConfig(BaseModel):
@@ -1091,6 +869,8 @@ _INTERNAL_PARSER_CONFIG_DEFAULTS: dict[str, Any] = {
     "force_optional_for_required_fields": False,
     "known_third_party": None,
     "remote_text_cache": None,
+    "repair_invalid_dotted_stdout": False,
+    "forced_invalid_dotted_stdout_repair_modules": (),
     "target_date_class": None,
     "target_datetime_class": None,
 }
@@ -1146,18 +926,80 @@ def _warn_on_input_string_path_failure(
         raise
 
 
+def _create_parser_source_context(
+    values: Mapping[str, Any],
+    generate_config: GenerateConfig,
+) -> ParserSourceContext:
+    """Build one immutable source policy from validated generation options."""
+    from datamodel_code_generator._parser_context import ParserSourceContext  # noqa: PLC0415
+
+    remote_lock = generate_config.remote_lock
+    response_observer = remote_lock.record_response if remote_lock is not None else None
+    return ParserSourceContext(
+        base_path=values.get("base_path"),
+        encoding=values.get("encoding", "utf-8"),
+        remote_text_cache=values.get("remote_text_cache"),
+        allow_remote_refs=values.get("allow_remote_refs"),
+        strict_refs=values.get("strict_refs", False),
+        allow_private_network=values.get("allow_private_network", False),
+        http_backend=values.get("http_backend", HTTPBackend.AUTO),
+        http_headers=values.get("http_headers"),
+        http_local_ref_path=values.get("http_local_ref_path"),
+        http_ignore_tls=values.get("http_ignore_tls", False),
+        http_query_parameters=values.get("http_query_parameters"),
+        http_timeout=values.get("http_timeout"),
+        external_ref_mapping=values.get("external_ref_mapping"),
+        remote_response_observer=response_observer,
+    )
+
+
 def _create_parser_config(
     generate_config: GenerateConfig,
     additional_options: ParserConfigDict,
 ) -> Any:
+    """Create the lightweight config for already-validated generation options."""
+    values = {**_INTERNAL_PARSER_CONFIG_DEFAULTS, **_generate_config_values(generate_config)}
+    values.update(dict(additional_options))
+    parser_config = _get_internal_parser_config_model().model_construct(**values)
+    return _configure_parser_config_context(parser_config, values, generate_config)
+
+
+def _configure_parser_config_context(
+    parser_config: ParserConfigT,
+    values: Mapping[str, Any],
+    generate_config: GenerateConfig,
+) -> ParserConfigT:
+    """Attach neutral source and retry policies without importing typed config models."""
+    parser_config._source_context = _create_parser_source_context(values, generate_config)  # noqa: SLF001
+    if type(parser_config) is _get_internal_parser_config_model():
+        return parser_config
+    parser_config._repair_invalid_dotted_stdout = values.get("repair_invalid_dotted_stdout", False)  # noqa: SLF001
+    parser_config._forced_invalid_dotted_stdout_repair_modules = values.get(  # noqa: SLF001
+        "forced_invalid_dotted_stdout_repair_modules", ()
+    )
+    return parser_config
+
+
+def _create_typed_parser_config(
+    generate_config: GenerateConfig,
+    parser_config_type: type[ParserConfigT],
+    additional_options: ParserConfigDict,
+) -> ParserConfigT:
     """Create a parser config from GenerateConfig with additional options.
 
     ``generate_config`` is already validated by the CLI or public generate()
     entrypoint. Public Parser(..., **options) still validates separately.
+
+    Only fields declared by the selected parser config are copied.  Generation
+    and CLI-only options remain owned by ``GenerateConfig`` instead of leaking
+    into an ``extra=allow`` parser bag.
     """
     values = {**_INTERNAL_PARSER_CONFIG_DEFAULTS, **_generate_config_values(generate_config)}
     values.update(dict(additional_options))
-    return _get_internal_parser_config_model().model_construct(**values)
+    # ``extra="forbid"`` makes model_construct ignore non-parser generation
+    # fields without allocating a second filtered dictionary.
+    parser_config = parser_config_type.model_construct(**values)
+    return _configure_parser_config_context(parser_config, values, generate_config)
 
 
 _SchemaVersions: TypeAlias = tuple[
@@ -1409,11 +1251,11 @@ def _prepare_parser_common_options(  # noqa: PLR0912, PLR0913, PLR0917
     if source_override is not None:
         source = dict(source_override)
     elif isinstance(input_, Mapping) and input_file_type not in RAW_DATA_TYPES:
-        from datamodel_code_generator._input_model_transport import LoadedInputModelSchema  # noqa: PLC0415
+        from datamodel_code_generator.input_model_result import LoadedInputModelSchema  # noqa: PLC0415
 
         if isinstance(input_, LoadedInputModelSchema):
             source = dict(input_.schema)
-            python_type_expressions = input_.python_type_expressions
+            python_type_expressions = input_.legacy_python_type_expressions
         else:
             source = dict(input_)
     else:
@@ -1994,6 +1836,9 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
     schema_versions: _SchemaVersions,
     diagnostic_source_path: Path | None,
     *,
+    formatter_cwd: Path | None = None,
+    preserve_circular_root_models: bool = False,
+    suppress_parse_warnings: bool = False,
     reference_cache: Any | None = None,
     python_type_expressions: _PythonTypeExpressions | None = None,
 ) -> Any:
@@ -2015,7 +1860,12 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
         )
     if reference_cache is not None and hasattr(parser, "remote_object_cache"):
         parser.remote_object_cache = reference_cache
-    parser._diagnostic_source_path = diagnostic_source_path  # noqa: SLF001
+    parser.configure_run_context(
+        diagnostic_source_path=diagnostic_source_path,
+        formatter_cwd=formatter_cwd,
+        preserve_circular_root_models=preserve_circular_root_models,
+        suppress_parse_warnings=suppress_parse_warnings,
+    )
     return parser
 
 
@@ -2034,7 +1884,9 @@ def _build_generation_retry_parser(  # noqa: PLR0913, PLR0917
     base_path: Path,
     *,
     skip_root_model: bool,
+    formatter_cwd: Path | None = None,
     preserve_circular_root_models: bool = False,
+    suppress_parse_warnings: bool = False,
 ) -> tuple[Any, DataModelSet, bool]:
     """Build one fresh parser for an internal compatibility retry."""
     data_model_types, parser_source, defer_formatting, parser_options, python_type_expressions = (
@@ -2060,11 +1912,12 @@ def _build_generation_retry_parser(  # noqa: PLR0913, PLR0917
         data_model_types,
         schema_versions,
         diagnostic_source_path,
+        formatter_cwd=formatter_cwd,
+        preserve_circular_root_models=preserve_circular_root_models,
+        suppress_parse_warnings=suppress_parse_warnings,
         reference_cache=reference_cache,
         python_type_expressions=python_type_expressions,
     )
-    if preserve_circular_root_models:
-        parser._preserve_circular_root_models = True  # noqa: SLF001
     return parser, data_model_types, defer_formatting
 
 
@@ -2219,18 +2072,14 @@ def _prepare_generation_input(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
     )
 
 
-def _parse_with_disposal(  # noqa: PLR0913
+def _parse_with_disposal(
     input_: _GenerationInput,
     parser: Any,
     config: GenerateConfig,
     *,
     parser_settings_path: Path | None,
-    use_output_cwd: bool,
-    output_context_path: Path,
 ) -> _ParserResults:
     """Parse with one parser and dispose it if parsing fails."""
-    if not use_output_cwd:
-        parser._formatter_cwd = output_context_path  # noqa: SLF001
     try:
         with _warn_on_input_string_path_failure(input_):
             results = parser.parse(
@@ -2244,46 +2093,28 @@ def _parse_with_disposal(  # noqa: PLR0913
     except BaseException as exc:
         match exc:
             case _CollapseRootModelsRecursionError():
-                parser._dispose()  # noqa: SLF001
+                parser.dispose()
             case _:
                 with contextlib.suppress(BaseException):
-                    parser._dispose()  # noqa: SLF001
+                    parser.dispose()
         raise
-    finally:
-        if not use_output_cwd:
-            parser.__dict__.pop("_formatter_cwd", None)
     return results
 
 
-def _parse_collapse_root_models_retry(  # noqa: PLR0913
+def _parse_collapse_root_models_retry(
     input_: _GenerationInput,
     parser: Any,
     config: GenerateConfig,
     *,
     parser_settings_path: Path | None,
-    use_output_cwd: bool,
-    output_context_path: Path,
 ) -> _ParserResults:
     """Parse the compatibility retry without repeating user-visible warnings."""
-
-    def suppress_warnings(callback: Callable[[], None]) -> None:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            callback()
-
-    parser.parse_raw = _partial(suppress_warnings, parser.parse_raw)
-    parser._report_parse_diagnostics = _partial(  # noqa: SLF001
-        suppress_warnings,
-        parser._report_parse_diagnostics,  # noqa: SLF001
-    )
     try:
         return _parse_with_disposal(
             input_,
             parser,
             config,
             parser_settings_path=parser_settings_path,
-            use_output_cwd=use_output_cwd,
-            output_context_path=output_context_path,
         )
     except _CollapseRootModelsRecursionError as retry_exc:
         match retry_exc.__cause__:
@@ -2292,9 +2123,6 @@ def _parse_collapse_root_models_retry(  # noqa: PLR0913
             case _:
                 public_error = RecursionError(str(retry_exc))
         raise public_error from None
-    finally:
-        parser.__dict__.pop("parse_raw", None)
-        parser.__dict__.pop("_report_parse_diagnostics", None)
 
 
 def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
@@ -2329,6 +2157,7 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
         data_model_types,
         schema_versions,
         diagnostic_source_path,
+        formatter_cwd=None if use_output_cwd else output_context_path,
         python_type_expressions=python_type_expressions,
     )
     # Phase 4: initial parse, disposal, and the complete retry flow share the output cwd.
@@ -2339,8 +2168,6 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
                 parser,
                 config,
                 parser_settings_path=parser_settings_path,
-                use_output_cwd=use_output_cwd,
-                output_context_path=output_context_path,
             )
         except _CollapseRootModelsRecursionError:
             retry_remote_text_cache = parser.remote_text_cache
@@ -2363,7 +2190,9 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
                 retry_reference_cache,
                 retry_base_path,
                 skip_root_model=skip_root_model,
+                formatter_cwd=None if use_output_cwd else output_context_path,
                 preserve_circular_root_models=True,
+                suppress_parse_warnings=True,
             )
             extra_template_data = retry_extra_template_data
             results = _parse_collapse_root_models_retry(
@@ -2371,8 +2200,6 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
                 parser,
                 config,
                 parser_settings_path=parser_settings_path,
-                use_output_cwd=use_output_cwd,
-                output_context_path=output_context_path,
             )
         model_metadata = parser.model_metadata
         if repair_modules := parser.invalid_dotted_stdout_repair_modules:
@@ -2381,8 +2208,8 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
             retry_remote_text_cache = parser.remote_text_cache
             retry_reference_cache = getattr(parser, "remote_object_cache", None)
             retry_base_path = parser.base_path
-            preserve_circular_root_models = getattr(parser, "_preserve_circular_root_models", False)
-        parser._dispose()  # noqa: SLF001
+            preserve_circular_root_models = parser.run_context.preserve_circular_root_models
+        parser.dispose()
         del parser
 
         if repair_modules:
@@ -2409,6 +2236,7 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
                     retry_reference_cache,
                     retry_base_path,
                     skip_root_model=skip_root_model,
+                    formatter_cwd=None if use_output_cwd else output_context_path,
                     preserve_circular_root_models=preserve_circular_root_models,
                 )
                 retry_results = _parse_with_disposal(
@@ -2416,8 +2244,6 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
                     retry_parser,
                     retry_config,
                     parser_settings_path=parser_settings_path,
-                    use_output_cwd=use_output_cwd,
-                    output_context_path=output_context_path,
                 )
                 retry_completed = True
 
@@ -2436,7 +2262,7 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
                         data_model_types = retry_data_model_types
                         defer_formatting = retry_defer_formatting
                 finally:
-                    retry_parser._dispose()  # noqa: SLF001
+                    retry_parser.dispose()
                 del retry_parser
 
             del retry_reference_cache, retry_remote_text_cache

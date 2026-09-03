@@ -67,400 +67,7 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IDataDeletionJobRef)
-class CfnDataDeletionJob(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_personalize.CfnDataDeletionJob",
-):
-    '''Resource Type definition for AWS::Personalize::DataDeletionJob.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html
-    :cloudformationResource: AWS::Personalize::DataDeletionJob
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_personalize as personalize
-        
-        cfn_data_deletion_job = personalize.CfnDataDeletionJob(self, "MyCfnDataDeletionJob",
-            dataset_group_arn="datasetGroupArn",
-            data_source=personalize.CfnDataDeletionJob.DataSourceProperty(
-                data_location="dataLocation"
-            ),
-            job_name="jobName",
-            role_arn="roleArn"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        dataset_group_arn: typing.Optional[builtins.str] = None,
-        data_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataDeletionJob.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        job_name: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Create a new ``AWS::Personalize::DataDeletionJob``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group that has the datasets you want to delete records from.
-        :param data_source: The Amazon S3 bucket that contains the list of userIds to delete.
-        :param job_name: The name for the data deletion job.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that has permissions to read from the Amazon S3 data source.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a0facc6d6fe3ed43e58672d4c1dc60f6deb03bc9c43265b31ab744024e9b9a39)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDataDeletionJobProps(
-            dataset_group_arn=dataset_group_arn,
-            data_source=data_source,
-            job_name=job_name,
-            role_arn=role_arn,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForDataDeletionJob")
-    @builtins.classmethod
-    def arn_for_data_deletion_job(
-        cls,
-        resource: "_aws_personalize_95c6aa61.IDataDeletionJobRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__fc1603aa65f2cb6f1cbd9a6464bceb1f98d59a810a03560d4fe0742d9de0a93a)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataDeletionJob", [resource]))
-
-    @jsii.member(jsii_name="isCfnDataDeletionJob")
-    @builtins.classmethod
-    def is_cfn_data_deletion_job(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnDataDeletionJob.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d3b23f12204c995f5dccff3f7006c9c3c541b76d8368851ec2eabb2647d93e44)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataDeletionJob", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9de8e9554238825d44b11528465aaffa714142fedd5f82cb17ee6fc4eea8f415)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__75f2ab8936a5e779fa52ff3b486e6730b7960e41b426ab70c50d857492777b00)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationDateTime")
-    def attr_creation_date_time(self) -> builtins.str:
-        '''The creation date and time of the data deletion job.
-
-        :cloudformationAttribute: CreationDateTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDataDeletionJobArn")
-    def attr_data_deletion_job_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the data deletion job.
-
-        :cloudformationAttribute: DataDeletionJobArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDataDeletionJobArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLastUpdatedDateTime")
-    def attr_last_updated_date_time(self) -> builtins.str:
-        '''The date and time the data deletion job was last updated.
-
-        :cloudformationAttribute: LastUpdatedDateTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedDateTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''The status of the data deletion job.
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="dataDeletionJobRef")
-    def data_deletion_job_ref(
-        self,
-    ) -> "_aws_personalize_95c6aa61.DataDeletionJobReference":
-        '''A reference to a DataDeletionJob resource.'''
-        return typing.cast("_aws_personalize_95c6aa61.DataDeletionJobReference", jsii.get(self, "dataDeletionJobRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="datasetGroupArn")
-    def dataset_group_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the dataset group that has the datasets you want to delete records from.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "datasetGroupArn"))
-
-    @dataset_group_arn.setter
-    def dataset_group_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__30a0fad55816bb67a5fa37fb273afea667073fc2af51df1fbd3425211162210e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "datasetGroupArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dataSource")
-    def data_source(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataDeletionJob.DataSourceProperty"]]:
-        '''The Amazon S3 bucket that contains the list of userIds to delete.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataDeletionJob.DataSourceProperty"]], jsii.get(self, "dataSource"))
-
-    @data_source.setter
-    def data_source(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataDeletionJob.DataSourceProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__b48cd71860d0a7ffa6be2e6e71d6542c32a667165d20c251fe81fba714751cc3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataSource", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="jobName")
-    def job_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the data deletion job.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "jobName"))
-
-    @job_name.setter
-    def job_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__080ff66a39ad9709b036f6fe04223b628605cf3090ffb41e841a9b0b04626e29)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "jobName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role that has permissions to read from the Amazon S3 data source.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a96abf1014ce3a9371349a1ee2f768e524853257810eceec8a4270bc349701c1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_personalize.CfnDataDeletionJob.DataSourceProperty",
-        jsii_struct_bases=[],
-        name_mapping={"data_location": "dataLocation"},
-    )
-    class DataSourceProperty:
-        def __init__(
-            self,
-            *,
-            data_location: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The Amazon S3 bucket that contains the list of userIds to delete.
-
-            :param data_location: The path to the Amazon S3 bucket where the data is stored.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-datadeletionjob-datasource.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_personalize as personalize
-                
-                data_source_property = personalize.CfnDataDeletionJob.DataSourceProperty(
-                    data_location="dataLocation"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__743be68227ddb0db72ab6b34137720c679272c101572aeab063aa1cbc10ffbab)
-                check_type(argname="argument data_location", value=data_location, expected_type=type_hints["data_location"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if data_location is not None:
-                self._values["data_location"] = data_location
-
-        @builtins.property
-        def data_location(self) -> typing.Optional[builtins.str]:
-            '''The path to the Amazon S3 bucket where the data is stored.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-datadeletionjob-datasource.html#cfn-personalize-datadeletionjob-datasource-datalocation
-            '''
-            result = self._values.get("data_location")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DataSourceProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_personalize.CfnDataDeletionJobProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dataset_group_arn": "datasetGroupArn",
-        "data_source": "dataSource",
-        "job_name": "jobName",
-        "role_arn": "roleArn",
-    },
-)
-class CfnDataDeletionJobProps:
-    def __init__(
-        self,
-        *,
-        dataset_group_arn: typing.Optional[builtins.str] = None,
-        data_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataDeletionJob.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        job_name: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataDeletionJob``.
-
-        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group that has the datasets you want to delete records from.
-        :param data_source: The Amazon S3 bucket that contains the list of userIds to delete.
-        :param job_name: The name for the data deletion job.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that has permissions to read from the Amazon S3 data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_personalize as personalize
-            
-            cfn_data_deletion_job_props = personalize.CfnDataDeletionJobProps(
-                dataset_group_arn="datasetGroupArn",
-                data_source=personalize.CfnDataDeletionJob.DataSourceProperty(
-                    data_location="dataLocation"
-                ),
-                job_name="jobName",
-                role_arn="roleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__2e1d3eab6ba9ebf818013142c5a9a9983f74883d72c3ca295ad16bd671c5df1c)
-            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
-            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
-            check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if dataset_group_arn is not None:
-            self._values["dataset_group_arn"] = dataset_group_arn
-        if data_source is not None:
-            self._values["data_source"] = data_source
-        if job_name is not None:
-            self._values["job_name"] = job_name
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-
-    @builtins.property
-    def dataset_group_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the dataset group that has the datasets you want to delete records from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html#cfn-personalize-datadeletionjob-datasetgrouparn
-        '''
-        result = self._values.get("dataset_group_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_source(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataDeletionJob.DataSourceProperty"]]:
-        '''The Amazon S3 bucket that contains the list of userIds to delete.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html#cfn-personalize-datadeletionjob-datasource
-        '''
-        result = self._values.get("data_source")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataDeletionJob.DataSourceProperty"]], result)
-
-    @builtins.property
-    def job_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the data deletion job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html#cfn-personalize-datadeletionjob-jobname
-        '''
-        result = self._values.get("job_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role that has permissions to read from the Amazon S3 data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html#cfn-personalize-datadeletionjob-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataDeletionJobProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IDatasetRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IDatasetRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDataset(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -499,6 +106,7 @@ class CfnDataset(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_personalize as personalize
@@ -518,7 +126,11 @@ class CfnDataset(
                 data_source=data_source,
                 job_name="jobName",
                 role_arn="roleArn"
-            )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -532,6 +144,7 @@ class CfnDataset(
         name: builtins.str,
         schema_arn: builtins.str,
         dataset_import_job: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataset.DatasetImportJobProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Personalize::Dataset``.
 
@@ -542,6 +155,7 @@ class CfnDataset(
         :param name: The name of the dataset.
         :param schema_arn: The ARN of the associated schema.
         :param dataset_import_job: Describes a job that imports training data from a data source (Amazon S3 bucket) to an Amazon Personalize dataset. If you specify a dataset import job as part of a dataset, all dataset import job fields are required.
+        :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8515dadec60af65aa740f35c8bee6bc85dafa7634c6b2270232bfa824452ebce)
@@ -553,6 +167,7 @@ class CfnDataset(
             name=name,
             schema_arn=schema_arn,
             dataset_import_job=dataset_import_job,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -621,6 +236,12 @@ class CfnDataset(
         :cloudformationAttribute: DatasetArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrDatasetArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -707,6 +328,22 @@ class CfnDataset(
             type_hints = cached_type_hints(_typecheckingstub__afd06f21a72ea38837a666025b223a4003de38fe4bd9ff9796a64ce7a35f855d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datasetImportJob", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f4890f6e11511f94b951fe20ba016e29bcfdc46ac601b38ab86eddd1a22d21aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_personalize.CfnDataset.DataSourceProperty",
@@ -903,7 +540,7 @@ class CfnDataset(
             )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IDatasetGroupRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IDatasetGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDatasetGroup(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -921,6 +558,7 @@ class CfnDatasetGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_personalize as personalize
@@ -931,7 +569,11 @@ class CfnDatasetGroup(
             # the properties below are optional
             domain="domain",
             kms_key_arn="kmsKeyArn",
-            role_arn="roleArn"
+            role_arn="roleArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -944,6 +586,7 @@ class CfnDatasetGroup(
         domain: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Personalize::DatasetGroup``.
 
@@ -953,13 +596,18 @@ class CfnDatasetGroup(
         :param domain: The domain of a Domain dataset group.
         :param kms_key_arn: The Amazon Resource Name (ARN) of the AWS Key Management Service (KMS) key used to encrypt the datasets.
         :param role_arn: The ARN of the AWS Identity and Access Management (IAM) role that has permissions to access the AWS Key Management Service (KMS) key. Supplying an IAM role is only valid when also specifying a KMS key.
+        :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca6485605ba6ab1dd805c944eddbfe77e62953abd16f2d5983bbfb3aa72d0285)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDatasetGroupProps(
-            name=name, domain=domain, kms_key_arn=kms_key_arn, role_arn=role_arn
+            name=name,
+            domain=domain,
+            kms_key_arn=kms_key_arn,
+            role_arn=role_arn,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1030,6 +678,12 @@ class CfnDatasetGroup(
         return typing.cast(builtins.str, jsii.get(self, "attrDatasetGroupArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1097,6 +751,22 @@ class CfnDatasetGroup(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__db7c7d2d65fe74fdee6a12783bdc46544273da864aff3b0d3f89fd027e503b1a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_personalize.CfnDatasetGroupProps",
@@ -1106,6 +776,7 @@ class CfnDatasetGroup(
         "domain": "domain",
         "kms_key_arn": "kmsKeyArn",
         "role_arn": "roleArn",
+        "tags": "tags",
     },
 )
 class CfnDatasetGroupProps:
@@ -1116,6 +787,7 @@ class CfnDatasetGroupProps:
         domain: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDatasetGroup``.
 
@@ -1123,12 +795,14 @@ class CfnDatasetGroupProps:
         :param domain: The domain of a Domain dataset group.
         :param kms_key_arn: The Amazon Resource Name (ARN) of the AWS Key Management Service (KMS) key used to encrypt the datasets.
         :param role_arn: The ARN of the AWS Identity and Access Management (IAM) role that has permissions to access the AWS Key Management Service (KMS) key. Supplying an IAM role is only valid when also specifying a KMS key.
+        :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_personalize as personalize
@@ -1139,7 +813,11 @@ class CfnDatasetGroupProps:
                 # the properties below are optional
                 domain="domain",
                 kms_key_arn="kmsKeyArn",
-                role_arn="roleArn"
+                role_arn="roleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -1148,6 +826,7 @@ class CfnDatasetGroupProps:
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
@@ -1157,6 +836,8 @@ class CfnDatasetGroupProps:
             self._values["kms_key_arn"] = kms_key_arn
         if role_arn is not None:
             self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -1197,6 +878,15 @@ class CfnDatasetGroupProps:
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -1218,6 +908,7 @@ class CfnDatasetGroupProps:
         "name": "name",
         "schema_arn": "schemaArn",
         "dataset_import_job": "datasetImportJob",
+        "tags": "tags",
     },
 )
 class CfnDatasetProps:
@@ -1229,6 +920,7 @@ class CfnDatasetProps:
         name: builtins.str,
         schema_arn: builtins.str,
         dataset_import_job: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataset.DatasetImportJobProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataset``.
 
@@ -1237,12 +929,14 @@ class CfnDatasetProps:
         :param name: The name of the dataset.
         :param schema_arn: The ARN of the associated schema.
         :param dataset_import_job: Describes a job that imports training data from a data source (Amazon S3 bucket) to an Amazon Personalize dataset. If you specify a dataset import job as part of a dataset, all dataset import job fields are required.
+        :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_personalize as personalize
@@ -1262,7 +956,11 @@ class CfnDatasetProps:
                     data_source=data_source,
                     job_name="jobName",
                     role_arn="roleArn"
-                )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -1272,6 +970,7 @@ class CfnDatasetProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument schema_arn", value=schema_arn, expected_type=type_hints["schema_arn"])
             check_type(argname="argument dataset_import_job", value=dataset_import_job, expected_type=type_hints["dataset_import_job"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dataset_group_arn": dataset_group_arn,
             "dataset_type": dataset_type,
@@ -1280,6 +979,8 @@ class CfnDatasetProps:
         }
         if dataset_import_job is not None:
             self._values["dataset_import_job"] = dataset_import_job
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def dataset_group_arn(self) -> builtins.str:
@@ -1342,6 +1043,15 @@ class CfnDatasetProps:
         result = self._values.get("dataset_import_job")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataset.DatasetImportJobProperty"]], result)
 
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -1354,26 +1064,34 @@ class CfnDatasetProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IRecipeRef)
-class CfnRecipe(
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IEventTrackerRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnEventTracker(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_personalize.CfnRecipe",
+    jsii_type="aws-cdk-lib.aws_personalize.CfnEventTracker",
 ):
-    '''Resource Type definition for AWS::Personalize::Recipe.
+    '''Resource schema for AWS::Personalize::EventTracker.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recipe.html
-    :cloudformationResource: AWS::Personalize::Recipe
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-eventtracker.html
+    :cloudformationResource: AWS::Personalize::EventTracker
     :exampleMetadata: fixture=_generated
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_personalize as personalize
         
-        cfn_recipe = personalize.CfnRecipe(self, "MyCfnRecipe",
-            name="name"
+        cfn_event_tracker = personalize.CfnEventTracker(self, "MyCfnEventTracker",
+            dataset_group_arn="datasetGroupArn",
+            name="name",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -1382,47 +1100,53 @@ class CfnRecipe(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        name: typing.Optional[builtins.str] = None,
+        dataset_group_arn: builtins.str,
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''Create a new ``AWS::Personalize::Recipe``.
+        '''Create a new ``AWS::Personalize::EventTracker``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the recipe.
+        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group that receives the event data.
+        :param name: The name for the event tracker.
+        :param tags: A list of tags to apply to the event tracker.
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__f998b5ed9878a8ee6171aaa96b2d7d565443631df8c1da2d13e55531cae19148)
+            type_hints = cached_type_hints(_typecheckingstub__1759cf297ea0f8f75104372610efd1562c5cfde9072fe848d48e4e94efe3d18c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnRecipeProps(name=name)
+        props = CfnEventTrackerProps(
+            dataset_group_arn=dataset_group_arn, name=name, tags=tags
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForRecipe")
+    @jsii.member(jsii_name="arnForEventTracker")
     @builtins.classmethod
-    def arn_for_recipe(
+    def arn_for_event_tracker(
         cls,
-        resource: "_aws_personalize_95c6aa61.IRecipeRef",
+        resource: "_aws_personalize_95c6aa61.IEventTrackerRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__111450f72dfbc9a777864c667d5dd2512031d8eb95850681bc9a91a6b4dddea9)
+            type_hints = cached_type_hints(_typecheckingstub__5152ed25c6a0d8cb75cee688ad9e5f33504bc64db4177537f69f90dde9ece79e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecipe", [resource]))
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventTracker", [resource]))
 
-    @jsii.member(jsii_name="isCfnRecipe")
+    @jsii.member(jsii_name="isCfnEventTracker")
     @builtins.classmethod
-    def is_cfn_recipe(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnRecipe.
+    def is_cfn_event_tracker(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEventTracker.
 
         :param x: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__2bf23396f9e8dd7e44e6cc64e90cab5a2112fbc83568592dca17c159094c8c5e)
+            type_hints = cached_type_hints(_typecheckingstub__7396f5cd06c08b2264d9d999a07ec985c79abbc9a9a5930cef392b850c40ca64)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecipe", [x]))
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventTracker", [x]))
 
     @jsii.member(jsii_name="inspect")
     def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
@@ -1431,7 +1155,7 @@ class CfnRecipe(
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__f60885b23d266eedc53674ff77da9e3984c44fd9850d0c61b04129c4011eb675)
+            type_hints = cached_type_hints(_typecheckingstub__4ff1da977753ea109762a6685d874dfc0c951df2903fe57353580f16c87e961a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1444,7 +1168,7 @@ class CfnRecipe(
         :param props: -
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__7f3456e7ac2cb57db499694e30be7cd483129253d20c787272ebc1e7c11957e5)
+            type_hints = cached_type_hints(_typecheckingstub__23bc81835eb5383fc22a486240e2a044e482cd6150f2607c88ec199b28261ad5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1455,72 +1179,328 @@ class CfnRecipe(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrAlgorithmArn")
-    def attr_algorithm_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the algorithm that Amazon Personalize uses to train the model.
+    @jsii.member(jsii_name="attrEventTrackerArn")
+    def attr_event_tracker_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the event tracker.
 
-        :cloudformationAttribute: AlgorithmArn
+        :cloudformationAttribute: EventTrackerArn
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAlgorithmArn"))
+        return typing.cast(builtins.str, jsii.get(self, "attrEventTrackerArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrCreationDateTime")
-    def attr_creation_date_time(self) -> builtins.str:
-        '''The date and time (in Unix format) that the recipe was created.
+    @jsii.member(jsii_name="attrTrackingId")
+    def attr_tracking_id(self) -> builtins.str:
+        '''The ID of the event tracker.
 
-        :cloudformationAttribute: CreationDateTime
+        Include this ID in requests to the PutEvents API.
+
+        :cloudformationAttribute: TrackingId
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
+        return typing.cast(builtins.str, jsii.get(self, "attrTrackingId"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrDescription")
-    def attr_description(self) -> builtins.str:
-        '''The description of the recipe.
-
-        :cloudformationAttribute: Description
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDescription"))
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrFeatureTransformationArn")
-    def attr_feature_transformation_arn(self) -> builtins.str:
-        '''The ARN of the FeatureTransformation object.
-
-        :cloudformationAttribute: FeatureTransformationArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrFeatureTransformationArn"))
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrLastUpdatedDateTime")
-    def attr_last_updated_date_time(self) -> builtins.str:
-        '''The date and time (in Unix format) that the recipe was last updated.
-
-        :cloudformationAttribute: LastUpdatedDateTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedDateTime"))
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrRecipeArn")
-    def attr_recipe_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the recipe.
-
-        :cloudformationAttribute: RecipeArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRecipeArn"))
+    @jsii.member(jsii_name="eventTrackerRef")
+    def event_tracker_ref(self) -> "_aws_personalize_95c6aa61.EventTrackerReference":
+        '''A reference to a EventTracker resource.'''
+        return typing.cast("_aws_personalize_95c6aa61.EventTrackerReference", jsii.get(self, "eventTrackerRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrRecipeType")
-    def attr_recipe_type(self) -> builtins.str:
-        '''One of the following values: PERSONALIZED_RANKING, RELATED_ITEMS, USER_PERSONALIZATION.
+    @jsii.member(jsii_name="datasetGroupArn")
+    def dataset_group_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the dataset group that receives the event data.'''
+        return typing.cast(builtins.str, jsii.get(self, "datasetGroupArn"))
 
-        :cloudformationAttribute: RecipeType
+    @dataset_group_arn.setter
+    def dataset_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2f59c5764d8013cda0a901b5b0d38f65ad0b5ac621311377c180e9f3ed7f08cb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "datasetGroupArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name for the event tracker.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__91bd1a96d79f7bbd56ab199e61889ff085151f82ee68d0fcfcfffbb40bdaeae1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to apply to the event tracker.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__257f8b5666005f54b1ce1e7ae37fbbfd6111890e6d7b8fc3975364d8429aae99)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnEventTrackerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_group_arn": "datasetGroupArn",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnEventTrackerProps:
+    def __init__(
+        self,
+        *,
+        dataset_group_arn: builtins.str,
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventTracker``.
+
+        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group that receives the event data.
+        :param name: The name for the event tracker.
+        :param tags: A list of tags to apply to the event tracker.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-eventtracker.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            cfn_event_tracker_props = personalize.CfnEventTrackerProps(
+                dataset_group_arn="datasetGroupArn",
+                name="name",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRecipeType"))
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__20ba98637dd73dd72d9cdeb400ad3a1680ef1259b430ddaac64a8474e685034f)
+            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_arn": dataset_group_arn,
+            "name": name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataset_group_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the dataset group that receives the event data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-eventtracker.html#cfn-personalize-eventtracker-datasetgrouparn
+        '''
+        result = self._values.get("dataset_group_arn")
+        assert result is not None, "Required property 'dataset_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for the event tracker.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-eventtracker.html#cfn-personalize-eventtracker-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to apply to the event tracker.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-eventtracker.html#cfn-personalize-eventtracker-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventTrackerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IMetricAttributionRef)
+class CfnMetricAttribution(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_personalize.CfnMetricAttribution",
+):
+    '''Creates a metric attribution for reporting on recommendation impact in Amazon Personalize.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-metricattribution.html
+    :cloudformationResource: AWS::Personalize::MetricAttribution
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_personalize as personalize
+        
+        cfn_metric_attribution = personalize.CfnMetricAttribution(self, "MyCfnMetricAttribution",
+            dataset_group_arn="datasetGroupArn",
+            metrics=[personalize.CfnMetricAttribution.MetricAttributeProperty(
+                event_type="eventType",
+                expression="expression",
+                metric_name="metricName"
+            )],
+            metrics_output_config=personalize.CfnMetricAttribution.MetricsOutputConfigProperty(
+                role_arn="roleArn",
+        
+                # the properties below are optional
+                s3_data_destination=personalize.CfnMetricAttribution.S3DataDestinationProperty(
+                    path="path",
+        
+                    # the properties below are optional
+                    kms_key_arn="kmsKeyArn"
+                )
+            ),
+            name="name"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        dataset_group_arn: builtins.str,
+        metrics: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricAttribution.MetricAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        metrics_output_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricAttribution.MetricsOutputConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Personalize::MetricAttribution``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param dataset_group_arn: The ARN of the destination dataset group.
+        :param metrics: A list of metric attributes for the metric attribution.
+        :param metrics_output_config: The output configuration details for the metric attribution.
+        :param name: The name of the metric attribution.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6c7f4b54309b191d1f6b751dc883e96f8fe636672a4178e1a9bae3700e6cb14c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMetricAttributionProps(
+            dataset_group_arn=dataset_group_arn,
+            metrics=metrics,
+            metrics_output_config=metrics_output_config,
+            name=name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMetricAttribution")
+    @builtins.classmethod
+    def arn_for_metric_attribution(
+        cls,
+        resource: "_aws_personalize_95c6aa61.IMetricAttributionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d50bf976f7cd9daa3dd928f0bf14a47d1bc1334c982256e4b107a4ea28c4eaa2)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMetricAttribution", [resource]))
+
+    @jsii.member(jsii_name="isCfnMetricAttribution")
+    @builtins.classmethod
+    def is_cfn_metric_attribution(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMetricAttribution.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__186bcb2bccd0ba1cbdc29c8e63a8b7e17c2754d4ca991391a9fcee901b0769d6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMetricAttribution", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4ad26cede8e504bebc6f8243862c8725a93545d06d75ccc9deaaad58bcd5a5f1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__84041f8dd36a581dce43d04eb0d937ad70f5de9fa50bacc8f2747c481728f245)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMetricAttributionArn")
+    def attr_metric_attribution_arn(self) -> builtins.str:
+        '''The ARN of the metric attribution.
+
+        :cloudformationAttribute: MetricAttributionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMetricAttributionArn"))
 
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''The status of the recipe.
+        '''The status of the metric attribution.
 
         :cloudformationAttribute: Status
         '''
@@ -1537,37 +1517,349 @@ class CfnRecipe(
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
-    @jsii.member(jsii_name="recipeRef")
-    def recipe_ref(self) -> "_aws_personalize_95c6aa61.RecipeReference":
-        '''A reference to a Recipe resource.'''
-        return typing.cast("_aws_personalize_95c6aa61.RecipeReference", jsii.get(self, "recipeRef"))
+    @jsii.member(jsii_name="metricAttributionRef")
+    def metric_attribution_ref(
+        self,
+    ) -> "_aws_personalize_95c6aa61.MetricAttributionReference":
+        '''A reference to a MetricAttribution resource.'''
+        return typing.cast("_aws_personalize_95c6aa61.MetricAttributionReference", jsii.get(self, "metricAttributionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetGroupArn")
+    def dataset_group_arn(self) -> builtins.str:
+        '''The ARN of the destination dataset group.'''
+        return typing.cast(builtins.str, jsii.get(self, "datasetGroupArn"))
+
+    @dataset_group_arn.setter
+    def dataset_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d33a859d6251f6635b41a10b9ea461aa7b6ea1f95f30ac353957c142f37a7f28)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "datasetGroupArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metrics")
+    def metrics(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricAttributeProperty"]]]:
+        '''A list of metric attributes for the metric attribution.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricAttributeProperty"]]], jsii.get(self, "metrics"))
+
+    @metrics.setter
+    def metrics(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricAttributeProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__01f4d14fe3cdfbd8479e29b62e2a9b77d04903d57beb173f599885cd29db911e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metrics", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metricsOutputConfig")
+    def metrics_output_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricsOutputConfigProperty"]:
+        '''The output configuration details for the metric attribution.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricsOutputConfigProperty"], jsii.get(self, "metricsOutputConfig"))
+
+    @metrics_output_config.setter
+    def metrics_output_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricsOutputConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b67f31dede511d5e443d8e1e1c0f931cb0244f264bb10a2313517c3bf14e3cf4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricsOutputConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the recipe.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+    def name(self) -> builtins.str:
+        '''The name of the metric attribution.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
 
     @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
+    def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d1650adbe2f7c6c514bd331081276b352df9bcf8384bcdf3e04a13eb6949e993)
+            type_hints = cached_type_hints(_typecheckingstub__c81475d2d4fa305f37de738995dfc6ed6a0089efd9d126454708d2f93ab7d70b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_personalize.CfnMetricAttribution.MetricAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "event_type": "eventType",
+            "expression": "expression",
+            "metric_name": "metricName",
+        },
+    )
+    class MetricAttributeProperty:
+        def __init__(
+            self,
+            *,
+            event_type: builtins.str,
+            expression: builtins.str,
+            metric_name: builtins.str,
+        ) -> None:
+            '''A metric attribute for the metric attribution.
+
+            :param event_type: The metric's event type.
+            :param expression: The attribute's expression.
+            :param metric_name: The metric's name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-metricattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_personalize as personalize
+                
+                metric_attribute_property = personalize.CfnMetricAttribution.MetricAttributeProperty(
+                    event_type="eventType",
+                    expression="expression",
+                    metric_name="metricName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e39294d4a5f775b1bf2e9f9e73f09c2f7c92ee11f16a19d6221b2af548b43cdc)
+                check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
+                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "event_type": event_type,
+                "expression": expression,
+                "metric_name": metric_name,
+            }
+
+        @builtins.property
+        def event_type(self) -> builtins.str:
+            '''The metric's event type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-metricattribute.html#cfn-personalize-metricattribution-metricattribute-eventtype
+            '''
+            result = self._values.get("event_type")
+            assert result is not None, "Required property 'event_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def expression(self) -> builtins.str:
+            '''The attribute's expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-metricattribute.html#cfn-personalize-metricattribution-metricattribute-expression
+            '''
+            result = self._values.get("expression")
+            assert result is not None, "Required property 'expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def metric_name(self) -> builtins.str:
+            '''The metric's name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-metricattribute.html#cfn-personalize-metricattribution-metricattribute-metricname
+            '''
+            result = self._values.get("metric_name")
+            assert result is not None, "Required property 'metric_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_personalize.CfnMetricAttribution.MetricsOutputConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "role_arn": "roleArn",
+            "s3_data_destination": "s3DataDestination",
+        },
+    )
+    class MetricsOutputConfigProperty:
+        def __init__(
+            self,
+            *,
+            role_arn: builtins.str,
+            s3_data_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricAttribution.S3DataDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The output configuration details for the metric attribution.
+
+            :param role_arn: The ARN of the IAM role for the metric attribution.
+            :param s3_data_destination: The configuration details of an Amazon S3 output bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-metricsoutputconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_personalize as personalize
+                
+                metrics_output_config_property = personalize.CfnMetricAttribution.MetricsOutputConfigProperty(
+                    role_arn="roleArn",
+                
+                    # the properties below are optional
+                    s3_data_destination=personalize.CfnMetricAttribution.S3DataDestinationProperty(
+                        path="path",
+                
+                        # the properties below are optional
+                        kms_key_arn="kmsKeyArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7748a4a9442fc55feef9a7aa5c4753b9cf751545e8e178e7e5bb1f60098ef4d1)
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument s3_data_destination", value=s3_data_destination, expected_type=type_hints["s3_data_destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "role_arn": role_arn,
+            }
+            if s3_data_destination is not None:
+                self._values["s3_data_destination"] = s3_data_destination
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''The ARN of the IAM role for the metric attribution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-metricsoutputconfig.html#cfn-personalize-metricattribution-metricsoutputconfig-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_data_destination(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.S3DataDestinationProperty"]]:
+            '''The configuration details of an Amazon S3 output bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-metricsoutputconfig.html#cfn-personalize-metricattribution-metricsoutputconfig-s3datadestination
+            '''
+            result = self._values.get("s3_data_destination")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.S3DataDestinationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricsOutputConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_personalize.CfnMetricAttribution.S3DataDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"path": "path", "kms_key_arn": "kmsKeyArn"},
+    )
+    class S3DataDestinationProperty:
+        def __init__(
+            self,
+            *,
+            path: builtins.str,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration details of an Amazon S3 output bucket.
+
+            :param path: The file path of the Amazon S3 bucket.
+            :param kms_key_arn: The ARN of the KMS key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-s3datadestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_personalize as personalize
+                
+                s3_data_destination_property = personalize.CfnMetricAttribution.S3DataDestinationProperty(
+                    path="path",
+                
+                    # the properties below are optional
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__91631b9e459f5b716b2515907ee07ad737a1b53ddba3fd4faaf6981562038fe7)
+                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "path": path,
+            }
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+
+        @builtins.property
+        def path(self) -> builtins.str:
+            '''The file path of the Amazon S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-s3datadestination.html#cfn-personalize-metricattribution-s3datadestination-path
+            '''
+            result = self._values.get("path")
+            assert result is not None, "Required property 'path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the KMS key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-metricattribution-s3datadestination.html#cfn-personalize-metricattribution-s3datadestination-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3DataDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_personalize.CfnRecipeProps",
+    jsii_type="aws-cdk-lib.aws_personalize.CfnMetricAttributionProps",
     jsii_struct_bases=[],
-    name_mapping={"name": "name"},
+    name_mapping={
+        "dataset_group_arn": "datasetGroupArn",
+        "metrics": "metrics",
+        "metrics_output_config": "metricsOutputConfig",
+        "name": "name",
+    },
 )
-class CfnRecipeProps:
-    def __init__(self, *, name: typing.Optional[builtins.str] = None) -> None:
-        '''Properties for defining a ``CfnRecipe``.
+class CfnMetricAttributionProps:
+    def __init__(
+        self,
+        *,
+        dataset_group_arn: builtins.str,
+        metrics: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricAttribution.MetricAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        metrics_output_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricAttribution.MetricsOutputConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnMetricAttribution``.
 
-        :param name: The name of the recipe.
+        :param dataset_group_arn: The ARN of the destination dataset group.
+        :param metrics: A list of metric attributes for the metric attribution.
+        :param metrics_output_config: The output configuration details for the metric attribution.
+        :param name: The name of the metric attribution.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recipe.html
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-metricattribution.html
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -1576,25 +1868,83 @@ class CfnRecipeProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_personalize as personalize
             
-            cfn_recipe_props = personalize.CfnRecipeProps(
+            cfn_metric_attribution_props = personalize.CfnMetricAttributionProps(
+                dataset_group_arn="datasetGroupArn",
+                metrics=[personalize.CfnMetricAttribution.MetricAttributeProperty(
+                    event_type="eventType",
+                    expression="expression",
+                    metric_name="metricName"
+                )],
+                metrics_output_config=personalize.CfnMetricAttribution.MetricsOutputConfigProperty(
+                    role_arn="roleArn",
+            
+                    # the properties below are optional
+                    s3_data_destination=personalize.CfnMetricAttribution.S3DataDestinationProperty(
+                        path="path",
+            
+                        # the properties below are optional
+                        kms_key_arn="kmsKeyArn"
+                    )
+                ),
                 name="name"
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d27fead3ee83777125f18917d68a73c086b0a58166ece1ef7b454cd63e2fb6dc)
+            type_hints = cached_type_hints(_typecheckingstub__3ccd82c120a4c5c9dd453d02e97321882bd9235054cc2237f288e8b748d0aded)
+            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
+            check_type(argname="argument metrics", value=metrics, expected_type=type_hints["metrics"])
+            check_type(argname="argument metrics_output_config", value=metrics_output_config, expected_type=type_hints["metrics_output_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if name is not None:
-            self._values["name"] = name
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_arn": dataset_group_arn,
+            "metrics": metrics,
+            "metrics_output_config": metrics_output_config,
+            "name": name,
+        }
 
     @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the recipe.
+    def dataset_group_arn(self) -> builtins.str:
+        '''The ARN of the destination dataset group.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recipe.html#cfn-personalize-recipe-name
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-metricattribution.html#cfn-personalize-metricattribution-datasetgrouparn
+        '''
+        result = self._values.get("dataset_group_arn")
+        assert result is not None, "Required property 'dataset_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def metrics(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricAttributeProperty"]]]:
+        '''A list of metric attributes for the metric attribution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-metricattribution.html#cfn-personalize-metricattribution-metrics
+        '''
+        result = self._values.get("metrics")
+        assert result is not None, "Required property 'metrics' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricAttributeProperty"]]], result)
+
+    @builtins.property
+    def metrics_output_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricsOutputConfigProperty"]:
+        '''The output configuration details for the metric attribution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-metricattribution.html#cfn-personalize-metricattribution-metricsoutputconfig
+        '''
+        result = self._values.get("metrics_output_config")
+        assert result is not None, "Required property 'metrics_output_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricAttribution.MetricsOutputConfigProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the metric attribution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-metricattribution.html#cfn-personalize-metricattribution-name
         '''
         result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1603,12 +1953,12 @@ class CfnRecipeProps:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "CfnRecipeProps(%s)" % ", ".join(
+        return "CfnMetricAttributionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.ISchemaRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.ISchemaRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSchema(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -1633,6 +1983,7 @@ class CfnSchema(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_personalize as personalize
@@ -1642,7 +1993,11 @@ class CfnSchema(
             schema="schema",
         
             # the properties below are optional
-            domain="domain"
+            domain="domain",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -1654,6 +2009,7 @@ class CfnSchema(
         name: builtins.str,
         schema: builtins.str,
         domain: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Personalize::Schema``.
 
@@ -1662,12 +2018,13 @@ class CfnSchema(
         :param name: The name of the schema.
         :param schema: The schema.
         :param domain: The domain of a schema that you created for a dataset in a Domain dataset group.
+        :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3e6ed202aec99faa9e93f3070998170cf57a57c87cb52aa42c8c64b4f4b03d3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnSchemaProps(name=name, schema=schema, domain=domain)
+        props = CfnSchemaProps(name=name, schema=schema, domain=domain, tags=tags)
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -1737,6 +2094,12 @@ class CfnSchema(
         return typing.cast(builtins.str, jsii.get(self, "attrSchemaArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1791,11 +2154,32 @@ class CfnSchema(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__066d29802eff5b7c250152a0360ae956d38972e53a02499af7fed3fcd2d13e64)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_personalize.CfnSchemaProps",
     jsii_struct_bases=[],
-    name_mapping={"name": "name", "schema": "schema", "domain": "domain"},
+    name_mapping={
+        "name": "name",
+        "schema": "schema",
+        "domain": "domain",
+        "tags": "tags",
+    },
 )
 class CfnSchemaProps:
     def __init__(
@@ -1804,18 +2188,21 @@ class CfnSchemaProps:
         name: builtins.str,
         schema: builtins.str,
         domain: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSchema``.
 
         :param name: The name of the schema.
         :param schema: The schema.
         :param domain: The domain of a schema that you created for a dataset in a Domain dataset group.
+        :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_personalize as personalize
@@ -1825,7 +2212,11 @@ class CfnSchemaProps:
                 schema="schema",
             
                 # the properties below are optional
-                domain="domain"
+                domain="domain",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -1833,12 +2224,15 @@ class CfnSchemaProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "schema": schema,
         }
         if domain is not None:
             self._values["domain"] = domain
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -1869,6 +2263,15 @@ class CfnSchemaProps:
         result = self._values.get("domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html#cfn-personalize-schema-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -1881,7 +2284,7 @@ class CfnSchemaProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.ISolutionRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.ISolutionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSolution(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -1903,6 +2306,7 @@ class CfnSolution(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_personalize as personalize
@@ -1929,7 +2333,11 @@ class CfnSolution(
                     "feature_transformation_parameters_key": "featureTransformationParameters"
                 },
                 hpo_config=hpo_config
-            )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -1945,6 +2353,7 @@ class CfnSolution(
         perform_hpo: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         recipe_arn: typing.Optional[builtins.str] = None,
         solution_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSolution.SolutionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Personalize::Solution``.
 
@@ -1957,6 +2366,7 @@ class CfnSolution(
         :param perform_hpo: Whether to perform hyperparameter optimization (HPO) on the chosen recipe. The default is ``false`` .
         :param recipe_arn: The ARN of the recipe used to create the solution. This is required when ``performAutoML`` is false.
         :param solution_config: Describes the configuration properties for the solution.
+        :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d1a4b804c91e293dd01c8eb3bb351f1bf260d574f5446a5af1fd4af67486158)
@@ -1970,6 +2380,7 @@ class CfnSolution(
             perform_hpo=perform_hpo,
             recipe_arn=recipe_arn,
             solution_config=solution_config,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2038,6 +2449,12 @@ class CfnSolution(
         :cloudformationAttribute: SolutionArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrSolutionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2162,6 +2579,22 @@ class CfnSolution(
             type_hints = cached_type_hints(_typecheckingstub__7e94786b77ef81c42aefe1283c359b1bdf642a0315a4f2aac948ab2421fb6de5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "solutionConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__650b6f53ede97b9beae742edc9880c516a0bc936aaa12640645ae5c0d7897261)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_personalize.CfnSolution.AlgorithmHyperParameterRangesProperty",
@@ -3026,6 +3459,7 @@ class CfnSolution(
         "perform_hpo": "performHpo",
         "recipe_arn": "recipeArn",
         "solution_config": "solutionConfig",
+        "tags": "tags",
     },
 )
 class CfnSolutionProps:
@@ -3039,6 +3473,7 @@ class CfnSolutionProps:
         perform_hpo: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         recipe_arn: typing.Optional[builtins.str] = None,
         solution_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSolution.SolutionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSolution``.
 
@@ -3049,12 +3484,14 @@ class CfnSolutionProps:
         :param perform_hpo: Whether to perform hyperparameter optimization (HPO) on the chosen recipe. The default is ``false`` .
         :param recipe_arn: The ARN of the recipe used to create the solution. This is required when ``performAutoML`` is false.
         :param solution_config: Describes the configuration properties for the solution.
+        :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_personalize as personalize
@@ -3081,7 +3518,11 @@ class CfnSolutionProps:
                         "feature_transformation_parameters_key": "featureTransformationParameters"
                     },
                     hpo_config=hpo_config
-                )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -3093,6 +3534,7 @@ class CfnSolutionProps:
             check_type(argname="argument perform_hpo", value=perform_hpo, expected_type=type_hints["perform_hpo"])
             check_type(argname="argument recipe_arn", value=recipe_arn, expected_type=type_hints["recipe_arn"])
             check_type(argname="argument solution_config", value=solution_config, expected_type=type_hints["solution_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dataset_group_arn": dataset_group_arn,
             "name": name,
@@ -3107,6 +3549,8 @@ class CfnSolutionProps:
             self._values["recipe_arn"] = recipe_arn
         if solution_config is not None:
             self._values["solution_config"] = solution_config
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def dataset_group_arn(self) -> builtins.str:
@@ -3191,6 +3635,15 @@ class CfnSolutionProps:
         result = self._values.get("solution_config")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSolution.SolutionConfigProperty"]], result)
 
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -3204,14 +3657,14 @@ class CfnSolutionProps:
 
 
 __all__ = [
-    "CfnDataDeletionJob",
-    "CfnDataDeletionJobProps",
     "CfnDataset",
     "CfnDatasetGroup",
     "CfnDatasetGroupProps",
     "CfnDatasetProps",
-    "CfnRecipe",
-    "CfnRecipeProps",
+    "CfnEventTracker",
+    "CfnEventTrackerProps",
+    "CfnMetricAttribution",
+    "CfnMetricAttributionProps",
     "CfnSchema",
     "CfnSchemaProps",
     "CfnSolution",
@@ -3219,83 +3672,6 @@ __all__ = [
 ]
 
 publication.publish()
-
-def _typecheckingstub__a0facc6d6fe3ed43e58672d4c1dc60f6deb03bc9c43265b31ab744024e9b9a39(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    dataset_group_arn: typing.Optional[builtins.str] = None,
-    data_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataDeletionJob.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    job_name: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fc1603aa65f2cb6f1cbd9a6464bceb1f98d59a810a03560d4fe0742d9de0a93a(
-    resource: _aws_personalize_95c6aa61.IDataDeletionJobRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d3b23f12204c995f5dccff3f7006c9c3c541b76d8368851ec2eabb2647d93e44(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9de8e9554238825d44b11528465aaffa714142fedd5f82cb17ee6fc4eea8f415(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__75f2ab8936a5e779fa52ff3b486e6730b7960e41b426ab70c50d857492777b00(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__30a0fad55816bb67a5fa37fb273afea667073fc2af51df1fbd3425211162210e(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b48cd71860d0a7ffa6be2e6e71d6542c32a667165d20c251fe81fba714751cc3(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataDeletionJob.DataSourceProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__080ff66a39ad9709b036f6fe04223b628605cf3090ffb41e841a9b0b04626e29(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a96abf1014ce3a9371349a1ee2f768e524853257810eceec8a4270bc349701c1(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__743be68227ddb0db72ab6b34137720c679272c101572aeab063aa1cbc10ffbab(
-    *,
-    data_location: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2e1d3eab6ba9ebf818013142c5a9a9983f74883d72c3ca295ad16bd671c5df1c(
-    *,
-    dataset_group_arn: typing.Optional[builtins.str] = None,
-    data_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataDeletionJob.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    job_name: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__8515dadec60af65aa740f35c8bee6bc85dafa7634c6b2270232bfa824452ebce(
     scope: _constructs_77d1e7e8.Construct,
@@ -3306,6 +3682,7 @@ def _typecheckingstub__8515dadec60af65aa740f35c8bee6bc85dafa7634c6b2270232bfa824
     name: builtins.str,
     schema_arn: builtins.str,
     dataset_import_job: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataset.DatasetImportJobProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3364,6 +3741,12 @@ def _typecheckingstub__afd06f21a72ea38837a666025b223a4003de38fe4bd9ff9796a64ce7a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f4890f6e11511f94b951fe20ba016e29bcfdc46ac601b38ab86eddd1a22d21aa(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__83ea3d6dacd8545ca3b15725588aca74892b310d047ede8d4d6e0e1671a9a0f1(
     *,
     data_location: typing.Optional[builtins.str] = None,
@@ -3390,6 +3773,7 @@ def _typecheckingstub__ca6485605ba6ab1dd805c944eddbfe77e62953abd16f2d5983bbfb3aa
     domain: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3442,12 +3826,19 @@ def _typecheckingstub__659a9057a0256ba90eedec4d65dd5e9b7f237704a3d6394737385f671
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__db7c7d2d65fe74fdee6a12783bdc46544273da864aff3b0d3f89fd027e503b1a(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7fdb6f95ecf2ddb96752e4bd6a7d092a5e469f7a7350a52b8a17e2840cb0ff7b(
     *,
     name: builtins.str,
     domain: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3459,52 +3850,164 @@ def _typecheckingstub__c7542a55fdef9680f9b0e715bef803a25c64a52b098e530b53b6964f1
     name: builtins.str,
     schema_arn: builtins.str,
     dataset_import_job: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataset.DatasetImportJobProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f998b5ed9878a8ee6171aaa96b2d7d565443631df8c1da2d13e55531cae19148(
+def _typecheckingstub__1759cf297ea0f8f75104372610efd1562c5cfde9072fe848d48e4e94efe3d18c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    name: typing.Optional[builtins.str] = None,
+    dataset_group_arn: builtins.str,
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__111450f72dfbc9a777864c667d5dd2512031d8eb95850681bc9a91a6b4dddea9(
-    resource: _aws_personalize_95c6aa61.IRecipeRef,
+def _typecheckingstub__5152ed25c6a0d8cb75cee688ad9e5f33504bc64db4177537f69f90dde9ece79e(
+    resource: _aws_personalize_95c6aa61.IEventTrackerRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2bf23396f9e8dd7e44e6cc64e90cab5a2112fbc83568592dca17c159094c8c5e(
+def _typecheckingstub__7396f5cd06c08b2264d9d999a07ec985c79abbc9a9a5930cef392b850c40ca64(
     x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f60885b23d266eedc53674ff77da9e3984c44fd9850d0c61b04129c4011eb675(
+def _typecheckingstub__4ff1da977753ea109762a6685d874dfc0c951df2903fe57353580f16c87e961a(
     inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7f3456e7ac2cb57db499694e30be7cd483129253d20c787272ebc1e7c11957e5(
+def _typecheckingstub__23bc81835eb5383fc22a486240e2a044e482cd6150f2607c88ec199b28261ad5(
     props: typing.Mapping[builtins.str, typing.Any],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d1650adbe2f7c6c514bd331081276b352df9bcf8384bcdf3e04a13eb6949e993(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__2f59c5764d8013cda0a901b5b0d38f65ad0b5ac621311377c180e9f3ed7f08cb(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d27fead3ee83777125f18917d68a73c086b0a58166ece1ef7b454cd63e2fb6dc(
+def _typecheckingstub__91bd1a96d79f7bbd56ab199e61889ff085151f82ee68d0fcfcfffbb40bdaeae1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__257f8b5666005f54b1ce1e7ae37fbbfd6111890e6d7b8fc3975364d8429aae99(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20ba98637dd73dd72d9cdeb400ad3a1680ef1259b430ddaac64a8474e685034f(
     *,
-    name: typing.Optional[builtins.str] = None,
+    dataset_group_arn: builtins.str,
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c7f4b54309b191d1f6b751dc883e96f8fe636672a4178e1a9bae3700e6cb14c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    dataset_group_arn: builtins.str,
+    metrics: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricAttribution.MetricAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    metrics_output_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricAttribution.MetricsOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d50bf976f7cd9daa3dd928f0bf14a47d1bc1334c982256e4b107a4ea28c4eaa2(
+    resource: _aws_personalize_95c6aa61.IMetricAttributionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__186bcb2bccd0ba1cbdc29c8e63a8b7e17c2754d4ca991391a9fcee901b0769d6(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ad26cede8e504bebc6f8243862c8725a93545d06d75ccc9deaaad58bcd5a5f1(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84041f8dd36a581dce43d04eb0d937ad70f5de9fa50bacc8f2747c481728f245(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d33a859d6251f6635b41a10b9ea461aa7b6ea1f95f30ac353957c142f37a7f28(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01f4d14fe3cdfbd8479e29b62e2a9b77d04903d57beb173f599885cd29db911e(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMetricAttribution.MetricAttributeProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b67f31dede511d5e443d8e1e1c0f931cb0244f264bb10a2313517c3bf14e3cf4(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMetricAttribution.MetricsOutputConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c81475d2d4fa305f37de738995dfc6ed6a0089efd9d126454708d2f93ab7d70b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e39294d4a5f775b1bf2e9f9e73f09c2f7c92ee11f16a19d6221b2af548b43cdc(
+    *,
+    event_type: builtins.str,
+    expression: builtins.str,
+    metric_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7748a4a9442fc55feef9a7aa5c4753b9cf751545e8e178e7e5bb1f60098ef4d1(
+    *,
+    role_arn: builtins.str,
+    s3_data_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricAttribution.S3DataDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91631b9e459f5b716b2515907ee07ad737a1b53ddba3fd4faaf6981562038fe7(
+    *,
+    path: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ccd82c120a4c5c9dd453d02e97321882bd9235054cc2237f288e8b748d0aded(
+    *,
+    dataset_group_arn: builtins.str,
+    metrics: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricAttribution.MetricAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    metrics_output_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricAttribution.MetricsOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3516,6 +4019,7 @@ def _typecheckingstub__b3e6ed202aec99faa9e93f3070998170cf57a57c87cb52aa42c8c64b4
     name: builtins.str,
     schema: builtins.str,
     domain: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3562,11 +4066,18 @@ def _typecheckingstub__fd4dc7d475cc6aef4202a8b9c451fd060bb3acc449768ed082a56731c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__066d29802eff5b7c250152a0360ae956d38972e53a02499af7fed3fcd2d13e64(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c373947e46fb78bb07b658e8d58f6d2395c21ab9e13566c02ecc431ceeabab95(
     *,
     name: builtins.str,
     schema: builtins.str,
     domain: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3582,6 +4093,7 @@ def _typecheckingstub__8d1a4b804c91e293dd01c8eb3bb351f1bf260d574f5446a5af1fd4af6
     perform_hpo: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     recipe_arn: typing.Optional[builtins.str] = None,
     solution_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSolution.SolutionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3648,6 +4160,12 @@ def _typecheckingstub__9dba5a30057f6e37bc39f31122891ddde19d3dbf87647f24617faa220
 
 def _typecheckingstub__7e94786b77ef81c42aefe1283c359b1bdf642a0315a4f2aac948ab2421fb6de5(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSolution.SolutionConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__650b6f53ede97b9beae742edc9880c516a0bc936aaa12640645ae5c0d7897261(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3741,6 +4259,7 @@ def _typecheckingstub__69d40d42ad451a741444334b0be64eab69d658504abd7f1a87ae1558a
     perform_hpo: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     recipe_arn: typing.Optional[builtins.str] = None,
     solution_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSolution.SolutionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

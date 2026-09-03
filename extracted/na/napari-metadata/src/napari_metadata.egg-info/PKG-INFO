@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: napari-metadata
-Version: 0.4.0
+Version: 0.4.1
 Summary: View and edit layer metadata
 Author: napari-metadata contributors
 Author-email: Andy Sweet <andrewdsweet@gmail.com>, napari team <napari-steering-council@googlegroups.com>

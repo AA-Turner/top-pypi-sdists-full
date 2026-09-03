@@ -282,6 +282,66 @@ class AnalysisReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ApprovalPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"policy_arn": "policyArn", "policy_id": "policyId"},
+)
+class ApprovalPolicyReference:
+    def __init__(self, *, policy_arn: builtins.str, policy_id: builtins.str) -> None:
+        '''A reference to a ApprovalPolicy resource.
+
+        :param policy_arn: The ARN of the ApprovalPolicy resource.
+        :param policy_id: The PolicyId of the ApprovalPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            approval_policy_reference = interfaces_quicksight.ApprovalPolicyReference(
+                policy_arn="policyArn",
+                policy_id="policyId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8878a7f31995e6d02338f2326e2f0bb99ed5c1a6419c6f06a22e3313710dd0dc)
+            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
+            check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_arn": policy_arn,
+            "policy_id": policy_id,
+        }
+
+    @builtins.property
+    def policy_arn(self) -> builtins.str:
+        '''The ARN of the ApprovalPolicy resource.'''
+        result = self._values.get("policy_arn")
+        assert result is not None, "Required property 'policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_id(self) -> builtins.str:
+        '''The PolicyId of the ApprovalPolicy resource.'''
+        result = self._values.get("policy_id")
+        assert result is not None, "Required property 'policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApprovalPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.CustomPermissionsReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -358,6 +418,87 @@ class CustomPermissionsReference:
 
     def __repr__(self) -> str:
         return "CustomPermissionsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.DLPSettingReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "aws_account_id": "awsAccountId",
+        "dlp_setting_arn": "dlpSettingArn",
+        "dlp_setting_id": "dlpSettingId",
+    },
+)
+class DLPSettingReference:
+    def __init__(
+        self,
+        *,
+        aws_account_id: builtins.str,
+        dlp_setting_arn: builtins.str,
+        dlp_setting_id: builtins.str,
+    ) -> None:
+        '''A reference to a DLPSetting resource.
+
+        :param aws_account_id: The AwsAccountId of the DLPSetting resource.
+        :param dlp_setting_arn: The ARN of the DLPSetting resource.
+        :param dlp_setting_id: The DlpSettingId of the DLPSetting resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            d_lp_setting_reference = interfaces_quicksight.DLPSettingReference(
+                aws_account_id="awsAccountId",
+                dlp_setting_arn="dlpSettingArn",
+                dlp_setting_id="dlpSettingId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ddc0996ef050bdea6f249d0e582110ceff50188ab0a8e1b7d6fbf603c5ebcb98)
+            check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
+            check_type(argname="argument dlp_setting_arn", value=dlp_setting_arn, expected_type=type_hints["dlp_setting_arn"])
+            check_type(argname="argument dlp_setting_id", value=dlp_setting_id, expected_type=type_hints["dlp_setting_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "aws_account_id": aws_account_id,
+            "dlp_setting_arn": dlp_setting_arn,
+            "dlp_setting_id": dlp_setting_id,
+        }
+
+    @builtins.property
+    def aws_account_id(self) -> builtins.str:
+        '''The AwsAccountId of the DLPSetting resource.'''
+        result = self._values.get("aws_account_id")
+        assert result is not None, "Required property 'aws_account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dlp_setting_arn(self) -> builtins.str:
+        '''The ARN of the DLPSetting resource.'''
+        result = self._values.get("dlp_setting_arn")
+        assert result is not None, "Required property 'dlp_setting_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dlp_setting_id(self) -> builtins.str:
+        '''The DlpSettingId of the DLPSetting resource.'''
+        result = self._values.get("dlp_setting_id")
+        assert result is not None, "Required property 'dlp_setting_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DLPSettingReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -870,6 +1011,51 @@ class _IAnalysisRefProxy(
 typing.cast(typing.Any, IAnalysisRef).__jsii_proxy_class__ = lambda : _IAnalysisRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IApprovalPolicyRef")
+class IApprovalPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApprovalPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="approvalPolicyRef")
+    def approval_policy_ref(self) -> "ApprovalPolicyReference":
+        '''(experimental) A reference to a ApprovalPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApprovalPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApprovalPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IApprovalPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="approvalPolicyRef")
+    def approval_policy_ref(self) -> "ApprovalPolicyReference":
+        '''(experimental) A reference to a ApprovalPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ApprovalPolicyReference", jsii.get(self, "approvalPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApprovalPolicyRef).__jsii_proxy_class__ = lambda : _IApprovalPolicyRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ICustomPermissionsRef"
 )
@@ -915,6 +1101,51 @@ class _ICustomPermissionsRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICustomPermissionsRef).__jsii_proxy_class__ = lambda : _ICustomPermissionsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IDLPSettingRef")
+class IDLPSettingRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DLPSetting.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dlpSettingRef")
+    def dlp_setting_ref(self) -> "DLPSettingReference":
+        '''(experimental) A reference to a DLPSetting resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDLPSettingRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DLPSetting.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IDLPSettingRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dlpSettingRef")
+    def dlp_setting_ref(self) -> "DLPSettingReference":
+        '''(experimental) A reference to a DLPSetting resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DLPSettingReference", jsii.get(self, "dlpSettingRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDLPSettingRef).__jsii_proxy_class__ = lambda : _IDLPSettingRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IDashboardRef")
@@ -1185,6 +1416,51 @@ class _IKnowledgeBaseRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IKnowledgeBaseRef).__jsii_proxy_class__ = lambda : _IKnowledgeBaseRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ILimitsProfileRef")
+class ILimitsProfileRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LimitsProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="limitsProfileRef")
+    def limits_profile_ref(self) -> "LimitsProfileReference":
+        '''(experimental) A reference to a LimitsProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILimitsProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LimitsProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.ILimitsProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="limitsProfileRef")
+    def limits_profile_ref(self) -> "LimitsProfileReference":
+        '''(experimental) A reference to a LimitsProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LimitsProfileReference", jsii.get(self, "limitsProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILimitsProfileRef).__jsii_proxy_class__ = lambda : _ILimitsProfileRefProxy
 
 
 @jsii.interface(
@@ -1459,6 +1735,51 @@ class _ITopicRefProxy(
 typing.cast(typing.Any, ITopicRef).__jsii_proxy_class__ = lambda : _ITopicRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ITopicV2Ref")
+class ITopicV2Ref(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TopicV2.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="topicV2Ref")
+    def topic_v2_ref(self) -> "TopicV2Reference":
+        '''(experimental) A reference to a TopicV2 resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITopicV2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TopicV2.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.ITopicV2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="topicV2Ref")
+    def topic_v2_ref(self) -> "TopicV2Reference":
+        '''(experimental) A reference to a TopicV2 resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TopicV2Reference", jsii.get(self, "topicV2Ref"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITopicV2Ref).__jsii_proxy_class__ = lambda : _ITopicV2RefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IVPCConnectionRef")
 class IVPCConnectionRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1581,6 +1902,87 @@ class KnowledgeBaseReference:
 
     def __repr__(self) -> str:
         return "KnowledgeBaseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.LimitsProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "account_id": "accountId",
+        "limits_profile_arn": "limitsProfileArn",
+        "profile_id": "profileId",
+    },
+)
+class LimitsProfileReference:
+    def __init__(
+        self,
+        *,
+        account_id: builtins.str,
+        limits_profile_arn: builtins.str,
+        profile_id: builtins.str,
+    ) -> None:
+        '''A reference to a LimitsProfile resource.
+
+        :param account_id: The AccountId of the LimitsProfile resource.
+        :param limits_profile_arn: The ARN of the LimitsProfile resource.
+        :param profile_id: The ProfileId of the LimitsProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            limits_profile_reference = interfaces_quicksight.LimitsProfileReference(
+                account_id="accountId",
+                limits_profile_arn="limitsProfileArn",
+                profile_id="profileId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8eac14628a5885e08f823d34eaa64e07b8f15f154a5128cf72ca80163f431df9)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+            check_type(argname="argument limits_profile_arn", value=limits_profile_arn, expected_type=type_hints["limits_profile_arn"])
+            check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+            "limits_profile_arn": limits_profile_arn,
+            "profile_id": profile_id,
+        }
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The AccountId of the LimitsProfile resource.'''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def limits_profile_arn(self) -> builtins.str:
+        '''The ARN of the LimitsProfile resource.'''
+        result = self._values.get("limits_profile_arn")
+        assert result is not None, "Required property 'limits_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_id(self) -> builtins.str:
+        '''The ProfileId of the LimitsProfile resource.'''
+        result = self._values.get("profile_id")
+        assert result is not None, "Required property 'profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LimitsProfileReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2053,6 +2455,87 @@ class TopicReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.TopicV2Reference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "aws_account_id": "awsAccountId",
+        "topic_id": "topicId",
+        "topic_v2_arn": "topicV2Arn",
+    },
+)
+class TopicV2Reference:
+    def __init__(
+        self,
+        *,
+        aws_account_id: builtins.str,
+        topic_id: builtins.str,
+        topic_v2_arn: builtins.str,
+    ) -> None:
+        '''A reference to a TopicV2 resource.
+
+        :param aws_account_id: The AwsAccountId of the TopicV2 resource.
+        :param topic_id: The TopicId of the TopicV2 resource.
+        :param topic_v2_arn: The ARN of the TopicV2 resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            topic_v2_reference = interfaces_quicksight.TopicV2Reference(
+                aws_account_id="awsAccountId",
+                topic_id="topicId",
+                topic_v2_arn="topicV2Arn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f5fe054ceeed99a1709f63c16203c219ab1fdcba55a664f52c6a3bf246447d8d)
+            check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
+            check_type(argname="argument topic_id", value=topic_id, expected_type=type_hints["topic_id"])
+            check_type(argname="argument topic_v2_arn", value=topic_v2_arn, expected_type=type_hints["topic_v2_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "aws_account_id": aws_account_id,
+            "topic_id": topic_id,
+            "topic_v2_arn": topic_v2_arn,
+        }
+
+    @builtins.property
+    def aws_account_id(self) -> builtins.str:
+        '''The AwsAccountId of the TopicV2 resource.'''
+        result = self._values.get("aws_account_id")
+        assert result is not None, "Required property 'aws_account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def topic_id(self) -> builtins.str:
+        '''The TopicId of the TopicV2 resource.'''
+        result = self._values.get("topic_id")
+        assert result is not None, "Required property 'topic_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def topic_v2_arn(self) -> builtins.str:
+        '''The ARN of the TopicV2 resource.'''
+        result = self._values.get("topic_v2_arn")
+        assert result is not None, "Required property 'topic_v2_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TopicV2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.VPCConnectionReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -2137,7 +2620,9 @@ __all__ = [
     "ActionConnectorReference",
     "AgentReference",
     "AnalysisReference",
+    "ApprovalPolicyReference",
     "CustomPermissionsReference",
+    "DLPSettingReference",
     "DashboardReference",
     "DataSetReference",
     "DataSourceReference",
@@ -2146,27 +2631,33 @@ __all__ = [
     "IActionConnectorRef",
     "IAgentRef",
     "IAnalysisRef",
+    "IApprovalPolicyRef",
     "ICustomPermissionsRef",
+    "IDLPSettingRef",
     "IDashboardRef",
     "IDataSetRef",
     "IDataSourceRef",
     "IFlowRef",
     "IFolderRef",
     "IKnowledgeBaseRef",
+    "ILimitsProfileRef",
     "IOAuthClientApplicationRef",
     "IRefreshScheduleRef",
     "ISpaceRef",
     "ITemplateRef",
     "IThemeRef",
     "ITopicRef",
+    "ITopicV2Ref",
     "IVPCConnectionRef",
     "KnowledgeBaseReference",
+    "LimitsProfileReference",
     "OAuthClientApplicationReference",
     "RefreshScheduleReference",
     "SpaceReference",
     "TemplateReference",
     "ThemeReference",
     "TopicReference",
+    "TopicV2Reference",
     "VPCConnectionReference",
 ]
 
@@ -2199,11 +2690,28 @@ def _typecheckingstub__79dd570d6da6d3fe7b5ab82dcad552abbb17b11f076a26256bed0f162
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8878a7f31995e6d02338f2326e2f0bb99ed5c1a6419c6f06a22e3313710dd0dc(
+    *,
+    policy_arn: builtins.str,
+    policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bcbb01a6ae4003c466f2c9facde86b4a9228b2947e8db14b07e90c8828b892fc(
     *,
     aws_account_id: builtins.str,
     custom_permissions_arn: builtins.str,
     custom_permissions_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddc0996ef050bdea6f249d0e582110ceff50188ab0a8e1b7d6fbf603c5ebcb98(
+    *,
+    aws_account_id: builtins.str,
+    dlp_setting_arn: builtins.str,
+    dlp_setting_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2256,6 +2764,15 @@ def _typecheckingstub__07a0f8327fdaffd076e0cc9273c2f7696c8754a0777dfaf05186eecba
     aws_account_id: builtins.str,
     knowledge_base_arn: builtins.str,
     knowledge_base_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8eac14628a5885e08f823d34eaa64e07b8f15f154a5128cf72ca80163f431df9(
+    *,
+    account_id: builtins.str,
+    limits_profile_arn: builtins.str,
+    profile_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2313,6 +2830,15 @@ def _typecheckingstub__644dc61611189aa4ef3678efd6b78c7718549c2efda0dd7842ca76113
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f5fe054ceeed99a1709f63c16203c219ab1fdcba55a664f52c6a3bf246447d8d(
+    *,
+    aws_account_id: builtins.str,
+    topic_id: builtins.str,
+    topic_v2_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8a94c806f9f5d8f329e5fe8025b2cd7112ef5f8d032fce0a9cf2e9f64bafb27b(
     *,
     aws_account_id: builtins.str,
@@ -2322,5 +2848,5 @@ def _typecheckingstub__8a94c806f9f5d8f329e5fe8025b2cd7112ef5f8d032fce0a9cf2e9f64
     """Type checking stubs"""
     pass
 
-for cls in [IActionConnectorRef, IAgentRef, IAnalysisRef, ICustomPermissionsRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IKnowledgeBaseRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ISpaceRef, ITemplateRef, IThemeRef, ITopicRef, IVPCConnectionRef]:
+for cls in [IActionConnectorRef, IAgentRef, IAnalysisRef, IApprovalPolicyRef, ICustomPermissionsRef, IDLPSettingRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IKnowledgeBaseRef, ILimitsProfileRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ISpaceRef, ITemplateRef, IThemeRef, ITopicRef, ITopicV2Ref, IVPCConnectionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

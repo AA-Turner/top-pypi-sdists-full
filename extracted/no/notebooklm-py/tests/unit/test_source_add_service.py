@@ -14,8 +14,9 @@ import pytest
 from notebooklm._app import source_add as cli_source_add
 from notebooklm._app.errors import ErrorCategory, classify
 from notebooklm._idempotency import _CreateResultKind, _IdempotentCreateResult
-from notebooklm._source.add import SourceAddService, honor_requested_title_if_fresh
 from notebooklm._sources import SourcesAPI
+from notebooklm._web.sources import WebSourcesAPI
+from notebooklm._web.sources.add import SourceAddService, honor_requested_title_if_fresh
 from notebooklm.exceptions import (
     AuthError,
     NetworkError,
@@ -705,7 +706,7 @@ async def test_raw_url_helpers_disable_internal_retries(service: SourceAddServic
 @pytest.mark.asyncio
 async def test_sources_api_add_url_uses_late_bound_facade_hooks() -> None:
     core = MagicMock()
-    api = SourcesAPI(core, uploader=MagicMock())
+    api = WebSourcesAPI(core, supervisor=core, uploader=MagicMock())
     api._extract_youtube_video_id = MagicMock(return_value="video")  # type: ignore[method-assign]
     api._add_youtube_source = AsyncMock(return_value=source_response("yt", "Video"))  # type: ignore[method-assign]
     api._add_url_source = AsyncMock()  # type: ignore[method-assign]
@@ -727,7 +728,7 @@ async def test_sources_api_add_url_uses_late_bound_facade_hooks() -> None:
 
 
 def _sources_api_with_mocked_adder() -> SourcesAPI:
-    api = SourcesAPI(MagicMock(), uploader=MagicMock())
+    api = WebSourcesAPI(MagicMock(), supervisor=MagicMock(), uploader=MagicMock())
     api._adder = MagicMock()  # type: ignore[assignment]
     return api
 
@@ -1157,7 +1158,7 @@ def _drive_source(source_id: str, file_id: str, title: str = "Drive Doc") -> Sou
     """A Drive-backed row, built from the captured wire shape.
 
     Copied from the live ``GET_NOTEBOOK`` capture in
-    ``tests/cassettes/sources_check_freshness_drive.yaml`` (the same shape
+    ``tests/cassettes/web/sources_check_freshness_drive.yaml`` (the same shape
     ``tests/integration/test_sources_idempotency.py::_google_docs_source_row``
     uses): the Drive block sits at ``metadata[0]`` and **no** URL slot is
     populated — which is exactly why the pre-#2113 URL-based probe could never

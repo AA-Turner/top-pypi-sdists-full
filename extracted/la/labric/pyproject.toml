@@ -1,6 +1,6 @@
 [project]
 name = "labric"
-version = "0.9.6"
+version = "0.11.0"
 description = "The official Python library for the Labric API"
 readme = "README.md"
 requires-python = ">=3.9"

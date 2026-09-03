@@ -1,377 +1,256 @@
-"""
-This file bundles language identification functions.
+#!/usr/bin/env python3
+"""Language identification (fork of langid.py by Marco Lui)."""
 
-Modifications (fork): Copyright (c) 2021, Adrien Barbaresi.
-
-Original code: Copyright (c) 2011 Marco Lui <saffsd@gmail.com>.
-Based on research by Marco Lui and Tim Baldwin.
-
-See LICENSE file for more info.
-"""
-
-import bz2
-import json
 import logging
-import lzma
-import pickle
-
-from base64 import b64decode
+import math
+import unicodedata
 from collections import Counter
 from operator import itemgetter
 from pathlib import Path
-from urllib.parse import parse_qs
 
 import numpy as np
 
+from .modelio import load_model as _load_model_file
 
 LOGGER = logging.getLogger(__name__)
 
-# model defaults
 IDENTIFIER = None
-MODEL_FILE = 'data/model.plzma'
-NORM_PROBS = False  # Normalize output probabilities.
-# NORM_PROBS defaults to False for a small speed increase. It does not
-# affect the relative ordering of the predicted classes. It can be
-# re-enabled at runtime - see the readme.
-
-# quantization: faster but less precise
-DATATYPE = "uint16"
+MODEL_FILE = 'data/model.npz.xz'
+MODEL_DIR = Path(__file__).parent
+RAW_FLOOR = float(np.finfo(np.float32).min)  # finite floor for featureless input
 
 
-def load_model(path=None):
-    """
-    Convenience method to set the global identifier using a model at a
-    specified path.
+def decode_trimmed(data):
+    """Decode UTF-8, trimming ≤3 partial trailing bytes; None if undecodable.
+    Shared train/inference contract (also used by train.common.nfc_bytes)."""
+    for trim in range(4):
+        chunk = data[:len(data) - trim] if trim else data
+        try:
+            return chunk.decode('utf8')
+        except UnicodeDecodeError as e:
+            if e.start < len(data) - 3:  # not fixable by trimming the tail
+                return None
+    return None
 
-    @param path to model
-    """
-    LOGGER.debug('initializing identifier')
-    global IDENTIFIER
-    if path is None:
-        IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE)
+
+def visit_counts(nm, rowbase, out, text):
+    """DFA-walk feature counts over bytes; None if none.
+    Shared by inference (_raw_score) and training (train.stages)."""
+    state, indexes = 0, []
+    append = indexes.append
+    for letter in text:
+        state = nm[rowbase[state] + letter]
+        f = out[state]
+        if f >= 0:
+            append(f)
+    return Counter(indexes) if indexes else None
+
+
+def _load_identifier(model_path=None, norm_probs=False, langs=None):
+    if model_path:
+        identifier = LanguageIdentifier.from_modelpath(model_path, norm_probs=norm_probs)
+        LOGGER.info("Using external model: %s", model_path)
     else:
-        IDENTIFIER = LanguageIdentifier.from_modelpath(path)
+        identifier = LanguageIdentifier.from_model_file(MODEL_FILE, norm_probs=norm_probs)
+    if langs:
+        identifier.set_languages(langs)
+    return identifier
+
+
+def _get_identifier():
+    global IDENTIFIER
+    if IDENTIFIER is None:
+        LOGGER.debug('initializing identifier')
+        IDENTIFIER = _load_identifier()
+    return IDENTIFIER
 
 
 def set_languages(langs=None):
-    """
-    Set the language set used by the global identifier.
-
-    @param langs a list of language codes
-    """
-    if IDENTIFIER is None:
-        load_model()
-    return IDENTIFIER.set_languages(langs)
+    return _get_identifier().set_languages(langs)
 
 
-def classify(instance, datatype=DATATYPE):
-    """
-    Convenience method using a global identifier instance with the default
-    model included in langid.py. Identifies the language that a string is
-    written in.
-
-    @param instance a text string. Unicode strings will automatically be utf8-encoded
-    @returns a tuple of the most likely language and the confidence score
-    """
-    if IDENTIFIER is None:
-        load_model()
-    return IDENTIFIER.classify(instance, datatype=datatype)
+def classify(instance):
+    return _get_identifier().classify(instance)
 
 
 def rank(instance):
-    """
-    Convenience method using a global identifier instance with the default
-    model included in langid.py. Ranks all the languages in the model according
-    to the likelihood that the string is written in each language.
-
-    @param instance a text string. Unicode strings will automatically be utf8-encoded
-    @returns a list of tuples language and the confidence score, in descending order
-    """
-    if IDENTIFIER is None:
-        load_model()
-    return IDENTIFIER.rank(instance)
+    return _get_identifier().rank(instance)
 
 
-def cl_path(path):
-    """
-    Convenience method using a global identifier instance with the default
-    model included in langid.py. Identifies the language that the file at `path` is
-    written in.
-
-    @param path path to file
-    @returns a tuple of the most likely language and the confidence score
-    """
-    if IDENTIFIER is None:
-        load_model()
-    return IDENTIFIER.cl_path(path)
+def _init_worker(model_path, norm_probs, langs):
+    global IDENTIFIER
+    if IDENTIFIER is None:  # forked workers inherit the parent's identifier
+        IDENTIFIER = _load_identifier(model_path, norm_probs, langs)
 
 
-def rank_path(path):
-    """
-    Convenience method using a global identifier instance with the default
-    model included in langid.py. Ranks all the languages in the model according
-    to the likelihood that the file at `path` is written in each language.
-
-    @param path path to file
-    @returns a list of tuples language and the confidence score, in descending order
-    """
-    if IDENTIFIER is None:
-        load_model()
-    return IDENTIFIER.rank_path(path)
+def _process_file(path, dist=False):
+    with open(path, 'rb') as f:
+        text = f.read()
+    return path, (rank(text) if dist else classify(text))
 
 
 class LanguageIdentifier:
-    """
-    This class implements the actual language identifier.
-    """
-    __slots__ = ['nb_ptc', 'nb_pc', 'nb_numfeats', 'nb_classes', 'tk_nextmove', 'tk_output',
-                 'norm_probs', '__full_model']
+    __slots__ = [
+        '_alias_pairs',
+        '_full_model',
+        '_norm_probs',
+        '_rowbase',
+        'min_confidence',
+        'nb_classes',
+        'nb_pc',
+        'nb_ptc',
+        'tk_nextmove',
+        'tk_output',
+        'tk_row',
+    ]
 
-    # new version: speed-up
     @classmethod
-    def from_pickled_model(cls, pickled_file, *args, **kwargs):
-        # load data
-        filepath = str(Path(__file__).parent / pickled_file)
-        with lzma.open(filepath) as filehandle:
-            nb_ptc, nb_pc, nb_classes, tk_nextmove, tk_output = pickle.load(filehandle)
-        nb_numfeats = len(nb_ptc) // len(nb_pc)
-
-        # reconstruct pc and ptc
-        nb_pc = np.array(nb_pc)
-        nb_ptc = np.array(nb_ptc).reshape(nb_numfeats, len(nb_pc))
-
-        return cls(nb_ptc, nb_pc, nb_numfeats, nb_classes, tk_nextmove, tk_output, *args, **kwargs)
-
-    # legacy methods
-    @classmethod
-    def from_modelstring(cls, string, *args, **kwargs):
-        # load data
-        nb_ptc, nb_pc, nb_classes, tk_nextmove, tk_output = pickle.loads(bz2.decompress(b64decode(string)))
-        nb_numfeats = len(nb_ptc) // len(nb_pc)
-
-        # reconstruct pc and ptc
-        nb_pc = np.array(nb_pc)
-        nb_ptc = np.array(nb_ptc).reshape(nb_numfeats, len(nb_pc))
-
-        return cls(nb_ptc, nb_pc, nb_numfeats, nb_classes, tk_nextmove, tk_output, *args, **kwargs)
+    def from_model_file(cls, model_file, *args, **kwargs):
+        filepath = Path(model_file)
+        if not filepath.is_absolute():
+            filepath = MODEL_DIR / filepath
+        ptc, pc, classes, nextmove, row, output = _load_model_file(filepath)
+        return cls(np.asarray(ptc), np.asarray(pc), classes, nextmove, output,
+                   *args, tk_row=row, **kwargs)
 
     @classmethod
     def from_modelpath(cls, path, *args, **kwargs):
-        with open(path, 'rb') as f:
-            return cls.from_modelstring(f.read(), *args, **kwargs)
+        return cls.from_model_file(Path(path).absolute(), *args, **kwargs)
 
-    def __init__(self, nb_ptc, nb_pc, nb_numfeats, nb_classes, tk_nextmove, tk_output,
-                 norm_probs=NORM_PROBS):
+    def __init__(self, nb_ptc, nb_pc, nb_classes, tk_nextmove, tk_output,
+                 norm_probs=False, min_confidence=None, *, tk_row):
+        if min_confidence is not None and not norm_probs:
+            raise ValueError("min_confidence requires norm_probs=True")
+        self.min_confidence = min_confidence
         self.nb_ptc = nb_ptc
         self.nb_pc = nb_pc
-        self.nb_numfeats = nb_numfeats
         self.nb_classes = nb_classes
         self.tk_nextmove = tk_nextmove
+        self.tk_row = tk_row
+        self._rowbase = [r << 8 for r in tk_row]  # pre-shifted row offsets
         self.tk_output = tk_output
+        self._norm_probs = norm_probs
+        self._full_model = nb_ptc, nb_pc, nb_classes
+        self._set_alias_pairs()
 
-        def apply_norm_probs(pd):
-            """
-            Renormalize log-probs into a proper distribution (sum 1)
-            The technique for dealing with underflow is described in
-            http://jblevins.org/log/log-sum-exp
-            """
-            if norm_probs:
-                # Ignore overflow when computing the exponential. Large values
-                # in the exp produce a result of inf, which does not affect
-                # the correctness of the calculation (as 1/x->0 as x->inf).
-                # On Linux this does not actually trigger a warning, but on
-                # Windows this causes a RuntimeWarning, so we explicitly
-                # suppress it.
-                with np.errstate(over='ignore'):
-                    # legacy formula, there are possibly better alternatives
-                    pd = 1/np.exp(pd[None,:] - pd[:,None]).sum(1)
-            return pd
+    def _set_alias_pairs(self):
+        """(first, dupe) column pairs for labels appearing more than once."""
+        first, pairs = {}, []
+        for i, c in enumerate(self.nb_classes):
+            if c in first:
+                pairs.append((first[c], i))
+            else:
+                first[c] = i
+        self._alias_pairs = pairs
 
-        self.norm_probs = apply_norm_probs
-
-        # Maintain a reference to the full model, in case we change our language set
-        # multiple times.
-        self.__full_model = nb_ptc, nb_pc, nb_classes
+    @property
+    def labels(self):
+        "Distinct output labels; script aliases (srl->sr) share one."
+        return list(dict.fromkeys(self.nb_classes))
 
     def set_languages(self, langs=None):
+        """Restrict classification to *langs* (ISO 639 codes), or reset to all."""
         LOGGER.debug("restricting languages to: %s", langs)
-
-        # Unpack the full original model. This is needed in case the language set
-        # has been previously trimmed, and the new set is not a subset of the current
-        # set.
-        nb_ptc, nb_pc, nb_classes = self.__full_model
-
+        nb_ptc, nb_pc, nb_classes = self._full_model
         if langs is None:
             self.nb_classes, self.nb_ptc, self.nb_pc = nb_classes, nb_ptc, nb_pc
-
         else:
-            # We were passed a restricted set of languages. Trim the arrays accordingly
-            # to speed up processing.
-            for lang in langs:
-                if lang not in nb_classes:
-                    raise ValueError(f"Unknown language code {lang}")
+            lang_set = set(langs)
+            unknown = lang_set - set(nb_classes)
+            if unknown:
+                raise ValueError(f"Unknown language code(s): {unknown}")
 
-            subset_mask = np.isin(nb_classes, langs)
-            self.nb_classes = [c for c in nb_classes if c in langs]
-            self.nb_ptc = nb_ptc[:, subset_mask]
-            self.nb_pc = nb_pc[subset_mask]
+            indices = [i for i, c in enumerate(nb_classes) if c in lang_set]
+            self.nb_classes = [nb_classes[i] for i in indices]
+            self.nb_ptc = nb_ptc[:, indices]
+            self.nb_pc = nb_pc[indices]
+        self._set_alias_pairs()
 
-    def instance2fv(self, text, datatype=DATATYPE):
-        """
-        Map an instance into the feature space of the trained model.
-
-        @param datatype NumPy data type (originally uint32)
-        """
-        # convert to binary if it isn't already the case
+    @staticmethod
+    def _encode(text):
+        if isinstance(text, bytes):
+            decoded = decode_trimmed(text)
+            if decoded is not None:
+                text = decoded
         if isinstance(text, str):
-            # fix for surrogates on Windows/NT platforms
+            if text.isupper():
+                text = text.lower()
+            text = unicodedata.normalize('NFC', text)
             text = text.encode('utf8', errors='surrogatepass')
+        return text
 
-        # Convert the text to a sequence of ascii values and
-        # Count the number of times we enter each state
-        state, indexes = 0, []
-        extend = indexes.extend
+    def _sparse_score(self, visits, table):
+        """NB log-posterior from sparse {feature: count}."""
+        idx = np.fromiter(visits.keys(), dtype=np.intp, count=len(visits))
+        counts = np.fromiter(visits.values(), dtype=np.float32, count=len(visits))
+        return np.log1p(counts) @ table[idx] + self.nb_pc
 
-        for letter in text:
-            state = self.tk_nextmove[(state << 8) + letter]
-            extend(self.tk_output.get(state, []))
+    def _raw_score(self, text):
+        """Raw NB scores via DFA walk over encoded bytes."""
+        visits = visit_counts(self.tk_nextmove, self._rowbase, self.tk_output,
+                              text)
+        if visits:
+            return self._sparse_score(visits, self.nb_ptc)
 
-        # datatype: consider that less feature counts are going to be needed
-        arr = np.zeros(self.nb_numfeats, dtype=datatype)
-        # Update all the productions corresponding to the state
-        for index, value in Counter(indexes).items():
-            arr[index] = value
+        # no features: 0.0 under norm_probs (uniform → abstain), RAW_FLOOR otherwise
+        fill = 0.0 if self._norm_probs else RAW_FLOOR
+        return np.full(len(self.nb_classes), fill, dtype=np.float32)
 
-        return arr
+    def _decide(self, text):
+        """Score per class, optionally normalized to probabilities."""
+        text = self._encode(text)
+        scores = self._raw_score(text)
+        if self._norm_probs:
+            # T = sqrt(bytes) keeps softmax calibrated across lengths
+            scores *= 1.0 / math.sqrt(len(text) or 1)
+            np.exp(scores - scores.max(), out=scores)
+            scores /= scores.sum()
+        # aliased columns (srl->sr): fold the dupe into the first occurrence and
+        # mask it, so argmax and rank agree on one score per label
+        for i, j in self._alias_pairs:
+            if self._norm_probs:
+                scores[i] += scores[j]
+                scores[j] = 0.0
+            else:
+                scores[i] = max(scores[i], scores[j])
+                scores[j] = RAW_FLOOR
+        return scores
 
-    def nb_classprobs(self, fv):
-        # compute the partial log-probability of the document given each class
-        pdc = np.dot(fv, self.nb_ptc)  # fv @ self.nb_ptc
-        # compute the partial log-probability of the document in each class
-        return pdc + self.nb_pc
-
-    def classify(self, text, datatype=DATATYPE):
-        """
-        Classify an instance.
-        """
-        fv = self.instance2fv(text, datatype=datatype)
-        probs = self.norm_probs(self.nb_classprobs(fv))
-        cl = np.argmax(probs)
-        return self.nb_classes[cl], probs[cl]
+    def classify(self, text):
+        """Return *(language, confidence)* for *text* (str or UTF-8 bytes)."""
+        scores = self._decide(text)
+        i = int(scores.argmax())
+        conf = float(scores[i])
+        if self.min_confidence is not None and conf < self.min_confidence:
+            return 'und', conf
+        return self.nb_classes[i], conf
 
     def rank(self, text):
-        """
-        Return a list of languages in order of likelihood.
-        """
-        fv = self.instance2fv(text)
-        probs = self.norm_probs(self.nb_classprobs(fv))
-        return sorted(zip(self.nb_classes, probs), key=itemgetter(1), reverse=True)
-
-    def cl_path(self, path):
-        """
-        Classify a file at a given path
-        """
-        with open(path, 'rb') as f:
-            retval = self.classify(f.read())
-        return path, retval
-
-    def rank_path(self, path):
-        """
-        Class ranking for a file at a given path
-        """
-        with open(path, 'rb') as f:
-            retval = self.rank(f.read())
-        return path, retval
-
-
-def application(environ, start_response):
-    """
-    WSGI-compatible langid web service.
-    """
-    from wsgiref.util import shift_path_info
-    try:
-        path = shift_path_info(environ)
-    except IndexError:
-        # Catch shift_path_info's failure to handle empty paths properly
-        path = ''
-
-    if path in {'detect', 'rank'}:
-        data = None
-
-        # Extract the data component from different access methods
-        if environ['REQUEST_METHOD'] == 'PUT':
-            data = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
-        elif environ['REQUEST_METHOD'] == 'GET':
-            try:
-                data = parse_qs(environ['QUERY_STRING'])['q'][0]
-            except KeyError:
-                # No query, provide a null response.
-                status = '200 OK'  # HTTP Status
-                response = {
-                  'responseData': None,
-                  'responseStatus': 200,
-                  'responseDetails': None,
-                }
-        elif environ['REQUEST_METHOD'] == 'POST':
-            input_string = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
-            try:
-                data = parse_qs(input_string)['q'][0]
-            except KeyError:
-                # No key 'q', process the whole input instead
-                data = input_string
-        else:
-            # Unsupported method
-            status = '405 Method Not Allowed'  # HTTP Status
-            response = {
-                'responseData': None,
-                'responseStatus': 405,
-                'responseDetails': f"{environ['REQUEST_METHOD']} not allowed",
-            }
-
-        if data is not None:
-            if path == 'detect':
-                pred, conf = classify(data)
-                response_data = {'language': pred, 'confidence': conf}
-            elif path == 'rank':
-                response_data = rank(data)
-
-            status = '200 OK'  # HTTP Status
-            response = {
-              'responseData': response_data,
-              'responseStatus': 200,
-              'responseDetails': None,
-            }
-
-    else:
-        # Incorrect URL
-        status = '404 Not Found'
-        response = {'responseData': None, 'responseStatus': 404, 'responseDetails': 'Not found'}
-
-    headers = [('Content-type', 'text/javascript; charset=utf-8')]  # HTTP Headers
-    start_response(status, headers)
-    return [json.dumps(response)]
+        """All languages by likelihood, best first, one entry per label."""
+        merged = {}
+        for lang, score in zip(self.nb_classes, self._decide(text).tolist()):
+            merged.setdefault(lang, score)  # first column holds the merged score
+        return sorted(merged.items(), key=itemgetter(1), reverse=True)
 
 
 def main():
 
-    # lazy imports
     import argparse
     import sys
 
-    # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--serve', action='store_true', default=False, dest='serve', help='launch web service')
-    parser.add_argument('--host', default=None, dest='host', help='host/ip to bind to')
-    parser.add_argument('--port', default=9008, dest='port', help='port to listen on')
+    parser.add_argument('-s', '--serve', action='store_true', help='launch web service')
+    parser.add_argument('--host', help='host/ip to bind to')
+    parser.add_argument('--port', default=9008, type=int, help='port to listen on')
     parser.add_argument('-v', action='count', dest='verbosity', help='increase verbosity (repeat for greater effect)')
     parser.add_argument('-m', dest='model', help='load model from file')
-    parser.add_argument('-l', '--langs', dest='langs', help='comma-separated set of target ISO639 language codes (e.g en,de)')
-    parser.add_argument('-r', '--remote', action="store_true", default=False, help='auto-detect IP address for remote access')
-    parser.add_argument('-b', '--batch', action="store_true", default=False, help='specify a list of files on the command line')
-    parser.add_argument('-d', '--dist', action='store_true', default=False, help='show full distribution over languages')
-    parser.add_argument('-u', '--url', help='langid of URL')
-    parser.add_argument('--line', action="store_true", default=False, help='process pipes line-by-line rather than as a document')
-    parser.add_argument('-n', '--normalize', action='store_true', default=False, help='normalize confidence scores to probability values')
+    parser.add_argument('-l', '--langs', help='comma-separated set of target ISO639 language codes (e.g en,de)')
+    parser.add_argument('-r', '--remote', action='store_true', help='auto-detect IP address for remote access')
+    parser.add_argument('-b', '--batch', action='store_true', help='read file paths from stdin and classify in parallel')
+    parser.add_argument('-d', '--dist', action='store_true', help='show full distribution over languages')
+    parser.add_argument('-u', '--url', help='classify text from URL')
+    parser.add_argument('--line', action='store_true', help='process pipes line-by-line rather than as a document')
+    parser.add_argument('-n', '--normalize', action='store_true', help='normalize confidence scores to probability values')
     options = parser.parse_args()
 
     if options.verbosity:
@@ -382,29 +261,12 @@ def main():
     if options.batch and options.serve:
         parser.error("cannot specify both batch and serve at the same time")
 
-    # unpack a model
     global IDENTIFIER
 
-    if options.model:
-        try:
-            IDENTIFIER = LanguageIdentifier.from_modelpath(options.model, norm_probs=options.normalize)
-            LOGGER.info("Using external model: %s", options.model)
-        except IOError as e:
-            LOGGER.warning("Failed to load %s: %s", options.model, e)
+    langs = options.langs.split(",") if options.langs else None
+    IDENTIFIER = _load_identifier(options.model, options.normalize, langs)
 
-    if IDENTIFIER is None:
-        IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=options.normalize)
-        LOGGER.info("Using internal model")
-
-    if options.langs:
-        langs = options.langs.split(",")
-        IDENTIFIER.set_languages(langs)
-
-    def _process(text):
-        """
-        Set up a local function to do output, configured according to our settings.
-        """
-        return IDENTIFIER.rank(text) if options.dist else IDENTIFIER.classify(text)
+    _process = IDENTIFIER.rank if options.dist else IDENTIFIER.classify
 
     if options.url:
         from urllib.request import urlopen
@@ -417,62 +279,61 @@ def main():
         import socket
         from wsgiref.simple_server import make_server
 
-        # from http://stackoverflow.com/questions/166506/finding-local-ip-addresses-in-python
+        from .server import application
+
         if options.remote and options.host is None:
-            # resolve the external ip address
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("google.com", 80))
-            hostname = s.getsockname()[0]
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("google.com", 80))
+                hostname = s.getsockname()[0]
         elif options.host is None:
-            # resolve the local hostname
             hostname = socket.gethostbyname(socket.gethostname())
         else:
             hostname = options.host
 
-        print("Listening on %s:%d" % (hostname, int(options.port)))
+        print(f"Listening on {hostname}:{options.port}")
         print("Press Ctrl+C to exit")
-        httpd = make_server(hostname, int(options.port), application)
+        httpd = make_server(hostname, options.port, application)
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
             pass
 
     elif options.batch:
-        # Start in batch mode - interpret input as paths rather than content
-        # to classify.
         import csv
-        from multiprocessing import Pool
+        import multiprocessing as mp
+        from functools import partial
 
-        def generate_paths():
+        def paths():
             for line in sys.stdin:
-                path = line.strip()
-                if path and Path.is_file(path):
-                    yield path
+                p = line.strip()
+                if p and Path(p).is_file():
+                    yield p
 
-        writer = csv.writer(sys.stdout)
-        with Pool() as pool:
+        writer = csv.writer(sys.stdout, lineterminator='\n')
+        ctx = mp.get_context('fork') if sys.platform == 'darwin' else mp
+        with ctx.Pool(processes=mp.cpu_count(),
+                      initializer=_init_worker,
+                      initargs=(options.model, options.normalize, langs)) as pool:
             if options.dist:
-                writer.writerow(['path'] + IDENTIFIER.nb_classes)
-                for path, ranking in pool.imap_unordered(rank_path, generate_paths()):
-                    ranking = dict(ranking)
-                    row = [path] + [ranking[c] for c in IDENTIFIER.nb_classes]
+                header = IDENTIFIER.labels
+                writer.writerow(['path', 'language'] + header)
+                for path, ranking in pool.imap_unordered(partial(_process_file, dist=True), paths()):
+                    scores = dict(ranking)
+                    row = [path, ranking[0][0]] + [scores[c] for c in header]
                     writer.writerow(row)
             else:
-                for path, (lang, conf) in pool.imap_unordered(cl_path, generate_paths()):
+                for path, (lang, conf) in pool.imap_unordered(_process_file, paths()):
                     writer.writerow((path, lang, conf))
     else:
         if sys.stdin.isatty():
-            # Interactive mode
             while True:
                 try:
                     print(">>>", end=' ')
                     text = input()
-                except Exception as e:
-                    print(e)
+                except (KeyboardInterrupt, EOFError):
                     break
                 print(_process(text))
         else:
-            # Redirected
             if options.line:
                 for line in sys.stdin:
                     print(_process(line))

@@ -1,6 +1,6 @@
 """Unit tests for :class:`ErrorInjectionMiddleware` (Tier-12 PR 12.6 / PR 12.7).
 
-Pins the contract documented in ``src/notebooklm/_middleware/error_injection.py``
+Pins the contract documented in ``src/notebooklm/_web/transport/middleware/error_injection.py``
 and ADR-0009 §"Chain ordering":
 
 - **Pass-through when env var is unset.** The middleware delegates straight
@@ -30,7 +30,7 @@ canonical chain fixtures (``make_request`` and a one-shot terminal stub)
 rather than mocking the substitution logic. Activation is flipped via
 :func:`monkeypatch.setenv` against ``NOTEBOOKLM_VCR_RECORD_ERRORS`` so the
 production env-var resolution code path
-(:func:`notebooklm._error_injection._get_error_injection_mode`) is
+(:func:`notebooklm._web.transport.error_injection._get_error_injection_mode`) is
 exercised end-to-end. Tests that need substitution to fire pass
 ``builder=build_synthetic_error_response`` from
 ``tests.cassette_patterns`` explicitly into the middleware constructor —
@@ -43,15 +43,18 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from notebooklm._error_injection import ERROR_INJECT_ENV_VAR
-from notebooklm._middleware.core import NextCall, RpcRequest, RpcResponse, build_chain
-from notebooklm._middleware.error_injection import ErrorInjectionMiddleware
-from notebooklm._transport_errors import TransportRateLimited, TransportServerError
+from notebooklm._web.transport.error_injection import ERROR_INJECT_ENV_VAR
+from notebooklm._web.transport.errors import TransportRateLimited, TransportServerError
+from notebooklm._web.transport.middleware.context import RPC_CONTEXT_RESOURCE_EPOCH
+from notebooklm._web.transport.middleware.core import NextCall, RpcRequest, RpcResponse, build_chain
+from notebooklm._web.transport.middleware.error_injection import ErrorInjectionMiddleware
 
 # The ``tests/`` package chain is complete; ``tests._fixtures.chain`` is the
 # fully-qualified import path documented in ``tests/_fixtures/__init__.py``.
 from tests._fixtures.chain import make_request
 from tests.cassette_patterns import build_synthetic_error_response
+
+_TEST_EPOCH = 7
 
 
 def _static_terminal(response: httpx.Response) -> NextCall:
@@ -276,7 +279,7 @@ async def test_retry_outside_error_injection_retries_synthetic_429(
     returned response and Retry never saw it. With the exception-raising
     fix, Retry catches and retries N times before re-raising.
     """
-    from notebooklm._middleware.retry import RetryMiddleware
+    from notebooklm._web.transport.middleware.retry import RetryMiddleware
 
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, "429")
     slept: list[float] = []
@@ -308,7 +311,7 @@ async def test_retry_outside_error_injection_retries_synthetic_5xx(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """End-to-end: chain ``[Retry, ErrorInjection]`` retries synthetic 5xx too."""
-    from notebooklm._middleware.retry import RetryMiddleware
+    from notebooklm._web.transport.middleware.retry import RetryMiddleware
 
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, "5xx")
     slept: list[float] = []
@@ -361,13 +364,14 @@ async def test_auth_refresh_outside_error_injection_triggers_refresh_on_expired_
     ADR-0009 §"Retry semantics" means refresh runs exactly once and the
     second 400 propagates without recursion.
     """
-    from notebooklm._middleware.auth_refresh import AuthRefreshMiddleware
     from notebooklm._runtime.helpers import is_auth_error as auth_error_predicate
+    from notebooklm._web.transport.middleware.auth_refresh import AuthRefreshMiddleware
 
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, "expired_csrf")
     refresh_calls: list[None] = []
 
-    async def refresh() -> None:
+    async def refresh(expected_epoch: int) -> None:
+        assert expected_epoch == _TEST_EPOCH
         refresh_calls.append(None)
 
     auth_refresh = AuthRefreshMiddleware(
@@ -383,7 +387,14 @@ async def test_auth_refresh_outside_error_injection_triggers_refresh_on_expired_
     )
 
     with pytest.raises(httpx.HTTPStatusError) as excinfo:
-        await chain(make_request(context={"log_label": "RPC LIST_NOTEBOOKS"}))
+        await chain(
+            make_request(
+                context={
+                    "log_label": "RPC LIST_NOTEBOOKS",
+                    RPC_CONTEXT_RESOURCE_EPOCH: _TEST_EPOCH,
+                }
+            )
+        )
 
     # AuthRefresh caught the synthetic 400 from ErrorInjection and drove
     # ONE refresh — the retry leg's 400 propagates unchanged (exactly-once
@@ -406,13 +417,14 @@ async def test_auth_refresh_outside_error_injection_completes_when_env_flips_off
     chain returns 200 cleanly. This pins the full refresh-then-retry
     success path, not just the propagation path.
     """
-    from notebooklm._middleware.auth_refresh import AuthRefreshMiddleware
     from notebooklm._runtime.helpers import is_auth_error as auth_error_predicate
+    from notebooklm._web.transport.middleware.auth_refresh import AuthRefreshMiddleware
 
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, "expired_csrf")
     refresh_calls: list[None] = []
 
-    async def refresh() -> None:
+    async def refresh(expected_epoch: int) -> None:
+        assert expected_epoch == _TEST_EPOCH
         # Simulate a successful token rotation that disarms the injector
         # before the retry leg runs.
         refresh_calls.append(None)
@@ -430,7 +442,14 @@ async def test_auth_refresh_outside_error_injection_completes_when_env_flips_off
         _static_terminal(httpx.Response(200, content=b"after-refresh-success")),
     )
 
-    response = await chain(make_request(context={"log_label": "RPC LIST_NOTEBOOKS"}))
+    response = await chain(
+        make_request(
+            context={
+                "log_label": "RPC LIST_NOTEBOOKS",
+                RPC_CONTEXT_RESOURCE_EPOCH: _TEST_EPOCH,
+            }
+        )
+    )
 
     assert len(refresh_calls) == 1
     assert response.response.status_code == 200
@@ -535,7 +554,7 @@ async def test_activation_flip_between_calls_is_observed(
 
 def test_middleware_satisfies_protocol() -> None:
     """``ErrorInjectionMiddleware`` instance is assignable to ``Middleware``."""
-    from notebooklm._middleware.core import Middleware
+    from notebooklm._web.transport.middleware.core import Middleware
 
     middleware: Middleware = ErrorInjectionMiddleware()
     assert callable(middleware)
@@ -554,7 +573,7 @@ async def test_monkeypatch_setattr_on_get_error_injection_mode_is_live(
     module at call time, so ``monkeypatch.setattr(_error_injection,
     "_get_error_injection_mode", …)`` reaches the chain.
     """
-    from notebooklm import _error_injection as _eim_module
+    from notebooklm._web.transport import error_injection as _eim_module
 
     monkeypatch.delenv(ERROR_INJECT_ENV_VAR, raising=False)
     monkeypatch.setattr(_eim_module, "_get_error_injection_mode", lambda: "5xx")

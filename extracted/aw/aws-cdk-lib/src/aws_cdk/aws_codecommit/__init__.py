@@ -355,6 +355,15 @@ class CfnRepository(
         return typing.cast(builtins.str, jsii.get(self, "attrName"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrRepositoryId")
+    def attr_repository_id(self) -> builtins.str:
+        '''The ID of the repository.
+
+        :cloudformationAttribute: RepositoryId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRepositoryId"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))

@@ -3,51 +3,10 @@ use crate::common::{TestEnv, cmd_snapshot};
 mod common;
 
 #[test]
-fn list_builtins_basic() {
+fn list_builtins_defaults_to_verbose_output() {
     let context = TestEnv::new();
 
-    cmd_snapshot!(context, context.command().arg("util").arg("list-builtins"), @r"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-    check-added-large-files
-    check-case-conflict
-    check-executables-have-shebangs
-    check-illegal-windows-names
-    check-json
-    check-json5
-    check-merge-conflict
-    check-shebang-scripts-are-executable
-    check-symlinks
-    check-toml
-    check-vcs-permalinks
-    check-xml
-    check-yaml
-    deny-filename-pattern
-    deny-pattern
-    destroyed-symlinks
-    detect-private-key
-    end-of-file-fixer
-    file-contents-sorter
-    fix-byte-order-marker
-    forbid-new-submodules
-    mixed-line-ending
-    no-commit-to-branch
-    pretty-format-json
-    require-filename-pattern
-    require-pattern
-    requirements-txt-fixer
-    trailing-whitespace
-
-    ----- stderr -----
-    ");
-}
-
-#[test]
-fn list_builtins_verbose() {
-    let context = TestEnv::new();
-
-    cmd_snapshot!(context, context.command().arg("util").arg("list-builtins").arg("--verbose"), @r#"
+    cmd_snapshot!(context, context.command().arg("util").arg("list-builtins"), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -98,6 +57,7 @@ fn list_builtins_verbose() {
       Checks YAML files for parseable syntax.
       flags:
         -m, --allow-multiple-documents  Allow multiple YAML documents [alias: --multi]
+            --disallow-unknown-tags     Reject unrecognized YAML tags
             --unsafe                    Parse YAML syntax without loading it. Implies
                                         `--allow-multiple-documents`
 

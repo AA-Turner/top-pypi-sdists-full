@@ -124,7 +124,7 @@ from tests.vcr_config import notebooklm_vcr
 pytestmark = [pytest.mark.vcr, skip_no_cassettes]
 
 CASSETTE_NAME = "research_deep_poll_long.yaml"
-CASSETTE_PATH = Path(__file__).parent.parent / "cassettes" / CASSETTE_NAME
+CASSETTE_PATH = Path(__file__).parent.parent / "cassettes" / "web" / CASSETTE_NAME
 
 # Minimum POLL_RESEARCH interactions the cassette must contain to be
 # meaningful. A full-lifecycle recording reaches ``completed`` after several
@@ -502,7 +502,7 @@ class TestDeepResearchPollReplay:
         """
         # Imported here (not at module top) to keep the decode/parse
         # dependency local to this cassette-inspection helper.
-        from notebooklm._research_task_parser import parse_research_task_models
+        from notebooklm._web.rows.research_task import parse_research_task_models
         from notebooklm.rpc import decode_response
 
         assert CASSETTE_PATH.exists(), (

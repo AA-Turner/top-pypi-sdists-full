@@ -24,7 +24,8 @@ from rich.padding import Padding
 from rich.text import Text
 
 from siliconcompiler import NodeStatus
-from siliconcompiler.utils.logging import SCColorLoggerFormatter
+from siliconcompiler.utils.logging import SCColorLoggerFormatter, SCConsoleQuietFilter, \
+    SC_LOG, SC_LOGERROR
 from siliconcompiler.utils.paths import workdir
 from siliconcompiler.flowgraph import RuntimeFlowgraph
 from siliconcompiler.utils.units import format_time
@@ -157,6 +158,10 @@ class LogBufferHandler(logging.Handler):
         super().__init__()
         self._parent = parent
         self._formatter_source = formatter_source
+
+        # The log pane stands in for the terminal while the dashboard owns the
+        # screen, so it drops whatever ['option', 'quiet'] muted.
+        self.addFilter(SCConsoleQuietFilter())
 
         self.__logger_unicode_map = logger_unicode_map
         if self.__logger_unicode_map:
@@ -346,7 +351,10 @@ class Board:
             logging.getLevelName(logging.INFO): "ℹ️",
             logging.getLevelName(logging.WARNING): "⚠️",
             logging.getLevelName(logging.ERROR): "🚫",
-            logging.getLevelName(logging.CRITICAL): "🚨"
+            logging.getLevelName(logging.CRITICAL): "🚨",
+            # Output the tool itself produced, on stdout and on stderr.
+            logging.getLevelName(SC_LOG): "📜",
+            logging.getLevelName(SC_LOGERROR): "❌"
         },
         "node": {
             NodeType.ENTRY: "🏠",
@@ -434,7 +442,7 @@ class Board:
         self._log_handler = LogBuffer(self._log_handler_queue, n=120, event=self._render_event)
 
         # Sleep time for the dashboard
-        self._dwell = 0.1
+        self._dwell = 0.2
 
         self._metrics = ("warnings", "errors")
 
@@ -932,15 +940,22 @@ class Board:
         def update_data():
             try:
                 self._update_rendable_data()
-            except:  # noqa E722
-                # Catch any multiprocessing errors
+            except Exception:
+                # Broad on purpose. stop() tears the session down around this
+                # thread -- it sets the stop event, stops the keyboard and stops
+                # the live display while the loop may still be mid-pass, and the
+                # finally below calls this again on the way out. Whatever a
+                # half-torn-down session raises, a shutdown is not worth a cascade
+                # of errors on the way to the exit; stop() itself guards every
+                # console call the same way.
                 pass
 
         def check_stop_event():
             try:
                 return self._render_stop_event.is_set()
-            except:  # noqa E722
-                # Catch any multiprocessing errors
+            except Exception:
+                # See update_data: if this cannot be answered the session is going
+                # away, so stop.
                 return True
 
         def data_changed():
@@ -951,8 +966,9 @@ class Board:
             # (data changes fire _render_event too).
             try:
                 return self._board_info.data_modified
-            except:  # noqa E722
-                # Catch any multiprocessing errors
+            except Exception:
+                # See update_data. update_data re-checks the flag under the lock,
+                # so a lost peek only skips one reload.
                 return False
 
         try:
@@ -969,14 +985,17 @@ class Board:
                 # The render event wakes us for both new log lines and job-data
                 # changes; it also bounds the wait to ~_dwell so timers keep
                 # ticking. We repaint on every wake, but only reload job data
-                # (the locked, proxy-heavy update_data) when data_modified is
+                # (the locked read+copy in update_data) when data_modified is
                 # actually set -- a log-only wake just repaints, draining new
                 # lines via get_lines().
+                now = time.time()
+                dwell = self._dwell
                 try:
-                    if self._render_event.wait(timeout=self._dwell):
+                    if self._render_event.wait(timeout=dwell):
                         self._render_event.clear()
-                except:  # noqa E722
-                    # Catch any multiprocessing errors
+                except Exception:
+                    # See update_data: without the event there is nothing left to
+                    # wake this loop, so leave it.
                     break
 
                 self._handle_keyboard()
@@ -987,7 +1006,10 @@ class Board:
                 if data_changed():
                     update_data()
                 self.live.update(self._get_rendable(), refresh=True)
-                time.sleep(self._dwell)
+
+                dwell = dwell - (time.time() - now)
+                if dwell > 0:
+                    time.sleep(dwell)
 
         finally:
             update_data()
@@ -1040,8 +1062,8 @@ class Board:
 
     def _update_rendable_data(self):
         """
-        Transfers job data from the shared multiprocessing dictionary to the
-        local render data object, aggregating session-wide statistics.
+        Transfers job data from the in-process job dictionary to the local render
+        data object, aggregating session-wide statistics.
         """
         jobs = {}
         with self._job_data_lock:

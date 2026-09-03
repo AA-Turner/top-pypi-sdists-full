@@ -5,8 +5,7 @@ import logging
 
 import pytest
 
-from notebooklm.exceptions import DecodingError
-from notebooklm.rpc.decoder import (
+from notebooklm._web.wire.decoder import (
     _RPCS_OBSERVED_SWALLOWING_A_STATUS,
     AuthError,
     ClientError,
@@ -25,6 +24,7 @@ from notebooklm.rpc.decoder import (
     reset_byte_count_mismatch_total,
     strip_anti_xssi,
 )
+from notebooklm.exceptions import DecodingError
 from notebooklm.rpc.types import RPCMethod
 from tests._fixtures.rpc_error_frames import (
     CREATE_ARTIFACT_METHOD_ID,
@@ -33,6 +33,12 @@ from tests._fixtures.rpc_error_frames import (
     LIVE_REVISE_SLIDE_NOT_FOUND_BODY,
     USER_DISPLAYABLE_RATE_LIMIT_STATUS,
 )
+
+
+def test_decoder_keeps_legacy_logger_name() -> None:
+    from notebooklm._web.wire import decoder as decoder_module
+
+    assert decoder_module.logger.name == "notebooklm.rpc.decoder"
 
 
 class TestStripAntiXSSI:
@@ -507,7 +513,7 @@ class TestExtractRPCResult:
 
         REMOVE_RECENTLY_VIEWED legitimately returns `[13]` at index 5 as part
         of a successful no-op response the caller opts into with
-        allow_null=True (see tests/cassettes/notebooks_remove_from_recent.yaml).
+        allow_null=True (see tests/cassettes/web/notebooks_remove_from_recent.yaml).
         Don't raise in that case.
         """
         chunk = json.dumps(
@@ -1300,7 +1306,7 @@ class TestDeepNestingRecursionGuard:
         overflow is injected deterministically instead of relying on a magic
         nesting depth.
         """
-        import notebooklm.rpc.decoder as decoder_module
+        import notebooklm._web.wire.decoder as decoder_module
 
         poisoned = '[["poisoned"]]'
         real_loads = json.loads
@@ -1355,7 +1361,7 @@ class TestDeepNestingRecursionGuard:
         existing unparseable-payload fallback (raw string) instead of
         propagating RecursionError out of decode_response.
         """
-        import notebooklm.rpc.decoder as decoder_module
+        import notebooklm._web.wire.decoder as decoder_module
 
         poisoned_inner = "[" * 40 + "]" * 40
         real_loads = json.loads
@@ -1764,7 +1770,7 @@ class TestRaiseOnNullStatus:
         """Unchanged for every caller that did not opt in.
 
         ``REMOVE_RECENTLY_VIEWED`` answers ``[13]`` on what the client treats as
-        a successful no-op (tests/cassettes/notebooks_remove_from_recent.yaml),
+        a successful no-op (tests/cassettes/web/notebooks_remove_from_recent.yaml),
         so blanket strictness would have broken a recorded interaction.
         """
         for code in (3, 5, 7, 13, 16):

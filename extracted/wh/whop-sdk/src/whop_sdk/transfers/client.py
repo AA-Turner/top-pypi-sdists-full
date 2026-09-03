@@ -99,7 +99,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -187,7 +187,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -229,7 +229,7 @@ class TransfersClient:
             The account sending the money: a company account ID (`biz_`), or a user ID (`user_`) for that user's own personal balance.
 
         query : typing.Optional[str]
-            Search anyone on Whop by name or username, plus your own accounts by name or ID. Omit it to get the team around the balance, the people you follow, and your own accounts. The list is the same whether the balance belongs to a company or to you. Searching from a `biz_` origin additionally requires the member:basic:read scope. A credential scoped to a single company is the exception to the search itself: it only ever sees that company's own people. Complete email addresses return no matches.
+            Search anyone on Whop by name or username, plus your own accounts by name or ID. An exact business ID (`biz_`) returns that business first. Omit it to get the team around the balance, the people you follow, and your own accounts. The list is the same whether the balance belongs to a company or to you. Searching from a `biz_` origin additionally requires the member:basic:read scope. A credential scoped to a single company is the exception to the search itself: it only ever sees that company's own people. Complete email addresses return no matches.
 
         first : typing.Optional[int]
             Number of recipients per page. Search queries preserve the dashboard's 20-result maximum.
@@ -250,7 +250,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -291,7 +291,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -383,7 +383,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -480,7 +480,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -528,7 +528,7 @@ class AsyncTransfersClient:
             The account sending the money: a company account ID (`biz_`), or a user ID (`user_`) for that user's own personal balance.
 
         query : typing.Optional[str]
-            Search anyone on Whop by name or username, plus your own accounts by name or ID. Omit it to get the team around the balance, the people you follow, and your own accounts. The list is the same whether the balance belongs to a company or to you. Searching from a `biz_` origin additionally requires the member:basic:read scope. A credential scoped to a single company is the exception to the search itself: it only ever sees that company's own people. Complete email addresses return no matches.
+            Search anyone on Whop by name or username, plus your own accounts by name or ID. An exact business ID (`biz_`) returns that business first. Omit it to get the team around the balance, the people you follow, and your own accounts. The list is the same whether the balance belongs to a company or to you. Searching from a `biz_` origin additionally requires the member:basic:read scope. A credential scoped to a single company is the exception to the search itself: it only ever sees that company's own people. Complete email addresses return no matches.
 
         first : typing.Optional[int]
             Number of recipients per page. Search queries preserve the dashboard's 20-result maximum.
@@ -551,7 +551,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -601,7 +601,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

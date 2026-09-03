@@ -74,7 +74,8 @@ class TestDistill:
         r = boost("distill", "tdd-workflow", "cowboy-coding")
         assert ("distilling tdd-workflow, cowboy-coding → "
                 "tdd-workflow-distilled") in r.out
-        assert FALLBACK in flat(r.out)
+        assert FALLBACK not in flat(r.out)
+        assert FALLBACK in flat(r.err)
         assert "install it with `boost import ./tdd-workflow-distilled`" in r.out
         text = (tmp_path / "tdd-workflow-distilled" / "SKILL.md").read_text(encoding="utf-8")
         meta, body = frontmatter.parse(text)
@@ -112,6 +113,31 @@ class TestDistill:
         entry = lock["skills"]["tdd-workflow-distilled"]
         assert entry["tap"] == "local"
         assert entry["version"] == "1.0.0"
+
+    def test_install_replaces_an_existing_unpinned_skill_when_confirmed(
+            self, boost, installed):
+        # `installed` already put brainstorming on disk from the fixture tap —
+        # BOOST_ASSUME_YES (the sandbox default) auto-confirms the replace.
+        r = boost("distill", "tdd-workflow", "commit-messages", "-o",
+                  "brainstorming", "--install")
+        assert "replaced brainstorming" in r.out
+        lock = json.loads(paths.lockfile_path().read_text(encoding="utf-8"))
+        entry = lock["skills"]["brainstorming"]
+        assert entry["tap"] == "local"
+        assert entry["version"] == "1.0.0"
+
+    def test_install_declined_leaves_the_existing_skill_and_saves_the_generation(
+            self, boost, installed, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("BOOST_ASSUME_YES")
+        r = boost("distill", "tdd-workflow", "commit-messages", "-o",
+                  "brainstorming", "--install")
+        assert "not installed: brainstorming is already installed from fixture-tap" in r.out
+        assert "generated skill saved to" in r.out
+        fallback = tmp_path / "brainstorming.SKILL.md"
+        assert fallback.is_file()
+        lock = json.loads(paths.lockfile_path().read_text(encoding="utf-8"))
+        assert lock["skills"]["brainstorming"]["tap"] == "fixture-tap"
 
     def test_refused_install_saves_the_generation_instead_of_losing_it(
             self, boost, tapped, tmp_path, monkeypatch):
@@ -156,7 +182,8 @@ class TestDistill:
         monkeypatch.chdir(tmp_path)
         ai_on(ask_author=None)
         r = boost("distill", "tdd-workflow", "cowboy-coding")
-        assert FALLBACK in flat(r.out)
+        assert FALLBACK not in flat(r.out)
+        assert FALLBACK in flat(r.err)
         assert (tmp_path / "tdd-workflow-distilled" / "SKILL.md").is_file()
 
     def test_needs_two_distinct_skills(self, boost, tapped):
@@ -188,7 +215,8 @@ class TestSimulate:
         r = boost("simulate", "tdd-workflow")
         assert "simulating tdd-workflow" in r.out
         assert "(tap fixture-tap)" in r.out
-        assert FALLBACK in flat(r.out)
+        assert FALLBACK not in flat(r.out)
+        assert FALLBACK in flat(r.err)
         assert "a typical coding task in this repo" in r.out
         assert "Without it: default behavior" in r.out
         assert "With tdd-workflow active, Claude would:" in r.out
@@ -228,8 +256,12 @@ def py_project(tmp_path):
 class TestInfer:
     def test_template_to_stdout(self, boost, sandbox, py_project):
         r = boost("infer", "--path", py_project)
-        assert FALLBACK in flat(r.out)
-        meta, _ = frontmatter.parse(r.out.split("heuristic fallback", 1)[1].lstrip())
+        # The AI-fallback note must never land on stdout: `boost infer >
+        # SKILL.md` writes stdout verbatim to a file, and a warning ahead of
+        # the frontmatter would corrupt it.
+        assert FALLBACK not in flat(r.out)
+        assert FALLBACK in flat(r.err)
+        meta, _ = frontmatter.parse(r.out)
         assert meta["name"] == "project-conventions"
         assert meta["description"] == "Working conventions for this repository (python)"
         assert meta["version"] == "1.0.0"
@@ -279,6 +311,17 @@ class TestInfer:
         r = boost("infer", "--path", "/nope/nowhere", expect=1)
         assert "is not a directory" in r.err
 
+    def test_unwritable_output_path_is_framed_not_a_crash(
+            self, boost, sandbox, py_project, tmp_path):
+        # -o pointed through a path component that is a file, not a
+        # directory: the mkdir/write used to run unguarded, so this escaped
+        # as a raw NotADirectoryError -> exit 70 crash report.
+        blocker = tmp_path / "not-a-dir"
+        blocker.write_text("", encoding="utf-8")
+        out_file = blocker / "nope" / "SKILL.md"
+        r = boost("infer", "--path", py_project, "-o", out_file, expect=1)
+        assert str(out_file) in r.err
+
 
 # ---------------------------------------------------------------- absorb
 
@@ -291,6 +334,14 @@ class TestAbsorb:
         r = boost("absorb")
         assert "no chat history found under ~/.claude — nothing to absorb" in r.out
         assert "--history PATH" in r.out
+
+    def test_limit_must_be_positive_int(self, boost, sandbox):
+        # --limit 0 used to slice every recurring pattern away and fabricate
+        # "no recurring patterns" even when some were found.
+        r = boost("absorb", "--limit", "0", expect=2)
+        assert "must be >= 1" in r.err
+        r = boost("absorb", "--limit", "-1", expect=2)
+        assert "must be >= 1" in r.err
 
     def test_pattern_surfaced_from_projects_dir(self, boost, sandbox):
         hist = sandbox / ".claude" / "projects" / "proj"
@@ -307,9 +358,13 @@ class TestAbsorb:
         lines += [_history_line("ok") for _ in range(5)]  # trivial: too short
         (hist / "chat.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
         r = boost("absorb")
-        assert "recurring patterns from 1 history file(s)" in r.out
-        assert "always run the linter before committing" in r.out
-        assert "4x" in r.out
+        # Without --install, stdout carries the generated SKILL.md alone
+        # (`boost absorb > SKILL.md` must not corrupt it) — the patterns
+        # report goes to stderr instead.
+        assert "recurring patterns from 1 history file(s)" in r.err
+        assert "always run the linter before committing" in r.err
+        assert "4x" in r.err
+        assert "recurring patterns from 1 history file(s)" not in r.out
         assert "- Always run the linter before committing. (seen 4x)" in r.out
         assert "name: absorbed-patterns" in r.out
 
@@ -428,7 +483,7 @@ class TestContext:
         assert "feature/*" in r.out and "tdd-workflow" in r.out
         r = boost("context", "status", "--json")
         assert json.loads(r.out) == {
-            "enabled": False, "branch": None,
+            "enabled": False, "branch": None, "git": True,
             "rules": [{"pattern": "feature/*", "skills": ["tdd-workflow"]}]}
         r = boost("context", "unmap", "feature/*")
         assert "unmapped feature/*" in r.out
@@ -501,8 +556,28 @@ class TestContext:
     def test_apply_outside_repo(self, boost, sandbox, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         r = boost("context", "apply")
-        assert "context is disabled (`boost context enable`) — applying anyway" in r.out
+        assert ("context is disabled (`boost context enable`) — applying anyway"
+                in r.err)
         assert "not inside a git repository — nothing to apply" in r.out
+
+    def test_status_and_apply_report_missing_git_binary_distinctly(
+            self, boost, sandbox, tmp_path, monkeypatch):
+        # A repo that genuinely has no branch must not be worded the same as
+        # a machine with no `git` on PATH — the CLI audit found both cases
+        # collapsed into the same "(not in a git repository)" text.
+        from boost_cli.core import gitutil
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gitutil, "has_git", lambda: False)
+
+        r = boost("context", "status")
+        assert "(git not found on PATH)" in r.out
+        assert "not in a git repository" not in r.out
+        r = boost("context", "status", "--json")
+        assert json.loads(r.out)["git"] is False
+        assert json.loads(r.out)["branch"] is None
+
+        r = boost("context", "apply")
+        assert "git not found on PATH — nothing to apply" in r.out
 
 
 # ---------------------------------------------------------------- focus
@@ -549,13 +624,13 @@ class TestFocus:
 
 class TestImpact:
     def test_no_skills_installed(self, boost, sandbox, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
+        monkeypatch.chdir(tmp_path)  # not a git repo
         r = boost("impact")
         assert "no skills installed — nothing to measure" in r.out
         r = boost("impact", "--json")
         assert json.loads(r.out) == {
-            "note": "correlation, not causation — commits since install in "
-                    "this repo", "skills": []}
+            "note": "not inside a git repository — commit counts unavailable",
+            "git": True, "skills": []}
 
     def test_table_outside_repo_uses_dash(self, boost, installed, tmp_path,
                                           monkeypatch):
@@ -566,14 +641,26 @@ class TestImpact:
         row = next(l for l in r.out.splitlines()
                    if l.startswith("brainstorming"))
         assert "—" in row
-        assert FALLBACK in flat(r.out)
-        assert "correlation, not causation" in r.out
+        assert FALLBACK not in flat(r.out)
+        assert FALLBACK in flat(r.err)
+        # outside a repo the note says why the count is missing, rather than
+        # the in-repo correlation caveat that made no sense without one.
+        assert "not inside a git repository — commit counts unavailable" in r.out
+        assert "correlation, not causation" not in r.out
+        r = boost("impact", "brainstorming", "--json")
+        data = json.loads(r.out)
+        assert data["note"] == "not inside a git repository — commit counts unavailable"
+        assert data["git"] is True
+        assert data["skills"][0]["commits_since"] is None
 
     def test_named_in_repo_json(self, boost, installed, tmp_path, monkeypatch):
         repo = _git_repo(tmp_path / "repo")
         monkeypatch.chdir(repo)
         r = boost("impact", "brainstorming", "--json")
         data = json.loads(r.out)
+        assert data["note"] == ("correlation, not causation — commits since "
+                                "install in this repo")
+        assert data["git"] is True
         assert data["skills"][0]["skill"] == "brainstorming"
         # the repo's one (empty) commit was created after the install
         assert data["skills"][0]["commits_since"] == 1
@@ -581,6 +668,18 @@ class TestImpact:
         assert data["skills"][0]["events"] == 1
         r = boost("impact", "brainstorming")
         assert "files touched" in r.out
+        assert "correlation, not causation" in r.out
+
+    def test_no_git_binary_reports_note_and_json_flag(
+            self, boost, installed, tmp_path, monkeypatch):
+        from boost_cli.core import gitutil
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gitutil, "has_git", lambda: False)
+        r = boost("impact", "brainstorming", "--json")
+        data = json.loads(r.out)
+        assert data["git"] is False
+        assert data["note"] == "not inside a git repository — commit counts unavailable"
+        assert data["skills"][0]["commits_since"] is None
 
     def test_unknown(self, boost, installed):
         r = boost("impact", "ghost", expect=1)

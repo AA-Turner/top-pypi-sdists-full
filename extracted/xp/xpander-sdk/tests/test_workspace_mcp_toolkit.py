@@ -247,14 +247,19 @@ def bridge_args(client: _FakeClient) -> dict:
 
 # ===== start-failure notes carry the workspace's classified reason =====
 
+
 def test_failure_reason_extracts_http_detail():
-    from xpander_sdk.modules.backend.frameworks.agno import _workspace_mcp_failure_reason
+    from xpander_sdk.modules.backend.frameworks.agno import (
+        _workspace_mcp_failure_reason,
+    )
 
     class _Resp:
         text = ""
 
         def json(self):
-            return {"detail": "'x' exited before completing the MCP handshake - the command must be a long-running stdio MCP server, not an installer or one-shot tool"}
+            return {
+                "detail": "'x' exited before completing the MCP handshake - the command must be a long-running stdio MCP server, not an installer or one-shot tool"
+            }
 
     err = Exception("502 Bad Gateway")
     err.response = _Resp()
@@ -264,6 +269,35 @@ def test_failure_reason_extracts_http_detail():
 
 
 def test_failure_reason_empty_for_bare_errors():
-    from xpander_sdk.modules.backend.frameworks.agno import _workspace_mcp_failure_reason
+    from xpander_sdk.modules.backend.frameworks.agno import (
+        _workspace_mcp_failure_reason,
+    )
 
     assert _workspace_mcp_failure_reason(Exception("boom")) == ""
+
+
+async def test_connect_sends_a_startup_timeout_to_the_bridge(bridge):
+    await _toolkit().connect()
+
+    payload = bridge.calls[0]["payload"]
+    assert payload["timeout"] == workspace_mcp.STARTUP_TIMEOUT
+
+
+async def test_a_hung_bridge_times_out_with_a_clear_error(monkeypatch):
+    import asyncio
+
+    class _HungClient:
+        async def make_request(self, *a, **k):
+            await asyncio.sleep(999)
+
+    monkeypatch.setattr(
+        workspace_mcp, "APIClient", lambda configuration=None: _HungClient()
+    )
+    monkeypatch.setattr(workspace_mcp, "STARTUP_TIMEOUT", 0)
+    monkeypatch.setattr(workspace_mcp, "STARTUP_GRACE", 0.2)
+
+    with pytest.raises(TimeoutError) as exc:
+        await _toolkit().connect()
+
+    assert "did not answer within" in str(exc.value)
+    assert "next run" in str(exc.value)

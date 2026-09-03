@@ -112,6 +112,7 @@ class CfnChannel(
             output_header_configuration=mediapackagev2.CfnChannel.OutputHeaderConfigurationProperty(
                 publish_mqcs=False
             ),
+            output_locking_mode="outputLockingMode",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -130,6 +131,7 @@ class CfnChannel(
         input_switch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_type: typing.Optional[builtins.str] = None,
         output_header_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_locking_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaPackageV2::Channel``.
@@ -142,6 +144,7 @@ class CfnChannel(
         :param input_switch_configuration: The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
         :param input_type: The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest. If unprovided, it will default to HLS to preserve current behavior. The allowed values are: - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments). - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
         :param output_header_configuration: The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
+        :param output_locking_mode: 
         :param tags: 
         '''
         if __debug__:
@@ -155,6 +158,7 @@ class CfnChannel(
             input_switch_configuration=input_switch_configuration,
             input_type=input_type,
             output_header_configuration=output_header_configuration,
+            output_locking_mode=output_locking_mode,
             tags=tags,
         )
 
@@ -370,6 +374,18 @@ class CfnChannel(
             type_hints = cached_type_hints(_typecheckingstub__6cd874b506cfe4b7e50b6cfa6b36888413d69d5ce0a7f4649d690587ed70c417)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputHeaderConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="outputLockingMode")
+    def output_locking_mode(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "outputLockingMode"))
+
+    @output_locking_mode.setter
+    def output_locking_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8b0e6a1c2745ba5fb190a154adb302935e42d339e40c230f00ba81bae0e6bd8a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "outputLockingMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1166,6 +1182,7 @@ class CfnChannelPolicyProps:
         "input_switch_configuration": "inputSwitchConfiguration",
         "input_type": "inputType",
         "output_header_configuration": "outputHeaderConfiguration",
+        "output_locking_mode": "outputLockingMode",
         "tags": "tags",
     },
 )
@@ -1179,6 +1196,7 @@ class CfnChannelProps:
         input_switch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_type: typing.Optional[builtins.str] = None,
         output_header_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_locking_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnChannel``.
@@ -1189,6 +1207,7 @@ class CfnChannelProps:
         :param input_switch_configuration: The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
         :param input_type: The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest. If unprovided, it will default to HLS to preserve current behavior. The allowed values are: - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments). - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
         :param output_header_configuration: The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
+        :param output_locking_mode: 
         :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html
@@ -1215,6 +1234,7 @@ class CfnChannelProps:
                 output_header_configuration=mediapackagev2.CfnChannel.OutputHeaderConfigurationProperty(
                     publish_mqcs=False
                 ),
+                output_locking_mode="outputLockingMode",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -1229,6 +1249,7 @@ class CfnChannelProps:
             check_type(argname="argument input_switch_configuration", value=input_switch_configuration, expected_type=type_hints["input_switch_configuration"])
             check_type(argname="argument input_type", value=input_type, expected_type=type_hints["input_type"])
             check_type(argname="argument output_header_configuration", value=output_header_configuration, expected_type=type_hints["output_header_configuration"])
+            check_type(argname="argument output_locking_mode", value=output_locking_mode, expected_type=type_hints["output_locking_mode"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_group_name": channel_group_name,
@@ -1242,6 +1263,8 @@ class CfnChannelProps:
             self._values["input_type"] = input_type
         if output_header_configuration is not None:
             self._values["output_header_configuration"] = output_header_configuration
+        if output_locking_mode is not None:
+            self._values["output_locking_mode"] = output_locking_mode
         if tags is not None:
             self._values["tags"] = tags
 
@@ -1311,6 +1334,14 @@ class CfnChannelProps:
         '''
         result = self._values.get("output_header_configuration")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputHeaderConfigurationProperty"]], result)
+
+    @builtins.property
+    def output_locking_mode(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-outputlockingmode
+        '''
+        result = self._values.get("output_locking_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -1530,6 +1561,7 @@ class CfnOriginEndpoint(
                     key_rotation_interval_seconds=123
                 ),
                 include_iframe_only_streams=False,
+                output_timestamp_mode="outputTimestampMode",
                 scte=mediapackagev2.CfnOriginEndpoint.ScteProperty(
                     custom_ad_types=["customAdTypes"],
                     scte_filter=["scteFilter"],
@@ -1975,7 +2007,9 @@ class CfnOriginEndpoint(
     class DashAvailabilityStartTimeConfigurationProperty:
         def __init__(self, *, fixed_availability_start_time: builtins.str) -> None:
             '''
-            :param fixed_availability_start_time: 
+            Use this configuration to set a custom availability start time for your DASH manifest.
+
+            :param fixed_availability_start_time:  The value must have hourly granularity, meaning that the minutes, seconds, and fractional seconds must be zero. The value must be on or after 2024-01-01T00:00:00Z and must be at least 14 days before the current time.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashavailabilitystarttimeconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2000,6 +2034,8 @@ class CfnOriginEndpoint(
         @builtins.property
         def fixed_availability_start_time(self) -> builtins.str:
             '''
+            The value must have hourly granularity, meaning that the minutes, seconds, and fractional seconds must be zero. The value must be on or after 2024-01-01T00:00:00Z and must be at least 14 days before the current time.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashavailabilitystarttimeconfiguration.html#cfn-mediapackagev2-originendpoint-dashavailabilitystarttimeconfiguration-fixedavailabilitystarttime
             '''
             result = self._values.get("fixed_availability_start_time")
@@ -2444,7 +2480,7 @@ class CfnOriginEndpoint(
 
             :param manifest_name: A short string that's appended to the endpoint URL. The child manifest name creates a unique path to this endpoint.
             :param audio_timeline_pattern: 
-            :param availability_start_time_configuration: 
+            :param availability_start_time_configuration:  Use this configuration to set a custom availability start time for your DASH manifest.
             :param base_urls: The base URLs to use for retrieving segments.
             :param compactness: The layout of the DASH manifest that MediaPackage produces. ``STANDARD`` indicates a default manifest, which is compacted. ``NONE`` indicates a full manifest. For information about compactness, see `DASH manifest compactness <https://docs.aws.amazon.com/mediapackage/latest/userguide/compacted.html>`_ in the *AWS Elemental MediaPackage v2 User Guide* .
             :param drm_signaling: Determines how the DASH manifest signals the DRM content.
@@ -2630,6 +2666,8 @@ class CfnOriginEndpoint(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty"]]:
             '''
+            Use this configuration to set a custom availability start time for your DASH manifest.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-availabilitystarttimeconfiguration
             '''
             result = self._values.get("availability_start_time_configuration")
@@ -4526,6 +4564,7 @@ class CfnOriginEndpoint(
         name_mapping={
             "encryption": "encryption",
             "include_iframe_only_streams": "includeIframeOnlyStreams",
+            "output_timestamp_mode": "outputTimestampMode",
             "scte": "scte",
             "segment_duration_seconds": "segmentDurationSeconds",
             "segment_name": "segmentName",
@@ -4539,6 +4578,7 @@ class CfnOriginEndpoint(
             *,
             encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             include_iframe_only_streams: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            output_timestamp_mode: typing.Optional[builtins.str] = None,
             scte: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ScteProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             segment_duration_seconds: typing.Optional[jsii.Number] = None,
             segment_name: typing.Optional[builtins.str] = None,
@@ -4549,6 +4589,7 @@ class CfnOriginEndpoint(
 
             :param encryption: Whether to use encryption for the segment.
             :param include_iframe_only_streams: Whether the segment includes I-frame-only streams.
+            :param output_timestamp_mode: 
             :param scte: The SCTE-35 configuration associated with the segment.
             :param segment_duration_seconds: The duration of the segment, in seconds.
             :param segment_name: The name of the segment associated with the origin endpoint.
@@ -4591,6 +4632,7 @@ class CfnOriginEndpoint(
                         key_rotation_interval_seconds=123
                     ),
                     include_iframe_only_streams=False,
+                    output_timestamp_mode="outputTimestampMode",
                     scte=mediapackagev2.CfnOriginEndpoint.ScteProperty(
                         custom_ad_types=["customAdTypes"],
                         scte_filter=["scteFilter"],
@@ -4606,6 +4648,7 @@ class CfnOriginEndpoint(
                 type_hints = cached_type_hints(_typecheckingstub__99efb585c0a363a79f96102145e602f3f91887f61fac7a746b16b243ae503d48)
                 check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
                 check_type(argname="argument include_iframe_only_streams", value=include_iframe_only_streams, expected_type=type_hints["include_iframe_only_streams"])
+                check_type(argname="argument output_timestamp_mode", value=output_timestamp_mode, expected_type=type_hints["output_timestamp_mode"])
                 check_type(argname="argument scte", value=scte, expected_type=type_hints["scte"])
                 check_type(argname="argument segment_duration_seconds", value=segment_duration_seconds, expected_type=type_hints["segment_duration_seconds"])
                 check_type(argname="argument segment_name", value=segment_name, expected_type=type_hints["segment_name"])
@@ -4616,6 +4659,8 @@ class CfnOriginEndpoint(
                 self._values["encryption"] = encryption
             if include_iframe_only_streams is not None:
                 self._values["include_iframe_only_streams"] = include_iframe_only_streams
+            if output_timestamp_mode is not None:
+                self._values["output_timestamp_mode"] = output_timestamp_mode
             if scte is not None:
                 self._values["scte"] = scte
             if segment_duration_seconds is not None:
@@ -4648,6 +4693,14 @@ class CfnOriginEndpoint(
             '''
             result = self._values.get("include_iframe_only_streams")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def output_timestamp_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-segment.html#cfn-mediapackagev2-originendpoint-segment-outputtimestampmode
+            '''
+            result = self._values.get("output_timestamp_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def scte(
@@ -5598,6 +5651,7 @@ class CfnOriginEndpointProps:
                         key_rotation_interval_seconds=123
                     ),
                     include_iframe_only_streams=False,
+                    output_timestamp_mode="outputTimestampMode",
                     scte=mediapackagev2.CfnOriginEndpoint.ScteProperty(
                         custom_ad_types=["customAdTypes"],
                         scte_filter=["scteFilter"],
@@ -5841,6 +5895,7 @@ def _typecheckingstub__f5f12d43fb05232f03795c27e5dde1f408f5762e93edacb27e01efb9e
     input_switch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_type: typing.Optional[builtins.str] = None,
     output_header_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    output_locking_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5902,6 +5957,12 @@ def _typecheckingstub__1fd45bf182a4bcd922fc7964817a4166c9d667e78eb548b915896743c
 
 def _typecheckingstub__6cd874b506cfe4b7e50b6cfa6b36888413d69d5ce0a7f4649d690587ed70c417(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.OutputHeaderConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b0e6a1c2745ba5fb190a154adb302935e42d339e40c230f00ba81bae0e6bd8a(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6061,6 +6122,7 @@ def _typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1
     input_switch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_type: typing.Optional[builtins.str] = None,
     output_header_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    output_locking_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6415,6 +6477,7 @@ def _typecheckingstub__99efb585c0a363a79f96102145e602f3f91887f61fac7a746b16b243a
     *,
     encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     include_iframe_only_streams: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    output_timestamp_mode: typing.Optional[builtins.str] = None,
     scte: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ScteProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_duration_seconds: typing.Optional[jsii.Number] = None,
     segment_name: typing.Optional[builtins.str] = None,

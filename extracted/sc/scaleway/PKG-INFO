@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scaleway
-Version: 2.11.0
+Version: 2.12.0
 Summary: Scaleway SDK for Python
 License: BSD
 Author: Scaleway
@@ -25,7 +25,7 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development
-Requires-Dist: scaleway-core (==2.11.0)
+Requires-Dist: scaleway-core (==2.12.0)
 Description-Content-Type: text/markdown
 
 # Scaleway Python SDK

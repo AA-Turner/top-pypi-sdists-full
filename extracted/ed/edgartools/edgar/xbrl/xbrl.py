@@ -12,6 +12,7 @@ organizing facts according to presentation hierarchies, validating calculations,
 and handling dimensional qualifiers.
 """
 import datetime
+import re
 from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
@@ -30,7 +31,7 @@ from edgar.config import VERBOSE_EXCEPTIONS
 from edgar.core import log
 from edgar.richtools import repr_rich
 from edgar.xbrl.core import STANDARD_LABEL, STANDARD_TAXONOMIES, split_element_id
-from edgar.xbrl.models import PresentationNode
+from edgar.xbrl.models import Axis, Domain, PresentationNode
 from edgar.xbrl.parsers import XBRLParser
 from edgar.xbrl.period_selector import select_periods
 from edgar.xbrl.periods import get_period_views
@@ -38,6 +39,58 @@ from edgar.xbrl.rendering import RenderedStatement, generate_rich_representation
 from edgar.exceptions import NotFoundError
 from edgar.xbrl.statement_resolver import StatementResolver
 from edgar.xbrl.statements import statement_to_concepts
+
+
+# The word "note" carries two unrelated meanings in a role definition: the
+# financial-statement section, and the debt instrument ("notes payable",
+# "convertible notes").  A role that declares itself a disclosure is one even
+# when notes are its subject, which is what these two helpers separate
+# (issue #1207).
+
+# EDGAR role definitions carry an explicit category segment:
+# "0011 - Disclosure - Promissory Notes Payable".  When the schema definition is
+# missing, the role name stands in for it and the same marker leads it:
+# "DisclosurePromissoryNotesPayable".
+_ROLE_CATEGORY_MARKER = 'disclosure'
+
+# The concept a disclosure role hangs from, e.g. us-gaap_DebtDisclosureAbstract.
+# Matches the Disclosures concept patterns in statement_resolver.py.
+_DISCLOSURE_CONCEPT_RE = re.compile(r"disclosures?abstract$", re.IGNORECASE)
+
+# The section sense of the word, kept deliberately generous: a definition that
+# matches here keeps the classification it already had, so a false positive
+# costs nothing while a false negative would move a real note.
+_NOTES_SECTION_RE = re.compile(
+    r"notes?\s*to\s*[\w\s',&-]*financial\s*statements?"  # Notes to Consolidated Financial Statements
+    r"|notes?\s*\d"                                      # Note 7 - Income Taxes
+    r"|footnotes?"                                       # Footnotes
+    r"|(?:^|\s-\s)notes?$"                               # a role titled only "Notes"
+)
+
+
+def _declares_disclosure(role_def: str, primary_concept: str) -> bool:
+    """Whether a role states that it is a disclosure, rather than merely
+    mentioning the word.
+
+    Args:
+        role_def: Role definition, lowercased.
+        primary_concept: The role's first presentation node.
+    """
+    if _DISCLOSURE_CONCEPT_RE.search(primary_concept or ''):
+        return True
+    if any(part.strip() == _ROLE_CATEGORY_MARKER for part in role_def.split(' - ')):
+        return True
+    return role_def.startswith(_ROLE_CATEGORY_MARKER)
+
+
+def _names_notes_section(role_def: str) -> bool:
+    """Whether a role definition names the notes to the financial statements,
+    as opposed to using "note" as the subject of a disclosure.
+
+    Args:
+        role_def: Role definition, lowercased.
+    """
+    return bool(_NOTES_SECTION_RE.search(role_def))
 
 
 def _capture_sgml_period_of_report(xbrl: "XBRL", filing) -> None:
@@ -350,6 +403,52 @@ class XBRL:
         return self.parser.domains
 
     @property
+    def axes_by_role(self):
+        """Axes grouped by the extended link role that declares them."""
+        return self.parser.axes_by_role
+
+    @property
+    def domains_by_role(self):
+        """Domains grouped by the extended link role that declares them."""
+        return self.parser.domains_by_role
+
+    def axes_for_role(self, role_uri: str) -> Dict[str, Axis]:
+        """
+        The axes declared for one statement role, keyed on element ID.
+
+        Prefer this over ``xbrl.axes`` whenever the role is known. An axis can
+        be attached to a different domain in each role it appears in, so
+        ``xbrl.axes`` can only offer a merged answer.
+
+        Args:
+            role_uri: The extended link role URI
+
+        Returns:
+            Mapping of element ID to Axis, empty if the role has no definition
+            linkbase.
+        """
+        return self.parser.axes_for_role(role_uri)
+
+    def domains_for_role(self, role_uri: str) -> Dict[str, Domain]:
+        """
+        The domains declared for one statement role, keyed on element ID.
+
+        Prefer this over ``xbrl.domains`` whenever the role is known. The same
+        domain routinely carries different members in different roles — Apple's
+        ``srt_ProductsAndServicesDomain`` splits revenue two ways on the income
+        statement and five ways in the revenue note — so ``xbrl.domains`` can
+        only offer the union.
+
+        Args:
+            role_uri: The extended link role URI
+
+        Returns:
+            Mapping of element ID to Domain, empty if the role has no
+            definition linkbase.
+        """
+        return self.parser.domains_for_role(role_uri)
+
+    @property
     def entity_info(self):
         return self.parser.entity_info
 
@@ -414,13 +513,14 @@ class XBRL:
             )
             menucat = self._filing_summary_menu_categories.get(role_uri)
 
-            for element_id, node in tree.all_nodes.items():
-                if node.parent is None:
-                    # Root node — no arc to emit.
-                    continue
+            # One row per filed edge. Iterating all_nodes would emit one row
+            # per concept, which silently drops the second and later parents of
+            # a concept that rolls up into more than one total.
+            for arc in tree.all_arcs:
+                element_id = arc.child_id
 
                 concept_tax, concept_local = split_element_id(element_id)
-                parent_tax, parent_local = split_element_id(node.parent)
+                parent_tax, parent_local = split_element_id(arc.parent_id)
 
                 elem = self.element_catalog.get(element_id)
                 is_abstract = bool(elem.abstract) if elem else False
@@ -436,7 +536,7 @@ class XBRL:
                     'concept_taxonomy': concept_tax,
                     'parent_concept': parent_local,
                     'parent_taxonomy': parent_tax,
-                    'weight': node.weight,
+                    'weight': arc.weight,
                     'role_uri': role_uri,
                     'role_short': role_short,
                     'menucat': menucat,
@@ -1010,9 +1110,33 @@ class XBRL:
 
             # Fall back to keyword-based patterns for notes and disclosures
             if not statement_type:
-                if 'us-gaap_NotesToFinancialStatementsAbstract' in primary_concept or 'note' in role_def:
+                if 'us-gaap_NotesToFinancialStatementsAbstract' in primary_concept:
                     statement_type = "Notes"
                     statement_category = "note"
+                elif 'note' in role_def:
+                    # The bare keyword cannot tell the notes to the financial
+                    # statements from a disclosure whose subject happens to be
+                    # notes payable, so a role that declares itself a disclosure
+                    # is taken at its word unless the definition names the notes
+                    # section itself (issue #1207).
+                    #
+                    # Known limitation (issue #1218): this decides one role at a
+                    # time, and in a filing that falls back to role names the
+                    # members of one family do not all carry the same evidence.
+                    # gahc's `ConvertiblePromissoryNotesPayable` hangs from
+                    # us-gaap_DebtDisclosureAbstract and moves; its `Tables` and
+                    # `ScheduleOf...` children hang from a debt-balance abstract
+                    # and their names do not lead with the marker, so they stay
+                    # notes and the family splits across the two accessors. A
+                    # role with a real schema definition - the case in #1207 -
+                    # carries ` - Disclosure - ` on every member, so those move
+                    # together.
+                    if _names_notes_section(role_def) or not _declares_disclosure(role_def, primary_concept):
+                        statement_type = "Notes"
+                        statement_category = "note"
+                    else:
+                        statement_type = "Disclosures"
+                        statement_category = "disclosure"
                 elif 'us-gaap_DisclosuresAbstract' in primary_concept or 'disclosure' in role_def:
                     statement_type = "Disclosures"
                     statement_category = "disclosure"

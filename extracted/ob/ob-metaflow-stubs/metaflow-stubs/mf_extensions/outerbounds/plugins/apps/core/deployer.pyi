@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-28T18:11:58.372790                                                            #
+# Generated on 2026-09-02T23:51:38.055589                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
     import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
     import datetime
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
 
@@ -52,7 +52,7 @@ CODE_PACKAGE_PREFIX: str
 
 UNASSIGNED_PROJECT_BRANCH: str
 
-def bake_image(pypi: typing.Union[typing.Dict[str, str], None] = None, conda: typing.Union[typing.Dict[str, str], None] = None, requirements_file: typing.Union[str, None] = None, pyproject_toml: typing.Union[str, None] = None, base_image: typing.Union[str, None] = None, python: typing.Union[str, None] = None, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None, cache_name: typing.Union[str, None] = None) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.BakedImage:
+def bake_image(pypi: typing.Union[typing.Dict[str, str], None] = None, conda: typing.Union[typing.Dict[str, str], None] = None, anaconda: typing.Union[typing.Dict[str, str], None] = None, requirements_file: typing.Union[str, None] = None, pyproject_toml: typing.Union[str, None] = None, base_image: typing.Union[str, None] = None, python: typing.Union[str, None] = None, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None, cache_name: typing.Union[str, None] = None, extra_configs: typing.Union[dict, None] = None) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.BakedImage:
     """
     Bake a Docker image with the specified dependencies.
     
@@ -67,6 +67,10 @@ def bake_image(pypi: typing.Union[typing.Dict[str, str], None] = None, conda: ty
         Mutually exclusive with requirements_file and pyproject_toml.
     conda : Dict[str, str], optional
         Dictionary of Conda packages to install.
+    anaconda : Dict[str, Any], optional
+        Dictionary of Anaconda packages to install, mutually exclusive with
+        pypi, conda, requirements_file and pyproject_toml. Keys are package
+        names and values are version specifiers (str)
     requirements_file : str, optional
         Path to a requirements.txt file.
         Mutually exclusive with pypi and pyproject_toml.

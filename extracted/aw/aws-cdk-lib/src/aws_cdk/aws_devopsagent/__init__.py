@@ -902,6 +902,537 @@ class CfnAgentSpaceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_devopsagent_be4b7b05.IAssetRef)
+class CfnAsset(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_devopsagent.CfnAsset",
+):
+    '''Resource Type definition for AWS::DevOpsAgent::Asset.
+
+    An asset attached to an existing AWS DevOps Agent Space. Customer-creatable types include skill, agents_md, and attachment; call ListAssetTypes for the current authoritative set.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-asset.html
+    :cloudformationResource: AWS::DevOpsAgent::Asset
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_devopsagent as devopsagent
+        
+        # metadata: Any
+        
+        cfn_asset = devopsagent.CfnAsset(self, "MyCfnAsset",
+            agent_space_id="agentSpaceId",
+            asset_type="assetType",
+        
+            # the properties below are optional
+            files=[devopsagent.CfnAsset.AssetFileProperty(
+                path="path",
+        
+                # the properties below are optional
+                content_bytes="contentBytes",
+                content_text="contentText",
+                metadata=metadata
+            )],
+            metadata=metadata,
+            zip="zip"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        agent_space_id: builtins.str,
+        asset_type: builtins.str,
+        files: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAsset.AssetFileProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metadata: typing.Any = None,
+        zip: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::DevOpsAgent::Asset``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param agent_space_id: The unique identifier of the parent Agent Space. The asset is created as a child of this agent space.
+        :param asset_type: The type of asset. The Asset API treats this as an open string; call ListAssetTypes for the current authoritative set of supported types. As of launch, customer-creatable types include skill, agents_md, and attachment.
+        :param files: Inline file list. Mutually exclusive with Zip; enforced by the handler at Create/Update time. Write-only: not repopulated by Read.
+        :param metadata: Asset metadata document. Required and optional keys depend on AssetType. Values may be strings, numbers, booleans, or lists of any of those - validated server-side; see the public Asset API docs for the per-type metadata schema.
+        :param zip: Base64-encoded zip bundle containing all files for the asset. Mutually exclusive with Files; enforced by the handler at Create/Update time. Write-only: not repopulated by Read. Server treats a zip as 'replace all files' (max 6 MiB).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__62e6508d9420414c56ad90e75a1851d6ee7d16bf622d98b10276dbad430a2bd8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAssetProps(
+            agent_space_id=agent_space_id,
+            asset_type=asset_type,
+            files=files,
+            metadata=metadata,
+            zip=zip,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAsset")
+    @builtins.classmethod
+    def arn_for_asset(
+        cls,
+        resource: "_aws_devopsagent_be4b7b05.IAssetRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7fd8d74c7889fd9317efce16598d28f2742e1fd2d3818e1d22f5663ade92c0fd)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAsset", [resource]))
+
+    @jsii.member(jsii_name="isCfnAsset")
+    @builtins.classmethod
+    def is_cfn_asset(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAsset.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__38ffa5fce03e4f91c2f25c2143328e4db03eb8feb1e1cfc1e2188b9666c8a310)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAsset", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c57f22b09a3f13071a62d51fe22b9234f8d8eefd15ef52aaab826d9b88182784)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__035fdbc2d6694ccdcf5596b6634f8d91f75db5172675f50bf9d56589a010b8f4)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="assetRef")
+    def asset_ref(self) -> "_aws_devopsagent_be4b7b05.AssetReference":
+        '''A reference to a Asset resource.'''
+        return typing.cast("_aws_devopsagent_be4b7b05.AssetReference", jsii.get(self, "assetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the asset.
+
+        Nested under the parent Agent Space: arn::aidevops:::agentspace//asset/.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssetId")
+    def attr_asset_id(self) -> builtins.str:
+        '''The unique identifier of the asset (assigned by the service on Create).
+
+        :cloudformationAttribute: AssetId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAssetId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the asset was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the asset was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> jsii.Number:
+        '''The current asset version.
+
+        Server-managed; bumps on every successful Update (including no-op updates). This is the drift signal for change detection.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentSpaceId")
+    def agent_space_id(self) -> builtins.str:
+        '''The unique identifier of the parent Agent Space.'''
+        return typing.cast(builtins.str, jsii.get(self, "agentSpaceId"))
+
+    @agent_space_id.setter
+    def agent_space_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7636d15d15773a37b27a55d2853c1d3c40523f8d31f591bba7a9bc8996402e5c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "agentSpaceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="assetType")
+    def asset_type(self) -> builtins.str:
+        '''The type of asset.'''
+        return typing.cast(builtins.str, jsii.get(self, "assetType"))
+
+    @asset_type.setter
+    def asset_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a306f0455bf4b3587ba28c7cea27264bfb853ac46208c3459af19f1138fa15f2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "assetType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metadata")
+    def metadata(self) -> typing.Any:
+        '''Asset metadata document.'''
+        return typing.cast(typing.Any, jsii.get(self, "metadata"))
+
+    @metadata.setter
+    def metadata(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a140dfd5bc68aebf83b245c2abd5c11954febdc3bfc81c20652c25570055680)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="files")
+    def files(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAsset.AssetFileProperty"]]]]:
+        '''Inline file list.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAsset.AssetFileProperty"]]]], jsii.get(self, "files"))
+
+    @files.setter
+    def files(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAsset.AssetFileProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__45c1ba38621c37d82b46920248940685954157a8d006766d50a42a1dec68cc1e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "files", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="zip")
+    def zip(self) -> typing.Optional[builtins.str]:
+        '''Base64-encoded zip bundle containing all files for the asset.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "zip"))
+
+    @zip.setter
+    def zip(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ff37ca13d55b83a40180104863c9434c862545d08c5afd44c7b9cdcd1ffdb5aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "zip", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAsset.AssetFileProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "path": "path",
+            "content_bytes": "contentBytes",
+            "content_text": "contentText",
+            "metadata": "metadata",
+        },
+    )
+    class AssetFileProperty:
+        def __init__(
+            self,
+            *,
+            path: builtins.str,
+            content_bytes: typing.Optional[builtins.str] = None,
+            content_text: typing.Optional[builtins.str] = None,
+            metadata: typing.Any = None,
+        ) -> None:
+            '''A single file inside an Asset's bundle.
+
+            Path is the diff key on update; Content is write-only and not repopulated by Read.
+
+            :param path: Path of this file within the asset bundle.
+            :param content_bytes: Base64-encoded binary contents of the file. Mutually exclusive with ContentText (max 6 MiB).
+            :param content_text: UTF-8 text contents of the file. Mutually exclusive with ContentBytes (max 1.5 MiB).
+            :param metadata: Per-file metadata document. Values may be strings, numbers, booleans, or lists of any of those (validated server-side).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-asset-assetfile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # metadata: Any
+                
+                asset_file_property = devopsagent.CfnAsset.AssetFileProperty(
+                    path="path",
+                
+                    # the properties below are optional
+                    content_bytes="contentBytes",
+                    content_text="contentText",
+                    metadata=metadata
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9f49687615fb9c344ca496873c00f2b9397870a989a46caa44fab48f94827d53)
+                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+                check_type(argname="argument content_bytes", value=content_bytes, expected_type=type_hints["content_bytes"])
+                check_type(argname="argument content_text", value=content_text, expected_type=type_hints["content_text"])
+                check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "path": path,
+            }
+            if content_bytes is not None:
+                self._values["content_bytes"] = content_bytes
+            if content_text is not None:
+                self._values["content_text"] = content_text
+            if metadata is not None:
+                self._values["metadata"] = metadata
+
+        @builtins.property
+        def path(self) -> builtins.str:
+            '''Path of this file within the asset bundle.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-asset-assetfile.html#cfn-devopsagent-asset-assetfile-path
+            '''
+            result = self._values.get("path")
+            assert result is not None, "Required property 'path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def content_bytes(self) -> typing.Optional[builtins.str]:
+            '''Base64-encoded binary contents of the file.
+
+            Mutually exclusive with ContentText (max 6 MiB).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-asset-assetfile.html#cfn-devopsagent-asset-assetfile-contentbytes
+            '''
+            result = self._values.get("content_bytes")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def content_text(self) -> typing.Optional[builtins.str]:
+            '''UTF-8 text contents of the file.
+
+            Mutually exclusive with ContentBytes (max 1.5 MiB).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-asset-assetfile.html#cfn-devopsagent-asset-assetfile-contenttext
+            '''
+            result = self._values.get("content_text")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def metadata(self) -> typing.Any:
+            '''Per-file metadata document.
+
+            Values may be strings, numbers, booleans, or lists of any of those (validated server-side).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-asset-assetfile.html#cfn-devopsagent-asset-assetfile-metadata
+            '''
+            result = self._values.get("metadata")
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AssetFileProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_space_id": "agentSpaceId",
+        "asset_type": "assetType",
+        "files": "files",
+        "metadata": "metadata",
+        "zip": "zip",
+    },
+)
+class CfnAssetProps:
+    def __init__(
+        self,
+        *,
+        agent_space_id: builtins.str,
+        asset_type: builtins.str,
+        files: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAsset.AssetFileProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metadata: typing.Any = None,
+        zip: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAsset``.
+
+        :param agent_space_id: The unique identifier of the parent Agent Space. The asset is created as a child of this agent space.
+        :param asset_type: The type of asset. The Asset API treats this as an open string; call ListAssetTypes for the current authoritative set of supported types. As of launch, customer-creatable types include skill, agents_md, and attachment.
+        :param files: Inline file list. Mutually exclusive with Zip; enforced by the handler at Create/Update time. Write-only: not repopulated by Read.
+        :param metadata: Asset metadata document. Required and optional keys depend on AssetType. Values may be strings, numbers, booleans, or lists of any of those - validated server-side; see the public Asset API docs for the per-type metadata schema.
+        :param zip: Base64-encoded zip bundle containing all files for the asset. Mutually exclusive with Files; enforced by the handler at Create/Update time. Write-only: not repopulated by Read. Server treats a zip as 'replace all files' (max 6 MiB).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-asset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devopsagent as devopsagent
+            
+            # metadata: Any
+            
+            cfn_asset_props = devopsagent.CfnAssetProps(
+                agent_space_id="agentSpaceId",
+                asset_type="assetType",
+            
+                # the properties below are optional
+                files=[devopsagent.CfnAsset.AssetFileProperty(
+                    path="path",
+            
+                    # the properties below are optional
+                    content_bytes="contentBytes",
+                    content_text="contentText",
+                    metadata=metadata
+                )],
+                metadata=metadata,
+                zip="zip"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ed74d9df2ba4a93eb865029d26115d3e50ec27294b5561ac5375bd984197a43)
+            check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
+            check_type(argname="argument asset_type", value=asset_type, expected_type=type_hints["asset_type"])
+            check_type(argname="argument files", value=files, expected_type=type_hints["files"])
+            check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            check_type(argname="argument zip", value=zip, expected_type=type_hints["zip"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_space_id": agent_space_id,
+            "asset_type": asset_type,
+        }
+        if files is not None:
+            self._values["files"] = files
+        if metadata is not None:
+            self._values["metadata"] = metadata
+        if zip is not None:
+            self._values["zip"] = zip
+
+    @builtins.property
+    def agent_space_id(self) -> builtins.str:
+        '''The unique identifier of the parent Agent Space.
+
+        The asset is created as a child of this agent space.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-asset.html#cfn-devopsagent-asset-agentspaceid
+        '''
+        result = self._values.get("agent_space_id")
+        assert result is not None, "Required property 'agent_space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_type(self) -> builtins.str:
+        '''The type of asset.
+
+        The Asset API treats this as an open string; call ListAssetTypes for the current authoritative set of supported types. As of launch, customer-creatable types include skill, agents_md, and attachment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-asset.html#cfn-devopsagent-asset-assettype
+        '''
+        result = self._values.get("asset_type")
+        assert result is not None, "Required property 'asset_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def files(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAsset.AssetFileProperty"]]]]:
+        '''Inline file list.
+
+        Mutually exclusive with Zip; enforced by the handler at Create/Update time. Write-only: not repopulated by Read.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-asset.html#cfn-devopsagent-asset-files
+        '''
+        result = self._values.get("files")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAsset.AssetFileProperty"]]]], result)
+
+    @builtins.property
+    def metadata(self) -> typing.Any:
+        '''Asset metadata document.
+
+        Required and optional keys depend on AssetType. Values may be strings, numbers, booleans, or lists of any of those - validated server-side; see the public Asset API docs for the per-type metadata schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-asset.html#cfn-devopsagent-asset-metadata
+        '''
+        result = self._values.get("metadata")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def zip(self) -> typing.Optional[builtins.str]:
+        '''Base64-encoded zip bundle containing all files for the asset.
+
+        Mutually exclusive with Files; enforced by the handler at Create/Update time. Write-only: not repopulated by Read. Server treats a zip as 'replace all files' (max 6 MiB).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-asset.html#cfn-devopsagent-asset-zip
+        '''
+        result = self._values.get("zip")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_devopsagent_be4b7b05.IAssociationRef)
 class CfnAssociation(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4493,7 +5024,9 @@ class CfnService(
             service_type="serviceType",
         
             # the properties below are optional
+            exchange_url_private_connection_name="exchangeUrlPrivateConnectionName",
             kms_key_arn="kmsKeyArn",
+            private_connection_name="privateConnectionName",
             service_details=devopsagent.CfnService.ServiceDetailsProperty(
                 azure_identity=devopsagent.CfnService.AzureIdentityServiceDetailsProperty(
                     client_id="clientId",
@@ -4651,7 +5184,8 @@ class CfnService(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            target_url_private_connection_name="targetUrlPrivateConnectionName"
         )
     '''
 
@@ -4661,18 +5195,24 @@ class CfnService(
         id: builtins.str,
         *,
         service_type: builtins.str,
+        exchange_url_private_connection_name: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        private_connection_name: typing.Optional[builtins.str] = None,
         service_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_url_private_connection_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::DevOpsAgent::Service``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param service_type: The type of service being registered.
+        :param exchange_url_private_connection_name: The name of the private connection to use for OAuth token exchange requests only. Cannot be specified when PrivateConnectionName is provided.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
+        :param private_connection_name: The name of the private connection to use for VPC connectivity.
         :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
         :param tags: An array of key-value pairs to apply to this resource.
+        :param target_url_private_connection_name: The name of the private connection to use for API calls (target URL) only. Cannot be specified when PrivateConnectionName is provided.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__76700bf71c0ca9d7d21edc970f56dd1c8a41f67b248c3228096feb30580cca07)
@@ -4680,9 +5220,12 @@ class CfnService(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceProps(
             service_type=service_type,
+            exchange_url_private_connection_name=exchange_url_private_connection_name,
             kms_key_arn=kms_key_arn,
+            private_connection_name=private_connection_name,
             service_details=service_details,
             tags=tags,
+            target_url_private_connection_name=target_url_private_connection_name,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -4857,6 +5400,22 @@ class CfnService(
         jsii.set(self, "serviceType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="exchangeUrlPrivateConnectionName")
+    def exchange_url_private_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the private connection to use for OAuth token exchange requests only.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "exchangeUrlPrivateConnectionName"))
+
+    @exchange_url_private_connection_name.setter
+    def exchange_url_private_connection_name(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__46c63e3540851b3e95123c320f4637e43611a3d0e13aba8eb2cb583841d9f6aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "exchangeUrlPrivateConnectionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
         '''The ARN of the KMS key to use for encryption.'''
@@ -4868,6 +5427,19 @@ class CfnService(
             type_hints = cached_type_hints(_typecheckingstub__e3ab3739f548aec69137bae335dee8322f36ef0dcddbdf6693dea63fc64500cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateConnectionName")
+    def private_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the private connection to use for VPC connectivity.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateConnectionName"))
+
+    @private_connection_name.setter
+    def private_connection_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd785ef0a512fafa3dfa79caf4a70ddcb6e2f2f9236834ec36da53afb806bb27)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateConnectionName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="serviceDetails")
@@ -4902,6 +5474,22 @@ class CfnService(
             type_hints = cached_type_hints(_typecheckingstub__6618cd62adcc1e863b754d59ca807f0c557b1efa334823690aa1f3f9465528a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetUrlPrivateConnectionName")
+    def target_url_private_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the private connection to use for API calls (target URL) only.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetUrlPrivateConnectionName"))
+
+    @target_url_private_connection_name.setter
+    def target_url_private_connection_name(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2b41a1716d6094a4ddb8db8af445a21c46086e27bfba019a57523682093a6248)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetUrlPrivateConnectionName", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.AdditionalServiceDetailsProperty",
@@ -8667,9 +9255,12 @@ class CfnService(
     jsii_struct_bases=[],
     name_mapping={
         "service_type": "serviceType",
+        "exchange_url_private_connection_name": "exchangeUrlPrivateConnectionName",
         "kms_key_arn": "kmsKeyArn",
+        "private_connection_name": "privateConnectionName",
         "service_details": "serviceDetails",
         "tags": "tags",
+        "target_url_private_connection_name": "targetUrlPrivateConnectionName",
     },
 )
 class CfnServiceProps:
@@ -8677,16 +9268,22 @@ class CfnServiceProps:
         self,
         *,
         service_type: builtins.str,
+        exchange_url_private_connection_name: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        private_connection_name: typing.Optional[builtins.str] = None,
         service_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_url_private_connection_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnService``.
 
         :param service_type: The type of service being registered.
+        :param exchange_url_private_connection_name: The name of the private connection to use for OAuth token exchange requests only. Cannot be specified when PrivateConnectionName is provided.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
+        :param private_connection_name: The name of the private connection to use for VPC connectivity.
         :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
         :param tags: An array of key-value pairs to apply to this resource.
+        :param target_url_private_connection_name: The name of the private connection to use for API calls (target URL) only. Cannot be specified when PrivateConnectionName is provided.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html
         :exampleMetadata: fixture=_generated
@@ -8704,7 +9301,9 @@ class CfnServiceProps:
                 service_type="serviceType",
             
                 # the properties below are optional
+                exchange_url_private_connection_name="exchangeUrlPrivateConnectionName",
                 kms_key_arn="kmsKeyArn",
+                private_connection_name="privateConnectionName",
                 service_details=devopsagent.CfnService.ServiceDetailsProperty(
                     azure_identity=devopsagent.CfnService.AzureIdentityServiceDetailsProperty(
                         client_id="clientId",
@@ -8862,24 +9461,34 @@ class CfnServiceProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                target_url_private_connection_name="targetUrlPrivateConnectionName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a12adbc62e2ac0f5b7caf0c232882e56ee71ed33922d8b268e225ddc848413f6)
             check_type(argname="argument service_type", value=service_type, expected_type=type_hints["service_type"])
+            check_type(argname="argument exchange_url_private_connection_name", value=exchange_url_private_connection_name, expected_type=type_hints["exchange_url_private_connection_name"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument private_connection_name", value=private_connection_name, expected_type=type_hints["private_connection_name"])
             check_type(argname="argument service_details", value=service_details, expected_type=type_hints["service_details"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_url_private_connection_name", value=target_url_private_connection_name, expected_type=type_hints["target_url_private_connection_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_type": service_type,
         }
+        if exchange_url_private_connection_name is not None:
+            self._values["exchange_url_private_connection_name"] = exchange_url_private_connection_name
         if kms_key_arn is not None:
             self._values["kms_key_arn"] = kms_key_arn
+        if private_connection_name is not None:
+            self._values["private_connection_name"] = private_connection_name
         if service_details is not None:
             self._values["service_details"] = service_details
         if tags is not None:
             self._values["tags"] = tags
+        if target_url_private_connection_name is not None:
+            self._values["target_url_private_connection_name"] = target_url_private_connection_name
 
     @builtins.property
     def service_type(self) -> builtins.str:
@@ -8892,12 +9501,32 @@ class CfnServiceProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def exchange_url_private_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the private connection to use for OAuth token exchange requests only.
+
+        Cannot be specified when PrivateConnectionName is provided.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-exchangeurlprivateconnectionname
+        '''
+        result = self._values.get("exchange_url_private_connection_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
         '''The ARN of the KMS key to use for encryption.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-kmskeyarn
         '''
         result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def private_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the private connection to use for VPC connectivity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-privateconnectionname
+        '''
+        result = self._values.get("private_connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -8922,6 +9551,17 @@ class CfnServiceProps:
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
+    @builtins.property
+    def target_url_private_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the private connection to use for API calls (target URL) only.
+
+        Cannot be specified when PrivateConnectionName is provided.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-targeturlprivateconnectionname
+        '''
+        result = self._values.get("target_url_private_connection_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -8934,15 +9574,523 @@ class CfnServiceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_devopsagent_be4b7b05.ITriggerRef)
+class CfnTrigger(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_devopsagent.CfnTrigger",
+):
+    '''Resource Type definition for AWS::DevOpsAgent::Trigger.
+
+    A trigger defines an automated action that fires on a schedule within an Agent Space.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-trigger.html
+    :cloudformationResource: AWS::DevOpsAgent::Trigger
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_devopsagent as devopsagent
+        
+        # action: Any
+        
+        cfn_trigger = devopsagent.CfnTrigger(self, "MyCfnTrigger",
+            action=action,
+            agent_space_id="agentSpaceId",
+            condition=devopsagent.CfnTrigger.ConditionProperty(
+                schedule=devopsagent.CfnTrigger.ScheduleProperty(
+                    expression="expression"
+                )
+            ),
+            type="type",
+        
+            # the properties below are optional
+            status="status"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        action: typing.Any,
+        agent_space_id: builtins.str,
+        condition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrigger.ConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+        type: builtins.str,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::DevOpsAgent::Trigger``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param action: The action to perform when the trigger fires. A JSON object containing actionType and task.
+        :param agent_space_id: The unique identifier of the parent Agent Space.
+        :param condition: The condition that causes the trigger to fire.
+        :param type: The type of trigger.
+        :param status: The status of the trigger. Active triggers fire on schedule; Inactive triggers are paused. Default: - "Active"
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af4becf57309f241221fcf8fb85ea3d7e394819c89b46af4a24e264b0d465f77)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTriggerProps(
+            action=action,
+            agent_space_id=agent_space_id,
+            condition=condition,
+            type=type,
+            status=status,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForTrigger")
+    @builtins.classmethod
+    def arn_for_trigger(
+        cls,
+        resource: "_aws_devopsagent_be4b7b05.ITriggerRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9cea3d99ef104127442ee2a004990196b60dd02e22ba41c921f2eae85c13eefb)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTrigger", [resource]))
+
+    @jsii.member(jsii_name="isCfnTrigger")
+    @builtins.classmethod
+    def is_cfn_trigger(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTrigger.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8c0930e8c145f8c4703a860a602a420102ff966d4871fc8bbd74bfa6783b1ba3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrigger", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__79a3c9bea4164c0e05fc2937e04b81e3f4b82153f669f44658d495460f198f02)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8d241a1837e4d005af9a83652767147f51f263838c865760daac0da1d1a8b46c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the trigger.
+
+        Nested under the parent Agent Space: arn::aidevops:::agentspace//trigger/.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the trigger was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTriggerId")
+    def attr_trigger_id(self) -> builtins.str:
+        '''The unique identifier of the trigger (assigned by the service on Create).
+
+        :cloudformationAttribute: TriggerId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTriggerId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the trigger was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="triggerRef")
+    def trigger_ref(self) -> "_aws_devopsagent_be4b7b05.TriggerReference":
+        '''A reference to a Trigger resource.'''
+        return typing.cast("_aws_devopsagent_be4b7b05.TriggerReference", jsii.get(self, "triggerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="action")
+    def action(self) -> typing.Any:
+        '''The action to perform when the trigger fires.'''
+        return typing.cast(typing.Any, jsii.get(self, "action"))
+
+    @action.setter
+    def action(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e33dfb1beb5f5771226209464581cd2be5d5d77ecccbb2909c15f0a3e9b88c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="agentSpaceId")
+    def agent_space_id(self) -> builtins.str:
+        '''The unique identifier of the parent Agent Space.'''
+        return typing.cast(builtins.str, jsii.get(self, "agentSpaceId"))
+
+    @agent_space_id.setter
+    def agent_space_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a6ec26f1510bf7f5778af5ce6830514a758be32335f1a96c9c20852d3ff67972)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "agentSpaceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="condition")
+    def condition(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrigger.ConditionProperty"]:
+        '''The condition that causes the trigger to fire.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrigger.ConditionProperty"], jsii.get(self, "condition"))
+
+    @condition.setter
+    def condition(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrigger.ConditionProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__029a6a9e4a77361a1272faa71bc33e711f2b2315394280182bf6d2164dc07db6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "condition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The type of trigger.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9982c46c28a857dd83d3afb140efb300123a58209dc3dea467e4b2cae0aafe02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the trigger.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8e4420e4052617c9c4e96a9fc7cb55dcc4dea7a049de050a8aff8a9c08f941ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnTrigger.ConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"schedule": "schedule"},
+    )
+    class ConditionProperty:
+        def __init__(
+            self,
+            *,
+            schedule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrigger.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The condition that causes the trigger to fire.
+
+            :param schedule: Schedule configuration for a time-based trigger.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-trigger-condition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                condition_property = devopsagent.CfnTrigger.ConditionProperty(
+                    schedule=devopsagent.CfnTrigger.ScheduleProperty(
+                        expression="expression"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__473c19a5b04077c9292c629f5d45dfcac5d19c24994253f96bd406fd28c2f682)
+                check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "schedule": schedule,
+            }
+
+        @builtins.property
+        def schedule(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrigger.ScheduleProperty"]:
+            '''Schedule configuration for a time-based trigger.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-trigger-condition.html#cfn-devopsagent-trigger-condition-schedule
+            '''
+            result = self._values.get("schedule")
+            assert result is not None, "Required property 'schedule' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrigger.ScheduleProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnTrigger.ScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"expression": "expression"},
+    )
+    class ScheduleProperty:
+        def __init__(self, *, expression: builtins.str) -> None:
+            '''Schedule configuration for a time-based trigger.
+
+            :param expression: A cron or rate expression that defines when the trigger fires.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-trigger-schedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                schedule_property = devopsagent.CfnTrigger.ScheduleProperty(
+                    expression="expression"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__61df2fe7260c86c88e483a6de24cad0c4070169cd5300e20a0a1e1851af8df57)
+                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "expression": expression,
+            }
+
+        @builtins.property
+        def expression(self) -> builtins.str:
+            '''A cron or rate expression that defines when the trigger fires.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-trigger-schedule.html#cfn-devopsagent-trigger-schedule-expression
+            '''
+            result = self._values.get("expression")
+            assert result is not None, "Required property 'expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devopsagent.CfnTriggerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action": "action",
+        "agent_space_id": "agentSpaceId",
+        "condition": "condition",
+        "type": "type",
+        "status": "status",
+    },
+)
+class CfnTriggerProps:
+    def __init__(
+        self,
+        *,
+        action: typing.Any,
+        agent_space_id: builtins.str,
+        condition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrigger.ConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+        type: builtins.str,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrigger``.
+
+        :param action: The action to perform when the trigger fires. A JSON object containing actionType and task.
+        :param agent_space_id: The unique identifier of the parent Agent Space.
+        :param condition: The condition that causes the trigger to fire.
+        :param type: The type of trigger.
+        :param status: The status of the trigger. Active triggers fire on schedule; Inactive triggers are paused. Default: - "Active"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-trigger.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devopsagent as devopsagent
+            
+            # action: Any
+            
+            cfn_trigger_props = devopsagent.CfnTriggerProps(
+                action=action,
+                agent_space_id="agentSpaceId",
+                condition=devopsagent.CfnTrigger.ConditionProperty(
+                    schedule=devopsagent.CfnTrigger.ScheduleProperty(
+                        expression="expression"
+                    )
+                ),
+                type="type",
+            
+                # the properties below are optional
+                status="status"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eaa87eafd13eec11c59002191ab3fca44ad493928599d1ca9f3381ed9d2e34f4)
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
+            check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action": action,
+            "agent_space_id": agent_space_id,
+            "condition": condition,
+            "type": type,
+        }
+        if status is not None:
+            self._values["status"] = status
+
+    @builtins.property
+    def action(self) -> typing.Any:
+        '''The action to perform when the trigger fires.
+
+        A JSON object containing actionType and task.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-trigger.html#cfn-devopsagent-trigger-action
+        '''
+        result = self._values.get("action")
+        assert result is not None, "Required property 'action' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def agent_space_id(self) -> builtins.str:
+        '''The unique identifier of the parent Agent Space.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-trigger.html#cfn-devopsagent-trigger-agentspaceid
+        '''
+        result = self._values.get("agent_space_id")
+        assert result is not None, "Required property 'agent_space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def condition(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrigger.ConditionProperty"]:
+        '''The condition that causes the trigger to fire.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-trigger.html#cfn-devopsagent-trigger-condition
+        '''
+        result = self._values.get("condition")
+        assert result is not None, "Required property 'condition' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrigger.ConditionProperty"], result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of trigger.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-trigger.html#cfn-devopsagent-trigger-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the trigger.
+
+        Active triggers fire on schedule; Inactive triggers are paused.
+
+        :default: - "Active"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-trigger.html#cfn-devopsagent-trigger-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTriggerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAgentSpace",
     "CfnAgentSpaceProps",
+    "CfnAsset",
+    "CfnAssetProps",
     "CfnAssociation",
     "CfnAssociationProps",
     "CfnPrivateConnection",
     "CfnPrivateConnectionProps",
     "CfnService",
     "CfnServiceProps",
+    "CfnTrigger",
+    "CfnTriggerProps",
 ]
 
 publication.publish()
@@ -9073,6 +10221,94 @@ def _typecheckingstub__ea00a21cf40eafce14a4e6e1a4cd3e9f843a2f2e416299a20a2159ce8
     locale: typing.Optional[builtins.str] = None,
     operator_app: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62e6508d9420414c56ad90e75a1851d6ee7d16bf622d98b10276dbad430a2bd8(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    agent_space_id: builtins.str,
+    asset_type: builtins.str,
+    files: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAsset.AssetFileProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metadata: typing.Any = None,
+    zip: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fd8d74c7889fd9317efce16598d28f2742e1fd2d3818e1d22f5663ade92c0fd(
+    resource: _aws_devopsagent_be4b7b05.IAssetRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38ffa5fce03e4f91c2f25c2143328e4db03eb8feb1e1cfc1e2188b9666c8a310(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c57f22b09a3f13071a62d51fe22b9234f8d8eefd15ef52aaab826d9b88182784(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__035fdbc2d6694ccdcf5596b6634f8d91f75db5172675f50bf9d56589a010b8f4(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7636d15d15773a37b27a55d2853c1d3c40523f8d31f591bba7a9bc8996402e5c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a306f0455bf4b3587ba28c7cea27264bfb853ac46208c3459af19f1138fa15f2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a140dfd5bc68aebf83b245c2abd5c11954febdc3bfc81c20652c25570055680(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45c1ba38621c37d82b46920248940685954157a8d006766d50a42a1dec68cc1e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAsset.AssetFileProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff37ca13d55b83a40180104863c9434c862545d08c5afd44c7b9cdcd1ffdb5aa(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f49687615fb9c344ca496873c00f2b9397870a989a46caa44fab48f94827d53(
+    *,
+    path: builtins.str,
+    content_bytes: typing.Optional[builtins.str] = None,
+    content_text: typing.Optional[builtins.str] = None,
+    metadata: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ed74d9df2ba4a93eb865029d26115d3e50ec27294b5561ac5375bd984197a43(
+    *,
+    agent_space_id: builtins.str,
+    asset_type: builtins.str,
+    files: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAsset.AssetFileProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metadata: typing.Any = None,
+    zip: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9445,9 +10681,12 @@ def _typecheckingstub__76700bf71c0ca9d7d21edc970f56dd1c8a41f67b248c3228096feb305
     id: builtins.str,
     *,
     service_type: builtins.str,
+    exchange_url_private_connection_name: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    private_connection_name: typing.Optional[builtins.str] = None,
     service_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_url_private_connection_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9498,7 +10737,19 @@ def _typecheckingstub__a87d815016e64b5bdf47334ae0b9ef194602b4aa5a9e6cd5a5d9b1d6b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__46c63e3540851b3e95123c320f4637e43611a3d0e13aba8eb2cb583841d9f6aa(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e3ab3739f548aec69137bae335dee8322f36ef0dcddbdf6693dea63fc64500cd(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd785ef0a512fafa3dfa79caf4a70ddcb6e2f2f9236834ec36da53afb806bb27(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -9512,6 +10763,12 @@ def _typecheckingstub__38b28b2539546ba11e45199a6bde41e432e6246da9ea58bba29ece3bb
 
 def _typecheckingstub__6618cd62adcc1e863b754d59ca807f0c557b1efa334823690aa1f3f9465528a1(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b41a1716d6094a4ddb8db8af445a21c46086e27bfba019a57523682093a6248(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9840,9 +11097,104 @@ def _typecheckingstub__d187ccd94caa63f84c780709217fd146f3bb8a30928a00c86283e0e43
 def _typecheckingstub__a12adbc62e2ac0f5b7caf0c232882e56ee71ed33922d8b268e225ddc848413f6(
     *,
     service_type: builtins.str,
+    exchange_url_private_connection_name: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    private_connection_name: typing.Optional[builtins.str] = None,
     service_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_url_private_connection_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af4becf57309f241221fcf8fb85ea3d7e394819c89b46af4a24e264b0d465f77(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    action: typing.Any,
+    agent_space_id: builtins.str,
+    condition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrigger.ConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9cea3d99ef104127442ee2a004990196b60dd02e22ba41c921f2eae85c13eefb(
+    resource: _aws_devopsagent_be4b7b05.ITriggerRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c0930e8c145f8c4703a860a602a420102ff966d4871fc8bbd74bfa6783b1ba3(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79a3c9bea4164c0e05fc2937e04b81e3f4b82153f669f44658d495460f198f02(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d241a1837e4d005af9a83652767147f51f263838c865760daac0da1d1a8b46c(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e33dfb1beb5f5771226209464581cd2be5d5d77ecccbb2909c15f0a3e9b88c5(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6ec26f1510bf7f5778af5ce6830514a758be32335f1a96c9c20852d3ff67972(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__029a6a9e4a77361a1272faa71bc33e711f2b2315394280182bf6d2164dc07db6(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTrigger.ConditionProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9982c46c28a857dd83d3afb140efb300123a58209dc3dea467e4b2cae0aafe02(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e4420e4052617c9c4e96a9fc7cb55dcc4dea7a049de050a8aff8a9c08f941ea(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__473c19a5b04077c9292c629f5d45dfcac5d19c24994253f96bd406fd28c2f682(
+    *,
+    schedule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrigger.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61df2fe7260c86c88e483a6de24cad0c4070169cd5300e20a0a1e1851af8df57(
+    *,
+    expression: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eaa87eafd13eec11c59002191ab3fca44ad493928599d1ca9f3381ed9d2e34f4(
+    *,
+    action: typing.Any,
+    agent_space_id: builtins.str,
+    condition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrigger.ConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+    status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

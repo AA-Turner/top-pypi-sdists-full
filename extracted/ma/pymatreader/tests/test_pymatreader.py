@@ -34,8 +34,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 from scipy import sparse
+from scipy.io.matlab import MatlabOpaque
 
 from pymatreader import read_mat, whosmat
+from pymatreader.utils import _check_for_scipy_mat_struct
 
 from .helper_functions import _read_xml_data, _sanitize_dict, assertDeepAlmostEqual
 
@@ -58,6 +60,7 @@ testdata_bti_v7 = 'bti_raw_v7.mat'
 testdata_bti_v73 = 'bti_raw_v73.mat'
 testdata_unsupported_classes_v7 = 'compare_datetime_with_and_without_time_zone_v7p0.mat'
 testdata_unsupported_classes_v73 = 'compare_datetime_with_and_without_time_zone_v7p3.mat'
+testdata_mcos_class_instance_v7 = 'mcos_class_instance_v7.mat'
 
 invalid_fname = 'invalid.mat'
 
@@ -266,6 +269,53 @@ def test_string_issue(version):
                 has_warned = True
 
         assert has_warned
+
+
+complex_objects_warning = (
+    'Complex objects (like classes) are not supported. '
+    'They are imported on a best effort base '
+    'but your mileage will vary.'
+)
+
+
+def test_mcos_class_instance():
+    """Test that MCOS class instances do not raise, regardless of the scipy version."""
+    # regression test: scipy >= 1.18 returns MatlabOpaque objects with named
+    # fields ('_TypeSystem', '_Class', '_ObjectMetadata'), where accessing
+    # data[0][2] and comparing to bytes raised TypeError or ValueError
+    with warnings.catch_warnings(record=True) as w:
+        read_mat(Path(test_data_folder, testdata_mcos_class_instance_v7))
+
+        has_warned = any(str(cur_warning.message) == complex_objects_warning for cur_warning in w)
+
+    assert has_warned
+
+
+def test_check_for_scipy_mat_struct_with_mcos_object():
+    """Test that _check_for_scipy_mat_struct handles all MatlabOpaque layouts."""
+    meta_dtype = np.dtype(
+        [
+            ('EnumerationInstanceTag', 'O'),
+            ('ClassName', 'O'),
+            ('ValueNames', 'O'),
+            ('Values', 'O'),
+            ('ValueIndices', 'O'),
+            ('BuiltinClassName', 'O'),
+        ]
+    )
+    meta_val = np.array(
+        (3707764736, 1, 6, np.array([1, 2], dtype=np.uint32), 0, 2),
+        dtype=meta_dtype,
+    )
+
+    mcos_dtype = np.dtype([('_TypeSystem', 'O'), ('_Class', 'O'), ('_ObjectMetadata', 'O')])
+    mcos_arr = MatlabOpaque(np.array([('MCOS', 'some.Namespace.ClassName', meta_val)], dtype=mcos_dtype))
+
+    with warnings.catch_warnings(record=True) as w:
+        result = _check_for_scipy_mat_struct(mcos_arr)
+
+    assert result is not None
+    assert any(str(cur_warning.message) == complex_objects_warning for cur_warning in w)
 
 
 @pytest.mark.parametrize('version', ['6', '7', '73'])

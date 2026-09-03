@@ -67,6 +67,392 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_guardduty_c2c45edd.ICustomDetectionRuleAssociationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnCustomDetectionRuleAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnCustomDetectionRuleAssociation",
+):
+    '''Resource Type definition for AWS::GuardDuty::CustomDetectionRuleAssociation.
+
+    Associates a GuardDuty custom detection rule with the caller's account, enabling the rule in either LIVE or DRY_RUN mode.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-customdetectionruleassociation.html
+    :cloudformationResource: AWS::GuardDuty::CustomDetectionRuleAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_guardduty as guardduty
+        
+        cfn_custom_detection_rule_association = guardduty.CfnCustomDetectionRuleAssociation(self, "MyCfnCustomDetectionRuleAssociation",
+            mode="mode",
+            rule_id="ruleId",
+        
+            # the properties below are optional
+            tags=[guardduty.CfnCustomDetectionRuleAssociation.TagItemProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        mode: builtins.str,
+        rule_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnCustomDetectionRuleAssociation.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::GuardDuty::CustomDetectionRuleAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param mode: Whether the rule runs in LIVE mode (generates findings) or DRY_RUN mode (evaluates without generating findings).
+        :param rule_id: The catalog identifier of the custom detection rule to associate.
+        :param tags: The tags applied to the association.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ec19c4106e937475ca6bfd267b8dc702e4f5ae4405971c023f85e5ee2607c68b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCustomDetectionRuleAssociationProps(
+            mode=mode, rule_id=rule_id, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCustomDetectionRuleAssociation")
+    @builtins.classmethod
+    def arn_for_custom_detection_rule_association(
+        cls,
+        resource: "_aws_guardduty_c2c45edd.ICustomDetectionRuleAssociationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4292844d482c565203bd4af3fc7ac5380f8198ffb0ee56c691bcdd2d3b075fe6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCustomDetectionRuleAssociation", [resource]))
+
+    @jsii.member(jsii_name="isCfnCustomDetectionRuleAssociation")
+    @builtins.classmethod
+    def is_cfn_custom_detection_rule_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCustomDetectionRuleAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3644b7106ae6c166beda6b747a5ed5797e57ead9af9f53aedf8064501b4c61a6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCustomDetectionRuleAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__45528d2cf8489844b392c630a1e05cc5ea3d00e917f319c5675ddfe1a3951d8d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d77e50be2ec02685518124b2070e996b338f9c06816118ce9c83b66be6657993)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''The AWS account ID the association applies to.
+
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the association.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociationId")
+    def attr_association_id(self) -> builtins.str:
+        '''The service-generated unique identifier of the association.
+
+        :cloudformationAttribute: AssociationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAssociationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time the association was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The time the association was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="customDetectionRuleAssociationRef")
+    def custom_detection_rule_association_ref(
+        self,
+    ) -> "_aws_guardduty_c2c45edd.CustomDetectionRuleAssociationReference":
+        '''A reference to a CustomDetectionRuleAssociation resource.'''
+        return typing.cast("_aws_guardduty_c2c45edd.CustomDetectionRuleAssociationReference", jsii.get(self, "customDetectionRuleAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> builtins.str:
+        '''Whether the rule runs in LIVE mode (generates findings) or DRY_RUN mode (evaluates without generating findings).'''
+        return typing.cast(builtins.str, jsii.get(self, "mode"))
+
+    @mode.setter
+    def mode(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af71a6bd648a2e8601beae9bfba83c8827d65eea708a179c95d8d8d295790f1e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleId")
+    def rule_id(self) -> builtins.str:
+        '''The catalog identifier of the custom detection rule to associate.'''
+        return typing.cast(builtins.str, jsii.get(self, "ruleId"))
+
+    @rule_id.setter
+    def rule_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ad28f4bce67e135c3c68546078f8aa456355bf3d6bd1884da2f97240d807b3f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ruleId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnCustomDetectionRuleAssociation.TagItemProperty"]]:
+        '''The tags applied to the association.'''
+        return typing.cast(typing.Optional[typing.List["CfnCustomDetectionRuleAssociation.TagItemProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnCustomDetectionRuleAssociation.TagItemProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6dbdce5ac7e4fa070795da7174936fc9ea1c0f5d6ab7e32ff7fa2d823bf790c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_guardduty.CfnCustomDetectionRuleAssociation.TagItemProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagItemProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-customdetectionruleassociation-tagitem.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_guardduty as guardduty
+                
+                tag_item_property = guardduty.CfnCustomDetectionRuleAssociation.TagItemProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__24da934a82d068d57983b42e08e6f6e8dadaac7f86ff209bdf61f46a6700ed7f)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-customdetectionruleassociation-tagitem.html#cfn-guardduty-customdetectionruleassociation-tagitem-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-customdetectionruleassociation-tagitem.html#cfn-guardduty-customdetectionruleassociation-tagitem-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagItemProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnCustomDetectionRuleAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"mode": "mode", "rule_id": "ruleId", "tags": "tags"},
+)
+class CfnCustomDetectionRuleAssociationProps:
+    def __init__(
+        self,
+        *,
+        mode: builtins.str,
+        rule_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnCustomDetectionRuleAssociation.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCustomDetectionRuleAssociation``.
+
+        :param mode: Whether the rule runs in LIVE mode (generates findings) or DRY_RUN mode (evaluates without generating findings).
+        :param rule_id: The catalog identifier of the custom detection rule to associate.
+        :param tags: The tags applied to the association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-customdetectionruleassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_custom_detection_rule_association_props = guardduty.CfnCustomDetectionRuleAssociationProps(
+                mode="mode",
+                rule_id="ruleId",
+            
+                # the properties below are optional
+                tags=[guardduty.CfnCustomDetectionRuleAssociation.TagItemProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__77f06fb169b4171356ba488da09a209daf7fd3e0b96ab25cac2138857d414b86)
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "mode": mode,
+            "rule_id": rule_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def mode(self) -> builtins.str:
+        '''Whether the rule runs in LIVE mode (generates findings) or DRY_RUN mode (evaluates without generating findings).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-customdetectionruleassociation.html#cfn-guardduty-customdetectionruleassociation-mode
+        '''
+        result = self._values.get("mode")
+        assert result is not None, "Required property 'mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_id(self) -> builtins.str:
+        '''The catalog identifier of the custom detection rule to associate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-customdetectionruleassociation.html#cfn-guardduty-customdetectionruleassociation-ruleid
+        '''
+        result = self._values.get("rule_id")
+        assert result is not None, "Required property 'rule_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnCustomDetectionRuleAssociation.TagItemProperty"]]:
+        '''The tags applied to the association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-customdetectionruleassociation.html#cfn-guardduty-customdetectionruleassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnCustomDetectionRuleAssociation.TagItemProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCustomDetectionRuleAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_guardduty_c2c45edd.IDetectorRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDetector(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1185,8 +1571,10 @@ class CfnFilter(
                     less_than_or_equal=123,
                     lt=123,
                     lte=123,
+                    matches=["matches"],
                     neq=["neq"],
-                    not_equals=["notEquals"]
+                    not_equals=["notEquals"],
+                    not_matches=["notMatches"]
                 )
             ),
             name="name",
@@ -1420,8 +1808,10 @@ class CfnFilter(
             "less_than_or_equal": "lessThanOrEqual",
             "lt": "lt",
             "lte": "lte",
+            "matches": "matches",
             "neq": "neq",
             "not_equals": "notEquals",
+            "not_matches": "notMatches",
         },
     )
     class ConditionProperty:
@@ -1438,8 +1828,10 @@ class CfnFilter(
             less_than_or_equal: typing.Optional[jsii.Number] = None,
             lt: typing.Optional[jsii.Number] = None,
             lte: typing.Optional[jsii.Number] = None,
+            matches: typing.Optional[typing.Sequence[builtins.str]] = None,
             neq: typing.Optional[typing.Sequence[builtins.str]] = None,
             not_equals: typing.Optional[typing.Sequence[builtins.str]] = None,
+            not_matches: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''Specifies the condition to apply to a single field when filtering through GuardDuty findings.
 
@@ -1453,8 +1845,10 @@ class CfnFilter(
             :param less_than_or_equal: Represents a *less than or equal* condition to be applied to a single field when querying for findings.
             :param lt: Represents the less than condition to apply to a single field when querying for findings.
             :param lte: Represents the less than or equal condition to apply to a single field when querying for findings.
+            :param matches: 
             :param neq: Represents the not equal condition to apply to a single field when querying for findings.
             :param not_equals: Represents a *not equal* ** condition to be applied to a single field when querying for findings.
+            :param not_matches: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-filter-condition.html
             :exampleMetadata: fixture=_generated
@@ -1476,8 +1870,10 @@ class CfnFilter(
                     less_than_or_equal=123,
                     lt=123,
                     lte=123,
+                    matches=["matches"],
                     neq=["neq"],
-                    not_equals=["notEquals"]
+                    not_equals=["notEquals"],
+                    not_matches=["notMatches"]
                 )
             '''
             if __debug__:
@@ -1492,8 +1888,10 @@ class CfnFilter(
                 check_type(argname="argument less_than_or_equal", value=less_than_or_equal, expected_type=type_hints["less_than_or_equal"])
                 check_type(argname="argument lt", value=lt, expected_type=type_hints["lt"])
                 check_type(argname="argument lte", value=lte, expected_type=type_hints["lte"])
+                check_type(argname="argument matches", value=matches, expected_type=type_hints["matches"])
                 check_type(argname="argument neq", value=neq, expected_type=type_hints["neq"])
                 check_type(argname="argument not_equals", value=not_equals, expected_type=type_hints["not_equals"])
+                check_type(argname="argument not_matches", value=not_matches, expected_type=type_hints["not_matches"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if eq is not None:
                 self._values["eq"] = eq
@@ -1515,10 +1913,14 @@ class CfnFilter(
                 self._values["lt"] = lt
             if lte is not None:
                 self._values["lte"] = lte
+            if matches is not None:
+                self._values["matches"] = matches
             if neq is not None:
                 self._values["neq"] = neq
             if not_equals is not None:
                 self._values["not_equals"] = not_equals
+            if not_matches is not None:
+                self._values["not_matches"] = not_matches
 
         @builtins.property
         def eq(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1611,6 +2013,14 @@ class CfnFilter(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
+        def matches(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-filter-condition.html#cfn-guardduty-filter-condition-matches
+            '''
+            result = self._values.get("matches")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
         def neq(self) -> typing.Optional[typing.List[builtins.str]]:
             '''Represents the not equal condition to apply to a single field when querying for findings.
 
@@ -1626,6 +2036,14 @@ class CfnFilter(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-filter-condition.html#cfn-guardduty-filter-condition-notequals
             '''
             result = self._values.get("not_equals")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def not_matches(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-filter-condition.html#cfn-guardduty-filter-condition-notmatches
+            '''
+            result = self._values.get("not_matches")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1680,8 +2098,10 @@ class CfnFilter(
                         less_than_or_equal=123,
                         lt=123,
                         lte=123,
+                        matches=["matches"],
                         neq=["neq"],
-                        not_equals=["notEquals"]
+                        not_equals=["notEquals"],
+                        not_matches=["notMatches"]
                     )
                 )
             '''
@@ -1899,8 +2319,10 @@ class CfnFilterProps:
                         less_than_or_equal=123,
                         lt=123,
                         lte=123,
+                        matches=["matches"],
                         neq=["neq"],
-                        not_equals=["notEquals"]
+                        not_equals=["notEquals"],
+                        not_matches=["notMatches"]
                     )
                 ),
                 name="name",
@@ -5902,6 +6324,8 @@ class CfnTrustedEntitySetProps:
 
 
 __all__ = [
+    "CfnCustomDetectionRuleAssociation",
+    "CfnCustomDetectionRuleAssociationProps",
     "CfnDetector",
     "CfnDetectorProps",
     "CfnFilter",
@@ -5925,6 +6349,76 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__ec19c4106e937475ca6bfd267b8dc702e4f5ae4405971c023f85e5ee2607c68b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    mode: builtins.str,
+    rule_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnCustomDetectionRuleAssociation.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4292844d482c565203bd4af3fc7ac5380f8198ffb0ee56c691bcdd2d3b075fe6(
+    resource: _aws_guardduty_c2c45edd.ICustomDetectionRuleAssociationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3644b7106ae6c166beda6b747a5ed5797e57ead9af9f53aedf8064501b4c61a6(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45528d2cf8489844b392c630a1e05cc5ea3d00e917f319c5675ddfe1a3951d8d(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d77e50be2ec02685518124b2070e996b338f9c06816118ce9c83b66be6657993(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af71a6bd648a2e8601beae9bfba83c8827d65eea708a179c95d8d8d295790f1e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ad28f4bce67e135c3c68546078f8aa456355bf3d6bd1884da2f97240d807b3f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6dbdce5ac7e4fa070795da7174936fc9ea1c0f5d6ab7e32ff7fa2d823bf790c(
+    value: typing.Optional[typing.List[CfnCustomDetectionRuleAssociation.TagItemProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24da934a82d068d57983b42e08e6f6e8dadaac7f86ff209bdf61f46a6700ed7f(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77f06fb169b4171356ba488da09a209daf7fd3e0b96ab25cac2138857d414b86(
+    *,
+    mode: builtins.str,
+    rule_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnCustomDetectionRuleAssociation.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__d4374e73b5cd2e2814bd72eb21f29547df6146e023d23ee6d5c8c8cdb4439473(
     scope: _constructs_77d1e7e8.Construct,
@@ -6168,8 +6662,10 @@ def _typecheckingstub__cdf8702ee06c6a6e0f8140afbb047453bd22f56672abb17dbf2127dc9
     less_than_or_equal: typing.Optional[jsii.Number] = None,
     lt: typing.Optional[jsii.Number] = None,
     lte: typing.Optional[jsii.Number] = None,
+    matches: typing.Optional[typing.Sequence[builtins.str]] = None,
     neq: typing.Optional[typing.Sequence[builtins.str]] = None,
     not_equals: typing.Optional[typing.Sequence[builtins.str]] = None,
+    not_matches: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

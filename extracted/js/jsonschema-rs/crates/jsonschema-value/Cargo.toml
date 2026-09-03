@@ -1,6 +1,6 @@
 [package]
 name = "jsonschema-value"
-version = "0.52.1"
+version = "0.53.0"
 description = "JSON value representations and semantics shared by the jsonschema validator and its bindings"
 readme = "README.md"
 rust-version.workspace = true
@@ -21,6 +21,10 @@ magnus-tests = ["magnus", "magnus/embed"]
 macros = []
 conformance = []
 arbitrary-precision = ["serde_json/arbitrary_precision", "dep:num-bigint"]
+
+# `ahash`'s runtime RNG reaches for `getrandom`, which needs to be told which backend to use here.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3.4", features = ["wasm_js"] }
 
 [dependencies]
 ahash.workspace = true

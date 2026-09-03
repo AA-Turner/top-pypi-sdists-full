@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-28T18:11:58.456536                                                            #
+# Generated on 2026-09-02T23:51:38.120214                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.argo.argo_workflows_deployer_objects
     import typing
     import metaflow.runner.deployer_impl
+    import metaflow.plugins.argo.argo_workflows_deployer_objects
 
 from ...runner.deployer_impl import DeployerImpl as DeployerImpl
 

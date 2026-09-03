@@ -5495,7 +5495,7 @@ class CfnBucket(
     def attr_metadata_configuration_annotation_table_configuration_table_arn(
         self,
     ) -> builtins.str:
-        '''The ARN of the annotation table.
+        '''The Amazon Resource Name (ARN) for the annotation table.
 
         :cloudformationAttribute: MetadataConfiguration.AnnotationTableConfiguration.TableArn
         '''
@@ -6378,11 +6378,15 @@ class CfnBucket(
             table_arn: typing.Optional[builtins.str] = None,
             table_name: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param configuration_state: Specifies whether annotation table configuration is enabled or disabled.
+            '''The annotation table configuration for an S3 Metadata configuration.
+
+            The annotation table tracks all annotations on objects in your bucket so that you can query annotation data at scale.
+            If you've disabled your annotation table configuration and now want to re-enable it, you must first manually delete the old annotation table from your AWS managed table bucket. Otherwise, the newly re-enabled annotation table configuration will enter a failed state because the annotation table already exists in the table bucket.
+
+            :param configuration_state: Specifies whether the annotation table configuration is enabled or disabled.
             :param encryption_configuration: The encryption settings for an S3 Metadata journal table or inventory table configuration.
             :param role: The ARN of the IAM role that grants Amazon S3 Metadata permission to read annotations from your bucket.
-            :param table_arn: The ARN of the annotation table.
+            :param table_arn: The Amazon Resource Name (ARN) for the annotation table.
             :param table_name: The name of the annotation table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html
@@ -6430,7 +6434,7 @@ class CfnBucket(
 
         @builtins.property
         def configuration_state(self) -> builtins.str:
-            '''Specifies whether annotation table configuration is enabled or disabled.
+            '''Specifies whether the annotation table configuration is enabled or disabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html#cfn-s3-bucket-annotationtableconfiguration-configurationstate
             '''
@@ -6460,7 +6464,7 @@ class CfnBucket(
 
         @builtins.property
         def table_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the annotation table.
+            '''The Amazon Resource Name (ARN) for the annotation table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html#cfn-s3-bucket-annotationtableconfiguration-tablearn
             '''
@@ -8320,7 +8324,7 @@ class CfnBucket(
             For more information, see `Accelerating data discovery with S3 Metadata <https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html>`_ in the *Amazon S3 User Guide* .
 
             :param journal_table_configuration: The journal table configuration for a metadata configuration.
-            :param annotation_table_configuration: 
+            :param annotation_table_configuration: The annotation table configuration for an S3 Metadata configuration. The annotation table tracks all annotations on objects in your bucket so that you can query annotation data at scale. If you've disabled your annotation table configuration and now want to re-enable it, you must first manually delete the old annotation table from your AWS managed table bucket. Otherwise, the newly re-enabled annotation table configuration will enter a failed state because the annotation table already exists in the table bucket.
             :param destination: The destination information for the S3 Metadata configuration.
             :param inventory_table_configuration: The inventory table configuration for a metadata configuration.
 
@@ -8422,7 +8426,11 @@ class CfnBucket(
         def annotation_table_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.AnnotationTableConfigurationProperty"]]:
-            '''
+            '''The annotation table configuration for an S3 Metadata configuration.
+
+            The annotation table tracks all annotations on objects in your bucket so that you can query annotation data at scale.
+            If you've disabled your annotation table configuration and now want to re-enable it, you must first manually delete the old annotation table from your AWS managed table bucket. Otherwise, the newly re-enabled annotation table configuration will enter a failed state because the annotation table already exists in the table bucket.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-metadataconfiguration.html#cfn-s3-bucket-metadataconfiguration-annotationtableconfiguration
             '''
             result = self._values.get("annotation_table_configuration")

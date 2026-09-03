@@ -44,8 +44,41 @@ def _clip_line(line: str, budget: int = _MATCH_WINDOW_CHARS, focus=None) -> str:
 
 _RETRY_NUDGE = (
     "Call xpworkspace-context-retrieve again on the same context_id with a "
-    "different/broader query, or omit both query and semantic_query for the full result."
+    "different/broader query, or page through it with offset."
 )
+
+# Per-call plaintext budget. Encryption makes retrieve the only channel plaintext reaches the
+# model, so it carries the cap other harnesses get free from their read tools.
+RETRIEVE_PAGE_CHARS = 100_000
+
+
+def page_text(text: str, offset: int = 0, budget: int = RETRIEVE_PAGE_CHARS):
+    """``(page, notice)`` for one window of *text*, trimmed to a whole line.
+
+    ``notice`` is empty when the page covers the rest, else it states the range and how to ask
+    for the next one. Callers append it so the model can page rather than guess at what it lost.
+    """
+    total = len(text)
+    start = max(0, min(int(offset or 0), total))
+    if total - start <= budget:
+        page = text[start:]
+        if start == 0:
+            return page, ""
+        return page, f"[PARTIAL: showing chars {start:,}-{total:,} of {total:,} (final page).]"
+
+    end = start + budget
+    # Trim back to a line boundary so a page never splits a record mid-way; keep the whole
+    # window when the payload has no newline in it at all (one-line JSON blobs).
+    boundary = text.rfind("\n", start, end)
+    if boundary > start:
+        end = boundary + 1
+    page = text[start:end]
+    notice = (
+        f"[PARTIAL: showing chars {start:,}-{end:,} of {total:,}. "
+        f"Call xpworkspace-context-retrieve again with offset={end} for the next page, "
+        f"or narrow with query/semantic_query.]"
+    )
+    return page, notice
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 

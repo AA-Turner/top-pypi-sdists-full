@@ -454,6 +454,7 @@ from .literals import (
     VpnTunnelBandwidthType,
     VpnTunnelProvisioningStatusType,
     WeekDayType,
+    ZeroSizePreferenceType,
 )
 
 if sys.version_info >= (3, 12):
@@ -4356,6 +4357,7 @@ class InterruptibleCapacityAllocationTypeDef(TypedDict):
     Status: NotRequired[InterruptibleCapacityReservationAllocationStatusType]
     InterruptibleCapacityReservationId: NotRequired[str]
     InterruptionType: NotRequired[Literal["adhoc"]]
+    ZeroSizePreference: NotRequired[ZeroSizePreferenceType]
 
 
 class InterruptionInfoTypeDef(TypedDict):
@@ -9787,8 +9789,9 @@ class UpdateCapacityManagerOrganizationsAccessRequestTypeDef(TypedDict):
 
 class UpdateInterruptibleCapacityReservationAllocationRequestTypeDef(TypedDict):
     CapacityReservationId: str
-    TargetInstanceCount: int
+    TargetInstanceCount: NotRequired[int]
     DryRun: NotRequired[bool]
+    ZeroSizePreference: NotRequired[ZeroSizePreferenceType]
 
 
 class ValidationErrorTypeDef(TypedDict):
@@ -11141,6 +11144,7 @@ class IpamInternetRegistryAssociationTypeDef(TypedDict):
     OrganizationHandle: NotRequired[str]
     Description: NotRequired[str]
     State: NotRequired[IpamInternetRegistryAssociationStateType]
+    StateMessage: NotRequired[str]
     ChildRequestXml: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
 
@@ -19412,6 +19416,7 @@ class CapacityReservationTypeDef(TypedDict):
     Interruptible: NotRequired[bool]
     InterruptibleCapacityAllocation: NotRequired[InterruptibleCapacityAllocationTypeDef]
     InterruptionInfo: NotRequired[InterruptionInfoTypeDef]
+    ZeroSizePreference: NotRequired[ZeroSizePreferenceType]
 
 
 class DescribeCapacityBlockStatusResultTypeDef(TypedDict):
@@ -21994,6 +21999,7 @@ class CreateInterruptibleCapacityReservationAllocationRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    ZeroSizePreference: NotRequired[ZeroSizePreferenceType]
 
 
 class CreateIpamExternalResourceVerificationTokenRequestTypeDef(TypedDict):

@@ -84,6 +84,7 @@ __all__ = ("AppIntegrationsServiceClient",)
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     DuplicateResourceException: type[BotocoreClientError]
     InternalServiceError: type[BotocoreClientError]
     InvalidRequestException: type[BotocoreClientError]
@@ -173,7 +174,7 @@ class AppIntegrationsServiceClient(BaseClient):
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Deletes the Application.
+        Deletes an application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appintegrations/client/delete_application.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appintegrations/client/#delete_application)

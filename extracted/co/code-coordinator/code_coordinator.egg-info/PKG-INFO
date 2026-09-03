@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-coordinator
-Version: 0.5.350
+Version: 0.5.351
 Summary: Coordinate Claude Code workers across multiple machines and repos.
 Author-email: John Donaghy <johnfdonaghy@gmail.com>
 License-Expression: LicenseRef-FSL-1.1-MIT

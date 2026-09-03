@@ -18,8 +18,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
 from mixpeek.models.rtsp_basic_credentials import RTSPBasicCredentials
 from typing import Optional, Set
@@ -37,10 +37,16 @@ class RTSPConfig(BaseModel):
     segments_per_run: Optional[Annotated[int, Field(le=20, strict=True, ge=1)]] = Field(default=1, description="How many consecutive segments to capture per sync run. Total capture per run is segment_seconds * segments_per_run and a run holds the stream open for that whole window, so keep the product below the sync's polling interval or runs overlap. COVERAGE is (segment_seconds * segments_per_run) / polling_interval, so this field and segment_seconds raise it EQUALLY: 30s x 1 on a 300s interval and 15s x 2 on the same interval are both 10 percent. Only the product matters for how much of the stream you keep. WHICH ONE TO RAISE is decided downstream, not here. Each segment is one more object write and one more gate invocation, so 270s x 1 and 30s x 9 give the same 90 percent coverage for one invocation instead of nine. Prefer longer segments when the per-segment pipeline costs anything, and raise this instead when you need finer granularity, because dedup and gating decide per segment.")
     connect_timeout_seconds: Optional[Annotated[int, Field(le=120, strict=True, ge=5)]] = Field(default=15, description="How long to wait for the stream to start delivering before treating the endpoint as unreachable. Applies to connection tests and to the start of each capture.")
     scene_change_threshold: Optional[Annotated[int, Field(le=64, strict=True, ge=0)]] = Field(default=None, description="NOT REQUIRED. Drop a segment whose scene has not changed from the previous one. Omit it and every captured segment is published. The value is a Hamming distance over a 64-bit perceptual hash of each segment's first frame: a segment is DROPPED when its distance from the previous KEPT segment is at or below this number. 0 means drop only pixel-identical scenes; 5 is the platform's existing default elsewhere for 'the same frame modulo compression noise'; higher collapses more aggressively. WHY IT IS SEPARATE FROM gate_inference_name: this needs no model and no GPU. It is a few milliseconds of CPU per segment, so it runs FIRST and a segment it drops never reaches the gate at all. On an overnight camera that is the difference between paying inference on every segment and paying it on the ones where something happened.")
-    gate_inference_name: Optional[StrictStr] = Field(default=None, description="NOT REQUIRED. Name of a real-time inference plugin to run on each captured segment before it is published. The plugin decides whether the segment is worth keeping, so an unchanging camera does not pay full extraction on footage that did not change. Omit it and every captured segment is published. The plugin is a pure function: segment in, verdict out. It returns `keep` (bool) and may return any additional fields, which are attached to the object for schema mapping. WHY A PLUGIN AND NOT A RETRIEVER: a retriever cannot run as a pure function over a segment. Its document stream starts empty and its inputs are query template variables, so a retriever with no collections returns success over zero documents and never runs its stages. See research/streaming-ingest/RTSP-INGEST-DESIGN.md.")
+    gate_inference_name: Optional[StrictStr] = Field(default=None, description="NOT REQUIRED. Name of a real-time inference plugin to run on each captured segment before it is published. The plugin decides whether the segment is worth keeping, so an unchanging camera does not pay full extraction on footage that did not change. Omit it and every captured segment is published. The plugin is a pure function: segment in, verdict out. It returns `keep` (bool) and may return any additional fields, which are attached to the object for schema mapping. PLUGIN VS RETRIEVER: use `gate_retriever_id` instead when the decision is 'does this segment resemble what I care about', because that is a saved retriever you can read and edit per camera rather than a plugin you must deploy. Use a plugin when the decision is a pure computation over the pixels, like motion or a frame diff. The one thing a retriever still cannot do is run with NO collections: its document stream starts empty, so it returns success over zero documents and never runs its stages. See research/streaming-ingest/RTSP-INGEST-DESIGN.md.")
+    gate_retriever_id: Optional[StrictStr] = Field(default=None, description="NOT REQUIRED, and mutually exclusive with `gate_inference_name`. Id of a SAVED RETRIEVER to run on each captured segment before it is published. The segment is passed as the retriever's query content, so the question it answers is 'does this segment resemble anything in the collections this retriever searches'. Keep the ones that match; drop the rest. WHY THIS RATHER THAN A PLUGIN: the policy becomes an object the customer can read, edit and version per camera, instead of a plugin that needs a deploy to change. A loading dock and a server room want different collections and different thresholds. COST: a retriever query is an embedding plus a vector search PER SEGMENT, against a few milliseconds of CPU for `scene_change_threshold`. Set that first so a segment it drops never reaches this.")
+    gate_retriever_min_score: Optional[Union[Annotated[float, Field(le=1.0, strict=True, ge=0.0)], Annotated[int, Field(le=1, strict=True, ge=0)]]] = Field(default=None, description="Only meaningful with `gate_retriever_id`. Keep the segment when the retriever's top result scores at or above this. Leave it unset to keep the segment whenever the retriever returns ANY result, which is the right default for a retriever whose stages already filter. A threshold here is a second filter on top of whatever the retriever itself does, not a replacement for it.")
+    gate_output_stage: Optional[StrictStr] = Field(default=None, description="Gate on a NAMED STAGE OUTPUT instead of the search result set, so a YOLO or dedup retriever can gate. Names the stage whose output carries the verdict (a count, a hash distance, a boolean). Requires gate_retriever_id (the stage belongs to that retriever) plus gate_output_field and gate_output_threshold. Mutually exclusive with gate_retriever_min_score, which reads the result set instead. An absent stage or field is a gate FAILURE (gate_on_error), never a drop.")
+    gate_output_field: Optional[StrictStr] = Field(default=None, description="The key in the named stage's output holding the verdict value (for example face_count, hash_distance). Required when gate_output_stage is set.")
+    gate_output_op: Optional[StrictStr] = Field(default='gte', description="How to compare the stage output against gate_output_threshold; the result IS keep/drop. gte for a count (keep when face_count >= N). gt for a dedup distance (keep when the scene changed, i.e. distance > N; a near-duplicate with a small distance is dropped). The direction is explicit so dedup versus detection is a config choice, not baked in.")
+    gate_output_threshold: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The value the stage output is compared against. Required when gate_output_stage is set.")
     gate_on_error: Optional[StrictStr] = Field(default='publish', description="What to do with a segment when the gate itself fails: the plugin is down, times out, or returns something unreadable. Defaults to publish, so a broken gate costs extraction rather than footage. Choose drop only when storing an unjudged segment is worse than losing it, which is unusual: a dropped segment of a live stream is gone, and the moment it covered cannot be recaptured.")
     gate_timeout_seconds: Optional[Annotated[int, Field(le=300, strict=True, ge=1)]] = Field(default=30, description="How long to wait for the gate's verdict on one segment. On timeout the segment takes the gate_on_error path. Keep it well below segment_seconds * segments_per_run or the gate becomes the bottleneck and runs start overlapping.")
-    __properties: ClassVar[List[str]] = ["provider_type", "url", "credentials", "transport", "segment_seconds", "segments_per_run", "connect_timeout_seconds", "scene_change_threshold", "gate_inference_name", "gate_on_error", "gate_timeout_seconds"]
+    __properties: ClassVar[List[str]] = ["provider_type", "url", "credentials", "transport", "segment_seconds", "segments_per_run", "connect_timeout_seconds", "scene_change_threshold", "gate_inference_name", "gate_retriever_id", "gate_retriever_min_score", "gate_output_stage", "gate_output_field", "gate_output_op", "gate_output_threshold", "gate_on_error", "gate_timeout_seconds"]
 
     @field_validator('provider_type')
     def provider_type_validate_enum(cls, value):
@@ -60,6 +66,16 @@ class RTSPConfig(BaseModel):
 
         if value not in set(['tcp', 'udp']):
             raise ValueError("must be one of enum values ('tcp', 'udp')")
+        return value
+
+    @field_validator('gate_output_op')
+    def gate_output_op_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['gte', 'lte', 'gt', 'lt', 'eq']):
+            raise ValueError("must be one of enum values ('gte', 'lte', 'gt', 'lt', 'eq')")
         return value
 
     @field_validator('gate_on_error')
@@ -135,6 +151,12 @@ class RTSPConfig(BaseModel):
             "connect_timeout_seconds": obj.get("connect_timeout_seconds") if obj.get("connect_timeout_seconds") is not None else 15,
             "scene_change_threshold": obj.get("scene_change_threshold"),
             "gate_inference_name": obj.get("gate_inference_name"),
+            "gate_retriever_id": obj.get("gate_retriever_id"),
+            "gate_retriever_min_score": obj.get("gate_retriever_min_score"),
+            "gate_output_stage": obj.get("gate_output_stage"),
+            "gate_output_field": obj.get("gate_output_field"),
+            "gate_output_op": obj.get("gate_output_op") if obj.get("gate_output_op") is not None else 'gte',
+            "gate_output_threshold": obj.get("gate_output_threshold"),
             "gate_on_error": obj.get("gate_on_error") if obj.get("gate_on_error") is not None else 'publish',
             "gate_timeout_seconds": obj.get("gate_timeout_seconds") if obj.get("gate_timeout_seconds") is not None else 30
         })

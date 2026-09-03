@@ -345,6 +345,7 @@ def get_default_iomap() -> Dict[str, str]:
     # High level languages
     hll_c = ('c', 'cc', 'cpp', 'c++', 'cp', 'cxx', 'hpp', 'h')
     hll_llvm = ('ll',)
+    hll_mlir = ('mlir',)
     hll_bsv = ('bsv',)
     hll_scala = ('scala',)
     hll_python = ('py',)
@@ -405,6 +406,7 @@ def get_default_iomap() -> Dict[str, str]:
     default_iomap = {}
     default_iomap.update({ext: "c" for ext in hll_c})
     default_iomap.update({ext: "llvm" for ext in hll_llvm})
+    default_iomap.update({ext: "mlir" for ext in hll_mlir})
     default_iomap.update({ext: "bsv" for ext in hll_bsv})
     default_iomap.update({ext: "scala" for ext in hll_scala})
     default_iomap.update({ext: "python" for ext in hll_python})
@@ -851,20 +853,31 @@ def get_cores(physical: bool = False) -> int:
     return cores
 
 
-def print_traceback(logger: logging.Logger, exception: Exception):
+def print_traceback(logger: logging.Logger, exception: Exception,
+                    force_console: bool = False):
     """
     Prints the full traceback of an exception to the provided logger.
 
     Args:
         logger (logging.Logger): The logger instance to write the traceback to.
         exception (Exception): The exception to log.
+        force_console (bool): When True the traceback is shown on screen even
+            if ['option', 'quiet'] has muted the console. Set it where the
+            exception is the reason the run stopped, so quiet does not turn a
+            crash into a silent one.
     """
-    logger.error(f'{exception}')
+    # Imported here rather than at module scope: siliconcompiler.utils.logging
+    # imports this module, so a top-level import would be circular.
+    from siliconcompiler.utils.logging import SC_CONSOLE_FORCE
+
+    extra = SC_CONSOLE_FORCE if force_console else None
+
+    logger.error(f'{exception}', extra=extra)
     trace = StringIO()
     traceback.print_tb(exception.__traceback__, file=trace)
-    logger.error("Backtrace:")
+    logger.error("Backtrace:", extra=extra)
     for line in trace.getvalue().splitlines():
-        logger.error(line)
+        logger.error(line, extra=extra)
 
 
 # Optional-dependency groups that provide development, testing, or CI tooling
@@ -1256,7 +1269,10 @@ class FilterDirectories:
                     if bool(os.stat(os.path.join(path, f)).st_file_attributes &
                             stat.FILE_ATTRIBUTE_HIDDEN)
                 ])
-        except:  # noqa 722
+        except (OSError, AttributeError):
+            # A file can vanish or refuse a stat between listing and probing, and
+            # the attribute constants only exist on the platforms that define the
+            # stat field. Treat the file as not hidden either way.
             pass
         # filter out hidden files (macos)
         try:
@@ -1266,7 +1282,8 @@ class FilterDirectories:
                     if bool(os.stat(os.path.join(path, f)).st_reparse_tag &
                             stat.UF_HIDDEN)
                 ])
-        except:  # noqa 722
+        except (OSError, AttributeError):
+            # Same as above.
             pass
 
         self.file_count += len(files) - len(hidden_files)

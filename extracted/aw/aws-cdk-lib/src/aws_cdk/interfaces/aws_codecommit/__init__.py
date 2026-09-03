@@ -98,7 +98,7 @@ class RepositoryReference:
         '''A reference to a Repository resource.
 
         :param repository_arn: The ARN of the Repository resource.
-        :param repository_id: The Id of the Repository resource.
+        :param repository_id: The RepositoryId of the Repository resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -131,7 +131,7 @@ class RepositoryReference:
 
     @builtins.property
     def repository_id(self) -> builtins.str:
-        '''The Id of the Repository resource.'''
+        '''The RepositoryId of the Repository resource.'''
         result = self._values.get("repository_id")
         assert result is not None, "Required property 'repository_id' is missing"
         return typing.cast(builtins.str, result)

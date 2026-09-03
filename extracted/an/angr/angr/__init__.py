@@ -1,7 +1,7 @@
 # pylint: disable=wrong-import-position
 from __future__ import annotations
 
-__version__ = "9.3.3"
+__version__ = "9.3.4"
 
 if bytes is str:
     raise Exception("""
@@ -79,6 +79,7 @@ from .errors import (
     AngrDataGraphError,
     AngrDBError,
     AngrDDGError,
+    AngrDecompilationComplexityError,
     AngrDecompilationError,
     AngrDelayJobNotice,
     AngrDirectorError,
@@ -234,6 +235,7 @@ __all__ = (
     "AngrDBError",
     "AngrDDGError",
     "AngrDataGraphError",
+    "AngrDecompilationComplexityError",
     "AngrDecompilationError",
     "AngrDelayJobNotice",
     "AngrDirectorError",

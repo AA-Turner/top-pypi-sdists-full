@@ -782,6 +782,126 @@ class parametric_project(Group):
                 The name of parametric project archive file for output.
         """
 
+class run(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def new_run(self):
+        """
+        Create a new run in the current simulation.
+        """
+    def set_as_current(self, run_name: str):
+        """
+        Set the named run as current.
+        
+        Parameters
+        ----------
+            run_name : str
+                Name of the run to make current.
+        """
+    def delete(self, run_name: str):
+        """
+        Delete the named run and all its files.
+        
+        Parameters
+        ----------
+            run_name : str
+                Name of the run to delete.
+        """
+
+class simulation(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    run: run
+    def new_simulation(self):
+        """
+        Create a new simulation in the current Fluent project.
+        """
+    def set_as_current(self, simulation_name: str):
+        """
+        Set the named simulation as current.
+        
+        Parameters
+        ----------
+            simulation_name : str
+                Name of the simulation to make current.
+        """
+    def delete(self, simulation_name: str):
+        """
+        Delete the named simulation and all its files.
+        
+        Parameters
+        ----------
+            simulation_name : str
+                Name of the simulation to delete.
+        """
+
+class project(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    simulation: simulation
+    def new(self, project_file_name: str):
+        """
+        Create a new standalone Fluent project.
+        
+        Parameters
+        ----------
+            project_file_name : str
+                The path of the new Fluent project file.
+        """
+    def open(self, load_current_case_or_mesh: bool, project_file_name: str):
+        """
+        Open an existing Fluent project file (.flprj or .flprz).
+        
+        Parameters
+        ----------
+            load_current_case_or_mesh : bool
+                Whether to load the case/mesh registered as current in the project.
+            project_file_name_1 : str
+                The path of the Fluent project file to open.
+        """
+    def save(self):
+        """
+        Save the current Fluent project.
+        """
+    def save_as(self, project_file_name: str):
+        """
+        Save the current Fluent project to a new location.
+        
+        Parameters
+        ----------
+            project_file_name : str
+                The path of the new project file.
+        """
+    def save_as_copy(self, project_file_name: str):
+        """
+        Export a copy of the current Fluent project without switching to it.
+        
+        Parameters
+        ----------
+            project_file_name : str
+                The path of the copy.
+        """
+    def archive(self, archive_name: str):
+        """
+        Archive the current Fluent project to a compressed .flprz file.
+        
+        Parameters
+        ----------
+            archive_name : str
+                The path of the archive file.
+        """
+
 class io_mode(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
@@ -1005,6 +1125,7 @@ class file(Group):
     export: export
     import_: import_
     parametric_project: parametric_project
+    project: project
     cffio_options: cffio_options
     batch_options: batch_options
     interpolate: interpolate
@@ -3831,6 +3952,160 @@ class units_settings(Group):
         """
     _child_aliases: dict
 
+class iterations_1(Integer):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class convergence_tolerance(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class residue_tolerance(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class verbosity_1(Integer):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class phase_mode(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    ZERO: Final[str] = 'zero'
+    CONTINUOUS: Final[str] = 'continuous'
+    _allowed_values: list[str]
+
+class type_5(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    IMPEDANCE: Final[str] = 'impedance'
+    REFLECTION: Final[str] = 'reflection'
+    ABSORPTION: Final[str] = 'absorption'
+    _allowed_values: list[str]
+
+class impedance_file(Filename):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class reflection_file(Filename):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class absorption_file(Filename):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class input_data(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    type: type_5
+    impedance_file: impedance_file
+    reflection_file: reflection_file
+    absorption_file: absorption_file
+
+class impedance_data_fitting(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    iterations: iterations_1
+    convergence_tolerance: convergence_tolerance
+    residue_tolerance: residue_tolerance
+    verbosity: verbosity_1
+    phase_mode: phase_mode
+    input_data: input_data
+    def impedance_data(self, input_file: str, pole_residue_file: str, fitted_data_file: str):
+        """
+        Read experimental impedance data and output impedance parameters for a boundary condition.
+        
+        Parameters
+        ----------
+            input_file : str
+                Path to the experimental specific impedance data file.
+            pole_residue_file : str
+                Output file for pole/residue parameters. Leave empty to skip writing.
+            fitted_data_file : str
+                Output file for fitted data. Leave empty to skip writing.
+        """
+    def reflection_data(self, input_file: str, pole_residue_file: str, fitted_data_file: str):
+        """
+        Read experimental reflection coefficient data and output impedance parameters for a boundary condition.
+        
+        Parameters
+        ----------
+            input_file : str
+                Path to the experimental reflection coefficient data file.
+            pole_residue_file : str
+                Output file for pole/residue parameters. Leave empty to skip writing.
+            fitted_data_file : str
+                Output file for fitted data. Leave empty to skip writing.
+        """
+    def absorption_data(self, input_file: str, pole_residue_file: str, fitted_data_file: str):
+        """
+        Read experimental absorption coefficient data and output impedance parameters for a boundary condition.
+        
+        Parameters
+        ----------
+            input_file : str
+                Path to the experimental absorption coefficient data file.
+            pole_residue_file : str
+                Output file for pole/residue parameters. Leave empty to skip writing.
+            fitted_data_file : str
+                Output file for fitted data. Leave empty to skip writing.
+        """
+    def import_parameters(self, model_file: str, zone_name: str):
+        """
+        Import impedance pole/residue parameters from a file into a boundary zone.
+        
+        Parameters
+        ----------
+            model_file : str
+                The impedance parameter file to import.
+            zone_name : str
+                The boundary zone ID or name to apply imported parameters to.
+        """
+    def export_data(self, data_file: str):
+        """
+        Write the fitted data to a file.
+        
+        Parameters
+        ----------
+            data_file : str
+                The output file path for the fitted data.
+        """
+    def export_model(self, model_file: str):
+        """
+        Write the impedance pole/residue model parameters to a file.
+        
+        Parameters
+        ----------
+            model_file_1 : str
+                The output file path for the impedance parameters.
+        """
+
 class general(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -3842,6 +4117,7 @@ class general(Group):
     adjust_solver_defaults_based_on_setup: adjust_solver_defaults_based_on_setup
     operating_conditions: operating_conditions
     units_settings: units_settings
+    impedance_data_fitting: impedance_data_fitting
     def domain_extents(self):
         """
         Query domain extents of the mesh.
@@ -13106,7 +13382,7 @@ class table_size(Real):
     fluent_name: str
     _python_name: str
 
-class verbosity_1(Integer):
+class verbosity_2(Integer):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -13121,7 +13397,7 @@ class isat_options(Group):
     command_names: list[str]
     error_tolerance: error_tolerance
     table_size: table_size
-    verbosity: verbosity_1
+    verbosity: verbosity_2
     def clear_isat_table(self):
         """
         Clear the current ISAT table.
@@ -15820,7 +16096,7 @@ class tracking_statistics_format(String, AllowedValuesMixin):
     _python_name: str
     _has_migration_adapter: bool
 
-class verbosity_2(Integer):
+class verbosity_3(Integer):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15852,7 +16128,7 @@ class advanced(Group):
     child_names: list[str]
     reference_frame: reference_frame
     tracking_statistics_format: tracking_statistics_format
-    verbosity: verbosity_2
+    verbosity: verbosity_3
     randomize_every_iteration: randomize_every_iteration
     randomize_every_timestep: randomize_every_timestep
     immediate_tracking_of_spawned_particles_enabled: immediate_tracking_of_spawned_particles_enabled
@@ -18909,7 +19185,7 @@ class report(Boolean):
     fluent_name: str
     _python_name: str
 
-class verbosity_3(Integer):
+class verbosity_4(Integer):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -18927,7 +19203,7 @@ class optics(Group):
     sampling_iterations: sampling_iterations
     index_of_refraction: index_of_refraction
     report: report
-    verbosity: verbosity_3
+    verbosity: verbosity_4
 
 class model_7(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -20253,7 +20529,19 @@ class mem_porosity(Real):
     fluent_name: str
     _python_name: str
 
-class mem_kr(Real):
+class mem_kr_x(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class mem_kr_y(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class mem_kr_z(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -20270,7 +20558,10 @@ class mem_zone(Group):
     mem_update: mem_update
     mem_material: mem_material
     mem_porosity: mem_porosity
-    mem_kr: mem_kr
+    mem_kr_x: mem_kr_x
+    mem_kr_y: mem_kr_y
+    mem_kr_z: mem_kr_z
+    _child_aliases: dict
 
 class permeation_enabled(Boolean):
     exposure_level: ExposureLevel
@@ -20751,7 +21042,7 @@ class physics_name(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class zone_name_6(String, AllowedValuesMixin):
+class zone_name_7(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -20770,7 +21061,7 @@ class contact_resis_child(Group):
     _python_name: str
     child_names: list[str]
     physics_name: physics_name
-    zone_name: zone_name_6
+    zone_name: zone_name_7
     value: value_17
 
 class contact_resis(ListObject[contact_resis_child]):
@@ -23723,7 +24014,7 @@ class contact_resistance_child(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    zone_name: zone_name_6
+    zone_name: zone_name_7
     value: value_17
 
 class contact_resistance(ListObject[contact_resistance_child]):
@@ -26448,7 +26739,7 @@ class tortuosity_interface_child(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    zone_name: zone_name_6
+    zone_name: zone_name_7
     physics_name: physics_name
     value: value_17
 
@@ -26508,7 +26799,7 @@ class pore_size_interface_child(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    zone_name: zone_name_6
+    zone_name: zone_name_7
     physics_name: physics_name
     value: value_17
 
@@ -26605,7 +26896,7 @@ class conductive_regions_child(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    zone_name: zone_name_6
+    zone_name: zone_name_7
     physics_name: physics_name
     value: value_17
 
@@ -26665,7 +26956,7 @@ class contact_resistance_regions_child(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    zone_name: zone_name_6
+    zone_name: zone_name_7
     physics_name: physics_name
     value: value_17
 
@@ -28161,7 +28452,7 @@ class contact_resis_1_child(Group):
     _python_name: str
     child_names: list[str]
     physics_name: physics_name
-    zone_name: zone_name_6
+    zone_name: zone_name_7
     value: value_17
 
 class contact_resis_1(ListObject[contact_resis_1_child]):
@@ -54060,7 +54351,7 @@ class boundaries(Group):
                 Input boundary type.
         """
 
-class type_11(String, AllowedValuesMixin):
+class type_12(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54200,7 +54491,7 @@ class interfaces_child(Group):
     child_names: list[str]
     command_names: list[str]
     name: name_26
-    type: type_11
+    type: type_12
     boundary_1: boundary_1_1
     boundary_2: boundary_2_1
     overlapping_boundaries: overlapping_boundaries
@@ -59174,7 +59465,7 @@ class tangential_source(Boolean):
     fluent_name: str
     _python_name: str
 
-class verbosity_5(Integer):
+class verbosity_6(Integer):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59190,7 +59481,7 @@ class general_nrbc(Group):
     sigma2: sigma2
     relax: relax
     tangential_source: tangential_source
-    verbosity: verbosity_5
+    verbosity: verbosity_6
 
 class enable_22(Boolean):
     exposure_level: ExposureLevel
@@ -59210,7 +59501,7 @@ class under_relaxation_1(Real):
     fluent_name: str
     _python_name: str
 
-class verbosity_6(Integer):
+class verbosity_7(Integer):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59226,7 +59517,7 @@ class turbo_specific_nrbc(Group):
     enable: enable_22
     discretization: discretization
     under_relaxation: under_relaxation_1
-    verbosity: verbosity_6
+    verbosity: verbosity_7
     def initialize(self):
         """
         Initialize turbo-specific non-reflecting boundary-conditions.
@@ -59244,160 +59535,6 @@ class non_reflecting_bc(Group):
     child_names: list[str]
     general_nrbc: general_nrbc
     turbo_specific_nrbc: turbo_specific_nrbc
-
-class iterations_1(Integer):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class convergence_tolerance(Real):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class residue_tolerance(Real):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class verbosity_7(Integer):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class phase_mode(String, AllowedValuesMixin):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    ZERO: Final[str] = 'zero'
-    CONTINUOUS: Final[str] = 'continuous'
-    _allowed_values: list[str]
-
-class type_12(String, AllowedValuesMixin):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    IMPEDANCE: Final[str] = 'impedance'
-    REFLECTION: Final[str] = 'reflection'
-    ABSORPTION: Final[str] = 'absorption'
-    _allowed_values: list[str]
-
-class impedance_file(Filename):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class reflection_file(Filename):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class absorption_file(Filename):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class input_data(Group):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    type: type_12
-    impedance_file: impedance_file
-    reflection_file: reflection_file
-    absorption_file: absorption_file
-
-class impedance_data_fitting(Group):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    iterations: iterations_1
-    convergence_tolerance: convergence_tolerance
-    residue_tolerance: residue_tolerance
-    verbosity: verbosity_7
-    phase_mode: phase_mode
-    input_data: input_data
-    def impedance_data(self, input_file: str, pole_residue_file: str, fitted_data_file: str):
-        """
-        Read experimental impedance data and output impedance parameters for a boundary condition.
-        
-        Parameters
-        ----------
-            input_file : str
-                Path to the experimental specific impedance data file.
-            pole_residue_file : str
-                Output file for pole/residue parameters. Leave empty to skip writing.
-            fitted_data_file : str
-                Output file for fitted data. Leave empty to skip writing.
-        """
-    def reflection_data(self, input_file: str, pole_residue_file: str, fitted_data_file: str):
-        """
-        Read experimental reflection coefficient data and output impedance parameters for a boundary condition.
-        
-        Parameters
-        ----------
-            input_file : str
-                Path to the experimental reflection coefficient data file.
-            pole_residue_file : str
-                Output file for pole/residue parameters. Leave empty to skip writing.
-            fitted_data_file : str
-                Output file for fitted data. Leave empty to skip writing.
-        """
-    def absorption_data(self, input_file: str, pole_residue_file: str, fitted_data_file: str):
-        """
-        Read experimental absorption coefficient data and output impedance parameters for a boundary condition.
-        
-        Parameters
-        ----------
-            input_file : str
-                Path to the experimental absorption coefficient data file.
-            pole_residue_file : str
-                Output file for pole/residue parameters. Leave empty to skip writing.
-            fitted_data_file : str
-                Output file for fitted data. Leave empty to skip writing.
-        """
-    def import_parameters(self, model_file: str, zone_name: str):
-        """
-        Import impedance pole/residue parameters from a file into a boundary zone.
-        
-        Parameters
-        ----------
-            model_file : str
-                The impedance parameter file to import.
-            zone_name : str
-                The boundary zone ID or name to apply imported parameters to.
-        """
-    def export_data(self, data_file: str):
-        """
-        Write the fitted data to a file.
-        
-        Parameters
-        ----------
-            data_file : str
-                The output file path for the fitted data.
-        """
-    def export_model(self, model_file: str):
-        """
-        Write the impedance pole/residue model parameters to a file.
-        
-        Parameters
-        ----------
-            model_file_1 : str
-                The output file path for the impedance parameters.
-        """
 
 class setup_method(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -60044,7 +60181,6 @@ class boundary_conditions(Group):
     velocity_inlet: velocity_inlet_1
     wall: wall_1
     non_reflecting_bc: non_reflecting_bc
-    impedance_data_fitting: impedance_data_fitting
     perforated_wall: perforated_wall
     settings: settings_1
     def copy(self, from_: str, to: list[str], verbosity: bool):
@@ -70519,6 +70655,12 @@ class enabled_71(Boolean):
     fluent_name: str
     _python_name: str
 
+class reference_mean_collision_time(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class time_step_1(Real):
     exposure_level: ExposureLevel
     _version: str
@@ -70603,6 +70745,7 @@ class dsmc(Group):
     child_names: list[str]
     command_names: list[str]
     enabled: enabled_71
+    reference_mean_collision_time: reference_mean_collision_time
     time_step: time_step_1
     sampling_begin_iteration: sampling_begin_iteration
     real_to_simulated_particle_ratio: real_to_simulated_particle_ratio
@@ -81226,6 +81369,7 @@ class run_calculation(Group):
     child_names: list[str]
     command_names: list[str]
     query_names: list[str]
+    dsmc: dsmc
     parameters: parameters_9
     pseudo_time_settings: pseudo_time_settings
     adaptive_time_stepping: adaptive_time_stepping
@@ -81240,7 +81384,6 @@ class run_calculation(Group):
     residual_verbosity: residual_verbosity
     compute_resources: compute_resources
     remote_compute: remote_compute
-    dsmc: dsmc
     def calculate(self):
         """
         Start run calculation.

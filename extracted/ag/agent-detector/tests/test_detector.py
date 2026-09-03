@@ -71,6 +71,14 @@ from agent_detector import DetectionResult, detect_agent
             {"CURSOR_EXTENSION_HOST_ROLE": "agent-exec"},
             DetectionResult("cursor-cli", "medium", "environment", "CURSOR_EXTENSION_HOST_ROLE"),
         ),
+        (
+            {"GROK_SESSION_ID": "secret"},
+            DetectionResult("grok", "high", "environment", "GROK_SESSION_ID"),
+        ),
+        (
+            {"GROK_AGENT": "1"},
+            DetectionResult("grok", "medium", "environment", "GROK_AGENT"),
+        ),
         ({"TERM_PROGRAM": "kiro"}, DetectionResult("kiro", "low", "environment", "TERM_PROGRAM")),
         (
             {"PATH": "/usr/bin:/home/user/.pi/agent/bin"},
@@ -181,6 +189,63 @@ def test_cowork_takes_priority_over_claude_code() -> None:
 
     assert detection is not None
     assert detection.agent == "cowork"
+
+
+def test_grok_session_id_takes_priority_over_grok_agent() -> None:
+    detection = detect_agent({"GROK_SESSION_ID": "secret", "GROK_AGENT": "1"})
+
+    assert detection == DetectionResult("grok", "high", "environment", "GROK_SESSION_ID")
+
+
+def test_grok_does_not_collide_with_grok_bot() -> None:
+    detection = detect_agent(
+        {
+            "GROK_SESSION_ID": "secret",
+            "CURSOR_AGENT": "1",
+            "SAND_BOX_BOOT_ID": "secret",
+            "SAND_BOX_STORE_ID": "secret",
+        }
+    )
+
+    assert detection == DetectionResult("grok", "high", "environment", "GROK_SESSION_ID")
+
+
+def test_grok_bot_takes_priority_over_cursor_cli() -> None:
+    detection = detect_agent(
+        {
+            "CURSOR_AGENT": "1",
+            "SAND_BOX_BOOT_ID": "secret",
+            "SAND_BOX_STORE_ID": "secret",
+        }
+    )
+
+    assert detection == DetectionResult("grok-bot", "high", "environment", "SAND_BOX_BOOT_ID")
+
+
+def test_grok_bot_requires_cursor_agent_signal() -> None:
+    assert (
+        detect_agent(
+            {
+                "SAND_BOX_BOOT_ID": "secret",
+                "SAND_BOX_STORE_ID": "secret",
+            }
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("missing_signal", ["SAND_BOX_BOOT_ID", "SAND_BOX_STORE_ID"])
+def test_grok_bot_requires_both_sand_computer_ids(missing_signal: str) -> None:
+    environment = {
+        "CURSOR_AGENT": "1",
+        "SAND_BOX_BOOT_ID": "secret",
+        "SAND_BOX_STORE_ID": "secret",
+    }
+    del environment[missing_signal]
+
+    detection = detect_agent(environment)
+
+    assert detection == DetectionResult("cursor-cli", "high", "environment", "CURSOR_AGENT")
 
 
 def test_specific_signal_takes_priority_over_broad_signal() -> None:

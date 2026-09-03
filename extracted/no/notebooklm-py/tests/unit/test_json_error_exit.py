@@ -194,8 +194,8 @@ def _assert_json_error_contract(result, case_id: str) -> dict:
     return payload
 
 
-def _auth_inspect_rookiepy_cookies() -> list[dict[str, object]]:
-    """Return a minimal valid rookiepy cookie list for account-discovery tests."""
+def _auth_inspect_rookie_cookies() -> list[dict[str, object]]:
+    """Return a minimal valid rookie-cookies cookie list for account-discovery tests."""
     return [
         {
             "domain": ".google.com",
@@ -223,12 +223,42 @@ def _fail_suggest_prompts(client: MagicMock) -> None:
     client.notebooks.suggest_prompts = AsyncMock(side_effect=RuntimeError("network unreachable"))
 
 
+def _fail_suggest_next_steps(client: MagicMock) -> None:
+    client.notebooks.suggest_next_steps = AsyncMock(side_effect=RuntimeError("network unreachable"))
+
+
+def _fail_source_add_async(client: MagicMock) -> None:
+    client.sources.add_urls_async = AsyncMock(side_effect=RuntimeError("network unreachable"))
+
+
+def _fail_source_append(client: MagicMock) -> None:
+    client.sources.append_text = AsyncMock(side_effect=RuntimeError("network unreachable"))
+
+
+def _fail_source_copy(client: MagicMock) -> None:
+    client.sources.copy = AsyncMock(side_effect=RuntimeError("network unreachable"))
+
+
+def _fail_artifact_copy(client: MagicMock) -> None:
+    client.artifacts.copy = AsyncMock(side_effect=RuntimeError("network unreachable"))
+
+
+def _fail_artifact_choices(client: MagicMock) -> None:
+    client.artifacts.get_customization_choices = AsyncMock(
+        side_effect=RuntimeError("network unreachable")
+    )
+
+
 def _fail_artifact_list(client: MagicMock) -> None:
     client.artifacts.list = AsyncMock(side_effect=RuntimeError("auth: 401 Unauthorized"))
 
 
 def _fail_source_list(client: MagicMock) -> None:
     client.sources.list = AsyncMock(side_effect=RuntimeError("net down"))
+
+
+def _fail_source_search(client: MagicMock) -> None:
+    client.sources.search = AsyncMock(side_effect=RuntimeError("net down"))
 
 
 def _fail_note_list(client: MagicMock) -> None:
@@ -261,6 +291,11 @@ def _research_import_in_progress(client: MagicMock) -> None:
             report="",
         )
     )
+
+
+def _fail_research_discover(client: MagicMock) -> None:
+    # `research discover` surfaces a transport failure as a JSON error envelope.
+    client.research.discover = AsyncMock(side_effect=RuntimeError("net down"))
 
 
 def _fail_research_cancel(client: MagicMock) -> None:
@@ -362,6 +397,10 @@ def _fail_notebook_create(client: MagicMock) -> None:
     client.notebooks.create = AsyncMock(side_effect=RuntimeError("notebook quota exceeded"))
 
 
+def _fail_notebook_copy(client: MagicMock) -> None:
+    client.notebooks.copy = AsyncMock(side_effect=RuntimeError("copy response lost"))
+
+
 # ---------------------------------------------------------------------------
 # Parametrized sweep
 # ---------------------------------------------------------------------------
@@ -371,6 +410,11 @@ def _fail_notebook_create(client: MagicMock) -> None:
 JSON_ERROR_CASES: list[tuple[str, list[str], object]] = [
     # source group: client raises -> @with_client routes to json_error_response.
     ("source_list_unauthorized", ["source", "list", "-n", "abc", "--json"], _fail_source_list),
+    (
+        "source_search_failure",
+        ["source", "search", "ranked passage", "-n", "abc", "--json"],
+        _fail_source_search,
+    ),
     # artifact group
     (
         "artifact_list_unauthorized",
@@ -494,6 +538,11 @@ JSON_ERROR_CASES: list[tuple[str, list[str], object]] = [
         "research_wait_no_research",
         ["research", "wait", "-n", "abc123def456ghi789jkl", "--json"],
         _research_no_research,
+    ),
+    (
+        "research_discover_failed",
+        ["research", "discover", "q", "-n", "abc123def456ghi789jkl", "--json"],
+        _fail_research_discover,
     ),
     # research import against a run that is still in flight: the whole point of
     # the command is that this FAILS FAST (VALIDATION_ERROR) instead of waiting.
@@ -622,11 +671,47 @@ JSON_ERROR_CASES: list[tuple[str, list[str], object]] = [
         ["suggest-prompts", "-n", "abc", "--json"],
         _fail_suggest_prompts,
     ),
+    (
+        "suggest_next_steps_failure",
+        ["suggest-next-steps", "-n", "abc", "--json"],
+        _fail_suggest_next_steps,
+    ),
+    # #2283 transfer family
+    (
+        "source_add_async_failure",
+        ["source", "add-async", "https://example.com/", "-n", "abc", "--json"],
+        _fail_source_add_async,
+    ),
+    (
+        "source_append_failure",
+        ["source", "append", "src123def456ghi789jkl", "text", "-n", "abc", "--json"],
+        _fail_source_append,
+    ),
+    (
+        "source_copy_failure",
+        ["source", "copy", "src123def456ghi789jkl", "--to", "abc", "-n", "abc", "--json"],
+        _fail_source_copy,
+    ),
+    (
+        "artifact_copy_failure",
+        ["artifact", "copy", "art123def456ghi789jkl", "--to", "abc", "-n", "abc", "--json"],
+        _fail_artifact_copy,
+    ),
+    (
+        "artifact_choices_failure",
+        ["artifact", "choices", "-n", "abc", "--json"],
+        _fail_artifact_choices,
+    ),
     # notebook create: with_client + RuntimeError -> UNEXPECTED_ERROR envelope.
     (
         "notebook_create_failure",
         ["create", "My Notebook", "--json"],
         _fail_notebook_create,
+    ),
+    (
+        "notebook_copy_failure",
+        ["copy", "My Notebook Copy", "-n", "abc", "--json"],
+        _fail_notebook_copy,
     ),
     # doctor + profile-list: filesystem-driven failures wrapped in the
     # canonical ADR-0015 JSON error envelope.
@@ -785,14 +870,14 @@ def test_auth_inspect_unknown_browser(runner: CliRunner) -> None:
 
 def test_auth_inspect_network_failure(runner: CliRunner) -> None:
     """``auth inspect --json`` must envelope account-discovery transport errors."""
-    mock_rookiepy = MagicMock()
-    mock_rookiepy.chrome = MagicMock(return_value=_auth_inspect_rookiepy_cookies())
+    mock_rookie_cookies = MagicMock()
+    mock_rookie_cookies.chrome = MagicMock(return_value=_auth_inspect_rookie_cookies())
 
     async def fail_enumerate(*args, **kwargs):
         raise httpx.RequestError("offline")
 
     with (
-        patch.dict("sys.modules", {"rookiepy": mock_rookiepy}),
+        patch.dict("sys.modules", {"rookie_cookies": mock_rookie_cookies}),
         patch.object(chromium_profiles, "discover_chromium_profiles", return_value=[]),
         patch.object(auth_module, "enumerate_accounts", new=fail_enumerate),
     ):

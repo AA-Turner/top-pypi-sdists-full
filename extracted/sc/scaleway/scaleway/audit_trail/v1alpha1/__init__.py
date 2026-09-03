@@ -7,6 +7,9 @@ from .types import AuthenticationEventMFAType
 from .types import AuthenticationEventMethod
 from .types import AuthenticationEventOrigin
 from .types import AuthenticationEventResult
+from .types import CustomAlertRuleSeverity
+from .types import CustomAlertRuleStatus
+from .content import CUSTOM_ALERT_RULE_TRANSIENT_STATUSES
 from .types import ExportJobStatusCode
 from .types import ListAuthenticationEventsRequestOrderBy
 from .types import ListCombinedEventsRequestOrderBy
@@ -14,6 +17,8 @@ from .types import ListEventsRequestOrderBy
 from .types import ListExportJobsRequestOrderBy
 from .types import ListSystemEventsRequestOrderBy
 from .types import ResourceType
+from .types import ServerlessContainersTriggerInfoSourceType
+from .types import ServerlessFunctionsTriggerInfoInputType
 from .types import SystemEventKind
 from .types import AccountContractSignatureInfoAccountContractInfo
 from .types import AccountContractSignatureInfo
@@ -23,6 +28,7 @@ from .types import AccountUserInfo
 from .types import AppleSiliconRunnerInfo
 from .types import AppleSiliconServerInfo
 from .types import AuditTrailAlertRuleInfo
+from .types import AuditTrailCustomAlertRuleInfo
 from .types import AuditTrailExportJobInfo
 from .types import BaremetalServerInfo
 from .types import BaremetalSettingInfo
@@ -34,6 +40,7 @@ from .types import EdgeServicesPlanInfo
 from .types import EdgeServicesRouteRulesInfo
 from .types import EdgeServicesRouteStageInfo
 from .types import EdgeServicesTLSStageInfo
+from .types import EdgeServicesVPCEndpointInfo
 from .types import EdgeServicesWAFStageInfo
 from .types import InstancePrivateNetworkInterfaceInfo
 from .types import InstanceServerInfo
@@ -50,11 +57,23 @@ from .types import LoadBalancerFrontendInfo
 from .types import LoadBalancerIpInfo
 from .types import LoadBalancerLbInfo
 from .types import LoadBalancerRouteInfo
+from .types import ObservabilityAlertRuleInfo
+from .types import ObservabilityContactPointInfo
 from .types import SecretManagerSecretInfo
 from .types import SecretManagerSecretVersionInfo
+from .types import ServerlessContainersContainerInfo
+from .types import ServerlessContainersDomainInfo
+from .types import ServerlessContainersNamespaceInfo
+from .types import ServerlessContainersTriggerInfo
+from .types import ServerlessFunctionsCronInfo
+from .types import ServerlessFunctionsDomainInfo
+from .types import ServerlessFunctionsFunctionInfo
+from .types import ServerlessFunctionsNamespaceInfo
+from .types import ServerlessFunctionsTriggerInfo
 from .types import VpcConnectorInfo
 from .types import VpcGwGatewayInfo
 from .types import VpcGwGatewayNetworkInfo
+from .types import VpcIngressRuleInfo
 from .types import VpcPrivateNetworkInfo
 from .types import VpcRouteInfo
 from .types import VpcSubnetInfo
@@ -67,21 +86,32 @@ from .types import ExportJobS3
 from .types import ExportJobStatus
 from .types import ProductService
 from .types import AlertRule
+from .types import CustomAlertRule
 from .types import ListCombinedEventsResponseCombinedEvent
 from .types import ExportJob
 from .types import Product
+from .types import CreateCustomAlertRuleRequest
 from .types import CreateExportJobRequest
+from .types import DeleteCustomAlertRuleRequest
 from .types import DeleteExportJobRequest
 from .types import DisableAlertRulesRequest
 from .types import DisableAlertRulesResponse
+from .types import DisableCustomAlertRulesRequest
+from .types import DisableCustomAlertRulesResponse
 from .types import EnableAlertRulesRequest
 from .types import EnableAlertRulesResponse
+from .types import EnableCustomAlertRulesRequest
+from .types import EnableCustomAlertRulesResponse
+from .types import EventsOverview
+from .types import GetLastEventsOverviewRequest
 from .types import ListAlertRulesRequest
 from .types import ListAlertRulesResponse
 from .types import ListAuthenticationEventsRequest
 from .types import ListAuthenticationEventsResponse
 from .types import ListCombinedEventsRequest
 from .types import ListCombinedEventsResponse
+from .types import ListCustomAlertRulesRequest
+from .types import ListCustomAlertRulesResponse
 from .types import ListEventsRequest
 from .types import ListEventsResponse
 from .types import ListExportJobsRequest
@@ -92,6 +122,9 @@ from .types import ListSystemEventsRequest
 from .types import ListSystemEventsResponse
 from .types import SetEnabledAlertRulesRequest
 from .types import SetEnabledAlertRulesResponse
+from .types import SetEnabledCustomAlertRulesRequest
+from .types import SetEnabledCustomAlertRulesResponse
+from .types import UpdateCustomAlertRuleRequest
 from .api import AuditTrailV1Alpha1API
 
 __all__ = [
@@ -102,6 +135,9 @@ __all__ = [
     "AuthenticationEventMethod",
     "AuthenticationEventOrigin",
     "AuthenticationEventResult",
+    "CustomAlertRuleSeverity",
+    "CustomAlertRuleStatus",
+    "CUSTOM_ALERT_RULE_TRANSIENT_STATUSES",
     "ExportJobStatusCode",
     "ListAuthenticationEventsRequestOrderBy",
     "ListCombinedEventsRequestOrderBy",
@@ -109,6 +145,8 @@ __all__ = [
     "ListExportJobsRequestOrderBy",
     "ListSystemEventsRequestOrderBy",
     "ResourceType",
+    "ServerlessContainersTriggerInfoSourceType",
+    "ServerlessFunctionsTriggerInfoInputType",
     "SystemEventKind",
     "AccountContractSignatureInfoAccountContractInfo",
     "AccountContractSignatureInfo",
@@ -118,6 +156,7 @@ __all__ = [
     "AppleSiliconRunnerInfo",
     "AppleSiliconServerInfo",
     "AuditTrailAlertRuleInfo",
+    "AuditTrailCustomAlertRuleInfo",
     "AuditTrailExportJobInfo",
     "BaremetalServerInfo",
     "BaremetalSettingInfo",
@@ -129,6 +168,7 @@ __all__ = [
     "EdgeServicesRouteRulesInfo",
     "EdgeServicesRouteStageInfo",
     "EdgeServicesTLSStageInfo",
+    "EdgeServicesVPCEndpointInfo",
     "EdgeServicesWAFStageInfo",
     "InstancePrivateNetworkInterfaceInfo",
     "InstanceServerInfo",
@@ -145,11 +185,23 @@ __all__ = [
     "LoadBalancerIpInfo",
     "LoadBalancerLbInfo",
     "LoadBalancerRouteInfo",
+    "ObservabilityAlertRuleInfo",
+    "ObservabilityContactPointInfo",
     "SecretManagerSecretInfo",
     "SecretManagerSecretVersionInfo",
+    "ServerlessContainersContainerInfo",
+    "ServerlessContainersDomainInfo",
+    "ServerlessContainersNamespaceInfo",
+    "ServerlessContainersTriggerInfo",
+    "ServerlessFunctionsCronInfo",
+    "ServerlessFunctionsDomainInfo",
+    "ServerlessFunctionsFunctionInfo",
+    "ServerlessFunctionsNamespaceInfo",
+    "ServerlessFunctionsTriggerInfo",
     "VpcConnectorInfo",
     "VpcGwGatewayInfo",
     "VpcGwGatewayNetworkInfo",
+    "VpcIngressRuleInfo",
     "VpcPrivateNetworkInfo",
     "VpcRouteInfo",
     "VpcSubnetInfo",
@@ -162,21 +214,32 @@ __all__ = [
     "ExportJobStatus",
     "ProductService",
     "AlertRule",
+    "CustomAlertRule",
     "ListCombinedEventsResponseCombinedEvent",
     "ExportJob",
     "Product",
+    "CreateCustomAlertRuleRequest",
     "CreateExportJobRequest",
+    "DeleteCustomAlertRuleRequest",
     "DeleteExportJobRequest",
     "DisableAlertRulesRequest",
     "DisableAlertRulesResponse",
+    "DisableCustomAlertRulesRequest",
+    "DisableCustomAlertRulesResponse",
     "EnableAlertRulesRequest",
     "EnableAlertRulesResponse",
+    "EnableCustomAlertRulesRequest",
+    "EnableCustomAlertRulesResponse",
+    "EventsOverview",
+    "GetLastEventsOverviewRequest",
     "ListAlertRulesRequest",
     "ListAlertRulesResponse",
     "ListAuthenticationEventsRequest",
     "ListAuthenticationEventsResponse",
     "ListCombinedEventsRequest",
     "ListCombinedEventsResponse",
+    "ListCustomAlertRulesRequest",
+    "ListCustomAlertRulesResponse",
     "ListEventsRequest",
     "ListEventsResponse",
     "ListExportJobsRequest",
@@ -187,5 +250,8 @@ __all__ = [
     "ListSystemEventsResponse",
     "SetEnabledAlertRulesRequest",
     "SetEnabledAlertRulesResponse",
+    "SetEnabledCustomAlertRulesRequest",
+    "SetEnabledCustomAlertRulesResponse",
+    "UpdateCustomAlertRuleRequest",
     "AuditTrailV1Alpha1API",
 ]

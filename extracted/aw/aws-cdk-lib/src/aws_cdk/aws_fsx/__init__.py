@@ -1056,6 +1056,12 @@ class CfnFileSystem(
                 export_path="exportPath",
                 imported_file_chunk_size=123,
                 import_path="importPath",
+                log_configuration=fsx.CfnFileSystem.LogConfigurationProperty(
+                    level="level",
+        
+                    # the properties below are optional
+                    destination="destination"
+                ),
                 metadata_configuration=fsx.CfnFileSystem.MetadataConfigurationProperty(
                     iops=123,
                     mode="mode"
@@ -1976,6 +1982,76 @@ class CfnFileSystem(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnFileSystem.LogConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"level": "level", "destination": "destination"},
+    )
+    class LogConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            level: builtins.str,
+            destination: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param level: 
+            :param destination: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-logconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                log_configuration_property = fsx.CfnFileSystem.LogConfigurationProperty(
+                    level="level",
+                
+                    # the properties below are optional
+                    destination="destination"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a20c31337e7e69011838dd5dd0dc220607c282f64ae004eceda8ba123c0b7ec2)
+                check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "level": level,
+            }
+            if destination is not None:
+                self._values["destination"] = destination
+
+        @builtins.property
+        def level(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-logconfiguration.html#cfn-fsx-filesystem-logconfiguration-level
+            '''
+            result = self._values.get("level")
+            assert result is not None, "Required property 'level' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-logconfiguration.html#cfn-fsx-filesystem-logconfiguration-destination
+            '''
+            result = self._values.get("destination")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_fsx.CfnFileSystem.LustreConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1991,6 +2067,7 @@ class CfnFileSystem(
             "export_path": "exportPath",
             "imported_file_chunk_size": "importedFileChunkSize",
             "import_path": "importPath",
+            "log_configuration": "logConfiguration",
             "metadata_configuration": "metadataConfiguration",
             "per_unit_storage_throughput": "perUnitStorageThroughput",
             "throughput_capacity": "throughputCapacity",
@@ -2013,6 +2090,7 @@ class CfnFileSystem(
             export_path: typing.Optional[builtins.str] = None,
             imported_file_chunk_size: typing.Optional[jsii.Number] = None,
             import_path: typing.Optional[builtins.str] = None,
+            log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             metadata_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             per_unit_storage_throughput: typing.Optional[jsii.Number] = None,
             throughput_capacity: typing.Optional[jsii.Number] = None,
@@ -2032,6 +2110,7 @@ class CfnFileSystem(
             :param export_path: (Optional) Specifies the path in the Amazon S3 bucket where the root of your Amazon FSx file system is exported. The path must use the same Amazon S3 bucket as specified in ImportPath. You can provide an optional prefix to which new and changed data is to be exported from your Amazon FSx for Lustre file system. If an ``ExportPath`` value is not provided, Amazon FSx sets a default export path, ``s3://import-bucket/FSxLustre[creation-timestamp]`` . The timestamp is in UTC format, for example ``s3://import-bucket/FSxLustre20181105T222312Z`` . The Amazon S3 export bucket must be the same as the import bucket specified by ``ImportPath`` . If you specify only a bucket name, such as ``s3://import-bucket`` , you get a 1:1 mapping of file system objects to S3 bucket objects. This mapping means that the input data in S3 is overwritten on export. If you provide a custom prefix in the export path, such as ``s3://import-bucket/[custom-optional-prefix]`` , Amazon FSx exports the contents of your file system to that export prefix in the Amazon S3 bucket. .. epigraph:: This parameter is not supported for file systems with a data repository association.
             :param imported_file_chunk_size: (Optional) For files imported from a data repository, this value determines the stripe count and maximum amount of data per file (in MiB) stored on a single physical disk. The maximum number of disks that a single file can be striped across is limited by the total number of disks that make up the file system. The default chunk size is 1,024 MiB (1 GiB) and can go as high as 512,000 MiB (500 GiB). Amazon S3 objects have a maximum size of 5 TB. .. epigraph:: This parameter is not supported for Lustre file systems with a data repository association.
             :param import_path: (Optional) The path to the Amazon S3 bucket (including the optional prefix) that you're using as the data repository for your Amazon FSx for Lustre file system. The root of your FSx for Lustre file system will be mapped to the root of the Amazon S3 bucket you select. An example is ``s3://import-bucket/optional-prefix`` . If you specify a prefix after the Amazon S3 bucket name, only object keys with that prefix are loaded into the file system. .. epigraph:: This parameter is not supported for Lustre file systems with a data repository association.
+            :param log_configuration: 
             :param metadata_configuration: The Lustre metadata performance configuration for the creation of an FSx for Lustre file system using a ``PERSISTENT_2`` deployment type.
             :param per_unit_storage_throughput: Required with ``PERSISTENT_1`` and ``PERSISTENT_2`` deployment types, provisions the amount of read and write throughput for each 1 tebibyte (TiB) of file system storage capacity, in MB/s/TiB. File system throughput capacity is calculated by multiplying ﬁle system storage capacity (TiB) by the ``PerUnitStorageThroughput`` (MB/s/TiB). For a 2.4-TiB ﬁle system, provisioning 50 MB/s/TiB of ``PerUnitStorageThroughput`` yields 120 MB/s of ﬁle system throughput. You pay for the amount of throughput that you provision. Valid values: - For ``PERSISTENT_1`` SSD storage: 50, 100, 200 MB/s/TiB. - For ``PERSISTENT_1`` HDD storage: 12, 40 MB/s/TiB. - For ``PERSISTENT_2`` SSD storage: 125, 250, 500, 1000 MB/s/TiB.
             :param throughput_capacity: Specifies the throughput of an FSx for Lustre file system using the Intelligent-Tiering storage class, measured in megabytes per second (MBps). Valid values are 4000 MBps or multiples of 4000 MBps. You pay for the amount of throughput that you provision.
@@ -2062,6 +2141,12 @@ class CfnFileSystem(
                     export_path="exportPath",
                     imported_file_chunk_size=123,
                     import_path="importPath",
+                    log_configuration=fsx.CfnFileSystem.LogConfigurationProperty(
+                        level="level",
+                
+                        # the properties below are optional
+                        destination="destination"
+                    ),
                     metadata_configuration=fsx.CfnFileSystem.MetadataConfigurationProperty(
                         iops=123,
                         mode="mode"
@@ -2085,6 +2170,7 @@ class CfnFileSystem(
                 check_type(argname="argument export_path", value=export_path, expected_type=type_hints["export_path"])
                 check_type(argname="argument imported_file_chunk_size", value=imported_file_chunk_size, expected_type=type_hints["imported_file_chunk_size"])
                 check_type(argname="argument import_path", value=import_path, expected_type=type_hints["import_path"])
+                check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
                 check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
                 check_type(argname="argument per_unit_storage_throughput", value=per_unit_storage_throughput, expected_type=type_hints["per_unit_storage_throughput"])
                 check_type(argname="argument throughput_capacity", value=throughput_capacity, expected_type=type_hints["throughput_capacity"])
@@ -2114,6 +2200,8 @@ class CfnFileSystem(
                 self._values["imported_file_chunk_size"] = imported_file_chunk_size
             if import_path is not None:
                 self._values["import_path"] = import_path
+            if log_configuration is not None:
+                self._values["log_configuration"] = log_configuration
             if metadata_configuration is not None:
                 self._values["metadata_configuration"] = metadata_configuration
             if per_unit_storage_throughput is not None:
@@ -2303,6 +2391,16 @@ class CfnFileSystem(
             '''
             result = self._values.get("import_path")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.LogConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-logconfiguration
+            '''
+            result = self._values.get("log_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.LogConfigurationProperty"]], result)
 
         @builtins.property
         def metadata_configuration(
@@ -4075,6 +4173,12 @@ class CfnFileSystemProps:
                     export_path="exportPath",
                     imported_file_chunk_size=123,
                     import_path="importPath",
+                    log_configuration=fsx.CfnFileSystem.LogConfigurationProperty(
+                        level="level",
+            
+                        # the properties below are optional
+                        destination="destination"
+                    ),
                     metadata_configuration=fsx.CfnFileSystem.MetadataConfigurationProperty(
                         iops=123,
                         mode="mode"
@@ -10555,6 +10659,14 @@ def _typecheckingstub__a1a87e74515d95b12117202a812c1704adfe7df1f960c4cd056bd07d4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a20c31337e7e69011838dd5dd0dc220607c282f64ae004eceda8ba123c0b7ec2(
+    *,
+    level: builtins.str,
+    destination: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8e1fe808b96f0eb1b8b6ed8eb3d551c8d995fe2c98c9be554bed33160d615a99(
     *,
     auto_import_policy: typing.Optional[builtins.str] = None,
@@ -10569,6 +10681,7 @@ def _typecheckingstub__8e1fe808b96f0eb1b8b6ed8eb3d551c8d995fe2c98c9be554bed33160
     export_path: typing.Optional[builtins.str] = None,
     imported_file_chunk_size: typing.Optional[jsii.Number] = None,
     import_path: typing.Optional[builtins.str] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metadata_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     per_unit_storage_throughput: typing.Optional[jsii.Number] = None,
     throughput_capacity: typing.Optional[jsii.Number] = None,

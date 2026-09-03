@@ -29,6 +29,7 @@ def bake_image(
     logger: Optional[Callable[[str], Any]] = None,
     fast_bakery_url: Optional[str] = None,
     channels: Optional[list] = None,
+    extra_configs: Optional[Dict[str, str]] = None,
 ) -> FastBakeryApiResponse:
     """
     Bakes a Docker image with the specified dependencies.
@@ -42,6 +43,9 @@ def bake_image(
         base_image: Base Docker image to use
         logger: Optional logger function to output progress
         fast_bakery_url: Optional FB URL
+        channels: Optional list of conda channels to use
+        extra_configs: Optional dictionary of extra configuration values passed
+            through to the bakery
 
     Returns:
         FastBakeryApiResponse: The response from the bakery service
@@ -72,6 +76,7 @@ def bake_image(
         conda_packages=None,
         base_image=None,
         channels=None,
+        extra_configs=None,
     ):
         try:
             bakery = FastBakery(url=fast_bakery_url)
@@ -83,6 +88,7 @@ def bake_image(
                 bakery.default_conda_channel(channels[0])
                 bakery.conda_channels(channels)
             bakery.base_image(base_image)
+            bakery.extra_configs(extra_configs)
             # bakery.ignore_cache()
 
             with logger_lock:
@@ -99,6 +105,8 @@ def bake_image(
                     for package, version in conda_packages.items():
                         logger(f"        🔧 {package}: {version}")
 
+                if extra_configs:
+                    logger(f"     🧩 Extra configs will be used")
                 logger(f"     🏗️  Base image: {base_image}")
 
             start_time = time.time()
@@ -114,7 +122,10 @@ def bake_image(
         except FastBakeryException as ex:
             raise BakerException(f"Bake [{ref}] failed: {str(ex)}")
 
-    # Call the cached bake function with the provided parameters
+    # Call the cached bake function with the provided parameters.
+    # `extra_configs` is only passed when set, so that cache keys for callers
+    # that do not use it remain unchanged.
+    extra_kwargs = {"extra_configs": extra_configs} if extra_configs else {}
     return _cached_bake(
         ref=ref,
         python=python,
@@ -122,4 +133,5 @@ def bake_image(
         conda_packages=conda_packages,
         base_image=base_image,
         channels=channels,
+        **extra_kwargs,
     )

@@ -77,6 +77,794 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IBudgetRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnBudget(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_deadline.CfnBudget",
+):
+    '''Creates a budget to set spending thresholds for your rendering activity.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html
+    :cloudformationResource: AWS::Deadline::Budget
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_deadline as deadline
+        
+        cfn_budget = deadline.CfnBudget(self, "MyCfnBudget",
+            actions=[deadline.CfnBudget.BudgetActionToAddProperty(
+                threshold_percentage=123,
+                type="type",
+        
+                # the properties below are optional
+                description="description"
+            )],
+            approximate_dollar_limit=123,
+            display_name="displayName",
+            farm_id="farmId",
+            schedule=deadline.CfnBudget.BudgetScheduleProperty(
+                fixed=deadline.CfnBudget.FixedBudgetScheduleProperty(
+                    end_time="endTime",
+                    start_time="startTime"
+                )
+            ),
+            usage_tracking_resource=deadline.CfnBudget.UsageTrackingResourceProperty(
+                queue_id="queueId"
+            ),
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.BudgetActionToAddProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        approximate_dollar_limit: jsii.Number,
+        display_name: builtins.str,
+        farm_id: builtins.str,
+        schedule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.BudgetScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        usage_tracking_resource: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.UsageTrackingResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Deadline::Budget``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param actions: The budget actions to specify what happens when the budget runs out.
+        :param approximate_dollar_limit: The dollar limit based on consumed usage.
+        :param display_name: The display name of the budget.
+        :param farm_id: The farm ID.
+        :param schedule: The start and end time of the budget.
+        :param usage_tracking_resource: The usage details of the allotted budget.
+        :param description: The description of the budget.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d9523f4ebba0a34126982efcb769fc322ad6f4f1e343b60559684c8b78d0b702)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnBudgetProps(
+            actions=actions,
+            approximate_dollar_limit=approximate_dollar_limit,
+            display_name=display_name,
+            farm_id=farm_id,
+            schedule=schedule,
+            usage_tracking_resource=usage_tracking_resource,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForBudget")
+    @builtins.classmethod
+    def arn_for_budget(
+        cls,
+        resource: "_aws_deadline_b02a7487.IBudgetRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a2c46e1b7bd5e054d6385f65bfe3853ec4b49715c2d2549dd17f11e64cddf4b6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBudget", [resource]))
+
+    @jsii.member(jsii_name="isCfnBudget")
+    @builtins.classmethod
+    def is_cfn_budget(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBudget.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3ff806402a44790de96de138b0f16298967dcdbd3b1554e181d98123025c85f7)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBudget", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fb98790188f3e5ec1349f151c36985cd36f2971411a21899a930b4855dec9077)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1323ac934210e4d1c7681077ff954bdaf32a4f58b3edbde67c1dd5077301cfd6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the budget.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBudgetId")
+    def attr_budget_id(self) -> builtins.str:
+        '''The budget ID.
+
+        :cloudformationAttribute: BudgetId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBudgetId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the budget.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetRef")
+    def budget_ref(self) -> "_aws_deadline_b02a7487.BudgetReference":
+        '''A reference to a Budget resource.'''
+        return typing.cast("_aws_deadline_b02a7487.BudgetReference", jsii.get(self, "budgetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetActionToAddProperty"]]]:
+        '''The budget actions to specify what happens when the budget runs out.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetActionToAddProperty"]]], jsii.get(self, "actions"))
+
+    @actions.setter
+    def actions(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetActionToAddProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c35bf97873478eb36a0f8c148219fb30598e62bdbf7f3cf3d02c7701aa8aa487)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="approximateDollarLimit")
+    def approximate_dollar_limit(self) -> jsii.Number:
+        '''The dollar limit based on consumed usage.'''
+        return typing.cast(jsii.Number, jsii.get(self, "approximateDollarLimit"))
+
+    @approximate_dollar_limit.setter
+    def approximate_dollar_limit(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a93860595eb8d02882a86812a30e1476876dea215c7c53b98169a0d10db1687d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "approximateDollarLimit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> builtins.str:
+        '''The display name of the budget.'''
+        return typing.cast(builtins.str, jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e863df0833b80053cb1e89063bef4e001cb228e7569700c4036bb60d8a44ffcd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="farmId")
+    def farm_id(self) -> builtins.str:
+        '''The farm ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "farmId"))
+
+    @farm_id.setter
+    def farm_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__17db63e5b7d0bd1aff1e3604851356ac82d8e90f1493ca8ff0ad14680482bf1b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="schedule")
+    def schedule(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetScheduleProperty"]:
+        '''The start and end time of the budget.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetScheduleProperty"], jsii.get(self, "schedule"))
+
+    @schedule.setter
+    def schedule(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetScheduleProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56b96478c80879a4dc4e2f347ad657626cc12733ca75759cc6054eb8a71710f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="usageTrackingResource")
+    def usage_tracking_resource(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.UsageTrackingResourceProperty"]:
+        '''The usage details of the allotted budget.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.UsageTrackingResourceProperty"], jsii.get(self, "usageTrackingResource"))
+
+    @usage_tracking_resource.setter
+    def usage_tracking_resource(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.UsageTrackingResourceProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__68158a46bd982fdbe115c360f5344049c34a40631e86cb51328a65d460393153)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "usageTrackingResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the budget.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c682fbe828e854f44e813193bfd74e51e0b4f60fc2486f527a97705c51674c38)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ab5313c71616556c0038714344ab5bc1c4fc6e94e097e7cfc96cf728142cad0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnBudget.BudgetActionToAddProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "threshold_percentage": "thresholdPercentage",
+            "type": "type",
+            "description": "description",
+        },
+    )
+    class BudgetActionToAddProperty:
+        def __init__(
+            self,
+            *,
+            threshold_percentage: jsii.Number,
+            type: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The budget action to add.
+
+            :param threshold_percentage: The percentage threshold for the budget action.
+            :param type: The type of budget action.
+            :param description: A description for the budget action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-budgetactiontoadd.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                budget_action_to_add_property = deadline.CfnBudget.BudgetActionToAddProperty(
+                    threshold_percentage=123,
+                    type="type",
+                
+                    # the properties below are optional
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ab7746e03ac05a1285d00f9a2289cbf579188001977c585f4e05b727de2f3224)
+                check_type(argname="argument threshold_percentage", value=threshold_percentage, expected_type=type_hints["threshold_percentage"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "threshold_percentage": threshold_percentage,
+                "type": type,
+            }
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def threshold_percentage(self) -> jsii.Number:
+            '''The percentage threshold for the budget action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-budgetactiontoadd.html#cfn-deadline-budget-budgetactiontoadd-thresholdpercentage
+            '''
+            result = self._values.get("threshold_percentage")
+            assert result is not None, "Required property 'threshold_percentage' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of budget action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-budgetactiontoadd.html#cfn-deadline-budget-budgetactiontoadd-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''A description for the budget action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-budgetactiontoadd.html#cfn-deadline-budget-budgetactiontoadd-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BudgetActionToAddProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnBudget.BudgetScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"fixed": "fixed"},
+    )
+    class BudgetScheduleProperty:
+        def __init__(
+            self,
+            *,
+            fixed: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.FixedBudgetScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The start and end time of the budget.
+
+            :param fixed: The details of a fixed budget schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-budgetschedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                budget_schedule_property = deadline.CfnBudget.BudgetScheduleProperty(
+                    fixed=deadline.CfnBudget.FixedBudgetScheduleProperty(
+                        end_time="endTime",
+                        start_time="startTime"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3de9800af15c87244d573630d4b6c97eabf24132865c2425eb36ed8f39b185bf)
+                check_type(argname="argument fixed", value=fixed, expected_type=type_hints["fixed"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fixed": fixed,
+            }
+
+        @builtins.property
+        def fixed(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.FixedBudgetScheduleProperty"]:
+            '''The details of a fixed budget schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-budgetschedule.html#cfn-deadline-budget-budgetschedule-fixed
+            '''
+            result = self._values.get("fixed")
+            assert result is not None, "Required property 'fixed' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.FixedBudgetScheduleProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BudgetScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnBudget.FixedBudgetScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"end_time": "endTime", "start_time": "startTime"},
+    )
+    class FixedBudgetScheduleProperty:
+        def __init__(self, *, end_time: builtins.str, start_time: builtins.str) -> None:
+            '''The details of a fixed budget schedule.
+
+            :param end_time: When the budget ends.
+            :param start_time: When the budget starts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-fixedbudgetschedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                fixed_budget_schedule_property = deadline.CfnBudget.FixedBudgetScheduleProperty(
+                    end_time="endTime",
+                    start_time="startTime"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__adab3f584734a1c4b67e35e2a49ae208f87d5b81f0eef509226b804f46d8edbe)
+                check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
+                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "end_time": end_time,
+                "start_time": start_time,
+            }
+
+        @builtins.property
+        def end_time(self) -> builtins.str:
+            '''When the budget ends.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-fixedbudgetschedule.html#cfn-deadline-budget-fixedbudgetschedule-endtime
+            '''
+            result = self._values.get("end_time")
+            assert result is not None, "Required property 'end_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def start_time(self) -> builtins.str:
+            '''When the budget starts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-fixedbudgetschedule.html#cfn-deadline-budget-fixedbudgetschedule-starttime
+            '''
+            result = self._values.get("start_time")
+            assert result is not None, "Required property 'start_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FixedBudgetScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnBudget.UsageTrackingResourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"queue_id": "queueId"},
+    )
+    class UsageTrackingResourceProperty:
+        def __init__(self, *, queue_id: builtins.str) -> None:
+            '''The usage details of the allotted budget.
+
+            :param queue_id: The queue ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-usagetrackingresource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                usage_tracking_resource_property = deadline.CfnBudget.UsageTrackingResourceProperty(
+                    queue_id="queueId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5a0ecabd298449bcc2ccfc691ba6a32fd90cf2700ff87f0c97d84bcbdcd6e56a)
+                check_type(argname="argument queue_id", value=queue_id, expected_type=type_hints["queue_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "queue_id": queue_id,
+            }
+
+        @builtins.property
+        def queue_id(self) -> builtins.str:
+            '''The queue ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-budget-usagetrackingresource.html#cfn-deadline-budget-usagetrackingresource-queueid
+            '''
+            result = self._values.get("queue_id")
+            assert result is not None, "Required property 'queue_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UsageTrackingResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_deadline.CfnBudgetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "approximate_dollar_limit": "approximateDollarLimit",
+        "display_name": "displayName",
+        "farm_id": "farmId",
+        "schedule": "schedule",
+        "usage_tracking_resource": "usageTrackingResource",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnBudgetProps:
+    def __init__(
+        self,
+        *,
+        actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.BudgetActionToAddProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        approximate_dollar_limit: jsii.Number,
+        display_name: builtins.str,
+        farm_id: builtins.str,
+        schedule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.BudgetScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        usage_tracking_resource: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.UsageTrackingResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBudget``.
+
+        :param actions: The budget actions to specify what happens when the budget runs out.
+        :param approximate_dollar_limit: The dollar limit based on consumed usage.
+        :param display_name: The display name of the budget.
+        :param farm_id: The farm ID.
+        :param schedule: The start and end time of the budget.
+        :param usage_tracking_resource: The usage details of the allotted budget.
+        :param description: The description of the budget.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_deadline as deadline
+            
+            cfn_budget_props = deadline.CfnBudgetProps(
+                actions=[deadline.CfnBudget.BudgetActionToAddProperty(
+                    threshold_percentage=123,
+                    type="type",
+            
+                    # the properties below are optional
+                    description="description"
+                )],
+                approximate_dollar_limit=123,
+                display_name="displayName",
+                farm_id="farmId",
+                schedule=deadline.CfnBudget.BudgetScheduleProperty(
+                    fixed=deadline.CfnBudget.FixedBudgetScheduleProperty(
+                        end_time="endTime",
+                        start_time="startTime"
+                    )
+                ),
+                usage_tracking_resource=deadline.CfnBudget.UsageTrackingResourceProperty(
+                    queue_id="queueId"
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__89dab70e46eab2eb1576d6258abafd5cb15cfb69d2c855a74534b4bc6e8fa5ef)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument approximate_dollar_limit", value=approximate_dollar_limit, expected_type=type_hints["approximate_dollar_limit"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument usage_tracking_resource", value=usage_tracking_resource, expected_type=type_hints["usage_tracking_resource"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "approximate_dollar_limit": approximate_dollar_limit,
+            "display_name": display_name,
+            "farm_id": farm_id,
+            "schedule": schedule,
+            "usage_tracking_resource": usage_tracking_resource,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def actions(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetActionToAddProperty"]]]:
+        '''The budget actions to specify what happens when the budget runs out.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html#cfn-deadline-budget-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetActionToAddProperty"]]], result)
+
+    @builtins.property
+    def approximate_dollar_limit(self) -> jsii.Number:
+        '''The dollar limit based on consumed usage.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html#cfn-deadline-budget-approximatedollarlimit
+        '''
+        result = self._values.get("approximate_dollar_limit")
+        assert result is not None, "Required property 'approximate_dollar_limit' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The display name of the budget.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html#cfn-deadline-budget-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def farm_id(self) -> builtins.str:
+        '''The farm ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html#cfn-deadline-budget-farmid
+        '''
+        result = self._values.get("farm_id")
+        assert result is not None, "Required property 'farm_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetScheduleProperty"]:
+        '''The start and end time of the budget.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html#cfn-deadline-budget-schedule
+        '''
+        result = self._values.get("schedule")
+        assert result is not None, "Required property 'schedule' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetScheduleProperty"], result)
+
+    @builtins.property
+    def usage_tracking_resource(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.UsageTrackingResourceProperty"]:
+        '''The usage details of the allotted budget.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html#cfn-deadline-budget-usagetrackingresource
+        '''
+        result = self._values.get("usage_tracking_resource")
+        assert result is not None, "Required property 'usage_tracking_resource' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.UsageTrackingResourceProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the budget.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html#cfn-deadline-budget-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-budget.html#cfn-deadline-budget-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBudgetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IFarmRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFarm(
     _aws_cdk_0cae9daa.CfnResource,
@@ -7710,7 +8498,593 @@ class CfnStorageProfileProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IWorkerRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnWorker(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_deadline.CfnWorker",
+):
+    '''Definition of AWS::Deadline::Worker Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-worker.html
+    :cloudformationResource: AWS::Deadline::Worker
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_deadline as deadline
+        
+        cfn_worker = deadline.CfnWorker(self, "MyCfnWorker",
+            farm_id="farmId",
+            fleet_id="fleetId",
+        
+            # the properties below are optional
+            host_properties=deadline.CfnWorker.HostPropertiesRequestProperty(
+                host_name="hostName",
+                ip_addresses=deadline.CfnWorker.IpAddressesProperty(
+                    ip_v4_addresses=["ipV4Addresses"],
+                    ip_v6_addresses=["ipV6Addresses"]
+                )
+            ),
+            tags=[deadline.CfnWorker.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        farm_id: builtins.str,
+        fleet_id: builtins.str,
+        host_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorker.HostPropertiesRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnWorker.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Deadline::Worker``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param farm_id: The farm ID.
+        :param fleet_id: The fleet ID.
+        :param host_properties: The host property details.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ed215fe70bc6c40ee4e611bbd777c7369376df77e583793c1b35f71cfde8b7d3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWorkerProps(
+            farm_id=farm_id,
+            fleet_id=fleet_id,
+            host_properties=host_properties,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForWorker")
+    @builtins.classmethod
+    def arn_for_worker(
+        cls,
+        resource: "_aws_deadline_b02a7487.IWorkerRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d8efaa4c412b9f2c2dba70cf3b58635e7142774df8df97391c3d3ffd9b7a344a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorker", [resource]))
+
+    @jsii.member(jsii_name="isCfnWorker")
+    @builtins.classmethod
+    def is_cfn_worker(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWorker.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3595e90934c02999cbd839fcabdb1d806bc63ee862c74125c42ecf768c54d499)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorker", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__25c6403dfbedbfaf67c9760f6b6e9f2aa7e7fc942346fd419e88ec357d0a0d27)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c587bbc836c1f2bf7b34f2531fa2b9815cb1405a3d8387d3d7feb89d25f585c3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the worker.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The date and time the resource was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The user or system that created this resource.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the worker.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWorkerId")
+    def attr_worker_id(self) -> builtins.str:
+        '''The worker ID.
+
+        :cloudformationAttribute: WorkerId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWorkerId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workerRef")
+    def worker_ref(self) -> "_aws_deadline_b02a7487.WorkerReference":
+        '''A reference to a Worker resource.'''
+        return typing.cast("_aws_deadline_b02a7487.WorkerReference", jsii.get(self, "workerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="farmId")
+    def farm_id(self) -> builtins.str:
+        '''The farm ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "farmId"))
+
+    @farm_id.setter
+    def farm_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__50ae84bbac501249148a38a7528efc7e3e2898aee0e8077063edb58e0c15a33b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetId")
+    def fleet_id(self) -> builtins.str:
+        '''The fleet ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "fleetId"))
+
+    @fleet_id.setter
+    def fleet_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d3d00e58b8b81ad5b321bef3c35e49b644b721433121a969ac4a2c5e0dc3c3c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fleetId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hostProperties")
+    def host_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorker.HostPropertiesRequestProperty"]]:
+        '''The host property details.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorker.HostPropertiesRequestProperty"]], jsii.get(self, "hostProperties"))
+
+    @host_properties.setter
+    def host_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorker.HostPropertiesRequestProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__24b5e9114014f96d67c149f55543af100aa1e78c0cf1d7eece4e5854f877f4ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hostProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["CfnWorker.TagsItemsProperty"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["CfnWorker.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnWorker.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8abbe4540d0017cc72bfbb728d7fe0285d55bc3b97f83c510dca722cd9928140)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnWorker.HostPropertiesRequestProperty",
+        jsii_struct_bases=[],
+        name_mapping={"host_name": "hostName", "ip_addresses": "ipAddresses"},
+    )
+    class HostPropertiesRequestProperty:
+        def __init__(
+            self,
+            *,
+            host_name: typing.Optional[builtins.str] = None,
+            ip_addresses: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorker.IpAddressesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The host property details.
+
+            :param host_name: The host name.
+            :param ip_addresses: The IP addresses for a host.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-hostpropertiesrequest.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                host_properties_request_property = deadline.CfnWorker.HostPropertiesRequestProperty(
+                    host_name="hostName",
+                    ip_addresses=deadline.CfnWorker.IpAddressesProperty(
+                        ip_v4_addresses=["ipV4Addresses"],
+                        ip_v6_addresses=["ipV6Addresses"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0cd318481585239d8e14547debe0d9054e59450fd953987414f9530aa4b113e9)
+                check_type(argname="argument host_name", value=host_name, expected_type=type_hints["host_name"])
+                check_type(argname="argument ip_addresses", value=ip_addresses, expected_type=type_hints["ip_addresses"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if host_name is not None:
+                self._values["host_name"] = host_name
+            if ip_addresses is not None:
+                self._values["ip_addresses"] = ip_addresses
+
+        @builtins.property
+        def host_name(self) -> typing.Optional[builtins.str]:
+            '''The host name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-hostpropertiesrequest.html#cfn-deadline-worker-hostpropertiesrequest-hostname
+            '''
+            result = self._values.get("host_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ip_addresses(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorker.IpAddressesProperty"]]:
+            '''The IP addresses for a host.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-hostpropertiesrequest.html#cfn-deadline-worker-hostpropertiesrequest-ipaddresses
+            '''
+            result = self._values.get("ip_addresses")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorker.IpAddressesProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HostPropertiesRequestProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnWorker.IpAddressesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ip_v4_addresses": "ipV4Addresses",
+            "ip_v6_addresses": "ipV6Addresses",
+        },
+    )
+    class IpAddressesProperty:
+        def __init__(
+            self,
+            *,
+            ip_v4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+            ip_v6_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The IP addresses for a host.
+
+            :param ip_v4_addresses: The IpV4 address of the network.
+            :param ip_v6_addresses: The IpV6 address for the network and node component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-ipaddresses.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                ip_addresses_property = deadline.CfnWorker.IpAddressesProperty(
+                    ip_v4_addresses=["ipV4Addresses"],
+                    ip_v6_addresses=["ipV6Addresses"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c7b2f5c943b532e3ff761cfeeccbcd28fd563ca4378a6210a9a4bc5bb41fff4c)
+                check_type(argname="argument ip_v4_addresses", value=ip_v4_addresses, expected_type=type_hints["ip_v4_addresses"])
+                check_type(argname="argument ip_v6_addresses", value=ip_v6_addresses, expected_type=type_hints["ip_v6_addresses"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ip_v4_addresses is not None:
+                self._values["ip_v4_addresses"] = ip_v4_addresses
+            if ip_v6_addresses is not None:
+                self._values["ip_v6_addresses"] = ip_v6_addresses
+
+        @builtins.property
+        def ip_v4_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The IpV4 address of the network.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-ipaddresses.html#cfn-deadline-worker-ipaddresses-ipv4addresses
+            '''
+            result = self._values.get("ip_v4_addresses")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def ip_v6_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The IpV6 address for the network and node component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-ipaddresses.html#cfn-deadline-worker-ipaddresses-ipv6addresses
+            '''
+            result = self._values.get("ip_v6_addresses")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IpAddressesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnWorker.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                tags_items_property = deadline.CfnWorker.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__64b9b6f316176b66a32d67e7327100ffaf39455db633919057858db00153845f)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-tagsitems.html#cfn-deadline-worker-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-worker-tagsitems.html#cfn-deadline-worker-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_deadline.CfnWorkerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "farm_id": "farmId",
+        "fleet_id": "fleetId",
+        "host_properties": "hostProperties",
+        "tags": "tags",
+    },
+)
+class CfnWorkerProps:
+    def __init__(
+        self,
+        *,
+        farm_id: builtins.str,
+        fleet_id: builtins.str,
+        host_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorker.HostPropertiesRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnWorker.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorker``.
+
+        :param farm_id: The farm ID.
+        :param fleet_id: The fleet ID.
+        :param host_properties: The host property details.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-worker.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_deadline as deadline
+            
+            cfn_worker_props = deadline.CfnWorkerProps(
+                farm_id="farmId",
+                fleet_id="fleetId",
+            
+                # the properties below are optional
+                host_properties=deadline.CfnWorker.HostPropertiesRequestProperty(
+                    host_name="hostName",
+                    ip_addresses=deadline.CfnWorker.IpAddressesProperty(
+                        ip_v4_addresses=["ipV4Addresses"],
+                        ip_v6_addresses=["ipV6Addresses"]
+                    )
+                ),
+                tags=[deadline.CfnWorker.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f91411bcf6e775bd1b95d2588d8ebd7d66a0ea2214d04c7f0b71d181bc00b5dc)
+            check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
+            check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
+            check_type(argname="argument host_properties", value=host_properties, expected_type=type_hints["host_properties"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "farm_id": farm_id,
+            "fleet_id": fleet_id,
+        }
+        if host_properties is not None:
+            self._values["host_properties"] = host_properties
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def farm_id(self) -> builtins.str:
+        '''The farm ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-worker.html#cfn-deadline-worker-farmid
+        '''
+        result = self._values.get("farm_id")
+        assert result is not None, "Required property 'farm_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def fleet_id(self) -> builtins.str:
+        '''The fleet ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-worker.html#cfn-deadline-worker-fleetid
+        '''
+        result = self._values.get("fleet_id")
+        assert result is not None, "Required property 'fleet_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def host_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorker.HostPropertiesRequestProperty"]]:
+        '''The host property details.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-worker.html#cfn-deadline-worker-hostproperties
+        '''
+        result = self._values.get("host_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorker.HostPropertiesRequestProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnWorker.TagsItemsProperty"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-worker.html#cfn-deadline-worker-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnWorker.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
+    "CfnBudget",
+    "CfnBudgetProps",
     "CfnFarm",
     "CfnFarmProps",
     "CfnFleet",
@@ -7733,9 +9107,144 @@ __all__ = [
     "CfnQueueProps",
     "CfnStorageProfile",
     "CfnStorageProfileProps",
+    "CfnWorker",
+    "CfnWorkerProps",
 ]
 
 publication.publish()
+
+def _typecheckingstub__d9523f4ebba0a34126982efcb769fc322ad6f4f1e343b60559684c8b78d0b702(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.BudgetActionToAddProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    approximate_dollar_limit: jsii.Number,
+    display_name: builtins.str,
+    farm_id: builtins.str,
+    schedule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.BudgetScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    usage_tracking_resource: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.UsageTrackingResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2c46e1b7bd5e054d6385f65bfe3853ec4b49715c2d2549dd17f11e64cddf4b6(
+    resource: _aws_deadline_b02a7487.IBudgetRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ff806402a44790de96de138b0f16298967dcdbd3b1554e181d98123025c85f7(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb98790188f3e5ec1349f151c36985cd36f2971411a21899a930b4855dec9077(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1323ac934210e4d1c7681077ff954bdaf32a4f58b3edbde67c1dd5077301cfd6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c35bf97873478eb36a0f8c148219fb30598e62bdbf7f3cf3d02c7701aa8aa487(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudget.BudgetActionToAddProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a93860595eb8d02882a86812a30e1476876dea215c7c53b98169a0d10db1687d(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e863df0833b80053cb1e89063bef4e001cb228e7569700c4036bb60d8a44ffcd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17db63e5b7d0bd1aff1e3604851356ac82d8e90f1493ca8ff0ad14680482bf1b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56b96478c80879a4dc4e2f347ad657626cc12733ca75759cc6054eb8a71710f3(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudget.BudgetScheduleProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68158a46bd982fdbe115c360f5344049c34a40631e86cb51328a65d460393153(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudget.UsageTrackingResourceProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c682fbe828e854f44e813193bfd74e51e0b4f60fc2486f527a97705c51674c38(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ab5313c71616556c0038714344ab5bc1c4fc6e94e097e7cfc96cf728142cad0(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab7746e03ac05a1285d00f9a2289cbf579188001977c585f4e05b727de2f3224(
+    *,
+    threshold_percentage: jsii.Number,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3de9800af15c87244d573630d4b6c97eabf24132865c2425eb36ed8f39b185bf(
+    *,
+    fixed: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.FixedBudgetScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adab3f584734a1c4b67e35e2a49ae208f87d5b81f0eef509226b804f46d8edbe(
+    *,
+    end_time: builtins.str,
+    start_time: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a0ecabd298449bcc2ccfc691ba6a32fd90cf2700ff87f0c97d84bcbdcd6e56a(
+    *,
+    queue_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89dab70e46eab2eb1576d6258abafd5cb15cfb69d2c855a74534b4bc6e8fa5ef(
+    *,
+    actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.BudgetActionToAddProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    approximate_dollar_limit: jsii.Number,
+    display_name: builtins.str,
+    farm_id: builtins.str,
+    schedule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.BudgetScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    usage_tracking_resource: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.UsageTrackingResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__c8cfafb7690986cd3ddb4ba2de814f300f2faab0827e01a86f2f528af27544d1(
     scope: _constructs_77d1e7e8.Construct,
@@ -8857,6 +10366,100 @@ def _typecheckingstub__0d873ae2006c75776847d16361d1b495d51e00d618e49d32a001db4fe
     farm_id: builtins.str,
     os_family: builtins.str,
     file_system_locations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStorageProfile.FileSystemLocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed215fe70bc6c40ee4e611bbd777c7369376df77e583793c1b35f71cfde8b7d3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    farm_id: builtins.str,
+    fleet_id: builtins.str,
+    host_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorker.HostPropertiesRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnWorker.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8efaa4c412b9f2c2dba70cf3b58635e7142774df8df97391c3d3ffd9b7a344a(
+    resource: _aws_deadline_b02a7487.IWorkerRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3595e90934c02999cbd839fcabdb1d806bc63ee862c74125c42ecf768c54d499(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25c6403dfbedbfaf67c9760f6b6e9f2aa7e7fc942346fd419e88ec357d0a0d27(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c587bbc836c1f2bf7b34f2531fa2b9815cb1405a3d8387d3d7feb89d25f585c3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50ae84bbac501249148a38a7528efc7e3e2898aee0e8077063edb58e0c15a33b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3d00e58b8b81ad5b321bef3c35e49b644b721433121a969ac4a2c5e0dc3c3c1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24b5e9114014f96d67c149f55543af100aa1e78c0cf1d7eece4e5854f877f4ff(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorker.HostPropertiesRequestProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8abbe4540d0017cc72bfbb728d7fe0285d55bc3b97f83c510dca722cd9928140(
+    value: typing.Optional[typing.List[CfnWorker.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cd318481585239d8e14547debe0d9054e59450fd953987414f9530aa4b113e9(
+    *,
+    host_name: typing.Optional[builtins.str] = None,
+    ip_addresses: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorker.IpAddressesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7b2f5c943b532e3ff761cfeeccbcd28fd563ca4378a6210a9a4bc5bb41fff4c(
+    *,
+    ip_v4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ip_v6_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64b9b6f316176b66a32d67e7327100ffaf39455db633919057858db00153845f(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f91411bcf6e775bd1b95d2588d8ebd7d66a0ea2214d04c7f0b71d181bc00b5dc(
+    *,
+    farm_id: builtins.str,
+    fleet_id: builtins.str,
+    host_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorker.HostPropertiesRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnWorker.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plugin-scanner
-Version: 3.0.44
+Version: 3.0.52
 Summary: Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows.
 Project-URL: Homepage, https://hol.org/guard
 Project-URL: Security, https://hol.org/guard/security

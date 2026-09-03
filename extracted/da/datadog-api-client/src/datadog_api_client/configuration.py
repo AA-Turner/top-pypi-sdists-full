@@ -150,6 +150,10 @@ class Configuration:
     :type delegated_auth_provider: str
     :param delegated_auth_org_uuid: The organization UUID for delegated authentication.
     :type delegated_auth_org_uuid: str
+    :param is_iac: Set to True to indicate that requests made through this client originate from
+        infrastructure-as-code or other automation tooling. When set, the client sends the
+        ``X-Datadog-Managed-By: iac`` header on every request.
+    :type is_iac: bool
     """
 
     def __init__(
@@ -180,6 +184,7 @@ class Configuration:
         retry_policy=None,
         delegated_auth_provider=None,
         delegated_auth_org_uuid=None,
+        is_iac=False,
     ):
         """Constructor."""
         self._base_path = "https://api.datadoghq.com" if host is None else host
@@ -231,6 +236,10 @@ class Configuration:
         # Will translate to a Accept-Encoding header
         self.compress = compress
 
+        # Set to True to indicate that requests are made from infrastructure-as-code tooling.
+        # Will translate to a X-Datadog-Managed-By header.
+        self.is_iac = is_iac
+
         self.return_http_data_only = return_http_data_only
         self.preload_content = preload_content
         self.request_timeout = request_timeout
@@ -270,7 +279,6 @@ class Configuration:
                 "v2.delete_llm_obs_annotation_queue_interactions": False,
                 "v2.delete_llm_obs_annotations": False,
                 "v2.delete_llm_obs_custom_eval_config": False,
-                "v2.delete_llm_obs_data": False,
                 "v2.delete_llm_obs_dataset_records": False,
                 "v2.delete_llm_obs_datasets": False,
                 "v2.delete_llm_obs_experiments": False,
@@ -326,6 +334,11 @@ class Configuration:
                 "v2.upload_llm_obs_dataset_records_file": False,
                 "v2.upsert_llm_obs_annotations": False,
                 "v2.upsert_llm_obs_patterns_config": False,
+                "v2.create_execution_policy": False,
+                "v2.delete_execution_policy": False,
+                "v2.get_execution_policy": False,
+                "v2.list_execution_policies": False,
+                "v2.update_execution_policy": False,
                 "v2.create_annotation": False,
                 "v2.delete_annotation": False,
                 "v2.get_page_annotations": False,
@@ -363,6 +376,7 @@ class Configuration:
                 "v2.create_sample_log_generation_subscription": False,
                 "v2.create_security_findings_automation_due_date_rule": False,
                 "v2.create_security_findings_automation_mute_rule": False,
+                "v2.create_security_findings_automation_severity_modifier_rule": False,
                 "v2.create_security_findings_automation_ticket_creation_rule": False,
                 "v2.create_security_monitoring_dataset": False,
                 "v2.create_security_monitoring_integration_config": False,
@@ -374,6 +388,7 @@ class Configuration:
                 "v2.delete_sample_log_generation_subscription": False,
                 "v2.delete_security_findings_automation_due_date_rule": False,
                 "v2.delete_security_findings_automation_mute_rule": False,
+                "v2.delete_security_findings_automation_severity_modifier_rule": False,
                 "v2.delete_security_findings_automation_ticket_creation_rule": False,
                 "v2.delete_security_monitoring_dataset": False,
                 "v2.delete_security_monitoring_integration_config": False,
@@ -388,6 +403,7 @@ class Configuration:
                 "v2.get_secrets_rules": False,
                 "v2.get_security_findings_automation_due_date_rule": False,
                 "v2.get_security_findings_automation_mute_rule": False,
+                "v2.get_security_findings_automation_severity_modifier_rule": False,
                 "v2.get_security_findings_automation_ticket_creation_rule": False,
                 "v2.get_security_monitoring_dataset": False,
                 "v2.get_security_monitoring_dataset_by_version": False,
@@ -410,6 +426,7 @@ class Configuration:
                 "v2.list_scanned_assets_metadata": False,
                 "v2.list_security_findings_automation_due_date_rules": False,
                 "v2.list_security_findings_automation_mute_rules": False,
+                "v2.list_security_findings_automation_severity_modifier_rules": False,
                 "v2.list_security_findings_automation_ticket_creation_rules": False,
                 "v2.list_security_monitoring_datasets": False,
                 "v2.list_security_monitoring_histsignals": False,
@@ -419,6 +436,7 @@ class Configuration:
                 "v2.list_vulnerable_assets": False,
                 "v2.reorder_security_findings_automation_due_date_rules": False,
                 "v2.reorder_security_findings_automation_mute_rules": False,
+                "v2.reorder_security_findings_automation_severity_modifier_rules": False,
                 "v2.reorder_security_findings_automation_ticket_creation_rules": False,
                 "v2.restore_security_monitoring_rule": False,
                 "v2.run_historical_job": False,
@@ -426,6 +444,7 @@ class Configuration:
                 "v2.update_findings_assignee": False,
                 "v2.update_security_findings_automation_due_date_rule": False,
                 "v2.update_security_findings_automation_mute_rule": False,
+                "v2.update_security_findings_automation_severity_modifier_rule": False,
                 "v2.update_security_findings_automation_ticket_creation_rule": False,
                 "v2.update_security_monitoring_dataset": False,
                 "v2.update_security_monitoring_integration_config": False,
@@ -451,6 +470,10 @@ class Configuration:
                 "v2.list_cost_tag_metadata_months": False,
                 "v2.list_cost_tag_metadata_orchestrators": False,
                 "v2.search_cost_recommendations": False,
+                "v2.create_quotas": False,
+                "v2.delete_quota": False,
+                "v2.list_quotas": False,
+                "v2.update_quota": False,
                 "v2.create_ownership_feedback": False,
                 "v2.get_ownership_evidence": False,
                 "v2.get_ownership_inference": False,
@@ -480,9 +503,6 @@ class Configuration:
                 "v2.get_all_datasets": False,
                 "v2.get_dataset": False,
                 "v2.update_dataset": False,
-                "v2.cancel_data_deletion_request": False,
-                "v2.create_data_deletion_request": False,
-                "v2.get_data_deletion_requests": False,
                 "v2.create_deployment_gate": False,
                 "v2.create_deployment_rule": False,
                 "v2.delete_deployment_gate": False,
@@ -520,6 +540,12 @@ class Configuration:
                 "v2.update_governance_control_notification_settings": False,
                 "v2.update_governance_detection": False,
                 "v2.update_governance_notification_settings": False,
+                "v2.create_tag_rule": False,
+                "v2.delete_tag_rule": False,
+                "v2.get_tag_rule": False,
+                "v2.get_tag_rule_score": False,
+                "v2.list_tag_rules": False,
+                "v2.update_tag_rule": False,
                 "v2.create_hamr_org_connection": False,
                 "v2.get_hamr_org_connection": False,
                 "v2.delete_entity_integration_config": False,
@@ -614,6 +640,16 @@ class Configuration:
                 "v2.update_incident_user_defined_field": False,
                 "v2.update_incident_user_defined_role": False,
                 "v2.update_timestamp_override": False,
+                "v2.create_elastic_cloud_integration_account": False,
+                "v2.delete_elastic_cloud_integration_account": False,
+                "v2.get_elastic_cloud_integration_account": False,
+                "v2.list_elastic_cloud_integration_accounts": False,
+                "v2.update_elastic_cloud_integration_account": False,
+                "v2.create_twilio_integration_account": False,
+                "v2.delete_twilio_integration_account": False,
+                "v2.get_twilio_integration_account": False,
+                "v2.list_twilio_integration_accounts": False,
+                "v2.update_twilio_integration_account": False,
                 "v2.create_aws_account_ccm_config": False,
                 "v2.delete_aws_account_ccm_config": False,
                 "v2.get_aws_account_ccm_config": False,
@@ -706,6 +742,16 @@ class Configuration:
                 "v2.update_org_group_policy": False,
                 "v2.update_org_group_policy_override": False,
                 "v2.list_role_templates": False,
+                "v2.query_product_analytics_journey_funnel": False,
+                "v2.query_product_analytics_journey_list": False,
+                "v2.query_product_analytics_journey_scalar": False,
+                "v2.query_product_analytics_journey_timeseries": False,
+                "v2.query_product_analytics_list": False,
+                "v2.query_product_analytics_retention_grid": False,
+                "v2.query_product_analytics_retention_list": False,
+                "v2.query_product_analytics_retention_scalar": False,
+                "v2.query_product_analytics_retention_timeseries": False,
+                "v2.query_product_analytics_sankey": False,
                 "v2.create_connection": False,
                 "v2.delete_connection": False,
                 "v2.get_account_facet_info": False,
@@ -728,9 +774,20 @@ class Configuration:
                 "v2.get_sourcemaps": False,
                 "v2.list_sourcemaps": False,
                 "v2.restore_sourcemaps": False,
+                "v2.create_exclusion_filter": False,
+                "v2.delete_exclusion_filter": False,
+                "v2.get_exclusion_filter": False,
+                "v2.list_exclusion_filters": False,
+                "v2.update_exclusion_filter": False,
                 "v2.create_rum_config": False,
                 "v2.get_rum_config": False,
                 "v2.update_rum_config": False,
+                "v2.create_teams_ownership_mapping": False,
+                "v2.create_teams_ownership_mappings_batch": False,
+                "v2.delete_teams_ownership_mapping": False,
+                "v2.get_teams_ownership_mapping": False,
+                "v2.list_teams_ownership_mappings": False,
+                "v2.list_teams_ownership_rules": False,
                 "v2.create_rum_operation": False,
                 "v2.create_rum_operation_strong_link": False,
                 "v2.delete_rum_operation": False,
@@ -746,6 +803,7 @@ class Configuration:
                 "v2.create_scorecard_outcomes_batch": False,
                 "v2.get_entity_risk_score": False,
                 "v2.list_entity_risk_scores": False,
+                "v2.add_stix_threat_intel": False,
                 "v2.create_slo_report_job": False,
                 "v2.get_slo_report": False,
                 "v2.get_slo_report_job_status": False,
@@ -785,12 +843,6 @@ class Configuration:
                 "v2.revert_custom_rule_revision": False,
                 "v2.update_ai_custom_ruleset": False,
                 "v2.update_custom_ruleset": False,
-                "v2.create_tag_policy": False,
-                "v2.delete_tag_policy": False,
-                "v2.get_tag_policy": False,
-                "v2.get_tag_policy_score": False,
-                "v2.list_tag_policies": False,
-                "v2.update_tag_policy": False,
                 "v2.add_member_team": False,
                 "v2.list_member_teams": False,
                 "v2.remove_member_team": False,

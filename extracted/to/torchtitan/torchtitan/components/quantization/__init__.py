@@ -11,52 +11,47 @@
 # installation instructions.
 
 # Note: Performance
-# The quantization modules are intended to be ran under `torch.compile`` for competitive performance
+# The quantization modules are intended to be ran under `torch.compile` for competitive performance
 
-# Module level global constants
-FP8_GROUP_ALIGNMENT_SIZE = 16
-MXFP8_GROUP_ALIGNMENT_SIZE = 32
+from dataclasses import dataclass
 
-from torchtitan.config import JobConfig
-from torchtitan.distributed import ParallelDims
-
-from torchtitan.protocols.model_converter import ModelConverter
+from torchtitan.protocols.model import ModelConfigConverter
 
 
-class QuantizationConverter(ModelConverter):
-    """
-    Base class for quantization converters, which implements generic validation reusable across all quantization converters.
+class QuantizationConverter(ModelConfigConverter):
+    """Base class for quantization converters.
+
+    Subclasses define a nested Config and implement ``convert()``
+    to transform the model config tree.
     """
 
-    enabled: bool = False
-
-    def __init__(self, job_config: JobConfig, parallel_dims: ParallelDims):
-        self._validate(job_config)
-
-    @staticmethod
-    def _validate(job_config: JobConfig):
-        """
-        Validates that the job config uses the same quantization type for dense and MoE layers.
-        """
-        # TODO: Explore supporting applying different quantization methods to dense and MoE layers.
-        # quantization converter format:
-        # `quantize.[linear | grouped_mm].[float8 | mx]`
-        quantization_type = lambda converter: converter.split(".")[-1]
-        existing_quantization_converter: str | None = None
-        for converter in job_config.model.converters:
-            if "quantize" in converter:
-                if existing_quantization_converter is None:
-                    existing_quantization_converter = converter
-                else:
-                    assert quantization_type(converter) == quantization_type(
-                        existing_quantization_converter
-                    ), (
-                        "Cannot combine model converters with different quantization types: "
-                        f"'{quantization_type(converter)}' and '{quantization_type(existing_quantization_converter)}'"
-                    )
+    @dataclass(kw_only=True, slots=True)
+    class Config(ModelConfigConverter.Config):
+        model_compile_enabled: bool = False
+        """Whether torch.compile is enabled for the model."""
 
 
-# Import to register quantization modules as ModelConverter
-# (imports down here to avoid circular imports with QuantizationConverter)
-import torchtitan.components.quantization.float8  # noqa: F401
-import torchtitan.components.quantization.mx  # noqa: F401
+# Re-export all public symbols so callers can import from the package directly.
+from .float8 import (  # noqa: F401, E402
+    Float8GroupedExpertsConverter,
+    Float8Linear,
+    Float8LinearConverter,
+)
+from .mx import (  # noqa: F401, E402
+    MXFP8GroupedExpertsConverter,
+    MXFP8Linear,
+    MXFP8LinearConverter,
+)
+from .nvfp4 import NVFP4Linear, NVFP4LinearConverter  # noqa: F401, E402
+
+__all__ = [
+    "Float8GroupedExpertsConverter",
+    "Float8Linear",
+    "Float8LinearConverter",
+    "MXFP8GroupedExpertsConverter",
+    "MXFP8Linear",
+    "MXFP8LinearConverter",
+    "NVFP4Linear",
+    "NVFP4LinearConverter",
+    "QuantizationConverter",
+]

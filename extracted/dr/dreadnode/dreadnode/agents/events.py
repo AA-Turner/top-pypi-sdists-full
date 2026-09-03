@@ -457,6 +457,7 @@ class ToolStart(AgentEvent):
 
     tool_call: ToolCall
     policy_decision: dict[str, t.Any] | None = None
+    redact_telemetry: bool = Field(default=False, exclude=True)
 
     def _get_data(self) -> dict[str, t.Any]:
         try:
@@ -480,14 +481,15 @@ class ToolStart(AgentEvent):
         span.set_attribute(TOOL_ATTRIBUTE_NAME, self.tool_call.name)
         span.set_attribute(TOOL_ATTRIBUTE_CALL_ID, self.tool_call.id)
 
-        # Parse and set arguments
-        try:
-            args = json.loads(self.tool_call.function.arguments)
-        except (json.JSONDecodeError, TypeError):
-            args = self.tool_call.function.arguments
+        if not self.redact_telemetry:
+            # Parse and set arguments
+            try:
+                args = json.loads(self.tool_call.function.arguments)
+            except (json.JSONDecodeError, TypeError):
+                args = self.tool_call.function.arguments
 
-        span.set_attribute(TOOL_ATTRIBUTE_ARGUMENTS, args)
-        span.log_input("arguments", args)
+            span.set_attribute(TOOL_ATTRIBUTE_ARGUMENTS, args)
+            span.log_input("arguments", args)
 
         super().emit(span)
 
@@ -544,11 +546,12 @@ class ToolEnd(AgentEvent):
     error: str | None = None
     error_type: str | None = None
     cost_usd: float | None = None
-    policy_decision: dict[str, t.Any] | None = None
     """Estimated USD cost contributed by this tool call, when the tool
     ran an internal LLM (e.g. ``spawn_agent``). ``None`` for ordinary
     tools — the TUI only accumulates this into the sub-agent cost
     display, never the main session cost."""
+    policy_decision: dict[str, t.Any] | None = None
+    redact_telemetry: bool = Field(default=False, exclude=True)
 
     def _get_data(self) -> dict[str, t.Any]:
         return {
@@ -571,13 +574,13 @@ class ToolEnd(AgentEvent):
 
     def emit(self, span: "TaskSpan") -> None:
         # Attributes
-        if self.result:
+        if self.result and not self.redact_telemetry:
             span.set_attribute(TOOL_ATTRIBUTE_RESULT, self.result)
             span.log_output("result", self.result)
 
         span.set_attribute(TOOL_ATTRIBUTE_STOPPED, self.stop)
 
-        if self.error:
+        if self.error and not self.redact_telemetry:
             span.set_attribute(TOOL_ATTRIBUTE_ERROR, self.error)
             span.log_metric(f"tool/{self.tool_call.name}/error", 1)
 

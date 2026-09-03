@@ -39,15 +39,15 @@ else:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.ExportReference",
+    jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.BackupReference",
     jsii_struct_bases=[],
-    name_mapping={"export_arn": "exportArn"},
+    name_mapping={"backup_arn": "backupArn"},
 )
-class ExportReference:
-    def __init__(self, *, export_arn: builtins.str) -> None:
-        '''A reference to a Export resource.
+class BackupReference:
+    def __init__(self, *, backup_arn: builtins.str) -> None:
+        '''A reference to a Backup resource.
 
-        :param export_arn: The ExportArn of the Export resource.
+        :param backup_arn: The BackupArn of the Backup resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -57,22 +57,22 @@ class ExportReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_dynamodb as interfaces_dynamodb
             
-            export_reference = interfaces_dynamodb.ExportReference(
-                export_arn="exportArn"
+            backup_reference = interfaces_dynamodb.BackupReference(
+                backup_arn="backupArn"
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__fa335ea5dff43bdf2895227ec678ed08007666aa4e9b8c32d6a32f996623659e)
-            check_type(argname="argument export_arn", value=export_arn, expected_type=type_hints["export_arn"])
+            type_hints = cached_type_hints(_typecheckingstub__519708f8bccc33372902b466fb9a0b86d8ac2112ac70c198c1dddb33012c8314)
+            check_type(argname="argument backup_arn", value=backup_arn, expected_type=type_hints["backup_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "export_arn": export_arn,
+            "backup_arn": backup_arn,
         }
 
     @builtins.property
-    def export_arn(self) -> builtins.str:
-        '''The ExportArn of the Export resource.'''
-        result = self._values.get("export_arn")
-        assert result is not None, "Required property 'export_arn' is missing"
+    def backup_arn(self) -> builtins.str:
+        '''The BackupArn of the Backup resource.'''
+        result = self._values.get("backup_arn")
+        assert result is not None, "Required property 'backup_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -82,7 +82,7 @@ class ExportReference:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "ExportReference(%s)" % ", ".join(
+        return "BackupReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -152,49 +152,49 @@ class GlobalTableReference:
         )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.IExportRef")
-class IExportRef(
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.IBackupRef")
+class IBackupRef(
     _constructs_77d1e7e8.IConstruct,
     _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Export.
+    '''(experimental) Indicates that this resource can be referenced as a Backup.
 
     :stability: experimental
     '''
 
     @builtins.property
-    @jsii.member(jsii_name="exportRef")
-    def export_ref(self) -> "ExportReference":
-        '''(experimental) A reference to a Export resource.
+    @jsii.member(jsii_name="backupRef")
+    def backup_ref(self) -> "BackupReference":
+        '''(experimental) A reference to a Backup resource.
 
         :stability: experimental
         '''
         ...
 
 
-class _IExportRefProxy(
+class _IBackupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
     jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Export.
+    '''(experimental) Indicates that this resource can be referenced as a Backup.
 
     :stability: experimental
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_dynamodb.IExportRef"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_dynamodb.IBackupRef"
 
     @builtins.property
-    @jsii.member(jsii_name="exportRef")
-    def export_ref(self) -> "ExportReference":
-        '''(experimental) A reference to a Export resource.
+    @jsii.member(jsii_name="backupRef")
+    def backup_ref(self) -> "BackupReference":
+        '''(experimental) A reference to a Backup resource.
 
         :stability: experimental
         '''
-        return typing.cast("ExportReference", jsii.get(self, "exportRef"))
+        return typing.cast("BackupReference", jsii.get(self, "backupRef"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IExportRef).__jsii_proxy_class__ = lambda : _IExportRefProxy
+typing.cast(typing.Any, IBackupRef).__jsii_proxy_class__ = lambda : _IBackupRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.IGlobalTableRef")
@@ -348,9 +348,9 @@ class TableReference:
 
 
 __all__ = [
-    "ExportReference",
+    "BackupReference",
     "GlobalTableReference",
-    "IExportRef",
+    "IBackupRef",
     "IGlobalTableRef",
     "ITableRef",
     "TableReference",
@@ -358,9 +358,9 @@ __all__ = [
 
 publication.publish()
 
-def _typecheckingstub__fa335ea5dff43bdf2895227ec678ed08007666aa4e9b8c32d6a32f996623659e(
+def _typecheckingstub__519708f8bccc33372902b466fb9a0b86d8ac2112ac70c198c1dddb33012c8314(
     *,
-    export_arn: builtins.str,
+    backup_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -381,5 +381,5 @@ def _typecheckingstub__2c9915de6003c317a1c7befc808c20d44a9823a94b613f2c1a5353c8a
     """Type checking stubs"""
     pass
 
-for cls in [IExportRef, IGlobalTableRef, ITableRef]:
+for cls in [IBackupRef, IGlobalTableRef, ITableRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

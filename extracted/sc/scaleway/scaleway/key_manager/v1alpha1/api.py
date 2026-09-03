@@ -33,9 +33,13 @@ from .types import (
     PublicKey,
     SignRequest,
     SignResponse,
+    UnwrapKeyRequest,
+    UnwrapKeyResponse,
     UpdateKeyRequest,
     VerifyRequest,
     VerifyResponse,
+    WrapKeyRequest,
+    WrapKeyResponse,
 )
 from .marshalling import (
     unmarshal_Key,
@@ -46,15 +50,19 @@ from .marshalling import (
     unmarshal_ListKeysResponse,
     unmarshal_PublicKey,
     unmarshal_SignResponse,
+    unmarshal_UnwrapKeyResponse,
     unmarshal_VerifyResponse,
+    unmarshal_WrapKeyResponse,
     marshal_CreateKeyRequest,
     marshal_DecryptRequest,
     marshal_EncryptRequest,
     marshal_GenerateDataKeyRequest,
     marshal_ImportKeyMaterialRequest,
     marshal_SignRequest,
+    marshal_UnwrapKeyRequest,
     marshal_UpdateKeyRequest,
     marshal_VerifyRequest,
+    marshal_WrapKeyRequest,
 )
 
 
@@ -468,7 +476,10 @@ class KeyManagerV1Alpha1API(API):
     ) -> ListKeysResponse:
         """
         List keys.
-        Retrieve a list of keys across all Projects in an Organization or within a specific Project. You must specify the `region`, and either the `organization_id` or the `project_id`.
+        Retrieve a list of keys across all Projects in an Organization or within a specific Project.
+        If the user has permissions for all current and future projects: Either organization_id or project_id is required.
+        If the user has permissions for all current projects or only specific projects: The project_id is required.
+        The `region` parameter in path is needed in both case.
         :param scheduled_for_deletion: Filter keys based on their deletion status. By default, only keys not scheduled for deletion are returned in the output.
         :param region: Region to target. If none is passed will use default region from the config.
         :param organization_id: (Optional) Filter by Organization ID.
@@ -529,7 +540,10 @@ class KeyManagerV1Alpha1API(API):
     ) -> list[Key]:
         """
         List keys.
-        Retrieve a list of keys across all Projects in an Organization or within a specific Project. You must specify the `region`, and either the `organization_id` or the `project_id`.
+        Retrieve a list of keys across all Projects in an Organization or within a specific Project.
+        If the user has permissions for all current and future projects: Either organization_id or project_id is required.
+        If the user has permissions for all current projects or only specific projects: The project_id is required.
+        The `region` parameter in path is needed in both case.
         :param scheduled_for_deletion: Filter keys based on their deletion status. By default, only keys not scheduled for deletion are returned in the output.
         :param region: Region to target. If none is passed will use default region from the config.
         :param organization_id: (Optional) Filter by Organization ID.
@@ -821,7 +835,7 @@ class KeyManagerV1Alpha1API(API):
         Import key material.
         Import externally generated key material into Key Manager to derive a new cryptographic key. The key's origin must be `external`.
         :param key_id: The key's origin must be `external`.
-        :param key_material: The key material The key material is a random sequence of bytes used to derive a cryptographic key.
+        :param key_material: The key material is a random sequence of bytes used to derive a cryptographic key.
         :param region: Region to target. If none is passed will use default region from the config.
         :param salt: A salt is random data added to key material to ensure unique derived keys, even if the input is similar. It helps strengthen security when the key material has low randomness (low entropy).
         :return: :class:`Key <Key>`
@@ -958,3 +972,99 @@ class KeyManagerV1Alpha1API(API):
 
         self._throw_on_error(res)
         return unmarshal_ListAlgorithmsResponse(res.json())
+
+    def wrap_key(
+        self,
+        *,
+        key_id: str,
+        plaintext: str,
+        region: Optional[ScwRegion] = None,
+        associated_data: Optional[str] = None,
+    ) -> WrapKeyResponse:
+        """
+        Wrap a key.
+        Wrap (encrypt) a key using an existing key, specified by the `key_id` parameter. The key must use ML-KEM algorithm. The maximum key size that can be wrapped is 2 KB of plaintext.
+        :param key_id:
+        :param plaintext:
+        :param region: Region to target. If none is passed will use default region from the config.
+        :param associated_data:
+        :return: :class:`WrapKeyResponse <WrapKeyResponse>`
+
+        Usage:
+        ::
+
+            result = api.wrap_key(
+                key_id="example",
+                plaintext="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_key_id = validate_path_param("key_id", key_id)
+
+        res = self._request(
+            "POST",
+            f"/key-manager/v1alpha1/regions/{param_region}/keys/{param_key_id}/wrap",
+            body=marshal_WrapKeyRequest(
+                WrapKeyRequest(
+                    key_id=key_id,
+                    plaintext=plaintext,
+                    region=region,
+                    associated_data=associated_data,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_WrapKeyResponse(res.json())
+
+    def unwrap_key(
+        self,
+        *,
+        key_id: str,
+        ciphertext: str,
+        region: Optional[ScwRegion] = None,
+        associated_data: Optional[str] = None,
+    ) -> UnwrapKeyResponse:
+        """
+        Unwrap a key.
+        Unwrap (decrypt) a wrapped key using an existing key, specified by the `key_id` parameter. The key must use ML-KEM algorithm. The maximum key size that can be unwrapped is 4 KB of ciphertext.
+        :param key_id:
+        :param ciphertext:
+        :param region: Region to target. If none is passed will use default region from the config.
+        :param associated_data:
+        :return: :class:`UnwrapKeyResponse <UnwrapKeyResponse>`
+
+        Usage:
+        ::
+
+            result = api.unwrap_key(
+                key_id="example",
+                ciphertext="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_key_id = validate_path_param("key_id", key_id)
+
+        res = self._request(
+            "POST",
+            f"/key-manager/v1alpha1/regions/{param_region}/keys/{param_key_id}/unwrap",
+            body=marshal_UnwrapKeyRequest(
+                UnwrapKeyRequest(
+                    key_id=key_id,
+                    ciphertext=ciphertext,
+                    region=region,
+                    associated_data=associated_data,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_UnwrapKeyResponse(res.json())

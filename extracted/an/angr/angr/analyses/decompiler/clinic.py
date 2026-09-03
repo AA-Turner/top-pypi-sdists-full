@@ -16,7 +16,20 @@ import networkx
 from angr import ailment
 from angr.ailment import AILBlockRewriter, Assignment, Block, Statement
 from angr.ailment.block_walker import AILBlockViewer
-from angr.ailment.expression import Array, Call, FunctionLikeMacro, Let, RustEnum, Struct, VirtualVariable
+from angr.ailment.expression import (
+    Array,
+    Call,
+    Expression,
+    FunctionLikeMacro,
+    Let,
+    RustEnum,
+    Struct,
+    Tmp,
+    VirtualVariable,
+)
+from angr.ailment.expression import (
+    Register as AILRegister,
+)
 from angr.analyses.analysis import Analysis, register_analysis
 from angr.analyses.cfg.cfg_base import CFGBase
 from angr.analyses.decompiler.block_simplifier import BlockSimplifier, PeepholeOptimizationBundle
@@ -28,6 +41,7 @@ from angr.analyses.s_reaching_definitions.s_rda_model import SRDAModel
 from angr.analyses.stack_pointer_tracker import OffsetVal, Register
 from angr.analyses.typehoon import Typehoon
 from angr.analyses.typehoon.simple_solver import SimpleSolver
+from angr.block import Block as VEXBlock
 from angr.calling_conventions import (
     SimCCUsercall,
     SimComboArg,
@@ -39,7 +53,7 @@ from angr.calling_conventions import (
 )
 from angr.code_location import ExternalCodeLocation
 from angr.codenode import BlockNode, FuncNode
-from angr.errors import AngrDecompilationError
+from angr.errors import AngrDecompilationComplexityError, AngrDecompilationError
 from angr.knowledge_base import KnowledgeBase
 from angr.knowledge_plugins.cfg.memory_data import MemoryDataSort
 from angr.knowledge_plugins.functions import Function
@@ -83,12 +97,14 @@ from angr.utils.ail_serialization import (
     simvar_from_bytes_polymorphic,
     simvar_to_bytes_polymorphic,
 )
+from angr.utils.constants import DEFAULT_STATEMENT
 from angr.utils.graph import GraphUtils
 from angr.utils.ssa import is_phi_assignment
 from angr.utils.types import dereference_simtype_by_lib
 
 from .ail_simplifier import AILSimplifier
 from .ailgraph_walker import AILGraphWalker, RemoveNodeNotice
+from .decompilation_options import DEFAULT_MAX_AIL_STATEMENTS
 from .notes import DecompilationNote
 from .optimization_passes import (
     CONDENSING_OPTS,
@@ -244,6 +260,94 @@ class _VLABufferBinder(AILBlockViewer):
         return super()._handle_VirtualVariable(expr_idx, expr, stmt_idx, stmt, block)
 
 
+class _ITStateDependencyWalker(AILBlockViewer):
+    """Follow local temporary definitions to find an initial-block ITSTATE read."""
+
+    def __init__(self, tmp_definitions: dict[int, Expression], itstate_offset: int, entry_addr: int):
+        super().__init__()
+        self._tmp_definitions = tmp_definitions
+        self._itstate_offset = itstate_offset
+        self._entry_addr = entry_addr
+        self._visiting_tmp_indices: set[int] = set()
+        self.depends_on_itstate = False
+
+    def _handle_Register(
+        self, expr_idx: int, expr: AILRegister, stmt_idx: int, stmt: Statement | None, block: Block | None
+    ) -> None:
+        if expr.reg_offset == self._itstate_offset and expr.tags.get("ins_addr") == self._entry_addr:
+            self.depends_on_itstate = True
+
+    def _handle_Tmp(self, expr_idx: int, expr: Tmp, stmt_idx: int, stmt: Statement | None, block: Block | None) -> None:
+        if self.depends_on_itstate or expr.tmp_idx in self._visiting_tmp_indices:
+            return
+        definition = self._tmp_definitions.get(expr.tmp_idx)
+        if definition is None:
+            return
+
+        self._visiting_tmp_indices.add(expr.tmp_idx)
+        self._handle_expr(0, definition, stmt_idx, stmt, block)
+        self._visiting_tmp_indices.remove(expr.tmp_idx)
+
+
+def _remove_thumb_entry_itstate_guard(
+    block: VEXBlock, statements: list[Statement], itstate_offset: int
+) -> list[Statement]:
+    """Remove LibVEX's synthetic guard around the first instruction of an initial Thumb block, if present."""
+
+    instruction_addrs = block.instruction_addrs
+    if not instruction_addrs or instruction_addrs[0] != block.addr:
+        return statements
+
+    next_instruction_addr = instruction_addrs[1] if len(instruction_addrs) > 1 else block.addr + block.size
+    tmp_definitions = {}
+    new_statements = []
+    for stmt in statements:
+        if (
+            isinstance(stmt, ailment.Stmt.Assignment)
+            and isinstance(stmt.dst, ailment.Expr.Tmp)
+            and stmt.tags.get("ins_addr") == block.addr
+        ):
+            tmp_definitions[stmt.dst.tmp_idx] = stmt.src
+
+        if (
+            isinstance(stmt, ailment.Stmt.ConditionalJump)
+            and stmt.tags.get("ins_addr") == block.addr
+            and isinstance(stmt.true_target, ailment.Expr.Const)
+            and stmt.true_target.value == next_instruction_addr
+        ):
+            dependency_walker = _ITStateDependencyWalker(tmp_definitions, itstate_offset, block.addr)
+            dependency_walker.walk_expression(stmt.condition, stmt=stmt, block=None)
+            if dependency_walker.depends_on_itstate:
+                continue
+
+        new_statements.append(stmt)
+    return new_statements
+
+
+def _is_function_entry_fallthrough_block(graph: networkx.DiGraph, function_addr: int, block_node: BlockNode) -> bool:
+    """Return whether a block is on the unique contiguous fall-through chain from the function entry."""
+
+    current = block_node
+    visited = {current}
+    while current.addr != function_addr:
+        predecessors = list(graph.predecessors(current))
+        if len(predecessors) != 1:
+            return False
+        predecessor = predecessors[0]
+        edge = graph.get_edge_data(predecessor, current)
+        if (
+            type(predecessor) is not BlockNode
+            or predecessor.addr + predecessor.size != current.addr
+            or edge.get("type") != "transition"
+            or edge.get("stmt_idx") != DEFAULT_STATEMENT
+            or predecessor in visited
+        ):
+            return False
+        visited.add(predecessor)
+        current = predecessor
+    return True
+
+
 class Clinic(Analysis, Serializable):
     """
     A Clinic deals with AILments: it lifts a function to AIL and runs the decompiler's simplification pipeline on it.
@@ -293,6 +397,7 @@ class Clinic(Analysis, Serializable):
         refine_loops_with_single_successor: bool = False,
         expose_loop_head_backedges: bool = False,
         typehoon_cls=Typehoon,
+        max_ail_statements: int = DEFAULT_MAX_AIL_STATEMENTS,
         max_type_constraints: int = 100_000,
         type_constraint_set_degradation_threshold: int = 150,
         ail_graph: networkx.DiGraph | None = None,
@@ -364,6 +469,7 @@ class Clinic(Analysis, Serializable):
         self.reaching_definitions: SRDAModel | None = None
         self._cache = cache
         self._mode = mode
+        self._max_ail_statements = max_ail_statements
         self._max_type_constraints = max_type_constraints
         self._type_constraint_set_degradation_threshold = type_constraint_set_degradation_threshold
         self.vvar_id_start = vvar_id_start
@@ -374,6 +480,11 @@ class Clinic(Analysis, Serializable):
         # actual stack variables. these secondary stack variables can be safely eliminated if not used by anything.
         self.secondary_stackvars: set[int] = set()
         self._typehoon_cls = typehoon_cls
+        # Heuristic: if the function is larger than M, all blocks greater than N bytes will enable cross-instruction
+        # optimization in VEX. this heuristic is for higher decompilation speed.
+        self._cross_insn_opt_min_block_size = 99  # N
+        self._cross_insn_opt_min_large_block_count = 40  # M
+        self._cross_insn_opt_for_large_blocks = False
 
         self.notes = notes if notes is not None else {}
         self.static_vvars = static_vvars if static_vvars is not None else {}
@@ -483,13 +594,14 @@ class Clinic(Analysis, Serializable):
 
     def _analyze_for_decompiling(self):
         # initialize the AIL conversion manager
-        self._ail_manager = ailment.Manager(arch=self.project.arch)
+        self._ail_manager = ailment.Manager()
         # attach the VariableMap so passes/peephole-opts/region-simplifiers that hold the manager can reach it
         self._ail_manager.variable_map = self.variable_map
 
         ail_graph = self._init_ail_graph if self._init_ail_graph is not None else self._decompilation_graph_recovery()
         if not ail_graph:
             return
+        self._check_ail_statement_limit(ail_graph)
         if self._start_stage <= ClinicStage.INITIALIZATION:
             ail_graph = self._decompilation_fixups(ail_graph)
 
@@ -510,6 +622,24 @@ class Clinic(Analysis, Serializable):
     #             block.pp()
     #     print(kwargs)
     #     return super()._update_progress(*args, **kwargs)
+
+    def _check_ail_statement_limit(self, ail_graph: networkx.DiGraph) -> None:
+        """
+        Abort before the simplification pipeline runs if the freshly built AIL graph is too large. Several
+        simplification passes are super-linear in the number of statements, so an oversized graph would otherwise
+        consume resources indefinitely.
+        """
+        if not self._max_ail_statements:
+            return
+        stmt_count = sum(len(block.statements) for block in ail_graph)
+        if stmt_count > self._max_ail_statements:
+            raise AngrDecompilationComplexityError(
+                "max_ail_statements",
+                self._max_ail_statements,
+                stmt_count,
+                self.function.addr,
+                unit="AIL statements",
+            )
 
     def _decompilation_graph_recovery(self):
         is_pcode_arch = ":" in self.project.arch.name
@@ -1123,7 +1253,7 @@ class Clinic(Analysis, Serializable):
             return
 
         # initialize the AIL conversion manager
-        self._ail_manager = ailment.Manager(arch=self.project.arch)
+        self._ail_manager = ailment.Manager()
         self._ail_manager.variable_map = self.variable_map
 
         # Track stack pointers
@@ -1427,6 +1557,9 @@ class Clinic(Analysis, Serializable):
         :return: None
         """
 
+        def _cross_insn_opt_callback(block_addr, block_size) -> bool:  # pylint: disable=unused-argument
+            return self._cross_insn_opt_for_large_blocks and block_size >= self._cross_insn_opt_min_block_size
+
         regs = {self.project.arch.sp_offset}
         initial_reg_values = {
             self.project.arch.sp_offset: OffsetVal(
@@ -1447,7 +1580,7 @@ class Clinic(Analysis, Serializable):
             regs,
             fail_fast=self._fail_fast,
             track_memory=self._sp_tracker_track_memory,
-            cross_insn_opt=False,
+            cross_insn_opt_callback=_cross_insn_opt_callback,
             initial_reg_values=initial_reg_values,
         )
 
@@ -1465,7 +1598,18 @@ class Clinic(Analysis, Serializable):
         assert self._func_graph is not None
         assert self._blocks_by_addr_and_size is not None
 
-        for block_node in self._func_graph.nodes():
+        # enumerate the func graph to determine if we should enable cross-insn opt for large blocks
+        if len(self._func_graph) >= self._cross_insn_opt_min_large_block_count:
+            large_block_count = 0
+            for block_node in self._func_graph:
+                if isinstance(block_node, BlockNode) and block_node.size >= self._cross_insn_opt_min_block_size:
+                    large_block_count += 1
+                    if large_block_count >= self._cross_insn_opt_min_large_block_count:
+                        break
+            if large_block_count >= self._cross_insn_opt_min_large_block_count:
+                self._cross_insn_opt_for_large_blocks = True
+
+        for block_node in self._func_graph:
             ail_block = self._convert(block_node)
 
             if type(ail_block) is ailment.Block:
@@ -1498,7 +1642,10 @@ class Clinic(Analysis, Serializable):
         if block_node.size == 0:
             return ailment.Block(block_node.addr, 0, statements=[])
 
-        block = self.project.factory.block(block_node.addr, block_node.size, cross_insn_opt=False)
+        cross_insn_opt = False
+        if self._cross_insn_opt_for_large_blocks and block_node.size >= self._cross_insn_opt_min_block_size:
+            cross_insn_opt = True
+        block = self.project.factory.block(block_node.addr, block_node.size, cross_insn_opt=cross_insn_opt)
         converted = self._convert_vex(block)
 
         # architecture-specific setup
@@ -1519,6 +1666,30 @@ class Clinic(Analysis, Serializable):
                 self._ail_manager.next_atom(), dflag, forward, ins_addr=block.addr
             )
             converted.statements.insert(0, dflag_assignment)
+        elif (
+            block.thumb is True
+            and "itstate" in self.project.arch.registers
+            and self._func_graph is not None
+            and _is_function_entry_fallthrough_block(self._func_graph, self.function.addr, block_node)
+        ):
+            itstate_offset, itstate_size = self.project.arch.registers["itstate"]
+            # LibVEX may infer stale ITSTATE from bytes before context-free lifts of the function's initial blocks.
+            # Remove only guards that skip their first instruction; genuine IT blocks later in the function remain.
+            converted.statements = _remove_thumb_entry_itstate_guard(block, converted.statements, itstate_offset)
+
+            itstate = ailment.Expr.Register(
+                self._ail_manager.next_atom(),
+                itstate_offset,
+                itstate_size * self.project.arch.byte_width,
+                ins_addr=block.addr,
+            )
+            cleared = ailment.Expr.Const(
+                self._ail_manager.next_atom(), 0, itstate_size * self.project.arch.byte_width, ins_addr=block.addr
+            )
+            itstate_assignment = ailment.Stmt.Assignment(
+                self._ail_manager.next_atom(), itstate, cleared, ins_addr=block.addr
+            )
+            converted.statements.insert(0, itstate_assignment)
 
         return converted
 
@@ -3266,7 +3437,8 @@ class Clinic(Analysis, Serializable):
 
         # corner-case: the last statement of original_block might have been patched by _remove_redundant_jump_blocks.
         # we detect such case and fix it in new_head_ail
-        self._remove_redundant_jump_blocks_repatch_relifted_block(original_block, end_block_ail)
+        if not self._remove_redundant_jump_blocks_repatch_relifted_block(original_block, end_block_ail):
+            return None
 
         ail_graph.remove_node(original_block)
 
@@ -3700,7 +3872,7 @@ class Clinic(Analysis, Serializable):
     @staticmethod
     def _remove_redundant_jump_blocks_repatch_relifted_block(
         patched_block: ailment.Block, new_block: ailment.Block
-    ) -> None:
+    ) -> bool:
         """
         The last statement of patched_block might have been patched by _remove_redundant_jump_blocks. In this case, we
         fix the last instruction for new_block, which is a newly lifted (from VEX) block that ends at the same address
@@ -3708,7 +3880,14 @@ class Clinic(Analysis, Serializable):
 
         :param patched_block:   Previously patched block.
         :param new_block:       Newly lifted block.
+        :return:                False if new_block cannot stand in for patched_block, in which case the caller must
+                                not rewrite the graph; True otherwise.
         """
+
+        if not patched_block.statements or not new_block.statements:
+            # graph recovery emits a zero-size block for a fall-through that no instruction backs. Such a block
+            # has no last statement to repatch, so it cannot carry the transfer patched_block ends with.
+            return False
 
         if (
             isinstance(patched_block.statements[-1], ailment.Stmt.Jump)
@@ -3729,6 +3908,8 @@ class Clinic(Analysis, Serializable):
         ):
             new_block.statements[-1].true_target = patched_block.statements[-1].true_target
             new_block.statements[-1].false_target = patched_block.statements[-1].false_target
+
+        return True
 
     def _insert_block_labels(self, ail_graph):
         for node in ail_graph.nodes:

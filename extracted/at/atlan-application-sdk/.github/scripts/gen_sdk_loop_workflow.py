@@ -109,7 +109,13 @@ permissions:
   # explicit permissions block makes everything unlisted `none`, so without
   # this the duplicate check 403s, the fence raises before it can post, and
   # the lane goes silent — the failure mode it exists to prevent.
-  actions: read
+  #
+  # `write` rather than `read` because a called workflow's permissions cannot
+  # exceed its CALLER's: sdk-loop-phase.yml asks for `actions: write` so
+  # actions/cache can actually save (see the comment there), and capping it
+  # here at `read` would silently keep the cache broken. The fence itself
+  # still only reads.
+  actions: write
   # Reactions are an Issues-scope resource, so the acknowledgement 403s
   # without this. Caught by test_react_to_comment.py, which asserts every
   # workflow calling the helper grants it — the same Issues-vs-PR distinction
@@ -188,6 +194,34 @@ FOOTER = """
 """
 
 
+def prep_job() -> str:
+    """Branch and check hygiene, once, before the first review.
+
+    Holds write scope so it can push a MECHANICAL fix — formatting, lint,
+    generated drift — for a check the review could only have reported. It
+    does not update a behind branch and does not resolve conflicts: both are
+    changes to somebody's PR that they did not ask for, and neither is needed
+    to review, since the review reads the diff against base. Both are
+    reported and left alone.
+
+    Deterministic for a healthy PR — a few `gh` reads and no model at all.
+    """
+    return """
+  prep:
+    name: Prep
+    needs: [fence]
+    if: needs.fence.outputs.proceed == 'true'
+    uses: ./.github/workflows/sdk-loop-phase.yml
+    secrets: inherit
+    with:
+      phase: prep
+      round: 0
+      pr: ${{ needs.fence.outputs.pr }}
+      head_ref: ${{ needs.fence.outputs.head_ref }}
+      base_sha: ${{ needs.fence.outputs.base_sha }}
+"""
+
+
 def review_job(n: int) -> str:
     """Review round n.
 
@@ -197,10 +231,18 @@ def review_job(n: int) -> str:
     the branch is actually on, so a round that starts is never already stale.
     """
     if n == 1:
-        gate = "needs.fence.outputs.proceed == 'true'"
-        needs = "[fence]"
-        base = "${{ needs.fence.outputs.base_sha }}"
-        ours = "''"
+        # `!cancelled()` rather than a dependency on prep SUCCEEDING: a prep
+        # that could not tidy the branch must not cost the review. A branch
+        # left behind still reviews correctly.
+        gate = "!cancelled() && needs.fence.outputs.proceed == 'true'"
+        needs = "[fence, prep]"
+        # Fall back to the fence when prep skipped or failed — an empty
+        # `new_base_sha` would checkout `ref: ''`.
+        base = "${{ needs.prep.outputs.new_base_sha || needs.fence.outputs.base_sha }}"
+        # Prep pushes. Without carrying its sha as `ours`, round 1 sees
+        # live != baseline with an empty ours-list, calls it `moved_by_other`
+        # and re-aims — burning a round every time prep does its job.
+        ours = "${{ needs.prep.outputs.pushed_sha }}"
         ledger = "''"
         prior_sha = "''"
         spent = "''"
@@ -310,21 +352,27 @@ def _rounds_expr() -> str:
                 '"sha":"${{ needs.%s.outputs.new_base_sha }}",'
                 '"detail":"${{ needs.%s.outputs.detail }}",'
                 '"cost":"${{ needs.%s.outputs.cost }}",'
+                '"usd":"${{ needs.%s.outputs.usd }}",'
                 '"usage":"${{ needs.%s.outputs.usage }}"}'
-                % (n, phase, job, job, job, job, job, job)
+                % (n, phase, job, job, job, job, job, job, job)
             )
     return "'[" + ",".join(rows) + "]'"
 
 
 def build() -> str:
-    body = [HEADER]
+    body = [HEADER, prep_job()]
     for n in range(1, MAX_ROUNDS + 1):
         body.append(review_job(n))
         body.append(resolve_job(n))
+    # `prep` belongs in the Summary's `needs` too, or its row never reaches
+    # the round table and a branch update looks like it never happened.
     all_phases = ", ".join(
-        f"{phase}-{n}"
-        for n in range(1, MAX_ROUNDS + 1)
-        for phase in ("review", "resolve")
+        ["prep"]
+        + [
+            f"{phase}-{n}"
+            for n in range(1, MAX_ROUNDS + 1)
+            for phase in ("review", "resolve")
+        ]
     )
     body.append(
         FOOTER.format(
@@ -355,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(content, encoding="utf-8")
-    print(f"wrote {OUT} ({MAX_ROUNDS} rounds, {2 * MAX_ROUNDS + 2} jobs)")
+    print(f"wrote {OUT} ({MAX_ROUNDS} rounds, {2 * MAX_ROUNDS + 3} jobs)")
     return 0
 
 

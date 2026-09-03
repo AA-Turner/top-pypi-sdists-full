@@ -420,6 +420,7 @@ def _resolve_capability(capability_path: Path) -> _CapabilityResolution:
         len(agents)
         + skill_count
         + _count_python_tool_files(capability_path, manifest.tools)
+        + len(manifest.commands or [])
         + _count_python_hook_files(capability_path, manifest.hooks)
         + _count_declared_workers(manifest.workers)
         + len(mcp_defs)
@@ -427,7 +428,7 @@ def _resolve_capability(capability_path: Path) -> _CapabilityResolution:
     if exported_count == 0:
         raise ValueError(
             f"Capability '{manifest.name}' must export at least one component "
-            f"(agent, tool, hook, skill, worker, or MCP server) [CAP-VALID-008]"
+            f"(agent, tool, command, hook, skill, worker, or MCP server) [CAP-VALID-008]"
         )
 
     # Parse dependencies into typed structure
@@ -505,6 +506,7 @@ def _parse_capability_file(content: str, manifest_path: Path) -> CapabilityManif
         description=parsed["description"],
         agents=parsed.get("agents"),  # None=omitted (auto-discover), []=disabled
         tools=parsed.get("tools"),
+        commands=parsed.get("commands"),
         hooks=parsed.get("hooks"),
         policies=parsed.get("policies"),
         skills=parsed.get("skills"),

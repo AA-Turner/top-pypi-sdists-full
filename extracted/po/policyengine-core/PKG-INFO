@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: policyengine-core
-Version: 3.31.1
+Version: 3.32.1
 Summary: Core microsimulation engine enabling country-specific policy models.
 Project-URL: Homepage, https://github.com/policyengine/policyengine-core
 Author-email: PolicyEngine <hello@policyengine.org>
@@ -9,22 +9,19 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Requires-Dist: dpath<3
 Requires-Dist: h5py<4,>=3
 Requires-Dist: huggingface-hub>=0.25.1
 Requires-Dist: ipython<9,>=8
 Requires-Dist: microdf-python>=1.0.0
 Requires-Dist: numexpr<3
-Requires-Dist: numpy<2.1,>=1.26; python_version < '3.10'
-Requires-Dist: numpy<3,>=2.1.0; python_version >= '3.10'
+Requires-Dist: numpy<3,>=2.1.0
 Requires-Dist: pandas>=1
 Requires-Dist: plotly<6,>=5
 Requires-Dist: psutil<7,>=6
@@ -68,7 +65,7 @@ A fork of [OpenFisca-Core](https://github.com/OpenFisca/OpenFisca-Core) that pow
 pip install policyengine-core
 ```
 
-Supports Python 3.9 – 3.14.
+Supports Python 3.11–3.14.
 
 ## Usage
 

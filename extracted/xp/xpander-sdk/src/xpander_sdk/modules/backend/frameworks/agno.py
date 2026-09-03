@@ -61,7 +61,12 @@ from xpander_sdk.core.context_optimizer.encryption import (
     is_context_optimization_file,
     try_decrypt,
 )
-from xpander_sdk.core.context_optimizer.search import bm25_rank, grep_text
+from xpander_sdk.core.context_optimizer.search import (
+    RETRIEVE_PAGE_CHARS,
+    bm25_rank,
+    grep_text,
+    page_text,
+)
 from xpander_sdk.core.context_optimizer.finalize_mode import (
     FINALIZE_NOT_ACTIVE_REJECTION,
     FINALIZE_ONLY_SYSTEM_OVERRIDE,
@@ -262,7 +267,9 @@ you are on, proceed without retrieving.
 To read the rest, call `xpworkspace-context-retrieve` with that context_id (scoped to the current
 task — items from other tasks can't be decrypted). Prefer `query` (regex) or `semantic_query` (text)
 so you pull only the parts the step needs; the call is repeatable on the same context_id, so start
-narrow and broaden. `xpworkspace-context-retrieve` is the reader that decrypts these paths — bash
+narrow and broaden. Every response is capped: when one comes back with a `[PARTIAL: ...]` line, that
+is a page, not the whole result — call again with the `offset` it names to read on. To cover an
+entire large result, read it in sequential pages until no `[PARTIAL: ...]` line comes back. `xpworkspace-context-retrieve` is the reader that decrypts these paths — bash
 (`cat`, `head`) and `xpworkspace-file-read` see base64 ciphertext.
 After a compaction you may see a `<session_backup>` pointer
 (`CONTEXT_OPTIMIZATION/session_backup_<task_id>.xp`) holding the full pre-compaction transcript;
@@ -622,7 +629,9 @@ Rules:
   Change/remove a step: xpupdate_agent_plan_item / xpdelete_agent_plan_item (body_params
   with id).
 </deep_planning>
-""".replace("__BATCH_RULE__", _PLAN_BATCH_RULE).replace(
+""".replace(
+    "__BATCH_RULE__", _PLAN_BATCH_RULE
+).replace(
     "__UUID_RULE__", _PLAN_UUID_RULE
 )
 
@@ -678,7 +687,9 @@ Rules:
 - Planning is internal bookkeeping. NEVER expose the plan, task IDs, UUIDs, or tool
   mechanics to the user (final answer or think/analyze title/thought).
 </deep_planning>
-""".replace("__PLAN_LABEL__", PLAN_BLOCK_LABEL)
+""".replace(
+        "__PLAN_LABEL__", PLAN_BLOCK_LABEL
+    )
     .replace("__BATCH_RULE__", _PLAN_BATCH_RULE)
     .replace("__UUID_RULE__", _PLAN_UUID_RULE)
 )
@@ -2750,14 +2761,18 @@ async def build_agent_args(
         and xpander_agent.expected_output
         and len(xpander_agent.expected_output) != 0
     ):
-        args["instructions"] += f"""\n
+        args[
+            "instructions"
+        ] += f"""\n
             <expected_output>
             {xpander_agent.expected_output}
             </expected_output>
         """
 
     if xpander_agent.is_a_team and workspace_enabled:
-        args["instructions"] += f"""\n
+        args[
+            "instructions"
+        ] += f"""\n
             <workspace_access_rules>
             Each workspace file belongs to the agent that created it. As the team leader, you cannot read or use a child agent's workspace files directly. To use data stored in a child's workspace, delegate the task to that child agent and let it access its own workspace.
             </workspace_access_rules>
@@ -4204,37 +4219,36 @@ async def build_agent_args(
                     if isinstance(body, dict)
                     else ""
                 )
+                offset = 0
+                if isinstance(body, dict):
+                    try:
+                        offset = max(0, int(body.get("offset") or 0))
+                    except (TypeError, ValueError):
+                        offset = 0
+
                 if query or semantic_query:
-
-                    def _get_plain():
-                        if isinstance(result, ToolInvocationResult):
-                            r = result.result
-                            return r.get("content", "") if isinstance(r, dict) else r
-                        if hasattr(result, "content"):
-                            return result.content
-                        if isinstance(result, dict):
-                            return result.get("content", "")
-                        return None
-
-                    def _set_plain(v):
-                        if isinstance(result, ToolInvocationResult):
-                            if isinstance(result.result, dict):
-                                result.result["content"] = v
-                            else:
-                                result.result = v
-                        elif hasattr(result, "content"):
-                            result.content = v
-                        elif isinstance(result, dict):
-                            result["content"] = v
-
-                    plain = _get_plain()
+                    plain = retrieve_plain_text(result)
                     if isinstance(plain, str) and plain:
                         filtered = plain
                         if query:
                             filtered = grep_text(filtered, query)
                         if semantic_query:
                             filtered = bm25_rank(filtered, semantic_query)
-                        _set_plain(filtered)
+                        set_retrieve_plain_text(result, filtered)
+
+                # The cap runs for every retrieve, whatever the model passed: with encryption
+                # this is the only channel plaintext reaches the provider, and a no-query call
+                # used to hand over the whole file.
+                plain = retrieve_plain_text(result)
+                if isinstance(plain, str) and plain:
+                    page, notice = page_text(
+                        plain, offset=offset, budget=_retrieve_page_budget(task)
+                    )
+                    if notice:
+                        set_retrieve_plain_text(result, page)
+                        result = append_to_tool_result(result, notice)
+                    elif offset:
+                        set_retrieve_plain_text(result, page)
             except Exception as e:
                 logger.warning(
                     f"[context-optimizer] context-retrieve search failed, "
@@ -4740,7 +4754,8 @@ def _strip_internal_tool_fields_cls(base):
             # An endpoint that rejected response_format once gets plain text from then on.
             if (
                 response_format is not None
-                and _response_format_memo_key(self) in _RESPONSE_FORMAT_REJECTING_ENDPOINTS
+                and _response_format_memo_key(self)
+                in _RESPONSE_FORMAT_REJECTING_ENDPOINTS
             ):
                 response_format = None
             return super().get_request_params(
@@ -6461,7 +6476,12 @@ def _workspace_mcp_failure_reason(error: BaseException) -> str:
         try:
             body = response.json()
             if isinstance(body, dict):
-                text = str(body.get("detail") or body.get("statement") or body.get("error") or "")
+                text = str(
+                    body.get("detail")
+                    or body.get("statement")
+                    or body.get("error")
+                    or ""
+                )
         except Exception:
             text = str(getattr(response, "text", "") or "")
     if not text:
@@ -6684,6 +6704,44 @@ async def _resolve_agent_tools(
             env_vars=mcp.env_vars or {},
             include_tools=mcp.allowed_tools or None,
         )
+        server_label = mcp.name or mcp.command
+        # a cold start can take a minute; the step pair makes it visible on the task card
+        step_id = str(uuid.uuid4())
+
+        async def _report(coro: Any) -> None:
+            # best-effort, hard-capped: a slow events endpoint must never hold tool assembly
+            try:
+                await asyncio.wait_for(coro, timeout=10)
+            except Exception:
+                pass
+
+        if task is not None:
+            await _report(
+                report_tool_call_request(
+                    task,
+                    step_id,
+                    "start_mcp_server",
+                    tool_name="start_mcp_server",
+                    payload={"server": server_label},
+                )
+            )
+
+        async def _report_start_result(result: str, is_error: bool = False) -> None:
+            """Close the start step with its outcome; a no-op when the build has no task."""
+            if task is None:
+                return
+            await _report(
+                report_tool_call_result(
+                    task,
+                    step_id,
+                    "start_mcp_server",
+                    result,
+                    is_error=is_error,
+                    tool_name="start_mcp_server",
+                    payload={"server": server_label},
+                )
+            )
+
         try:
             # Connected here, not by agno: the call is also what starts an idled-out workspace.
             await toolkit.connect()
@@ -6691,21 +6749,31 @@ async def _resolve_agent_tools(
             raise
         except Exception as e:
             logger.warning(
-                f"[workspace-mcp] '{mcp.name or mcp.command}' unavailable this run: "
+                f"[workspace-mcp] '{server_label}' unavailable this run: "
                 f"{type(e).__name__}: {e}"
             )
             reason = _workspace_mcp_failure_reason(e)
-            notes.append(
-                f"{mcp.name or mcp.command}: temporarily unavailable this run - {reason}"
+            if not reason and isinstance(e, (TimeoutError, asyncio.TimeoutError)):
+                reason = str(e)
+            note = (
+                f"{server_label}: temporarily unavailable this run - {reason}"
                 if reason
-                else f"{mcp.name or mcp.command}: temporarily unavailable (could not start "
+                else f"{server_label}: temporarily unavailable (could not start "
                 f"in the agent's workspace this run)."
             )
+            notes.append(note)
+            await _report_start_result(note, is_error=True)
             return None
         if not toolkit.functions:
-            notes.append(f"{mcp.name or mcp.command}: started but exposed no tools.")
+            notes.append(f"{server_label}: started but exposed no tools.")
+            await _report_start_result(
+                f"'{server_label}' started but exposed no tools.", is_error=True
+            )
             return None
-        return await _finalize_toolkit(toolkit, mcp.name or mcp.command, None, mcp.id)
+        await _report_start_result(
+            f"'{server_label}' ready: {len(toolkit.functions)} tool(s)."
+        )
+        return await _finalize_toolkit(toolkit, server_label, None, mcp.id)
 
     # Build one MCPTools per server. Remote servers each run a preflight probe
     # (~100-800ms); gathering them concurrently makes the wall-time the slowest
@@ -7725,6 +7793,52 @@ def _detect_context_window(model: Model) -> int:
 def detect_context_window(model: Model) -> int:
     """Public wrapper over _detect_context_window for out-of-repo consumers."""
     return _detect_context_window(model)
+
+
+def retrieve_plain_text(result: Any) -> Any:
+    """The decrypted text on a retrieve result, whichever shape the caller handed back."""
+    if isinstance(result, ToolInvocationResult):
+        inner = result.result
+        return inner.get("content", "") if isinstance(inner, dict) else inner
+    if hasattr(result, "content"):
+        return result.content
+    if isinstance(result, dict):
+        return result.get("content", "")
+    return None
+
+
+def set_retrieve_plain_text(result: Any, value: Any) -> None:
+    """Write text back into a retrieve result in place, matching :func:`retrieve_plain_text`."""
+    if isinstance(result, ToolInvocationResult):
+        if isinstance(result.result, dict):
+            result.result["content"] = value
+        else:
+            result.result = value
+    elif hasattr(result, "content"):
+        result.content = value
+    elif isinstance(result, dict):
+        result["content"] = value
+
+
+def _retrieve_page_budget(task: Any) -> int:
+    """Per-call retrieve budget, lowered when the window is already filling up.
+
+    The flat page size is what the model normally gets; the optimizer's headroom-aware
+    threshold caps it so a legal first page cannot blow a context that is nearly full.
+    """
+    budget = RETRIEVE_PAGE_CHARS
+    try:
+        optimizer = getattr(task, "_xp_context_optimizer", None)
+        if optimizer is not None:
+            free_tokens = optimizer._auto_compact_threshold - optimizer._last_estimated_tokens
+            # Half of what is left, so a page cannot itself trigger the compaction it is
+            # meant to avoid. chars = tokens / 1.2 * 4, inverting the optimizer's estimate.
+            free_chars = int(max(0, free_tokens) / 1.2 * 4 / 2)
+            if free_chars > 0:
+                budget = min(budget, free_chars)
+    except Exception:
+        pass
+    return max(1, budget)
 
 
 def _configure_context_optimizer(

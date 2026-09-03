@@ -15,7 +15,7 @@ the wire, so they could only ever confirm the bug.
 This registry makes the claim explicit and checkable. Each :class:`Mapping` says
 "constant ``X`` on class ``Y`` reads protobuf field ``M.f``", and
 ``test_wire_contract.py`` asserts ``constant == tag - 1`` against
-``docs/mobile/schema.proto``.
+``docs/android/schema.proto``.
 
 Adding a constant
 -----------------
@@ -112,7 +112,7 @@ class Pinned:
     """A constant whose meaning is known from LIVE evidence but not from the proto.
 
     These read ``addUnused()`` slots: the mobile ``BuilderInfo`` reserves the field
-    but records no name, so the tag is absent from ``mobile/schema.proto`` and
+    but records no name, so the tag is absent from ``android/schema.proto`` and
     cannot be checked against it. What we *can* do is record what the slot means,
     cite the observation that established it, and freeze the value so an
     accidental change is caught.
@@ -213,6 +213,52 @@ MAPPINGS: tuple[Mapping, ...] = (
         "_DRIVE_DESCRIPTOR_MIME_POS",
         "GoogleDriveSourceMetadata",
         "mimeType",
+    ),
+    # ---- Source row: Expert Intelligence / Play Books provenance (#2292) ---
+    Mapping(
+        "sources",
+        "SourceRow",
+        "_META_EXPERT_INTELLIGENCE_POS",
+        "SourceMetadata",
+        "expertIntelligenceSourceMetadata",
+    ),
+    Mapping(
+        "sources",
+        "SourceRow",
+        "_EI_CONTENT_ID_POS",
+        "ExpertIntelligenceSourceMetadata",
+        "contentId",
+    ),
+    Mapping("sources", "SourceRow", "_EI_TITLE_POS", "ExpertIntelligenceSourceMetadata", "title"),
+    Mapping(
+        "sources", "SourceRow", "_EI_AUTHORS_POS", "ExpertIntelligenceSourceMetadata", "authors"
+    ),
+    Mapping(
+        "sources",
+        "SourceRow",
+        "_EI_THUMBNAIL_POS",
+        "ExpertIntelligenceSourceMetadata",
+        "thumbnailImageUrl",
+    ),
+    Mapping(
+        "sources",
+        "SourceRow",
+        "_EI_DESCRIPTION_POS",
+        "ExpertIntelligenceSourceMetadata",
+        "description",
+    ),
+    Mapping(
+        "sources",
+        "SourceRow",
+        "_EI_FIELD_TYPE_POS",
+        "ExpertIntelligenceSourceMetadata",
+        tag=7,
+        note=(
+            "the mobile BuilderInfo could not recover this field's name (it emits "
+            "the placeholder 'fieldType'), so the tag is pinned rather than the "
+            "name. Web index 6 == proto tag 7; live web capture puts the opaque "
+            "double here (#2292). Read by SourceRow.expert_intelligence.field_type."
+        ),
     ),
     # ---- Artifact row: Artifact -------------------------------------------
     Mapping("artifacts", "ArtifactRow", "_ID_POS", "Artifact", "artifactId"),
@@ -334,7 +380,7 @@ MAPPINGS: tuple[Mapping, ...] = (
         "appType",
         note=(
             "ArtifactRow.variant. AppType: 1=FLASHCARDS, 2=QUIZ, 4=MINDMAP "
-            "(docs/mobile/enums.txt), matching the variant codes the payload "
+            "(docs/android/enums.txt), matching the variant codes the payload "
             "builders send."
         ),
     ),
@@ -773,7 +819,7 @@ MAPPINGS: tuple[Mapping, ...] = (
     # (free: [_, 100, 50, 500000, 1]; Pro cassettes: [_, 500, 300, 500000, 2]),
     # matching Google's published per-tier limits.
     Mapping(
-        "_settings",
+        "settings",
         MODULE_LEVEL,
         "_NOTEBOOK_LIMIT_INDEX",
         "TierLimits",
@@ -783,7 +829,7 @@ MAPPINGS: tuple[Mapping, ...] = (
         ),
     ),
     Mapping(
-        "_settings",
+        "settings",
         MODULE_LEVEL,
         "_SOURCE_LIMIT_INDEX",
         "TierLimits",
@@ -796,7 +842,7 @@ MAPPINGS: tuple[Mapping, ...] = (
     #   [[<user rows>], null, 1000, true, null, null, [3, true, true], false]
     Mapping(
         "sharing",
-        "ShareStatus",
+        "ShareStatusRow",
         "_PUBLIC_BLOCK_POS",
         "GetProjectDetailsResponse",
         "publicSettings",
@@ -805,7 +851,7 @@ MAPPINGS: tuple[Mapping, ...] = (
     ),
     Mapping(
         "sharing",
-        "ShareStatus",
+        "ShareStatusRow",
         "_IS_PUBLIC_INNER_POS",
         "ProjectPublicSettings",
         "isPubliclyReadable",
@@ -814,7 +860,7 @@ MAPPINGS: tuple[Mapping, ...] = (
     ),
     Mapping(
         "sharing",
-        "ShareStatus",
+        "ShareStatusRow",
         "_MAX_SHARE_LIMIT_POS",
         "GetProjectDetailsResponse",
         "maxIndividualsShareLimit",
@@ -827,7 +873,7 @@ MAPPINGS: tuple[Mapping, ...] = (
     ),
     Mapping(
         "sharing",
-        "ShareStatus",
+        "ShareStatusRow",
         "_PUBLIC_SHARING_ALLOWED_POS",
         "GetProjectDetailsResponse",
         "isPublicSharingAllowed",
@@ -837,6 +883,66 @@ MAPPINGS: tuple[Mapping, ...] = (
             "gate on making a notebook public. Read by "
             "ShareStatus.is_public_sharing_allowed."
         ),
+    ),
+    # ---- GetArtifactCustomizationChoices (sqTeoe) --------------------------
+    # The recovered ``ArtifactCustomizationChoices`` declares the slide-deck
+    # (tag 3) and tailored-report (tag 4) families; the audio / video families
+    # at tags 1 / 2 are live-only (see UNMAPPED). Every family is a one-field
+    # message whose repeated rows sit at ``family[0]``.
+    Mapping(
+        "customization",
+        "CustomizationChoicesRow",
+        "_SLIDE_DECK_POS",
+        "ArtifactCustomizationChoices",
+        "slidesCustomizationChoices",
+    ),
+    Mapping(
+        "customization",
+        "CustomizationChoicesRow",
+        "_REPORTS_POS",
+        "ArtifactCustomizationChoices",
+        "tailoredReportCustomizationChoices",
+    ),
+    Mapping(
+        "customization",
+        "CustomizationChoicesRow",
+        "_FAMILY_ROWS_POS",
+        "SlidesCustomizationChoices",
+        "types",
+        note=(
+            "every family container is a one-field message: SlidesCustomizationChoices.types, "
+            "TailoredReportCustomizationChoices.reportTypeOptions and the live-only audio / "
+            "video containers all carry their rows at tag 1"
+        ),
+    ),
+    # Format rows: the recovered ``SlidesType`` layout. The audio and video
+    # families reuse it verbatim with their own format enums (AudioFormat /
+    # VideoFormat) in the code slot — live-verified against the served labels.
+    Mapping("customization", "CustomizationChoiceRow", "_CODE_POS", "SlidesType", "deckType"),
+    Mapping("customization", "CustomizationChoiceRow", "_TITLE_POS", "SlidesType", "title"),
+    Mapping(
+        "customization", "CustomizationChoiceRow", "_DESCRIPTION_POS", "SlidesType", "description"
+    ),
+    Mapping(
+        "customization",
+        "ReportPresetRow",
+        "_REPORT_TYPE_POS",
+        "TailoredReportTypeOption",
+        "reportType",
+    ),
+    Mapping(
+        "customization",
+        "ReportPresetRow",
+        "_DESCRIPTION_POS",
+        "TailoredReportTypeOption",
+        "reportDescription",
+    ),
+    Mapping(
+        "customization",
+        "ReportPresetRow",
+        "_DIRECTIVE_POS",
+        "TailoredReportTypeOption",
+        "reportDirective",
     ),
 )
 
@@ -863,6 +969,16 @@ UNMAPPED: tuple[Unmapped, ...] = (
     Unmapped("sources", "SourceRow", "_META_TIMESTAMP_POS", _UNRECOVERED),
     Unmapped("sources", "SourceRow", "_META_YOUTUBE_POS", _UNRECOVERED),
     Unmapped("sources", "SourceRow", "_META_MIME_POS", _UNRECOVERED),
+    Unmapped(
+        "sources",
+        "SourceRow",
+        "_EI_PROVIDER_POS",
+        "ExpertIntelligenceSourceMetadata declares no tag 2 in the recovered "
+        "mobile schema (contentId=1, title=3, …), but the web wire carries the "
+        "ContentProvider enum here (index 1 == tag 2): live web capture puts `1` "
+        "(GOOGLE_PLAY_BOOKS) at this slot on every ingested Play Book (#2292). "
+        "Read by SourceRow.expert_intelligence.provider.",
+    ),
     Unmapped(
         "sources",
         "SourceRow",
@@ -959,6 +1075,12 @@ UNMAPPED: tuple[Unmapped, ...] = (
     Unmapped("artifacts", "ReportSuggestionRow", "_DESCRIPTION_POS", _SHAPE_UNKNOWN),
     Unmapped("artifacts", "ReportSuggestionRow", "_PROMPT_POS", _SHAPE_UNKNOWN),
     Unmapped("artifacts", "ReportSuggestionRow", "_AUDIENCE_LEVEL_POS", _SHAPE_UNKNOWN),
+    # collections.py — account-level web collection tuples are not present in
+    # the recovered mobile schema.
+    Unmapped("collections", "CollectionRow", "_NAME_POS", _SHAPE_UNKNOWN),
+    Unmapped("collections", "CollectionRow", "_MEMBERS_POS", _SHAPE_UNKNOWN),
+    Unmapped("collections", "CollectionRow", "_ID_POS", _SHAPE_UNKNOWN),
+    Unmapped("collections", "CollectionRow", "_EMOJI_POS", _SHAPE_UNKNOWN),
     # chat.py
     Unmapped("chat", "SavedChatNoteRow", "_OUTER_NOTE_POS", _NESTED_LOCAL),
     Unmapped("chat", "SavedChatNoteRow", "_ID_POS", _SHAPE_UNKNOWN),
@@ -976,6 +1098,12 @@ UNMAPPED: tuple[Unmapped, ...] = (
     Unmapped("chat", "StreamFrameRow", "_ERROR_PAYLOAD_POS", "streamed frame envelope"),
     Unmapped(
         "chat",
+        "StreamFrameRow",
+        "_TERMINAL_SEQUENCE_POS",
+        "streamed frame envelope terminal-sequence slot",
+    ),
+    Unmapped(
+        "chat",
         "ErrorPayloadRow",
         "_STATUS_POS",
         "google.rpc.Status envelope, not a Tailwind message",
@@ -985,7 +1113,7 @@ UNMAPPED: tuple[Unmapped, ...] = (
         "ErrorPayloadRow",
         "_MESSAGE_POS",
         "google.rpc.Status.message (tag 2 -> index 1) — a PUBLIC google/rpc/status.proto "
-        "field, not a Tailwind one, so mobile/schema.proto cannot check it. Its two "
+        "field, not a Tailwind one, so android/schema.proto cannot check it. Its two "
         "siblings in the same envelope ARE live-confirmed (code at index 0: [3] / [5] "
         "live from CREATE_ARTIFACT 2026-08-13, [13] in notebooks_remove_from_recent.yaml; "
         "details at index 2: the recorded UserDisplayableError block). The message slot "
@@ -1032,9 +1160,9 @@ UNMAPPED: tuple[Unmapped, ...] = (
     Unmapped("research", MODULE_LEVEL, "_IMPORT_ENVELOPE_PROBE_POS", _ENVELOPE),
     Unmapped("research", MODULE_LEVEL, "_IMPORT_ROW_ID_ENVELOPE_POS", _ENVELOPE),
     Unmapped("research", MODULE_LEVEL, "_IMPORT_ROW_TITLE_POS", _NESTED_LOCAL),
-    Unmapped("_mind_maps_api", MODULE_LEVEL, "_CREATE_ARTIFACT_ENVELOPE_POS", _ENVELOPE),
-    Unmapped("_mind_maps_api", MODULE_LEVEL, "_CREATE_ARTIFACT_ID_POS", _NESTED_LOCAL),
-    Unmapped("_mind_maps_api", MODULE_LEVEL, "_INTERACTIVE_TREE_LEAF_POS", _NESTED_LOCAL),
+    Unmapped("mind_maps", MODULE_LEVEL, "_CREATE_ARTIFACT_ENVELOPE_POS", _ENVELOPE),
+    Unmapped("mind_maps", MODULE_LEVEL, "_CREATE_ARTIFACT_ID_POS", _NESTED_LOCAL),
+    Unmapped("artifacts", MODULE_LEVEL, "_INTERACTIVE_TREE_LEAF_POS", _NESTED_LOCAL),
     Unmapped(
         "chat",
         MODULE_LEVEL,
@@ -1043,7 +1171,7 @@ UNMAPPED: tuple[Unmapped, ...] = (
         f"extractor did not recover a name for. {_UNRECOVERED}",
     ),
     Unmapped(
-        "_settings",
+        "settings",
         MODULE_LEVEL,
         "_TIER_INDEX",
         "reads TierLimits tag 5 (subscription tier). The mobile BuilderInfo "
@@ -1054,7 +1182,7 @@ UNMAPPED: tuple[Unmapped, ...] = (
     # sharing.py (#2130)
     Unmapped(
         "sharing",
-        "ShareStatus",
+        "ShareStatusRow",
         "_USERS_POS",
         f"{_NO_SUCH_FIELD} the web GET_SHARE_STATUS response carries the shared-user "
         "rows at index 0 (proto tag 1), but the recovered mobile "
@@ -1064,6 +1192,50 @@ UNMAPPED: tuple[Unmapped, ...] = (
         "so this is a naming gap in the mobile schema, not a suspect read. "
         "Recorded honestly rather than mapped to a field that does not exist.",
     ),
+    # Nested web shared-user rows are likewise absent from the recovered
+    # GetProjectDetailsResponse schema, so record their established positions
+    # without inventing protobuf field names.
+    Unmapped("sharing", "SharedUserRow", "_EMAIL_POS", _SHAPE_UNKNOWN),
+    Unmapped("sharing", "SharedUserRow", "_PERMISSION_POS", _SHAPE_UNKNOWN),
+    Unmapped("sharing", "SharedUserRow", "_USER_INFO_POS", _SHAPE_UNKNOWN),
+    Unmapped("sharing", "SharedUserRow", "_DISPLAY_NAME_POS", _NESTED_LOCAL),
+    Unmapped("sharing", "SharedUserRow", "_AVATAR_URL_POS", _NESTED_LOCAL),
+    # customization.py — GetArtifactCustomizationChoices (sqTeoe). The APK
+    # schema declares only the slide-deck / report families; the audio and
+    # video families are live-observed at tags 1 / 2 on both front doors
+    # (2026-09-01, #2283) and carry the AudioFormat / VideoFormat codes.
+    Unmapped("customization", MODULE_LEVEL, "_CHOICES_ENVELOPE_POS", _ENVELOPE),
+    Unmapped(
+        "customization",
+        "CustomizationChoicesRow",
+        "_AUDIO_POS",
+        "live-only ArtifactCustomizationChoices tag 1 (audio formats); the APK schema "
+        "declares only tags 3 and 4",
+    ),
+    Unmapped(
+        "customization",
+        "CustomizationChoicesRow",
+        "_VIDEO_POS",
+        "live-only ArtifactCustomizationChoices tag 2 (video formats); the APK schema "
+        "declares only tags 3 and 4",
+    ),
+    # transfers.py — the #2283 mapping replies (CopySourcesAsync,
+    # CopyArtifactsAsync, AddSourcesAsync). None of these response messages
+    # exist in the recovered APK schema (the app never calls them); the
+    # positions are web-derived and cross-checked tag-for-tag against the live
+    # Android gRPC replies (docs/android/copy-append-suggestion-evidence.md).
+    Unmapped("transfers", MODULE_LEVEL, "_MAPPING_ROWS_POS", _ENVELOPE),
+    Unmapped("transfers", "CopiedSourceRow", "_ORIGINAL_POS", _SHAPE_UNKNOWN),
+    Unmapped("transfers", "CopiedSourceRow", "_SOURCE_POS", _SHAPE_UNKNOWN),
+    Unmapped("transfers", "CopiedArtifactRow", "_ORIGINAL_POS", _SHAPE_UNKNOWN),
+    Unmapped("transfers", "CopiedArtifactRow", "_ARTIFACT_POS", _SHAPE_UNKNOWN),
+    Unmapped("transfers", "SourceAckRow", "_SOURCE_POS", _SHAPE_UNKNOWN),
+    Unmapped("transfers", "SourceAckRow", "_STATUS_POS", _SHAPE_UNKNOWN),
+    Unmapped("transfers", "AddSourcesAsyncResponseRow", "_SOURCES_POS", _SHAPE_UNKNOWN),
+    Unmapped("transfers", "AddSourcesAsyncResponseRow", "_ACKS_POS", _SHAPE_UNKNOWN),
+    # notebooks.py — NextStepSuggestions (OcvKNc): the reply IS one
+    # NextStepSuggestions message, so its rows are the first element.
+    Unmapped("notebooks", MODULE_LEVEL, "_SUGGEST_NEXT_STEPS_ROWS_POS", _ENVELOPE),
 )
 
 #: ``GET_SHARE_STATUS`` slots that are POPULATED on every live response and
@@ -1090,6 +1262,86 @@ UNREAD_SHARE_STATUS_SLOTS: dict[int, str] = {
 
 
 PINNED: tuple[Pinned, ...] = (
+    Pinned(
+        "chunks",
+        "RelevantChunkSourceRow",
+        "_SOURCE_ID_POS",
+        0,
+        "SourceRelevantChunks tag 1 — source id string",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkSourceRow",
+        "_CHUNKS_POS",
+        1,
+        "SourceRelevantChunks tag 2 — repeated relevant chunks",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkRow",
+        "_CONTENT_POS",
+        0,
+        "RelevantChunk tag 1 — content wrapper",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkRow",
+        "_RANK_POS",
+        1,
+        "RelevantChunk tag 2 — global relevance rank",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkRow",
+        "_SPANS_POS",
+        2,
+        "RelevantChunk tag 3 — repeated source-relative spans",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkRow",
+        "_TEXT_POS",
+        0,
+        "RelevantChunkContent tag 1 — text wrapper",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkRow",
+        "_PARTS_POS",
+        0,
+        "RelevantChunkText tag 1 — repeated text parts",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkRow",
+        "_FIRST_SPAN_POS",
+        0,
+        "first element of the RelevantChunk.spans repeated field",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkRow",
+        "_SPAN_START_POS",
+        1,
+        "RelevantChunkSpan tag 2 — source-relative start offset",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
+    Pinned(
+        "chunks",
+        "RelevantChunkRow",
+        "_SPAN_END_POS",
+        2,
+        "RelevantChunkSpan tag 3 — source-relative end offset",
+        "docs/android/source-search-evidence.md#wire-layout: Web and Android live probes",
+    ),
     Pinned(
         "sources",
         "SourceRow",
@@ -1275,7 +1527,7 @@ PINNED: tuple[Pinned, ...] = (
         "Issue #2141 live capture: 41/63 rows (all kind-1) carried integer values "
         "1-41, i.e. a bijection onto 1..N. Whether that ordinal equals the "
         "report's own citation numbering is NOT established: "
-        "tests/cassettes/research_deep_poll_long.yaml carries 24 such ordinals "
+        "tests/cassettes/web/research_deep_poll_long.yaml carries 24 such ordinals "
         "and its report contains no [cite: N] markers at all, so the mapping "
         "recorded here is the ordinal itself, not a marker resolution table",
     ),

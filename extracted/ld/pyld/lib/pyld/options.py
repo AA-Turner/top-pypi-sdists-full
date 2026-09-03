@@ -9,6 +9,7 @@ from collections.abc import Callable
 from typing import Any, Literal, TypedDict
 
 from .documentloader.base import DocumentLoader, RemoteDocument
+from .identifier_issuer import IdentifierIssuer
 
 ContextObject = dict[str, Any]
 Context = str | ContextObject | list[str | ContextObject]
@@ -100,6 +101,9 @@ class FlattenOptions(ExpandContextOptions, total=False):
     expandContext: Context
     """A context to expand with."""
 
+    identifierIssuer: IdentifierIssuer
+    """An identifier issuer to use for blank node identifiers (default: `IdentifierIssuer('_:b')`)."""
+
 
 class FrameOptions(ExpandContextOptions, total=False):
     documentLoader: DocumentLoader | DocumentLoaderCallable
@@ -117,8 +121,8 @@ class FrameOptions(ExpandContextOptions, total=False):
     expandContext: Context
     """A context to expand with."""
 
-    embed: Literal['@last', '@always', '@never', '@link']
-    """Default `@embed` flag (default: `@last`)."""
+    embed: Literal['@once', '@last', '@always', '@never', '@link']
+    """Default `@embed` flag (default: `@once`)."""
 
     explicit: bool
     """Default `@explicit` flag (default: `False`)."""
@@ -131,6 +135,9 @@ class FrameOptions(ExpandContextOptions, total=False):
 
     requireAll: bool
     """Default `@requireAll` flag (default: `False`)."""
+
+    identifierIssuer: IdentifierIssuer
+    """An identifier issuer to use for blank node identifiers (default: `IdentifierIssuer('_:b')`)."""
 
 
 class NormalizeOptions(ProcessingOptions, total=False):
@@ -175,8 +182,11 @@ class ToRdfOptions(ProcessingOptions, total=False):
     produceGeneralizedRdf: bool
     """`True` to output generalized RDF, `False` to produce only standard RDF (default: `False`)."""
 
-    rdfDirection: Literal['i18n-datatype']
-    """Only `i18n-datatype` supported."""
+    identifierIssuer: IdentifierIssuer
+    """An identifier issuer to use for blank node identifiers (default: `IdentifierIssuer('_:b')`)."""
+
+    rdfDirection: Literal['i18n-datatype', 'compound-literal']
+    """Either `i18n-datatype` or `compound-literal` is supported (default: `None`)."""
 
 
 class FromRdfOptions(TypedDict, total=False):
@@ -187,7 +197,7 @@ class FromRdfOptions(TypedDict, total=False):
     """`True` to use `rdf:type`, `False` to use `@type` (default: `False`)."""
 
     useNativeTypes: bool
-    """`True` to convert XSD types into native types (boolean, integer, double), `False` not to (default: `True`)."""
+    """`True` to convert XSD types into native types (boolean, integer, double), `False` not to (default: `False`)."""
 
     rdfDirection: Literal['i18n-datatype', 'compound-literal']
     """Either `i18n-datatype` or `compound-literal` is supported (default: `None`)."""

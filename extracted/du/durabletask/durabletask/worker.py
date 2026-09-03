@@ -26,6 +26,7 @@ from durabletask.grpc_options import (
     GrpcChannelOptions,
     GrpcWorkerResiliencyOptions,
 )
+from durabletask.exception_properties import ExceptionPropertiesProvider
 from durabletask.entities.entity_operation_failed_exception import EntityOperationFailedException
 from durabletask.internal import helpers
 from durabletask.internal.entity_state_shim import StateShim
@@ -447,9 +448,13 @@ class TaskHubGrpcWorker:
             Defaults to the value from environment variables or localhost.
         metadata (list[tuple[str, str]] | None, optional): gRPC metadata to include with
             requests. Used for authentication and routing. Defaults to None.
-        log_handler (logging.Handler | None, optional): Custom logging handler for worker logs. Defaults to None.
-        log_formatter (logging.Formatter | None, optional): Custom log formatter.
-            Defaults to None.
+        log_handler (logging.Handler | None, optional): Deprecated custom logging
+            handler for worker logs. Use ``logger`` instead.
+        log_formatter (logging.Formatter | None, optional): Deprecated custom log
+            formatter. Use ``logger`` instead.
+        logger (logging.Logger | None, optional): Caller-configured logger for
+            worker logs. It cannot be combined with ``log_handler`` or
+            ``log_formatter``; doing so raises ``ValueError``.
         secure_channel (bool, optional): Whether to use a secure gRPC channel (TLS).
             Defaults to False.
         channel (grpc.Channel | None, optional): Pre-configured gRPC channel to use.
@@ -463,6 +468,8 @@ class TaskHubGrpcWorker:
             gRPC resiliency settings retained for reconnect handling.
         concurrency_options (ConcurrencyOptions | None, optional): Configuration for
             controlling worker concurrency limits. If None, default settings are used.
+        exception_properties_provider (ExceptionPropertiesProvider | None, optional):
+            Extracts portable custom properties from exceptions reported by this worker.
         emit_trace_spans (bool, optional): Whether the worker emits Durable Task
             lifecycle spans. Set to ``False`` when the host owns those spans; the
             worker will still make inbound trace context current during user-code
@@ -528,6 +535,7 @@ class TaskHubGrpcWorker:
             metadata: list[tuple[str, str]] | None = None,
             log_handler: logging.Handler | None = None,
             log_formatter: logging.Formatter | None = None,
+            logger: logging.Logger | None = None,
             channel: grpc.Channel | None = None,
             secure_channel: bool = False,
             interceptors: Sequence[shared.ClientInterceptor] | None = None,
@@ -537,6 +545,7 @@ class TaskHubGrpcWorker:
             maximum_timer_interval: timedelta | None = DEFAULT_MAXIMUM_TIMER_INTERVAL,
             payload_store: PayloadStore | None = None,
             data_converter: DataConverter | None = None,
+            exception_properties_provider: ExceptionPropertiesProvider | None = None,
             emit_trace_spans: bool = True,
     ):
         self._registry = _Registry()
@@ -546,7 +555,7 @@ class TaskHubGrpcWorker:
         self._host_address = (
             host_address if host_address else shared.get_default_host_address()
         )
-        self._logger = shared.get_logger("worker", log_handler, log_formatter)
+        self._logger = shared.get_logger("worker", log_handler, log_formatter, logger)
         self._shutdown = Event()
         self._is_running = False
         self._channel = channel
@@ -557,6 +566,7 @@ class TaskHubGrpcWorker:
         self._owns_channel = channel is None
         self._secure_channel = secure_channel
         self._payload_store = payload_store
+        self._exception_properties_provider = exception_properties_provider
         self._emit_trace_spans = emit_trace_spans
         self._channel_options = channel_options
         self._resiliency_options = (
@@ -760,9 +770,7 @@ class TaskHubGrpcWorker:
         self._shutdown.clear()
 
         def run_loop() -> None:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self._async_run_loop())
+            asyncio.run(self._async_run_loop())
 
         self._logger.info(f"Starting gRPC worker that connects to {self._host_address}")
         self._runLoop = Thread(target=run_loop)
@@ -1176,7 +1184,8 @@ class TaskHubGrpcWorker:
                 self._registry, self._logger,
                 persisted_orch_span_id=persisted_orch_span_id,
                 maximum_timer_interval=self.maximum_timer_interval,
-                data_converter=self._data_converter)
+                data_converter=self._data_converter,
+                exception_properties_provider=self._exception_properties_provider)
             with tracing.suppress_span_emission(not self._emit_trace_spans):
                 with tracing.use_trace_context(
                         parent_trace_ctx if not self._emit_trace_spans else None):
@@ -1254,7 +1263,8 @@ class TaskHubGrpcWorker:
             self._logger.exception(
                 f"An error occurred while trying to execute instance '{instance_id}': {ex}"
             )
-            failure_details = ph.new_failure_details(ex)
+            failure_details = ph.new_failure_details(
+                ex, self._exception_properties_provider, self._logger)
             actions = [
                 ph.new_complete_orchestration_action(
                     -1, pb.ORCHESTRATION_STATUS_FAILED, "", failure_details
@@ -1340,7 +1350,8 @@ class TaskHubGrpcWorker:
                 res = pb.ActivityResponse(
                     instanceId=instance_id,
                     taskId=req.taskId,
-                    failureDetails=ph.new_failure_details(ex),
+                    failureDetails=ph.new_failure_details(
+                        ex, self._exception_properties_provider, self._logger),
                     completionToken=completionToken,
                 )
 
@@ -1444,7 +1455,8 @@ class TaskHubGrpcWorker:
                         tracing.set_span_error(span, ex)
                         self._logger.exception(ex)
                         operation_result = pb.OperationResult(failure=pb.OperationResultFailure(
-                            failureDetails=ph.new_failure_details(ex),
+                            failureDetails=ph.new_failure_details(
+                                ex, self._exception_properties_provider, self._logger),
                             startTimeUtc=new_timestamp(start_time),
                             endTimeUtc=new_timestamp(datetime.now(timezone.utc))
                         ))
@@ -1499,6 +1511,8 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
                  registry: _Registry,
                  data_converter: DataConverter,
                  maximum_timer_interval: timedelta | None = DEFAULT_MAXIMUM_TIMER_INTERVAL,
+                 exception_properties_provider: ExceptionPropertiesProvider | None = None,
+                 logger: logging.Logger | None = None,
                  ):
         self._generator = None
         self._is_replaying = True
@@ -1523,12 +1537,15 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
         self._received_events: dict[str, list[str | None]] = {}
         self._pending_events: dict[str, list[task.CancellableTask[Any]]] = {}
         self._new_input: Any | None = None
+        self._new_version: str | None = None
         self._save_events = False
         self._encoded_custom_status: str | None = None
         self._parent_trace_context: pb.TraceContext | None = None
         self._orchestration_trace_context: pb.TraceContext | None = None
         self._maximum_timer_interval = maximum_timer_interval
         self._data_converter = data_converter
+        self._exception_properties_provider = exception_properties_provider
+        self._logger = logger
 
     def run(self, generator: Generator[task.Task[Any], Any, Any]) -> None:
         self._generator = generator
@@ -1611,15 +1628,27 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
         # self._pending_actions.clear()  # Cancel any pending actions
         self._completion_status = pb.ORCHESTRATION_STATUS_FAILED
 
+        if isinstance(ex, task.TaskFailedError):
+            failure_details = ph.new_failure_details(
+                ex, self._exception_properties_provider, self._logger)
+            failure_details.innerFailure.CopyFrom(
+                ex._failure_details)  # pyright: ignore[reportPrivateUsage]
+        elif isinstance(ex, Exception):
+            failure_details = ph.new_failure_details(
+                ex, self._exception_properties_provider, self._logger)
+        else:
+            failure_details = ex
+
         action = ph.new_complete_orchestration_action(
             self.next_sequence_number(),
             pb.ORCHESTRATION_STATUS_FAILED,
             None,
-            ph.new_failure_details(ex) if isinstance(ex, Exception) else ex,
+            failure_details,
         )
         self._pending_actions[action.id] = action
 
-    def set_continued_as_new(self, new_input: Any, save_events: bool):
+    def set_continued_as_new(self, new_input: Any, save_events: bool,
+                             new_version: str | None = None):
         if self._is_complete:
             return
 
@@ -1633,6 +1662,7 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
         # self._pending_actions.clear()  # Cancel any pending actions
         self._completion_status = pb.ORCHESTRATION_STATUS_CONTINUED_AS_NEW
         self._new_input = new_input
+        self._new_version = new_version
         self._save_events = save_events
 
     def get_actions(self) -> list[pb.OrchestratorAction]:
@@ -1657,6 +1687,7 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
                 result=self._data_converter.serialize(self._new_input),
                 failure_details=None,
                 carryover_events=carryover_events,
+                new_version=self._new_version,
             )
             # We must return the existing tasks as well, to capture entity unlocks
             current_actions.append(action)
@@ -2135,11 +2166,12 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
                 ),
             )
 
-    def continue_as_new(self, new_input: Any, *, save_events: bool = False) -> None:
+    def continue_as_new(self, new_input: Any, *, save_events: bool = False,
+                        new_version: str | None = None) -> None:
         if self._is_complete:
             return
 
-        self.set_continued_as_new(new_input, save_events)
+        self.set_continued_as_new(new_input, save_events, new_version)
 
     def new_uuid(self) -> str:
         NAMESPACE_UUID: str = "9e952958-5e33-4daf-827f-2fa12937b875"
@@ -2177,11 +2209,13 @@ class _OrchestrationExecutor:
         data_converter: DataConverter,
         persisted_orch_span_id: str | None = None,
         maximum_timer_interval: timedelta | None = DEFAULT_MAXIMUM_TIMER_INTERVAL,
+        exception_properties_provider: ExceptionPropertiesProvider | None = None,
     ):
         self._registry = registry
         self._logger = logger
         self._data_converter = data_converter
         self._maximum_timer_interval = maximum_timer_interval
+        self._exception_properties_provider = exception_properties_provider
         self._is_suspended = False
         self._suspended_events: list[pb.HistoryEvent] = []
         self._persisted_orch_span_id = persisted_orch_span_id
@@ -2246,6 +2280,8 @@ class _OrchestrationExecutor:
             self._registry,
             maximum_timer_interval=self._maximum_timer_interval,
             data_converter=self._data_converter,
+            exception_properties_provider=self._exception_properties_provider,
+            logger=self._logger,
         )
         try:
             # Rebuild local state by replaying old history into the orchestrator function

@@ -29,6 +29,11 @@ class ProductCategory(str, Enum, metaclass=StrEnumMeta):
     MANAGED_RELATIONAL_DATABASES = "managed_relational_databases"
     MANAGED_MONGODB = "managed_mongodb"
     MANAGED_REDIS = "managed_redis"
+    MANAGED_INFERENCE = "managed_inference"
+    GENERATIVE_APIS = "generative_apis"
+    SERVERLESS_FUNCTIONS = "serverless_functions"
+    SERVERLESS_CONTAINERS = "serverless_containers"
+    SERVERLESS_JOBS = "serverless_jobs"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -51,6 +56,8 @@ class ServiceCategory(str, Enum, metaclass=StrEnumMeta):
     NETWORK = "network"
     CONTAINERS = "containers"
     DATABASES = "databases"
+    AI = "ai"
+    SERVERLESS = "serverless"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -101,7 +108,7 @@ class ZoneImpact:
 
     skus: list[SkuImpact]
     """
-    List of estimated impact values per SKU.
+    List of estimated impact values per SKU for this zone.
     """
 
     total_zone_impact: Optional[Impact] = None
@@ -120,6 +127,11 @@ class RegionImpact:
     zones: list[ZoneImpact]
     """
     List of estimated impact values per zone.
+    """
+
+    skus: list[SkuImpact]
+    """
+    List of estimated impact values per SKU for this region.
     """
 
     total_region_impact: Optional[Impact] = None

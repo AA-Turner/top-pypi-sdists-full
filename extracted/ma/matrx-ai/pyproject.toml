@@ -1,6 +1,6 @@
 [project]
 name = "matrx-ai"
-version = "0.5.221"
+version = "0.5.223"
 description = "Unified multi-provider AI client, orchestration, and tool system"
 readme = "README.md"
 license = { text = "MIT" }

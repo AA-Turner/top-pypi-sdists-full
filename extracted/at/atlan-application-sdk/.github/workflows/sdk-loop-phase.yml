@@ -24,7 +24,7 @@ on:
       phase:
         type: string
         required: true
-        description: 'review | resolve'
+        description: 'prep | review | resolve'
       round:
         type: number
         required: true
@@ -96,8 +96,12 @@ on:
         value: ${{ jobs.phase.outputs.ledger }}
       detail:
         value: ${{ jobs.phase.outputs.detail }}
+      ci_state:
+        value: ${{ jobs.phase.outputs.ci_state }}
       cost:
         value: ${{ jobs.phase.outputs.cost }}
+      usd:
+        value: ${{ jobs.phase.outputs.usd }}
       usage:
         value: ${{ jobs.phase.outputs.usage }}
       reaims:
@@ -107,6 +111,25 @@ on:
 
 permissions:
   contents: read
+  # `actions: write` is what the CACHE needs, not what the phase does.
+  # actions/cache v6 talks to the v2 cache service, which authorizes a SAVE
+  # with the run's Actions token and rejects a read-only one. With
+  # `contents: read` alone every job logged
+  #
+  #   Failed to save: Unable to reserve cache with key opencode-Linux-1.18.22.
+  #   More details: cache write denied: token has no writable scopes
+  #
+  # for both the opencode install and setup-uv — so the cache was never
+  # populated, every restore missed, and all four jobs of every run
+  # re-downloaded ~20-30s of the same artifacts. The lookup-only half worked,
+  # which is why this stayed invisible.
+  #
+  # It does not widen what the AGENT can do. `agent_env()` passes an
+  # ALLOWLIST, and `GITHUB_TOKEN` is not on it — the agent gets `GH_TOKEN`,
+  # the separately minted App token, which for a review phase carries no write
+  # scope at all. This grant belongs to the job, and the only step that uses
+  # it is actions/cache.
+  actions: write
 
 jobs:
   phase:
@@ -120,15 +143,21 @@ jobs:
     # the agent's own budget is enforced inside sdk_loop_phase.py.
     timeout-minutes: ${{ inputs.phase == 'review' && 55 || 40 }}
     outputs:
-      outcome: ${{ steps.run.outputs.outcome }}
+      # `|| steps.prep.outputs.*` because a deterministic prep finishes before
+      # `run` exists — that step is skipped, and a skipped step's outputs are
+      # empty. Without the fallback a clean prep would report nothing, and
+      # Review 1 would checkout `ref: ''`.
+      outcome: ${{ steps.run.outputs.outcome || steps.prep.outputs.outcome }}
       verdict: ${{ steps.run.outputs.verdict }}
       verdict_url: ${{ steps.run.outputs.verdict_url }}
       reviewed_head: ${{ steps.run.outputs.reviewed_head }}
-      new_base_sha: ${{ steps.run.outputs.new_base_sha }}
-      pushed_sha: ${{ steps.run.outputs.pushed_sha }}
+      new_base_sha: ${{ steps.run.outputs.new_base_sha || steps.prep.outputs.new_base_sha }}
+      pushed_sha: ${{ steps.run.outputs.pushed_sha || steps.prep.outputs.pushed_sha }}
       ledger: ${{ steps.run.outputs.ledger }}
-      detail: ${{ steps.run.outputs.detail }}
+      detail: ${{ steps.run.outputs.detail || steps.prep.outputs.detail }}
+      ci_state: ${{ steps.run.outputs.ci_state || steps.prep.outputs.ci_state }}
       cost: ${{ steps.run.outputs.cost }}
+      usd: ${{ steps.run.outputs.usd }}
       usage: ${{ steps.run.outputs.usage }}
       reaims: ${{ steps.run.outputs.reaims }}
       spent_total: ${{ steps.run.outputs.spent_total }}
@@ -147,7 +176,12 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           # The whole read-only guarantee for the review phase is this line.
-          permission-contents: ${{ inputs.phase == 'resolve' && 'write' || 'read' }}
+          # `prep` joins `resolve` on the write side: it exists precisely to
+          # do the things the review cannot — update a branch that is behind,
+          # push a mechanical fix. The review keeps `read`, which is what
+          # makes its read-only contract a property of the credential rather
+          # than a promise in a prompt.
+          permission-contents: ${{ (inputs.phase == 'resolve' || inputs.phase == 'prep') && 'write' || 'read' }}
           permission-pull-requests: write
           # PR comments are an Issues-scope resource, which the existing lane
           # learned the hard way (see "Mint fleet App token" in sdk-review.yml).
@@ -174,6 +208,15 @@ jobs:
         with:
           python-version: '3.14'
 
+      # The phase scripts run under the runner's python3, NOT `uv run` — and
+      # since the verdict renderer landed they import PyYAML. CI never saw the
+      # gap because pytest runs under uv, which has the project's deps; the
+      # workflow does not. Every review after that merge failed on import until
+      # this line. test_the_phase_job_installs_what_the_scripts_import derives
+      # the list from the scripts, so the next new import fails CI, not prod.
+      - name: Install what .github/scripts import
+        run: pip install "pyyaml>=6.0.2,<7.0.0"
+
       # A loop is up to 17 phase jobs, each on a fresh runner, so anything
       # installed per job is paid for 17 times. Cache the global npm store so
       # only the first job of a run pays the download.
@@ -190,13 +233,37 @@ jobs:
       #
       # Installed from npm rather than opencode.ai's install script, which is
       # `curl | bash` and barred by the org baseline.
+      # Prep's whole job is normally a couple of `gh` reads and no model
+      # at all. Running it BEFORE the installs lets the job skip them:
+      # opencode alone was 18s of a 41s prep, spent every run preparing
+      # for a branch prep almost never takes. When no agent is needed this
+      # step IS the phase, and everything below is skipped.
+      - name: Prep — deterministic pass
+        id: prep
+        if: inputs.phase == 'prep'
+        env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python3 .github/scripts/sdk_loop_prep.py
+
       - name: Cache the opencode install
+        if: inputs.phase != 'prep' || steps.prep.outputs.needs_agent == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.npm
+          # `~/.npm` is the package; `~/.local/share/opencode` is the ripgrep
+          # binary opencode downloads from GitHub Releases the first time an
+          # agent uses Glob or Grep. That download happened on EVERY job — up
+          # to 18 per run — and it is a network fetch on the critical path of
+          # the first search the reviewer makes.
+          path: |
+            ~/.npm
+            ~/.local/share/opencode/bin
           key: opencode-${{ runner.os }}-1.18.22
 
       - name: Install opencode
+        if: inputs.phase != 'prep' || steps.prep.outputs.needs_agent == 'true'
         run: npm install -g --prefer-offline opencode-ai@1.18.22
 
       # uv is how this repo runs everything — `uv run pytest`,
@@ -206,12 +273,16 @@ jobs:
       # A resolver that cannot check its work is worse than one that does not
       # try, because the output looks identical.
       - name: Install uv
+        if: inputs.phase != 'prep' || steps.prep.outputs.needs_agent == 'true'
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
 
-      - name: Configure git identity for the resolve phase
-        if: inputs.phase == 'resolve'
+      - name: Configure git identity for the phases that push
+        if: >-
+          inputs.phase == 'resolve'
+          || (inputs.phase == 'prep'
+              && steps.prep.outputs.needs_agent == 'true')
         # Commit as the App whose token is doing the pushing, not as atlan-ci.
         # atlan-ci is a CODEOWNER and the identity that mints approvals, so
         # attributing loop commits to it blurs "who wrote this" with "who
@@ -220,8 +291,11 @@ jobs:
           git config user.name  "atlan-app-fleet[bot]"
           git config user.email "4265590+atlan-app-fleet[bot]@users.noreply.github.com"
 
+      # Skipped entirely when prep already finished deterministically —
+      # its outputs come straight from the step above.
       - name: Run the phase
         id: run
+        if: inputs.phase != 'prep' || steps.prep.outputs.needs_agent == 'true'
         # Untrusted-input discipline: nothing from the PR — title, body, diff,
         # comment text — is ever interpolated with ${{ }} into a shell that
         # holds the App token. Inputs ride env vars, which the shell treats as

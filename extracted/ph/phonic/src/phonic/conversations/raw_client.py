@@ -23,6 +23,7 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
+from .requests.conversations_sip_outbound_call_request_sip import ConversationsSipOutboundCallRequestSipParams
 from ..requests.outbound_call_config import OutboundCallConfigParams
 from ..types.basic_error import BasicError
 from ..types.error import Error
@@ -1256,8 +1257,10 @@ class RawConversationsClient:
         to_phone_number: str,
         sip_auth_username: typing.Optional[str] = None,
         sip_auth_password: typing.Optional[str] = None,
+        from_display_name: typing.Optional[str] = OMIT,
         config: typing.Optional[OutboundCallConfigParams] = OMIT,
         dry_run: typing.Optional[bool] = OMIT,
+        sip: typing.Optional[ConversationsSipOutboundCallRequestSipParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ConversationsSipOutboundCallResponse]:
         """
@@ -1280,10 +1283,16 @@ class RawConversationsClient:
         sip_auth_password : typing.Optional[str]
             SIP auth password, if your provider requires it.
 
+        from_display_name : typing.Optional[str]
+            Display name for the caller ID (the SIP `From` header) on this call. Sent only when non-empty. Whether it reaches the callee depends on your SIP carrier - carriers that forward the `From` display name (e.g. Telnyx) present it, while others (e.g. Twilio) drop it or override it with a CNAM lookup.
+
         config : typing.Optional[OutboundCallConfigParams]
 
         dry_run : typing.Optional[bool]
             If true, validates the outbound call setup without placing a call. Returns HTTP 200 with `conversation_id` and `twilio_call_sid` set to null.
+
+        sip : typing.Optional[ConversationsSipOutboundCallRequestSipParams]
+            SIP trunk settings for the outbound trunk created for this call.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1300,10 +1309,14 @@ class RawConversationsClient:
             json={
                 "from_phone_number": from_phone_number,
                 "to_phone_number": to_phone_number,
+                "from_display_name": from_display_name,
                 "config": convert_and_respect_annotation_metadata(
                     object_=config, annotation=OutboundCallConfigParams, direction="write"
                 ),
                 "dry_run": dry_run,
+                "sip": convert_and_respect_annotation_metadata(
+                    object_=sip, annotation=ConversationsSipOutboundCallRequestSipParams, direction="write"
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -2600,8 +2613,10 @@ class AsyncRawConversationsClient:
         to_phone_number: str,
         sip_auth_username: typing.Optional[str] = None,
         sip_auth_password: typing.Optional[str] = None,
+        from_display_name: typing.Optional[str] = OMIT,
         config: typing.Optional[OutboundCallConfigParams] = OMIT,
         dry_run: typing.Optional[bool] = OMIT,
+        sip: typing.Optional[ConversationsSipOutboundCallRequestSipParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ConversationsSipOutboundCallResponse]:
         """
@@ -2624,10 +2639,16 @@ class AsyncRawConversationsClient:
         sip_auth_password : typing.Optional[str]
             SIP auth password, if your provider requires it.
 
+        from_display_name : typing.Optional[str]
+            Display name for the caller ID (the SIP `From` header) on this call. Sent only when non-empty. Whether it reaches the callee depends on your SIP carrier - carriers that forward the `From` display name (e.g. Telnyx) present it, while others (e.g. Twilio) drop it or override it with a CNAM lookup.
+
         config : typing.Optional[OutboundCallConfigParams]
 
         dry_run : typing.Optional[bool]
             If true, validates the outbound call setup without placing a call. Returns HTTP 200 with `conversation_id` and `twilio_call_sid` set to null.
+
+        sip : typing.Optional[ConversationsSipOutboundCallRequestSipParams]
+            SIP trunk settings for the outbound trunk created for this call.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2644,10 +2665,14 @@ class AsyncRawConversationsClient:
             json={
                 "from_phone_number": from_phone_number,
                 "to_phone_number": to_phone_number,
+                "from_display_name": from_display_name,
                 "config": convert_and_respect_annotation_metadata(
                     object_=config, annotation=OutboundCallConfigParams, direction="write"
                 ),
                 "dry_run": dry_run,
+                "sip": convert_and_respect_annotation_metadata(
+                    object_=sip, annotation=ConversationsSipOutboundCallRequestSipParams, direction="write"
+                ),
             },
             headers={
                 "content-type": "application/json",

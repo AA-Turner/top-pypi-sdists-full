@@ -466,6 +466,14 @@ class Model:
         # V2's released_snapshots only contains snapshots truly removed from
         # the repo info, so all can be popped.
         ref_pointees = set(self.refs_iter()) if self.spec_version < 2 else set()
+
+        # V1 expiration rewrites one snapshot file per ref, so a snapshot no ref
+        # reaches keeps its parent: a later reset_branch to it makes that expired
+        # ancestor reachable again. V2 rewrites every snapshot in the repo info.
+        rewritable = (
+            self.reachable_snapshots() if self.spec_version < 2 else set(self.commits)
+        )
+
         for id in expired_snaps:
             # notice we don't delete from self.ondisk_snaps, those can still be deleted by GC
             # however we do pop from `commits` since that is a list of unexpired snaps
@@ -495,8 +503,8 @@ class Model:
 
         # we reparent to the initial snapshot for simplicity. This should be good enough to make
         # self.reachable_snapshots() accurate.
-        for c in self.commits.values():
-            if c.parent_id in expired_snaps:
+        for cid, c in self.commits.items():
+            if cid in rewritable and c.parent_id in expired_snaps:
                 c.parent_id = self.initial_snapshot_id
 
         if delete_expired_tags:
@@ -530,11 +538,16 @@ class Model:
 
     def reachable_snapshots(self) -> set[str]:
         assert self.initial_snapshot_id is not None
+        # V1 walks parent pointers in the snapshot files, so a snapshot dropped
+        # from `commits` by expiration is still reachable while its file lives.
+        # V2 walks the repo info ancestry, which only holds `commits`.
+        snaps = self.ondisk_snaps if self.spec_version < 2 else self.commits
         reachable_snaps: set[str] = set((self.initial_snapshot_id,))
-        for commit_id in self.refs_iter():
-            while commit_id is not None:
+        for ref_id in self.refs_iter():
+            commit_id: str | None = ref_id
+            while commit_id is not None and commit_id in snaps:
                 reachable_snaps.add(commit_id)
-                commit_id = self.commits[commit_id].parent_id  # type: ignore[assignment]
+                commit_id = snaps[commit_id].parent_id
         return reachable_snaps
 
     def garbage_collect(
@@ -1297,22 +1310,27 @@ class VersionControlStateMachine(RuleBasedStateMachine):
             if p.startswith("transactions/")
         }
 
-        # The legitimate orphan tx logs are pruned ancestors of every snapshot
-        # whose *file* is still on disk.
-        pruned_extra: set[str] = set()
+        # A tx log whose own snapshot file is gone must be a retained pruned
+        # ancestor. Only repo info snapshots keep one alive, and the mirror below
+        # also covers snapshots dropped from it, whose logs GC has already
+        # deleted.
+        orphan_txs = transactions - snapshots
         if self.model.spec_version >= 2:
-            referenced = {
+            explainable = {
                 tx
                 for sid in snapshots
                 for tx in self.model.pruned_ancestor_tx_logs.get(sid, ())
             }
-            pruned_extra = referenced - snapshots
+            assert orphan_txs <= explainable, (
+                f"tx logs without a snapshot that no snapshot retains as a pruned "
+                f"ancestor: {orphan_txs - explainable}"
+            )
 
             # GC must never delete a tx log still referenced by a snapshot that
             # is still in the repo info. `inspect_transaction_log` surfaces, per
             # such snapshot, any referenced pruned logs that are wrongly absent.
             missing_pruned: set[str] = set()
-            for sid in snapshots:
+            for sid in self.model.commits:
                 try:
                     tx_log = self.repo.inspect_transaction_log(sid)
                 except IcechunkError:
@@ -1327,15 +1345,14 @@ class VersionControlStateMachine(RuleBasedStateMachine):
             assert not missing_pruned, (
                 f"pruned-ancestor tx logs referenced by surviving snapshots are missing: {missing_pruned}"
             )
+        else:
+            # No pruned-ancestor retention before spec V2: every tx log must
+            # have its snapshot.
+            assert not orphan_txs, f"tx logs without a snapshot: {orphan_txs}"
 
-        # The retained pruned-ancestor logs whose snapshot file was GC'd are the
-        # only legitimate tx logs without a matching snapshot. Everything else
-        # must satisfy the pre-feature invariants, so subtract them out first.
-        assert transactions - snapshots == pruned_extra, (
-            f"tx logs without a snapshot that are not retained pruned ancestors: "
-            f"{(transactions - snapshots) - pruned_extra}"
-        )
-        transactions_core = transactions - pruned_extra
+        # The invariants below pair each tx log with the snapshot it is named
+        # after, so drop the pruned-ancestor logs that outlived their snapshot.
+        transactions_core = transactions & snapshots
 
         if self.model.initial_spec_version == 1:
             expired = any(

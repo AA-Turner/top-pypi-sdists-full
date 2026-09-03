@@ -46,6 +46,20 @@ import yaml
 
 logger = logging.getLogger('rosdistro')
 
+
+class FormatVersionError(Exception):
+    def __init__(self, file_type, version, supported_versions, file_name=None):
+        self.file_type = file_type
+        self.version = version
+        self.supported_versions = supported_versions
+        self.file_name = file_name
+        msg = "Unable to handle '%s' format version '%s'" % (file_type, str(version))
+        if file_name:
+            msg += " for '%s'" % file_name
+        msg += ", please update rosdistro (e.g. on Ubuntu/Debian use: sudo apt-get update && sudo apt-get install --only-upgrade python-rosdistro)"
+        super(FormatVersionError, self).__init__(msg)
+
+
 from .distribution import Distribution  # noqa
 from .distribution_cache import DistributionCache  # noqa
 from .distribution_file import DistributionFile  # noqa
@@ -59,7 +73,7 @@ from .manifest_provider.cache import CachedManifestProvider, CachedSourceManifes
 # same version as in:
 # - setup.py
 # - stdeb.cfg
-__version__ = '1.0.1'
+__version__ = '1.1.0'
 
 # index information
 

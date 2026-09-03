@@ -37,13 +37,27 @@ from __future__ import annotations
 
 from typing import Any
 
-from notebooklm._row_adapters.artifacts import ReportSuggestionRow, unwrap_artifact_rows
-from notebooklm._row_adapters.notebooks import PromptSuggestionRow, unwrap_prompt_suggestions
-from notebooklm._types.artifacts import Artifact, ReportSuggestion
+from notebooklm._types.artifacts import (
+    Artifact,
+    ArtifactCustomizationChoices,
+    CustomizationChoice,
+    ReportPreset,
+    ReportSuggestion,
+)
+from notebooklm._types.chat import NextStepSuggestion
 from notebooklm._types.labels import Label
 from notebooklm._types.notebooks import Notebook, PromptSuggestion
 from notebooklm._types.sharing import ShareStatus
-from notebooklm._types.sources import Source
+from notebooklm._types.sources import PlayBook, Source
+from notebooklm._web.rows.artifacts import ReportSuggestionRow, unwrap_artifact_rows
+from notebooklm._web.rows.chat import NextStepSuggestionRow
+from notebooklm._web.rows.customization import unwrap_customization_choices
+from notebooklm._web.rows.notebooks import (
+    PromptSuggestionRow,
+    unwrap_next_step_suggestions,
+    unwrap_prompt_suggestions,
+)
+from notebooklm._web.rows.play_books import decode_play_books_response
 from notebooklm.rpc.types import RPCMethod
 
 # Fixed notebook id used by the share-status / label mappers below. The
@@ -57,7 +71,7 @@ _NOTEBOOK_ID = "SCRUBBED_NB_001"
 def list_notebooks(decoded: Any) -> list[Notebook]:
     """``LIST_NOTEBOOKS`` -> one :class:`Notebook` per row.
 
-    Mirrors ``NotebooksAPI.list`` (``_notebooks.py``): the decoded payload is
+    Mirrors ``WebNotebooksAPI.list`` (``_web/notebooks.py``): the decoded payload is
     the ``[[row, ...]]`` wrapped envelope, and each inner row is handed to
     :meth:`Notebook.from_api_response`.
     """
@@ -67,7 +81,7 @@ def list_notebooks(decoded: Any) -> list[Notebook]:
 def get_notebook(decoded: Any) -> Notebook:
     """``GET_NOTEBOOK`` -> a single :class:`Notebook`.
 
-    Mirrors ``NotebooksAPI.get`` (``_notebooks.py``): ``decoded[0]`` is the
+    Mirrors ``WebNotebooksAPI.get`` (``_web/notebooks.py``): ``decoded[0]`` is the
     notebook-info row passed to :meth:`Notebook.from_api_response`.
     """
     return Notebook.from_api_response(decoded[0], include_chat_settings=True)
@@ -76,17 +90,26 @@ def get_notebook(decoded: Any) -> Notebook:
 def add_source(decoded: Any) -> Source:
     """``ADD_SOURCE`` -> the created :class:`Source`.
 
-    Mirrors ``_source/add.py``: the decoded payload is handed straight to
+    Mirrors ``_web/sources/add.py``: the decoded payload is handed straight to
     :meth:`Source.from_api_response` tagged with the ``ADD_SOURCE`` method id.
     """
     return Source.from_api_response(decoded, method_id=RPCMethod.ADD_SOURCE.value)
+
+
+def list_expert_intelligence(decoded: Any) -> list[PlayBook]:
+    """``LIST_EXPERT_INTELLIGENCE_CONTENT`` -> the Play Books library.
+
+    Mirrors ``_web/sources/play_books.py``: the decoded ``[[row, …]]`` payload
+    is handed to :func:`decode_play_books_response`.
+    """
+    return decode_play_books_response(decoded)
 
 
 def list_artifacts(decoded: Any) -> list[Artifact]:
     """``LIST_ARTIFACTS`` -> one :class:`Artifact` per studio row.
 
     Mirrors ``ArtifactsAPI`` studio-row filtering
-    (``_artifact/listing.py::_filter_studio_artifacts``): the decoded payload
+    (``_web/artifact/listing.py::_filter_studio_artifacts``): the decoded payload
     is routed through the production ``unwrap_artifact_rows`` wrap-probe — which
     accepts both the wrapped ``[[row, ...]]`` envelope and an already-flat list —
     and each non-empty list row is built via :meth:`Artifact.from_api_response`.
@@ -106,7 +129,7 @@ def list_artifacts(decoded: Any) -> list[Artifact]:
 def list_labels(decoded: Any) -> list[Label]:
     """``LIST_LABELS`` -> one :class:`Label` per 4-tuple.
 
-    Mirrors ``LabelsAPI`` parsing (``_labels.py``): the decoded payload is the
+    Mirrors ``LabelsAPI`` parsing (``_web/labels.py``): the decoded payload is the
     ``[[tuple, ...]]`` envelope and each tuple is parsed via
     :meth:`Label.from_api_response` with the notebook id and method id the
     feature layer threads through.
@@ -159,8 +182,8 @@ def get_suggested_reports(decoded: Any) -> list[ReportSuggestion]:
 def suggest_prompts(decoded: Any) -> list[PromptSuggestion]:
     """``SUGGEST_PROMPTS`` -> one :class:`PromptSuggestion` per row.
 
-    Mirrors ``NotebooksAPI.suggest_prompts`` (``_notebooks.py``): the decoded payload
-    is the single-element ``[[ [title, prompt], ... ]]`` envelope routed through
+    Mirrors ``WebNotebooksAPI.suggest_prompts`` (``_web/notebooks.py``): the decoded
+    payload is the single-element ``[[ [title, prompt], ... ]]`` envelope routed through
     the production ``unwrap_prompt_suggestions`` (``result[0]``), then each
     well-formed row is wrapped in a :class:`PromptSuggestionRow` (the position
     adapter) before constructing the public :class:`PromptSuggestion`.
@@ -171,3 +194,51 @@ def suggest_prompts(decoded: Any) -> list[PromptSuggestion]:
         for row in map(PromptSuggestionRow, rows)
         if row.is_well_formed
     ]
+
+
+def suggest_next_steps(decoded: Any) -> list[NextStepSuggestion]:
+    """``SUGGEST_NEXT_STEPS`` -> one :class:`NextStepSuggestion` per row.
+
+    Mirrors ``WebNotebooksAPI.suggest_next_steps``: the decoded payload is the
+    ``NextStepSuggestions`` message (``[[ [question, type_code], ... ]]``) routed
+    through the production ``unwrap_next_step_suggestions`` (``result[0]``), then
+    each well-formed row is wrapped in the chat ``NextStepSuggestionRow`` adapter.
+    """
+    rows = unwrap_next_step_suggestions(decoded, source="golden.suggest_next_steps")
+    return [
+        NextStepSuggestion(question=row.question, type_code=row.type_code)
+        for row in map(NextStepSuggestionRow, rows)
+        if row.is_well_formed and row.question is not None and row.type_code is not None
+    ]
+
+
+def get_customization_choices(decoded: Any) -> ArtifactCustomizationChoices:
+    """``GET_CUSTOMIZATION_CHOICES`` -> :class:`ArtifactCustomizationChoices`.
+
+    Mirrors ``WebArtifactsAPI.get_customization_choices``: the single-element
+    envelope wraps one ``ArtifactCustomizationChoices`` message whose four
+    family slots each hold ``[[row, ...]]``.
+    """
+    view = unwrap_customization_choices(
+        decoded, method_id=RPCMethod.GET_CUSTOMIZATION_CHOICES.value, source="golden"
+    )
+
+    def _choices(rows: Any) -> tuple[CustomizationChoice, ...]:
+        return tuple(
+            CustomizationChoice(code=row.code, title=row.title, description=row.description)
+            for row in rows
+            if row.is_well_formed and row.code is not None
+        )
+
+    return ArtifactCustomizationChoices(
+        audio=_choices(view.audio_rows),
+        video=_choices(view.video_rows),
+        slide_deck=_choices(view.slide_deck_rows),
+        reports=tuple(
+            ReportPreset(
+                report_type=row.report_type, description=row.description, directive=row.directive
+            )
+            for row in view.report_rows
+            if row.is_well_formed
+        ),
+    )

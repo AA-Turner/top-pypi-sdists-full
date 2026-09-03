@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pymatreader
-Version: 1.2.3
+Version: 1.3.1
 Summary: Convenient reader for Matlab mat files
 Author-email: Thomas Hartmann <thomas.hartmann@th-ht.de>, Dirk Gütlin <dirk.guetlin@fu-berlin.de>
 License: BSD-2-Clause
@@ -15,10 +15,10 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: h5py
-Requires-Dist: numpy
-Requires-Dist: scipy
-Requires-Dist: xmltodict
+Requires-Dist: h5py>=3.7
+Requires-Dist: numpy>=1.21.3
+Requires-Dist: scipy>=1.11
+Requires-Dist: xmltodict>0.13
 Description-Content-Type: text/markdown
 
 # pymatreader

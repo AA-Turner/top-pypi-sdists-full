@@ -1,7 +1,7 @@
 """Tests for agentic_devtools.state.clear_workflow_state."""
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from agentic_devtools import state
 from agentic_devtools.state import PIN_FILENAME
@@ -14,6 +14,41 @@ def test_clear_workflow_state(temp_state_dir):
 
     state.clear_workflow_state()
     assert state.get_workflow_state() is None
+
+
+def test_clear_workflow_state_force_delete_removes_hierarchy_retention(temp_state_dir):
+    """force_delete=True removes retained hierarchy traces with the workflow."""
+    registry = temp_state_dir / "orchestration" / "hierarchy" / "retention-registry.ndjson"
+    trace = temp_state_dir / "orchestration" / "hierarchy" / "run-1" / "trace.ndjson"
+    trace.parent.mkdir(parents=True)
+    trace.write_text("encrypted", encoding="utf-8")
+    registry.write_text(
+        json.dumps(
+            {
+                "run_id": "run-1",
+                "trace_path": str(trace),
+                "expires_at": "2099-01-01T00:00:00+00:00",
+                "timestamp": "2026-01-01T00:00:00+00:00",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    mock_storage = MagicMock()
+    mock_storage.delete.side_effect = lambda: trace.unlink() or True
+    with (
+        patch("agentic_devtools.orchestration.hierarchy.aggregation.resolve_master_key", return_value=b"x" * 32),
+        patch(
+            "agentic_devtools.orchestration.hierarchy.aggregation.resolve_authorized_principals",
+            return_value=frozenset({"test-principal"}),
+        ),
+        patch("agentic_devtools.orchestration.hierarchy.aggregation.ProtectedStorage", return_value=mock_storage),
+    ):
+        state.clear_workflow_state(force_delete=True)
+
+    assert not trace.exists()
+    assert not registry.exists()
 
 
 class TestClearWorkflowStatePinCleanup:

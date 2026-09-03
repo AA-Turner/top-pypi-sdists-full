@@ -27,7 +27,7 @@ name = "agent-sanitizer"
 # agent-sanitizer` report the SAME version, and the wheel bundles `src/` at
 # exactly that version. The guard in tests/test_python_version.py pins this to the
 # 0.0.0 sentinel so a stray hand-edit fails CI instead of shipping a wrong number.
-version = "2.54.1"
+version = "2.56.1"
 description = "Python client for agent-sanitizer: a thin bridge to the Node.js CLI for byte-identical sanitization verdicts."
 readme = "README.md"
 requires-python = ">=3.10"

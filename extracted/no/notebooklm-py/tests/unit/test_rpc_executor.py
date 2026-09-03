@@ -8,9 +8,9 @@ import httpx
 import pytest
 
 from notebooklm._logging import get_request_id, reset_request_id, set_request_id
-from notebooklm._request_types import AuthSnapshot
-from notebooklm._rpc_executor import RpcExecutor
-from notebooklm._transport_errors import TransportServerError
+from notebooklm._web.transport.errors import TransportServerError
+from notebooklm._web.transport.executor import RpcExecutor
+from notebooklm._web.transport.request_types import AuthSnapshot
 from notebooklm.auth import AuthTokens
 from notebooklm.exceptions import DecodingError, UnknownRPCMethodError
 from notebooklm.rpc import (
@@ -52,7 +52,7 @@ class _Owner:
     """Test stub satisfying RpcExecutor's four collaborator dependencies.
 
     Wave 4 of session-decoupling (ADR-0014 Rule 5): RpcExecutor takes
-    Kernel + RuntimeTransport + AuthRefreshCoordinator + ClientMetrics
+    RuntimeTransport + AuthRefreshCoordinator + ClientMetrics + CallSupervisor
     directly via keyword arguments. This stub plays all four roles in
     one object — see :func:`_executor` for the wiring.
     """
@@ -61,7 +61,7 @@ class _Owner:
         self,
         *,
         timeout: float = 30.0,
-        refresh_callback: Callable[[], Awaitable[Any]] | None = None,
+        refresh_callback: Callable[[int], Awaitable[Any]] | None = None,
         refresh_retry_delay: float = 0.0,
     ):
         self._timeout = timeout
@@ -77,17 +77,14 @@ class _Owner:
             authuser=1,
             account_email="user@example.test",
         )
-        # Self-reference so the same stub can play both ``kernel`` and the
-        # other three roles when passed to ``RpcExecutor(...)`` below.
-        self._kernel = self
-
-    # --- Kernel role ----------------------------------------------------
-    def get_http_client(self) -> object:
-        return object()
 
     # --- ClientMetrics role ---------------------------------------------
     def increment(self, **increments: int | float) -> None:
         self.metric_increments.append(increments)
+
+    def record_started(self, method: str | None) -> None:
+        if method is not None:
+            self.increment(rpc_calls_started=1)
 
     # --- RuntimeTransport role ------------------------------------------
     async def perform_authed_post(
@@ -100,7 +97,12 @@ class _Owner:
         refresh_budget: Any = None,
         retry_deadline: Any = None,
         read_timeout: float | None = None,
+        expected_epoch: int | None = None,
+        epoch_observer: Callable[[int], None] | None = None,
     ) -> httpx.Response:
+        admitted_epoch = 1 if expected_epoch is None else expected_epoch
+        if epoch_observer is not None:
+            epoch_observer(admitted_epoch)
         url, body, headers = build_request(self.snapshot)
         self.perform_calls.append(
             {
@@ -112,12 +114,14 @@ class _Owner:
                 "refresh_budget": refresh_budget,
                 "retry_deadline": retry_deadline,
                 "read_timeout": read_timeout,
+                "expected_epoch": expected_epoch,
             }
         )
         return self.response
 
     # --- AuthRefreshCoordinator role ------------------------------------
-    async def await_refresh(self) -> None:
+    async def await_refresh(self, expected_epoch: int) -> None:
+        assert expected_epoch == 1
         self.refresh_calls += 1
 
 
@@ -139,13 +143,12 @@ def _executor(
     # ADR-0014 Rule 5 (Wave 4 of session-decoupling): the executor takes
     # its four collaborators as keyword-only args. The ``_Owner`` stub
     # plays all four roles; pass it under each keyword so the executor's
-    # ``self._kernel`` / ``self._metrics`` / ``self._transport`` /
-    # ``self._auth_refresh`` references all land on the same stub.
+    # direct collaborator references all land on the same stub.
     return RpcExecutor(
-        kernel=owner,  # type: ignore[arg-type]
         transport=owner,  # type: ignore[arg-type]
         auth_refresh=owner,  # type: ignore[arg-type]
         metrics=owner,  # type: ignore[arg-type]
+        call_supervisor=owner,  # type: ignore[arg-type]
         decode_response=decode_response or _decode,
         is_auth_error=is_auth_error or (lambda exc: False),
         sleep=sleep or _no_sleep,
@@ -227,6 +230,21 @@ async def test_rpc_call_wraps_execute_once_with_metrics_and_request_id(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_public_rpc_call_before_open_preserves_error_and_zero_metrics() -> None:
+    client = build_client_shell_for_tests(_auth_tokens())
+
+    with pytest.raises(RuntimeError) as raised:
+        await client.rpc_call(RPCMethod.LIST_NOTEBOOKS, [])
+
+    assert str(raised.value) == "Client not initialized. Use 'async with' context."
+    snapshot = client.metrics_snapshot()
+    assert snapshot.rpc_calls_started == 0
+    assert snapshot.rpc_calls_succeeded == 0
+    assert snapshot.rpc_calls_failed == 0
+    assert snapshot.rpc_queue_wait_seconds_total == 0.0
+
+
+@pytest.mark.asyncio
 async def test_constructor_injected_decode_response_drives_executor(monkeypatch) -> None:
     """Pin that the constructor-injected ``decode_response`` reaches the executor.
 
@@ -260,7 +278,11 @@ async def test_constructor_injected_decode_response_drives_executor(monkeypatch)
         refresh_budget: Any = None,
         retry_deadline: Any = None,
         read_timeout: float | None = None,
+        expected_epoch: int | None = None,
+        epoch_observer: Callable[[int], None] | None = None,
     ) -> httpx.Response:
+        if epoch_observer is not None:
+            epoch_observer(1 if expected_epoch is None else expected_epoch)
         return _ok_response("wire")
 
     # ADR-0014 Rule 5 (Wave 4 of session-decoupling): the executor calls
@@ -611,7 +633,7 @@ async def test_decode_time_auth_retry_threads_refresh_budget_to_transport() -> N
     decode-time retry. The budget is consumed by the decode-time refresh, so
     the retry leg's transport call carries a spent budget.
     """
-    from notebooklm._auth_refresh_retry import RefreshBudget
+    from notebooklm._web.transport.auth_refresh_retry import RefreshBudget
 
     async def refresh_callback() -> object:
         return object()
@@ -748,7 +770,7 @@ async def test_decode_time_auth_retry_skips_when_shared_budget_already_spent() -
     on a wire-401, consumed the shared budget, and the post-refresh retry
     returned a decoded auth error: the executor must NOT refresh a second time.
     """
-    from notebooklm._auth_refresh_retry import RefreshBudget
+    from notebooklm._web.transport.auth_refresh_retry import RefreshBudget
 
     async def refresh_callback() -> object:
         return object()
@@ -836,7 +858,8 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
     :class:`RpcExecutor`'s refresh-and-retry delay.
     """
 
-    async def refresh_callback() -> AuthTokens:
+    async def refresh_callback(expected_epoch: int) -> AuthTokens:
+        assert expected_epoch == 1
         return _auth_tokens()
 
     sleep_calls: list[float] = []
@@ -853,8 +876,9 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
     executor = core._rpc_executor
     refresh_calls = 0
 
-    async def fake_await_refresh() -> None:
+    async def fake_await_refresh(expected_epoch: int) -> None:
         nonlocal refresh_calls
+        assert expected_epoch == 1
         refresh_calls += 1
 
     async def fake_rpc_call(
@@ -870,6 +894,7 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
         raise_on_null_status: bool = False,
         _refresh_budget: Any = None,
         _retry_deadline: Any = None,
+        _resource_epoch: int | None = None,
     ) -> dict[str, bool]:
         assert method is RPCMethod.LIST_NOTEBOOKS
         assert params == ["param"]
@@ -884,6 +909,7 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
         # only caught in review — so both are pinned (#2188).
         assert read_timeout == 45.0
         assert raise_on_null_status is True
+        assert _resource_epoch == 1
         return {"ok": True}
 
     # ADR-0014 Rule 5 (Wave 4): executor calls ``self._auth_refresh.await_refresh()``
@@ -891,7 +917,7 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
     monkeypatch.setattr(core._collaborators.auth_coord, "await_refresh", fake_await_refresh)
     monkeypatch.setattr(executor, "rpc_call", fake_rpc_call)
 
-    from notebooklm._auth_refresh_retry import RefreshBudget
+    from notebooklm._web.transport.auth_refresh_retry import RefreshBudget
 
     result = await executor.try_refresh_and_retry(
         RPCMethod.LIST_NOTEBOOKS,
@@ -903,6 +929,7 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
         read_timeout=45.0,
         raise_on_null_status=True,
         _refresh_budget=RefreshBudget(),
+        _resource_epoch=1,
     )
 
     assert core._rpc_executor is executor
@@ -1004,7 +1031,7 @@ def test_request_error_mapper_parity(
 # =============================================================================
 # decode-time exception surface contract
 #
-# The ``except`` at ``_rpc_executor.py::RpcExecutor._execute_once`` only wraps genuine
+# The ``except`` at ``_web/transport/executor.py::RpcExecutor._execute_once`` only wraps genuine
 # shape-drift exceptions (``json.JSONDecodeError``, ``KeyError``, ``IndexError``,
 # ``TypeError``) as ``RPCError``. Code bugs (``AttributeError`` and friends)
 # must propagate unmasked. These tests pin that contract.

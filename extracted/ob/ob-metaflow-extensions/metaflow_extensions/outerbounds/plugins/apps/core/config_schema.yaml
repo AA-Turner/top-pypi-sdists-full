@@ -246,6 +246,23 @@ properties:
           pandas: ''
         mutation_behavior: not_allowed
         cli_option: --conda
+      anaconda:
+        description: |-
+          A dictionary of Anaconda dependencies to attach to the app. The key is the package name and the value is the version.
+        type: object
+        additionalProperties: true
+        example:
+          numpy: 1.23.0
+        mutation_behavior: not_allowed
+        cli_option: --anaconda
+      extra_configs:
+        description: A dictionary of extra configuration passed to the image bakery.
+        type: object
+        additionalProperties: true
+        example:
+          channel_priority: strict
+        mutation_behavior: not_allowed
+        cli_option: --deps-extra-configs
     mutation_behavior: union
   package:
     title: PackageConfig

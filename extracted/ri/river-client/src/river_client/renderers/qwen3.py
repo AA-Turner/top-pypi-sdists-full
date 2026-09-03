@@ -406,6 +406,7 @@ class Qwen35Renderer(Renderer):
         train_on: TrainOnWhat = TrainOnWhat.LAST_ASSISTANT,
         train_on_eos: bool = True,
         max_length: int | None = None,
+        tools: list[ToolSpec] | None = None,
     ) -> TrainingExample:
         """Build input_ids and per-token weights for SFT.
 
@@ -423,6 +424,13 @@ class Qwen35Renderer(Renderer):
 
         # Training must see the same system turn inference will, or the LoRA
         # is fit against a prompt prefix the served model never gets.
+        messages = list(messages)
+        if tools:
+            tool_msg = self.build_system_message_with_tools(
+                tools,
+                system_prompt=self._extract_system_prompt(messages),
+            )
+            messages = self._replace_or_prepend_system(messages, tool_msg)
         messages = self._apply_reasoning_effort(messages)
 
         last_assistant_idx = -1

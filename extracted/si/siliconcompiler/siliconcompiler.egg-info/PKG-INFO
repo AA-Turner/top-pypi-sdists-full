@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.38.5
+Version: 0.38.6
 Summary: A compiler framework that automates translation from source code to silicon.
 Author: Zero ASIC
 License-Expression: Apache-2.0
@@ -34,7 +34,7 @@ Requires-Dist: requests<3.0.0,>=2.33.0
 Requires-Dist: Pillow<13.0.0,>=12.2.0
 Requires-Dist: PyYAML<7.0.0,>=6.0.0
 Requires-Dist: GitPython<3.2,>=3.1.44
-Requires-Dist: PyGithub<2.10.0,>=2.8.0
+Requires-Dist: PyGithub<2.11.0,>=2.8.0
 Requires-Dist: urllib3>=1.26.0
 Requires-Dist: lambdapdk>=0.2.19
 Requires-Dist: fasteners>=0.20
@@ -52,7 +52,7 @@ Requires-Dist: pytest-split==0.11.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest-asyncio==1.4.0; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
-Requires-Dist: responses==0.26.2; extra == "test"
+Requires-Dist: responses==0.26.3; extra == "test"
 Requires-Dist: PyVirtualDisplay==3.0; extra == "test"
 Provides-Extra: lint
 Requires-Dist: flake8==7.3.0; extra == "lint"
@@ -68,7 +68,7 @@ Requires-Dist: google-vizier[jax]==0.1.21; python_version >= "3.10" and extra ==
 Provides-Extra: cocotb
 Requires-Dist: cocotb<2.1.0,>=2.0.1; (python_version >= "3.7" and python_version <= "3.13") and extra == "cocotb"
 Provides-Extra: dashboard
-Requires-Dist: streamlit==1.61.1; extra == "dashboard"
+Requires-Dist: streamlit==1.62.0; extra == "dashboard"
 Requires-Dist: streamlit_agraph==0.0.45; extra == "dashboard"
 Requires-Dist: streamlit-antd-components==0.3.2; extra == "dashboard"
 Requires-Dist: streamlit_javascript==0.1.5; extra == "dashboard"

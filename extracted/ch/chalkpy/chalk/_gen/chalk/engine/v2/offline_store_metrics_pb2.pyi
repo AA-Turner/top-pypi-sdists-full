@@ -31,6 +31,14 @@ class NamespaceObservedAtRange(_message.Message):
         max_observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
+class NamespaceWideTableRowCount(_message.Message):
+    __slots__ = ("namespace", "row_count_estimate")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    ROW_COUNT_ESTIMATE_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    row_count_estimate: int
+    def __init__(self, namespace: _Optional[str] = ..., row_count_estimate: _Optional[int] = ...) -> None: ...
+
 class SnowflakeOfflineStorageDetails(_message.Message):
     __slots__ = ("account", "warehouse", "database", "schema")
     ACCOUNT_FIELD_NUMBER: _ClassVar[int]
@@ -69,6 +77,7 @@ class GetMetricsResponse(_message.Message):
         "snowflake",
         "bigquery",
         "namespace_observed_at_ranges",
+        "namespace_wide_table_row_counts",
     )
     SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
     WIDE_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
@@ -76,12 +85,14 @@ class GetMetricsResponse(_message.Message):
     SNOWFLAKE_FIELD_NUMBER: _ClassVar[int]
     BIGQUERY_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_OBSERVED_AT_RANGES_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_WIDE_TABLE_ROW_COUNTS_FIELD_NUMBER: _ClassVar[int]
     skinny_tables_bytes: int
     wide_tables_bytes: int
     wide_mapping_table_bytes: int
     snowflake: SnowflakeOfflineStorageDetails
     bigquery: BigQueryOfflineStorageDetails
     namespace_observed_at_ranges: _containers.RepeatedCompositeFieldContainer[NamespaceObservedAtRange]
+    namespace_wide_table_row_counts: _containers.RepeatedCompositeFieldContainer[NamespaceWideTableRowCount]
     def __init__(
         self,
         skinny_tables_bytes: _Optional[int] = ...,
@@ -90,4 +101,5 @@ class GetMetricsResponse(_message.Message):
         snowflake: _Optional[_Union[SnowflakeOfflineStorageDetails, _Mapping]] = ...,
         bigquery: _Optional[_Union[BigQueryOfflineStorageDetails, _Mapping]] = ...,
         namespace_observed_at_ranges: _Optional[_Iterable[_Union[NamespaceObservedAtRange, _Mapping]]] = ...,
+        namespace_wide_table_row_counts: _Optional[_Iterable[_Union[NamespaceWideTableRowCount, _Mapping]]] = ...,
     ) -> None: ...

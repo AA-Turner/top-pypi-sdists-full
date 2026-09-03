@@ -22,6 +22,8 @@ class AccessReviewInstanceDecisionItem(Entity, Parsable):
     applied_by: Optional[UserIdentity] = None
     # The timestamp when the approval decision was applied.00000000-0000-0000-0000-000000000000 if the assigned reviewer hasn't applied the decision or it was automatically applied. The DatetimeOffset type represents date and time information using ISO 8601 format and is always in UTC time. For example, midnight UTC on Jan 1, 2014 is 2014-01-01T00:00:00Z.  Supports $select. Read-only.
     applied_date_time: Optional[datetime.datetime] = None
+    # The description of the apply result. Read-only.
+    apply_description: Optional[str] = None
     # The result of applying the decision. Possible values: New, AppliedSuccessfully, AppliedWithUnknownFailure, AppliedSuccessfullyButObjectNotFound and ApplyNotSupported. Supports $select, $orderby, and $filter (eq only). Read-only.
     apply_result: Optional[str] = None
     # Result of the review. Possible values: Approve, Deny, NotReviewed, or DontKnow. Supports $select, $orderby, and $filter (eq only).
@@ -79,6 +81,7 @@ class AccessReviewInstanceDecisionItem(Entity, Parsable):
             "accessReviewId": lambda n : setattr(self, 'access_review_id', n.get_str_value()),
             "appliedBy": lambda n : setattr(self, 'applied_by', n.get_object_value(UserIdentity)),
             "appliedDateTime": lambda n : setattr(self, 'applied_date_time', n.get_datetime_value()),
+            "applyDescription": lambda n : setattr(self, 'apply_description', n.get_str_value()),
             "applyResult": lambda n : setattr(self, 'apply_result', n.get_str_value()),
             "decision": lambda n : setattr(self, 'decision', n.get_str_value()),
             "insights": lambda n : setattr(self, 'insights', n.get_collection_of_object_values(GovernanceInsight)),
@@ -107,6 +110,7 @@ class AccessReviewInstanceDecisionItem(Entity, Parsable):
         writer.write_str_value("accessReviewId", self.access_review_id)
         writer.write_object_value("appliedBy", self.applied_by)
         writer.write_datetime_value("appliedDateTime", self.applied_date_time)
+        writer.write_str_value("applyDescription", self.apply_description)
         writer.write_str_value("applyResult", self.apply_result)
         writer.write_str_value("decision", self.decision)
         writer.write_collection_of_object_values("insights", self.insights)

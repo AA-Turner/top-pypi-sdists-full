@@ -34,6 +34,15 @@ class ListPublicCatalogProductsRequestProductType(str, Enum, metaclass=StrEnumMe
     KUBERNETES = "kubernetes"
     MANAGED_RELATIONAL_DATABASE = "managed_relational_database"
     MANAGED_MONGODB = "managed_mongodb"
+    SERVERLESS_FUNCTIONS = "serverless_functions"
+    SERVERLESS_CONTAINERS = "serverless_containers"
+    SERVERLESS_JOBS = "serverless_jobs"
+    APACHE_KAFKA = "apache_kafka"
+    OPEN_SEARCH = "open_search"
+    INSTANCE_LOCAL_SSD_SNAPSHOT = "instance_local_ssd_snapshot"
+    INSTANCE_LOCAL_SSD_STORAGE = "instance_local_ssd_storage"
+    FILE_STORAGE = "file_storage"
+    SERVERLESS_SQL_DATABASE = "serverless_sql_database"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -62,6 +71,18 @@ class PublicCatalogProductProductBadge(str, Enum, metaclass=StrEnumMeta):
     BEST_SELLER = "best_seller"
     BEST_VALUE = "best_value"
     POPULAR = "popular"
+    NO_KVM = "no_kvm"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class PublicCatalogProductPropertiesApacheKafkaAvailableVolumeType(
+    str, Enum, metaclass=StrEnumMeta
+):
+    UNKNOWN_TYPE = "unknown_type"
+    SBS_5K = "sbs_5k"
+    SBS_15K = "sbs_15k"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -78,12 +99,51 @@ class PublicCatalogProductPropertiesGenerativeApisConsumptionMode(
         return str(self.value)
 
 
+class PublicCatalogProductPropertiesGenerativeApisTask(
+    str, Enum, metaclass=StrEnumMeta
+):
+    UNKNOWN_TASK = "unknown_task"
+    CHAT = "chat"
+    EMBEDDINGS = "embeddings"
+    VISION = "vision"
+    AUDIO_TRANSCRIPTION = "audio_transcription"
+    CODE = "code"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class PublicCatalogProductPropertiesGenerativeApisTokenType(
+    str, Enum, metaclass=StrEnumMeta
+):
+    UNKNOWN_TOKEN_TYPE = "unknown_token_type"
+    INPUT_TOKEN = "input_token"
+    OUTPUT_TOKEN = "output_token"
+    INPUT_DURATION = "input_duration"
+    INPUT_CACHED_TOKEN = "input_cached_token"
+    INPUT_AUDIO = "input_audio"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class PublicCatalogProductPropertiesHardwareCPUArch(str, Enum, metaclass=StrEnumMeta):
     UNKNOWN_ARCH = "unknown_arch"
     X64 = "x64"
     ARM64 = "arm64"
     RISCV = "riscv"
     APPLE_SILICON = "apple_silicon"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class PublicCatalogProductPropertiesHardwareRAMECCType(
+    str, Enum, metaclass=StrEnumMeta
+):
+    UNKNOWN_ECC_TYPE = "unknown_ecc_type"
+    STANDARD = "standard"
+    ON_DIE = "on_die"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -242,6 +302,70 @@ class PublicCatalogProductPropertiesHardwareCPUVirtual:
 
 
 @dataclass
+class PublicCatalogProductPropertiesApacheKafkaNodeType:
+    versions: list[str]
+    """
+    The list of available versions for the Kafka node.
+    """
+
+    vcpu_count: int
+    """
+    Number of virtual CPUs.
+    """
+
+    is_multi_az: bool
+    """
+    Whether or not this Kafka product is multi AZ.
+    """
+
+    memory_size: int
+    """
+    Memory size in bytes.
+    """
+
+
+@dataclass
+class PublicCatalogProductPropertiesApacheKafkaStorageType:
+    type_: PublicCatalogProductPropertiesApacheKafkaAvailableVolumeType
+    """
+    The type of volume.
+    """
+
+    min_size: int
+    """
+    The minimum size of the volume in bytes.
+    """
+
+    max_size: int
+    """
+    The maximum size of the volume in bytes.
+    """
+
+    is_multi_az: bool
+    """
+    Whether or not this Kafka product is multi AZ.
+    """
+
+
+@dataclass
+class PublicCatalogProductPropertiesBlockStorageSnapshotType:
+    pass
+
+
+@dataclass
+class PublicCatalogProductPropertiesBlockStorageVolumeType:
+    min_size: int
+    """
+    The minimum size of storage volume for this product in bytes.
+    """
+
+    max_size: int
+    """
+    The maximum size of storage volume for this product in bytes.
+    """
+
+
+@dataclass
 class PublicCatalogProductPropertiesHardwareCPU:
     description: str
     """
@@ -261,6 +385,11 @@ class PublicCatalogProductPropertiesHardwareCPU:
     threads: int
     """
     The total number of threads.
+    """
+
+    shared: bool
+    """
+    Indicates whether the CPU is shared or not.
     """
 
     virtual: Optional[PublicCatalogProductPropertiesHardwareCPUVirtual] = None
@@ -326,6 +455,13 @@ class PublicCatalogProductPropertiesHardwareRAM:
     The type of the RAM.
     """
 
+    ecc_type: Optional[PublicCatalogProductPropertiesHardwareRAMECCType] = (
+        PublicCatalogProductPropertiesHardwareRAMECCType.UNKNOWN_ECC_TYPE
+    )
+    """
+    ECC type.
+    """
+
 
 @dataclass
 class PublicCatalogProductPropertiesHardwareStorage:
@@ -375,6 +511,19 @@ class PublicCatalogProductPropertiesLoadBalancerNodeType:
     bandwidth: int
     """
     The bandwidth of the Load Balancer product in bits per second.
+    """
+
+
+@dataclass
+class PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage:
+    pass
+
+
+@dataclass
+class PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment:
+    instance_gpu_name: str
+    """
+    The name of the associated instance GPU to this deployment.
     """
 
 
@@ -456,6 +605,78 @@ class PublicCatalogProductPropertiesObjectStorageRestoreType:
 
 
 @dataclass
+class PublicCatalogProductPropertiesServerlessContainersCPUType:
+    mvcpu_counts: list[int]
+    """
+    The list of available number of milli-vCPUs.
+    """
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessContainersMemoryType:
+    sizes: list[int]
+    """
+    The list of available memory size in bytes.
+    """
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessFunctionsConsumptionType:
+    pass
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessFunctionsFreeTierType:
+    pass
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessFunctionsProvisionType:
+    pass
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessFunctionsRequestType:
+    pass
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource:
+    memory_size: int
+    """
+    The memory size in bytes.
+    """
+
+    mvcpu_count: int
+    """
+    The number of milli-vCPUs.
+    """
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessJobsCPUType:
+    mvcpu_counts: list[int]
+    """
+    The list of available number of milli-vCPUs.
+    """
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessJobsMemoryType:
+    sizes: list[int]
+    """
+    The list of available memory size in bytes.
+    """
+
+
+@dataclass
+class PublicCatalogProductPropertiesApacheKafka:
+    node: Optional[PublicCatalogProductPropertiesApacheKafkaNodeType] = None
+
+    storage: Optional[PublicCatalogProductPropertiesApacheKafkaStorageType] = None
+
+
+@dataclass
 class PublicCatalogProductPropertiesAppleSilicon:
     range: str
     """
@@ -479,6 +700,10 @@ class PublicCatalogProductPropertiesBlockStorage:
     """
     The maximum size of storage volume for this product in bytes. Deprecated.
     """
+
+    snapshot: Optional[PublicCatalogProductPropertiesBlockStorageSnapshotType] = None
+
+    volume: Optional[PublicCatalogProductPropertiesBlockStorageVolumeType] = None
 
 
 @dataclass
@@ -508,10 +733,28 @@ class PublicCatalogProductPropertiesElasticMetal:
 
 
 @dataclass
+class PublicCatalogProductPropertiesFileStorage:
+    min_size: int
+    """
+    The minimum size of storage volume for this product in bytes.
+    """
+
+    max_size: int
+    """
+    The maximum size of storage volume for this product in bytes.
+    """
+
+
+@dataclass
 class PublicCatalogProductPropertiesGenerativeApis:
     reasoning: bool
     supported_apis: list[str]
     consumption_mode: PublicCatalogProductPropertiesGenerativeApisConsumptionMode
+    provider_name: str
+    tasks: list[PublicCatalogProductPropertiesGenerativeApisTask]
+    token_type: PublicCatalogProductPropertiesGenerativeApisTokenType
+    supported_reasoning_values: list[str]
+    default_reasoning_value: Optional[str] = None
 
 
 @dataclass
@@ -561,6 +804,16 @@ class PublicCatalogProductPropertiesInstance:
 
 
 @dataclass
+class PublicCatalogProductPropertiesInstanceLocalSSDSnapshot:
+    pass
+
+
+@dataclass
+class PublicCatalogProductPropertiesInstanceLocalSSDStorage:
+    pass
+
+
+@dataclass
 class PublicCatalogProductPropertiesKeyManager:
     pass
 
@@ -589,8 +842,16 @@ class PublicCatalogProductPropertiesLoadBalancer:
 class PublicCatalogProductPropertiesManagedInference:
     instance_gpu_name: str
     """
-    The name of the associated instance GPU to this node type.
+    The name of the associated instance GPU to this node type. Deprecated, use `deployment.instance_gpu_name` instead.
     """
+
+    deployment: Optional[
+        PublicCatalogProductPropertiesManagedInferenceManagedInferenceDeployment
+    ] = None
+
+    custom_model_storage: Optional[
+        PublicCatalogProductPropertiesManagedInferenceManagedInferenceCustomModelStorage
+    ] = None
 
 
 @dataclass
@@ -644,7 +905,57 @@ class PublicCatalogProductPropertiesObjectStorage:
 
 
 @dataclass
+class PublicCatalogProductPropertiesOpenSearch:
+    pass
+
+
+@dataclass
 class PublicCatalogProductPropertiesSecretManager:
+    pass
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessContainers:
+    memory: Optional[PublicCatalogProductPropertiesServerlessContainersMemoryType] = (
+        None
+    )
+
+    cpu: Optional[PublicCatalogProductPropertiesServerlessContainersCPUType] = None
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessFunctions:
+    resources: list[PublicCatalogProductPropertiesServerlessFunctionsRuntimeResource]
+    """
+    The serverless functions runtime resources sorted by memory size and then by milli-vCPU count.
+    """
+
+    consumption: Optional[
+        PublicCatalogProductPropertiesServerlessFunctionsConsumptionType
+    ] = None
+
+    request: Optional[PublicCatalogProductPropertiesServerlessFunctionsRequestType] = (
+        None
+    )
+
+    provision: Optional[
+        PublicCatalogProductPropertiesServerlessFunctionsProvisionType
+    ] = None
+
+    free_tier: Optional[
+        PublicCatalogProductPropertiesServerlessFunctionsFreeTierType
+    ] = None
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessJobs:
+    memory: Optional[PublicCatalogProductPropertiesServerlessJobsMemoryType] = None
+
+    cpu: Optional[PublicCatalogProductPropertiesServerlessJobsCPUType] = None
+
+
+@dataclass
+class PublicCatalogProductPropertiesServerlessSqlDatabase:
     pass
 
 
@@ -712,7 +1023,35 @@ class PublicCatalogProductProperties:
         PublicCatalogProductPropertiesManagedRelationalDatabase
     ] = None
 
+    serverless_functions: Optional[
+        PublicCatalogProductPropertiesServerlessFunctions
+    ] = None
+
+    serverless_containers: Optional[
+        PublicCatalogProductPropertiesServerlessContainers
+    ] = None
+
     managed_mongodb: Optional[PublicCatalogProductPropertiesManagedMongoDB] = None
+
+    serverless_jobs: Optional[PublicCatalogProductPropertiesServerlessJobs] = None
+
+    serverless_sql_database: Optional[
+        PublicCatalogProductPropertiesServerlessSqlDatabase
+    ] = None
+
+    apache_kafka: Optional[PublicCatalogProductPropertiesApacheKafka] = None
+
+    open_search: Optional[PublicCatalogProductPropertiesOpenSearch] = None
+
+    instance_local_ssd_snapshot: Optional[
+        PublicCatalogProductPropertiesInstanceLocalSSDSnapshot
+    ] = None
+
+    instance_local_ssd_storage: Optional[
+        PublicCatalogProductPropertiesInstanceLocalSSDStorage
+    ] = None
+
+    file_storage: Optional[PublicCatalogProductPropertiesFileStorage] = None
 
 
 @dataclass
@@ -843,6 +1182,11 @@ class PublicCatalogApiListPublicCatalogProductsRequest:
     )
     """
     The lists of filtered product status, if empty only products with status public_beta, general_availability, preview, end_of_new_features, end_of_growth, end_of_deployment, end_of_support, end_of_sale, end_of_life or retired will be returned.
+    """
+
+    api_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    Filter products by API IDs. Each ID is matched against product-specific identifiers: `dedibox.offer_id` (converted to string), `elastic_metal.offer_id`, `apple_silicon.server_type`, `instance.offer_id`, and `load_balancer.node.offer_id`. Products that do not support API ID filtering are excluded from the results. If empty, no filtering is applied.
     """
 
     global_: Optional[bool] = False

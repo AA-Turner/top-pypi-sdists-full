@@ -28,7 +28,7 @@ from .tools import _arg_contract
 # This defers loading heavy dependencies (tree-sitter, httpx, pathspec) until
 # the first actual call to a tool that needs them, reducing cold-start latency
 # for sessions that only use query tools and never trigger indexing.
-from .parser.symbols import VALID_KINDS
+from .parser.symbols import KIND_ORDER, VALID_KINDS
 from .summarizer import get_provider_name
 from .reindex_state import await_freshness_if_strict
 from .storage import result_cache_invalidate as _result_cache_invalidate
@@ -2111,7 +2111,13 @@ def _build_tools_list(
                     "kind": {
                         "type": "string",
                         "description": "Optional filter by symbol kind",
-                        "enum": ["function", "class", "method", "constant", "type", "template", "import"]
+                        # ⚠⚠ DERIVED, never a literal (@devtomnl, #571). This list
+                        # was a second copy of `KIND_ORDER` and had drifted from it:
+                        # `field` was emitted by the parser, accepted by nothing, and
+                        # the divergence was invisible because each side looked
+                        # internally consistent. `tests/test_kind_enum_is_derived.py`
+                        # fails if a literal returns here.
+                        "enum": list(KIND_ORDER)
                     },
                     "file_pattern": {
                         "type": "string",
@@ -4107,14 +4113,25 @@ def _build_tools_list(
         Tool(
             name="get_ranked_context",
             description=(
-                "Assemble the best-fit context for a query within a token budget. "
-                "Ranks all symbols by relevance (BM25) and/or centrality (PageRank), "
-                "loads source for the top candidates, and packs greedily until token_budget is exhausted. "
-                "Exact symbol names in the query (qualified, CamelCase, snake_case) are pinned ahead "
-                "of the ranking; include identifiers verbatim. "
-                "Use when you want 'the best N tokens of context for this task' without specifying exact symbols."
-            
-                " Truncates at token_budget."
+                # ⚠ Trimmed 2026-09-02 to recover core_compact headroom (103
+                # tokens -> 77, ceiling 4,000 standing at 3,998).
+                # ⚠⚠ Chosen because it is NOT one of the six byte-pinned
+                # counter-surface tools. The three fattest core descriptions --
+                # jcodemunch_guide, announce_model, set_tool_tier -- are all in
+                # that set, so trimming any of them moves the counter prefix
+                # too, and that surface is the default for new installs. One
+                # prefix moving is the cost; two was avoidable.
+                # What went: "Truncates at token_budget", which restated "packs
+                # greedily until token_budget is exhausted" in the same
+                # paragraph; the algorithm names, which no caller chooses on
+                # (`sort_by`'s own description carries them); and the casing
+                # list, which the pinning rule implies.
+                "Assemble the best-fit context for a query within a token budget: ranks "
+                "symbols by relevance and/or centrality, loads source for the top "
+                "candidates, and packs greedily until the budget is exhausted. Exact "
+                "symbol names in the query are pinned ahead of the ranking, so include "
+                "identifiers verbatim. Use when you want the best N tokens of context "
+                "for a task without naming exact symbols."
             ),
             inputSchema={
                 "type": "object",

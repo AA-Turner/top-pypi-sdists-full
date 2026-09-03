@@ -359,6 +359,293 @@ class CfnCollectionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rekognition_7d0ef2f1.IDatasetRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDataset(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_rekognition.CfnDataset",
+):
+    '''The AWS::Rekognition::Dataset type creates an Amazon Rekognition Custom Labels dataset.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-dataset.html
+    :cloudformationResource: AWS::Rekognition::Dataset
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_rekognition as rekognition
+        
+        cfn_dataset = rekognition.CfnDataset(self, "MyCfnDataset",
+            dataset_type="datasetType",
+        
+            # the properties below are optional
+            project_arn="projectArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        dataset_type: builtins.str,
+        project_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Rekognition::Dataset``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param dataset_type: The type of the dataset. Specify TRAIN to create a training dataset. Specify TEST to create a test dataset.
+        :param project_arn: The ARN of the project to which the dataset belongs.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__39bee1888e26bb3baab3d603b4b4cbad62d34d728f76be71495f53f205727f91)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDatasetProps(
+            dataset_type=dataset_type, project_arn=project_arn, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDataset")
+    @builtins.classmethod
+    def arn_for_dataset(
+        cls,
+        resource: "_aws_rekognition_7d0ef2f1.IDatasetRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e319251cd4254bd273a6edec282878f46915489fb5b84bd1dff57dc47c13c57d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataset", [resource]))
+
+    @jsii.member(jsii_name="isCfnDataset")
+    @builtins.classmethod
+    def is_cfn_dataset(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDataset.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__13501685e9fa520c3c71df7db8e309cdb0f5f1ad6dc924e11fc38e5200eb3f52)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataset", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5bfcb9079cc2370329a9aa4bb18a6277d646c227c64f28c2cc566074bf3d391d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ca832b5e3aee9f290cf5dd123d2e5856d7348fbba4cc71a42c4be81a3bc42d08)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDatasetArn")
+    def attr_dataset_arn(self) -> builtins.str:
+        '''The ARN of the dataset.
+
+        :cloudformationAttribute: DatasetArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDatasetArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> "_aws_rekognition_7d0ef2f1.DatasetReference":
+        '''A reference to a Dataset resource.'''
+        return typing.cast("_aws_rekognition_7d0ef2f1.DatasetReference", jsii.get(self, "datasetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetType")
+    def dataset_type(self) -> builtins.str:
+        '''The type of the dataset.'''
+        return typing.cast(builtins.str, jsii.get(self, "datasetType"))
+
+    @dataset_type.setter
+    def dataset_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4cafe517b316a1300008c8846a109e60b08b2b9c814cdb4e2c5e5718a0dfd265)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "datasetType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="projectArn")
+    def project_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the project to which the dataset belongs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectArn"))
+
+    @project_arn.setter
+    def project_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5dbc0fff003233e15036856f6efa3cb56949e097dcfbf4093cde829bf1233b91)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "projectArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bb98f3ef618bc036e1ae9661d1df53d2d1c5440fc16afd7c37b07749454f7df0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rekognition.CfnDatasetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_type": "datasetType",
+        "project_arn": "projectArn",
+        "tags": "tags",
+    },
+)
+class CfnDatasetProps:
+    def __init__(
+        self,
+        *,
+        dataset_type: builtins.str,
+        project_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataset``.
+
+        :param dataset_type: The type of the dataset. Specify TRAIN to create a training dataset. Specify TEST to create a test dataset.
+        :param project_arn: The ARN of the project to which the dataset belongs.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-dataset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rekognition as rekognition
+            
+            cfn_dataset_props = rekognition.CfnDatasetProps(
+                dataset_type="datasetType",
+            
+                # the properties below are optional
+                project_arn="projectArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ef5a2bbe34a2b8a59c8f0146d2ec1d05b93fded00881970829b5f568934e083b)
+            check_type(argname="argument dataset_type", value=dataset_type, expected_type=type_hints["dataset_type"])
+            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_type": dataset_type,
+        }
+        if project_arn is not None:
+            self._values["project_arn"] = project_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataset_type(self) -> builtins.str:
+        '''The type of the dataset.
+
+        Specify TRAIN to create a training dataset. Specify TEST to create a test dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-dataset.html#cfn-rekognition-dataset-datasettype
+        '''
+        result = self._values.get("dataset_type")
+        assert result is not None, "Required property 'dataset_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the project to which the dataset belongs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-dataset.html#cfn-rekognition-dataset-projectarn
+        '''
+        result = self._values.get("project_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-dataset.html#cfn-rekognition-dataset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rekognition_7d0ef2f1.IProjectRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnProject(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2041,6 +2328,8 @@ class CfnStreamProcessorProps:
 __all__ = [
     "CfnCollection",
     "CfnCollectionProps",
+    "CfnDataset",
+    "CfnDatasetProps",
     "CfnProject",
     "CfnProjectProps",
     "CfnStreamProcessor",
@@ -2114,6 +2403,68 @@ def _typecheckingstub__77f5ab15cea02999fa32036e3558af08ca21b17032d4915d2d3fc7c0c
 def _typecheckingstub__dfc582deefac2ef5bf0ca7c04ad06966543ece2be4f36ffdaa97fbaf33bfb064(
     *,
     collection_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39bee1888e26bb3baab3d603b4b4cbad62d34d728f76be71495f53f205727f91(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    dataset_type: builtins.str,
+    project_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e319251cd4254bd273a6edec282878f46915489fb5b84bd1dff57dc47c13c57d(
+    resource: _aws_rekognition_7d0ef2f1.IDatasetRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13501685e9fa520c3c71df7db8e309cdb0f5f1ad6dc924e11fc38e5200eb3f52(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bfcb9079cc2370329a9aa4bb18a6277d646c227c64f28c2cc566074bf3d391d(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca832b5e3aee9f290cf5dd123d2e5856d7348fbba4cc71a42c4be81a3bc42d08(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4cafe517b316a1300008c8846a109e60b08b2b9c814cdb4e2c5e5718a0dfd265(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dbc0fff003233e15036856f6efa3cb56949e097dcfbf4093cde829bf1233b91(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb98f3ef618bc036e1ae9661d1df53d2d1c5440fc16afd7c37b07749454f7df0(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef5a2bbe34a2b8a59c8f0146d2ec1d05b93fded00881970829b5f568934e083b(
+    *,
+    dataset_type: builtins.str,
+    project_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

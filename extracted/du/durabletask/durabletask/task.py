@@ -389,7 +389,8 @@ class OrchestrationContext(ABC):
         )
 
     @abstractmethod
-    def continue_as_new(self, new_input: Any, *, save_events: bool = False) -> None:
+    def continue_as_new(self, new_input: Any, *, save_events: bool = False,
+                        new_version: str | None = None) -> None:
         """Continue the orchestration execution as a new instance.
 
         Parameters
@@ -398,6 +399,8 @@ class OrchestrationContext(ABC):
             The new input to use for the new orchestration instance.
         save_events : bool
             A flag indicating whether to add any unprocessed external events in the new orchestration history.
+        new_version : str | None
+            An optional version to assign to the new orchestration instance.
         """
         pass
 
@@ -481,6 +484,8 @@ class FailureDetails:
     message: str
     error_type: str
     stack_trace: str | None
+    inner_failure: FailureDetails | None = None
+    properties: dict[str, Any] | None = None
 
     def is_caused_by(self, error_type: str | type[BaseException]) -> bool:
         """Return ``True`` if this failure was caused by ``error_type``.
@@ -571,11 +576,14 @@ class TaskFailedError(Exception):
     def __init__(self, message: str, details: pb.TaskFailureDetails | Exception):
         super().__init__(message)
         if isinstance(details, Exception):
+            nested_failure = getattr(details, "failure_details", None)
             details = pbh.new_failure_details(details)
-        self._details = FailureDetails(
-            details.errorMessage,
-            details.errorType,
-            details.stackTrace.value if not pbh.is_empty(details.stackTrace) else None)
+            if isinstance(nested_failure, pb.TaskFailureDetails):
+                details.innerFailure.CopyFrom(nested_failure)
+                for key, value in nested_failure.properties.items():
+                    details.properties[key].CopyFrom(value)
+        self._failure_details = details
+        self._details = pbh.failure_details_from_protobuf(details)
 
     @property
     def details(self) -> FailureDetails:

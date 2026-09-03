@@ -18,14 +18,14 @@ source of truth:
   ``constant == proto_tag - 1``. Entries marked ``known_bad`` are ``xfail`` and
   carry the issue reference; the fixing PR must drop the marker.
 * **B. No constant escapes review.** Every ``_*_POS``-style constant in
-  ``src/notebooklm/_row_adapters/`` appears in ``MAPPINGS`` or ``UNMAPPED``. A new
+  ``src/notebooklm/_web/rows/`` appears in ``MAPPINGS`` or ``UNMAPPED``. A new
   positional read cannot land without someone recording what it points at.
 * **C. Enum values agree.** Client enum members match the recovered backend enum,
   and known gaps stay declared.
 
-The reference data lives in ``docs/mobile/schema.proto`` and
-``docs/mobile/enums.txt``. Both are recovered artifacts, not guesses — see
-``docs/mobile/endpoints.md`` for the recovery method, and
+The reference data lives in ``docs/android/schema.proto`` and
+``docs/android/enums.txt``. Both are recovered artifacts, not guesses — see
+``docs/android/endpoints.md`` for the recovery method, and
 ``tests/_guardrails/_wire_schema.py`` for the index↔tag equivalence this relies on.
 """
 
@@ -40,6 +40,7 @@ import pytest
 import notebooklm.rpc.types as rpc_types
 from notebooklm.rpc.types import ARTIFACT_STATUS_SUGGESTED_WIRE_NAME, ArtifactStatus
 from tests._guardrails._wire_contract import (
+    DOC,
     ENUM_BINDINGS,
     ENUM_GAPS,
     MAPPINGS,
@@ -51,7 +52,7 @@ from tests._guardrails._wire_contract import (
     Mapping,
     Pinned,
 )
-from tests._guardrails._wire_schema import load_enums, load_proto_schema
+from tests._guardrails._wire_schema import PROTO_PATH, load_enums, load_proto_schema
 
 pytestmark = pytest.mark.repo_lint
 
@@ -87,14 +88,10 @@ _SRC = Path(__file__).resolve().parents[2] / "src" / "notebooklm"
 #: Everything that decodes positional wire arrays. Widening this set is the
 #: intended way to bring more of the client under the contract — the coverage
 #: test will then demand a registry entry for each newly-visible constant.
-_SCANNED_DIRS = (_SRC / "_row_adapters",)
+_SCANNED_DIRS = (_SRC / "_web" / "rows",)
 _SCANNED_FILES = (
-    _SRC / "_settings.py",
-    _SRC / "_mind_maps_api.py",
-    # #2130 brought GET_SHARE_STATUS's positional reads under the contract. The
-    # parser used bare literals until then, so its indices made no checkable
-    # claim at all.
-    _SRC / "_types" / "sharing.py",
+    _SRC / "_web" / "settings.py",
+    _SRC / "_web" / "mind_maps.py",
 )
 
 # Matches both `X: ClassVar[int] = 3` (class scope) and `X = 3` (module scope).
@@ -179,6 +176,35 @@ def test_positional_constant_matches_proto_tag(mapping: Mapping) -> None:
     )
 
 
+def test_function_call_messages_register_under_the_orchestration_package() -> None:
+    """``FunctionCall``/``FunctionResponse`` carry the ``orchestration.v1`` package.
+
+    Their Dart libraries live under an ``orchestration.v1.agency`` directory, but the
+    ``BuilderInfo`` of both messages is constructed with the
+    ``google.internal.labs.tailwind.orchestration.v1`` ``PackageName`` object in both the
+    ``1.46.7`` and ``1.55.10`` dumps, and neither object store holds an ``agency`` package
+    object. The schema must keep saying what the binary says rather than the directory name.
+    """
+    schema = load_proto_schema()
+    message = schema.find("StructuralElement", DOC)
+
+    function_call = message.field("functionCall")
+    function_response = message.field("functionResponse")
+    assert function_call is not None
+    assert function_call.type == "FunctionCall"
+    assert function_response is not None
+    assert function_response.type == "FunctionResponse"
+
+    fqn_lines = {
+        line.removeprefix("// Protobuf FQN: ")
+        for line in PROTO_PATH.read_text(encoding="utf-8").splitlines()
+        if line.startswith("// Protobuf FQN: ")
+    }
+    for name in ("FunctionCall", "FunctionResponse"):
+        assert f"google.internal.labs.tailwind.orchestration.v1.{name}" in fqn_lines
+    assert not {fqn for fqn in fqn_lines if ".orchestration.v1.agency." in fqn}
+
+
 def test_every_adapter_constant_is_declared() -> None:
     """B. No positional constant escapes the registry."""
     constants = _discover_constants()
@@ -232,7 +258,7 @@ def test_unread_share_status_slots_stay_undecoded() -> None:
         "A GET_SHARE_STATUS positional constant now reads a slot recorded as "
         "deliberately-undecoded:\n"
         + "\n".join(offenders)
-        + "\n\nThese proto tags have no name in docs/mobile/schema.proto. If a schema "
+        + "\n\nThese proto tags have no name in docs/android/schema.proto. If a schema "
         "re-extraction has since recovered one, add a MAPPINGS entry and remove the slot "
         "from UNREAD_SHARE_STATUS_SLOTS in the same change — do not name it from a guess."
     )
@@ -243,7 +269,7 @@ def test_enum_values_match_backend(client_enum: str) -> None:
     """C. Declared enum members match the recovered backend enum."""
     backend_name, bindings = ENUM_BINDINGS[client_enum]
     backend = load_enums().get(backend_name)
-    assert backend, f"{backend_name} missing from docs/mobile/enums.txt"
+    assert backend, f"{backend_name} missing from docs/android/enums.txt"
 
     mismatches = [
         f"  {client_enum}({value}) claims {member!r}, backend has {backend.get(value)!r}"
@@ -345,8 +371,8 @@ def test_quiz_and_flashcards_backend_enums_agree(quiz_enum: str, flashcards_enum
     """
     enums = load_enums()
     quiz, flashcards = enums.get(quiz_enum), enums.get(flashcards_enum)
-    assert quiz, f"{quiz_enum} missing from docs/mobile/enums.txt"
-    assert flashcards, f"{flashcards_enum} missing from docs/mobile/enums.txt"
+    assert quiz, f"{quiz_enum} missing from docs/android/enums.txt"
+    assert flashcards, f"{flashcards_enum} missing from docs/android/enums.txt"
 
     quiz_semantic = _semantic_members(quiz)
     flashcards_semantic = _semantic_members(flashcards)
@@ -385,7 +411,7 @@ def test_declared_enum_gaps_still_exist(client_enum: str) -> None:
 def test_suggested_filter_constant_tracks_the_backend_enum_name() -> None:
     """The LIST_ARTIFACTS filter string stays tied to the code it excludes.
 
-    ``_artifact/listing.py`` sends ``NOT artifact.status = "<name>"`` using the
+    ``_web/artifact/listing.py`` sends ``NOT artifact.status = "<name>"`` using the
     symbolic backend enum-value name, which cannot be derived from the integer.
     Without this, a backend rename would fail ``test_enum_values_match_backend``
     on the binding, someone would update ``ENUM_BINDINGS``, and the filter

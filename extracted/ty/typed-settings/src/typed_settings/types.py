@@ -2,6 +2,9 @@
 Internal data structures.
 """
 
+from __future__ import annotations
+
+import abc
 import dataclasses
 from collections.abc import Callable, Collection
 from enum import Enum
@@ -11,10 +14,8 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
-    Literal,
     NamedTuple,
     NewType,
-    Optional,
     Protocol,
     TypeVar,
     Union,
@@ -32,11 +33,11 @@ __all__ = [
     "SECRETS_TYPES",
     "SECRET_REPR",
     "ST",
-    "CollectionChildOptions",
     "LoadedSettings",
     "LoadedValue",
     "LoaderMeta",
     "MergedSettings",
+    "NestedOptions",
     "OptionDict",
     "OptionInfo",
     "OptionList",
@@ -80,7 +81,7 @@ class _Auto:
 
     _singleton = None
 
-    def __new__(cls) -> "_Auto":
+    def __new__(cls) -> _Auto:
         if _Auto._singleton is None:
             _Auto._singleton = super().__new__(cls)
         return _Auto._singleton
@@ -143,8 +144,12 @@ class OptionInfo:
     #: Additional metadata.
     metadata: dict[Any, Any] = dataclasses.field(default_factory=dict)
 
-    #: Options for child elements in case *cls* is a collection (sequence or mapping).
-    collection_child_options: Optional["CollectionChildOptions"] = None
+    #: Nested options in case *cls* is a collection (sequence or mapping).
+    #:
+    #: This is needed because the exact shape (which is needed for validation) of the
+    #: loaded (settings, i.e. lenght of the list or number of keys in a mapping) is only
+    #: known at runtime.
+    nested_options: NestedOptions | None = None
 
     @property
     def has_default(self) -> bool:
@@ -165,13 +170,78 @@ A flat list of all available options, including those from nested settings.
 
 
 @dataclasses.dataclass(frozen=True)
-class CollectionChildOptions:
+class NestedOptions(abc.ABC):
     """
-    *Options* for child elements of *collection*.
+    Container and handler for nested/sub settings which are elements of "dynamic"
+    structures like sequence or mappings.
+
+    The valid paths (for :func:`typed_settings.dict_utils.set_path()`) for theses
+    options can only be computed when the settings are actually loaded, because they
+    depend on the number of items inside a collection.
     """
 
     options: OptionList
-    collection: Literal["mapping", "sequence"]
+    """
+    List of all sub options for nested options of collections.
+    """
+
+    @classmethod
+    @abc.abstractmethod
+    def inst_or_none(
+        cls, cl: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> NestedOptions | None:
+        """
+        Either create an instance of the class if all conditions are met or return
+        ``None`` if that's not the case.
+
+        Args:
+            cl: The original field type
+            origin: *cl*'s origin (see :func:`typing.get_origin()`)
+            args: *cl*'s args (see :func:`typing.get_args()`)
+
+        Return:
+            An instance of the class or ``None``.
+        """
+        ...
+
+    def init_data(self, path: str, val: object) -> dict | list:
+        """
+        Return the initial data set will be set for *path*.
+
+        This functions can be overridden when an empty dict is not sufficient and you
+        need to create, e.g., a list of dicts.
+
+        Args:
+            path: Dotted path to the option.
+            val: Loaded value for the option.
+
+        Return:
+            The initial data for the settings dict at *path*.
+
+        Raise:
+            TypeError: if *val* has the wrong type.
+        """
+        return {}
+
+    @abc.abstractmethod
+    def handle_nested(
+        self, path: str, val: object
+    ) -> list[tuple[SettingsDict | object, str, dict[str, OptionInfo]]]:
+        """
+        Generate valid paths and the corresponding data for each item in *val*.
+
+        Args:
+            path: Dotted path to the option.
+            val: Loaded value for the option.
+
+        Return:
+            A list with one tuple *(nested data, path-prefix, nested options) for each
+            item in *val*.
+
+        Raise:
+            TypeError: if *val* has the wrong type.
+        """
+        ...
 
 
 OptionDict = MappingProxyType[OptionPath, OptionInfo]
@@ -367,7 +437,7 @@ class NewTypeLike(Protocol):
     __supertype__: type
 
 
-def is_new_type(obj: Any) -> "TypeGuard[NewTypeLike]":
+def is_new_type(obj: Any) -> TypeGuard[NewTypeLike]:
     """
     Return ``True`` if *obj* is a :class:`~typing.NewType`.
     """

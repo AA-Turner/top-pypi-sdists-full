@@ -57,6 +57,7 @@ from temporalio.client import WorkflowFailureError
 
 from application_sdk._runtime.offload import run_in_thread
 from application_sdk.app.entrypoint import canonical_workflow_type
+from application_sdk.common.dispatch import resolve_dispatch_workflow_id
 from application_sdk.common.task_queue import (
     resolve_manifest_tokens,
     task_queue_from_env,
@@ -257,6 +258,11 @@ def _normalize_preflight_request(body: dict[str, Any]) -> dict[str, Any]:
 
 def _summarize_check(check: PreflightCheck) -> dict[str, Any]:
     dumped = check.model_dump(mode="json", exclude_none=True)
+    # The -1.0 "not measured" sentinel belongs to the telemetry row
+    # (check_matrix), not to this display payload — the frontend should see
+    # no duration rather than a negative one.
+    if dumped.get("duration_ms", 0) < 0:
+        del dumped["duration_ms"]
     dumped["message"] = check.resolved_message
     if check.resolved_suggested_action:
         dumped["suggested_action"] = check.resolved_suggested_action
@@ -1189,23 +1195,21 @@ def _register_workflow_routes(
 
             input_data = input_type.model_validate(body)
 
-            if explicit_workflow_id:
-                workflow_id = explicit_workflow_id
-            else:
-                config_hash = input_data.config_hash()
-                workflow_id = f"{app_name}-{config_hash}-{uuid4().hex[:8]}"
-
             # Populate framework-managed fields on input_data before Temporal dispatch.
             # These fields are declared on Input (contracts/base.py) but the /start
             # handler constructs input_data before generating them — so they must be
             # injected after the fact.
             #
-            # workflow_id: always set by the framework (caller value is popped at
-            #   line 607 and used only if explicitly provided).
+            # workflow_id: resolved and stamped by the shared dispatch helper —
+            #   the same body the executor backend uses, so the two dispatch
+            #   paths cannot drift. The caller value is popped from the body
+            #   before validation and used only if explicitly provided.
             # correlation_id: respect caller-supplied value if present (docstring:
             #   "Caller-supplied correlation ID for tracing across systems"), only
             #   generate a UUID when the caller didn't provide one.
-            input_data.workflow_id = workflow_id
+            workflow_id = resolve_dispatch_workflow_id(
+                input_data, app_name, explicit_workflow_id=explicit_workflow_id or ""
+            )
 
             correlation_id = input_data.correlation_id or str(uuid4())
             input_data.correlation_id = correlation_id
@@ -2827,6 +2831,26 @@ def create_app_handler_service(
         ]
         context = _create_context(credentials)
         with bind_handler_context(context):
+            from application_sdk.execution._temporal.preflight_gate import (  # noqa: PLC0415 — handler/__init__ imports this module; a top-level import back into preflight_gate is a cycle
+                PreflightSurface,
+                emit_preflight_check_outcome,
+                emit_preflight_crash_outcome,
+            )
+
+            def _crash_row(e: BaseException) -> None:
+                emit_preflight_crash_outcome(
+                    logger,
+                    app_name,
+                    e,
+                    surface=PreflightSurface.HTTP,
+                    entrypoint=entrypoint,
+                    request_id=context.request_id_str,
+                )
+
+            # Seeded from the *requested* value, not "", so a raise before
+            # validation still names what the caller asked for — an empty
+            # seed would be stamped as "<implicit>" and misattribute the row.
+            entrypoint = preflight_input.entrypoint or ""
             try:
                 logger.info(
                     "Preflight check started: app=%s request=%s",
@@ -2844,11 +2868,6 @@ def create_app_handler_service(
                     result = await ep_fn(preflight_input, context)
                 else:
                     result = await handler.preflight_check(preflight_input)
-                from application_sdk.execution._temporal.preflight_gate import (  # noqa: PLC0415 — handler/__init__ imports this module; a top-level import back into preflight_gate is a cycle
-                    PreflightSurface,
-                    emit_preflight_check_outcome,
-                )
-
                 emit_preflight_check_outcome(
                     logger,
                     app_name,
@@ -2917,6 +2936,7 @@ def create_app_handler_service(
                     e,
                     exc_info=True,
                 )
+                _crash_row(e)
                 raise HTTPException(status_code=e.http_status, detail=str(e)) from None
             except AppError as e:
                 # Forward-looking: typed AppError leaves from connectors that raise
@@ -2929,13 +2949,21 @@ def create_app_handler_service(
                     e,
                     exc_info=True,
                 )
+                _crash_row(e)
                 raise HTTPException(
                     status_code=_app_error_to_http_status(e), detail=str(e)
                 ) from None
-            except HTTPException:
-                # Deliberate HTTP responses (e.g. 400 from a malformed
-                # entrypoint name) are already client-facing — pass them
-                # through rather than masking them as a generic 500.
+            except HTTPException as e:
+                # Deliberate client-facing responses (e.g. 400 from a malformed
+                # entrypoint name) pass through unrecorded — the response *is*
+                # the channel, so a row would double-count what the caller can
+                # already see. A 5xx raised this way is a crash wearing an HTTP
+                # status: it reaches none of the boundary handlers around it, so
+                # without this it drops out of the setup funnel's denominator —
+                # the same hole on this surface that CONNECT-1170 gap 3 closed
+                # for handler raises.
+                if e.status_code >= 500:
+                    _crash_row(e)
                 raise
             except Exception as e:
                 # conformance: ignore[L009] boundary handler logs the real exception plus request_id (exc_info) then raises a sanitized HTTPException `from None`; the log is the only server-side record.
@@ -2946,6 +2974,7 @@ def create_app_handler_service(
                     e,
                     exc_info=True,
                 )
+                _crash_row(e)
                 raise HTTPException(
                     status_code=500, detail="Internal server error"
                 ) from None

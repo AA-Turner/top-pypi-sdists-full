@@ -41,6 +41,7 @@ from siliconcompiler.schema.utils import trim
 from siliconcompiler import utils, NodeStatus, Flowgraph
 from siliconcompiler import sc_open
 from siliconcompiler.utils import paths
+from siliconcompiler.utils.logging import SC_LOG, SC_LOGERROR, SC_CONSOLE_FORCE
 from siliconcompiler.utils.multiprocessing import MPManager, forking
 
 from siliconcompiler.schema_support.pathschema import PathSchema
@@ -54,6 +55,28 @@ if TYPE_CHECKING:
 
 TTask = TypeVar('TTask', bound='Task')
 TOpenTask = TypeVar('TOpenTask', bound='OpenTask')
+
+#: Key marking an :class:`OpenTask` registry category as fully populated.
+#:
+#: The registry cannot use "the category is non-empty" as its populated test.
+#: :func:`~siliconcompiler.utils.showtools.showtasks` writes into the
+#: ``OpenTask``, ``ShowTask`` and ``ScreenshotTask`` categories alike, so
+#: populating any one of them leaves the other two non-empty but missing
+#: everything :meth:`OpenTask._OpenTask__populate_tasks` would have found by
+#: recursing subclasses -- every task class not hard-coded in ``showtools``.
+#: A subsequent populate of those categories then returned early believing they
+#: were ready, and the tasks it never registered stayed invisible for the life
+#: of the process.
+#:
+#: Other threads are kept out by holding the category (see
+#: :meth:`~siliconcompiler.utils.settings.SettingsManager.lock_category`), but
+#: the marker is what a *forked child* has to go on: it inherits whatever the
+#: registry held at the instant of the fork, with no lock left to wait on.
+#:
+#: The leading underscores keep the marker out of the task namespace: task keys
+#: are written as ``"<module>/<class>"``, so no task can ever collide with it.
+#: :meth:`OpenTask.get_task` filters it back out when it enumerates a category.
+_TASKS_POPULATED: str = "__populated__"
 
 
 class TaskError(Exception):
@@ -117,6 +140,21 @@ class TaskSkip(TaskError):
     def why(self):
         """str: The reason why the task is being skipped."""
         return self.__why
+
+
+def _split_file_lines(buffer: str) -> Tuple[str, str]:
+    """Split a stream buffer at the last newline, holding back the remainder.
+
+    Used when writing the merged log. Unlike :func:`_split_io_lines` this only
+    ever breaks on ``\n``, so a progress bar redrawing with bare ``\r`` keeps
+    the single-line shape the tool wrote. Holding the trailing partial back
+    means a line is never cut in half, nor glued to a line from the other
+    stream, when the two are interleaved at drain granularity.
+    """
+    end = buffer.rfind("\n")
+    if end < 0:
+        return "", buffer
+    return buffer[:end + 1], buffer[end + 1:]
 
 
 def _split_io_lines(buffer: str) -> Tuple[List[str], str]:
@@ -458,7 +496,7 @@ class Task(NamedSchema, PathSchema, DocsSchema):
     def __init__(self):
         super().__init__()
 
-        schema_task(self)
+        self.__schema_task()
 
         self.__set_runtime(None)
 
@@ -1214,6 +1252,42 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
         return io_file, io_log
 
+    def _get_stdio_sidecar(self, io_type: str) -> str:
+        """
+        Private helper for the path a captured stream is written to.
+
+        When stdout and stderr share a log destination each is handed its own
+        hidden file here, and run_task merges them into the log as it reads
+        them. Cleaned up by :meth:`remove_stdio_sidecars` once the node is done.
+
+        Args:
+            io_type (str): The I/O type ('stdout' or 'stderr').
+        """
+        return f".{self.step}.{io_type}"
+
+    def remove_stdio_sidecars(self, workdir: Optional[str] = None) -> None:
+        """
+        Deletes the per-stream capture files.
+
+        Called once the node has finished so it is not left holding a second
+        copy of output already merged into its log. Best effort: the streams
+        are not always split (a non-log destination leaves the tool writing
+        its destination directly), and failing to tidy up is not a node
+        failure.
+
+        Args:
+            workdir (str, optional): Directory holding the files. Defaults to
+                the current directory, which during a run is the node workdir.
+        """
+        for io_type in ("stdout", "stderr"):
+            path = self._get_stdio_sidecar(io_type)
+            if workdir:
+                path = os.path.join(workdir, path)
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
     def __terminate_exe(self, proc: subprocess.Popen) -> None:
         """
         Private helper to terminate a subprocess and its children.
@@ -1242,13 +1316,18 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         timeout = 5
 
         terminate_process(proc.pid, timeout=timeout)
-        self.logger.info(f'Waiting for {self.tool()}/{self.task()} to exit...')
+        # This is only ever reached because the task is being killed
+        # (timeout/OOM/ctrl-c), so it breaks through quiet: otherwise the
+        # screen shows nothing at all while SC waits out the shutdown.
+        self.logger.info(f'Waiting for {self.tool()}/{self.task()} to exit...',
+                         extra=SC_CONSOLE_FORCE)
         try:
             proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             if proc.poll() is None:
                 self.logger.warning(f'{self.tool()}/{self.task()} did not exit within '
-                                    f'{timeout} seconds. Terminating...')
+                                    f'{timeout} seconds. Terminating...',
+                                    extra=SC_CONSOLE_FORCE)
                 terminate_process(proc.pid, timeout=timeout)
 
     def __collect_memory(self, pid) -> Optional[int]:
@@ -1276,9 +1355,13 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                 raise TaskOutOfMemoryError(memory_percent=memory_usage.percent,
                                            available_mb=available_mb)
             if memory_usage.percent > warn_limit:
+                # About the machine, not the tool: this is the only warning a
+                # user gets before the same check starts killing tasks, so it
+                # is shown even when quiet has muted the console.
                 self.logger.warning(
                     'Current system memory usage is '
-                    f'{memory_usage.percent:.1f}%')
+                    f'{memory_usage.percent:.1f}%',
+                    extra=SC_CONSOLE_FORCE)
                 return int(memory_usage.percent + 1)
         except psutil.Error:
             pass
@@ -1323,22 +1406,67 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         stdout_file, is_stdout_log = self.__get_io_file("stdout")
         stderr_file, is_stderr_log = self.__get_io_file("stderr")
 
-        stdout_print = self.logger.info
-        stderr_print = self.logger.error
+        # Both streams normally land in the same <step>.log. Letting the OS do
+        # that merge -- one shared file description for fd 1 and fd 2 -- is
+        # exactly what makes a line's origin unrecoverable afterwards: there is
+        # no way to split the streams back apart downstream. So hand each one
+        # its own sidecar and do the merging here instead. Reading them
+        # separately is what lets a stderr line be reported as an error while
+        # <step>.log stays the single complete transcript that check_logfile
+        # and the tasks that grep their own log already rely on.
+        #
+        # The cost is ordering: within a stream it is exact, but between them
+        # it is drain order (one poll interval) rather than true write order.
+        merge_file = None
+        if is_stdout_log and is_stderr_log and stdout_file == stderr_file:
+            merge_file = stdout_file
+            stdout_file = self._get_stdio_sidecar("stdout")
+            stderr_file = self._get_stdio_sidecar("stderr")
+        merge_writer = None
+
+        # Tool output is reported at its own levels so a reader can tell it
+        # apart from SiliconCompiler's own messages.
+        def stdout_print(msg):
+            self.logger.log(SC_LOG, msg)
+
+        def stderr_print(msg):
+            self.logger.log(SC_LOGERROR, msg)
 
         # Buffers carry the trailing partial of each stream across polls so a
         # single source line written in chunks is logged as one record, not one
-        # record per chunk.
+        # record per chunk. The merged log keeps its own pair because it splits
+        # on newlines only -- see _split_file_lines.
         stdout_partial = [""]
         stderr_partial = [""]
+        stdout_file_partial = [""]
+        stderr_file_partial = [""]
 
         def read_stdio(stdout_reader, stderr_reader, flush=False):
-            """Helper to read and print stdout/stderr streams."""
-            if quiet:
-                return
+            """Drain both streams to the merged log and the SC logger.
 
-            def drain(reader, partial_holder, emit):
+            The merged log is written here, not by the tool, because the two
+            streams no longer share a file description. Draining therefore
+            happens even when quiet: quiet costs console visibility, never log
+            content.
+            """
+            def drain(reader, partial_holder, file_partial_holder, emit):
                 data = reader.read()
+
+                if merge_writer:
+                    buffer = file_partial_holder[0] + data if data \
+                        else file_partial_holder[0]
+                    complete, partial = _split_file_lines(buffer)
+                    if flush and partial:
+                        complete += partial + "\n"
+                        partial = ""
+                    if complete:
+                        merge_writer.write(complete)
+                        merge_writer.flush()
+                    file_partial_holder[0] = partial
+
+                if quiet:
+                    return
+
                 buffer = partial_holder[0] + data if data else partial_holder[0]
                 lines, partial = _split_io_lines(buffer)
                 for line in lines:
@@ -1348,10 +1476,13 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                     partial = ""
                 partial_holder[0] = partial
 
+            if quiet and not merge_writer:
+                return
+
             if is_stdout_log and stdout_reader:
-                drain(stdout_reader, stdout_partial, stdout_print)
+                drain(stdout_reader, stdout_partial, stdout_file_partial, stdout_print)
             if is_stderr_log and stderr_reader:
-                drain(stderr_reader, stderr_partial, stderr_print)
+                drain(stderr_reader, stderr_partial, stderr_file_partial, stderr_print)
 
         exe = self.get_exe()
 
@@ -1369,14 +1500,21 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                          contextlib.redirect_stdout(stdout_writer):
                         retcode = self.run()
             except Exception as e:
-                self.logger.error(f'Failed in run() for {self.tool()}/{self.task()}: {e}')
-                utils.print_traceback(self.logger, e)
+                self.logger.error(f'Failed in run() for {self.tool()}/{self.task()}: {e}',
+                                  extra=SC_CONSOLE_FORCE)
+                utils.print_traceback(self.logger, e, force_console=True)
                 raise
             finally:
-                with sc_open(stdout_file) as stdout_reader, \
-                     sc_open(stderr_file) as stderr_reader:
-                    if stdout_file == stderr_file:
-                        stderr_reader = None
+                # run() has returned, so there is nothing to interleave with:
+                # the merged log gets stdout in full, then stderr in full.
+                with contextlib.ExitStack() as stack:
+                    if merge_file:
+                        merge_writer = stack.enter_context(
+                            open(merge_file, 'w', newline=''))
+                    stdout_reader = stack.enter_context(sc_open(stdout_file))
+                    stderr_reader = None
+                    if stdout_file != stderr_file:
+                        stderr_reader = stack.enter_context(sc_open(stderr_file))
                     read_stdio(stdout_reader, stderr_reader, flush=True)
 
                 if resource:
@@ -1410,11 +1548,22 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                 retcode = _run_breakpoint(exe, cmdlist, f"{self.step}.log")
             else:
                 # Standard subprocess execution
-                with open(stdout_file, 'w') as stdout_writer, \
-                     open(stdout_file, 'r', errors='replace') as stdout_reader, \
-                     open(stderr_file, 'w') as stderr_writer, \
-                     open(stderr_file, 'r', errors='replace') as stderr_reader:
+                with contextlib.ExitStack() as stack:
+                    if merge_file:
+                        merge_writer = stack.enter_context(
+                            open(merge_file, 'w', newline=''))
+                    stdout_writer = stack.enter_context(open(stdout_file, 'w'))
+                    # newline='' keeps the reader from folding a progress
+                    # bar's bare \r into \n: _split_io_lines wants to see it,
+                    # and the merged log has to reproduce what the tool wrote.
+                    stdout_reader = stack.enter_context(
+                        open(stdout_file, 'r', errors='replace', newline=''))
+                    stderr_writer = stack.enter_context(open(stderr_file, 'w'))
+                    stderr_reader = stack.enter_context(
+                        open(stderr_file, 'r', errors='replace', newline=''))
                     if stderr_file == stdout_file:
+                        # Same destination and no split (a non-log destination,
+                        # or /dev/null): let the OS merge them as before.
                         stderr_writer.close()
                         stderr_reader.close()
                         stderr_reader = None
@@ -1461,17 +1610,22 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
                             time.sleep(Task.__IO_POLL_INTERVAL)
                     except KeyboardInterrupt:
-                        self.logger.info("Received ctrl-c.")
+                        # Each of these three is the reason the task is about
+                        # to die. Quiet suppresses the tool's chatter, not the
+                        # explanation for a run that stops.
+                        self.logger.info("Received ctrl-c.", extra=SC_CONSOLE_FORCE)
                         self.__terminate_exe(proc)
                         raise TaskError
                     except TaskTimeout as e:
-                        self.logger.error(f'Task timed out after {e.timeout:.1f} seconds')
+                        self.logger.error(f'Task timed out after {e.timeout:.1f} seconds',
+                                          extra=SC_CONSOLE_FORCE)
                         self.__terminate_exe(proc)
                         raise
                     except TaskOutOfMemoryError as e:
                         self.logger.error('Task ran out of memory with '
                                           f'{e.memory_percent:.1f}% system memory usage '
-                                          f'({e.available_mb:.1f} MB available)')
+                                          f'({e.available_mb:.1f} MB available)',
+                                          extra=SC_CONSOLE_FORCE)
                         self.__terminate_exe(proc)
                         raise
                     finally:
@@ -2526,6 +2680,544 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         """
         pass
 
+    def __schema_task(self):
+        """
+        Defines the standard parameters for a task.
+
+        The parameters are grouped by what they configure, and each group is defined by
+        its own method below, so that one group can be read, changed or tested without
+        the other eight.
+        """
+        schema = EditableSchema(self)
+
+        self.__schema_task_tool(schema)
+        self.__schema_task_diagnostics(schema)
+        self.__schema_task_invocation(schema)
+        self.__schema_task_files(schema)
+        self.__schema_task_stdio(schema)
+        self.__schema_task_requirements(schema)
+        self.__schema_task_reports(schema)
+        self.__schema_task_scripts(schema)
+        self.__schema_task_resources(schema)
+
+    @staticmethod
+    def __schema_task_tool(schema):
+        """
+        Defines the parameters that locate and identify the executable a task runs.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        schema.insert(
+            'exe',
+            Parameter(
+                'str',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Tool: executable name",
+                switch="-tool_exe 'tool <str>'",
+                example=["cli: -tool_exe 'openroad openroad'",
+                         "api: task.set('tool', 'openroad', 'exe', 'openroad')"],
+                help=trim("""Tool executable name.""")))
+
+        schema.insert(
+            'sbom', 'default',
+            Parameter(
+                '[file]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Tool: software BOM",
+                switch="-tool_sbom 'tool version <file>'",
+                example=[
+                    "cli: -tool_sbom 'yosys 1.0.1 ys_sbom.json'",
+                    "api: task.set('tool', 'yosys', 'sbom', '1.0', 'ys_sbom.json')"],
+                help=trim("""
+                Paths to software bill of material (SBOM) document file of the tool
+                specified on a per version basis. The SBOM includes critical
+                package information about the tool including the list of included
+                components, licenses, and copyright. The SBOM file is generally
+                provided as in a a standardized open data format such as SPDX.""")))
+
+        schema.insert(
+            'path',
+            Parameter(
+                'dir',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Tool: executable path",
+                switch="-tool_path 'tool <dir>'",
+                example=[
+                    "cli: -tool_path 'openroad /usr/local/bin'",
+                    "api: task.set('tool', 'openroad', 'path', '/usr/local/bin')"],
+                help=trim("""
+                File system path to tool executable. The path is prepended to the
+                system PATH environment variable for batch and interactive runs. The
+                path parameter can be left blank if the :keypath:`tool,<tool>,task,<task>,exe` is
+                already in the environment search path.""")))
+
+        schema.insert(
+            'vswitch',
+            Parameter(
+                '[str]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Tool: executable version switch",
+                switch="-tool_vswitch 'tool <str>'",
+                example=["cli: -tool_vswitch 'openroad -version'",
+                         "api: task.set('tool', 'openroad', 'vswitch', '-version')"],
+                help=trim("""
+                Command line switch to use with executable used to print out
+                the version number. Common switches include ``-v``, ``-version``,
+                ``--version``. Some tools may require extra flags to run in batch mode.""")))
+
+        schema.insert(
+            'vendor',
+            Parameter(
+                'str',
+                scope=Scope.JOB,
+                shorthelp="Tool: vendor",
+                switch="-tool_vendor 'tool <str>'",
+                example=["cli: -tool_vendor 'yosys yosys'",
+                         "api: task.set('tool', 'yosys', 'vendor', 'yosys')"],
+                help=trim("""
+                Name of the tool vendor. Parameter can be used to set vendor
+                specific technology variables in the PDK and libraries. For
+                open source projects, the project name should be used in
+                place of vendor.""")))
+
+        schema.insert(
+            'version',
+            Parameter(
+                '[str]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Tool: version",
+                switch="-tool_version 'tool <str>'",
+                example=["cli: -tool_version 'openroad >=v2.0'",
+                         "api: task.set('tool', 'openroad', 'version', '>=v2.0')"],
+                help=trim("""
+                List of acceptable versions of the tool executable to be used. Each
+                entry in this list must be a version specifier as described by Python
+                `PEP-440 <https://peps.python.org/pep-0440/#version-specifiers>`_.
+                During task execution, the tool is called with the 'vswitch' to
+                check the runtime executable version. If the version of the system
+                executable is not allowed by any of the specifiers in 'version',
+                then the job is halted pre-execution. For backwards compatibility,
+                entries that do not conform to the standard will be interpreted as a
+                version with an '==' specifier. This check can be disabled by
+                setting :keypath:`option,novercheck` to True.""")))
+
+        schema.insert(
+            'format',
+            Parameter(
+                '<json,tcl,yaml,csv>',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Tool: file format",
+                switch="-tool_format 'tool <str>'",
+                example=["cli: -tool_format 'yosys tcl'",
+                         "api: task.set('tool', 'yosys', 'format', 'tcl')"],
+                help=trim("""
+                File format for tool manifest handoff.""")))
+
+        schema.insert(
+            'licenseserver', 'default',
+            Parameter(
+                '[str]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Tool: license servers",
+                switch="-tool_licenseserver 'name key <str>'",
+                example=[
+                    "cli: -tool_licenseserver 'atask ACME_LICENSE 1700@server'",
+                    "api: task.set('tool', 'acme', 'licenseserver', 'ACME_LICENSE', "
+                    "'1700@server')"],
+                help=trim("""
+                Defines a set of tool-specific environment variables used by the executable
+                that depend on license key servers to control access. For multiple servers,
+                separate servers with a colon. The named license variables are read at
+                runtime (:meth:`.Task.run()`) and the environment variables are set.
+                """)))
+
+    @staticmethod
+    def __schema_task_diagnostics(schema):
+        """
+        Defines the parameters that shape how a task's log is read: which warnings to
+        ignore and which patterns to match.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        schema.insert(
+            'warningoff',
+            Parameter(
+                '[str]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: warning filter",
+                switch="-tool_task_warningoff 'tool task <str>'",
+                example=[
+                    "cli: -tool_task_warningoff 'verilator lint COMBDLY'",
+                    "api: task.set('tool', 'verilator', 'task', 'lint', 'warningoff', 'COMBDLY')"],
+                help=trim("""
+                A list of tool warnings for which printing should be suppressed.
+                Generally this is done on a per design basis after review has
+                determined that warning can be safely ignored The code for turning
+                off warnings can be found in the specific task reference manual.
+                """)))
+
+        schema.insert(
+            'regex', 'default',
+            Parameter(
+                '[str]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: regex filter",
+                switch="-tool_task_regex 'tool task suffix <str>'",
+                example=[
+                    "cli: -tool_task_regex 'openroad place errors \"'-v ERROR'\"'",
+                    "api: task.set('tool', 'openroad', 'task', 'place', 'regex', 'errors', "
+                    "'-v ERROR')"],
+                help=trim("""
+                A list of piped together grep commands. Each entry represents a set
+                of command line arguments for grep including the regex pattern to
+                match. Starting with the first list entry, each grep output is piped
+                into the following grep command in the list. Supported grep options
+                include ``-v`` and ``-e``. Patterns starting with "-" should be
+                directly preceded by the ``-e`` option. The following example
+                illustrates the concept.
+
+                UNIX grep:
+
+                .. code-block:: bash
+
+                    $ grep WARNING place.log | grep -v "bbox" > place.warnings
+
+                SiliconCompiler::
+
+                    task.set('task', 'openroad', 'regex', 'place', '0', 'warnings',
+                             ["WARNING", "-v bbox"])
+
+                The "errors" and "warnings" suffixes are special cases. When set,
+                the number of matches found for these regexes will be added to the
+                errors and warnings metrics for the task, respectively. This will
+                also cause the logfile to be added to the :keypath:`tool, <tool>,
+                task, <task>, report` parameter for those metrics, if not already present.""")))
+
+    @staticmethod
+    def __schema_task_invocation(schema):
+        """
+        Defines the parameters that make up a task's command line and environment.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        schema.insert(
+            'option',
+            Parameter(
+                '[str]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: executable options",
+                switch="-tool_task_option 'tool task <str>'",
+                example=[
+                    "cli: -tool_task_option 'openroad cts -no_init'",
+                    "api: task.set('tool', 'openroad', 'task', 'cts', 'option', '-no_init')"],
+                help=trim("""
+                List of command line options for the task executable, specified on
+                a per task and per step basis. Options must not include spaces.
+                For multiple argument options, each option is a separate list element.
+                """)))
+
+        schema.insert(
+            'env', 'default',
+            Parameter(
+                'str',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: environment variables",
+                switch="-tool_task_env 'tool task env <str>'",
+                example=[
+                    "cli: -tool_task_env 'openroad cts MYVAR 42'",
+                    "api: task.set('tool', 'openroad', 'task', 'cts', 'env', 'MYVAR', '42')"],
+                help=trim("""
+                Environment variables to set for individual tasks. Keys and values
+                should be set in accordance with the task's documentation. Most
+                tasks do not require extra environment variables to function.""")))
+
+    @staticmethod
+    def __schema_task_files(schema):
+        """
+        Defines the files a task expects to read and promises to write.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        schema.insert(
+            'input',
+            Parameter(
+                '[file]',
+                scope=Scope.JOB,
+                pernode=PerNode.REQUIRED,
+                shorthelp="Task: input files",
+                switch="-tool_task_input 'tool task <file>'",
+                example=[
+                    "cli: -tool_task_input 'openroad place \"place 0 oh_add.def\"'",
+                    "api: task.set('tool', 'openroad', 'task', 'place', 'input', 'oh_add.def', "
+                    "step='place', index='0')"],
+                help=trim("""
+                List of data files to be copied from previous flowgraph steps 'output'
+                directory. The list of steps to copy files from is defined by the
+                list defined by the dictionary key :keypath:`flowgraph,<flow>,<step>,<index>,input`.
+                All files must be available for flow to continue. If a file
+                is missing, the program exists on an error.""")))
+
+        schema.insert(
+            'output',
+            Parameter(
+                '[file]',
+                scope=Scope.JOB,
+                pernode=PerNode.REQUIRED,
+                shorthelp="Task: output files",
+                switch="-tool_task_output 'tool task <file>'",
+                example=[
+                    "cli: -tool_task_output 'openroad place \"place 0 oh_add.def\"'",
+                    "api: task.set('tool', 'openroad', 'task', 'place', 'output', 'oh_add.def', "
+                    "step='place', index='0')"],
+                help=trim("""
+                List of data files written to the 'output' directory of the
+                tool/task/step/index used in the keypath. All files must be available
+                for flow to continue. If a file is missing, the program exists on an error.""")))
+
+    @staticmethod
+    def __schema_task_stdio(schema):
+        """
+        Defines where a task's stdout and stderr are redirected to.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        dest_enum = ['log', 'output', 'none']
+        schema.insert(
+            'stdout', 'destination',
+            Parameter(
+                f'<{",".join(dest_enum)}>',
+                defvalue='log',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: destination for stdout",
+                switch="-tool_task_stdout_destination 'tool task <str>'",
+                example=["cli: -tool_task_stdout_destination 'ghdl import log'",
+                         "api: task.set('tool', 'ghdl', 'task', 'import', 'stdout', 'destination', "
+                         "'log')"],
+                help=trim("""
+                Defines where to direct the output generated over stdout.
+                Supported options are:
+                none: the stream generated to STDOUT is ignored.
+                log: the generated stream is stored in <step>.<suffix>; if not in quiet mode,
+                it is additionally dumped to the display.
+                output: the generated stream is stored in outputs/<design>.<suffix>.""")))
+
+        schema.insert(
+            'stdout', 'suffix',
+            Parameter(
+                'str',
+                defvalue='log',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: file suffix for redirected stdout",
+                switch="-tool_task_stdout_suffix 'tool task <str>'",
+                example=["cli: -tool_task_stdout_suffix 'ghdl import log'",
+                         "api: task.set('tool', 'ghdl', 'task', 'import', 'stdout', "
+                         "'suffix', 'log')"],
+                help=trim("""
+                Specifies the file extension for the content redirected from stdout.""")))
+
+        schema.insert(
+            'stderr', 'destination',
+            Parameter(
+                f'<{",".join(dest_enum)}>',
+                defvalue='log',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: destination for stderr",
+                switch="-tool_task_stderr_destination 'tool task <str>'",
+                example=["cli: -tool_task_stderr_destination 'ghdl import log'",
+                         "api: task.set('tool', 'ghdl', 'task', 'import', 'stderr', 'destination', "
+                         "'log')"],
+                help=trim("""
+                Defines where to direct the output generated over stderr.
+                Supported options are:
+                none: the stream generated to STDERR is ignored
+                log: the generated stream is stored in <step>.<suffix>; if not in quiet mode,
+                it is additionally dumped to the display.
+                output: the generated stream is stored in outputs/<design>.<suffix>""")))
+
+        schema.insert(
+            'stderr', 'suffix',
+            Parameter(
+                'str',
+                defvalue='log',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: file suffix for redirected stderr",
+                switch="-tool_task_stderr_suffix 'tool task <str>'",
+                example=["cli: -tool_task_stderr_suffix 'ghdl import log'",
+                         "api: task.set('tool', 'ghdl', 'task', 'import', 'stderr', "
+                         "'suffix', 'log')"],
+                help=trim("""
+                Specifies the file extension for the content redirected from stderr.""")))
+
+    @staticmethod
+    def __schema_task_requirements(schema):
+        """
+        Defines the keypaths a task requires to be set before it runs.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        schema.insert(
+            'require',
+            Parameter(
+                '[str]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: parameter requirements",
+                switch="-tool_task_require 'tool task <str>'",
+                example=[
+                    "cli: -tool_task_require 'openroad cts design'",
+                    "api: task.set('tool', 'openroad', 'task', 'cts', 'require', 'design')"],
+                help=trim("""
+                List of keypaths to required task parameters. The list is used
+                by :meth:`.Project.check_manifest()` to verify that all parameters have been set up
+                before step execution begins.""")))
+
+    @staticmethod
+    def __schema_task_reports(schema):
+        """
+        Defines the report files a task associates with each metric.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        schema.insert(
+            'report', 'default',
+            Parameter(
+                '[file]',
+                scope=Scope.JOB,
+                pernode=PerNode.REQUIRED,
+                shorthelp="Task: metric report files",
+                switch="-tool_task_report 'tool task metric <file>'",
+                example=[
+                    "cli: -tool_task_report 'openroad place holdtns \"place 0 place.log\"'",
+                    "api: task.set('tool', 'openroad', 'task', 'place', 'report', 'holdtns', "
+                    "'place.log', step='place', index='0')"],
+                help=trim("""
+                List of report files associated with a specific 'metric'. The file path
+                specified is relative to the run directory of the current task.""")))
+
+    @staticmethod
+    def __schema_task_scripts(schema):
+        """
+        Defines the scripts a task runs and the directories they are found in.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        schema.insert(
+            'refdir',
+            Parameter(
+                '[dir]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: script directory",
+                switch="-tool_task_refdir 'tool task <dir>'",
+                example=[
+                    "cli: -tool_task_refdir 'yosys syn ./myref'",
+                    "api: task.set('tool', 'yosys', 'task', 'syn_asic', 'refdir', './myref')"],
+                help=trim("""
+                Path to directories containing reference flow scripts, specified
+                on a per step and index basis.""")))
+
+        schema.insert(
+            'script',
+            Parameter(
+                '[file]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: entry script",
+                switch="-tool_task_script 'tool task <file>'",
+                example=[
+                    "cli: -tool_task_script 'yosys syn syn.tcl'",
+                    "api: task.set('tool', 'yosys', 'task', 'syn_asic', 'script', 'syn.tcl')"],
+                help=trim("""
+                Path to the entry script called by the executable specified
+                on a per task and per step basis.""")))
+
+        schema.insert(
+            'prescript',
+            Parameter(
+                '[file]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                copy=True,
+                shorthelp="Task: pre-step script",
+                switch="-tool_task_prescript 'tool task <file>'",
+                example=[
+                    "cli: -tool_task_prescript 'yosys syn syn_pre.tcl'",
+                    "api: task.set('tool', 'yosys', 'task', 'syn_asic', 'prescript', "
+                    "'syn_pre.tcl')"],
+                help=trim("""
+                Path to a user supplied script to execute after reading in the design
+                but before the main execution stage of the step. Exact entry point
+                depends on the step and main script being executed. An example
+                of a prescript entry point would be immediately before global
+                placement.""")))
+
+        schema.insert(
+            'postscript',
+            Parameter(
+                '[file]',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                copy=True,
+                shorthelp="Task: post-step script",
+                switch="-tool_task_postscript 'tool task <file>'",
+                example=[
+                    "cli: -tool_task_postscript 'yosys syn syn_post.tcl'",
+                    "api: task.set('tool', 'yosys', 'task', 'syn_asic', 'postscript', "
+                    "'syn_post.tcl')"],
+                help=trim("""
+                Path to a user supplied script to execute after the main execution
+                stage of the step but before the design is saved.
+                Exact entry point depends on the step and main script being
+                executed. An example of a postscript entry point would be immediately
+                after global placement.""")))
+
+    @staticmethod
+    def __schema_task_resources(schema):
+        """
+        Defines the machine resources a task asks for.
+
+        Args:
+            schema (EditableSchema): The editable schema to add the parameters to.
+        """
+        schema.insert(
+            'threads',
+            Parameter(
+                'int<1..>',
+                scope=Scope.JOB,
+                pernode=PerNode.OPTIONAL,
+                shorthelp="Task: thread parallelism",
+                switch="-tool_task_threads 'tool task <int>'",
+                example=["cli: -tool_task_threads 'magic drc 64'",
+                         "api: task.set('tool', 'magic', 'task', 'drc', 'threads', '64')"],
+                help=trim("""
+                Thread parallelism to use for execution specified on a per task and per
+                step basis. If not specified, SC queries the operating system and sets
+                the threads based on the maximum thread count supported by the
+                hardware.""")))
+
 
 class OpenTask(Task):
     """
@@ -2744,6 +3436,17 @@ class OpenTask(Task):
         """
         Registers a new show task class for dynamic discovery.
 
+        Registration order is priority order: later registrations outrank
+        earlier ones (see :meth:`get_task`). Re-registering an already known
+        task therefore moves it to the end -- :meth:`SettingsManager.set
+        <siliconcompiler.utils.settings.SettingsManager.set>` appends on every
+        write. Were it to stay where it first landed, whoever imported a viewer
+        module first would fix its priority for the life of the process, and
+        the deliberate ordering in
+        :func:`~siliconcompiler.utils.showtools.showtasks` would be silently
+        ignored for any module already pulled in by user code, a plugin, or the
+        subclass recursion in ``__build_tasks``.
+
         Args:
             task: The show task class to register.
 
@@ -2771,12 +3474,38 @@ class OpenTask(Task):
 
         This ensures that later-registered extensions take precedence over
         earlier core tasks when multiple tools support the same extension.
+
+        Population is atomic: the registry is held for the length of the build
+        so that a caller arriving mid-population waits rather than reading a
+        half-written category, and completion is recorded by writing
+        :data:`_TASKS_POPULATED` last (see that constant for why the category
+        being non-empty does not mean it is finished).
         """
         cls.__check_task(None)
 
-        if MPManager.get_transient_settings().get_category(cls.__name__):
-            return  # Already populated
+        settings = MPManager.get_transient_settings()
 
+        # One lock for the whole OpenTask family, not one per category: the
+        # showtasks() call in __build_tasks writes into the sibling categories
+        # as well, so per-category locks would let two threads populating
+        # different subclasses each hold the category the other needs next.
+        with settings.lock_category(OpenTask.__name__):
+            if settings.get(cls.__name__, _TASKS_POPULATED, False):
+                return  # Already populated
+
+            cls.__build_tasks()
+
+            # Written last, once the registry above is complete.
+            settings.set(cls.__name__, _TASKS_POPULATED, True)
+
+    @classmethod
+    def __build_tasks(cls) -> None:
+        """
+        Private helper doing the actual discovery for :meth:`__populate_tasks`.
+
+        Split out only to keep that method's locked block short. It assumes the
+        lock is held and is not safe to call on its own.
+        """
         def recurse(searchcls: Type["OpenTask"]) -> list:
             subclss = []
             if not cls.__check_task(searchcls):
@@ -2802,10 +3531,10 @@ class OpenTask(Task):
         # Register the built-in viewers, in the order showtools prefers.
         #
         # Imported here rather than at module scope because showtools imports from
-        # siliconcompiler, which imports this module. The import must also stay below the
-        # recursion above: it is what pulls the viewer modules in, and if it ran first the
-        # recursion would register them in module-path order and showtools could no longer
-        # influence which one wins (re-registering a task does not reorder it).
+        # siliconcompiler, which imports this module. Priority no longer depends on
+        # this running after the recursion above -- register_task() re-orders on
+        # re-registration -- but it is still what pulls the viewer modules in, so the
+        # recursion alone cannot be relied on to discover them.
         from siliconcompiler.utils.showtools import showtasks
         showtasks()
 
@@ -2828,15 +3557,22 @@ class OpenTask(Task):
         settings file (~/.sc/settings.json) under the 'showtask' category for a preferred tool.
         If no tool is requested and no preference is found, it falls back to automatic discovery.
 
+        Every lookup walks the registry in reverse registration order, so a
+        later-registered task (a plugin, or a built-in listed later in
+        :func:`~siliconcompiler.utils.showtools.showtasks`) wins over an earlier
+        one. This holds for the ``tool`` hint and the user-settings preference
+        as well as for automatic discovery, so narrowing a lookup with a
+        tool-only hint like ``"openroad"`` cannot select a lower-priority task
+        than the unhinted lookup would.
+
         Args:
             ext (str): The file extension to find a viewer for.
-            tool (str, optional): A tool/task hint, not a strict filter. Format
-                can be ``"tool"`` to prefer any task from that tool, or
-                ``"tool/task"`` to prefer a specific task. If the hint cannot be
-                resolved for ``ext`` (e.g. the named tool doesn't support that
-                extension), resolution falls back to the user-settings
-                preference and then to automatic discovery, so a non-None
-                result does not guarantee the returned task matches the hint.
+            tool (str, optional): The tool/task to use, as ``"tool"`` for any
+                task of that tool or ``"tool/task"`` for a specific one. This
+                is a requirement, not a hint: if it cannot be resolved for
+                ``ext`` -- an unknown tool, or one that does not support that
+                extension -- None is returned rather than quietly running
+                something else. Leave it unset to let ``ext`` decide.
 
         Returns:
             An instance of a compatible ShowTask subclass, or None if
@@ -2859,7 +3595,12 @@ class OpenTask(Task):
             spec_tool = spec_parts[0]
             spec_task = spec_parts[1] if len(spec_parts) > 1 else None
 
-            for task_cls in tasks:
+            # Iterate in reverse, matching the automatic-discovery fallback below:
+            # later registrations take precedence. Walking forward here would make a
+            # tool-only spec resolve to the *lowest*-priority task of that tool, so
+            # e.g. "openroad" would pick openroad/web over openroad/show even though
+            # showtasks() registers web first precisely so show wins.
+            for task_cls in reversed(tasks):
                 try:
                     task_inst = task_cls()
                     # Check if this task matches the specification
@@ -2879,18 +3620,19 @@ class OpenTask(Task):
         cls.__populate_tasks()
 
         settings = MPManager.get_transient_settings()
-        tasks = list(settings.get_category(cls.__name__).values())
+        tasks = [task for key, task in settings.get_category(cls.__name__).items()
+                 if key != _TASKS_POPULATED]
         if not tasks:
             return None
 
         if ext is None:
             return tasks
 
-        # 1. Check for requested tool first (if provided)
+        # 1. An explicitly requested tool wins, and is the only thing tried:
+        # the caller named it, so falling through to another one would silently
+        # launch the wrong viewer.
         if tool:
-            result = find_task_by_spec(tool, ext, tasks)
-            if result:
-                return result
+            return find_task_by_spec(tool, ext, tasks)
 
         # 2. Check User Settings for Preference
         if issubclass(cls, ShowTask):
@@ -2898,6 +3640,9 @@ class OpenTask(Task):
         else:
             preference = MPManager.get_settings().get("opentask", ext)
 
+        # Unlike an explicit request, a stale preference degrades quietly: a
+        # setting left over from an uninstalled viewer should not make show()
+        # stop working.
         if preference:
             result = find_task_by_spec(preference, ext, tasks)
             if result:
@@ -2933,11 +3678,10 @@ class OpenTask(Task):
         :meth:`get_supported_task_extentions`).
 
         Args:
-            tool (str, optional): A tool/task preference hint in ``"tool"`` or
-                ``"tool/task"`` form, forwarded to :meth:`get_task`. It biases
-                the preferred task per extension but is not a strict filter:
-                extensions the hint cannot resolve still appear in the map
-                with whichever task :meth:`get_task` falls back to.
+            tool (str, optional): Restrict the map to one tool/task, in
+                ``"tool"`` or ``"tool/task"`` form, forwarded to
+                :meth:`get_task`. Extensions that tool cannot handle are
+                omitted, so the result describes only what it can show.
 
         Returns:
             A dictionary mapping each supported extension to the preferred
@@ -2967,6 +3711,32 @@ class OpenTask(Task):
             if preferred is not None:
                 ext_map[ext] = preferred
         return ext_map
+
+    @classmethod
+    def _get_tasks_for_extension(cls: Type[TOpenTask], ext: str) -> List[TOpenTask]:
+        """
+        Returns every registered task that declares support for an extension.
+
+        Args:
+            ext (str): The file extension to look up.
+
+        Returns:
+            A list of task instances supporting ``ext``, most-preferred first
+            (reverse registration order, matching :meth:`get_task`).
+        """
+        tasks = cls.get_task(None)
+        if not tasks:
+            return []
+
+        found: List[TOpenTask] = []
+        for task_cls in reversed(tasks):
+            try:
+                task_inst = task_cls()
+                if ext in task_inst.get_supported_task_extentions():
+                    found.append(task_inst)
+            except NotImplementedError:
+                continue
+        return found
 
 
 class ShowTask(OpenTask):
@@ -3030,459 +3800,3 @@ class ScreenshotTask(ShowTask):
     def has_breakpoint(self):
         # Use task level breakpoint information
         return Task.has_breakpoint(self)
-
-
-def schema_task(schema):
-    """
-    Defines the standard parameters for a task within the schema.
-
-    Args:
-        schema (Schema): The schema object to add the parameters to.
-    """
-    schema = EditableSchema(schema)
-
-    # Tool
-
-    schema.insert(
-        'exe',
-        Parameter(
-            'str',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Tool: executable name",
-            switch="-tool_exe 'tool <str>'",
-            example=["cli: -tool_exe 'openroad openroad'",
-                     "api: task.set('tool', 'openroad', 'exe', 'openroad')"],
-            help=trim("""Tool executable name.""")))
-
-    schema.insert(
-        'sbom', 'default',
-        Parameter(
-            '[file]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Tool: software BOM",
-            switch="-tool_sbom 'tool version <file>'",
-            example=[
-                "cli: -tool_sbom 'yosys 1.0.1 ys_sbom.json'",
-                "api: task.set('tool', 'yosys', 'sbom', '1.0', 'ys_sbom.json')"],
-            help=trim("""
-            Paths to software bill of material (SBOM) document file of the tool
-            specified on a per version basis. The SBOM includes critical
-            package information about the tool including the list of included
-            components, licenses, and copyright. The SBOM file is generally
-            provided as in a a standardized open data format such as SPDX.""")))
-
-    schema.insert(
-        'path',
-        Parameter(
-            'dir',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Tool: executable path",
-            switch="-tool_path 'tool <dir>'",
-            example=[
-                "cli: -tool_path 'openroad /usr/local/bin'",
-                "api: task.set('tool', 'openroad', 'path', '/usr/local/bin')"],
-            help=trim("""
-            File system path to tool executable. The path is prepended to the
-            system PATH environment variable for batch and interactive runs. The
-            path parameter can be left blank if the :keypath:`tool,<tool>,task,<task>,exe` is
-            already in the environment search path.""")))
-
-    schema.insert(
-        'vswitch',
-        Parameter(
-            '[str]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Tool: executable version switch",
-            switch="-tool_vswitch 'tool <str>'",
-            example=["cli: -tool_vswitch 'openroad -version'",
-                     "api: task.set('tool', 'openroad', 'vswitch', '-version')"],
-            help=trim("""
-            Command line switch to use with executable used to print out
-            the version number. Common switches include ``-v``, ``-version``,
-            ``--version``. Some tools may require extra flags to run in batch mode.""")))
-
-    schema.insert(
-        'vendor',
-        Parameter(
-            'str',
-            scope=Scope.JOB,
-            shorthelp="Tool: vendor",
-            switch="-tool_vendor 'tool <str>'",
-            example=["cli: -tool_vendor 'yosys yosys'",
-                     "api: task.set('tool', 'yosys', 'vendor', 'yosys')"],
-            help=trim("""
-            Name of the tool vendor. Parameter can be used to set vendor
-            specific technology variables in the PDK and libraries. For
-            open source projects, the project name should be used in
-            place of vendor.""")))
-
-    schema.insert(
-        'version',
-        Parameter(
-            '[str]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Tool: version",
-            switch="-tool_version 'tool <str>'",
-            example=["cli: -tool_version 'openroad >=v2.0'",
-                     "api: task.set('tool', 'openroad', 'version', '>=v2.0')"],
-            help=trim("""
-            List of acceptable versions of the tool executable to be used. Each
-            entry in this list must be a version specifier as described by Python
-            `PEP-440 <https://peps.python.org/pep-0440/#version-specifiers>`_.
-            During task execution, the tool is called with the 'vswitch' to
-            check the runtime executable version. If the version of the system
-            executable is not allowed by any of the specifiers in 'version',
-            then the job is halted pre-execution. For backwards compatibility,
-            entries that do not conform to the standard will be interpreted as a
-            version with an '==' specifier. This check can be disabled by
-            setting :keypath:`option,novercheck` to True.""")))
-
-    schema.insert(
-        'format',
-        Parameter(
-            '<json,tcl,yaml,csv>',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Tool: file format",
-            switch="-tool_format 'tool <str>'",
-            example=["cli: -tool_format 'yosys tcl'",
-                     "api: task.set('tool', 'yosys', 'format', 'tcl')"],
-            help=trim("""
-            File format for tool manifest handoff.""")))
-
-    schema.insert(
-        'licenseserver', 'default',
-        Parameter(
-            '[str]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Tool: license servers",
-            switch="-tool_licenseserver 'name key <str>'",
-            example=[
-                "cli: -tool_licenseserver 'atask ACME_LICENSE 1700@server'",
-                "api: task.set('tool', 'acme', 'licenseserver', 'ACME_LICENSE', '1700@server')"],
-            help=trim("""
-            Defines a set of tool-specific environment variables used by the executable
-            that depend on license key servers to control access. For multiple servers,
-            separate servers with a colon. The named license variables are read at
-            runtime (:meth:`.Task.run()`) and the environment variables are set.
-            """)))
-
-    # Task
-
-    schema.insert(
-        'warningoff',
-        Parameter(
-            '[str]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: warning filter",
-            switch="-tool_task_warningoff 'tool task <str>'",
-            example=[
-                "cli: -tool_task_warningoff 'verilator lint COMBDLY'",
-                "api: task.set('tool', 'verilator', 'task', 'lint', 'warningoff', 'COMBDLY')"],
-            help=trim("""
-            A list of tool warnings for which printing should be suppressed.
-            Generally this is done on a per design basis after review has
-            determined that warning can be safely ignored The code for turning
-            off warnings can be found in the specific task reference manual.
-            """)))
-
-    schema.insert(
-        'regex', 'default',
-        Parameter(
-            '[str]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: regex filter",
-            switch="-tool_task_regex 'tool task suffix <str>'",
-            example=[
-                "cli: -tool_task_regex 'openroad place errors \"'-v ERROR'\"'",
-                "api: task.set('tool', 'openroad', 'task', 'place', 'regex', 'errors', "
-                "'-v ERROR')"],
-            help=trim("""
-            A list of piped together grep commands. Each entry represents a set
-            of command line arguments for grep including the regex pattern to
-            match. Starting with the first list entry, each grep output is piped
-            into the following grep command in the list. Supported grep options
-            include ``-v`` and ``-e``. Patterns starting with "-" should be
-            directly preceded by the ``-e`` option. The following example
-            illustrates the concept.
-
-            UNIX grep:
-
-            .. code-block:: bash
-
-                $ grep WARNING place.log | grep -v "bbox" > place.warnings
-
-            SiliconCompiler::
-
-                task.set('task', 'openroad', 'regex', 'place', '0', 'warnings',
-                         ["WARNING", "-v bbox"])
-
-            The "errors" and "warnings" suffixes are special cases. When set,
-            the number of matches found for these regexes will be added to the
-            errors and warnings metrics for the task, respectively. This will
-            also cause the logfile to be added to the :keypath:`tool, <tool>,
-            task, <task>, report` parameter for those metrics, if not already present.""")))
-
-    # Configuration: cli-option, tcl var, env var, file
-    schema.insert(
-        'option',
-        Parameter(
-            '[str]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: executable options",
-            switch="-tool_task_option 'tool task <str>'",
-            example=[
-                "cli: -tool_task_option 'openroad cts -no_init'",
-                "api: task.set('tool', 'openroad', 'task', 'cts', 'option', '-no_init')"],
-            help=trim("""
-            List of command line options for the task executable, specified on
-            a per task and per step basis. Options must not include spaces.
-            For multiple argument options, each option is a separate list element.
-            """)))
-
-    schema.insert(
-        'env', 'default',
-        Parameter(
-            'str',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: environment variables",
-            switch="-tool_task_env 'tool task env <str>'",
-            example=[
-                "cli: -tool_task_env 'openroad cts MYVAR 42'",
-                "api: task.set('tool', 'openroad', 'task', 'cts', 'env', 'MYVAR', '42')"],
-            help=trim("""
-            Environment variables to set for individual tasks. Keys and values
-            should be set in accordance with the task's documentation. Most
-            tasks do not require extra environment variables to function.""")))
-
-    # Definitions of inputs, outputs, requirements
-    schema.insert(
-        'input',
-        Parameter(
-            '[file]',
-            scope=Scope.JOB,
-            pernode=PerNode.REQUIRED,
-            shorthelp="Task: input files",
-            switch="-tool_task_input 'tool task <file>'",
-            example=[
-                "cli: -tool_task_input 'openroad place \"place 0 oh_add.def\"'",
-                "api: task.set('tool', 'openroad', 'task', 'place', 'input', 'oh_add.def', "
-                "step='place', index='0')"],
-            help=trim("""
-            List of data files to be copied from previous flowgraph steps 'output'
-            directory. The list of steps to copy files from is defined by the
-            list defined by the dictionary key :keypath:`flowgraph,<flow>,<step>,<index>,input`.
-            All files must be available for flow to continue. If a file
-            is missing, the program exists on an error.""")))
-
-    schema.insert(
-        'output',
-        Parameter(
-            '[file]',
-            scope=Scope.JOB,
-            pernode=PerNode.REQUIRED,
-            shorthelp="Task: output files",
-            switch="-tool_task_output 'tool task <file>'",
-            example=[
-                "cli: -tool_task_output 'openroad place \"place 0 oh_add.def\"'",
-                "api: task.set('tool', 'openroad', 'task', 'place', 'output', 'oh_add.def', "
-                "step='place', index='0')"],
-            help=trim("""
-            List of data files written to the 'output' directory of the
-            tool/task/step/index used in the keypath. All files must be available
-            for flow to continue. If a file is missing, the program exists on an error.""")))
-
-    dest_enum = ['log', 'output', 'none']
-    schema.insert(
-        'stdout', 'destination',
-        Parameter(
-            f'<{",".join(dest_enum)}>',
-            defvalue='log',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: destination for stdout",
-            switch="-tool_task_stdout_destination 'tool task <str>'",
-            example=["cli: -tool_task_stdout_destination 'ghdl import log'",
-                     "api: task.set('tool', 'ghdl', 'task', 'import', 'stdout', 'destination', "
-                     "'log')"],
-            help=trim("""
-            Defines where to direct the output generated over stdout.
-            Supported options are:
-            none: the stream generated to STDOUT is ignored.
-            log: the generated stream is stored in <step>.<suffix>; if not in quiet mode,
-            it is additionally dumped to the display.
-            output: the generated stream is stored in outputs/<design>.<suffix>.""")))
-
-    schema.insert(
-        'stdout', 'suffix',
-        Parameter(
-            'str',
-            defvalue='log',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: file suffix for redirected stdout",
-            switch="-tool_task_stdout_suffix 'tool task <str>'",
-            example=["cli: -tool_task_stdout_suffix 'ghdl import log'",
-                     "api: task.set('tool', 'ghdl', 'task', 'import', 'stdout', 'suffix', 'log')"],
-            help=trim("""
-            Specifies the file extension for the content redirected from stdout.""")))
-
-    schema.insert(
-        'stderr', 'destination',
-        Parameter(
-            f'<{",".join(dest_enum)}>',
-            defvalue='log',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: destination for stderr",
-            switch="-tool_task_stderr_destination 'tool task <str>'",
-            example=["cli: -tool_task_stderr_destination 'ghdl import log'",
-                     "api: task.set('tool', 'ghdl', 'task', 'import', 'stderr', 'destination', "
-                     "'log')"],
-            help=trim("""
-            Defines where to direct the output generated over stderr.
-            Supported options are:
-            none: the stream generated to STDERR is ignored
-            log: the generated stream is stored in <step>.<suffix>; if not in quiet mode,
-            it is additionally dumped to the display.
-            output: the generated stream is stored in outputs/<design>.<suffix>""")))
-
-    schema.insert(
-        'stderr', 'suffix',
-        Parameter(
-            'str',
-            defvalue='log',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: file suffix for redirected stderr",
-            switch="-tool_task_stderr_suffix 'tool task <str>'",
-            example=["cli: -tool_task_stderr_suffix 'ghdl import log'",
-                     "api: task.set('tool', 'ghdl', 'task', 'import', 'stderr', 'suffix', 'log')"],
-            help=trim("""
-            Specifies the file extension for the content redirected from stderr.""")))
-
-    schema.insert(
-        'require',
-        Parameter(
-            '[str]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: parameter requirements",
-            switch="-tool_task_require 'tool task <str>'",
-            example=[
-                "cli: -tool_task_require 'openroad cts design'",
-                "api: task.set('tool', 'openroad', 'task', 'cts', 'require', 'design')"],
-            help=trim("""
-            List of keypaths to required task parameters. The list is used
-            by :meth:`.Project.check_manifest()` to verify that all parameters have been set up
-            before step execution begins.""")))
-
-    schema.insert(
-        'report', 'default',
-        Parameter(
-            '[file]',
-            scope=Scope.JOB,
-            pernode=PerNode.REQUIRED,
-            shorthelp="Task: metric report files",
-            switch="-tool_task_report 'tool task metric <file>'",
-            example=[
-                "cli: -tool_task_report 'openroad place holdtns \"place 0 place.log\"'",
-                "api: task.set('tool', 'openroad', 'task', 'place', 'report', 'holdtns', "
-                "'place.log', step='place', index='0')"],
-            help=trim("""
-            List of report files associated with a specific 'metric'. The file path
-            specified is relative to the run directory of the current task.""")))
-
-    schema.insert(
-        'refdir',
-        Parameter(
-            '[dir]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: script directory",
-            switch="-tool_task_refdir 'tool task <dir>'",
-            example=[
-                "cli: -tool_task_refdir 'yosys syn ./myref'",
-                "api: task.set('tool', 'yosys', 'task', 'syn_asic', 'refdir', './myref')"],
-            help=trim("""
-            Path to directories containing reference flow scripts, specified
-            on a per step and index basis.""")))
-
-    schema.insert(
-        'script',
-        Parameter(
-            '[file]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: entry script",
-            switch="-tool_task_script 'tool task <file>'",
-            example=[
-                "cli: -tool_task_script 'yosys syn syn.tcl'",
-                "api: task.set('tool', 'yosys', 'task', 'syn_asic', 'script', 'syn.tcl')"],
-            help=trim("""
-            Path to the entry script called by the executable specified
-            on a per task and per step basis.""")))
-
-    schema.insert(
-        'prescript',
-        Parameter(
-            '[file]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            copy=True,
-            shorthelp="Task: pre-step script",
-            switch="-tool_task_prescript 'tool task <file>'",
-            example=[
-                "cli: -tool_task_prescript 'yosys syn syn_pre.tcl'",
-                "api: task.set('tool', 'yosys', 'task', 'syn_asic', 'prescript', 'syn_pre.tcl')"],
-            help=trim("""
-            Path to a user supplied script to execute after reading in the design
-            but before the main execution stage of the step. Exact entry point
-            depends on the step and main script being executed. An example
-            of a prescript entry point would be immediately before global
-            placement.""")))
-
-    schema.insert(
-        'postscript',
-        Parameter(
-            '[file]',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            copy=True,
-            shorthelp="Task: post-step script",
-            switch="-tool_task_postscript 'tool task <file>'",
-            example=[
-                "cli: -tool_task_postscript 'yosys syn syn_post.tcl'",
-                "api: task.set('tool', 'yosys', 'task', 'syn_asic', 'postscript', 'syn_post.tcl')"],
-            help=trim("""
-            Path to a user supplied script to execute after the main execution
-            stage of the step but before the design is saved.
-            Exact entry point depends on the step and main script being
-            executed. An example of a postscript entry point would be immediately
-            after global placement.""")))
-
-    schema.insert(
-        'threads',
-        Parameter(
-            'int<1..>',
-            scope=Scope.JOB,
-            pernode=PerNode.OPTIONAL,
-            shorthelp="Task: thread parallelism",
-            switch="-tool_task_threads 'tool task <int>'",
-            example=["cli: -tool_task_threads 'magic drc 64'",
-                     "api: task.set('tool', 'magic', 'task', 'drc', 'threads', '64')"],
-            help=trim("""
-            Thread parallelism to use for execution specified on a per task and per
-            step basis. If not specified, SC queries the operating system and sets
-            the threads based on the maximum thread count supported by the
-            hardware.""")))

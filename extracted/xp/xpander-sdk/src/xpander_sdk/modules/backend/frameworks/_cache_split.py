@@ -58,7 +58,8 @@ def split_system_text(
     tail = volatile.strip()
     if len(tail) < MIN_VOLATILE_CHARS:
         return None
-    index = text.find(tail)
+    # Last occurrence: an earlier quote of the tail is not the per-request suffix.
+    index = text.rfind(tail)
     # index 0 means the whole system message is volatile — nothing to cache before it.
     if index <= 0:
         return None

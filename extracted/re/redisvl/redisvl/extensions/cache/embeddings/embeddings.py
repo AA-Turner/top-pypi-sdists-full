@@ -1,5 +1,6 @@
 """Embeddings cache implementation for RedisVL."""
 
+from collections.abc import Mapping
 from typing import Any, Iterable
 
 from redisvl.extensions.cache.base import BaseCache
@@ -23,7 +24,7 @@ class EmbeddingsCache(BaseCache):
         redis_client: SyncRedisClient | None = None,
         async_redis_client: AsyncRedisClient | None = None,
         redis_url: str = "redis://localhost:6379",
-        connection_kwargs: dict[str, Any] = {},
+        connection_kwargs: dict[str, Any] | None = None,
     ):
         """Initialize an embeddings cache.
 
@@ -45,6 +46,7 @@ class EmbeddingsCache(BaseCache):
                 redis_url="redis://localhost:6379"
             )
         """
+        connection_kwargs = connection_kwargs or {}
         super().__init__(
             name=name,
             ttl=ttl,
@@ -111,7 +113,9 @@ class EmbeddingsCache(BaseCache):
         )
         return key, entry.to_dict()
 
-    def _process_cache_data(self, data: dict[str, Any] | None) -> dict[str, Any] | None:
+    def _process_cache_data(
+        self, data: Mapping[bytes | str, Any] | None
+    ) -> dict[str, Any] | None:
         """Process Redis hash data into a cache entry response.
 
         Args:
@@ -123,7 +127,7 @@ class EmbeddingsCache(BaseCache):
         if not data:
             return None
 
-        cache_hit = CacheEntry(**convert_bytes(data))
+        cache_hit = CacheEntry(**convert_bytes(dict(data)))
         return cache_hit.model_dump(exclude_none=True)
 
     def _should_warn_for_async_only(self) -> bool:

@@ -532,6 +532,8 @@ class ToolcompGetIncidentDetailArgs(ToolArgs):
 class ToolcompGetSampleDetailArgs(ToolArgs):
     sample_id: str
     full_events: bool = Field(default=False)
+    event_offset: int = Field(default=0, ge=0)
+    event_limit: int = Field(default=10, ge=1, le=10)
 
 
 class ToolcompListToolsArgs(ToolArgs):

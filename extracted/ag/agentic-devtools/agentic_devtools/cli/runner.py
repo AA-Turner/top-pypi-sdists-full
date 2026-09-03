@@ -523,6 +523,10 @@ COMMAND_MAP = {
         "agentic_devtools.cli.workflows.orchestrator_commands",
         "audit_trio_async",
     ),
+    "agdt-orchestrate-hierarchy": (
+        "agentic_devtools.cli.workflows.orchestrator_commands",
+        "orchestrate_hierarchy_async",
+    ),
     # NOTE: agdt-mcp-server is intentionally NOT in COMMAND_MAP.
     # It is wired directly to agentic_devtools.mcp.server:main in
     # pyproject.toml because the MCP stdio transport requires direct

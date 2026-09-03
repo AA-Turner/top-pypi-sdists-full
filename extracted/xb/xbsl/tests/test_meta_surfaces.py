@@ -1,43 +1,17 @@
 """Scaffolding surfaces: meta_* MCP tools, CLI subcommands and xbsl/meta* LSP methods.
 
-MCP is loaded via a stub FastMCP (as in test_mcp.py) - the [mcp] extra is not needed;
-the LSP part checks the handlers directly when pygls is installed, otherwise it is skipped.
+MCP is loaded via the stub FastMCP of the `mcp_module` fixture (conftest) - the [mcp]
+extra is not needed; the LSP part checks the handlers directly when pygls is installed,
+otherwise it is skipped.
 """
 
-import importlib
+import inspect
 import json
-import sys
-import types
 from pathlib import Path
 
 import pytest
 
 from xbsl import cli, scaffold
-
-
-@pytest.fixture()
-def mcp_module(monkeypatch):
-    class _FakeMCP:
-        def __init__(self, name):
-            self.name = name
-            self.tools = {}
-
-        def tool(self):
-            def deco(fn):
-                self.tools[fn.__name__] = fn
-                return fn
-
-            return deco
-
-    fast = types.ModuleType("mcp.server.fastmcp")
-    fast.FastMCP = _FakeMCP
-    monkeypatch.setitem(sys.modules, "mcp", types.ModuleType("mcp"))
-    monkeypatch.setitem(sys.modules, "mcp.server", types.ModuleType("mcp.server"))
-    monkeypatch.setitem(sys.modules, "mcp.server.fastmcp", fast)
-    sys.modules.pop("xbsl.mcp_server", None)
-    module = importlib.import_module("xbsl.mcp_server")
-    yield module
-    sys.modules.pop("xbsl.mcp_server", None)
 
 
 def test_mcp_meta_tools_registered(mcp_module):
@@ -73,6 +47,35 @@ def test_mcp_meta_field_and_info(mcp_module, tmp_path):
     assert "Справочник" in overview["creatable_kinds"]
 
 
+@pytest.mark.needs_data  # the built-in's class is the metamodel's, and the written file is linted
+def test_mcp_meta_add_field_of_a_built_in_attribute(mcp_module, tmp_path):
+    mcp_module.meta_new_object(str(tmp_path), "Документ", "Заявки", presentation="Номер")
+    yaml_path = str(tmp_path / "Заявки.yaml")
+    res = mcp_module.meta_add_field(
+        yaml_path, "реквизит", "Номер",
+        props={"Длина": 11, "Уникальность": "Истина",
+               "Автонумерация": {"Префикс": "ЗА", "Формат": {"ДлинаПрефикса": 2}}},
+    )
+    assert "error" not in res
+    assert res["lint"]["summary"]["diagnostics"] == 0, res["lint"]["diagnostics"]
+    text = (tmp_path / "Заявки.yaml").read_text(encoding="utf-8")
+    assert "    -\n        Имя: Номер\n        Тип: Строка\n        Длина: 11\n" in text
+    assert "            Формат:\n                ДлинаПрефикса: 2\n" in text
+
+    err = mcp_module.meta_add_field(yaml_path, "реквизит", "Номер2", props={"Длина": 11})
+    assert "DocumentRegularAttributeDescriptor" in err["error"]
+    info = mcp_module.meta_object_info(str(tmp_path), name="Заявки")
+    assert [f["name"] for f in info["fields"]] == ["Дата", "Номер"]
+
+    res = mcp_module.meta_set_field_property(
+        yaml_path, "реквизит", "Номер", {"Автонумерация": {"Использовать": False}},
+    )
+    assert "error" not in res and res["lint"]["summary"]["diagnostics"] == 0
+    text = (tmp_path / "Заявки.yaml").read_text(encoding="utf-8")
+    assert "        Автонумерация:\n            Использовать: Ложь\n" in text
+    assert "Префикс" not in text
+
+
 # --- CLI ---------------------------------------------------------------------------------
 
 
@@ -93,6 +96,22 @@ def test_cli_new_object_and_field(tmp_path, capsys):
     assert code == 0
     text = (tmp_path / "Товары.yaml").read_text(encoding="utf-8")
     assert "Имя: Цвет" in text
+
+
+@pytest.mark.needs_data  # the class default of a built-in comes from the metamodel
+def test_cli_add_field_of_a_built_in_takes_the_class_default_type(tmp_path, capsys):
+    _run_cli(capsys, "new-object", str(tmp_path), "Документ", "Заявки")
+    yaml_path = str(tmp_path / "Заявки.yaml")
+    code, _out = _run_cli(
+        capsys, "add-field", yaml_path, "реквизит", "Номер",
+        "--prop", "Длина=11", "--prop", "Автонумерация.Префикс=ЗА",
+    )
+    assert code == 0
+    text = (tmp_path / "Заявки.yaml").read_text(encoding="utf-8")
+    assert "        Имя: Номер\n        Тип: Строка\n        Длина: 11\n" in text
+    assert "        Автонумерация:\n            Префикс: ЗА\n" in text
+    code, err = _run_cli(capsys, "add-field", yaml_path, "реквизит", "Файлы", "--type", "Строка")
+    assert code == 2 and "DocumentFilesAttribute" in err["error"]
 
 
 def test_cli_dry_run_writes_nothing(tmp_path, capsys):
@@ -169,6 +188,30 @@ def test_lsp_meta_add_field_error_shape(tmp_path):
         {"path": str(tmp_path / "Нет.yaml"), "fieldKind": "реквизит", "name": "Цвет"}
     )
     assert "не найден" in result["error"].lower()
+
+
+@pytest.mark.needs_data  # the built-in's class comes from the metamodel
+def test_lsp_meta_add_field_of_a_built_in_with_dotted_props(tmp_path):
+    from pygls import uris
+    from pygls.workspace import Workspace
+
+    server, features = _server_features()
+    # The operations read files through the editor buffers - a workspace has to exist.
+    server.lsp._workspace = Workspace(uris.from_fs_path(str(tmp_path)))
+    path = tmp_path / "Заявки.yaml"
+    path.write_text(
+        "ВидЭлемента: Документ\nИд: 6f0b6a44-0000-4000-8000-0000000000d2\nИмя: Заявки\n",
+        encoding="utf-8", newline="\n",
+    )
+    # The LSP carries the properties as two flat arrays - a block travels as a dotted key.
+    result = features["xbsl/metaAddField"]({
+        "path": str(path), "fieldKind": "реквизит", "name": "Номер",
+        "propKeys": ["Длина", "Автонумерация.Префикс"], "propValues": ["11", "ЗА"],
+    })
+    assert (
+        "    -\n        Имя: Номер\n        Тип: Строка\n        Длина: 11\n"
+        "        Автонумерация:\n            Префикс: ЗА\n"
+    ) in result["files"][0]["content"]
 
 
 def test_mcp_meta_rename_object(mcp_module, tmp_path):
@@ -316,3 +359,139 @@ def test_mcp_type_members(mcp_module):
     assert "Пользователи.Объект" in aggr.get("facets", [])
     miss = mcp_module.type_members("НетТакогоТипа")
     assert "error" in miss and "close_matches" in miss
+
+
+# --- the caller's root -------------------------------------------------------------------
+#
+# The server's working directory is where the CLIENT started it, not where the caller works: a
+# session in a git worktree that passed `vendor/app/Main` had its files created in the main
+# checkout, and the answer's relative paths looked right. Every meta_* tool therefore takes
+# `root`, resolves relative paths against it and answers with absolute paths plus the root they
+# were counted from - the discrepancy shows without a find.
+
+
+def _elsewhere(tmp_path, monkeypatch) -> tuple[Path, Path]:
+    """A server started in one directory while the caller works in another."""
+    server_cwd = tmp_path / "server"
+    server_cwd.mkdir()
+    monkeypatch.chdir(server_cwd)
+    root = tmp_path / "worktree"
+    root.mkdir()
+    return server_cwd, root
+
+
+def test_every_meta_tool_takes_root_and_documents_it(mcp_module):
+    for name, tool in mcp_module.mcp.tools.items():
+        if name.startswith("meta_"):
+            assert "root" in inspect.signature(tool).parameters, name
+            assert "root" in (tool.__doc__ or ""), name
+
+
+def test_mcp_meta_new_object_lands_under_the_callers_root(mcp_module, tmp_path, monkeypatch):
+    server_cwd, root = _elsewhere(tmp_path, monkeypatch)
+    res = mcp_module.meta_new_object("vendor/app/Main", "Справочник", "Задачи", root=str(root))
+    expected = root / "vendor" / "app" / "Main" / "Задачи.yaml"
+    assert [f["path"] for f in res["files"]] == [str(expected)]
+    assert res["root"] == str(root)
+    assert expected.is_file()
+    assert not (server_cwd / "vendor").exists()
+
+
+def test_mcp_meta_without_root_stays_in_the_server_directory_but_answers_absolute(
+    mcp_module, tmp_path, monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    res = mcp_module.meta_new_object("Main", "Справочник", "Задачи")
+    assert res["root"] == str(tmp_path)
+    assert [f["path"] for f in res["files"]] == [str(tmp_path / "Main" / "Задачи.yaml")]
+    assert (tmp_path / "Main" / "Задачи.yaml").is_file()
+
+
+def test_mcp_meta_yaml_path_resolves_against_root(mcp_module, tmp_path, monkeypatch):
+    server_cwd, root = _elsewhere(tmp_path, monkeypatch)
+    mcp_module.meta_new_object("Main", "Справочник", "Задачи", root=str(root))
+    yaml_path = root / "Main" / "Задачи.yaml"
+
+    res = mcp_module.meta_add_field("Main/Задачи.yaml", "реквизит", "Цвет", root=str(root))
+    assert [f["path"] for f in res["files"]] == [str(yaml_path)]
+    assert "Цвет" in yaml_path.read_text(encoding="utf-8")
+    assert not (server_cwd / "Main").exists()
+
+    info = mcp_module.meta_object_info(str(root), yaml_path="Main/Задачи.yaml")
+    assert info["path"] == str(yaml_path)
+    assert info["root"] == str(root)
+
+
+@pytest.mark.needs_data  # the written files are linted, and linting tokenizes them - needs language.json
+def test_mcp_meta_project_info_answers_absolute_paths_for_a_relative_root(
+    mcp_module, tmp_path, monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    mcp_module.meta_new_project("repo", "vendor", "app")
+    mcp_module.meta_new_object("repo/vendor/app/Основное", "Справочник", "Задачи")
+
+    overview = mcp_module.meta_project_info("repo")
+    assert overview["root"] == str(tmp_path / "repo")
+    assert overview["projects"][0]["dir"] == str(tmp_path / "repo" / "vendor" / "app")
+    assert [o["path"] for o in overview["objects"]] == [
+        str(tmp_path / "repo" / "vendor" / "app" / "Основное" / "Задачи.yaml")
+    ]
+
+
+@pytest.mark.needs_data  # the written files are linted, and linting tokenizes them - needs language.json
+def test_mcp_meta_form_tools_resolve_against_root(mcp_module, tmp_path, monkeypatch):
+    _server_cwd, root = _elsewhere(tmp_path, monkeypatch)
+    mcp_module.meta_new_object("Main", "Справочник", "Задачи", root=str(root))
+    mcp_module.meta_add_form(str(root), name="Задачи", forms=["object"])
+    form = "Main/ЗадачиФормаОбъекта.yaml"
+
+    tree = mcp_module.meta_component_tree(form, root=str(root))
+    assert tree["file"] == str(root / "Main" / "ЗадачиФормаОбъекта.yaml")
+    assert tree["root"]["type"].startswith("Форма")
+
+    res = mcp_module.meta_add_component(
+        form, tree["root"]["id"], "Содержимое", type="Кнопка", name="Проба", root=str(root),
+    )
+    assert [f["path"] for f in res["files"]] == [str(root / "Main" / "ЗадачиФормаОбъекта.yaml")]
+    assert res["root"] == str(root)
+
+    bound = mcp_module.meta_add_handler(form, res["node"]["id"], "ПриНажатии", root=str(root))
+    assert bound["module"] == str(root / "Main" / "ЗадачиФормаОбъекта.xbsl")
+    assert bound["root"] == str(root)
+
+
+@pytest.mark.needs_data  # the written files are linted, and linting tokenizes them - needs language.json
+def test_mcp_meta_module_and_subsystem_tools_resolve_against_root(
+    mcp_module, tmp_path, monkeypatch,
+):
+    _server_cwd, root = _elsewhere(tmp_path, monkeypatch)
+    res = mcp_module.meta_add_subsystem("vendor/app", "Новая", root=str(root))
+    assert [f["path"] for f in res["files"]] == [
+        str(root / "vendor" / "app" / "Новая" / "Подсистема.yaml")
+    ]
+    mcp_module.meta_new_object("vendor/app/Новая", "ОбщийМодуль", "Служебный", root=str(root))
+
+    res = mcp_module.meta_add_method("vendor/app/Новая/Служебный.xbsl", "Проба", root=str(root))
+    assert [f["path"] for f in res["files"]] == [
+        str(root / "vendor" / "app" / "Новая" / "Служебный.xbsl")
+    ]
+    assert res["root"] == str(root)
+
+
+def test_mcp_meta_dry_runs_and_errors_name_the_root(mcp_module, tmp_path, monkeypatch):
+    _server_cwd, root = _elsewhere(tmp_path, monkeypatch)
+    mcp_module.meta_new_object(".", "Справочник", "Склады", root=str(root))
+
+    plan = mcp_module.meta_rename_object(str(root), "Склады", "Хранилища", dry_run=True)
+    assert plan["root"] == str(root)
+    assert plan["renames"] == [
+        {"from": str(root / "Склады.yaml"), "to": str(root / "Хранилища.yaml")}
+    ]
+
+    plan = mcp_module.meta_delete_object(str(root), "Склады")
+    assert plan["root"] == str(root) and plan["dry-run"] is True
+    assert plan["deletes"] == [str(root / "Склады.yaml")]
+
+    err = mcp_module.meta_add_field("Нет.yaml", "реквизит", "Цвет", root=str(root))
+    assert str(root / "Нет.yaml") in err["error"]
+    assert err["root"] == str(root)

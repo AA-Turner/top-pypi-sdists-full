@@ -13,6 +13,7 @@ from typing import Any, TypeVar, final
 import numpy as np
 
 from icechunk.types import CommitMethod
+from zarr.core.common import BytesLike
 
 _T_co = TypeVar("_T_co", covariant=True)
 
@@ -2844,8 +2845,8 @@ class PyStore:
     def supports_consolidated_metadata(self) -> bool: ...
     @property
     def supports_deletes(self) -> bool: ...
-    async def set(self, key: str, value: bytes) -> None: ...
-    async def set_if_not_exists(self, key: str, value: bytes) -> None: ...
+    async def set(self, key: str, value: BytesLike) -> None: ...
+    async def set_if_not_exists(self, key: str, value: BytesLike) -> None: ...
     def set_virtual_ref(
         self,
         key: str,
@@ -3465,6 +3466,20 @@ class Storage:
         bucket: str | None = None,
         prefix: str | None = None,
         account_id: str | None = None,
+        credentials: _AnyS3Credential | None = None,
+        legacy_rooted_keys: bool | None = None,
+        *,
+        read_headers: dict[str, str] | None = None,
+        write_headers: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Storage: ...
+    @classmethod
+    def new_hf(
+        cls,
+        config: S3Options,
+        bucket: str,
+        prefix: str | None,
+        namespace: str,
         credentials: _AnyS3Credential | None = None,
         legacy_rooted_keys: bool | None = None,
         *,

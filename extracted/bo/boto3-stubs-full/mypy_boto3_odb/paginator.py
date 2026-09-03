@@ -27,6 +27,7 @@ Usage::
         ListDbSystemShapesPaginator,
         ListExadbVmClustersPaginator,
         ListExascaleDbStorageVaultsPaginator,
+        ListFlexComponentsPaginator,
         ListGiMinorVersionsPaginator,
         ListGiVersionsPaginator,
         ListOdbNetworksPaginator,
@@ -52,6 +53,7 @@ Usage::
     list_db_system_shapes_paginator: ListDbSystemShapesPaginator = client.get_paginator("list_db_system_shapes")
     list_exadb_vm_clusters_paginator: ListExadbVmClustersPaginator = client.get_paginator("list_exadb_vm_clusters")
     list_exascale_db_storage_vaults_paginator: ListExascaleDbStorageVaultsPaginator = client.get_paginator("list_exascale_db_storage_vaults")
+    list_flex_components_paginator: ListFlexComponentsPaginator = client.get_paginator("list_flex_components")
     list_gi_minor_versions_paginator: ListGiMinorVersionsPaginator = client.get_paginator("list_gi_minor_versions")
     list_gi_versions_paginator: ListGiVersionsPaginator = client.get_paginator("list_gi_versions")
     list_odb_networks_paginator: ListOdbNetworksPaginator = client.get_paginator("list_odb_networks")
@@ -98,6 +100,8 @@ from .type_defs import (
     ListExadbVmClustersOutputTypeDef,
     ListExascaleDbStorageVaultsInputPaginateTypeDef,
     ListExascaleDbStorageVaultsOutputTypeDef,
+    ListFlexComponentsInputPaginateTypeDef,
+    ListFlexComponentsOutputTypeDef,
     ListGiMinorVersionsInputPaginateTypeDef,
     ListGiMinorVersionsOutputTypeDef,
     ListGiVersionsInputPaginateTypeDef,
@@ -132,6 +136,7 @@ __all__ = (
     "ListDbSystemShapesPaginator",
     "ListExadbVmClustersPaginator",
     "ListExascaleDbStorageVaultsPaginator",
+    "ListFlexComponentsPaginator",
     "ListGiMinorVersionsPaginator",
     "ListGiVersionsPaginator",
     "ListOdbNetworksPaginator",
@@ -468,6 +473,27 @@ class ListExascaleDbStorageVaultsPaginator(_ListExascaleDbStorageVaultsPaginator
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListExascaleDbStorageVaults.html#Odb.Paginator.ListExascaleDbStorageVaults.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listexascaledbstoragevaultspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListFlexComponentsPaginatorBase = Paginator[ListFlexComponentsOutputTypeDef]
+else:
+    _ListFlexComponentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListFlexComponentsPaginator(_ListFlexComponentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListFlexComponents.html#Odb.Paginator.ListFlexComponents)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listflexcomponentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFlexComponentsInputPaginateTypeDef]
+    ) -> PageIterator[ListFlexComponentsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListFlexComponents.html#Odb.Paginator.ListFlexComponents.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listflexcomponentspaginator)
         """
 
 

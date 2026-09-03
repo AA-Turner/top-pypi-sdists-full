@@ -1,5 +1,7 @@
+import io
 import pytest
 import re
+import sys
 from sphinx.application import Sphinx
 from sphinx import version_info as sphinx_version
 from typer import __version__ as typer_version
@@ -9,13 +11,12 @@ from pathlib import Path
 import shutil
 import subprocess
 from bs4 import BeautifulSoup as bs
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from skimage import io
-from skimage.transform import resize
+from PIL import Image
 from pypdf import PdfReader
 import numpy as np
 import json
+import math
+from collections import Counter
 
 TYPER_VERISON = tuple(int(v) for v in typer_version.split("."))
 
@@ -40,17 +41,32 @@ def clear_callbacks():
         os.remove(TEST_CALLBACKS)
 
 
+_TOKEN = re.compile(r"(?u)\b\w\w+\b")
+
+
 def similarity(text1, text2):
     """
-    Compute the cosine similarity between two texts.
+    Compute the TF-IDF cosine similarity between two texts.
     https://en.wikipedia.org/wiki/Cosine_similarity
+
+    This mirrors the defaults of scikit-learn's TfidfVectorizer (lowercase,
+    whole word tokens, smoothed idf, l2 norm) without the dependency.
 
     We use this to lazily evaluate the output of --help to our
     renderings.
     """
-    vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform([text1, text2])
-    return cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+    docs = [Counter(_TOKEN.findall(text.lower())) for text in (text1, text2)]
+    n_docs = len(docs)
+    idf = {
+        word: math.log((1 + n_docs) / (1 + sum(word in doc for doc in docs))) + 1
+        for word in set(docs[0]) | set(docs[1])
+    }
+    vecs = [{word: count * idf[word] for word, count in doc.items()} for doc in docs]
+    norms = [math.sqrt(sum(v * v for v in vec.values())) for vec in vecs]
+    if not all(norms):
+        return 0.0
+    dot = sum(vecs[0][word] * vecs[1].get(word, 0.0) for word in vecs[0])
+    return dot / (norms[0] * norms[1])
 
 
 def pdf_text(pdf_path) -> t.List[str]:
@@ -68,17 +84,17 @@ def img_similarity(expected, to_compare):
     Higher values indicate less similarity.
     """
     img_a, img_b = resize_image_to_match(expected, to_compare)
-    io.imsave(str(expected.parent / f"resized_{expected.name}"), img_a)
+    Image.fromarray(img_a).save(expected.parent / f"resized_{expected.name}")
     err = np.sum((img_a.astype("float") - img_b.astype("float")) ** 2)
     err /= float(img_a.shape[0] * img_a.shape[1])
     return err
 
 
 def resize_image_to_match(source_image_path, target_image_path):
-    target = io.imread(target_image_path)[:, :, :3]
-    source = io.imread(source_image_path)[:, :, :3]
-    resized = resize(source, target.shape[0:2], anti_aliasing=True)
-    return np.clip(resized * 255, 0, 255).astype(np.uint8), target
+    target = np.asarray(Image.open(target_image_path).convert("RGB"))
+    source = Image.open(source_image_path).convert("RGB")
+    resized = source.resize((target.shape[1], target.shape[0]), Image.LANCZOS)
+    return np.asarray(resized), target
 
 
 def replace_in_file(file_path: str, search_string: str, replacement_string: str):
@@ -150,6 +166,7 @@ def build_example(
     clean_first=True,
     subprocess=False,
     project=None,
+    parallel=0,
 ):
     cwd = os.getcwd()
     ex_dir = example_dir / name
@@ -166,6 +183,7 @@ def build_example(
             bld_dir / builder,
             bld_dir / "doctrees",
             buildername=builder,
+            parallel=parallel,
         )
 
         assert app.config.typer_iframe_height_padding == 40
@@ -289,6 +307,645 @@ def test_typer_ex_reference():
     assert ref3.attrs["href"] == "reference.html#python-m-cli-ref-py"
 
 
+def _reference_links(index_html):
+    """Return the anchors in the two reference paragraphs of the reference index."""
+    index = bs(index_html, "html.parser")
+    paragraphs = index.find_all("section")[0].find_all("p")
+    return paragraphs[0].find_all("a"), paragraphs[1].find_all("a")
+
+
+def test_typer_ex_reference_parallel():
+    """
+    Cross references must survive a parallel read, where each worker process
+    records targets into its own copy of the environment and the domain has
+    to merge them back together.
+    """
+    clear_callbacks()
+    _, index_html = build_example(
+        "reference", "html", example_dir=TYPER_EXAMPLES, parallel=2
+    )
+    refs, no_section_refs = _reference_links(index_html)
+    assert [ref.attrs["href"] for ref in refs] == [
+        "reference.html#python-m-cli-ref-py"
+    ] * 3
+    assert [ref.attrs["href"] for ref in no_section_refs] == [
+        "nosections.html#noref"
+    ] * 2
+
+
+def test_typer_ex_reference_no_sections():
+    """
+    A command rendered without :make-sections: must still be a valid
+    reference target, and the anchor it points at must exist on the page.
+    """
+    clear_callbacks()
+    html_dir, index_html = build_example(
+        "reference", "html", example_dir=TYPER_EXAMPLES
+    )
+    _, refs = _reference_links(index_html)
+    assert [ref.attrs["href"] for ref in refs] == ["nosections.html#noref"] * 2
+    assert refs[0].text == "noref"
+    assert refs[1].text == "no-sections"
+
+    target_page = bs((html_dir / "nosections.html").read_text(), "html.parser")
+    assert target_page.find(id="noref") is not None
+
+
+def test_typer_ex_reference_inventory():
+    """
+    Commands are exported to objects.inv so intersphinx can link to them.
+    """
+    from sphinx.util.inventory import InventoryFile
+
+    clear_callbacks()
+    html_dir, _ = build_example("reference", "html", example_dir=TYPER_EXAMPLES)
+    with open(html_dir / "objects.inv", "rb") as f:
+        inv = InventoryFile.load(f, "", os.path.join)
+    commands = inv["typer:command"]
+
+    def uri(item):
+        # Sphinx < 8.2 uses plain tuples, newer versions use _InventoryItem
+        return item.uri if hasattr(item, "uri") else item[2]
+
+    assert uri(commands["python-m-cli-ref-py"]) == "reference.html#python-m-cli-ref-py"
+    assert uri(commands["noref"]) == "nosections.html#noref"
+
+
+def test_typer_reference_stale_targets_cleared(tmp_path):
+    """
+    When a document is re-read on an incremental build, targets it previously
+    contributed must be dropped so a renamed command does not linger.
+    """
+    src = tmp_path / "src"
+    shutil.copytree(
+        TYPER_EXAMPLES / "reference", src, ignore=shutil.ignore_patterns("build")
+    )
+    (src / "conf.py").write_text(
+        "import sys, pathlib\n"
+        "sys.path.insert(0, str(pathlib.Path(__file__).parent))\n"
+        "project = 'stale'\n"
+        "extensions = ['sphinxcontrib.typer']\n"
+    )
+
+    def build():
+        app = Sphinx(
+            src, src, tmp_path / "html", tmp_path / "doctrees", buildername="html"
+        )
+        app.build()
+        return app.env.domaindata["typer"]["commands"]
+
+    # conf.py above modifies sys.path, don't let that leak into other tests
+    sys_path = list(sys.path)
+    try:
+        commands = build()
+        assert "noref" in commands
+        assert commands["noref"][0] == "nosections"
+
+        replace_in_file(src / "nosections.rst", ":prog: noref", ":prog: renamed")
+        commands = build()
+        assert "renamed" in commands
+        assert "noref" not in commands
+    finally:
+        sys.path[:] = sys_path
+
+
+def test_typer_ex_themes_do_not_collide():
+    """
+    Two renderings of the same command at the same width but with different
+    themes must not share SVG CSS class names, otherwise the inline styles of
+    one restyle the other when both are embedded in the same page.
+    https://github.com/sphinx-contrib/typer/issues/32
+    """
+    clear_callbacks()
+    _, index_html = build_example("themes", "html", example_dir=TYPER_EXAMPLES)
+    svgs = bs(index_html, "html.parser").find_all("svg")
+    assert len(svgs) == 2
+
+    def class_prefixes(svg):
+        return set(re.findall(r"\.([\w-]+?)-r\d+ *\{", str(svg)))
+
+    light, dark = (class_prefixes(svg) for svg in svgs)
+    assert light and dark
+    assert light.isdisjoint(dark), f"shared svg class prefixes: {light & dark}"
+
+
+def test_typer_ex_nested_prog():
+    """
+    :prog: must replace the entire invocation path, including for commands
+    nested more than one level deep, so the module name of the root app never
+    leaks into the usage line.
+    https://github.com/sphinx-contrib/typer/issues/23
+    """
+    clear_callbacks()
+    _, index_html = build_example("nested_prog", "html", example_dir=TYPER_EXAMPLES)
+    blocks = [pre.get_text() for pre in bs(index_html, "html.parser").find_all("pre")]
+    assert len(blocks) == 4
+    assert "__main__" not in index_html
+    assert "Usage: foo [OPTIONS]" in blocks[0]
+    assert "Usage: foo nested [OPTIONS]" in blocks[1]
+    assert "Usage: foo nested command [OPTIONS]" in blocks[2]
+    assert "Usage: foo nested other [OPTIONS]" in blocks[3]
+
+
+class _FakeDirective:
+    """Minimal stand in for a TyperDirective for hook unit tests."""
+
+    class env:
+        class config:
+            typer_playwright_install = True
+
+    class _Logger:
+        def info(self, *args, **kwargs): ...
+
+        def warning(self, *args, **kwargs): ...
+
+    logger = _Logger()
+
+    def severe(self, message):
+        from docutils.parsers.rst import DirectiveError
+
+        return DirectiveError(4, message)
+
+
+def test_playwright_install_browser(monkeypatch):
+    """
+    typer_install_browser invokes playwright's cli through subprocess using
+    the running interpreter, so the browser lands in the active environment.
+    """
+    from sphinxcontrib import typer as sct
+
+    calls = []
+    monkeypatch.setattr(
+        sct.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs))
+    )
+    sct.typer_install_browser(_FakeDirective())
+    assert calls == [
+        (
+            (([sys.executable, "-m", "playwright", "install", "chromium"],)),
+            {"check": True},
+        )
+    ]
+
+
+def _missing_browser(monkeypatch, fail_times):
+    """
+    Patch playwright's chromium launch to raise the missing executable error
+    the first fail_times calls, then delegate to the real launch.
+    """
+    from playwright.sync_api import BrowserType, Error
+
+    real_launch = BrowserType.launch
+    attempts = []
+
+    def launch(self, *args, **kwargs):
+        attempts.append(1)
+        if len(attempts) <= fail_times:
+            raise Error(
+                "BrowserType.launch: Executable doesn't exist at /nowhere/chrome\n"
+                "Please run the following command to download new browsers:\n"
+                "    playwright install"
+            )
+        return real_launch(self, *args, **kwargs)
+
+    monkeypatch.setattr(BrowserType, "launch", launch)
+    return attempts
+
+
+def test_playwright_auto_install(monkeypatch):
+    """
+    When the browser is missing, typer_get_page installs it and retries once.
+    """
+    from sphinxcontrib import typer as sct
+
+    attempts = _missing_browser(monkeypatch, fail_times=1)
+    installs = []
+    monkeypatch.setattr(sct, "typer_install_browser", lambda d: installs.append(d))
+
+    with sct.typer_get_page(_FakeDirective()) as page:
+        page.set_content("<html><body><p id='x'>hi</p></body></html>")
+        assert page.locator("#x").inner_text() == "hi"
+    assert len(installs) == 1
+    assert len(attempts) == 2
+
+
+def test_playwright_auto_install_disabled(monkeypatch):
+    """
+    With typer_playwright_install off the missing browser error is reported
+    as a directive error and no install is attempted.
+    """
+    from docutils.parsers.rst import DirectiveError
+    from sphinxcontrib import typer as sct
+
+    _missing_browser(monkeypatch, fail_times=1)
+    installs = []
+    monkeypatch.setattr(sct, "typer_install_browser", lambda d: installs.append(d))
+
+    directive = _FakeDirective()
+    directive.env.config.typer_playwright_install = False
+    with pytest.raises(DirectiveError) as exc:
+        with sct.typer_get_page(directive):
+            pass
+    assert "playwright install chromium" in exc.value.msg
+    assert installs == []
+
+
+def _svg_class_prefixes(svg):
+    return set(re.findall(r"\.([\w-]+?)-r\d+ *\{", str(svg)))
+
+
+def test_typer_ex_dark_theme():
+    """
+    With :dark-theme: the help is rendered twice for html builders and wrapped
+    in only-light / only-dark containers so the active theme mode picks one.
+    https://github.com/sphinx-contrib/typer/issues/62
+    """
+    clear_callbacks()
+    html_dir, index_html = build_example("dark", "html", example_dir=TYPER_EXAMPLES)
+    soup = bs(index_html, "html.parser")
+
+    # svg: root + 2 nested subcommands, each rendered light and dark
+    light_svgs = soup.select("div.only-light.typer-only-light svg")
+    dark_svgs = soup.select("div.only-dark.typer-only-dark svg")
+    assert len(light_svgs) == 3
+    assert len(dark_svgs) == 3
+    for light, dark in zip(light_svgs, dark_svgs):
+        assert _svg_class_prefixes(light).isdisjoint(_svg_class_prefixes(dark))
+
+    # sections and their targets are not duplicated
+    ids = [sec.get("id") for sec in soup.find_all("section")]
+    for cmd in [
+        "composite-subgroup",
+        "composite-subgroup-echo",
+        "composite-subgroup-multiply",
+    ]:
+        assert ids.count(cmd) == 1
+
+    # html: one iframe per mode with different page backgrounds
+    light_iframes = soup.select("div.only-light iframe")
+    dark_iframes = soup.select("div.only-dark iframe")
+    assert len(light_iframes) == 1 and len(dark_iframes) == 1
+    assert light_iframes[0]["srcdoc"] != dark_iframes[0]["srcdoc"]
+
+    # the stylesheet that hides the inactive mode is installed and linked
+    assert (html_dir / "_static" / "sphinxcontrib_typer.css").is_file()
+    assert soup.find("link", href=re.compile(r"sphinxcontrib_typer\.css")) is not None
+
+
+def test_typer_ex_dark_theme_text_builder():
+    """
+    Non-html builders only render the primary theme.
+    """
+    clear_callbacks()
+    _, index_txt = build_example("dark", "text", example_dir=TYPER_EXAMPLES)
+    assert index_txt.count("Usage:") == 4
+
+
+def _build_dark_project(tmp_path, html_theme, conf_lines=()):
+    """
+    Build a one page project rendering a command with the given html theme and
+    extra conf.py lines, returning the number of light and dark svg renderings.
+    """
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "conf.py").write_text(
+        "import sys\n"
+        f"sys.path.insert(0, {str(TYPER_EXAMPLES / 'composite')!r})\n"
+        "project = 'dark'\n"
+        "extensions = ['sphinxcontrib.typer']\n"
+        f"html_theme = {html_theme!r}\n" + "".join(f"{line}\n" for line in conf_lines)
+    )
+    (src / "index.rst").write_text(
+        "Dark\n====\n\n"
+        ".. typer:: composite.cli.app:repeat\n"
+        "    :prog: composite repeat\n"
+        "    :preferred: svg\n"
+        "    :width: 65\n"
+    )
+    sys_path = list(sys.path)
+    try:
+        app = Sphinx(
+            src, src, tmp_path / "html", tmp_path / "doctrees", buildername="html"
+        )
+        app.build()
+    finally:
+        sys.path[:] = sys_path
+    soup = bs((tmp_path / "html" / "index.html").read_text(), "html.parser")
+    return (
+        len(soup.select("div.typer-only-light svg")),
+        len(soup.select("div.typer-only-dark svg")),
+        len(soup.select("svg.rich-terminal")),
+    )
+
+
+def test_typer_dark_theme_config_default(tmp_path):
+    """
+    typer_dark_theme in conf.py applies to directives without :dark-theme:.
+    """
+    assert _build_dark_project(
+        tmp_path, "alabaster", ["typer_dark_theme = 'dark'"]
+    ) == (
+        1,
+        1,
+        2,
+    )
+
+
+def test_typer_dark_theme_auto_known_theme(tmp_path):
+    """
+    When typer_dark_theme is not set and html_theme is known to support light
+    and dark modes, the dark theme defaults to "dark".
+    """
+    assert _build_dark_project(tmp_path, "furo") == (1, 1, 2)
+
+
+def test_typer_dark_theme_auto_unknown_theme(tmp_path):
+    """
+    Themes not known to support dark mode render once by default.
+    """
+    assert _build_dark_project(tmp_path, "alabaster") == (0, 0, 1)
+
+
+def test_typer_dark_theme_explicit_off(tmp_path):
+    """
+    typer_dark_theme = None switches the automatic default off.
+    """
+    assert _build_dark_project(tmp_path, "furo", ["typer_dark_theme = None"]) == (
+        0,
+        0,
+        1,
+    )
+
+
+def _build_project(
+    tmp_path, index_rst, conf_lines=(), buildername="html", html_theme="alabaster"
+):
+    """
+    Build a one page project from the given index.rst and extra conf.py lines.
+    Returns the rendered index and the captured sphinx warnings.
+    """
+    src = tmp_path / "src"
+    src.mkdir(parents=True, exist_ok=True)
+    (src / "conf.py").write_text(
+        "\n".join(
+            [
+                "import sys",
+                f"sys.path.insert(0, {str(TYPER_EXAMPLES / 'composite')!r})",
+                f"sys.path.insert(0, {str(TYPER_EXAMPLES / 'options')!r})",
+                "project = 'proj'",
+                "extensions = ['sphinxcontrib.typer']",
+                f"html_theme = {html_theme!r}",
+                *conf_lines,
+            ]
+        )
+        + "\n"
+    )
+    (src / "index.rst").write_text(index_rst)
+    warnings = io.StringIO()
+    sys_path = list(sys.path)
+    try:
+        app = Sphinx(
+            src,
+            src,
+            tmp_path / "out",
+            tmp_path / "doctrees",
+            buildername=buildername,
+            status=None,
+            warning=warnings,
+        )
+        app.build()
+    finally:
+        sys.path[:] = sys_path
+    ext = {"html": "html", "text": "txt", "xml": "xml"}[buildername]
+    # running many Sphinx apps in one process re-registers nodes/directives,
+    # those warnings are noise for our purposes
+    warnings = "\n".join(
+        line
+        for line in warnings.getvalue().splitlines()
+        if "already registered" not in line
+    )
+    return (tmp_path / "out" / f"index.{ext}").read_text(), warnings
+
+
+_REPEAT = """Index
+=====
+
+.. typer:: composite.cli.app:repeat
+    :prog: composite repeat
+    :width: 65
+{options}
+"""
+
+
+def test_typer_any_role():
+    """
+    Commands resolve through the builtin :any: role.
+    """
+    clear_callbacks()
+    _, index_html = build_example("reference", "html", example_dir=TYPER_EXAMPLES)
+    paragraphs = bs(index_html, "html.parser").find_all("section")[0].find_all("p")
+    (ref,) = paragraphs[2].find_all("a")
+    assert ref.attrs["href"] == "reference.html#python-m-cli-ref-py"
+    assert ref.text == "python -m cli-ref.py"
+
+
+def test_typer_builders_option(tmp_path):
+    """
+    :builders: overrides the render target for the given builder.
+    """
+    html, warnings = _build_project(
+        tmp_path, _REPEAT.format(options="    :builders: html=text")
+    )
+    assert not warnings
+    soup = bs(html, "html.parser")
+    assert not soup.select("svg.rich-terminal")
+    assert "Usage: composite repeat" in soup.find("pre").get_text()
+
+
+def test_typer_unknown_builder_falls_back_to_text(tmp_path):
+    """
+    Builders with no configured render targets fall back to text output.
+    """
+    xml, warnings = _build_project(
+        tmp_path, _REPEAT.format(options=""), buildername="xml"
+    )
+    assert not warnings
+    assert "<literal_block" in xml
+    assert "Usage: composite repeat" in xml
+
+
+def test_typer_markup_mode_option(tmp_path):
+    """
+    :markup-mode: controls how rich markup in help text is interpreted.
+    """
+    page = """Index
+=====
+
+.. typer:: options_cli.app:hello
+    :prog: hello
+    :preferred: text
+    :width: 65
+{options}
+"""
+    markdown, warnings = _build_project(
+        tmp_path / "markdown", page.format(options="    :markup-mode: markdown")
+    )
+    assert not warnings
+    assert (
+        "Say [bold]hello[/bold]." in bs(markdown, "html.parser").find("pre").get_text()
+    )
+
+    rich, warnings = _build_project(
+        tmp_path / "rich", page.format(options="    :markup-mode: rich")
+    )
+    assert not warnings
+    assert "[bold]" not in rich
+    assert "Say hello." in bs(rich, "html.parser").find("pre").get_text()
+
+
+def test_typer_hidden_command(tmp_path):
+    """
+    A directive pointed at a hidden command renders nothing.
+    """
+    html, warnings = _build_project(
+        tmp_path,
+        "Index\n=====\n\n.. typer:: options_cli.app:secret\n    :preferred: text\n",
+    )
+    assert not warnings
+    assert "Usage:" not in html
+
+
+def test_typer_callable_render_options(tmp_path):
+    """
+    The *-kwargs options may point at a callable returning the kwargs dict, and
+    a callable returning anything else is reported.
+    """
+    html, warnings = _build_project(
+        tmp_path / "good",
+        _REPEAT.format(
+            options="    :preferred: svg\n    :svg-kwargs: options_cli.svg_kwargs"
+        ),
+    )
+    assert not warnings
+    svg = bs(html, "html.parser").select_one("svg.rich-terminal")
+    title = svg.find("text").get_text().replace("\xa0", " ")
+    assert title == "custom title for composite repeat"
+
+    _, warnings = _build_project(
+        tmp_path / "bad",
+        _REPEAT.format(
+            options="    :preferred: svg\n    :svg-kwargs: options_cli.bad_kwargs"
+        ),
+    )
+    assert "Invalid svg-kwargs, must be a dict or callable" in warnings
+
+
+def test_typer_callable_config_hook(tmp_path):
+    """
+    Render hooks may be configured as callables instead of import strings.
+    """
+    html, _ = _build_project(
+        tmp_path,
+        _REPEAT.format(options="    :preferred: html"),
+        conf_lines=[
+            "def typer_render_html(directive, normal_cmd, html_page):",
+            "    return f'<div class=\"hooked\">{normal_cmd}</div>'",
+        ],
+    )
+    soup = bs(html, "html.parser")
+    assert soup.find("div", class_="hooked").get_text() == "composite repeat"
+    assert not soup.find("iframe")
+
+
+def test_typer_import_errors(tmp_path):
+    """
+    Import failures are reported with the reason.
+    """
+    page = """Index
+=====
+
+.. typer:: nonexistent.module:app
+    :preferred: text
+
+.. typer:: options_raises.app
+    :preferred: text
+
+.. typer:: options_exit.app
+    :preferred: text
+
+.. typer:: options_cli.not_an_app
+    :preferred: text
+"""
+    _, warnings = _build_project(tmp_path, page)
+    assert 'Failed to import "nonexistent.module:app"' in warnings
+    assert "boom during import" in warnings
+    assert "The module appeared to call sys.exit()" in warnings
+    assert "is not a Typer app or command" in warnings
+
+
+def test_playwright_other_launch_errors_propagate(monkeypatch):
+    """
+    Launch errors other than a missing browser are not swallowed or retried.
+    """
+    from playwright.sync_api import BrowserType, Error
+    from sphinxcontrib import typer as sct
+
+    def launch(self, *args, **kwargs):
+        raise Error("something else went wrong")
+
+    monkeypatch.setattr(BrowserType, "launch", launch)
+    installs = []
+    monkeypatch.setattr(sct, "typer_install_browser", lambda d: installs.append(d))
+    with pytest.raises(Error, match="something else"):
+        with sct.typer_get_page(_FakeDirective()):
+            pass
+    assert installs == []
+
+
+def test_playwright_not_installed(monkeypatch):
+    """
+    A missing playwright package is reported as a directive error.
+    """
+    from docutils.parsers.rst import DirectiveError
+    from sphinxcontrib import typer as sct
+
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", None)
+    with pytest.raises(DirectiveError) as exc:
+        with sct.typer_get_page(_FakeDirective()):
+            pass
+    assert "requires playwright" in exc.value.msg
+
+
+def test_cairosvg_not_installed(monkeypatch, tmp_path):
+    """
+    A missing cairosvg package is reported as a directive error rather than
+    silently producing no pdf.
+    """
+    from docutils.parsers.rst import DirectiveError
+    from sphinxcontrib import typer as sct
+
+    monkeypatch.setitem(sys.modules, "cairosvg", None)
+    with pytest.raises(DirectiveError) as exc:
+        sct.typer_svg2pdf(_FakeDirective(), "<svg/>", tmp_path / "out.pdf")
+    assert "cairosvg must be installed" in exc.value.msg
+    assert not (tmp_path / "out.pdf").exists()
+
+
+def test_typer_command_factory(tmp_path):
+    """
+    The directive accepts a callable returning a click command.
+    """
+    html, warnings = _build_project(
+        tmp_path,
+        "Index\n=====\n\n.. typer:: options_cli.command_factory\n    :prog: factory\n"
+        "    :preferred: text\n    :width: 65\n",
+    )
+    assert not warnings
+    assert (
+        "Usage: factory [OPTIONS] COMMAND [ARGS]..."
+        in bs(html, "html.parser").find("pre").get_text()
+    )
+
+
 def test_typer_ex_composite():
     EX_DIR = TYPER_EXAMPLES / "composite/composite"
     cli_py = EX_DIR / "cli.py"
@@ -381,7 +1038,9 @@ def test_typer_ex_composite():
 
         # check navbar
         navitems = list(
-            bs(index_html.read_text()).find("div", class_="sphinxsidebar").find_all("a")
+            bs(index_html.read_text(), features="lxml")
+            .find("div", class_="sphinxsidebar")
+            .find_all("a")
         )
         assert navitems[1].text == "composite"
         assert navitems[2].text.strip() == "python -m cli.py repeat"
@@ -455,8 +1114,8 @@ def test_typer_render_html():
 
     assert check_callback("typer_render_html")
     assert check_callback("typer_get_iframe_height")
-    # the :iframe-height: option should short-circuit the selenium web driver
-    assert not check_callback("typer_get_web_driver")
+    # the :iframe-height: option should short-circuit the browser page hook
+    assert not check_callback("typer_get_page")
 
     if bld_dir.exists():
         shutil.rmtree(bld_dir.parent)
@@ -476,6 +1135,8 @@ def test_typer_render_latex():
 
     assert check_callback("typer_svg2pdf")
     assert check_callback("typer_convert_png")
+    # png conversion is done with a screenshot from the browser page hook
+    assert check_callback("typer_get_page")
 
     # only the text render emits literal text into the latex source
     assert latex.count("Usage") == 1

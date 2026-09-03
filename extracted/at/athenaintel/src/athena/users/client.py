@@ -4,9 +4,15 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.delete_ssh_key_response_out import DeleteSshKeyResponseOut
 from ..types.me_sources_response_out import MeSourcesResponseOut
+from ..types.ssh_key_list_response_out import SshKeyListResponseOut
+from ..types.ssh_key_out import SshKeyOut
 from ..types.user_info_out import UserInfoOut
 from .raw_client import AsyncRawUsersClient, RawUsersClient
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class UsersClient:
@@ -74,6 +80,105 @@ class UsersClient:
         client.users.me_sources()
         """
         _response = self._raw_client.me_sources(request_options=request_options)
+        return _response.data
+
+    def list_ssh_keys(self, *, request_options: typing.Optional[RequestOptions] = None) -> SshKeyListResponseOut:
+        """
+        List the SSH public keys registered on the caller's Athena account. A registered key authenticates `ssh <computer_asset_id>@<gateway>` to every computer the caller can edit; keys are not tied to a workspace.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SshKeyListResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.users.list_ssh_keys()
+        """
+        _response = self._raw_client.list_ssh_keys(request_options=request_options)
+        return _response.data
+
+    def add_ssh_key(
+        self,
+        *,
+        public_key: str,
+        label: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SshKeyOut:
+        """
+        Register an SSH public key (the contents of an OpenSSH `.pub` file) on the caller's account. Returns 400 for a malformed or unsupported key, 409 when the key is already registered or the caller has reached the per-account limit.
+
+        Parameters
+        ----------
+        public_key : str
+            The contents of an OpenSSH ``.pub`` file: ``<type> <base64> [comment]``. Accepted types: ssh-ed25519, ecdsa-sha2-nistp256/384/521, ssh-rsa (2048 bits or more), and the FIDO ``sk-`` variants.
+
+        label : typing.Optional[str]
+            Optional display label; defaults to the key's comment, then its type.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SshKeyOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.users.add_ssh_key(
+            label="laptop",
+            public_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBZzuCu6wC9oVY2lVbVKdwpMElfCYiWTOIVQQBtq7HW9 me@laptop",
+        )
+        """
+        _response = self._raw_client.add_ssh_key(public_key=public_key, label=label, request_options=request_options)
+        return _response.data
+
+    def delete_ssh_key(
+        self, key_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteSshKeyResponseOut:
+        """
+        Delete an SSH public key from the caller's account. SSH sessions authenticated with the key are closed by the gateway within a minute. Returns 404 for a key the caller does not own.
+
+        Parameters
+        ----------
+        key_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteSshKeyResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.users.delete_ssh_key(
+            key_id="key_id",
+        )
+        """
+        _response = self._raw_client.delete_ssh_key(key_id, request_options=request_options)
         return _response.data
 
 
@@ -158,4 +263,129 @@ class AsyncUsersClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.me_sources(request_options=request_options)
+        return _response.data
+
+    async def list_ssh_keys(self, *, request_options: typing.Optional[RequestOptions] = None) -> SshKeyListResponseOut:
+        """
+        List the SSH public keys registered on the caller's Athena account. A registered key authenticates `ssh <computer_asset_id>@<gateway>` to every computer the caller can edit; keys are not tied to a workspace.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SshKeyListResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.users.list_ssh_keys()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_ssh_keys(request_options=request_options)
+        return _response.data
+
+    async def add_ssh_key(
+        self,
+        *,
+        public_key: str,
+        label: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SshKeyOut:
+        """
+        Register an SSH public key (the contents of an OpenSSH `.pub` file) on the caller's account. Returns 400 for a malformed or unsupported key, 409 when the key is already registered or the caller has reached the per-account limit.
+
+        Parameters
+        ----------
+        public_key : str
+            The contents of an OpenSSH ``.pub`` file: ``<type> <base64> [comment]``. Accepted types: ssh-ed25519, ecdsa-sha2-nistp256/384/521, ssh-rsa (2048 bits or more), and the FIDO ``sk-`` variants.
+
+        label : typing.Optional[str]
+            Optional display label; defaults to the key's comment, then its type.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SshKeyOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.users.add_ssh_key(
+                label="laptop",
+                public_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBZzuCu6wC9oVY2lVbVKdwpMElfCYiWTOIVQQBtq7HW9 me@laptop",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.add_ssh_key(
+            public_key=public_key, label=label, request_options=request_options
+        )
+        return _response.data
+
+    async def delete_ssh_key(
+        self, key_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteSshKeyResponseOut:
+        """
+        Delete an SSH public key from the caller's account. SSH sessions authenticated with the key are closed by the gateway within a minute. Returns 404 for a key the caller does not own.
+
+        Parameters
+        ----------
+        key_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteSshKeyResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.users.delete_ssh_key(
+                key_id="key_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete_ssh_key(key_id, request_options=request_options)
         return _response.data

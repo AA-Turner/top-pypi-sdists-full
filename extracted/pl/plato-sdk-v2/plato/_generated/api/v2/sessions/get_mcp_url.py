@@ -39,8 +39,9 @@ def sync(
 ) -> McpUrlResponse:
     """Get MCP endpoint URLs for all jobs in a session.
 
-    Returns browser-accessible URLs built from each job's simulator
-    mcp_port/mcp_path config: {job_id}--{mcp_port}.sims.plato.so{mcp_path}
+    Returns browser-accessible URLs, {job_id}--{port}.sims.plato.so{path},
+    where port/path/enabled come from each job's artifact mcp_config first and
+    the simulator's mcp_port/mcp_path/mcp_available config second.
 
     Args:
         session_id: The session ID.
@@ -67,8 +68,9 @@ async def asyncio(
 ) -> McpUrlResponse:
     """Get MCP endpoint URLs for all jobs in a session.
 
-    Returns browser-accessible URLs built from each job's simulator
-    mcp_port/mcp_path config: {job_id}--{mcp_port}.sims.plato.so{mcp_path}
+    Returns browser-accessible URLs, {job_id}--{port}.sims.plato.so{path},
+    where port/path/enabled come from each job's artifact mcp_config first and
+    the simulator's mcp_port/mcp_path/mcp_available config second.
 
     Args:
         session_id: The session ID.

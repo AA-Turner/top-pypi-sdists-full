@@ -15,6 +15,7 @@ from ..errors.bad_request_error import BadRequestError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
+from .types.list_financial_activity_request_direction import ListFinancialActivityRequestDirection
 from .types.list_financial_activity_request_line_types_item import ListFinancialActivityRequestLineTypesItem
 from .types.list_financial_activity_response import ListFinancialActivityResponse
 from pydantic import ValidationError
@@ -36,6 +37,10 @@ class RawFinancialActivityClient:
                 ListFinancialActivityRequestLineTypesItem, typing.Sequence[ListFinancialActivityRequestLineTypesItem]
             ]
         ] = None,
+        direction: typing.Optional[ListFinancialActivityRequestDirection] = None,
+        resource_id: typing.Optional[str] = None,
+        activity_id: typing.Optional[str] = None,
+        exclude_internal_movements: typing.Optional[bool] = None,
         currency: typing.Optional[str] = None,
         posted_after: typing.Optional[dt.datetime] = None,
         posted_before: typing.Optional[dt.datetime] = None,
@@ -64,6 +69,18 @@ class RawFinancialActivityClient:
 
         line_types : typing.Optional[typing.Union[ListFinancialActivityRequestLineTypesItem, typing.Sequence[ListFinancialActivityRequestLineTypesItem]]]
             Optional ledger line categories to include. Some categories (for example `onchain_deposit`, which covers inbound crypto deposits such as MoonPay onramps) are only returned when explicitly requested here.
+
+        direction : typing.Optional[ListFinancialActivityRequestDirection]
+            Optional direction filter. `money_in` returns positive activity and `money_out` returns negative activity.
+
+        resource_id : typing.Optional[str]
+            Optional prefixed resource ID. Returns activity associated with that resource.
+
+        activity_id : typing.Optional[str]
+            Optional ledger activity ID (for example `line_3`). Returns at most that one activity.
+
+        exclude_internal_movements : typing.Optional[bool]
+            Whether to exclude balance reservations and balanced movements between the account's own balances.
 
         currency : typing.Optional[str]
             Optional currency code filter, for example `usd`.
@@ -103,6 +120,10 @@ class RawFinancialActivityClient:
                 "include_owned_accounts": include_owned_accounts,
                 "include_resource": include_resource,
                 "line_types": line_types,
+                "direction": direction,
+                "resource_id": resource_id,
+                "activity_id": activity_id,
+                "exclude_internal_movements": exclude_internal_movements,
                 "currency": currency,
                 "posted_after": serialize_datetime(posted_after) if posted_after is not None else None,
                 "posted_before": serialize_datetime(posted_before) if posted_before is not None else None,
@@ -193,6 +214,10 @@ class AsyncRawFinancialActivityClient:
                 ListFinancialActivityRequestLineTypesItem, typing.Sequence[ListFinancialActivityRequestLineTypesItem]
             ]
         ] = None,
+        direction: typing.Optional[ListFinancialActivityRequestDirection] = None,
+        resource_id: typing.Optional[str] = None,
+        activity_id: typing.Optional[str] = None,
+        exclude_internal_movements: typing.Optional[bool] = None,
         currency: typing.Optional[str] = None,
         posted_after: typing.Optional[dt.datetime] = None,
         posted_before: typing.Optional[dt.datetime] = None,
@@ -221,6 +246,18 @@ class AsyncRawFinancialActivityClient:
 
         line_types : typing.Optional[typing.Union[ListFinancialActivityRequestLineTypesItem, typing.Sequence[ListFinancialActivityRequestLineTypesItem]]]
             Optional ledger line categories to include. Some categories (for example `onchain_deposit`, which covers inbound crypto deposits such as MoonPay onramps) are only returned when explicitly requested here.
+
+        direction : typing.Optional[ListFinancialActivityRequestDirection]
+            Optional direction filter. `money_in` returns positive activity and `money_out` returns negative activity.
+
+        resource_id : typing.Optional[str]
+            Optional prefixed resource ID. Returns activity associated with that resource.
+
+        activity_id : typing.Optional[str]
+            Optional ledger activity ID (for example `line_3`). Returns at most that one activity.
+
+        exclude_internal_movements : typing.Optional[bool]
+            Whether to exclude balance reservations and balanced movements between the account's own balances.
 
         currency : typing.Optional[str]
             Optional currency code filter, for example `usd`.
@@ -260,6 +297,10 @@ class AsyncRawFinancialActivityClient:
                 "include_owned_accounts": include_owned_accounts,
                 "include_resource": include_resource,
                 "line_types": line_types,
+                "direction": direction,
+                "resource_id": resource_id,
+                "activity_id": activity_id,
+                "exclude_internal_movements": exclude_internal_movements,
                 "currency": currency,
                 "posted_after": serialize_datetime(posted_after) if posted_after is not None else None,
                 "posted_before": serialize_datetime(posted_before) if posted_before is not None else None,

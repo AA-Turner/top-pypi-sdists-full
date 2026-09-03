@@ -172,6 +172,7 @@ class DataIntegrationSummaryTypeDef(TypedDict):
 
 class DeleteApplicationRequestTypeDef(TypedDict):
     Arn: str
+    Force: NotRequired[bool]
 
 class DeleteDataIntegrationRequestTypeDef(TypedDict):
     DataIntegrationIdentifier: str

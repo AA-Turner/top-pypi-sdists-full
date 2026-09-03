@@ -22,6 +22,7 @@ Assertions per batchexecute interaction (URL carries ``?rpcids=``):
 
 * **D. No leaked patterns** (applies to ALL interactions): escaped display-
   name JSON literals like ``\\"Capitalized Two Words\\"``,
+  opaque Google account-shell identifiers,
   ``lh3.googleusercontent.com/(a|ogw)/`` avatar URLs, and the literal IP
   ``108.5.149.175``.
 
@@ -68,7 +69,7 @@ except ImportError:  # pragma: no cover - libyaml ships with PyYAML wheels
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CASSETTE_DIR = REPO_ROOT / "tests" / "cassettes"
+CASSETTE_DIR = REPO_ROOT / "tests" / "cassettes" / "web"
 BAD_FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "bad_cassettes"
 
 
@@ -93,7 +94,7 @@ AUDIT_REPAIR_LIST: dict[str, str] = {
     # collapsed to ``"SCRUBBED"``).
     # chat_ask.yaml + chat_ask_with_references.yaml were re-recorded against
     # the current 9-param streaming-chat builder
-    # (src/notebooklm/_chat/wire.py:90-127, reached via ChatAPI._build_chat_request)
+    # (src/notebooklm/_web/params/chat_stream.py, reached via WebChatAPI._stream_answer)
     # with the ``freq`` body matcher opted in per-cassette in
     # tests/integration/test_vcr_comprehensive.py.
     # sources_add_file.yaml was repaired — upload tokens scrubbed in
@@ -488,6 +489,24 @@ def test_bad_sharing_trips_leak_check() -> None:
     )
 
 
+def test_account_shell_display_names_trip_leak_check() -> None:
+    """Both non-JSON Google account-shell name shapes remain linted."""
+    gbar = '\\"Alice Example\\",\\"SCRUBBED_AVATAR_URL\\"'
+    menu = (
+        '<div class=\\"build-name\\">Alice Example</div>'
+        '<div class=\\"build-email\\">SCRUBBED_EMAIL@example.com</div>'
+    )
+
+    assert any("gbar display name" in leak for leak in _find_leaks(gbar))
+    assert any("account-menu display name" in leak for leak in _find_leaks(menu))
+
+
+def test_account_shell_opaque_id_trips_leak_check() -> None:
+    """The durable account-linked CONFIG identifier remains linted."""
+    gbar = '\\"SCRUBBED_EMAIL@example.com\\",\\"\\",\\"opaque-account-identifier\\"'
+    assert any("gbar account ID" in leak for leak in _find_leaks(gbar))
+
+
 def test_bad_byte_count_trips_byte_count_check() -> None:
     """Regression: the chunk prefix must equal the payload's UTF-8 byte length."""
     failures = _lint_cassette(BAD_FIXTURE_DIR / "bad_byte_count.yaml")
@@ -513,7 +532,7 @@ def test_audit_repair_list_entries_exist() -> None:
 # ``Content-Encoding`` from every recorded response. Pre-#751 that was fine
 # because the response went through ``client.post`` once and decoded
 # exactly once; #751 introduced the streaming rebuild path in
-# :func:`notebooklm._streaming_post.stream_post_with_size_cap`, and the
+# :func:`notebooklm._web.transport.streaming_post.stream_post_with_size_cap`, and the
 # combination of an upstream gzip header re-applied to already-decoded
 # bytes is what bit #769 in production. The existing cassette suite
 # couldn't surface that regression because no cassette carried the
@@ -554,7 +573,7 @@ def test_at_least_one_cassette_advertises_content_encoding_gzip() -> None:
     response header.
 
     Closes the test-coverage gap that hid #769. The fix lives in
-    ``tests/cassettes/gzip_coverage/`` plus the helper in
+    ``tests/cassettes/web/gzip_coverage/`` plus the helper in
     ``tests/scripts/inject_gzip_into_cassette.py`` that re-derives those
     cassettes from canonical recordings. If this assertion ever fails
     again, regenerate the gzip-coverage cassettes — do not silence the
@@ -569,14 +588,14 @@ def test_at_least_one_cassette_advertises_content_encoding_gzip() -> None:
         if _CONTENT_ENCODING_GZIP_RE.search(c.read_text(encoding="utf-8"))
     ]
     assert matches, (
-        "No cassette under tests/cassettes/ advertises Content-Encoding: gzip "
+        "No cassette under tests/cassettes/web/ advertises Content-Encoding: gzip "
         "on any response. The streaming rebuild path in "
-        "notebooklm._streaming_post.stream_post_with_size_cap is invisible to "
+        "notebooklm._web.transport.streaming_post.stream_post_with_size_cap is invisible to "
         "VCR replay without it (see #769/#771). Regenerate the gzip-coverage "
         "cassette(s) via:\n"
         "    uv run python tests/scripts/inject_gzip_into_cassette.py "
-        "tests/cassettes/<source>.yaml "
-        "tests/cassettes/gzip_coverage/<source>_gzipped.yaml"
+        "tests/cassettes/web/<source>.yaml "
+        "tests/cassettes/web/gzip_coverage/<source>_gzipped.yaml"
     )
 
 
@@ -619,7 +638,7 @@ def test_gzip_coverage_cassettes_round_trip_through_helper() -> None:
     coverage_dir = CASSETTE_DIR / "gzip_coverage"
     cassettes = sorted(coverage_dir.glob("*.yaml")) if coverage_dir.is_dir() else []
     assert cassettes, (
-        "No gzip-coverage cassettes found under tests/cassettes/gzip_coverage/. "
+        "No gzip-coverage cassettes found under tests/cassettes/web/gzip_coverage/. "
         "test_at_least_one_cassette_advertises_content_encoding_gzip should "
         "have failed first — investigate that failure before this one."
     )

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: xhtml2pdf
-Version: 0.2.17
+Version: 0.2.18
 Summary: PDF generator using HTML and CSS
 Author-email: Dirk Holtwick <dirk.holtwick@gmail.com>
 Maintainer-email: Luis Zarate <luisza14@gmail.com>, Timo Brembeck <opensource@timo.brembeck.email>
@@ -221,11 +221,11 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Multimedia
 Classifier: Topic :: Office/Business
@@ -239,7 +239,7 @@ Classifier: Topic :: Text Processing :: Markup
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
@@ -250,16 +250,20 @@ Requires-Dist: pyHanko>=0.12.1
 Requires-Dist: pyhanko-certvalidator>=0.19.5
 Requires-Dist: pypdf>=3.1.0
 Requires-Dist: python-bidi>=0.5.0
-Requires-Dist: reportlab<5,>=4.0.4
+Requires-Dist: reportlab<6,>=4.0.4
 Requires-Dist: svglib>=1.2.1
 Provides-Extra: pycairo
-Requires-Dist: reportlab[pycairo]<5,>=4.0.4; extra == "pycairo"
+Requires-Dist: reportlab[pycairo]<6,>=4.0.4; extra == "pycairo"
 Provides-Extra: renderpm
-Requires-Dist: reportlab[renderpm]<5,>=4.0.4; extra == "renderpm"
+Requires-Dist: xhtml2pdf[pycairo]; extra == "renderpm"
 Provides-Extra: test
 Requires-Dist: tomli>=2.0.1; python_version < "3.11" and extra == "test"
 Requires-Dist: tox; extra == "test"
 Requires-Dist: coverage>=5.3; extra == "test"
+Provides-Extra: browsertest
+Requires-Dist: selenium>=4.15; extra == "browsertest"
+Requires-Dist: numpy>=1.24; extra == "browsertest"
+Requires-Dist: tomli>=2.0.1; python_version < "3.11" and extra == "browsertest"
 Provides-Extra: docs
 Requires-Dist: sphinx>=6; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=0.5.0; extra == "docs"
@@ -267,6 +271,7 @@ Requires-Dist: sphinx_reredirects>=0.1.3; extra == "docs"
 Provides-Extra: release
 Requires-Dist: build; extra == "release"
 Requires-Dist: twine; extra == "release"
+Dynamic: license-file
 
 XHTML2PDF
 =========
@@ -278,6 +283,18 @@ XHTML2PDF
 .. image:: https://img.shields.io/pypi/pyversions/xhtml2pdf?label=Python&logo=Python&logoColor=white
     :target: https://www.python.org/downloads
     :alt: Python versions
+
+.. image:: https://img.shields.io/github/actions/workflow/status/xhtml2pdf/xhtml2pdf/tests.yml?branch=master&label=Tests&logo=github&logoColor=white
+    :target: https://github.com/xhtml2pdf/xhtml2pdf/actions/workflows/tests.yml
+    :alt: Tests
+
+.. image:: https://img.shields.io/github/actions/workflow/status/xhtml2pdf/xhtml2pdf/linting.yml?branch=master&label=Linting&logo=github&logoColor=white
+    :target: https://github.com/xhtml2pdf/xhtml2pdf/actions/workflows/linting.yml
+    :alt: Linting
+
+.. image:: https://img.shields.io/github/actions/workflow/status/xhtml2pdf/xhtml2pdf/spelling.yml?branch=master&label=Spelling&logo=github&logoColor=white
+    :target: https://github.com/xhtml2pdf/xhtml2pdf/actions/workflows/spelling.yml
+    :alt: Spelling
 
 .. image:: https://img.shields.io/coveralls/github/xhtml2pdf/xhtml2pdf?label=Coveralls&logo=Coveralls&logoColor=white
     :target: https://coveralls.io/github/xhtml2pdf/xhtml2pdf
@@ -324,7 +341,7 @@ This is a typical Python library and can be installed using pip::
 Requirements
 ============
 
-Only Python 3.8+ is tested and guaranteed to work.
+Only Python 3.10+ is tested and guaranteed to work.
 
 All mandatory requirements are listed in the ``pyproject.toml`` file and are installed automatically using the ``pip install xhtml2pdf`` method.
 
@@ -336,9 +353,8 @@ in combination with the ``PyCairo`` extra dependency:
 
     pip install xhtml2pdf[pycairo]
 
-Alternatively, the legacy ``RenderPM`` can be used by installing:
-
-    pip install xhtml2pdf[renderpm]
+The ``renderpm`` extra is a deprecated alias for ``pycairo``. ReportLab 5 removed
+the C ``RenderPM`` backend, so ``pycairo`` is now the only backend.
 
 
 Alternatives
@@ -366,6 +382,16 @@ Development environment
 
 #. We will recommend using ``venv`` for development.
 
+#. ``make devsetup`` automates the steps below: it creates ``.venv``, installs
+   xhtml2pdf in editable mode with the ``test``, ``docs`` and ``release``
+   extras (the latter brings in ``build`` and ``twine``), and installs the
+   pre-commit hooks. Run it and skip to activating the environment::
+
+    make devsetup
+    source .venv/bin/activate
+
+   Or do it by hand:
+
 #. Create a virtual environment for the project. This can be inside the project directory, but cannot be under version control::
 
     python -m venv .venv
@@ -380,7 +406,7 @@ Development environment
 
 #. The next step will be to install/upgrade dependencies from the ``pyproject.toml`` file::
 
-    pip install -e .[test,docs,build]
+    pip install -e .[test,docs,release]
 
 #. Run tests to check your configuration::
 

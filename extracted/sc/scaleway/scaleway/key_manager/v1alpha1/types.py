@@ -28,6 +28,8 @@ class KeyAlgorithmAsymmetricEncryption(str, Enum, metaclass=StrEnumMeta):
     RSA_OAEP_2048_SHA256 = "rsa_oaep_2048_sha256"
     RSA_OAEP_3072_SHA256 = "rsa_oaep_3072_sha256"
     RSA_OAEP_4096_SHA256 = "rsa_oaep_4096_sha256"
+    ML_KEM_768 = "ml_kem_768"
+    ML_KEM_1024 = "ml_kem_1024"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -43,6 +45,9 @@ class KeyAlgorithmAsymmetricSigning(str, Enum, metaclass=StrEnumMeta):
     RSA_PKCS1_2048_SHA256 = "rsa_pkcs1_2048_sha256"
     RSA_PKCS1_3072_SHA256 = "rsa_pkcs1_3072_sha256"
     RSA_PKCS1_4096_SHA256 = "rsa_pkcs1_4096_sha256"
+    ML_DSA_44 = "ml_dsa_44"
+    ML_DSA_65 = "ml_dsa_65"
+    ML_DSA_87 = "ml_dsa_87"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -497,7 +502,7 @@ class ImportKeyMaterialRequest:
 
     key_material: str
     """
-    The key material The key material is a random sequence of bytes used to derive a cryptographic key.
+    The key material is a random sequence of bytes used to derive a cryptographic key.
     """
 
     region: Optional[ScwRegion] = None
@@ -671,6 +676,24 @@ class UnprotectKeyRequest:
 
 
 @dataclass
+class UnwrapKeyRequest:
+    key_id: str
+    ciphertext: str
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    associated_data: Optional[str] = None
+
+
+@dataclass
+class UnwrapKeyResponse:
+    key_id: str
+    plaintext: str
+
+
+@dataclass
 class UpdateKeyRequest:
     key_id: str
     """
@@ -737,3 +760,21 @@ class VerifyResponse:
     """
     Returns `true` if the signature is valid for the digest and key, and `false` otherwise.
     """
+
+
+@dataclass
+class WrapKeyRequest:
+    key_id: str
+    plaintext: str
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    associated_data: Optional[str] = None
+
+
+@dataclass
+class WrapKeyResponse:
+    key_id: str
+    ciphertext: str

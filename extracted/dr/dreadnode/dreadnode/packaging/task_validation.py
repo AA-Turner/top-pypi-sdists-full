@@ -23,6 +23,7 @@ from pydantic import (
 )
 
 from dreadnode.core.util import valid_version
+from dreadnode.packaging.egress import normalize_declaration
 
 # Spec: contract.md "name" must be kebab-case ``[a-z0-9][a-z0-9-]*``.
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -406,6 +407,31 @@ class TaskYamlFields(BaseModel):
             "A legacy flat list is accepted as scope-only. See Inference Access."
         ),
     )
+    egress: dict[str, t.Any] | None = Field(
+        None,
+        description=(
+            "Outbound destinations the task needs, as ``allow: [target]``. Each "
+            "target is an FQDN, a ``*.suffix`` wildcard, an IP, or a CIDR. The "
+            "declaration narrows the operator's egress floor and can never widen "
+            "it, and declaring it restricts the task to what it names plus the "
+            "platform destinations the platform derives. Omitting the key and "
+            "declaring an empty list differ. See Egress Scope."
+        ),
+    )
+
+    @field_validator("egress")
+    @classmethod
+    def validate_egress(cls, value: dict[str, t.Any] | None) -> dict[str, t.Any] | None:
+        # WP1-93: mirror the API-side ``sandboxes.egress.normalize_declaration``
+        # so author-side validation predicts platform ingest, the same contract
+        # ``models`` carries above. Shape only (TSK-EGR-002) -- whether a target
+        # is reachable depends on the deployment's floor, which the SDK cannot
+        # see and which is re-checked at provision (TSK-EGR-005).
+        #
+        # An absent key and an empty list are different declarations, so the
+        # empty case is preserved rather than normalized away to None.
+        targets = normalize_declaration(value)
+        return None if targets is None else {"allow": targets}
 
     @field_validator("models")
     @classmethod

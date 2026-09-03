@@ -6861,6 +6861,8 @@ class CfnCapability(
         # The values are placeholders you should change.
         from aws_cdk import aws_eks as eks
         
+        # ack: Any
+        
         cfn_capability = eks.CfnCapability(self, "MyCfnCapability",
             capability_name="capabilityName",
             cluster_name="clusterName",
@@ -6870,6 +6872,7 @@ class CfnCapability(
         
             # the properties below are optional
             configuration=eks.CfnCapability.CapabilityConfigurationProperty(
+                ack=ack,
                 argo_cd=eks.CfnCapability.ArgoCdProperty(
                     aws_idc=eks.CfnCapability.AwsIdcProperty(
                         idc_instance_arn="idcInstanceArn",
@@ -7535,18 +7538,20 @@ class CfnCapability(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCapability.CapabilityConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"argo_cd": "argoCd"},
+        name_mapping={"ack": "ack", "argo_cd": "argoCd"},
     )
     class CapabilityConfigurationProperty:
         def __init__(
             self,
             *,
+            ack: typing.Any = None,
             argo_cd: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.ArgoCdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration settings for a capability.
 
             The structure of this object varies depending on the capability type.
 
+            :param ack: 
             :param argo_cd: Configuration settings for an Argo CD capability. This includes the Kubernetes namespace, IAM Identity Center integration, RBAC role mappings, and network access configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-capabilityconfiguration.html
@@ -7558,7 +7563,10 @@ class CfnCapability(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_eks as eks
                 
+                # ack: Any
+                
                 capability_configuration_property = eks.CfnCapability.CapabilityConfigurationProperty(
+                    ack=ack,
                     argo_cd=eks.CfnCapability.ArgoCdProperty(
                         aws_idc=eks.CfnCapability.AwsIdcProperty(
                             idc_instance_arn="idcInstanceArn",
@@ -7586,10 +7594,21 @@ class CfnCapability(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__8d38a3a7c2404193e0d7b39f9c2fc80a04e6cf17decf02ceb0696aa9ebf53d95)
+                check_type(argname="argument ack", value=ack, expected_type=type_hints["ack"])
                 check_type(argname="argument argo_cd", value=argo_cd, expected_type=type_hints["argo_cd"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ack is not None:
+                self._values["ack"] = ack
             if argo_cd is not None:
                 self._values["argo_cd"] = argo_cd
+
+        @builtins.property
+        def ack(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-capabilityconfiguration.html#cfn-eks-capability-capabilityconfiguration-ack
+            '''
+            result = self._values.get("ack")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def argo_cd(
@@ -7792,6 +7811,8 @@ class CfnCapabilityProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_eks as eks
             
+            # ack: Any
+            
             cfn_capability_props = eks.CfnCapabilityProps(
                 capability_name="capabilityName",
                 cluster_name="clusterName",
@@ -7801,6 +7822,7 @@ class CfnCapabilityProps:
             
                 # the properties below are optional
                 configuration=eks.CfnCapability.CapabilityConfigurationProperty(
+                    ack=ack,
                     argo_cd=eks.CfnCapability.ArgoCdProperty(
                         aws_idc=eks.CfnCapability.AwsIdcProperty(
                             idc_instance_arn="idcInstanceArn",
@@ -7940,6 +7962,455 @@ class CfnCapabilityProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_eks_c5926efb.ICertificateAuthorityRef)
+class CfnCertificateAuthority(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_eks.CfnCertificateAuthority",
+):
+    '''Resource Type definition for EKS CertificateAuthority.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-certificateauthority.html
+    :cloudformationResource: AWS::EKS::CertificateAuthority
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_eks as eks
+        
+        cfn_certificate_authority = eks.CfnCertificateAuthority(self, "MyCfnCertificateAuthority",
+            cluster_name="clusterName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster_name: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::EKS::CertificateAuthority``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster_name: The name of the EKS cluster that the certificate authority belongs to.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cec17a839192022bd9ac7f049071e8348c8eb166cf890f251cbb16115c854539)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCertificateAuthorityProps(cluster_name=cluster_name)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnCertificateAuthority")
+    @builtins.classmethod
+    def is_cfn_certificate_authority(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCertificateAuthority.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1992b8c19a9ba4a7b79778a6cad802b436538713041e32cb0b733d308588d0fe)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCertificateAuthority", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1de73c8838fb07e168b490107155606f27449089e147e13e032d640c26540cf9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4fcc22ecf6ab73928a261be9b6f45cea6d6da40a5466214c6b7033dd0d5cea6f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrActivatedAt")
+    def attr_activated_at(self) -> builtins.str:
+        '''The timestamp when the certificate authority was activated.
+
+        :cloudformationAttribute: ActivatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrActivatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrActivatedBy")
+    def attr_activated_by(self) -> builtins.str:
+        '''The entity that activated the certificate authority.
+
+        :cloudformationAttribute: ActivatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrActivatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the certificate authority was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The entity that created the certificate authority.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrData")
+    def attr_data(self) -> builtins.str:
+        '''The Base64 encoded certificate authority data.
+
+        :cloudformationAttribute: Data
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrData"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDistributionStatus")
+    def attr_distribution_status(self) -> builtins.str:
+        '''The distribution status of the certificate authority.
+
+        :cloudformationAttribute: DistributionStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDistributionStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The unique identifier of the certificate authority.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRollbackAvailable")
+    def attr_rollback_available(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Whether activation of this certificate authority can still be rolled back.
+
+        :cloudformationAttribute: RollbackAvailable
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRollbackAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrScheduledEvents")
+    def attr_scheduled_events(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The scheduled auto-activation events for the certificate authority, computed from its validity window.
+
+        :cloudformationAttribute: ScheduledEvents
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrScheduledEvents"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrScheduledEventsFinalAutoActivation")
+    def attr_scheduled_events_final_auto_activation(self) -> builtins.str:
+        '''The deadline by which EKS will auto-activate this certificate authority (notAfter minus 45 days).
+
+        :cloudformationAttribute: ScheduledEvents.FinalAutoActivation
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrScheduledEventsFinalAutoActivation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrScheduledEventsFirstAutoActivation")
+    def attr_scheduled_events_first_auto_activation(self) -> builtins.str:
+        '''The earliest date EKS may auto-activate this certificate authority (notAfter minus 6 months).
+
+        :cloudformationAttribute: ScheduledEvents.FirstAutoActivation
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrScheduledEventsFirstAutoActivation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSigningStatus")
+    def attr_signing_status(self) -> builtins.str:
+        '''The signing status of the certificate authority.
+
+        :cloudformationAttribute: SigningStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSigningStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrValidity")
+    def attr_validity(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The validity period of the certificate authority.
+
+        :cloudformationAttribute: Validity
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrValidity"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrValidityNotAfter")
+    def attr_validity_not_after(self) -> builtins.str:
+        '''The end of the validity period for the certificate authority.
+
+        :cloudformationAttribute: Validity.NotAfter
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrValidityNotAfter"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrValidityNotBefore")
+    def attr_validity_not_before(self) -> builtins.str:
+        '''The start of the validity period for the certificate authority.
+
+        :cloudformationAttribute: Validity.NotBefore
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrValidityNotBefore"))
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthorityRef")
+    def certificate_authority_ref(
+        self,
+    ) -> "_aws_eks_c5926efb.CertificateAuthorityReference":
+        '''A reference to a CertificateAuthority resource.'''
+        return typing.cast("_aws_eks_c5926efb.CertificateAuthorityReference", jsii.get(self, "certificateAuthorityRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterName")
+    def cluster_name(self) -> builtins.str:
+        '''The name of the EKS cluster that the certificate authority belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "clusterName"))
+
+    @cluster_name.setter
+    def cluster_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7b26cdfef8b16be73841e45d7cd61e6a03fe1e5aa910f8e22f2cf261e010d279)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCertificateAuthority.ScheduledEventsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "final_auto_activation": "finalAutoActivation",
+            "first_auto_activation": "firstAutoActivation",
+        },
+    )
+    class ScheduledEventsProperty:
+        def __init__(
+            self,
+            *,
+            final_auto_activation: typing.Optional[builtins.str] = None,
+            first_auto_activation: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The scheduled auto-activation events for the certificate authority, computed from its validity window.
+
+            :param final_auto_activation: The deadline by which EKS will auto-activate this certificate authority (notAfter minus 45 days).
+            :param first_auto_activation: The earliest date EKS may auto-activate this certificate authority (notAfter minus 6 months).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-certificateauthority-scheduledevents.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                scheduled_events_property = eks.CfnCertificateAuthority.ScheduledEventsProperty(
+                    final_auto_activation="finalAutoActivation",
+                    first_auto_activation="firstAutoActivation"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__58c59df9b5527a5c4c2e3651e498f621a864745612a867b7311f404ec8a16033)
+                check_type(argname="argument final_auto_activation", value=final_auto_activation, expected_type=type_hints["final_auto_activation"])
+                check_type(argname="argument first_auto_activation", value=first_auto_activation, expected_type=type_hints["first_auto_activation"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if final_auto_activation is not None:
+                self._values["final_auto_activation"] = final_auto_activation
+            if first_auto_activation is not None:
+                self._values["first_auto_activation"] = first_auto_activation
+
+        @builtins.property
+        def final_auto_activation(self) -> typing.Optional[builtins.str]:
+            '''The deadline by which EKS will auto-activate this certificate authority (notAfter minus 45 days).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-certificateauthority-scheduledevents.html#cfn-eks-certificateauthority-scheduledevents-finalautoactivation
+            '''
+            result = self._values.get("final_auto_activation")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def first_auto_activation(self) -> typing.Optional[builtins.str]:
+            '''The earliest date EKS may auto-activate this certificate authority (notAfter minus 6 months).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-certificateauthority-scheduledevents.html#cfn-eks-certificateauthority-scheduledevents-firstautoactivation
+            '''
+            result = self._values.get("first_auto_activation")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScheduledEventsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCertificateAuthority.ValidityProperty",
+        jsii_struct_bases=[],
+        name_mapping={"not_after": "notAfter", "not_before": "notBefore"},
+    )
+    class ValidityProperty:
+        def __init__(
+            self,
+            *,
+            not_after: typing.Optional[builtins.str] = None,
+            not_before: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The validity period of the certificate authority.
+
+            :param not_after: The end of the validity period for the certificate authority.
+            :param not_before: The start of the validity period for the certificate authority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-certificateauthority-validity.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                validity_property = eks.CfnCertificateAuthority.ValidityProperty(
+                    not_after="notAfter",
+                    not_before="notBefore"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1b7ac7dab7cb6eccddd44b9fee9c77d552ec5b3e15c4d4b03b294b62298f06ca)
+                check_type(argname="argument not_after", value=not_after, expected_type=type_hints["not_after"])
+                check_type(argname="argument not_before", value=not_before, expected_type=type_hints["not_before"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if not_after is not None:
+                self._values["not_after"] = not_after
+            if not_before is not None:
+                self._values["not_before"] = not_before
+
+        @builtins.property
+        def not_after(self) -> typing.Optional[builtins.str]:
+            '''The end of the validity period for the certificate authority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-certificateauthority-validity.html#cfn-eks-certificateauthority-validity-notafter
+            '''
+            result = self._values.get("not_after")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def not_before(self) -> typing.Optional[builtins.str]:
+            '''The start of the validity period for the certificate authority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-certificateauthority-validity.html#cfn-eks-certificateauthority-validity-notbefore
+            '''
+            result = self._values.get("not_before")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ValidityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_eks.CfnCertificateAuthorityProps",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_name": "clusterName"},
+)
+class CfnCertificateAuthorityProps:
+    def __init__(self, *, cluster_name: builtins.str) -> None:
+        '''Properties for defining a ``CfnCertificateAuthority``.
+
+        :param cluster_name: The name of the EKS cluster that the certificate authority belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-certificateauthority.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_eks as eks
+            
+            cfn_certificate_authority_props = eks.CfnCertificateAuthorityProps(
+                cluster_name="clusterName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bebc875fa7852d0b5955ba615a7dd3f9f11144f825b74455537a376d3249fa9d)
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_name": cluster_name,
+        }
+
+    @builtins.property
+    def cluster_name(self) -> builtins.str:
+        '''The name of the EKS cluster that the certificate authority belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-certificateauthority.html#cfn-eks-certificateauthority-clustername
+        '''
+        result = self._values.get("cluster_name")
+        assert result is not None, "Required property 'cluster_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCertificateAuthorityProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_eks_c5926efb.IClusterRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCluster(
     _aws_cdk_0cae9daa.CfnResource,
@@ -7992,7 +8463,15 @@ class CfnCluster(
                 authentication_mode="authenticationMode",
                 bootstrap_cluster_creator_admin_permissions=False
             ),
+            active_certificate_authority_id="activeCertificateAuthorityId",
             bootstrap_self_managed_addons=False,
+            certificate_authority=eks.CfnCluster.CertificateAuthorityProperty(
+                active=eks.CfnCluster.ActiveCertificateAuthorityProperty(
+                    activated_by="activatedBy",
+                    id="id"
+                ),
+                data="data"
+            ),
             compute_config=eks.CfnCluster.ComputeConfigProperty(
                 enabled=False,
                 node_pools=["nodePools"],
@@ -8009,6 +8488,21 @@ class CfnCluster(
                 resources=["resources"]
             )],
             force=False,
+            kube_api_server_config=eks.CfnCluster.KubeApiServerConfigProperty(
+                event_ttl="eventTtl",
+                service_node_port_range=eks.CfnCluster.ServiceNodePortRangeProperty(
+                    max_port=123,
+                    min_port=123
+                )
+            ),
+            kube_controller_manager_config=eks.CfnCluster.KubeControllerManagerConfigProperty(
+                horizontal_pod_autoscaler_controller_config=eks.CfnCluster.HorizontalPodAutoscalerControllerConfigProperty(
+                    horizontal_pod_autoscaler_sync_period="horizontalPodAutoscalerSyncPeriod"
+                ),
+                pod_gc_controller_config=eks.CfnCluster.PodGcControllerConfigProperty(
+                    terminated_pod_gc_threshold=123
+                )
+            ),
             kubernetes_network_config=eks.CfnCluster.KubernetesNetworkConfigProperty(
                 elastic_load_balancing=eks.CfnCluster.ElasticLoadBalancingProperty(
                     enabled=False
@@ -8016,6 +8510,17 @@ class CfnCluster(
                 ip_family="ipFamily",
                 service_ipv4_cidr="serviceIpv4Cidr",
                 service_ipv6_cidr="serviceIpv6Cidr"
+            ),
+            kube_scheduler_config=eks.CfnCluster.KubeSchedulerConfigProperty(
+                node_resources_fit=eks.CfnCluster.NodeResourcesFitConfigProperty(
+                    scoring_strategy=eks.CfnCluster.ScoringStrategyProperty(
+                        resources=[eks.CfnCluster.ResourceWeightProperty(
+                            name="name",
+                            weight=123
+                        )],
+                        type="type"
+                    )
+                )
             ),
             logging=eks.CfnCluster.LoggingProperty(
                 cluster_logging=eks.CfnCluster.ClusterLoggingProperty(
@@ -8077,13 +8582,18 @@ class CfnCluster(
         resources_vpc_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ResourcesVpcConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         access_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.AccessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        active_certificate_authority_id: typing.Optional[builtins.str] = None,
         bootstrap_self_managed_addons: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        certificate_authority: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.CertificateAuthorityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         compute_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ComputeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         control_plane_scaling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ControlPlaneScalingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         encryption_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         force: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        kube_api_server_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KubeApiServerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kube_controller_manager_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KubeControllerManagerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kubernetes_network_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KubernetesNetworkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kube_scheduler_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KubeSchedulerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logging: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.LoggingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         outpost_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.OutpostConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8102,13 +8612,18 @@ class CfnCluster(
         :param resources_vpc_config: The VPC configuration that's used by the cluster control plane. Amazon EKS VPC resources have specific requirements to work properly with Kubernetes. For more information, see `Cluster VPC Considerations <https://docs.aws.amazon.com/eks/latest/userguide/network_reqs.html>`_ and `Cluster Security Group Considerations <https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html>`_ in the *Amazon EKS User Guide* . You must specify at least two subnets. You can specify up to five security groups, but we recommend that you use a dedicated security group for your cluster control plane.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. For more information, see `Amazon EKS Service IAM Role <https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html>`_ in the **Amazon EKS User Guide** .
         :param access_config: The access configuration for the cluster.
+        :param active_certificate_authority_id: The ID of the certificate authority to activate as the cluster's signing CA. Setting or changing this value activates the specified CA (the previously active CA becomes trusted).
         :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` . Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
+        :param certificate_authority: The certificate authority information for the cluster, including the trust bundle and the currently active signing certificate authority.
         :param compute_config: Indicates the current configuration of the compute capability on your EKS Auto Mode cluster. For example, if the capability is enabled or disabled. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account. For more information, see EKS Auto Mode compute capability in the *Amazon EKS User Guide* .
         :param control_plane_scaling_config: The control plane scaling tier configuration. For more information, see EKS Provisioned Control Plane in the Amazon EKS User Guide.
         :param deletion_protection: The current deletion protection setting for the cluster. When ``true`` , deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When ``false`` , the cluster can be deleted normally. This setting only applies to clusters in an active state.
         :param encryption_config: The encryption configuration for the cluster.
         :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster. Default: - false
+        :param kube_api_server_config: The configuration for the Kubernetes API server on an Amazon EKS cluster.
+        :param kube_controller_manager_config: The configuration for the Kubernetes controller manager on an Amazon EKS cluster.
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
+        :param kube_scheduler_config: The configuration for the Kubernetes scheduler on an Amazon EKS cluster.
         :param logging: The logging configuration for your cluster.
         :param name: The unique name to give to your cluster. The name can contain only alphanumeric characters (case-sensitive) and hyphens. It must start with an alphanumeric character and can't be longer than 100 characters. The name must be unique within the AWS Region and AWS account that you're creating the cluster in. Note that underscores can't be used in CloudFormation .
         :param outpost_config: An object representing the configuration of your local Amazon EKS cluster on an AWS Outpost. This object isn't available for clusters on the AWS cloud.
@@ -8128,13 +8643,18 @@ class CfnCluster(
             resources_vpc_config=resources_vpc_config,
             role_arn=role_arn,
             access_config=access_config,
+            active_certificate_authority_id=active_certificate_authority_id,
             bootstrap_self_managed_addons=bootstrap_self_managed_addons,
+            certificate_authority=certificate_authority,
             compute_config=compute_config,
             control_plane_scaling_config=control_plane_scaling_config,
             deletion_protection=deletion_protection,
             encryption_config=encryption_config,
             force=force,
+            kube_api_server_config=kube_api_server_config,
+            kube_controller_manager_config=kube_controller_manager_config,
             kubernetes_network_config=kubernetes_network_config,
+            kube_scheduler_config=kube_scheduler_config,
             logging=logging,
             name=name,
             outpost_config=outpost_config,
@@ -8252,6 +8772,33 @@ class CfnCluster(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCertificateAuthorityActiveActivatedBy")
+    def attr_certificate_authority_active_activated_by(self) -> builtins.str:
+        '''Indicates whether the active certificate authority was activated by EKS or by the customer.
+
+        :cloudformationAttribute: CertificateAuthority.Active.ActivatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCertificateAuthorityActiveActivatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCertificateAuthorityActiveId")
+    def attr_certificate_authority_active_id(self) -> builtins.str:
+        '''The ID of the active (signing) certificate authority.
+
+        :cloudformationAttribute: CertificateAuthority.Active.Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCertificateAuthorityActiveId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCertificateAuthorityCertificateData")
+    def attr_certificate_authority_certificate_data(self) -> builtins.str:
+        '''The base64-encoded certificate-authority trust bundle for the cluster (all trusted CAs).
+
+        :cloudformationAttribute: CertificateAuthority.Data
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCertificateAuthorityCertificateData"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCertificateAuthorityData")
@@ -8396,6 +8943,22 @@ class CfnCluster(
         jsii.set(self, "accessConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="activeCertificateAuthorityId")
+    def active_certificate_authority_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the certificate authority to activate as the cluster's signing CA.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "activeCertificateAuthorityId"))
+
+    @active_certificate_authority_id.setter
+    def active_certificate_authority_id(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__584a86ecfea141013833706ee4b4bf5686c667f11c9b8ecc38b43e87ab4baf18)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "activeCertificateAuthorityId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="bootstrapSelfManagedAddons")
     def bootstrap_self_managed_addons(
         self,
@@ -8412,6 +8975,24 @@ class CfnCluster(
             type_hints = cached_type_hints(_typecheckingstub__1b3725246139251af199def1d548b17a13e8ddd4df825377563ea01cdea555c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bootstrapSelfManagedAddons", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthority")
+    def certificate_authority(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CertificateAuthorityProperty"]]:
+        '''The certificate authority information for the cluster, including the trust bundle and the currently active signing certificate authority.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CertificateAuthorityProperty"]], jsii.get(self, "certificateAuthority"))
+
+    @certificate_authority.setter
+    def certificate_authority(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CertificateAuthorityProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__880f09f5bf74c3c50e89cb5eb9615547a5bcf0bd8c93a5a46a0f12d734f0ca5d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateAuthority", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="computeConfig")
@@ -8504,6 +9085,42 @@ class CfnCluster(
         jsii.set(self, "force", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="kubeApiServerConfig")
+    def kube_api_server_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeApiServerConfigProperty"]]:
+        '''The configuration for the Kubernetes API server on an Amazon EKS cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeApiServerConfigProperty"]], jsii.get(self, "kubeApiServerConfig"))
+
+    @kube_api_server_config.setter
+    def kube_api_server_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeApiServerConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__085459953a7a8b73aa1b400d420f7dc1f950ded340382311e565152379927413)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kubeApiServerConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kubeControllerManagerConfig")
+    def kube_controller_manager_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeControllerManagerConfigProperty"]]:
+        '''The configuration for the Kubernetes controller manager on an Amazon EKS cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeControllerManagerConfigProperty"]], jsii.get(self, "kubeControllerManagerConfig"))
+
+    @kube_controller_manager_config.setter
+    def kube_controller_manager_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeControllerManagerConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c3706b9414c549743848753676a0ce212b6ba421516dd6bd4610ee75cf7a34ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kubeControllerManagerConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="kubernetesNetworkConfig")
     def kubernetes_network_config(
         self,
@@ -8520,6 +9137,24 @@ class CfnCluster(
             type_hints = cached_type_hints(_typecheckingstub__1a14e543582631e80cb6fc2093270dba17f568b8779b381e3bc7398bfafb6699)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kubernetesNetworkConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kubeSchedulerConfig")
+    def kube_scheduler_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeSchedulerConfigProperty"]]:
+        '''The configuration for the Kubernetes scheduler on an Amazon EKS cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeSchedulerConfigProperty"]], jsii.get(self, "kubeSchedulerConfig"))
+
+    @kube_scheduler_config.setter
+    def kube_scheduler_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeSchedulerConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__07ec31572c6ddc6cd8433b413ca82a4c9e5757eef80c1e02d9037d5a4369c444)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kubeSchedulerConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="logging")
@@ -8769,6 +9404,76 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.ActiveCertificateAuthorityProperty",
+        jsii_struct_bases=[],
+        name_mapping={"activated_by": "activatedBy", "id": "id"},
+    )
+    class ActiveCertificateAuthorityProperty:
+        def __init__(
+            self,
+            *,
+            activated_by: typing.Optional[builtins.str] = None,
+            id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Identifies the certificate authority currently signing certificates for the cluster.
+
+            :param activated_by: Indicates whether the active certificate authority was activated by EKS or by the customer.
+            :param id: The ID of the active (signing) certificate authority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-activecertificateauthority.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                active_certificate_authority_property = eks.CfnCluster.ActiveCertificateAuthorityProperty(
+                    activated_by="activatedBy",
+                    id="id"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9e8d005886336ef43067bdb41db5a5d622accd8476aba540bc5a635c06ff9230)
+                check_type(argname="argument activated_by", value=activated_by, expected_type=type_hints["activated_by"])
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if activated_by is not None:
+                self._values["activated_by"] = activated_by
+            if id is not None:
+                self._values["id"] = id
+
+        @builtins.property
+        def activated_by(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether the active certificate authority was activated by EKS or by the customer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-activecertificateauthority.html#cfn-eks-cluster-activecertificateauthority-activatedby
+            '''
+            result = self._values.get("activated_by")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the active (signing) certificate authority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-activecertificateauthority.html#cfn-eks-cluster-activecertificateauthority-id
+            '''
+            result = self._values.get("id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActiveCertificateAuthorityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCluster.BlockStorageProperty",
         jsii_struct_bases=[],
         name_mapping={"enabled": "enabled"},
@@ -8826,6 +9531,81 @@ class CfnCluster(
 
         def __repr__(self) -> str:
             return "BlockStorageProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.CertificateAuthorityProperty",
+        jsii_struct_bases=[],
+        name_mapping={"active": "active", "data": "data"},
+    )
+    class CertificateAuthorityProperty:
+        def __init__(
+            self,
+            *,
+            active: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ActiveCertificateAuthorityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The certificate authority information for the cluster, including the trust bundle and the currently active signing certificate authority.
+
+            :param active: Identifies the certificate authority currently signing certificates for the cluster.
+            :param data: The base64-encoded certificate-authority trust bundle for the cluster (all trusted CAs).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-certificateauthority.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                certificate_authority_property = eks.CfnCluster.CertificateAuthorityProperty(
+                    active=eks.CfnCluster.ActiveCertificateAuthorityProperty(
+                        activated_by="activatedBy",
+                        id="id"
+                    ),
+                    data="data"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b5bc9446350adc58bdb1e1ee257301de401334a9ed2cb713dec59eccb37006c2)
+                check_type(argname="argument active", value=active, expected_type=type_hints["active"])
+                check_type(argname="argument data", value=data, expected_type=type_hints["data"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if active is not None:
+                self._values["active"] = active
+            if data is not None:
+                self._values["data"] = data
+
+        @builtins.property
+        def active(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ActiveCertificateAuthorityProperty"]]:
+            '''Identifies the certificate authority currently signing certificates for the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-certificateauthority.html#cfn-eks-cluster-certificateauthority-active
+            '''
+            result = self._values.get("active")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ActiveCertificateAuthorityProperty"]], result)
+
+        @builtins.property
+        def data(self) -> typing.Optional[builtins.str]:
+            '''The base64-encoded certificate-authority trust bundle for the cluster (all trusted CAs).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-certificateauthority.html#cfn-eks-cluster-certificateauthority-data
+            '''
+            result = self._values.get("data")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateAuthorityProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9321,6 +10101,289 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.HorizontalPodAutoscalerControllerConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "horizontal_pod_autoscaler_sync_period": "horizontalPodAutoscalerSyncPeriod",
+        },
+    )
+    class HorizontalPodAutoscalerControllerConfigProperty:
+        def __init__(
+            self,
+            *,
+            horizontal_pod_autoscaler_sync_period: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The horizontal pod autoscaler controller configuration.
+
+            :param horizontal_pod_autoscaler_sync_period: The interval between each sync of the horizontal pod autoscaler (e.g., 15s, 1m).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-horizontalpodautoscalercontrollerconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                horizontal_pod_autoscaler_controller_config_property = eks.CfnCluster.HorizontalPodAutoscalerControllerConfigProperty(
+                    horizontal_pod_autoscaler_sync_period="horizontalPodAutoscalerSyncPeriod"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b1393ebea2d7e7ecd83320fcf6aaee93eeeaf0b9722b820a4a8b5384f8419899)
+                check_type(argname="argument horizontal_pod_autoscaler_sync_period", value=horizontal_pod_autoscaler_sync_period, expected_type=type_hints["horizontal_pod_autoscaler_sync_period"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if horizontal_pod_autoscaler_sync_period is not None:
+                self._values["horizontal_pod_autoscaler_sync_period"] = horizontal_pod_autoscaler_sync_period
+
+        @builtins.property
+        def horizontal_pod_autoscaler_sync_period(
+            self,
+        ) -> typing.Optional[builtins.str]:
+            '''The interval between each sync of the horizontal pod autoscaler (e.g., 15s, 1m).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-horizontalpodautoscalercontrollerconfig.html#cfn-eks-cluster-horizontalpodautoscalercontrollerconfig-horizontalpodautoscalersyncperiod
+            '''
+            result = self._values.get("horizontal_pod_autoscaler_sync_period")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HorizontalPodAutoscalerControllerConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.KubeApiServerConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "event_ttl": "eventTtl",
+            "service_node_port_range": "serviceNodePortRange",
+        },
+    )
+    class KubeApiServerConfigProperty:
+        def __init__(
+            self,
+            *,
+            event_ttl: typing.Optional[builtins.str] = None,
+            service_node_port_range: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ServiceNodePortRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for the Kubernetes API server on an Amazon EKS cluster.
+
+            :param event_ttl: The duration that Kubernetes events are retained (e.g., 30m, 1h).
+            :param service_node_port_range: The port range for Kubernetes NodePort services.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubeapiserverconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                kube_api_server_config_property = eks.CfnCluster.KubeApiServerConfigProperty(
+                    event_ttl="eventTtl",
+                    service_node_port_range=eks.CfnCluster.ServiceNodePortRangeProperty(
+                        max_port=123,
+                        min_port=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__67b56219acbfdc4e95343559d8c02e66f926d9fd325caf5b621c3042bec04d04)
+                check_type(argname="argument event_ttl", value=event_ttl, expected_type=type_hints["event_ttl"])
+                check_type(argname="argument service_node_port_range", value=service_node_port_range, expected_type=type_hints["service_node_port_range"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if event_ttl is not None:
+                self._values["event_ttl"] = event_ttl
+            if service_node_port_range is not None:
+                self._values["service_node_port_range"] = service_node_port_range
+
+        @builtins.property
+        def event_ttl(self) -> typing.Optional[builtins.str]:
+            '''The duration that Kubernetes events are retained (e.g., 30m, 1h).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubeapiserverconfig.html#cfn-eks-cluster-kubeapiserverconfig-eventttl
+            '''
+            result = self._values.get("event_ttl")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def service_node_port_range(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ServiceNodePortRangeProperty"]]:
+            '''The port range for Kubernetes NodePort services.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubeapiserverconfig.html#cfn-eks-cluster-kubeapiserverconfig-servicenodeportrange
+            '''
+            result = self._values.get("service_node_port_range")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ServiceNodePortRangeProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KubeApiServerConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.KubeControllerManagerConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "horizontal_pod_autoscaler_controller_config": "horizontalPodAutoscalerControllerConfig",
+            "pod_gc_controller_config": "podGcControllerConfig",
+        },
+    )
+    class KubeControllerManagerConfigProperty:
+        def __init__(
+            self,
+            *,
+            horizontal_pod_autoscaler_controller_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.HorizontalPodAutoscalerControllerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pod_gc_controller_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.PodGcControllerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for the Kubernetes controller manager on an Amazon EKS cluster.
+
+            :param horizontal_pod_autoscaler_controller_config: The horizontal pod autoscaler controller configuration.
+            :param pod_gc_controller_config: The pod garbage collector controller configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubecontrollermanagerconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                kube_controller_manager_config_property = eks.CfnCluster.KubeControllerManagerConfigProperty(
+                    horizontal_pod_autoscaler_controller_config=eks.CfnCluster.HorizontalPodAutoscalerControllerConfigProperty(
+                        horizontal_pod_autoscaler_sync_period="horizontalPodAutoscalerSyncPeriod"
+                    ),
+                    pod_gc_controller_config=eks.CfnCluster.PodGcControllerConfigProperty(
+                        terminated_pod_gc_threshold=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2fe07c3b33b4a3aceb1a72ae7946750a7ae1fd0730eafd7661037e2776980577)
+                check_type(argname="argument horizontal_pod_autoscaler_controller_config", value=horizontal_pod_autoscaler_controller_config, expected_type=type_hints["horizontal_pod_autoscaler_controller_config"])
+                check_type(argname="argument pod_gc_controller_config", value=pod_gc_controller_config, expected_type=type_hints["pod_gc_controller_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if horizontal_pod_autoscaler_controller_config is not None:
+                self._values["horizontal_pod_autoscaler_controller_config"] = horizontal_pod_autoscaler_controller_config
+            if pod_gc_controller_config is not None:
+                self._values["pod_gc_controller_config"] = pod_gc_controller_config
+
+        @builtins.property
+        def horizontal_pod_autoscaler_controller_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.HorizontalPodAutoscalerControllerConfigProperty"]]:
+            '''The horizontal pod autoscaler controller configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubecontrollermanagerconfig.html#cfn-eks-cluster-kubecontrollermanagerconfig-horizontalpodautoscalercontrollerconfig
+            '''
+            result = self._values.get("horizontal_pod_autoscaler_controller_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.HorizontalPodAutoscalerControllerConfigProperty"]], result)
+
+        @builtins.property
+        def pod_gc_controller_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PodGcControllerConfigProperty"]]:
+            '''The pod garbage collector controller configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubecontrollermanagerconfig.html#cfn-eks-cluster-kubecontrollermanagerconfig-podgccontrollerconfig
+            '''
+            result = self._values.get("pod_gc_controller_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PodGcControllerConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KubeControllerManagerConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.KubeSchedulerConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"node_resources_fit": "nodeResourcesFit"},
+    )
+    class KubeSchedulerConfigProperty:
+        def __init__(
+            self,
+            *,
+            node_resources_fit: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.NodeResourcesFitConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for the Kubernetes scheduler on an Amazon EKS cluster.
+
+            :param node_resources_fit: The NodeResourcesFit plugin configuration for the Kubernetes scheduler.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubeschedulerconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                kube_scheduler_config_property = eks.CfnCluster.KubeSchedulerConfigProperty(
+                    node_resources_fit=eks.CfnCluster.NodeResourcesFitConfigProperty(
+                        scoring_strategy=eks.CfnCluster.ScoringStrategyProperty(
+                            resources=[eks.CfnCluster.ResourceWeightProperty(
+                                name="name",
+                                weight=123
+                            )],
+                            type="type"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d3ee0ba64107a6211b2b571d6a6962f31ef10434de9fa8f47608cf7c15245dfb)
+                check_type(argname="argument node_resources_fit", value=node_resources_fit, expected_type=type_hints["node_resources_fit"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if node_resources_fit is not None:
+                self._values["node_resources_fit"] = node_resources_fit
+
+        @builtins.property
+        def node_resources_fit(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.NodeResourcesFitConfigProperty"]]:
+            '''The NodeResourcesFit plugin configuration for the Kubernetes scheduler.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubeschedulerconfig.html#cfn-eks-cluster-kubeschedulerconfig-noderesourcesfit
+            '''
+            result = self._values.get("node_resources_fit")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.NodeResourcesFitConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KubeSchedulerConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCluster.KubernetesNetworkConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -9565,6 +10628,69 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.NodeResourcesFitConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"scoring_strategy": "scoringStrategy"},
+    )
+    class NodeResourcesFitConfigProperty:
+        def __init__(
+            self,
+            *,
+            scoring_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ScoringStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The NodeResourcesFit plugin configuration for the Kubernetes scheduler.
+
+            :param scoring_strategy: The scoring strategy configuration for the NodeResourcesFit scheduler plugin.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-noderesourcesfitconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                node_resources_fit_config_property = eks.CfnCluster.NodeResourcesFitConfigProperty(
+                    scoring_strategy=eks.CfnCluster.ScoringStrategyProperty(
+                        resources=[eks.CfnCluster.ResourceWeightProperty(
+                            name="name",
+                            weight=123
+                        )],
+                        type="type"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__891cbd3141390c7e6329c1857a4d42cb1f7cb922d09a6a5e81ec293774bf0c17)
+                check_type(argname="argument scoring_strategy", value=scoring_strategy, expected_type=type_hints["scoring_strategy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if scoring_strategy is not None:
+                self._values["scoring_strategy"] = scoring_strategy
+
+        @builtins.property
+        def scoring_strategy(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScoringStrategyProperty"]]:
+            '''The scoring strategy configuration for the NodeResourcesFit scheduler plugin.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-noderesourcesfitconfig.html#cfn-eks-cluster-noderesourcesfitconfig-scoringstrategy
+            '''
+            result = self._values.get("scoring_strategy")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScoringStrategyProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NodeResourcesFitConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCluster.OutpostConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -9706,6 +10832,61 @@ class CfnCluster(
 
         def __repr__(self) -> str:
             return "OutpostConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.PodGcControllerConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"terminated_pod_gc_threshold": "terminatedPodGcThreshold"},
+    )
+    class PodGcControllerConfigProperty:
+        def __init__(
+            self,
+            *,
+            terminated_pod_gc_threshold: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The pod garbage collector controller configuration.
+
+            :param terminated_pod_gc_threshold: The number of terminated pods that can exist before the terminated pod garbage collector starts deleting them.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-podgccontrollerconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                pod_gc_controller_config_property = eks.CfnCluster.PodGcControllerConfigProperty(
+                    terminated_pod_gc_threshold=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__67bdd5e1443eddd862b36fbd8095b92fc331a0b731ead94df091066ce7ec3a3a)
+                check_type(argname="argument terminated_pod_gc_threshold", value=terminated_pod_gc_threshold, expected_type=type_hints["terminated_pod_gc_threshold"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if terminated_pod_gc_threshold is not None:
+                self._values["terminated_pod_gc_threshold"] = terminated_pod_gc_threshold
+
+        @builtins.property
+        def terminated_pod_gc_threshold(self) -> typing.Optional[jsii.Number]:
+            '''The number of terminated pods that can exist before the terminated pod garbage collector starts deleting them.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-podgccontrollerconfig.html#cfn-eks-cluster-podgccontrollerconfig-terminatedpodgcthreshold
+            '''
+            result = self._values.get("terminated_pod_gc_threshold")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PodGcControllerConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -10016,6 +11197,78 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.ResourceWeightProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "weight": "weight"},
+    )
+    class ResourceWeightProperty:
+        def __init__(
+            self,
+            *,
+            name: typing.Optional[builtins.str] = None,
+            weight: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''A resource weight entry for the scheduler scoring strategy.
+
+            :param name: The name of the resource (for example, cpu or memory).
+            :param weight: The weight assigned to the resource for scoring. Must be between 1 and 100.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourceweight.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                resource_weight_property = eks.CfnCluster.ResourceWeightProperty(
+                    name="name",
+                    weight=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b3869c3f8d0f07c24dde16fe537681f1452feb2e1b76741c96f17f4e4de120ae)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if name is not None:
+                self._values["name"] = name
+            if weight is not None:
+                self._values["weight"] = weight
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''The name of the resource (for example, cpu or memory).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourceweight.html#cfn-eks-cluster-resourceweight-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def weight(self) -> typing.Optional[jsii.Number]:
+            '''The weight assigned to the resource for scoring.
+
+            Must be between 1 and 100.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourceweight.html#cfn-eks-cluster-resourceweight-weight
+            '''
+            result = self._values.get("weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceWeightProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCluster.ResourcesVpcConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -10239,6 +11492,151 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.ScoringStrategyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"resources": "resources", "type": "type"},
+    )
+    class ScoringStrategyProperty:
+        def __init__(
+            self,
+            *,
+            resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ResourceWeightProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The scoring strategy configuration for the NodeResourcesFit scheduler plugin.
+
+            :param resources: The resource weights used for scoring nodes.
+            :param type: The scoring strategy type (LeastAllocated or MostAllocated).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-scoringstrategy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                scoring_strategy_property = eks.CfnCluster.ScoringStrategyProperty(
+                    resources=[eks.CfnCluster.ResourceWeightProperty(
+                        name="name",
+                        weight=123
+                    )],
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a6624ccf979cdfc15e851c42f14d820868c7c349b7749191cc66da669d9e30a6)
+                check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if resources is not None:
+                self._values["resources"] = resources
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def resources(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ResourceWeightProperty"]]]]:
+            '''The resource weights used for scoring nodes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-scoringstrategy.html#cfn-eks-cluster-scoringstrategy-resources
+            '''
+            result = self._values.get("resources")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ResourceWeightProperty"]]]], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The scoring strategy type (LeastAllocated or MostAllocated).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-scoringstrategy.html#cfn-eks-cluster-scoringstrategy-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScoringStrategyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.ServiceNodePortRangeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_port": "maxPort", "min_port": "minPort"},
+    )
+    class ServiceNodePortRangeProperty:
+        def __init__(
+            self,
+            *,
+            max_port: typing.Optional[jsii.Number] = None,
+            min_port: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The port range for Kubernetes NodePort services.
+
+            :param max_port: The maximum port number in the range.
+            :param min_port: The minimum port number in the range.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-servicenodeportrange.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                service_node_port_range_property = eks.CfnCluster.ServiceNodePortRangeProperty(
+                    max_port=123,
+                    min_port=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__44d5f5cab77243a96045fd9ad64136937c756cd9bdfb573551f06c191b995f67)
+                check_type(argname="argument max_port", value=max_port, expected_type=type_hints["max_port"])
+                check_type(argname="argument min_port", value=min_port, expected_type=type_hints["min_port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_port is not None:
+                self._values["max_port"] = max_port
+            if min_port is not None:
+                self._values["min_port"] = min_port
+
+        @builtins.property
+        def max_port(self) -> typing.Optional[jsii.Number]:
+            '''The maximum port number in the range.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-servicenodeportrange.html#cfn-eks-cluster-servicenodeportrange-maxport
+            '''
+            result = self._values.get("max_port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def min_port(self) -> typing.Optional[jsii.Number]:
+            '''The minimum port number in the range.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-servicenodeportrange.html#cfn-eks-cluster-servicenodeportrange-minport
+            '''
+            result = self._values.get("min_port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceNodePortRangeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCluster.StorageConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"block_storage": "blockStorage"},
@@ -10427,13 +11825,18 @@ class CfnCluster(
         "resources_vpc_config": "resourcesVpcConfig",
         "role_arn": "roleArn",
         "access_config": "accessConfig",
+        "active_certificate_authority_id": "activeCertificateAuthorityId",
         "bootstrap_self_managed_addons": "bootstrapSelfManagedAddons",
+        "certificate_authority": "certificateAuthority",
         "compute_config": "computeConfig",
         "control_plane_scaling_config": "controlPlaneScalingConfig",
         "deletion_protection": "deletionProtection",
         "encryption_config": "encryptionConfig",
         "force": "force",
+        "kube_api_server_config": "kubeApiServerConfig",
+        "kube_controller_manager_config": "kubeControllerManagerConfig",
         "kubernetes_network_config": "kubernetesNetworkConfig",
+        "kube_scheduler_config": "kubeSchedulerConfig",
         "logging": "logging",
         "name": "name",
         "outpost_config": "outpostConfig",
@@ -10453,13 +11856,18 @@ class CfnClusterProps:
         resources_vpc_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ResourcesVpcConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         access_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.AccessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        active_certificate_authority_id: typing.Optional[builtins.str] = None,
         bootstrap_self_managed_addons: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        certificate_authority: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.CertificateAuthorityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         compute_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ComputeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         control_plane_scaling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ControlPlaneScalingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         encryption_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         force: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        kube_api_server_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KubeApiServerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kube_controller_manager_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KubeControllerManagerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kubernetes_network_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KubernetesNetworkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kube_scheduler_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KubeSchedulerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logging: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.LoggingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         outpost_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.OutpostConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10476,13 +11884,18 @@ class CfnClusterProps:
         :param resources_vpc_config: The VPC configuration that's used by the cluster control plane. Amazon EKS VPC resources have specific requirements to work properly with Kubernetes. For more information, see `Cluster VPC Considerations <https://docs.aws.amazon.com/eks/latest/userguide/network_reqs.html>`_ and `Cluster Security Group Considerations <https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html>`_ in the *Amazon EKS User Guide* . You must specify at least two subnets. You can specify up to five security groups, but we recommend that you use a dedicated security group for your cluster control plane.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. For more information, see `Amazon EKS Service IAM Role <https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html>`_ in the **Amazon EKS User Guide** .
         :param access_config: The access configuration for the cluster.
+        :param active_certificate_authority_id: The ID of the certificate authority to activate as the cluster's signing CA. Setting or changing this value activates the specified CA (the previously active CA becomes trusted).
         :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` . Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
+        :param certificate_authority: The certificate authority information for the cluster, including the trust bundle and the currently active signing certificate authority.
         :param compute_config: Indicates the current configuration of the compute capability on your EKS Auto Mode cluster. For example, if the capability is enabled or disabled. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account. For more information, see EKS Auto Mode compute capability in the *Amazon EKS User Guide* .
         :param control_plane_scaling_config: The control plane scaling tier configuration. For more information, see EKS Provisioned Control Plane in the Amazon EKS User Guide.
         :param deletion_protection: The current deletion protection setting for the cluster. When ``true`` , deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When ``false`` , the cluster can be deleted normally. This setting only applies to clusters in an active state.
         :param encryption_config: The encryption configuration for the cluster.
         :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster. Default: - false
+        :param kube_api_server_config: The configuration for the Kubernetes API server on an Amazon EKS cluster.
+        :param kube_controller_manager_config: The configuration for the Kubernetes controller manager on an Amazon EKS cluster.
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
+        :param kube_scheduler_config: The configuration for the Kubernetes scheduler on an Amazon EKS cluster.
         :param logging: The logging configuration for your cluster.
         :param name: The unique name to give to your cluster. The name can contain only alphanumeric characters (case-sensitive) and hyphens. It must start with an alphanumeric character and can't be longer than 100 characters. The name must be unique within the AWS Region and AWS account that you're creating the cluster in. Note that underscores can't be used in CloudFormation .
         :param outpost_config: An object representing the configuration of your local Amazon EKS cluster on an AWS Outpost. This object isn't available for clusters on the AWS cloud.
@@ -10522,7 +11935,15 @@ class CfnClusterProps:
                     authentication_mode="authenticationMode",
                     bootstrap_cluster_creator_admin_permissions=False
                 ),
+                active_certificate_authority_id="activeCertificateAuthorityId",
                 bootstrap_self_managed_addons=False,
+                certificate_authority=eks.CfnCluster.CertificateAuthorityProperty(
+                    active=eks.CfnCluster.ActiveCertificateAuthorityProperty(
+                        activated_by="activatedBy",
+                        id="id"
+                    ),
+                    data="data"
+                ),
                 compute_config=eks.CfnCluster.ComputeConfigProperty(
                     enabled=False,
                     node_pools=["nodePools"],
@@ -10539,6 +11960,21 @@ class CfnClusterProps:
                     resources=["resources"]
                 )],
                 force=False,
+                kube_api_server_config=eks.CfnCluster.KubeApiServerConfigProperty(
+                    event_ttl="eventTtl",
+                    service_node_port_range=eks.CfnCluster.ServiceNodePortRangeProperty(
+                        max_port=123,
+                        min_port=123
+                    )
+                ),
+                kube_controller_manager_config=eks.CfnCluster.KubeControllerManagerConfigProperty(
+                    horizontal_pod_autoscaler_controller_config=eks.CfnCluster.HorizontalPodAutoscalerControllerConfigProperty(
+                        horizontal_pod_autoscaler_sync_period="horizontalPodAutoscalerSyncPeriod"
+                    ),
+                    pod_gc_controller_config=eks.CfnCluster.PodGcControllerConfigProperty(
+                        terminated_pod_gc_threshold=123
+                    )
+                ),
                 kubernetes_network_config=eks.CfnCluster.KubernetesNetworkConfigProperty(
                     elastic_load_balancing=eks.CfnCluster.ElasticLoadBalancingProperty(
                         enabled=False
@@ -10546,6 +11982,17 @@ class CfnClusterProps:
                     ip_family="ipFamily",
                     service_ipv4_cidr="serviceIpv4Cidr",
                     service_ipv6_cidr="serviceIpv6Cidr"
+                ),
+                kube_scheduler_config=eks.CfnCluster.KubeSchedulerConfigProperty(
+                    node_resources_fit=eks.CfnCluster.NodeResourcesFitConfigProperty(
+                        scoring_strategy=eks.CfnCluster.ScoringStrategyProperty(
+                            resources=[eks.CfnCluster.ResourceWeightProperty(
+                                name="name",
+                                weight=123
+                            )],
+                            type="type"
+                        )
+                    )
                 ),
                 logging=eks.CfnCluster.LoggingProperty(
                     cluster_logging=eks.CfnCluster.ClusterLoggingProperty(
@@ -10603,13 +12050,18 @@ class CfnClusterProps:
             check_type(argname="argument resources_vpc_config", value=resources_vpc_config, expected_type=type_hints["resources_vpc_config"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument access_config", value=access_config, expected_type=type_hints["access_config"])
+            check_type(argname="argument active_certificate_authority_id", value=active_certificate_authority_id, expected_type=type_hints["active_certificate_authority_id"])
             check_type(argname="argument bootstrap_self_managed_addons", value=bootstrap_self_managed_addons, expected_type=type_hints["bootstrap_self_managed_addons"])
+            check_type(argname="argument certificate_authority", value=certificate_authority, expected_type=type_hints["certificate_authority"])
             check_type(argname="argument compute_config", value=compute_config, expected_type=type_hints["compute_config"])
             check_type(argname="argument control_plane_scaling_config", value=control_plane_scaling_config, expected_type=type_hints["control_plane_scaling_config"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument encryption_config", value=encryption_config, expected_type=type_hints["encryption_config"])
             check_type(argname="argument force", value=force, expected_type=type_hints["force"])
+            check_type(argname="argument kube_api_server_config", value=kube_api_server_config, expected_type=type_hints["kube_api_server_config"])
+            check_type(argname="argument kube_controller_manager_config", value=kube_controller_manager_config, expected_type=type_hints["kube_controller_manager_config"])
             check_type(argname="argument kubernetes_network_config", value=kubernetes_network_config, expected_type=type_hints["kubernetes_network_config"])
+            check_type(argname="argument kube_scheduler_config", value=kube_scheduler_config, expected_type=type_hints["kube_scheduler_config"])
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument outpost_config", value=outpost_config, expected_type=type_hints["outpost_config"])
@@ -10626,8 +12078,12 @@ class CfnClusterProps:
         }
         if access_config is not None:
             self._values["access_config"] = access_config
+        if active_certificate_authority_id is not None:
+            self._values["active_certificate_authority_id"] = active_certificate_authority_id
         if bootstrap_self_managed_addons is not None:
             self._values["bootstrap_self_managed_addons"] = bootstrap_self_managed_addons
+        if certificate_authority is not None:
+            self._values["certificate_authority"] = certificate_authority
         if compute_config is not None:
             self._values["compute_config"] = compute_config
         if control_plane_scaling_config is not None:
@@ -10638,8 +12094,14 @@ class CfnClusterProps:
             self._values["encryption_config"] = encryption_config
         if force is not None:
             self._values["force"] = force
+        if kube_api_server_config is not None:
+            self._values["kube_api_server_config"] = kube_api_server_config
+        if kube_controller_manager_config is not None:
+            self._values["kube_controller_manager_config"] = kube_controller_manager_config
         if kubernetes_network_config is not None:
             self._values["kubernetes_network_config"] = kubernetes_network_config
+        if kube_scheduler_config is not None:
+            self._values["kube_scheduler_config"] = kube_scheduler_config
         if logging is not None:
             self._values["logging"] = logging
         if name is not None:
@@ -10699,6 +12161,17 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AccessConfigProperty"]], result)
 
     @builtins.property
+    def active_certificate_authority_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the certificate authority to activate as the cluster's signing CA.
+
+        Setting or changing this value activates the specified CA (the previously active CA becomes trusted).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-cluster.html#cfn-eks-cluster-activecertificateauthorityid
+        '''
+        result = self._values.get("active_certificate_authority_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def bootstrap_self_managed_addons(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
@@ -10712,6 +12185,17 @@ class CfnClusterProps:
         '''
         result = self._values.get("bootstrap_self_managed_addons")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def certificate_authority(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CertificateAuthorityProperty"]]:
+        '''The certificate authority information for the cluster, including the trust bundle and the currently active signing certificate authority.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-cluster.html#cfn-eks-cluster-certificateauthority
+        '''
+        result = self._values.get("certificate_authority")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CertificateAuthorityProperty"]], result)
 
     @builtins.property
     def compute_config(
@@ -10777,6 +12261,28 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
+    def kube_api_server_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeApiServerConfigProperty"]]:
+        '''The configuration for the Kubernetes API server on an Amazon EKS cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-cluster.html#cfn-eks-cluster-kubeapiserverconfig
+        '''
+        result = self._values.get("kube_api_server_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeApiServerConfigProperty"]], result)
+
+    @builtins.property
+    def kube_controller_manager_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeControllerManagerConfigProperty"]]:
+        '''The configuration for the Kubernetes controller manager on an Amazon EKS cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-cluster.html#cfn-eks-cluster-kubecontrollermanagerconfig
+        '''
+        result = self._values.get("kube_controller_manager_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeControllerManagerConfigProperty"]], result)
+
+    @builtins.property
     def kubernetes_network_config(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubernetesNetworkConfigProperty"]]:
@@ -10786,6 +12292,17 @@ class CfnClusterProps:
         '''
         result = self._values.get("kubernetes_network_config")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubernetesNetworkConfigProperty"]], result)
+
+    @builtins.property
+    def kube_scheduler_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeSchedulerConfigProperty"]]:
+        '''The configuration for the Kubernetes scheduler on an Amazon EKS cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-cluster.html#cfn-eks-cluster-kubeschedulerconfig
+        '''
+        result = self._values.get("kube_scheduler_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KubeSchedulerConfigProperty"]], result)
 
     @builtins.property
     def logging(
@@ -25761,6 +27278,8 @@ __all__ = [
     "CfnAddonProps",
     "CfnCapability",
     "CfnCapabilityProps",
+    "CfnCertificateAuthority",
+    "CfnCertificateAuthorityProps",
     "CfnCluster",
     "CfnClusterProps",
     "CfnFargateProfile",
@@ -26459,6 +27978,7 @@ def _typecheckingstub__026a54a07cf582ba5a94a8e2596033884e1eef3478ff12b2e65ffd1c3
 
 def _typecheckingstub__8d38a3a7c2404193e0d7b39f9c2fc80a04e6cf17decf02ceb0696aa9ebf53d95(
     *,
+    ack: typing.Any = None,
     argo_cd: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.ArgoCdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26492,6 +28012,62 @@ def _typecheckingstub__1692badb0a867b36af4f94f4857570684acb492cb6cb4bafa2279c645
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cec17a839192022bd9ac7f049071e8348c8eb166cf890f251cbb16115c854539(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cluster_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1992b8c19a9ba4a7b79778a6cad802b436538713041e32cb0b733d308588d0fe(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1de73c8838fb07e168b490107155606f27449089e147e13e032d640c26540cf9(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fcc22ecf6ab73928a261be9b6f45cea6d6da40a5466214c6b7033dd0d5cea6f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b26cdfef8b16be73841e45d7cd61e6a03fe1e5aa910f8e22f2cf261e010d279(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58c59df9b5527a5c4c2e3651e498f621a864745612a867b7311f404ec8a16033(
+    *,
+    final_auto_activation: typing.Optional[builtins.str] = None,
+    first_auto_activation: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b7ac7dab7cb6eccddd44b9fee9c77d552ec5b3e15c4d4b03b294b62298f06ca(
+    *,
+    not_after: typing.Optional[builtins.str] = None,
+    not_before: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bebc875fa7852d0b5955ba615a7dd3f9f11144f825b74455537a376d3249fa9d(
+    *,
+    cluster_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d3e62a858014f3867f3039d1328d57223fb0d16e3fb6d1e2d79279938756eb35(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -26499,13 +28075,18 @@ def _typecheckingstub__d3e62a858014f3867f3039d1328d57223fb0d16e3fb6d1e2d79279938
     resources_vpc_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ResourcesVpcConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     access_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.AccessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    active_certificate_authority_id: typing.Optional[builtins.str] = None,
     bootstrap_self_managed_addons: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    certificate_authority: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.CertificateAuthorityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     compute_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ComputeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     control_plane_scaling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ControlPlaneScalingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     encryption_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     force: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    kube_api_server_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KubeApiServerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kube_controller_manager_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KubeControllerManagerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kubernetes_network_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KubernetesNetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kube_scheduler_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KubeSchedulerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logging: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     outpost_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.OutpostConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -26578,8 +28159,20 @@ def _typecheckingstub__249431e71bfb6d15cdb94aea4df14d4b3371f709cb261f00cb7dc77e7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__584a86ecfea141013833706ee4b4bf5686c667f11c9b8ecc38b43e87ab4baf18(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1b3725246139251af199def1d548b17a13e8ddd4df825377563ea01cdea555c4(
     value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__880f09f5bf74c3c50e89cb5eb9615547a5bcf0bd8c93a5a46a0f12d734f0ca5d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.CertificateAuthorityProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26614,8 +28207,26 @@ def _typecheckingstub__ec11778764d939bb12cbec68a418a76be768d7a638339c5189ae6cfe4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__085459953a7a8b73aa1b400d420f7dc1f950ded340382311e565152379927413(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.KubeApiServerConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3706b9414c549743848753676a0ce212b6ba421516dd6bd4610ee75cf7a34ac(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.KubeControllerManagerConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1a14e543582631e80cb6fc2093270dba17f568b8779b381e3bc7398bfafb6699(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.KubernetesNetworkConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07ec31572c6ddc6cd8433b413ca82a4c9e5757eef80c1e02d9037d5a4369c444(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.KubeSchedulerConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26688,9 +28299,25 @@ def _typecheckingstub__4bfbf6adbd6203efb1ecf28834fc96b1030344f6fe766203b105462b9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9e8d005886336ef43067bdb41db5a5d622accd8476aba540bc5a635c06ff9230(
+    *,
+    activated_by: typing.Optional[builtins.str] = None,
+    id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__11cdae187ae128dcf0eca6a85c8d94b7c2ef69a0d54a9bd1917a1e27f48a5125(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5bc9446350adc58bdb1e1ee257301de401334a9ed2cb713dec59eccb37006c2(
+    *,
+    active: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ActiveCertificateAuthorityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26748,6 +28375,36 @@ def _typecheckingstub__d9922e303b981810f9f91e0f2fd64b8fed44ce90a058b7bd5f2bc4155
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b1393ebea2d7e7ecd83320fcf6aaee93eeeaf0b9722b820a4a8b5384f8419899(
+    *,
+    horizontal_pod_autoscaler_sync_period: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67b56219acbfdc4e95343559d8c02e66f926d9fd325caf5b621c3042bec04d04(
+    *,
+    event_ttl: typing.Optional[builtins.str] = None,
+    service_node_port_range: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ServiceNodePortRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fe07c3b33b4a3aceb1a72ae7946750a7ae1fd0730eafd7661037e2776980577(
+    *,
+    horizontal_pod_autoscaler_controller_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.HorizontalPodAutoscalerControllerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pod_gc_controller_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.PodGcControllerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3ee0ba64107a6211b2b571d6a6962f31ef10434de9fa8f47608cf7c15245dfb(
+    *,
+    node_resources_fit: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.NodeResourcesFitConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0a92b4e070a67c74edb8714df451b4d215084e3116055e205e49b92778b8704f(
     *,
     elastic_load_balancing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ElasticLoadBalancingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -26772,6 +28429,13 @@ def _typecheckingstub__2416911a4b34f3fd91c8c2b50f74aa6d73ad710b43f2975cbddb4f685
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__891cbd3141390c7e6329c1857a4d42cb1f7cb922d09a6a5e81ec293774bf0c17(
+    *,
+    scoring_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ScoringStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__db660b2ea60bc92d49db95b07a452b00775f8630f8510e0a8b731bd1e01399a3(
     *,
     control_plane_instance_type: builtins.str,
@@ -26779,6 +28443,13 @@ def _typecheckingstub__db660b2ea60bc92d49db95b07a452b00775f8630f8510e0a8b731bd1e
     control_plane_placement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ControlPlanePlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     etcd_instance_type: typing.Optional[builtins.str] = None,
     etcd_placement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.EtcdPlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67bdd5e1443eddd862b36fbd8095b92fc331a0b731ead94df091066ce7ec3a3a(
+    *,
+    terminated_pod_gc_threshold: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26812,6 +28483,14 @@ def _typecheckingstub__51b845e43ba054d464150b1f0fffb60f026af086df16857e5625284cc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b3869c3f8d0f07c24dde16fe537681f1452feb2e1b76741c96f17f4e4de120ae(
+    *,
+    name: typing.Optional[builtins.str] = None,
+    weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__986289b8a80017f390950fa94e8370d9961848f3cf42f347c78c0c91f0d06148(
     *,
     subnet_ids: typing.Sequence[builtins.str],
@@ -26827,6 +28506,22 @@ def _typecheckingstub__986289b8a80017f390950fa94e8370d9961848f3cf42f347c78c0c91f
 def _typecheckingstub__b6b15fec966450de5a1c64f1f12de27c09e4cc2c2bd37f93003efabb70e70379(
     *,
     timeout_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6624ccf979cdfc15e851c42f14d820868c7c349b7749191cc66da669d9e30a6(
+    *,
+    resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ResourceWeightProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44d5f5cab77243a96045fd9ad64136937c756cd9bdfb573551f06c191b995f67(
+    *,
+    max_port: typing.Optional[jsii.Number] = None,
+    min_port: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26857,13 +28552,18 @@ def _typecheckingstub__270f142a59c249328ab174c5b0484cfdae6e3110ab52578dbe783d6f8
     resources_vpc_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ResourcesVpcConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     access_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.AccessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    active_certificate_authority_id: typing.Optional[builtins.str] = None,
     bootstrap_self_managed_addons: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    certificate_authority: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.CertificateAuthorityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     compute_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ComputeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     control_plane_scaling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ControlPlaneScalingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     encryption_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     force: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    kube_api_server_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KubeApiServerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kube_controller_manager_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KubeControllerManagerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kubernetes_network_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KubernetesNetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kube_scheduler_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KubeSchedulerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logging: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     outpost_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.OutpostConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

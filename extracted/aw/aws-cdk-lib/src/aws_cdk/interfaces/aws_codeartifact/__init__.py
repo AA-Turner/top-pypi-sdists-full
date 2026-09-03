@@ -177,51 +177,6 @@ class _IPackageGroupRefProxy(
 typing.cast(typing.Any, IPackageGroupRef).__jsii_proxy_class__ = lambda : _IPackageGroupRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codeartifact.IPackageRef")
-class IPackageRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a Package.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="packageRef")
-    def package_ref(self) -> "PackageReference":
-        '''(experimental) A reference to a Package resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPackageRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Package.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_codeartifact.IPackageRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="packageRef")
-    def package_ref(self) -> "PackageReference":
-        '''(experimental) A reference to a Package resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PackageReference", jsii.get(self, "packageRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPackageRef).__jsii_proxy_class__ = lambda : _IPackageRefProxy
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codeartifact.IRepositoryRef")
 class IRepositoryRef(
     _constructs_77d1e7e8.IConstruct,
@@ -317,55 +272,6 @@ class PackageGroupReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_codeartifact.PackageReference",
-    jsii_struct_bases=[],
-    name_mapping={"package_arn": "packageArn"},
-)
-class PackageReference:
-    def __init__(self, *, package_arn: builtins.str) -> None:
-        '''A reference to a Package resource.
-
-        :param package_arn: The Arn of the Package resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_codeartifact as interfaces_codeartifact
-            
-            package_reference = interfaces_codeartifact.PackageReference(
-                package_arn="packageArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__eb8ffbec03150305fc7923edc9e78219b5bc53ca0bc14cdabef382f4837e38b5)
-            check_type(argname="argument package_arn", value=package_arn, expected_type=type_hints["package_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "package_arn": package_arn,
-        }
-
-    @builtins.property
-    def package_arn(self) -> builtins.str:
-        '''The Arn of the Package resource.'''
-        result = self._values.get("package_arn")
-        assert result is not None, "Required property 'package_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PackageReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_codeartifact.RepositoryReference",
     jsii_struct_bases=[],
     name_mapping={"repository_arn": "repositoryArn"},
@@ -418,10 +324,8 @@ __all__ = [
     "DomainReference",
     "IDomainRef",
     "IPackageGroupRef",
-    "IPackageRef",
     "IRepositoryRef",
     "PackageGroupReference",
-    "PackageReference",
     "RepositoryReference",
 ]
 
@@ -441,13 +345,6 @@ def _typecheckingstub__dcf0233cf76c4025a2de7a970fe5dd735d68a73f6df3513d8f4449cda
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__eb8ffbec03150305fc7923edc9e78219b5bc53ca0bc14cdabef382f4837e38b5(
-    *,
-    package_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b3ccba1a8433ca9aaff095ed9b4ae410a100b0bc85a8b0656f6d4b5fa262c53d(
     *,
     repository_arn: builtins.str,
@@ -455,5 +352,5 @@ def _typecheckingstub__b3ccba1a8433ca9aaff095ed9b4ae410a100b0bc85a8b0656f6d4b5fa
     """Type checking stubs"""
     pass
 
-for cls in [IDomainRef, IPackageGroupRef, IPackageRef, IRepositoryRef]:
+for cls in [IDomainRef, IPackageGroupRef, IRepositoryRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

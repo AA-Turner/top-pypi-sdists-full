@@ -1329,6 +1329,826 @@ class CfnReviewTemplateProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_wellarchitected_baeb38e4.IWorkloadRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnWorkload(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_wellarchitected.CfnWorkload",
+):
+    '''Definition of AWS::WellArchitected::Workload Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html
+    :cloudformationResource: AWS::WellArchitected::Workload
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_wellarchitected as wellarchitected
+        
+        cfn_workload = wellarchitected.CfnWorkload(self, "MyCfnWorkload",
+            description="description",
+            environment="environment",
+            lenses=["lenses"],
+            workload_name="workloadName",
+        
+            # the properties below are optional
+            account_ids=["accountIds"],
+            architectural_design="architecturalDesign",
+            aws_regions=["awsRegions"],
+            discovery_config=wellarchitected.CfnWorkload.DiscoveryConfigProperty(
+                trusted_advisor_integration_status="trustedAdvisorIntegrationStatus",
+                workload_resource_definition=["workloadResourceDefinition"]
+            ),
+            industry="industry",
+            industry_type="industryType",
+            non_aws_regions=["nonAwsRegions"],
+            notes="notes",
+            review_owner="reviewOwner",
+            tags=[wellarchitected.CfnWorkload.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: builtins.str,
+        environment: builtins.str,
+        lenses: typing.Sequence[builtins.str],
+        workload_name: builtins.str,
+        account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        architectural_design: typing.Optional[builtins.str] = None,
+        aws_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        discovery_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkload.DiscoveryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        industry: typing.Optional[builtins.str] = None,
+        industry_type: typing.Optional[builtins.str] = None,
+        non_aws_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        notes: typing.Optional[builtins.str] = None,
+        review_owner: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnWorkload.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::WellArchitected::Workload``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: The description for the workload.
+        :param environment: The environment for the workload.
+        :param lenses: The list of lenses associated with the workload.
+        :param workload_name: The name of the workload.
+        :param account_ids: The list of Amazon Web Services account IDs associated with the workload.
+        :param architectural_design: The URL of the architectural design for the workload.
+        :param aws_regions: The list of Amazon Web Services Regions associated with the workload.
+        :param discovery_config: Discovery configuration associated to the workload.
+        :param industry: The industry for the workload.
+        :param industry_type: The industry type for the workload.
+        :param non_aws_regions: The list of non-Amazon Web Services Regions associated with the workload.
+        :param notes: The notes associated with the workload.
+        :param review_owner: The review owner of the workload.
+        :param tags: The tags associated with the workload.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4d52e7a7eb957793ce58ed149bcfb3977ffeb20ab4fce172d1635ca5d48f165e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWorkloadProps(
+            description=description,
+            environment=environment,
+            lenses=lenses,
+            workload_name=workload_name,
+            account_ids=account_ids,
+            architectural_design=architectural_design,
+            aws_regions=aws_regions,
+            discovery_config=discovery_config,
+            industry=industry,
+            industry_type=industry_type,
+            non_aws_regions=non_aws_regions,
+            notes=notes,
+            review_owner=review_owner,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForWorkload")
+    @builtins.classmethod
+    def arn_for_workload(
+        cls,
+        resource: "_aws_wellarchitected_baeb38e4.IWorkloadRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a88fb0a2be776a7eeda08f4cf525a3abe4ef8a1f138019cbed5bfbf4d1aa7956)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkload", [resource]))
+
+    @jsii.member(jsii_name="isCfnWorkload")
+    @builtins.classmethod
+    def is_cfn_workload(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWorkload.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c7e5c4379c1dd607d96d9710fd5726ea5a05e7043b9f014159159085856ff6a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkload", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d396f409ce6ac4af3bd9869e9712e90253bffa323f27d5f8a2b318e152a84bb5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0cb58530b5ba31668d4675616d1bd8a7fcccfa369fab90952613f1cb75c03be9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrImprovementStatus")
+    def attr_improvement_status(self) -> builtins.str:
+        '''The improvement status for a workload.
+
+        :cloudformationAttribute: ImprovementStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrImprovementStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWorkloadArn")
+    def attr_workload_arn(self) -> builtins.str:
+        '''The ARN for the workload.
+
+        :cloudformationAttribute: WorkloadArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWorkloadArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWorkloadId")
+    def attr_workload_id(self) -> builtins.str:
+        '''The ID assigned to the workload.
+
+        :cloudformationAttribute: WorkloadId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWorkloadId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadRef")
+    def workload_ref(self) -> "_aws_wellarchitected_baeb38e4.WorkloadReference":
+        '''A reference to a Workload resource.'''
+        return typing.cast("_aws_wellarchitected_baeb38e4.WorkloadReference", jsii.get(self, "workloadRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''The description for the workload.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f04261fde6397fc9ede578b59981914d90a143b6acd91a4832e4f33059a15d6d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environment")
+    def environment(self) -> builtins.str:
+        '''The environment for the workload.'''
+        return typing.cast(builtins.str, jsii.get(self, "environment"))
+
+    @environment.setter
+    def environment(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8aac33a70ec82591242dd8e6313eedeb88518f412e0bea43cae73b316b2a79ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="lenses")
+    def lenses(self) -> typing.List[builtins.str]:
+        '''The list of lenses associated with the workload.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "lenses"))
+
+    @lenses.setter
+    def lenses(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__015d929b7153cac05d33e2259c76c2c222211a97132536888e554c06ab25e5cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "lenses", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadName")
+    def workload_name(self) -> builtins.str:
+        '''The name of the workload.'''
+        return typing.cast(builtins.str, jsii.get(self, "workloadName"))
+
+    @workload_name.setter
+    def workload_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f91fb9b5e99a78d2b728d919c0cae983c7460a54ea3835486482742c084eeec0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workloadName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="accountIds")
+    def account_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of Amazon Web Services account IDs associated with the workload.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "accountIds"))
+
+    @account_ids.setter
+    def account_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c60ccbd89dde792a3bbcbc99469782afe52f021c0e07e61bcdb77db84cb5838c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accountIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="architecturalDesign")
+    def architectural_design(self) -> typing.Optional[builtins.str]:
+        '''The URL of the architectural design for the workload.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "architecturalDesign"))
+
+    @architectural_design.setter
+    def architectural_design(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__96b563a5776305b59bdc79ee8f5b9193314b9b5167e931a4f7627f05455e183c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "architecturalDesign", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="awsRegions")
+    def aws_regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of Amazon Web Services Regions associated with the workload.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "awsRegions"))
+
+    @aws_regions.setter
+    def aws_regions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8849cd1008faa5c1d40990916b96fd08d00fe427a9d972468bb5b8c09825e7cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsRegions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="discoveryConfig")
+    def discovery_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkload.DiscoveryConfigProperty"]]:
+        '''Discovery configuration associated to the workload.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkload.DiscoveryConfigProperty"]], jsii.get(self, "discoveryConfig"))
+
+    @discovery_config.setter
+    def discovery_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkload.DiscoveryConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ae19eeef0d56f093a7e99db0dbfeaacc7696fc928f84ade54aa37acfd7a6a82a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "discoveryConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="industry")
+    def industry(self) -> typing.Optional[builtins.str]:
+        '''The industry for the workload.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "industry"))
+
+    @industry.setter
+    def industry(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c447c558c14e14d502384ff0b115d596b9f7f07004b26be059136ba924dad4a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "industry", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="industryType")
+    def industry_type(self) -> typing.Optional[builtins.str]:
+        '''The industry type for the workload.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "industryType"))
+
+    @industry_type.setter
+    def industry_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b11f31e4216cef5b59677d9e4c1be4f4db2bd808eac7ad5725dafdbc0af13bee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "industryType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nonAwsRegions")
+    def non_aws_regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of non-Amazon Web Services Regions associated with the workload.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "nonAwsRegions"))
+
+    @non_aws_regions.setter
+    def non_aws_regions(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__85b6468a9e22778f9f72b0ab5cbbb10cab4199e9f4e1f163a49b0cf5280b81ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nonAwsRegions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="notes")
+    def notes(self) -> typing.Optional[builtins.str]:
+        '''The notes associated with the workload.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "notes"))
+
+    @notes.setter
+    def notes(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cfa77fd63d5c619668f39e8807f847f54c49776d21fff1db34894f4dc93b1631)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "notes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="reviewOwner")
+    def review_owner(self) -> typing.Optional[builtins.str]:
+        '''The review owner of the workload.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "reviewOwner"))
+
+    @review_owner.setter
+    def review_owner(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a0980eb3400a16810c27593ca01f8ffa88a4588f5590b9bded0216410ec5bb45)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reviewOwner", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["CfnWorkload.TagsItemsProperty"]]:
+        '''The tags associated with the workload.'''
+        return typing.cast(typing.Optional[typing.List["CfnWorkload.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnWorkload.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a7bbd784ece2c7f85109ca3761e9c70e8d64d4c5a7f82850d03da353ecb8aa50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wellarchitected.CfnWorkload.DiscoveryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "trusted_advisor_integration_status": "trustedAdvisorIntegrationStatus",
+            "workload_resource_definition": "workloadResourceDefinition",
+        },
+    )
+    class DiscoveryConfigProperty:
+        def __init__(
+            self,
+            *,
+            trusted_advisor_integration_status: typing.Optional[builtins.str] = None,
+            workload_resource_definition: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Discovery configuration associated to the workload.
+
+            :param trusted_advisor_integration_status: Discovery integration status in respect to Trusted Advisor for the workload.
+            :param workload_resource_definition: The mode to use for identifying resources associated with the workload.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-workload-discoveryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wellarchitected as wellarchitected
+                
+                discovery_config_property = wellarchitected.CfnWorkload.DiscoveryConfigProperty(
+                    trusted_advisor_integration_status="trustedAdvisorIntegrationStatus",
+                    workload_resource_definition=["workloadResourceDefinition"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__95b74019f26ca61f74561ff5c6093be016266a6bd5c077b00fec0046d62ff9f3)
+                check_type(argname="argument trusted_advisor_integration_status", value=trusted_advisor_integration_status, expected_type=type_hints["trusted_advisor_integration_status"])
+                check_type(argname="argument workload_resource_definition", value=workload_resource_definition, expected_type=type_hints["workload_resource_definition"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if trusted_advisor_integration_status is not None:
+                self._values["trusted_advisor_integration_status"] = trusted_advisor_integration_status
+            if workload_resource_definition is not None:
+                self._values["workload_resource_definition"] = workload_resource_definition
+
+        @builtins.property
+        def trusted_advisor_integration_status(self) -> typing.Optional[builtins.str]:
+            '''Discovery integration status in respect to Trusted Advisor for the workload.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-workload-discoveryconfig.html#cfn-wellarchitected-workload-discoveryconfig-trustedadvisorintegrationstatus
+            '''
+            result = self._values.get("trusted_advisor_integration_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def workload_resource_definition(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''The mode to use for identifying resources associated with the workload.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-workload-discoveryconfig.html#cfn-wellarchitected-workload-discoveryconfig-workloadresourcedefinition
+            '''
+            result = self._values.get("workload_resource_definition")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DiscoveryConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wellarchitected.CfnWorkload.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-workload-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wellarchitected as wellarchitected
+                
+                tags_items_property = wellarchitected.CfnWorkload.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2bd937bc96a27939ab5864c8658a8290c4415c93d1aae5c998c0cf0e170f14ac)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-workload-tagsitems.html#cfn-wellarchitected-workload-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-workload-tagsitems.html#cfn-wellarchitected-workload-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wellarchitected.CfnWorkloadProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "environment": "environment",
+        "lenses": "lenses",
+        "workload_name": "workloadName",
+        "account_ids": "accountIds",
+        "architectural_design": "architecturalDesign",
+        "aws_regions": "awsRegions",
+        "discovery_config": "discoveryConfig",
+        "industry": "industry",
+        "industry_type": "industryType",
+        "non_aws_regions": "nonAwsRegions",
+        "notes": "notes",
+        "review_owner": "reviewOwner",
+        "tags": "tags",
+    },
+)
+class CfnWorkloadProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        environment: builtins.str,
+        lenses: typing.Sequence[builtins.str],
+        workload_name: builtins.str,
+        account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        architectural_design: typing.Optional[builtins.str] = None,
+        aws_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        discovery_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkload.DiscoveryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        industry: typing.Optional[builtins.str] = None,
+        industry_type: typing.Optional[builtins.str] = None,
+        non_aws_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        notes: typing.Optional[builtins.str] = None,
+        review_owner: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnWorkload.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkload``.
+
+        :param description: The description for the workload.
+        :param environment: The environment for the workload.
+        :param lenses: The list of lenses associated with the workload.
+        :param workload_name: The name of the workload.
+        :param account_ids: The list of Amazon Web Services account IDs associated with the workload.
+        :param architectural_design: The URL of the architectural design for the workload.
+        :param aws_regions: The list of Amazon Web Services Regions associated with the workload.
+        :param discovery_config: Discovery configuration associated to the workload.
+        :param industry: The industry for the workload.
+        :param industry_type: The industry type for the workload.
+        :param non_aws_regions: The list of non-Amazon Web Services Regions associated with the workload.
+        :param notes: The notes associated with the workload.
+        :param review_owner: The review owner of the workload.
+        :param tags: The tags associated with the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wellarchitected as wellarchitected
+            
+            cfn_workload_props = wellarchitected.CfnWorkloadProps(
+                description="description",
+                environment="environment",
+                lenses=["lenses"],
+                workload_name="workloadName",
+            
+                # the properties below are optional
+                account_ids=["accountIds"],
+                architectural_design="architecturalDesign",
+                aws_regions=["awsRegions"],
+                discovery_config=wellarchitected.CfnWorkload.DiscoveryConfigProperty(
+                    trusted_advisor_integration_status="trustedAdvisorIntegrationStatus",
+                    workload_resource_definition=["workloadResourceDefinition"]
+                ),
+                industry="industry",
+                industry_type="industryType",
+                non_aws_regions=["nonAwsRegions"],
+                notes="notes",
+                review_owner="reviewOwner",
+                tags=[wellarchitected.CfnWorkload.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7bb9484a54387f7189d815f9c93db7e83b23f9d277c0ef4c8b16234413513084)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+            check_type(argname="argument lenses", value=lenses, expected_type=type_hints["lenses"])
+            check_type(argname="argument workload_name", value=workload_name, expected_type=type_hints["workload_name"])
+            check_type(argname="argument account_ids", value=account_ids, expected_type=type_hints["account_ids"])
+            check_type(argname="argument architectural_design", value=architectural_design, expected_type=type_hints["architectural_design"])
+            check_type(argname="argument aws_regions", value=aws_regions, expected_type=type_hints["aws_regions"])
+            check_type(argname="argument discovery_config", value=discovery_config, expected_type=type_hints["discovery_config"])
+            check_type(argname="argument industry", value=industry, expected_type=type_hints["industry"])
+            check_type(argname="argument industry_type", value=industry_type, expected_type=type_hints["industry_type"])
+            check_type(argname="argument non_aws_regions", value=non_aws_regions, expected_type=type_hints["non_aws_regions"])
+            check_type(argname="argument notes", value=notes, expected_type=type_hints["notes"])
+            check_type(argname="argument review_owner", value=review_owner, expected_type=type_hints["review_owner"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "environment": environment,
+            "lenses": lenses,
+            "workload_name": workload_name,
+        }
+        if account_ids is not None:
+            self._values["account_ids"] = account_ids
+        if architectural_design is not None:
+            self._values["architectural_design"] = architectural_design
+        if aws_regions is not None:
+            self._values["aws_regions"] = aws_regions
+        if discovery_config is not None:
+            self._values["discovery_config"] = discovery_config
+        if industry is not None:
+            self._values["industry"] = industry
+        if industry_type is not None:
+            self._values["industry_type"] = industry_type
+        if non_aws_regions is not None:
+            self._values["non_aws_regions"] = non_aws_regions
+        if notes is not None:
+            self._values["notes"] = notes
+        if review_owner is not None:
+            self._values["review_owner"] = review_owner
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''The description for the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment(self) -> builtins.str:
+        '''The environment for the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-environment
+        '''
+        result = self._values.get("environment")
+        assert result is not None, "Required property 'environment' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def lenses(self) -> typing.List[builtins.str]:
+        '''The list of lenses associated with the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-lenses
+        '''
+        result = self._values.get("lenses")
+        assert result is not None, "Required property 'lenses' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def workload_name(self) -> builtins.str:
+        '''The name of the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-workloadname
+        '''
+        result = self._values.get("workload_name")
+        assert result is not None, "Required property 'workload_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def account_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of Amazon Web Services account IDs associated with the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-accountids
+        '''
+        result = self._values.get("account_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def architectural_design(self) -> typing.Optional[builtins.str]:
+        '''The URL of the architectural design for the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-architecturaldesign
+        '''
+        result = self._values.get("architectural_design")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def aws_regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of Amazon Web Services Regions associated with the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-awsregions
+        '''
+        result = self._values.get("aws_regions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def discovery_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkload.DiscoveryConfigProperty"]]:
+        '''Discovery configuration associated to the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-discoveryconfig
+        '''
+        result = self._values.get("discovery_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkload.DiscoveryConfigProperty"]], result)
+
+    @builtins.property
+    def industry(self) -> typing.Optional[builtins.str]:
+        '''The industry for the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-industry
+        '''
+        result = self._values.get("industry")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def industry_type(self) -> typing.Optional[builtins.str]:
+        '''The industry type for the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-industrytype
+        '''
+        result = self._values.get("industry_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def non_aws_regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of non-Amazon Web Services Regions associated with the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-nonawsregions
+        '''
+        result = self._values.get("non_aws_regions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def notes(self) -> typing.Optional[builtins.str]:
+        '''The notes associated with the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-notes
+        '''
+        result = self._values.get("notes")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def review_owner(self) -> typing.Optional[builtins.str]:
+        '''The review owner of the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-reviewowner
+        '''
+        result = self._values.get("review_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnWorkload.TagsItemsProperty"]]:
+        '''The tags associated with the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-workload.html#cfn-wellarchitected-workload-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnWorkload.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkloadProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnLens",
     "CfnLensProps",
@@ -1336,6 +2156,8 @@ __all__ = [
     "CfnProfileProps",
     "CfnReviewTemplate",
     "CfnReviewTemplateProps",
+    "CfnWorkload",
+    "CfnWorkloadProps",
 ]
 
 publication.publish()
@@ -1564,6 +2386,172 @@ def _typecheckingstub__8cc0ce4fd995ce88c347c3898dd891af9cda3438ebe6053b81695e1e7
     template_name: builtins.str,
     notes: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnReviewTemplate.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d52e7a7eb957793ce58ed149bcfb3977ffeb20ab4fce172d1635ca5d48f165e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    description: builtins.str,
+    environment: builtins.str,
+    lenses: typing.Sequence[builtins.str],
+    workload_name: builtins.str,
+    account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    architectural_design: typing.Optional[builtins.str] = None,
+    aws_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    discovery_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkload.DiscoveryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    industry: typing.Optional[builtins.str] = None,
+    industry_type: typing.Optional[builtins.str] = None,
+    non_aws_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    notes: typing.Optional[builtins.str] = None,
+    review_owner: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnWorkload.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a88fb0a2be776a7eeda08f4cf525a3abe4ef8a1f138019cbed5bfbf4d1aa7956(
+    resource: _aws_wellarchitected_baeb38e4.IWorkloadRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c7e5c4379c1dd607d96d9710fd5726ea5a05e7043b9f014159159085856ff6a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d396f409ce6ac4af3bd9869e9712e90253bffa323f27d5f8a2b318e152a84bb5(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cb58530b5ba31668d4675616d1bd8a7fcccfa369fab90952613f1cb75c03be9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f04261fde6397fc9ede578b59981914d90a143b6acd91a4832e4f33059a15d6d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8aac33a70ec82591242dd8e6313eedeb88518f412e0bea43cae73b316b2a79ea(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__015d929b7153cac05d33e2259c76c2c222211a97132536888e554c06ab25e5cd(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f91fb9b5e99a78d2b728d919c0cae983c7460a54ea3835486482742c084eeec0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c60ccbd89dde792a3bbcbc99469782afe52f021c0e07e61bcdb77db84cb5838c(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96b563a5776305b59bdc79ee8f5b9193314b9b5167e931a4f7627f05455e183c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8849cd1008faa5c1d40990916b96fd08d00fe427a9d972468bb5b8c09825e7cd(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae19eeef0d56f093a7e99db0dbfeaacc7696fc928f84ade54aa37acfd7a6a82a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkload.DiscoveryConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c447c558c14e14d502384ff0b115d596b9f7f07004b26be059136ba924dad4a1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b11f31e4216cef5b59677d9e4c1be4f4db2bd808eac7ad5725dafdbc0af13bee(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85b6468a9e22778f9f72b0ab5cbbb10cab4199e9f4e1f163a49b0cf5280b81ff(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfa77fd63d5c619668f39e8807f847f54c49776d21fff1db34894f4dc93b1631(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0980eb3400a16810c27593ca01f8ffa88a4588f5590b9bded0216410ec5bb45(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7bbd784ece2c7f85109ca3761e9c70e8d64d4c5a7f82850d03da353ecb8aa50(
+    value: typing.Optional[typing.List[CfnWorkload.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95b74019f26ca61f74561ff5c6093be016266a6bd5c077b00fec0046d62ff9f3(
+    *,
+    trusted_advisor_integration_status: typing.Optional[builtins.str] = None,
+    workload_resource_definition: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2bd937bc96a27939ab5864c8658a8290c4415c93d1aae5c998c0cf0e170f14ac(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bb9484a54387f7189d815f9c93db7e83b23f9d277c0ef4c8b16234413513084(
+    *,
+    description: builtins.str,
+    environment: builtins.str,
+    lenses: typing.Sequence[builtins.str],
+    workload_name: builtins.str,
+    account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    architectural_design: typing.Optional[builtins.str] = None,
+    aws_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    discovery_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkload.DiscoveryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    industry: typing.Optional[builtins.str] = None,
+    industry_type: typing.Optional[builtins.str] = None,
+    non_aws_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    notes: typing.Optional[builtins.str] = None,
+    review_owner: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnWorkload.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -4535,17 +4535,24 @@ class Bitrate(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Bitrate"):
         # network_interface: RouterNetworkInterface
         
         
-        output = RouterOutput(stack, "SrtOutput",
-            router_output_name="srt-output",
+        input = RouterInput(stack, "FailoverInput",
+            router_input_name="failover-input",
             maximum_bitrate=Bitrate.mbps(10),
             routing_scope=RoutingScope.REGIONAL,
-            # tier defaults to RouterOutputTier.OUTPUT_20 (lowest cost)
-            configuration=RouterOutputConfiguration.standard(
-                protocol=RouterOutputProtocol.srt_listener(
-                    port=9001,
-                    minimum_latency=Duration.millis(200)
-                ),
-                network_interface=network_interface
+            tier=RouterInputTier.INPUT_50,
+            configuration=RouterInputConfiguration.failover(
+                network_interface=network_interface,
+                protocols=[
+                    RouterInputProtocol.rist(
+                        port=5000,
+                        recovery_latency=Duration.millis(1000)
+                    ),
+                    RouterInputProtocol.rist(
+                        port=5002,  # Must not be consecutive with primary port
+                        recovery_latency=Duration.millis(1000)
+                    )
+                ],
+                source_priority=SourcePriorityConfig.primary_secondary(PrimarySource.FIRST_SOURCE)
             )
         )
     '''
@@ -5750,6 +5757,302 @@ class CfnCapabilities(enum.Enum):
 
     :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html
     '''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnChangeSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "change_set_name": "changeSetName",
+        "stack_name": "stackName",
+        "capabilities": "capabilities",
+        "change_set_type": "changeSetType",
+        "deployment_mode": "deploymentMode",
+        "description": "description",
+        "import_existing_resources": "importExistingResources",
+        "include_nested_stacks": "includeNestedStacks",
+        "notification_arns": "notificationArns",
+        "on_stack_failure": "onStackFailure",
+        "role_arn": "roleArn",
+        "tags": "tags",
+        "template_body": "templateBody",
+        "template_url": "templateUrl",
+        "use_previous_template": "usePreviousTemplate",
+    },
+)
+class CfnChangeSetProps:
+    def __init__(
+        self,
+        *,
+        change_set_name: builtins.str,
+        stack_name: builtins.str,
+        capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
+        change_set_type: typing.Optional[builtins.str] = None,
+        deployment_mode: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        import_existing_resources: typing.Optional[typing.Union[builtins.bool, "IResolvable"]] = None,
+        include_nested_stacks: typing.Optional[typing.Union[builtins.bool, "IResolvable"]] = None,
+        notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        on_stack_failure: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnChangeSet.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_body: typing.Optional[builtins.str] = None,
+        template_url: typing.Optional[builtins.str] = None,
+        use_previous_template: typing.Optional[typing.Union[builtins.bool, "IResolvable"]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChangeSet``.
+
+        :param change_set_name: The name of the change set. Must be unique among all change sets associated with the specified stack.
+        :param stack_name: The name or unique ID of the stack for which you are creating a change set.
+        :param capabilities: The capabilities that are allowed in the stack.
+        :param change_set_type: The type of change set operation.
+        :param deployment_mode: Determines how CloudFormation handles configuration drift during deployment.
+        :param description: A description to help you identify this change set.
+        :param import_existing_resources: Indicates if the change set imports resources that already exist.
+        :param include_nested_stacks: Creates a change set for all nested stacks specified in the template.
+        :param notification_arns: The ARNs of Amazon SNS topics that CloudFormation associates with the stack.
+        :param on_stack_failure: Determines what action will be taken if stack creation fails.
+        :param role_arn: The ARN of an IAM role that CloudFormation assumes when executing the change set.
+        :param tags: Key-value pairs to associate with the change set.
+        :param template_body: A structure that contains the body of the revised template.
+        :param template_url: The URL of the file that contains the revised template.
+        :param use_previous_template: Whether to reuse the template associated with the stack to create the change set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            cfn_change_set_props = cdk.CfnChangeSetProps(
+                change_set_name="changeSetName",
+                stack_name="stackName",
+            
+                # the properties below are optional
+                capabilities=["capabilities"],
+                change_set_type="changeSetType",
+                deployment_mode="deploymentMode",
+                description="description",
+                import_existing_resources=False,
+                include_nested_stacks=False,
+                notification_arns=["notificationArns"],
+                on_stack_failure="onStackFailure",
+                role_arn="roleArn",
+                tags=[cdk.CfnChangeSet.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )],
+                template_body="templateBody",
+                template_url="templateUrl",
+                use_previous_template=False
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88bf807aaf73c48701bcb1abfd92fb20ef3a14c6ffb1599710a38e9ea8e46988)
+            check_type(argname="argument change_set_name", value=change_set_name, expected_type=type_hints["change_set_name"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+            check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
+            check_type(argname="argument change_set_type", value=change_set_type, expected_type=type_hints["change_set_type"])
+            check_type(argname="argument deployment_mode", value=deployment_mode, expected_type=type_hints["deployment_mode"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument import_existing_resources", value=import_existing_resources, expected_type=type_hints["import_existing_resources"])
+            check_type(argname="argument include_nested_stacks", value=include_nested_stacks, expected_type=type_hints["include_nested_stacks"])
+            check_type(argname="argument notification_arns", value=notification_arns, expected_type=type_hints["notification_arns"])
+            check_type(argname="argument on_stack_failure", value=on_stack_failure, expected_type=type_hints["on_stack_failure"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_body", value=template_body, expected_type=type_hints["template_body"])
+            check_type(argname="argument template_url", value=template_url, expected_type=type_hints["template_url"])
+            check_type(argname="argument use_previous_template", value=use_previous_template, expected_type=type_hints["use_previous_template"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "change_set_name": change_set_name,
+            "stack_name": stack_name,
+        }
+        if capabilities is not None:
+            self._values["capabilities"] = capabilities
+        if change_set_type is not None:
+            self._values["change_set_type"] = change_set_type
+        if deployment_mode is not None:
+            self._values["deployment_mode"] = deployment_mode
+        if description is not None:
+            self._values["description"] = description
+        if import_existing_resources is not None:
+            self._values["import_existing_resources"] = import_existing_resources
+        if include_nested_stacks is not None:
+            self._values["include_nested_stacks"] = include_nested_stacks
+        if notification_arns is not None:
+            self._values["notification_arns"] = notification_arns
+        if on_stack_failure is not None:
+            self._values["on_stack_failure"] = on_stack_failure
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_body is not None:
+            self._values["template_body"] = template_body
+        if template_url is not None:
+            self._values["template_url"] = template_url
+        if use_previous_template is not None:
+            self._values["use_previous_template"] = use_previous_template
+
+    @builtins.property
+    def change_set_name(self) -> builtins.str:
+        '''The name of the change set.
+
+        Must be unique among all change sets associated with the specified stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-changesetname
+        '''
+        result = self._values.get("change_set_name")
+        assert result is not None, "Required property 'change_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The name or unique ID of the stack for which you are creating a change set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-stackname
+        '''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The capabilities that are allowed in the stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-capabilities
+        '''
+        result = self._values.get("capabilities")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def change_set_type(self) -> typing.Optional[builtins.str]:
+        '''The type of change set operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-changesettype
+        '''
+        result = self._values.get("change_set_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deployment_mode(self) -> typing.Optional[builtins.str]:
+        '''Determines how CloudFormation handles configuration drift during deployment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-deploymentmode
+        '''
+        result = self._values.get("deployment_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description to help you identify this change set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def import_existing_resources(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "IResolvable"]]:
+        '''Indicates if the change set imports resources that already exist.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-importexistingresources
+        '''
+        result = self._values.get("import_existing_resources")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "IResolvable"]], result)
+
+    @builtins.property
+    def include_nested_stacks(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "IResolvable"]]:
+        '''Creates a change set for all nested stacks specified in the template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-includenestedstacks
+        '''
+        result = self._values.get("include_nested_stacks")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "IResolvable"]], result)
+
+    @builtins.property
+    def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of Amazon SNS topics that CloudFormation associates with the stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-notificationarns
+        '''
+        result = self._values.get("notification_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def on_stack_failure(self) -> typing.Optional[builtins.str]:
+        '''Determines what action will be taken if stack creation fails.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-onstackfailure
+        '''
+        result = self._values.get("on_stack_failure")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of an IAM role that CloudFormation assumes when executing the change set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnChangeSet.TagsItemsProperty"]]:
+        '''Key-value pairs to associate with the change set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnChangeSet.TagsItemsProperty"]], result)
+
+    @builtins.property
+    def template_body(self) -> typing.Optional[builtins.str]:
+        '''A structure that contains the body of the revised template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-templatebody
+        '''
+        result = self._values.get("template_body")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def template_url(self) -> typing.Optional[builtins.str]:
+        '''The URL of the file that contains the revised template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-templateurl
+        '''
+        result = self._values.get("template_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def use_previous_template(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "IResolvable"]]:
+        '''Whether to reuse the template associated with the stack to create the change set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html#cfn-cloudformation-changeset-useprevioustemplate
+        '''
+        result = self._values.get("use_previous_template")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "IResolvable"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChangeSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -10318,66 +10621,6 @@ class CfnResourceProps:
 
     def __repr__(self) -> str:
         return "CfnResourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.CfnResourceScanProps",
-    jsii_struct_bases=[],
-    name_mapping={"scan_filters": "scanFilters"},
-)
-class CfnResourceScanProps:
-    def __init__(
-        self,
-        *,
-        scan_filters: typing.Optional[typing.Union["IResolvable", typing.Sequence[typing.Union["IResolvable", typing.Union["CfnResourceScan.ScanFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourceScan``.
-
-        :param scan_filters: The scan filters to use.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcescan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            
-            cfn_resource_scan_props = cdk.CfnResourceScanProps(
-                scan_filters=[cdk.CfnResourceScan.ScanFilterProperty(
-                    types=["types"]
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a2bd015e637820a8493aeb3873d61b7bb7f363dafc92b9b5af36de24dc0e5b0c)
-            check_type(argname="argument scan_filters", value=scan_filters, expected_type=type_hints["scan_filters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if scan_filters is not None:
-            self._values["scan_filters"] = scan_filters
-
-    @builtins.property
-    def scan_filters(
-        self,
-    ) -> typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]]:
-        '''The scan filters to use.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcescan.html#cfn-cloudformation-resourcescan-scanfilters
-        '''
-        result = self._values.get("scan_filters")
-        return typing.cast(typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceScanProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -33185,6 +33428,484 @@ class AssetStagingProps(FingerprintOptions, AssetOptions):
         )
 
 
+@jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IChangeSetRef, ITaggableV2)
+class CfnChangeSet(
+    CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.CfnChangeSet",
+):
+    '''Resource type definition for AWS::CloudFormation::ChangeSet.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html
+    :cloudformationResource: AWS::CloudFormation::ChangeSet
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        cfn_change_set = cdk.CfnChangeSet(self, "MyCfnChangeSet",
+            change_set_name="changeSetName",
+            stack_name="stackName",
+        
+            # the properties below are optional
+            capabilities=["capabilities"],
+            change_set_type="changeSetType",
+            deployment_mode="deploymentMode",
+            description="description",
+            import_existing_resources=False,
+            include_nested_stacks=False,
+            notification_arns=["notificationArns"],
+            on_stack_failure="onStackFailure",
+            role_arn="roleArn",
+            tags=[cdk.CfnChangeSet.TagsItemsProperty(
+                key="key",
+                value="value"
+            )],
+            template_body="templateBody",
+            template_url="templateUrl",
+            use_previous_template=False
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        change_set_name: builtins.str,
+        stack_name: builtins.str,
+        capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
+        change_set_type: typing.Optional[builtins.str] = None,
+        deployment_mode: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        import_existing_resources: typing.Optional[typing.Union[builtins.bool, "IResolvable"]] = None,
+        include_nested_stacks: typing.Optional[typing.Union[builtins.bool, "IResolvable"]] = None,
+        notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        on_stack_failure: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnChangeSet.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_body: typing.Optional[builtins.str] = None,
+        template_url: typing.Optional[builtins.str] = None,
+        use_previous_template: typing.Optional[typing.Union[builtins.bool, "IResolvable"]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudFormation::ChangeSet``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param change_set_name: The name of the change set. Must be unique among all change sets associated with the specified stack.
+        :param stack_name: The name or unique ID of the stack for which you are creating a change set.
+        :param capabilities: The capabilities that are allowed in the stack.
+        :param change_set_type: The type of change set operation.
+        :param deployment_mode: Determines how CloudFormation handles configuration drift during deployment.
+        :param description: A description to help you identify this change set.
+        :param import_existing_resources: Indicates if the change set imports resources that already exist.
+        :param include_nested_stacks: Creates a change set for all nested stacks specified in the template.
+        :param notification_arns: The ARNs of Amazon SNS topics that CloudFormation associates with the stack.
+        :param on_stack_failure: Determines what action will be taken if stack creation fails.
+        :param role_arn: The ARN of an IAM role that CloudFormation assumes when executing the change set.
+        :param tags: Key-value pairs to associate with the change set.
+        :param template_body: A structure that contains the body of the revised template.
+        :param template_url: The URL of the file that contains the revised template.
+        :param use_previous_template: Whether to reuse the template associated with the stack to create the change set.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cc300810cf57c367c83df9d88cb2da765fa6207d88cab2e4d26b650a84595460)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnChangeSetProps(
+            change_set_name=change_set_name,
+            stack_name=stack_name,
+            capabilities=capabilities,
+            change_set_type=change_set_type,
+            deployment_mode=deployment_mode,
+            description=description,
+            import_existing_resources=import_existing_resources,
+            include_nested_stacks=include_nested_stacks,
+            notification_arns=notification_arns,
+            on_stack_failure=on_stack_failure,
+            role_arn=role_arn,
+            tags=tags,
+            template_body=template_body,
+            template_url=template_url,
+            use_previous_template=use_previous_template,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnChangeSet")
+    @builtins.classmethod
+    def is_cfn_change_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnChangeSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__155b7a07ecc8f52388b3b707214ab56f975d7dbe1d97396b43e2efb08525a1f1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChangeSet", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__815a41f5ae4e5ffcd94a18038d9dc04f7108d399ca27ae2d589498abb966684f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c72c70be118b8c39053caadb59665f34258330b76ff3da571e638449711f8b0a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrChangeSetId")
+    def attr_change_set_id(self) -> builtins.str:
+        '''The ARN of the change set.
+
+        :cloudformationAttribute: ChangeSetId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrChangeSetId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The time the change set was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStackId")
+    def attr_stack_id(self) -> builtins.str:
+        '''The unique ID of the stack.
+
+        :cloudformationAttribute: StackId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStackId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="changeSetRef")
+    def change_set_ref(self) -> "_aws_cloudformation_68a282c8.ChangeSetReference":
+        '''A reference to a ChangeSet resource.'''
+        return typing.cast("_aws_cloudformation_68a282c8.ChangeSetReference", jsii.get(self, "changeSetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="changeSetName")
+    def change_set_name(self) -> builtins.str:
+        '''The name of the change set.'''
+        return typing.cast(builtins.str, jsii.get(self, "changeSetName"))
+
+    @change_set_name.setter
+    def change_set_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b6aca3220d03674f851ac97b518520bcd3a86e425b884aae04c9075f91a4dd84)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "changeSetName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stackName")
+    def stack_name(self) -> builtins.str:
+        '''The name or unique ID of the stack for which you are creating a change set.'''
+        return typing.cast(builtins.str, jsii.get(self, "stackName"))
+
+    @stack_name.setter
+    def stack_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ded6971f7141b1ad74b32c2c102acc42c8649a86ee6ccd3116ab94d521fbc6b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stackName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="capabilities")
+    def capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The capabilities that are allowed in the stack.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "capabilities"))
+
+    @capabilities.setter
+    def capabilities(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__81a214b484fa59066e26e9ec2209cc2fde5edfc20a38e91428cb3c83612c652b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "capabilities", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="changeSetType")
+    def change_set_type(self) -> typing.Optional[builtins.str]:
+        '''The type of change set operation.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "changeSetType"))
+
+    @change_set_type.setter
+    def change_set_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f62241a0265f7d789b9ada886dbc1c95f035ec73105428dd6ccf02f180908adb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "changeSetType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentMode")
+    def deployment_mode(self) -> typing.Optional[builtins.str]:
+        '''Determines how CloudFormation handles configuration drift during deployment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deploymentMode"))
+
+    @deployment_mode.setter
+    def deployment_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9dc846353a5f0e26cdd0f6122e906a652baff2a5361e7cbfdf7ff7dbe1661294)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deploymentMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description to help you identify this change set.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d8fb2f341b53e11af6cbcae05a9a005e38c6fd3b04fd622683c75f7efe4f5cf3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="importExistingResources")
+    def import_existing_resources(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "IResolvable"]]:
+        '''Indicates if the change set imports resources that already exist.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "IResolvable"]], jsii.get(self, "importExistingResources"))
+
+    @import_existing_resources.setter
+    def import_existing_resources(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8564a3fbf9626d1ee108ee2dcffd9b0a1d37054541f2a9b5839201611031e815)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "importExistingResources", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="includeNestedStacks")
+    def include_nested_stacks(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "IResolvable"]]:
+        '''Creates a change set for all nested stacks specified in the template.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "IResolvable"]], jsii.get(self, "includeNestedStacks"))
+
+    @include_nested_stacks.setter
+    def include_nested_stacks(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__474e3c1408762ada24c9d4a1166b59872e7e48ad04e3b9f2420ce6ec1dd6e5aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "includeNestedStacks", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationArns")
+    def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of Amazon SNS topics that CloudFormation associates with the stack.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "notificationArns"))
+
+    @notification_arns.setter
+    def notification_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65cef834eae1e46a3aac66118fe44e3244841b8c61e624af590b62423e2db31a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="onStackFailure")
+    def on_stack_failure(self) -> typing.Optional[builtins.str]:
+        '''Determines what action will be taken if stack creation fails.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "onStackFailure"))
+
+    @on_stack_failure.setter
+    def on_stack_failure(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9b743c176c3d86b0338134837243470e1b10e818afff74415f76270330ae4ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "onStackFailure", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of an IAM role that CloudFormation assumes when executing the change set.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0c8a1bc33a3a4df4905ec793b1c67d30b283eca7128d353e3d18d620c3de8085)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["CfnChangeSet.TagsItemsProperty"]]:
+        '''Key-value pairs to associate with the change set.'''
+        return typing.cast(typing.Optional[typing.List["CfnChangeSet.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnChangeSet.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__930263a8f6fc51529666c760eedf8af135cccc7a452ef6a79b73f0dd2e62443c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="templateBody")
+    def template_body(self) -> typing.Optional[builtins.str]:
+        '''A structure that contains the body of the revised template.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "templateBody"))
+
+    @template_body.setter
+    def template_body(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__782e09bc3fee323760d6d2107db1721468363fa9888c044a25c7ab218cf7fc2e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "templateBody", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="templateUrl")
+    def template_url(self) -> typing.Optional[builtins.str]:
+        '''The URL of the file that contains the revised template.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "templateUrl"))
+
+    @template_url.setter
+    def template_url(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36219a40ead5399cbd68caf43a9a7fb76de482680d2b7468a069bea5d7229c6e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "templateUrl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="usePreviousTemplate")
+    def use_previous_template(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "IResolvable"]]:
+        '''Whether to reuse the template associated with the stack to create the change set.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "IResolvable"]], jsii.get(self, "usePreviousTemplate"))
+
+    @use_previous_template.setter
+    def use_previous_template(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a59d0261f2df4c38d4a2a98a68cfded747d2c4a4088bd85e54e182b4d9cc03c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "usePreviousTemplate", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.CfnChangeSet.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-changeset-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                import aws_cdk as cdk
+                
+                tags_items_property = cdk.CfnChangeSet.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9e42f33d2ffe3e9548bfacb68db70a5c85f3e1b9a650bcd8004b650e6d755354)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-changeset-tagsitems.html#cfn-cloudformation-changeset-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-changeset-tagsitems.html#cfn-cloudformation-changeset-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 class CfnCodeDeployBlueGreenHook(
     CfnHook,
     metaclass=jsii.JSIIMeta,
@@ -37812,243 +38533,6 @@ class CfnResourceDefaultVersion(
             type_hints = cached_type_hints(_typecheckingstub__dd41a20885eade487854b9a6ac2e6748158d9a5e9f3b4b25e79e4f0501f4bcc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IResourceScanRef)
-class CfnResourceScan(
-    CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.CfnResourceScan",
-):
-    '''Represents a CloudFormation resource scan that discovers existing AWS resources in an account and region.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcescan.html
-    :cloudformationResource: AWS::CloudFormation::ResourceScan
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk as cdk
-        
-        cfn_resource_scan = cdk.CfnResourceScan(self, "MyCfnResourceScan",
-            scan_filters=[cdk.CfnResourceScan.ScanFilterProperty(
-                types=["types"]
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        scan_filters: typing.Optional[typing.Union["IResolvable", typing.Sequence[typing.Union["IResolvable", typing.Union["CfnResourceScan.ScanFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Create a new ``AWS::CloudFormation::ResourceScan``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param scan_filters: The scan filters to use.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__11e6c33d0374a376d37cc0a84f831b2548f39051ddcae845ec78e233f7019ffd)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnResourceScanProps(scan_filters=scan_filters)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForResourceScan")
-    @builtins.classmethod
-    def arn_for_resource_scan(
-        cls,
-        resource: "_aws_cloudformation_68a282c8.IResourceScanRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9ae8125f479686d115cda557ebc794a21ae45fc0568d5cc3d526beeff57bae65)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResourceScan", [resource]))
-
-    @jsii.member(jsii_name="isCfnResourceScan")
-    @builtins.classmethod
-    def is_cfn_resource_scan(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnResourceScan.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__78aa2dc88c1a91b43ac89ad62a563038a7324a44eef5d1b2efa9de0a266af6af)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceScan", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9c0f3dc4c017c96ad15f36988d264e0f15c241c661a790034b31d2b5da822870)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__0e9ba2d4539d85eb35382adb1704761513c41e9884f88498932ca558fd73a487)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrPercentageCompleted")
-    def attr_percentage_completed(self) -> "IResolvable":
-        '''The percentage of the resource scan that has been completed.
-
-        :cloudformationAttribute: PercentageCompleted
-        '''
-        return typing.cast("IResolvable", jsii.get(self, "attrPercentageCompleted"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrResourceScanId")
-    def attr_resource_scan_id(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the resource scan.
-
-        :cloudformationAttribute: ResourceScanId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrResourceScanId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrScanId")
-    def attr_scan_id(self) -> builtins.str:
-        '''The unique identifier portion of the resource scan ARN.
-
-        :cloudformationAttribute: ScanId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrScanId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStartTime")
-    def attr_start_time(self) -> builtins.str:
-        '''The time that the resource scan was started.
-
-        :cloudformationAttribute: StartTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''Status of the resource scan.
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceScanRef")
-    def resource_scan_ref(self) -> "_aws_cloudformation_68a282c8.ResourceScanReference":
-        '''A reference to a ResourceScan resource.'''
-        return typing.cast("_aws_cloudformation_68a282c8.ResourceScanReference", jsii.get(self, "resourceScanRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scanFilters")
-    def scan_filters(
-        self,
-    ) -> typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]]:
-        '''The scan filters to use.'''
-        return typing.cast(typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]], jsii.get(self, "scanFilters"))
-
-    @scan_filters.setter
-    def scan_filters(
-        self,
-        value: typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__69dbe11b1e11dc071dca56e0ab337e11dd9ba1ff290ab2ded71563757ebaed8f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scanFilters", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.CfnResourceScan.ScanFilterProperty",
-        jsii_struct_bases=[],
-        name_mapping={"types": "types"},
-    )
-    class ScanFilterProperty:
-        def __init__(
-            self,
-            *,
-            types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''A filter that is used to specify which resource types to scan.
-
-            :param types: An array of strings where each string represents an AWS resource type to scan.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-resourcescan-scanfilter.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                import aws_cdk as cdk
-                
-                scan_filter_property = cdk.CfnResourceScan.ScanFilterProperty(
-                    types=["types"]
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__75993fef3aaf8da68e223cdde04ad215f11d7a727be5131aa3fb552004596c8d)
-                check_type(argname="argument types", value=types, expected_type=type_hints["types"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if types is not None:
-                self._values["types"] = types
-
-        @builtins.property
-        def types(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''An array of strings where each string represents an AWS resource type to scan.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-resourcescan-scanfilter.html#cfn-cloudformation-resourcescan-scanfilter-types
-            '''
-            result = self._values.get("types")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ScanFilterProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IResourceVersionRef)
@@ -43167,6 +43651,8 @@ __all__ = [
     "CfnAutoScalingRollingUpdate",
     "CfnAutoScalingScheduledAction",
     "CfnCapabilities",
+    "CfnChangeSet",
+    "CfnChangeSetProps",
     "CfnCodeDeployBlueGreenAdditionalOptions",
     "CfnCodeDeployBlueGreenApplication",
     "CfnCodeDeployBlueGreenApplicationTarget",
@@ -43223,8 +43709,6 @@ __all__ = [
     "CfnResourceDefaultVersion",
     "CfnResourceDefaultVersionProps",
     "CfnResourceProps",
-    "CfnResourceScan",
-    "CfnResourceScanProps",
     "CfnResourceSignal",
     "CfnResourceVersion",
     "CfnResourceVersionProps",
@@ -43424,7 +43908,9 @@ __all__ = [
     "alexa_ask",
     "assertions",
     "aws_accessanalyzer",
+    "aws_accountaccess",
     "aws_acmpca",
+    "aws_agentregistry",
     "aws_aiops",
     "aws_amazonmq",
     "aws_amplify",
@@ -43447,7 +43933,6 @@ __all__ = [
     "aws_aps",
     "aws_arcregionswitch",
     "aws_arczonalshift",
-    "aws_artifact",
     "aws_athena",
     "aws_auditmanager",
     "aws_autoscaling",
@@ -43458,7 +43943,6 @@ __all__ = [
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
-    "aws_backupsearch",
     "aws_batch",
     "aws_bcmdataexports",
     "aws_bcmpricingcalculator",
@@ -43480,6 +43964,7 @@ __all__ = [
     "aws_cloudformation",
     "aws_cloudfront",
     "aws_cloudfront_origins",
+    "aws_cloudhsm",
     "aws_cloudtrail",
     "aws_cloudwatch",
     "aws_cloudwatch_actions",
@@ -43497,18 +43982,17 @@ __all__ = [
     "aws_codestarnotifications",
     "aws_cognito",
     "aws_cognito_identitypool",
-    "aws_cognitosync",
     "aws_comprehend",
     "aws_computeoptimizer",
     "aws_config",
     "aws_connect",
     "aws_connectcampaigns",
     "aws_connectcampaignsv2",
-    "aws_controlcatalog",
     "aws_controltower",
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
+    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -43524,6 +44008,7 @@ __all__ = [
     "aws_dms",
     "aws_docdb",
     "aws_docdbelastic",
+    "aws_drs",
     "aws_dsql",
     "aws_dynamodb",
     "aws_ec2",
@@ -43583,6 +44068,7 @@ __all__ = [
     "aws_iotevents",
     "aws_iotfleethub",
     "aws_iotfleetwise",
+    "aws_iotsecuretunneling",
     "aws_iotsitewise",
     "aws_iotthingsgraph",
     "aws_iottwinmaker",
@@ -43624,6 +44110,7 @@ __all__ = [
     "aws_mediastore",
     "aws_mediatailor",
     "aws_memorydb",
+    "aws_mgn",
     "aws_mpa",
     "aws_msk",
     "aws_mwaa",
@@ -43641,6 +44128,7 @@ __all__ = [
     "aws_observabilityadmin",
     "aws_odb",
     "aws_omics",
+    "aws_opensearch",
     "aws_opensearchserverless",
     "aws_opensearchservice",
     "aws_opsworks",
@@ -43704,6 +44192,7 @@ __all__ = [
     "aws_securityagent",
     "aws_securityhub",
     "aws_securitylake",
+    "aws_serverlessrepo",
     "aws_servicecatalog",
     "aws_servicecatalogappregistry",
     "aws_servicediscovery",
@@ -43722,18 +44211,18 @@ __all__ = [
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
-    "aws_states",
     "aws_stepfunctions",
     "aws_stepfunctions_tasks",
     "aws_storagegateway",
     "aws_supportapp",
+    "aws_supportauthz",
     "aws_synthetics",
     "aws_systemsmanagersap",
-    "aws_thinclient",
+    "aws_textract",
     "aws_timestream",
     "aws_transcribe",
     "aws_transfer",
-    "aws_usernotifications",
+    "aws_translate",
     "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
@@ -43742,6 +44231,7 @@ __all__ = [
     "aws_wafregional",
     "aws_wafv2",
     "aws_wellarchitected",
+    "aws_wickr",
     "aws_wisdom",
     "aws_workspaces",
     "aws_workspacesinstances",
@@ -43767,7 +44257,9 @@ if typing.TYPE_CHECKING:
     from . import alexa_ask as alexa_ask
     from . import assertions as assertions
     from . import aws_accessanalyzer as aws_accessanalyzer
+    from . import aws_accountaccess as aws_accountaccess
     from . import aws_acmpca as aws_acmpca
+    from . import aws_agentregistry as aws_agentregistry
     from . import aws_aiops as aws_aiops
     from . import aws_amazonmq as aws_amazonmq
     from . import aws_amplify as aws_amplify
@@ -43790,7 +44282,6 @@ if typing.TYPE_CHECKING:
     from . import aws_aps as aws_aps
     from . import aws_arcregionswitch as aws_arcregionswitch
     from . import aws_arczonalshift as aws_arczonalshift
-    from . import aws_artifact as aws_artifact
     from . import aws_athena as aws_athena
     from . import aws_auditmanager as aws_auditmanager
     from . import aws_autoscaling as aws_autoscaling
@@ -43801,7 +44292,6 @@ if typing.TYPE_CHECKING:
     from . import aws_b2bi as aws_b2bi
     from . import aws_backup as aws_backup
     from . import aws_backupgateway as aws_backupgateway
-    from . import aws_backupsearch as aws_backupsearch
     from . import aws_batch as aws_batch
     from . import aws_bcmdataexports as aws_bcmdataexports
     from . import aws_bcmpricingcalculator as aws_bcmpricingcalculator
@@ -43823,6 +44313,7 @@ if typing.TYPE_CHECKING:
     from . import aws_cloudformation as aws_cloudformation
     from . import aws_cloudfront as aws_cloudfront
     from . import aws_cloudfront_origins as aws_cloudfront_origins
+    from . import aws_cloudhsm as aws_cloudhsm
     from . import aws_cloudtrail as aws_cloudtrail
     from . import aws_cloudwatch as aws_cloudwatch
     from . import aws_cloudwatch_actions as aws_cloudwatch_actions
@@ -43840,18 +44331,17 @@ if typing.TYPE_CHECKING:
     from . import aws_codestarnotifications as aws_codestarnotifications
     from . import aws_cognito as aws_cognito
     from . import aws_cognito_identitypool as aws_cognito_identitypool
-    from . import aws_cognitosync as aws_cognitosync
     from . import aws_comprehend as aws_comprehend
     from . import aws_computeoptimizer as aws_computeoptimizer
     from . import aws_config as aws_config
     from . import aws_connect as aws_connect
     from . import aws_connectcampaigns as aws_connectcampaigns
     from . import aws_connectcampaignsv2 as aws_connectcampaignsv2
-    from . import aws_controlcatalog as aws_controlcatalog
     from . import aws_controltower as aws_controltower
     from . import aws_cur as aws_cur
     from . import aws_customerprofiles as aws_customerprofiles
     from . import aws_databrew as aws_databrew
+    from . import aws_dataexchange as aws_dataexchange
     from . import aws_datapipeline as aws_datapipeline
     from . import aws_datasync as aws_datasync
     from . import aws_datazone as aws_datazone
@@ -43867,6 +44357,7 @@ if typing.TYPE_CHECKING:
     from . import aws_dms as aws_dms
     from . import aws_docdb as aws_docdb
     from . import aws_docdbelastic as aws_docdbelastic
+    from . import aws_drs as aws_drs
     from . import aws_dsql as aws_dsql
     from . import aws_dynamodb as aws_dynamodb
     from . import aws_ec2 as aws_ec2
@@ -43926,6 +44417,7 @@ if typing.TYPE_CHECKING:
     from . import aws_iotevents as aws_iotevents
     from . import aws_iotfleethub as aws_iotfleethub
     from . import aws_iotfleetwise as aws_iotfleetwise
+    from . import aws_iotsecuretunneling as aws_iotsecuretunneling
     from . import aws_iotsitewise as aws_iotsitewise
     from . import aws_iotthingsgraph as aws_iotthingsgraph
     from . import aws_iottwinmaker as aws_iottwinmaker
@@ -43967,6 +44459,7 @@ if typing.TYPE_CHECKING:
     from . import aws_mediastore as aws_mediastore
     from . import aws_mediatailor as aws_mediatailor
     from . import aws_memorydb as aws_memorydb
+    from . import aws_mgn as aws_mgn
     from . import aws_mpa as aws_mpa
     from . import aws_msk as aws_msk
     from . import aws_mwaa as aws_mwaa
@@ -43984,6 +44477,7 @@ if typing.TYPE_CHECKING:
     from . import aws_observabilityadmin as aws_observabilityadmin
     from . import aws_odb as aws_odb
     from . import aws_omics as aws_omics
+    from . import aws_opensearch as aws_opensearch
     from . import aws_opensearchserverless as aws_opensearchserverless
     from . import aws_opensearchservice as aws_opensearchservice
     from . import aws_opsworks as aws_opsworks
@@ -44047,6 +44541,7 @@ if typing.TYPE_CHECKING:
     from . import aws_securityagent as aws_securityagent
     from . import aws_securityhub as aws_securityhub
     from . import aws_securitylake as aws_securitylake
+    from . import aws_serverlessrepo as aws_serverlessrepo
     from . import aws_servicecatalog as aws_servicecatalog
     from . import aws_servicecatalogappregistry as aws_servicecatalogappregistry
     from . import aws_servicediscovery as aws_servicediscovery
@@ -44065,18 +44560,18 @@ if typing.TYPE_CHECKING:
     from . import aws_ssmincidents as aws_ssmincidents
     from . import aws_ssmquicksetup as aws_ssmquicksetup
     from . import aws_sso as aws_sso
-    from . import aws_states as aws_states
     from . import aws_stepfunctions as aws_stepfunctions
     from . import aws_stepfunctions_tasks as aws_stepfunctions_tasks
     from . import aws_storagegateway as aws_storagegateway
     from . import aws_supportapp as aws_supportapp
+    from . import aws_supportauthz as aws_supportauthz
     from . import aws_synthetics as aws_synthetics
     from . import aws_systemsmanagersap as aws_systemsmanagersap
-    from . import aws_thinclient as aws_thinclient
+    from . import aws_textract as aws_textract
     from . import aws_timestream as aws_timestream
     from . import aws_transcribe as aws_transcribe
     from . import aws_transfer as aws_transfer
-    from . import aws_usernotifications as aws_usernotifications
+    from . import aws_translate as aws_translate
     from . import aws_uxc as aws_uxc
     from . import aws_verifiedpermissions as aws_verifiedpermissions
     from . import aws_voiceid as aws_voiceid
@@ -44085,6 +44580,7 @@ if typing.TYPE_CHECKING:
     from . import aws_wafregional as aws_wafregional
     from . import aws_wafv2 as aws_wafv2
     from . import aws_wellarchitected as aws_wellarchitected
+    from . import aws_wickr as aws_wickr
     from . import aws_wisdom as aws_wisdom
     from . import aws_workspaces as aws_workspaces
     from . import aws_workspacesinstances as aws_workspacesinstances
@@ -44108,7 +44604,9 @@ _SUBMODULES = {
     "alexa_ask",
     "assertions",
     "aws_accessanalyzer",
+    "aws_accountaccess",
     "aws_acmpca",
+    "aws_agentregistry",
     "aws_aiops",
     "aws_amazonmq",
     "aws_amplify",
@@ -44131,7 +44629,6 @@ _SUBMODULES = {
     "aws_aps",
     "aws_arcregionswitch",
     "aws_arczonalshift",
-    "aws_artifact",
     "aws_athena",
     "aws_auditmanager",
     "aws_autoscaling",
@@ -44142,7 +44639,6 @@ _SUBMODULES = {
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
-    "aws_backupsearch",
     "aws_batch",
     "aws_bcmdataexports",
     "aws_bcmpricingcalculator",
@@ -44164,6 +44660,7 @@ _SUBMODULES = {
     "aws_cloudformation",
     "aws_cloudfront",
     "aws_cloudfront_origins",
+    "aws_cloudhsm",
     "aws_cloudtrail",
     "aws_cloudwatch",
     "aws_cloudwatch_actions",
@@ -44181,18 +44678,17 @@ _SUBMODULES = {
     "aws_codestarnotifications",
     "aws_cognito",
     "aws_cognito_identitypool",
-    "aws_cognitosync",
     "aws_comprehend",
     "aws_computeoptimizer",
     "aws_config",
     "aws_connect",
     "aws_connectcampaigns",
     "aws_connectcampaignsv2",
-    "aws_controlcatalog",
     "aws_controltower",
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
+    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -44208,6 +44704,7 @@ _SUBMODULES = {
     "aws_dms",
     "aws_docdb",
     "aws_docdbelastic",
+    "aws_drs",
     "aws_dsql",
     "aws_dynamodb",
     "aws_ec2",
@@ -44267,6 +44764,7 @@ _SUBMODULES = {
     "aws_iotevents",
     "aws_iotfleethub",
     "aws_iotfleetwise",
+    "aws_iotsecuretunneling",
     "aws_iotsitewise",
     "aws_iotthingsgraph",
     "aws_iottwinmaker",
@@ -44308,6 +44806,7 @@ _SUBMODULES = {
     "aws_mediastore",
     "aws_mediatailor",
     "aws_memorydb",
+    "aws_mgn",
     "aws_mpa",
     "aws_msk",
     "aws_mwaa",
@@ -44325,6 +44824,7 @@ _SUBMODULES = {
     "aws_observabilityadmin",
     "aws_odb",
     "aws_omics",
+    "aws_opensearch",
     "aws_opensearchserverless",
     "aws_opensearchservice",
     "aws_opsworks",
@@ -44388,6 +44888,7 @@ _SUBMODULES = {
     "aws_securityagent",
     "aws_securityhub",
     "aws_securitylake",
+    "aws_serverlessrepo",
     "aws_servicecatalog",
     "aws_servicecatalogappregistry",
     "aws_servicediscovery",
@@ -44406,18 +44907,18 @@ _SUBMODULES = {
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
-    "aws_states",
     "aws_stepfunctions",
     "aws_stepfunctions_tasks",
     "aws_storagegateway",
     "aws_supportapp",
+    "aws_supportauthz",
     "aws_synthetics",
     "aws_systemsmanagersap",
-    "aws_thinclient",
+    "aws_textract",
     "aws_timestream",
     "aws_transcribe",
     "aws_transfer",
-    "aws_usernotifications",
+    "aws_translate",
     "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
@@ -44426,6 +44927,7 @@ _SUBMODULES = {
     "aws_wafregional",
     "aws_wafv2",
     "aws_wellarchitected",
+    "aws_wickr",
     "aws_wisdom",
     "aws_workspaces",
     "aws_workspacesinstances",
@@ -44847,6 +45349,27 @@ def _typecheckingstub__085b6d44b1c6b74e8060adbd78e13b1a188913a88389f19dce989d64c
 def _typecheckingstub__fb97d190d1ae56d062fe61e7b7a1d5c6702a4ffc56969e6a4298203a32094be0(
     *,
     ignore_unmodified_group_size_properties: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88bf807aaf73c48701bcb1abfd92fb20ef3a14c6ffb1599710a38e9ea8e46988(
+    *,
+    change_set_name: builtins.str,
+    stack_name: builtins.str,
+    capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
+    change_set_type: typing.Optional[builtins.str] = None,
+    deployment_mode: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    import_existing_resources: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
+    include_nested_stacks: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
+    notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    on_stack_failure: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnChangeSet.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template_body: typing.Optional[builtins.str] = None,
+    template_url: typing.Optional[builtins.str] = None,
+    use_previous_template: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -45443,13 +45966,6 @@ def _typecheckingstub__4d1b62b09ffbab6ff0f59d664e89ba6054339a477f55c26bf979a6779
     *,
     type: builtins.str,
     properties: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a2bd015e637820a8493aeb3873d61b7bb7f363dafc92b9b5af36de24dc0e5b0c(
-    *,
-    scan_filters: typing.Optional[typing.Union[IResolvable, typing.Sequence[typing.Union[IResolvable, typing.Union[CfnResourceScan.ScanFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -48125,6 +48641,145 @@ def _typecheckingstub__fd41c0f64a79fee464b469f85d91cf3535d9b1a435480b6b5c420ddc0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cc300810cf57c367c83df9d88cb2da765fa6207d88cab2e4d26b650a84595460(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    change_set_name: builtins.str,
+    stack_name: builtins.str,
+    capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
+    change_set_type: typing.Optional[builtins.str] = None,
+    deployment_mode: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    import_existing_resources: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
+    include_nested_stacks: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
+    notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    on_stack_failure: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnChangeSet.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template_body: typing.Optional[builtins.str] = None,
+    template_url: typing.Optional[builtins.str] = None,
+    use_previous_template: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__155b7a07ecc8f52388b3b707214ab56f975d7dbe1d97396b43e2efb08525a1f1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__815a41f5ae4e5ffcd94a18038d9dc04f7108d399ca27ae2d589498abb966684f(
+    inspector: TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c72c70be118b8c39053caadb59665f34258330b76ff3da571e638449711f8b0a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6aca3220d03674f851ac97b518520bcd3a86e425b884aae04c9075f91a4dd84(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ded6971f7141b1ad74b32c2c102acc42c8649a86ee6ccd3116ab94d521fbc6b3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81a214b484fa59066e26e9ec2209cc2fde5edfc20a38e91428cb3c83612c652b(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f62241a0265f7d789b9ada886dbc1c95f035ec73105428dd6ccf02f180908adb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9dc846353a5f0e26cdd0f6122e906a652baff2a5361e7cbfdf7ff7dbe1661294(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8fb2f341b53e11af6cbcae05a9a005e38c6fd3b04fd622683c75f7efe4f5cf3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8564a3fbf9626d1ee108ee2dcffd9b0a1d37054541f2a9b5839201611031e815(
+    value: typing.Optional[typing.Union[builtins.bool, IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__474e3c1408762ada24c9d4a1166b59872e7e48ad04e3b9f2420ce6ec1dd6e5aa(
+    value: typing.Optional[typing.Union[builtins.bool, IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65cef834eae1e46a3aac66118fe44e3244841b8c61e624af590b62423e2db31a(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9b743c176c3d86b0338134837243470e1b10e818afff74415f76270330ae4ea(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c8a1bc33a3a4df4905ec793b1c67d30b283eca7128d353e3d18d620c3de8085(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__930263a8f6fc51529666c760eedf8af135cccc7a452ef6a79b73f0dd2e62443c(
+    value: typing.Optional[typing.List[CfnChangeSet.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__782e09bc3fee323760d6d2107db1721468363fa9888c044a25c7ab218cf7fc2e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36219a40ead5399cbd68caf43a9a7fb76de482680d2b7468a069bea5d7229c6e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a59d0261f2df4c38d4a2a98a68cfded747d2c4a4088bd85e54e182b4d9cc03c0(
+    value: typing.Optional[typing.Union[builtins.bool, IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e42f33d2ffe3e9548bfacb68db70a5c85f3e1b9a650bcd8004b650e6d755354(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__24125c047564790c1c676206fa620a8031e4792ec36b4ed5c9e5af02f6df480e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -49108,52 +49763,6 @@ def _typecheckingstub__24b6d4eafd157ff7a5f438d4853f5dc78c9773081309212c101dae019
 
 def _typecheckingstub__dd41a20885eade487854b9a6ac2e6748158d9a5e9f3b4b25e79e4f0501f4bcc9(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__11e6c33d0374a376d37cc0a84f831b2548f39051ddcae845ec78e233f7019ffd(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    scan_filters: typing.Optional[typing.Union[IResolvable, typing.Sequence[typing.Union[IResolvable, typing.Union[CfnResourceScan.ScanFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ae8125f479686d115cda557ebc794a21ae45fc0568d5cc3d526beeff57bae65(
-    resource: _aws_cloudformation_68a282c8.IResourceScanRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__78aa2dc88c1a91b43ac89ad62a563038a7324a44eef5d1b2efa9de0a266af6af(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c0f3dc4c017c96ad15f36988d264e0f15c241c661a790034b31d2b5da822870(
-    inspector: TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0e9ba2d4539d85eb35382adb1704761513c41e9884f88498932ca558fd73a487(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__69dbe11b1e11dc071dca56e0ab337e11dd9ba1ff290ab2ded71563757ebaed8f(
-    value: typing.Optional[typing.Union[IResolvable, typing.List[typing.Union[IResolvable, CfnResourceScan.ScanFilterProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__75993fef3aaf8da68e223cdde04ad215f11d7a727be5131aa3fb552004596c8d(
-    *,
-    types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

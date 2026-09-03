@@ -10,7 +10,8 @@ class AgentRunRequest(UniversalBaseModel):
     prompt: str
     model: typing.Optional[str] = None
     chat_id: typing.Optional[str] = None
-    persist: typing.Optional[bool] = None
+    save: typing.Optional[bool] = None
+    stream: typing.Optional[bool] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -26,7 +26,7 @@ class ArchMIPS64(Arch):
             self.pcode_id = "MIPS:BE:64:default"
             self.function_prologs = set()
             self.function_epilogs = set()
-            self.triplet = "mips64-linux-gnu"
+            self.triplet = "mips64-linux-gnuabi64"
             self.linux_name = "mips64"
             self.ida_name = "mips64b"
         else:
@@ -39,7 +39,7 @@ class ArchMIPS64(Arch):
     qemu_name = "mips64el"
     ida_processor = "mips64"
     linux_name = "mips64el"  # ???
-    triplet = "mips64el-linux-gnu"
+    triplet = "mips64el-linux-gnuabi64"
     max_inst_bytes = 4
     ret_offset = RegisterOffset(32)
     syscall_register_offset = 16
@@ -194,6 +194,39 @@ class ArchMIPS64(Arch):
     got_section_name = ".got"
     ld_linux_name = "ld.so.1"
     elf_tls = TLSArchInfo(1, 16, [], [0], [], 0x7000, 0x8000)
+
+
+class ArchMIPSN32(ArchMIPS64):
+    """
+    The MIPS n32 ABI and the older O64 ABI.
+
+    Both MIPS n32 and O64 use 64-bit instructions. The registers and the instructions are the same as in ArchMIPS64,
+    while pointers, GOT slots, relocation entries and symbol table entries are 32-bit.
+
+    Every ELF structure an n32 object carries is an Elf32_*, so ArchMIPSN32.bits is 32.
+    """
+
+    def __init__(self, endness=Endness.BE):
+        super().__init__(endness)
+        if endness == Endness.BE:
+            self.pcode_id = "MIPS:BE:64:64-32addr"
+            self.triplet = "mips64-linux-gnuabin32"
+            self.linux_name = "mipsn32"
+            self.ida_name = "mips64b"
+        else:
+            self.pcode_id = "MIPS:LE:64:64-32addr"
+            self.triplet = "mips64el-linux-gnuabin32"
+            self.linux_name = "mipsn32el"
+
+    bits = 32
+    name = "MIPSN32"
+    qemu_name = "mipsn32el"
+    linux_name = "mipsn32el"
+    triplet = "mips64el-linux-gnuabin32"
+    # n32 keeps the 64-bit registers but narrows the C long and the pointer.
+    sizeof = {"short": 16, "int": 32, "long": 32, "long long": 64}
+    # Two 32-bit words of thread pointer head, as on any 32-bit MIPS.
+    elf_tls = TLSArchInfo(1, 8, [], [0], [], 0x7000, 0x8000)
 
 
 register_arch([r".*mipsel.*|.*mips64el|.*mipsel64"], 64, Endness.LE, ArchMIPS64)

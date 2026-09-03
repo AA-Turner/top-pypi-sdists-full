@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mixpanel
-Version: 5.3.0
+Version: 5.4.0
 Summary: Official Mixpanel library for Python
 Author-email: "Mixpanel, Inc." <dev@mixpanel.com>
 License-Expression: Apache-2.0

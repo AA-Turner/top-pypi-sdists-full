@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyGEL3D
-Version: 0.8.0
+Version: 0.8.2
 Summary: PyGEL 3D (Python Bindings for GEL) contains tools for polygonal mesh based geometry processing
 Author-email: Andreas Baerentzen <janba@dtu.dk>
 License-Expression: MIT

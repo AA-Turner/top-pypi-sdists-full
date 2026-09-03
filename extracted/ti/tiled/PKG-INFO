@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tiled
-Version: 0.2.17
+Version: 0.2.18
 Summary: Structured Scientific Data Access Service
 Project-URL: Homepage, https://github.com/bluesky/tiled
 Project-URL: Documentation, https://blueskyproject.io/tiled
@@ -37,7 +37,7 @@ Requires-Dist: aiosqlite; extra == 'all'
 Requires-Dist: alembic; extra == 'all'
 Requires-Dist: anyio; extra == 'all'
 Requires-Dist: asgi-correlation-id; extra == 'all'
-Requires-Dist: asyncpg; extra == 'all'
+Requires-Dist: asyncpg>=0.28; extra == 'all'
 Requires-Dist: awkward>=2.4.3; extra == 'all'
 Requires-Dist: blosc2; extra == 'all'
 Requires-Dist: cachetools; extra == 'all'
@@ -159,7 +159,7 @@ Requires-Dist: aiosqlite; extra == 'server'
 Requires-Dist: alembic; extra == 'server'
 Requires-Dist: anyio; extra == 'server'
 Requires-Dist: asgi-correlation-id; extra == 'server'
-Requires-Dist: asyncpg; extra == 'server'
+Requires-Dist: asyncpg>=0.28; extra == 'server'
 Requires-Dist: awkward>=2.4.3; extra == 'server'
 Requires-Dist: blosc2; (python_version >= '3.10') and extra == 'server'
 Requires-Dist: cachetools; extra == 'server'

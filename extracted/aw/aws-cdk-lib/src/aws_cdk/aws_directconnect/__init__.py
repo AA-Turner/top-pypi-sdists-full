@@ -1613,6 +1613,7 @@ class CfnPrivateVirtualInterface(
             direct_connect_gateway_id="directConnectGatewayId",
             enable_site_link=False,
             mtu=123,
+            rate_limit="rateLimit",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1634,6 +1635,7 @@ class CfnPrivateVirtualInterface(
         direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"]] = None,
         enable_site_link: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         mtu: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         virtual_gateway_id: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1649,6 +1651,7 @@ class CfnPrivateVirtualInterface(
         :param direct_connect_gateway_id: 
         :param enable_site_link: Indicates whether to enable or disable SiteLink.
         :param mtu: The maximum transmission unit (MTU), in bytes. The supported values are 1500 and 9001. The default value is 1500.
+        :param rate_limit: The rate limit (bandwidth allocation) for the virtual interface. The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
         :param tags: The tags associated with the private virtual interface.
         :param virtual_gateway_id: The ID or ARN of the virtual private gateway.
         '''
@@ -1665,6 +1668,7 @@ class CfnPrivateVirtualInterface(
             direct_connect_gateway_id=direct_connect_gateway_id,
             enable_site_link=enable_site_link,
             mtu=mtu,
+            rate_limit=rate_limit,
             tags=tags,
             virtual_gateway_id=virtual_gateway_id,
         )
@@ -1908,6 +1912,19 @@ class CfnPrivateVirtualInterface(
         jsii.set(self, "mtu", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="rateLimit")
+    def rate_limit(self) -> typing.Optional[builtins.str]:
+        '''The rate limit (bandwidth allocation) for the virtual interface.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "rateLimit"))
+
+    @rate_limit.setter
+    def rate_limit(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__24a3ebade68e9ec2224fdcb36b8d512c060d5360da5b7d57e7b07b7ef503cf01)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rateLimit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the private virtual interface.'''
@@ -2090,6 +2107,7 @@ class CfnPrivateVirtualInterface(
         "direct_connect_gateway_id": "directConnectGatewayId",
         "enable_site_link": "enableSiteLink",
         "mtu": "mtu",
+        "rate_limit": "rateLimit",
         "tags": "tags",
         "virtual_gateway_id": "virtualGatewayId",
     },
@@ -2106,6 +2124,7 @@ class CfnPrivateVirtualInterfaceProps:
         direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"]] = None,
         enable_site_link: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         mtu: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         virtual_gateway_id: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2119,6 +2138,7 @@ class CfnPrivateVirtualInterfaceProps:
         :param direct_connect_gateway_id: 
         :param enable_site_link: Indicates whether to enable or disable SiteLink.
         :param mtu: The maximum transmission unit (MTU), in bytes. The supported values are 1500 and 9001. The default value is 1500.
+        :param rate_limit: The rate limit (bandwidth allocation) for the virtual interface. The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
         :param tags: The tags associated with the private virtual interface.
         :param virtual_gateway_id: The ID or ARN of the virtual private gateway.
 
@@ -2152,6 +2172,7 @@ class CfnPrivateVirtualInterfaceProps:
                 direct_connect_gateway_id="directConnectGatewayId",
                 enable_site_link=False,
                 mtu=123,
+                rate_limit="rateLimit",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -2169,6 +2190,7 @@ class CfnPrivateVirtualInterfaceProps:
             check_type(argname="argument direct_connect_gateway_id", value=direct_connect_gateway_id, expected_type=type_hints["direct_connect_gateway_id"])
             check_type(argname="argument enable_site_link", value=enable_site_link, expected_type=type_hints["enable_site_link"])
             check_type(argname="argument mtu", value=mtu, expected_type=type_hints["mtu"])
+            check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument virtual_gateway_id", value=virtual_gateway_id, expected_type=type_hints["virtual_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2185,6 +2207,8 @@ class CfnPrivateVirtualInterfaceProps:
             self._values["enable_site_link"] = enable_site_link
         if mtu is not None:
             self._values["mtu"] = mtu
+        if rate_limit is not None:
+            self._values["rate_limit"] = rate_limit
         if tags is not None:
             self._values["tags"] = tags
         if virtual_gateway_id is not None:
@@ -2281,6 +2305,17 @@ class CfnPrivateVirtualInterfaceProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def rate_limit(self) -> typing.Optional[builtins.str]:
+        '''The rate limit (bandwidth allocation) for the virtual interface.
+
+        The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-privatevirtualinterface.html#cfn-directconnect-privatevirtualinterface-ratelimit
+        '''
+        result = self._values.get("rate_limit")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the private virtual interface.
 
@@ -2346,6 +2381,7 @@ class CfnPublicVirtualInterface(
         
             # the properties below are optional
             allocate_public_virtual_interface_role_arn="allocatePublicVirtualInterfaceRoleArn",
+            rate_limit="rateLimit",
             route_filter_prefixes=["routeFilterPrefixes"],
             tags=[CfnTag(
                 key="key",
@@ -2364,6 +2400,7 @@ class CfnPublicVirtualInterface(
         virtual_interface_name: builtins.str,
         vlan: jsii.Number,
         allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
+        rate_limit: typing.Optional[builtins.str] = None,
         route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2376,6 +2413,7 @@ class CfnPublicVirtualInterface(
         :param virtual_interface_name: The name of the virtual interface assigned by the customer network. The name has a maximum of 100 characters. The following are valid characters: a-z, 0-9 and a hyphen (-).
         :param vlan: The ID of the VLAN.
         :param allocate_public_virtual_interface_role_arn: The Amazon Resource Name (ARN) of the role to allocate the public virtual interface. Needs directconnect:AllocatePublicVirtualInterface permissions and tag permissions if applicable.
+        :param rate_limit: The rate limit (bandwidth allocation) for the virtual interface. The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
         :param route_filter_prefixes: The routes to be advertised to the AWS network in this region.
         :param tags: The tags associated with the public virtual interface.
         '''
@@ -2389,6 +2427,7 @@ class CfnPublicVirtualInterface(
             virtual_interface_name=virtual_interface_name,
             vlan=vlan,
             allocate_public_virtual_interface_role_arn=allocate_public_virtual_interface_role_arn,
+            rate_limit=rate_limit,
             route_filter_prefixes=route_filter_prefixes,
             tags=tags,
         )
@@ -2589,6 +2628,19 @@ class CfnPublicVirtualInterface(
         jsii.set(self, "allocatePublicVirtualInterfaceRoleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="rateLimit")
+    def rate_limit(self) -> typing.Optional[builtins.str]:
+        '''The rate limit (bandwidth allocation) for the virtual interface.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "rateLimit"))
+
+    @rate_limit.setter
+    def rate_limit(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b86ff9f13580244c049535f265ac007eca66aece0d2b30dff05e94a152dc3b4f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rateLimit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="routeFilterPrefixes")
     def route_filter_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The routes to be advertised to the AWS network in this region.'''
@@ -2771,6 +2823,7 @@ class CfnPublicVirtualInterface(
         "virtual_interface_name": "virtualInterfaceName",
         "vlan": "vlan",
         "allocate_public_virtual_interface_role_arn": "allocatePublicVirtualInterfaceRoleArn",
+        "rate_limit": "rateLimit",
         "route_filter_prefixes": "routeFilterPrefixes",
         "tags": "tags",
     },
@@ -2784,6 +2837,7 @@ class CfnPublicVirtualInterfaceProps:
         virtual_interface_name: builtins.str,
         vlan: jsii.Number,
         allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
+        rate_limit: typing.Optional[builtins.str] = None,
         route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2794,6 +2848,7 @@ class CfnPublicVirtualInterfaceProps:
         :param virtual_interface_name: The name of the virtual interface assigned by the customer network. The name has a maximum of 100 characters. The following are valid characters: a-z, 0-9 and a hyphen (-).
         :param vlan: The ID of the VLAN.
         :param allocate_public_virtual_interface_role_arn: The Amazon Resource Name (ARN) of the role to allocate the public virtual interface. Needs directconnect:AllocatePublicVirtualInterface permissions and tag permissions if applicable.
+        :param rate_limit: The rate limit (bandwidth allocation) for the virtual interface. The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
         :param route_filter_prefixes: The routes to be advertised to the AWS network in this region.
         :param tags: The tags associated with the public virtual interface.
 
@@ -2824,6 +2879,7 @@ class CfnPublicVirtualInterfaceProps:
             
                 # the properties below are optional
                 allocate_public_virtual_interface_role_arn="allocatePublicVirtualInterfaceRoleArn",
+                rate_limit="rateLimit",
                 route_filter_prefixes=["routeFilterPrefixes"],
                 tags=[CfnTag(
                     key="key",
@@ -2838,6 +2894,7 @@ class CfnPublicVirtualInterfaceProps:
             check_type(argname="argument virtual_interface_name", value=virtual_interface_name, expected_type=type_hints["virtual_interface_name"])
             check_type(argname="argument vlan", value=vlan, expected_type=type_hints["vlan"])
             check_type(argname="argument allocate_public_virtual_interface_role_arn", value=allocate_public_virtual_interface_role_arn, expected_type=type_hints["allocate_public_virtual_interface_role_arn"])
+            check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
             check_type(argname="argument route_filter_prefixes", value=route_filter_prefixes, expected_type=type_hints["route_filter_prefixes"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2848,6 +2905,8 @@ class CfnPublicVirtualInterfaceProps:
         }
         if allocate_public_virtual_interface_role_arn is not None:
             self._values["allocate_public_virtual_interface_role_arn"] = allocate_public_virtual_interface_role_arn
+        if rate_limit is not None:
+            self._values["rate_limit"] = rate_limit
         if route_filter_prefixes is not None:
             self._values["route_filter_prefixes"] = route_filter_prefixes
         if tags is not None:
@@ -2909,6 +2968,17 @@ class CfnPublicVirtualInterfaceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-publicvirtualinterface.html#cfn-directconnect-publicvirtualinterface-allocatepublicvirtualinterfacerolearn
         '''
         result = self._values.get("allocate_public_virtual_interface_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rate_limit(self) -> typing.Optional[builtins.str]:
+        '''The rate limit (bandwidth allocation) for the virtual interface.
+
+        The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-publicvirtualinterface.html#cfn-directconnect-publicvirtualinterface-ratelimit
+        '''
+        result = self._values.get("rate_limit")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -2980,6 +3050,7 @@ class CfnTransitVirtualInterface(
             allocate_transit_virtual_interface_role_arn="allocateTransitVirtualInterfaceRoleArn",
             enable_site_link=False,
             mtu=123,
+            rate_limit="rateLimit",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -3000,6 +3071,7 @@ class CfnTransitVirtualInterface(
         allocate_transit_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
         enable_site_link: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         mtu: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DirectConnect::TransitVirtualInterface``.
@@ -3014,6 +3086,7 @@ class CfnTransitVirtualInterface(
         :param allocate_transit_virtual_interface_role_arn: The Amazon Resource Name (ARN) of the role to allocate the TransitVifAllocation. Needs directconnect:AllocateTransitVirtualInterface permissions and tag permissions if applicable.
         :param enable_site_link: Indicates whether to enable or disable SiteLink.
         :param mtu: The maximum transmission unit (MTU), in bytes. The supported values are 1500 and 9001. The default value is 1500.
+        :param rate_limit: The rate limit (bandwidth allocation) for the virtual interface. The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
         :param tags: The tags associated with the private virtual interface.
         '''
         if __debug__:
@@ -3029,6 +3102,7 @@ class CfnTransitVirtualInterface(
             allocate_transit_virtual_interface_role_arn=allocate_transit_virtual_interface_role_arn,
             enable_site_link=enable_site_link,
             mtu=mtu,
+            rate_limit=rate_limit,
             tags=tags,
         )
 
@@ -3271,6 +3345,19 @@ class CfnTransitVirtualInterface(
         jsii.set(self, "mtu", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="rateLimit")
+    def rate_limit(self) -> typing.Optional[builtins.str]:
+        '''The rate limit (bandwidth allocation) for the virtual interface.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "rateLimit"))
+
+    @rate_limit.setter
+    def rate_limit(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ddb07d1fc11fa1212279c095fc0266153f27de781965cfb196945258dba655e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rateLimit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the private virtual interface.'''
@@ -3440,6 +3527,7 @@ class CfnTransitVirtualInterface(
         "allocate_transit_virtual_interface_role_arn": "allocateTransitVirtualInterfaceRoleArn",
         "enable_site_link": "enableSiteLink",
         "mtu": "mtu",
+        "rate_limit": "rateLimit",
         "tags": "tags",
     },
 )
@@ -3455,6 +3543,7 @@ class CfnTransitVirtualInterfaceProps:
         allocate_transit_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
         enable_site_link: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         mtu: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTransitVirtualInterface``.
@@ -3467,6 +3556,7 @@ class CfnTransitVirtualInterfaceProps:
         :param allocate_transit_virtual_interface_role_arn: The Amazon Resource Name (ARN) of the role to allocate the TransitVifAllocation. Needs directconnect:AllocateTransitVirtualInterface permissions and tag permissions if applicable.
         :param enable_site_link: Indicates whether to enable or disable SiteLink.
         :param mtu: The maximum transmission unit (MTU), in bytes. The supported values are 1500 and 9001. The default value is 1500.
+        :param rate_limit: The rate limit (bandwidth allocation) for the virtual interface. The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
         :param tags: The tags associated with the private virtual interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-transitvirtualinterface.html
@@ -3499,6 +3589,7 @@ class CfnTransitVirtualInterfaceProps:
                 allocate_transit_virtual_interface_role_arn="allocateTransitVirtualInterfaceRoleArn",
                 enable_site_link=False,
                 mtu=123,
+                rate_limit="rateLimit",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -3515,6 +3606,7 @@ class CfnTransitVirtualInterfaceProps:
             check_type(argname="argument allocate_transit_virtual_interface_role_arn", value=allocate_transit_virtual_interface_role_arn, expected_type=type_hints["allocate_transit_virtual_interface_role_arn"])
             check_type(argname="argument enable_site_link", value=enable_site_link, expected_type=type_hints["enable_site_link"])
             check_type(argname="argument mtu", value=mtu, expected_type=type_hints["mtu"])
+            check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bgp_peers": bgp_peers,
@@ -3529,6 +3621,8 @@ class CfnTransitVirtualInterfaceProps:
             self._values["enable_site_link"] = enable_site_link
         if mtu is not None:
             self._values["mtu"] = mtu
+        if rate_limit is not None:
+            self._values["rate_limit"] = rate_limit
         if tags is not None:
             self._values["tags"] = tags
 
@@ -3622,6 +3716,17 @@ class CfnTransitVirtualInterfaceProps:
         '''
         result = self._values.get("mtu")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def rate_limit(self) -> typing.Optional[builtins.str]:
+        '''The rate limit (bandwidth allocation) for the virtual interface.
+
+        The value must be one of the supported bandwidth values (e.g., 50Mbps, 1Gbps, 10Gbps) and cannot exceed the bandwidth of the parent connection or LAG.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-transitvirtualinterface.html#cfn-directconnect-transitvirtualinterface-ratelimit
+        '''
+        result = self._values.get("rate_limit")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -3989,6 +4094,7 @@ def _typecheckingstub__7b999bfd5ff244ca66e7bc7c8536b0b41cd03026156da31d75f533648
     direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef]] = None,
     enable_site_link: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mtu: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     virtual_gateway_id: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4075,6 +4181,12 @@ def _typecheckingstub__9ed96ea2147f833a590e8cb859e1264fdc9a4fd816c38bdb7de360223
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__24a3ebade68e9ec2224fdcb36b8d512c060d5360da5b7d57e7b07b7ef503cf01(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bb6b73505c5342ad306f9886d5bff4e132c15676d4f2e45fcbe415b72ed035bb(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -4109,6 +4221,7 @@ def _typecheckingstub__4235226dc710b191f689dc9cfba93959927dfea6356ec9f8e5e5a4a49
     direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef]] = None,
     enable_site_link: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mtu: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     virtual_gateway_id: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4124,6 +4237,7 @@ def _typecheckingstub__fb624942469eb4c46619a6a53b66f8eefaefb7869b75206e9cc0f6ecf
     virtual_interface_name: builtins.str,
     vlan: jsii.Number,
     allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
+    rate_limit: typing.Optional[builtins.str] = None,
     route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -4192,6 +4306,12 @@ def _typecheckingstub__57043a41fced754517b9e33f9547d38de18424e15989706839ddcab94
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b86ff9f13580244c049535f265ac007eca66aece0d2b30dff05e94a152dc3b4f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a470793a5aed4e3f78d1bba8a0be22800607924bdad3e6ea09f9a68136db3f8e(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -4223,6 +4343,7 @@ def _typecheckingstub__90c6271856e4af9b71018ea29afa7c5c6b15f873ee9d157717f75a627
     virtual_interface_name: builtins.str,
     vlan: jsii.Number,
     allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
+    rate_limit: typing.Optional[builtins.str] = None,
     route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -4241,6 +4362,7 @@ def _typecheckingstub__8457181aefda9690d8c418796e9a515a2e66c5ac47ef49f5bc5009c03
     allocate_transit_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
     enable_site_link: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mtu: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4326,6 +4448,12 @@ def _typecheckingstub__4d19784da4e32c6ec4fe08fbf8f5821561fcb9deaa0adf75925b256d1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6ddb07d1fc11fa1212279c095fc0266153f27de781965cfb196945258dba655e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__84a469d82380a2c77aa1e6129aec6e66170b2e4285400f743b393d509e744c2f(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -4354,6 +4482,7 @@ def _typecheckingstub__fa8466c27cdbb4001c029d13613d4fafd6773cca7380c863874c112e9
     allocate_transit_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
     enable_site_link: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mtu: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

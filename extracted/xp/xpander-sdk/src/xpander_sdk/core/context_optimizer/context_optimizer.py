@@ -1004,10 +1004,10 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
         """Collapse a stale full-payload context-retrieve result back to a
         preview pointing at its original context_id (no new workspace blob).
 
-        Returns True when the message was re-offloaded. First sighting of a
-        large payload is left intact so the model gets one full view, and while
-        there is ample headroom the payload is kept for good — the agent asked
-        for it, and evicting it just buys another retrieve.
+        Returns True when the message was re-offloaded. First sighting of a large payload is
+        left intact so the model gets one full view — unless it alone would fill half the
+        window, which no single result is worth. While there is ample headroom the payload is
+        kept for good: the agent asked for it, and evicting it just buys another retrieve.
         """
         content = unwrap_tool_result_content(msg.content)
         if (
@@ -1020,7 +1020,10 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
             return False
         if tool_call_id not in self._retrieve_msgs_seen_once:
             self._retrieve_msgs_seen_once.add(tool_call_id)
-            return False
+            # The free pass is for payloads worth one full look. One that alone fills half the
+            # window is not - and a resumed session can hold one the inline cap never saw.
+            if self._estimate_tokens_for_text(content) * 2 < self._auto_compact_threshold:
+                return False
 
         # Recover the original context_id from the call args (same shape the
         # agno hook parses: payload.body_params.context_id, then top-level).

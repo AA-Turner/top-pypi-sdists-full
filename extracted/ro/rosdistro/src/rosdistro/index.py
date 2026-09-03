@@ -46,8 +46,9 @@ class Index(object):
         assert data['type'] == Index._type, "Expected file type is '%s', not '%s'" % (Index._type, data['type'])
 
         assert 'version' in data, 'Index file lacks required version information'
-        assert int(data['version']) > 1, "Unable to handle '%s' format version '%d' anymore, please update your '%s' file to version '2', '3', or '4'" % (Index._type, int(data['version']), Index._type)
-        assert int(data['version']) in [2, 3, 4], "Unable to handle '%s' format version '%d', please update rosdistro (e.g. on Ubuntu/Debian use: sudo apt-get update && sudo apt-get install --only-upgrade python-rosdistro)" % (Index._type, int(data['version']))
+        if int(data['version']) not in [2, 3, 4]:
+            from . import FormatVersionError
+            raise FormatVersionError(Index._type, data['version'], [2, 3, 4])
         self.version = int(data['version'])
 
         self.distributions = {}

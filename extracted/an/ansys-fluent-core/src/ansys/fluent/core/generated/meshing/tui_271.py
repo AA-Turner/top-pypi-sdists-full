@@ -4052,7 +4052,7 @@ class main_menu(TUIMenu):
 
         class project_beta(TUIMenu):
             """
-            Enter to create new project, open project, save and archive project.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.simulation = self.__class__.simulation(service, version, mode, path + ["simulation"])
@@ -4065,32 +4065,32 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class archive(TUIMethod):
                 """
-                Archive Project.
+                No help available.
                 """
             class new(TUIMethod):
                 """
-                Create New Project.
+                No help available.
                 """
             class open(TUIMethod):
                 """
-                Open project.
+                No help available.
                 """
             class save(TUIMethod):
                 """
-                Save Project.
+                No help available.
                 """
             class save_as(TUIMethod):
                 """
-                Save As Project.
+                No help available.
                 """
             class save_as_copy(TUIMethod):
                 """
-                Save As Copy.
+                No help available.
                 """
 
             class simulation(TUIMenu):
                 """
-                Enter to create, duplicate, or delete a simulation.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.run = self.__class__.run(service, version, mode, path + ["run"])
@@ -4100,20 +4100,20 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class delete(TUIMethod):
                     """
-                    Delete A Simulation.
+                    No help available.
                     """
                 class new_simulation(TUIMethod):
                     """
-                    Create New Simulation.
+                    No help available.
                     """
                 class set_as_current(TUIMethod):
                     """
-                    Set the Current Simulation.
+                    No help available.
                     """
 
                 class run(TUIMenu):
                     """
-                    Enter to create, duplicate, or delete a run.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
@@ -4122,15 +4122,15 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class delete(TUIMethod):
                         """
-                        Delete A Run.
+                        No help available.
                         """
                     class new_run(TUIMethod):
                         """
-                        Create a New Run.
+                        No help available.
                         """
                     class set_as_current(TUIMethod):
                         """
-                        Set the Current Run.
+                        No help available.
                         """
 
     class material_point(TUIMenu):

@@ -7,12 +7,6 @@ import logging
 from urllib import parse
 
 from securesystemslib.exceptions import UnsupportedLibraryError
-from securesystemslib.signer._constants import (
-    ECDSA_SHA2_NISTP256,
-    ECDSA_SHA2_NISTP384,
-    ECDSA_SHA2_NISTP521,
-    KEY_TYPE_ECDSA,
-)
 from securesystemslib.signer._key import Key, SSlibKey
 from securesystemslib.signer._signer import SecretsHandler, Signature, Signer
 from securesystemslib.signer._utils import compute_default_keyid
@@ -36,15 +30,15 @@ try:
     )
 
     KEYTYPES_AND_SCHEMES = {
-        KeyCurveName.p_256: (KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP256),
-        KeyCurveName.p_384: (KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP384),
-        KeyCurveName.p_521: (KEY_TYPE_ECDSA, ECDSA_SHA2_NISTP521),
+        KeyCurveName.p_256: ("ecdsa", "ecdsa-sha2-nistp256"),
+        KeyCurveName.p_384: ("ecdsa", "ecdsa-sha2-nistp384"),
+        KeyCurveName.p_521: ("ecdsa", "ecdsa-sha2-nistp521"),
     }
 
     SIGNATURE_ALGORITHMS = {
-        ECDSA_SHA2_NISTP256: SignatureAlgorithm.es256,
-        ECDSA_SHA2_NISTP384: SignatureAlgorithm.es384,
-        ECDSA_SHA2_NISTP521: SignatureAlgorithm.es512,
+        "ecdsa-sha2-nistp256": SignatureAlgorithm.es256,
+        "ecdsa-sha2-nistp384": SignatureAlgorithm.es384,
+        "ecdsa-sha2-nistp521": SignatureAlgorithm.es512,
     }
 
 
@@ -62,32 +56,26 @@ class UnsupportedKeyType(Exception):  # noqa: N818
 
 
 class AzureSigner(Signer):
-    """Azure Key Vault Signer.
+    """Azure Key Vault Signer
 
     This Signer uses Azure Key Vault to sign.
-    Currently this signer supports signing with EC keys (NIST curves P-256, P-384,
-    and P-521).
-
-    The private key URI scheme is:
-    ``azurekms://<vault-name>.vault.azure.net/keys/<key-name>/<version>``
-
-    Authentication uses ambient credentials via
-    ``azure.identity.DefaultAzureCredential`` (such as environment variables
-    ``AZURE_CLIENT_ID``, ``AZURE_CLIENT_SECRET``, ``AZURE_TENANT_ID``, managed
-    identities, or Azure CLI login).
+    Currently this signer only supports signing with EC keys.
+    RSA support will be added in a separate pull request.
 
     The specific permissions that AzureSigner needs are:
+    * "Key Vault Crypto User" for import() and sign()
 
-    * "Key Vault Crypto User" (or equivalent custom RBAC role) for
-      ``AzureSigner.import_()`` and ``Signer.sign()``
+    See https://learn.microsoft.com/en-us/azure/key-vault/general/rbac-guide?tabs=azure-cli
+    for a list of all built-in Azure Key Vault roles
 
-    See `Azure Key Vault RBAC guide
-    <https://learn.microsoft.com/en-us/azure/key-vault/general/rbac-guide?tabs=azure-cli>`_
-    for a list of all built-in Azure Key Vault roles.
+    Arguments:
+        az_key_uri: Fully qualified Azure Key Vault name, like
+            https://<vault-name>.vault.azure.net/keys/<key-name>/<version>
+        public_key: public key object
 
     Raises:
-        UnsupportedLibraryError: If azure-identity, azure-keyvault-keys, or
-            cryptography are not installed.
+        Various errors from azure.identity
+        Various errors from azure.keyvault.keys
     """
 
     SCHEME = "azurekms"

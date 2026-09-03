@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-28T18:11:58.361344                                                            #
+# Generated on 2026-09-02T23:51:38.044536                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.user_decorators.user_flow_decorator
     import metaflow.user_decorators.mutable_flow
     import metaflow.mf_extensions.outerbounds.plugins.checkpoint_datastores.external_chckpt
-    import metaflow.user_decorators.user_flow_decorator
 
 from .....user_decorators.user_flow_decorator import FlowMutator as FlowMutator
 from .....user_decorators.mutable_flow import MutableFlow as MutableFlow

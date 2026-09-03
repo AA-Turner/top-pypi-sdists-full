@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: rosdistro
-Version: 1.0.1
+Version: 1.1.0
 Summary: A tool to work with rosdistro files
 Home-page: http://wiki.ros.org/rosdistro
 Author: Wim Meeussen, Dirk Thomas

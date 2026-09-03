@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyjanitor
-Version: 0.32.25
+Version: 0.32.26
 Summary: Tools for cleaning pandas DataFrames
 Author-email: pyjanitor devs <ericmajinglong@gmail.com>
 Maintainer-email: pyjanitor devs <ericmajinglong@gmail.com>

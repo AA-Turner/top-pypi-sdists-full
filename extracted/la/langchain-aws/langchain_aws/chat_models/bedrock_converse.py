@@ -924,6 +924,9 @@ class ChatBedrockConverse(BaseChatModel):
             or
             # Kimi models
             (provider in ("moonshot", "moonshotai") and "kimi" in model_id_lower)
+            or
+            # xAI Grok models
+            (provider == "xai" and "grok" in model_id_lower)
         ):
             return True
         elif (
@@ -1143,6 +1146,8 @@ class ChatBedrockConverse(BaseChatModel):
                     self.supports_tool_choice_values = ("auto",)
                 else:
                     self.supports_tool_choice_values = ("auto", "any", "tool")
+            elif "grok" in base_model:
+                self.supports_tool_choice_values = ("auto", "any", "tool")
             elif "llama4" in base_model:
                 self.supports_tool_choice_values = ("auto",)
             elif "llama3" in base_model:

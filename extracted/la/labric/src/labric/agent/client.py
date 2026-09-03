@@ -27,72 +27,26 @@ class AgentClient:
         """
         return self._raw_client
 
-    def run(
-        self,
-        *,
-        prompt: str,
-        model: typing.Optional[str] = OMIT,
-        chat_id: typing.Optional[str] = OMIT,
-        persist: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AgentRunResponse:
-        """
-        Run the Labric data-analysis agent to completion and return its final
-        answer alongside the tool calls it made. Pass chat_id to continue a saved
-        conversation, or persist=true to save the run as a new chat visible in the
-        web UI; if saving fails, the response still carries the answer but its
-        chat_id is null. Long-running analyses should prefer the streaming
-        variant.
-
-        Parameters
-        ----------
-        prompt : str
-
-        model : typing.Optional[str]
-
-        chat_id : typing.Optional[str]
-
-        persist : typing.Optional[bool]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AgentRunResponse
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.agent.run(
-            prompt="prompt",
-        )
-        """
-        _response = self._raw_client.run(
-            prompt=prompt, model=model, chat_id=chat_id, persist=persist, request_options=request_options
-        )
-        return _response.data
-
     def run_stream(
         self,
         *,
         prompt: str,
         model: typing.Optional[str] = OMIT,
         chat_id: typing.Optional[str] = OMIT,
-        persist: typing.Optional[bool] = OMIT,
+        save: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[AgentRunEvent]:
         """
-        Stream an agent run as server-sent events. Each event is an
-        AgentRunEvent; the stream closes after a terminal `result` event, which
-        carries the same summary the non-streaming endpoint returns, or after a
-        terminal `error` event if the run fails. Persistence (chat_id / persist)
-        behaves as in the non-streaming variant.
+        Run the Labric data-analysis agent and return its final answer
+        alongside the tool calls it made. With stream=true the response is
+        instead a stream of server-sent AgentRunEvent events, closing after a
+        terminal `result` event that carries the same summary, or an `error`
+        event if the run fails; prefer streaming for long analyses. Pass chat_id
+        to continue a saved conversation, or save=true to save the run as a new
+        chat visible in the web UI; if saving fails, the answer is still returned
+        but its chat_id is null.
+
+        Requires an API key with the `read` scope.
 
         Parameters
         ----------
@@ -102,7 +56,7 @@ class AgentClient:
 
         chat_id : typing.Optional[str]
 
-        persist : typing.Optional[bool]
+        save : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -110,7 +64,7 @@ class AgentClient:
         Yields
         ------
         typing.Iterator[AgentRunEvent]
-            OK
+
 
         Examples
         --------
@@ -126,9 +80,64 @@ class AgentClient:
             yield chunk
         """
         with self._raw_client.run_stream(
-            prompt=prompt, model=model, chat_id=chat_id, persist=persist, request_options=request_options
+            prompt=prompt, model=model, chat_id=chat_id, save=save, request_options=request_options
         ) as r:
             yield from r.data
+
+    def run(
+        self,
+        *,
+        prompt: str,
+        model: typing.Optional[str] = OMIT,
+        chat_id: typing.Optional[str] = OMIT,
+        save: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AgentRunResponse:
+        """
+        Run the Labric data-analysis agent and return its final answer
+        alongside the tool calls it made. With stream=true the response is
+        instead a stream of server-sent AgentRunEvent events, closing after a
+        terminal `result` event that carries the same summary, or an `error`
+        event if the run fails; prefer streaming for long analyses. Pass chat_id
+        to continue a saved conversation, or save=true to save the run as a new
+        chat visible in the web UI; if saving fails, the answer is still returned
+        but its chat_id is null.
+
+        Requires an API key with the `read` scope.
+
+        Parameters
+        ----------
+        prompt : str
+
+        model : typing.Optional[str]
+
+        chat_id : typing.Optional[str]
+
+        save : typing.Optional[bool]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AgentRunResponse
+
+
+        Examples
+        --------
+        from labric import Labric
+
+        client = Labric(
+            api_key="YOUR_API_KEY",
+        )
+        client.agent.run(
+            prompt="prompt",
+        )
+        """
+        _response = self._raw_client.run(
+            prompt=prompt, model=model, chat_id=chat_id, save=save, request_options=request_options
+        )
+        return _response.data
 
 
 class AsyncAgentClient:
@@ -146,80 +155,26 @@ class AsyncAgentClient:
         """
         return self._raw_client
 
-    async def run(
-        self,
-        *,
-        prompt: str,
-        model: typing.Optional[str] = OMIT,
-        chat_id: typing.Optional[str] = OMIT,
-        persist: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AgentRunResponse:
-        """
-        Run the Labric data-analysis agent to completion and return its final
-        answer alongside the tool calls it made. Pass chat_id to continue a saved
-        conversation, or persist=true to save the run as a new chat visible in the
-        web UI; if saving fails, the response still carries the answer but its
-        chat_id is null. Long-running analyses should prefer the streaming
-        variant.
-
-        Parameters
-        ----------
-        prompt : str
-
-        model : typing.Optional[str]
-
-        chat_id : typing.Optional[str]
-
-        persist : typing.Optional[bool]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AgentRunResponse
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.agent.run(
-                prompt="prompt",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.run(
-            prompt=prompt, model=model, chat_id=chat_id, persist=persist, request_options=request_options
-        )
-        return _response.data
-
     async def run_stream(
         self,
         *,
         prompt: str,
         model: typing.Optional[str] = OMIT,
         chat_id: typing.Optional[str] = OMIT,
-        persist: typing.Optional[bool] = OMIT,
+        save: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AgentRunEvent]:
         """
-        Stream an agent run as server-sent events. Each event is an
-        AgentRunEvent; the stream closes after a terminal `result` event, which
-        carries the same summary the non-streaming endpoint returns, or after a
-        terminal `error` event if the run fails. Persistence (chat_id / persist)
-        behaves as in the non-streaming variant.
+        Run the Labric data-analysis agent and return its final answer
+        alongside the tool calls it made. With stream=true the response is
+        instead a stream of server-sent AgentRunEvent events, closing after a
+        terminal `result` event that carries the same summary, or an `error`
+        event if the run fails; prefer streaming for long analyses. Pass chat_id
+        to continue a saved conversation, or save=true to save the run as a new
+        chat visible in the web UI; if saving fails, the answer is still returned
+        but its chat_id is null.
+
+        Requires an API key with the `read` scope.
 
         Parameters
         ----------
@@ -229,7 +184,7 @@ class AsyncAgentClient:
 
         chat_id : typing.Optional[str]
 
-        persist : typing.Optional[bool]
+        save : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -237,7 +192,7 @@ class AsyncAgentClient:
         Yields
         ------
         typing.AsyncIterator[AgentRunEvent]
-            OK
+
 
         Examples
         --------
@@ -261,7 +216,70 @@ class AsyncAgentClient:
         asyncio.run(main())
         """
         async with self._raw_client.run_stream(
-            prompt=prompt, model=model, chat_id=chat_id, persist=persist, request_options=request_options
+            prompt=prompt, model=model, chat_id=chat_id, save=save, request_options=request_options
         ) as r:
             async for _chunk in r.data:
                 yield _chunk
+
+    async def run(
+        self,
+        *,
+        prompt: str,
+        model: typing.Optional[str] = OMIT,
+        chat_id: typing.Optional[str] = OMIT,
+        save: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AgentRunResponse:
+        """
+        Run the Labric data-analysis agent and return its final answer
+        alongside the tool calls it made. With stream=true the response is
+        instead a stream of server-sent AgentRunEvent events, closing after a
+        terminal `result` event that carries the same summary, or an `error`
+        event if the run fails; prefer streaming for long analyses. Pass chat_id
+        to continue a saved conversation, or save=true to save the run as a new
+        chat visible in the web UI; if saving fails, the answer is still returned
+        but its chat_id is null.
+
+        Requires an API key with the `read` scope.
+
+        Parameters
+        ----------
+        prompt : str
+
+        model : typing.Optional[str]
+
+        chat_id : typing.Optional[str]
+
+        save : typing.Optional[bool]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AgentRunResponse
+
+
+        Examples
+        --------
+        import asyncio
+
+        from labric import AsyncLabric
+
+        client = AsyncLabric(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.agent.run(
+                prompt="prompt",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.run(
+            prompt=prompt, model=model, chat_id=chat_id, save=save, request_options=request_options
+        )
+        return _response.data

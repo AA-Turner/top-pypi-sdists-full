@@ -1,6 +1,6 @@
 """Preconditions for the `UnifiedConfig` twin — measured BEFORE writing it.
 
-Phase 1b.2's last and largest type: 90 fields, 99 construction sites, 35
+Phase 1b.2's last and largest type: 91 fields, 99 construction sites, 35
 `replace`/`fields`/`asdict` call sites. This file exists because the measurement
 that should govern that twin is worth pinning before the transcription, not
 after — three of the four earlier shapes hid a declared type that was false, and
@@ -83,6 +83,6 @@ def test_to_dict_drops_none_exactly_as_the_other_shapes_do():
 
 
 def test_the_declared_field_count_the_plan_rests_on():
-    """90 declared, 57 ever populated. If either moves, the plan's Phase 1b.2
+    """91 declared, 57 ever populated. If either moves, the plan's Phase 1b.2
     sizing moves with it."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 90
+    assert len(dataclasses.fields(UnifiedConfig)) == 91

@@ -18,13 +18,14 @@ r"""
 
 """
 
-import base64
 import contextlib
 import hashlib
 import inspect
 import io
 import os
 import re
+import subprocess
+import sys
 import traceback
 import typing as t
 from contextlib import contextmanager
@@ -33,7 +34,6 @@ from html import escape as html_escape
 from importlib import import_module
 from importlib.util import find_spec
 from pathlib import Path
-from pprint import pformat
 
 from docutils import nodes
 from docutils.parsers import rst
@@ -42,8 +42,11 @@ from rich import terminal_theme as rich_theme
 from rich.console import Console
 from rich.theme import Theme
 from sphinx import application
-from sphinx.addnodes import pending_xref
+from sphinx.domains import Domain, ObjType
+from sphinx.environment import BuildEnvironment
+from sphinx.roles import XRefRole
 from sphinx.util import logging
+from sphinx.util.fileutil import copy_asset_file
 from sphinx.util.nodes import make_refnode
 
 # As of typer 0.26 click is vendored into typer (typer._click). Typer commands
@@ -57,7 +60,7 @@ from typer.main import get_command as get_typer_command
 from typer.models import Context as TyperContext
 from typer.models import TyperInfo
 
-VERSION = (0, 9, 1)
+VERSION = (0, 10, 0)
 
 __title__ = "SphinxContrib Typer"
 __version__ = ".".join(str(i) for i in VERSION)
@@ -66,11 +69,16 @@ __license__ = "MIT"
 __copyright__ = "Copyright 2023-2026 Brian Kohan"
 
 
-SELENIUM_DEFAULT_WINDOW_WIDTH = 1920
-SELENIUM_DEFAULT_WINDOW_HEIGHT = 2048
+# html themes known to support switching between light and dark modes using a
+# data-theme attribute and the only-light / only-dark classes - when html_theme is
+# one of these, typer_dark_theme = "auto" resolves to "dark"
+DARK_MODE_THEMES = frozenset({"furo", "pydata_sphinx_theme", "sphinx_book_theme"})
+
+BROWSER_DEFAULT_VIEWPORT_WIDTH = 1920
+BROWSER_DEFAULT_VIEWPORT_HEIGHT = 2048
 
 
-def get_function(function: t.Union[str, t.Callable[..., t.Any]]):
+def get_function(function: str | t.Callable[..., t.Any]):
     if callable(function):
         return function
     if isinstance(function, str):
@@ -78,8 +86,20 @@ def get_function(function: t.Union[str, t.Callable[..., t.Any]]):
         return getattr(import_module(".".join(parts[0:-1])), parts[-1])
 
 
-def _filter_commands(ctx: click.Context, cmd_filter: t.List[str]):
+def _filter_commands(ctx: click.Context, cmd_filter: list[str]):
     return [ctx.command.get_command(ctx, cmd_name) for cmd_name in cmd_filter]
+
+
+def _get_app(env):
+    """
+    Fetch the Sphinx application from the build environment.
+
+    ``BuildEnvironment.app`` was deprecated in Sphinx 9 (removal in 11) and
+    Sphinx itself now reaches the application through the private ``_app``
+    attribute. Prefer that, falling back to the public attribute on older
+    versions.
+    """
+    return getattr(env, "_app", None) or env.app
 
 
 def _add_dependency(env, command):
@@ -89,10 +109,11 @@ def _add_dependency(env, command):
         env.note_dependency(inspect.getfile(cb))
 
 
-def _command_path(ctx: t.Optional[click.Context]):
+def _command_path(ctx: click.Context | None):
     parts = []
     while ctx:
-        parts.append(ctx.info_name)
+        if ctx.info_name:
+            parts.append(ctx.info_name)
         ctx = ctx.parent
     return ":".join(reversed(parts))
 
@@ -130,34 +151,34 @@ class RenderTheme(str, Enum):
                 (132, 42, 38),  # background
                 (210, 193, 159),  # text
                 [
-                    (210, 193, 159),  #
+                    (210, 193, 159),
                     (0, 0, 0),  # required
                     (77, 218, 77),  # option on short name
                     (227, 189, 57),  # Usage/metavar
-                    (210, 193, 159),  #
+                    (210, 193, 159),
                     (0, 18, 140),  # option off
                     (75, 214, 225),  # option on/command names
-                    (210, 193, 159),  #
+                    (210, 193, 159),
                 ],
             ),
             RenderTheme.BLUE_WAVES: rich_theme.TerminalTheme(
                 (20, 118, 247),  # background
                 (250, 240, 250),  # text
                 [
-                    (250, 240, 250),  #
+                    (250, 240, 250),
                     (0, 0, 0),  # required
                     (0, 255, 0),  # option on short name
                     (227, 189, 57),  # Usage/metavar
-                    (250, 240, 250),  #
+                    (250, 240, 250),
                     (2, 2, 214),  # option off
                     (146, 226, 252),  # option on/command names
-                    (250, 240, 250),  #
+                    (250, 240, 250),
                 ],
             ),
         }[self]
 
 
-Command = t.Union[TyperCommand, TyperGroup]
+Command = TyperCommand | TyperGroup
 
 """
 Callbacks that return a dict of kwargs to pass to various renderer functions
@@ -169,9 +190,9 @@ RenderCallback = t.Callable[
         str,  # name - the name of the command
         Command,  # command - the command instance
         click.Context,  # ctx - the click.Context instance
-        t.Optional[click.Context],  # parent - the parent click.Context instance
+        click.Context | None,  # parent - the parent click.Context instance
     ],
-    t.Dict[str, t.Any],
+    dict[str, t.Any],
 ]
 
 """
@@ -179,7 +200,7 @@ Custom render options can be provided at a python path that resolves to the
 following type. Either a dictionary of kwargs to pass to the relevant function
 or a callable that returns a dictionary of kwargs to pass to the relevant function
 """
-RenderOptions = t.Union[t.Dict[str, t.Any], RenderCallback]
+RenderOptions = dict[str, t.Any] | RenderCallback
 
 
 class TyperDirective(rst.Directive):
@@ -200,13 +221,14 @@ class TyperDirective(rst.Directive):
 
     has_content = False
     required_arguments = 1
-    option_spec = {
+    option_spec: t.ClassVar[dict[str, t.Any]] = {
         "prog": directives.unchanged_required,
         "make-sections": directives.flag,
         "show-nested": directives.flag,
         "markup-mode": directives.unchanged,
         "width": directives.nonnegative_int,
         "theme": RenderTheme,
+        "dark-theme": RenderTheme,
         "svg-kwargs": directives.unchanged,
         "text-kwargs": directives.unchanged,
         "html-kwargs": directives.unchanged,
@@ -222,14 +244,15 @@ class TyperDirective(rst.Directive):
     nested: bool
     make_sections: bool
     width: int
-    iframe_height: t.Optional[int] = None
+    iframe_height: int | None = None
     typer_convert_png: bool = False
 
     console: Console
     parent: click.Context
 
     theme: RenderTheme = RenderTheme.LIGHT
-    preferred: t.Optional[RenderTarget] = None
+    dark_theme: RenderTheme | None = None
+    preferred: RenderTarget | None = None
 
     markup_mode: MarkupMode
 
@@ -242,7 +265,7 @@ class TyperDirective(rst.Directive):
 
     target: RenderTarget
 
-    builder_targets = {
+    builder_targets: t.ClassVar[dict[str, list[RenderTarget]]] = {
         **{
             builder: [RenderTarget.SVG, RenderTarget.HTML, RenderTarget.TEXT]
             for builder in [
@@ -264,7 +287,7 @@ class TyperDirective(rst.Directive):
 
     @property
     def builder(self) -> str:
-        return self.env.app.builder.name
+        return _get_app(self.env).builder.name
 
     def uuid(self, normal_cmd: str) -> str:
         """
@@ -278,14 +301,14 @@ class TyperDirective(rst.Directive):
         # Contextual information
         source = self.state_machine.get_source_and_line()[0]
         line_number = self.state_machine.get_source_and_line()[1]
-        source = os.path.relpath(source, self.env.app.builder.srcdir)
+        source = os.path.relpath(source, self.env.srcdir)
         return hashlib.sha256(
-            f"{source}.{line_number}[{normal_cmd}]".encode("utf-8")
+            f"{source}.{line_number}[{normal_cmd}]".encode()
         ).hexdigest()[:8]
 
     def import_object(
         self,
-        obj_path: t.Optional[str],
+        obj_path: str | None,
         accessor: t.Callable[[t.Any, str, t.Any], t.Any] = lambda obj, attr, _: getattr(
             obj, attr
         ),
@@ -320,13 +343,13 @@ class TyperDirective(rst.Directive):
                     if tries >= len(parts):
                         raise
 
-        except (Exception, SystemExit) as exc:
+        except (Exception, SystemExit) as exc:  # noqa: BLE001
             err_msg = f'Failed to import "{obj_path}"'
             if isinstance(exc, SystemExit):
                 err_msg += "The module appeared to call sys.exit()."
             else:
-                err_msg += "The following exception was raised:\n{}".format(
-                    traceback.format_exc()
+                err_msg += (
+                    f"The following exception was raised:\n{traceback.format_exc()}"
                 )
 
             raise self.severe(err_msg)
@@ -413,12 +436,43 @@ class TyperDirective(rst.Directive):
     def get_text(self, **options):
         return self.console.export_text(**{**options, "clear": False})
 
+    def themed_nodes(
+        self,
+        rendered: str,
+        export_options: dict[str, t.Any],
+        wrap: t.Callable[[str], nodes.Node],
+    ) -> list[nodes.Node]:
+        """
+        Wrap the rendered output for an html builder. When a dark theme is configured
+        the help is exported a second time with the dark theme and both renderings are
+        emitted inside containers that the theme (or our stylesheet) shows or hides
+        based on the active light/dark mode.
+
+        https://github.com/sphinx-contrib/typer/issues/62
+
+        :param rendered: The output rendered with the primary theme
+        :param export_options: The options the primary rendering was exported with
+        :param wrap: A callable producing the docutils node for a rendering
+        """
+        if not self.dark_theme or "html" not in self.builder:
+            return [wrap(rendered)]
+        dark_options = {**export_options, "theme": self.dark_theme.terminal_theme}
+        if self.target is RenderTarget.SVG:
+            dark_options["unique_id"] = f"{export_options['unique_id']}-dark"
+        dark = getattr(self, f"get_{self.target}")(**dark_options)
+        return [
+            nodes.container(
+                "", wrap(rendered), classes=["only-light", "typer-only-light"]
+            ),
+            nodes.container("", wrap(dark), classes=["only-dark", "typer-only-dark"]),
+        ]
+
     def generate_nodes(
         self,
         name: str,
         command: click.Command,
-        parent: t.Optional[click.Context],
-    ) -> t.List[nodes.section]:
+        parent: click.Context | None,
+    ) -> list[nodes.section]:
         """
         Generate the relevant Sphinx nodes.
 
@@ -454,18 +508,14 @@ class TyperDirective(rst.Directive):
                 names=[nodes.fully_normalize_name(section_title)],
             )
             if self.make_sections
-            else nodes.container()
+            else nodes.container(ids=[section_id])
         )
-        self.env.domaindata["std"].setdefault("typer", {})[section_id] = (
-            self.env.docname,
-            section_id,
-            normal_cmd,
+        t.cast(TyperDomain, self.env.get_domain(TyperDomain.name)).note_command(
+            section_id, normal_cmd
         )
 
         # Summary
-        def resolve_options(
-            options: RenderOptions, parameter: str
-        ) -> t.Dict[str, t.Any]:
+        def resolve_options(options: RenderOptions, parameter: str) -> dict[str, t.Any]:
             if callable(options):
                 options = options(self, name, command, ctx, parent)
             if isinstance(options, dict):
@@ -523,14 +573,23 @@ class TyperDirective(rst.Directive):
             getattr(self, f"{self.target}_kwargs", {}), f"{self.target}-kwargs"
         )
 
-        rendered = getattr(self, f"get_{self.target}")(
-            **({"title": section_title} if self.target is RenderTarget.SVG else {}),
-            **export_options,
-        )
+        if self.target is RenderTarget.SVG:
+            export_options = {
+                "title": section_title,
+                # rich derives the svg css class prefix from a hash of the content,
+                # so two renderings of the same command that differ only by theme
+                # would share class names and restyle each other when embedded in
+                # the same page - use a prefix unique to this directive instance.
+                # https://github.com/sphinx-contrib/typer/issues/32
+                "unique_id": f"typer-{self.uuid(normal_cmd)}",
+                **export_options,
+            }
+
+        rendered = getattr(self, f"get_{self.target}")(**export_options)
 
         def to_path(name: str, ext: str) -> Path:
             return (
-                Path(self.env.app.builder.outdir)
+                Path(_get_app(self.env).builder.outdir)
                 / f"{name.replace(':', '_').replace(' ', '_')}_{self.uuid(name)}.{ext}"
             )
 
@@ -542,31 +601,39 @@ class TyperDirective(rst.Directive):
 
         if self.typer_convert_png:
             png_path = to_path(normal_cmd, "png")
-            get_function(self.env.app.config.typer_convert_png)(
-                self, rendered, png_path
-            )
+            get_function(self.env.config.typer_convert_png)(self, rendered, png_path)
             section += nodes.image(
                 uri=os.path.relpath(png_path, doc_dir),
                 alt=section_title,
             )
         elif self.target == RenderTarget.HTML:
-            section += nodes.raw(
-                "",
-                get_function(self.env.app.config.typer_render_html)(
-                    self, normal_cmd, rendered
-                ),
-                format="html",
+            section.extend(
+                self.themed_nodes(
+                    rendered,
+                    export_options,
+                    lambda html_page: nodes.raw(
+                        "",
+                        get_function(self.env.config.typer_render_html)(
+                            self, normal_cmd, html_page
+                        ),
+                        format="html",
+                    ),
+                )
             )
         elif self.target == RenderTarget.SVG:
             if "html" in self.builder:
-                section += nodes.raw("", rendered, format="html")
+                section.extend(
+                    self.themed_nodes(
+                        rendered,
+                        export_options,
+                        lambda svg: nodes.raw("", svg, format="html"),
+                    )
+                )
             else:
                 svg_path = to_path(normal_cmd, "svg")
                 pdf_path = to_path(normal_cmd, "pdf")
                 svg_path.write_text(rendered)
-                get_function(self.env.app.config.typer_svg2pdf)(
-                    self, rendered, pdf_path
-                )
+                get_function(self.env.config.typer_svg2pdf)(self, rendered, pdf_path)
                 section += nodes.image(
                     uri=os.path.relpath(pdf_path, doc_dir),
                     alt=section_title,
@@ -580,13 +647,11 @@ class TyperDirective(rst.Directive):
         # recurse through subcommands if we should
         if isinstance(command, TyperGroup):
             commands = _filter_commands(ctx, command.list_commands(ctx))
-            for command in commands:
+            for cmd in commands:
                 if self.nested:
-                    section.extend(
-                        self.generate_nodes(command.name, command, parent=ctx)
-                    )
+                    section.extend(self.generate_nodes(cmd.name, cmd, parent=ctx))
                 else:
-                    _add_dependency(self.env, command)
+                    _add_dependency(self.env, cmd)
         return [section]
 
     def run(self) -> t.Iterable[nodes.section]:
@@ -634,6 +699,14 @@ class TyperDirective(rst.Directive):
 
         self.preferred = self.options.get("preferred", None)
         self.theme = self.options.get("theme", self.theme)
+        dark_theme = self.options.get("dark-theme", self.env.config.typer_dark_theme)
+        if dark_theme == "auto":
+            dark_theme = (
+                RenderTheme.DARK
+                if self.env.config.html_theme in DARK_MODE_THEMES
+                else None
+            )
+        self.dark_theme = RenderTheme(dark_theme) if dark_theme else None
 
         builder_targets = {}
         for builder_target in self.options.get("builders", "").split(":"):
@@ -665,10 +738,15 @@ class TyperDirective(rst.Directive):
 
         parent = getattr(self, "parent", None)
         if parent and self.options.get("prog", None):
-            # we unset this because we're not at the root command and this gets
-            # messed up for whatever reason
+            # :prog: is the full invocation, so blank out the names of all
+            # ancestor contexts - otherwise the (unreliable) inferred name of
+            # the root app leaks into the usage line for nested commands
             # https://github.com/sphinx-contrib/typer/issues/24
-            parent.info_name = ""
+            # https://github.com/sphinx-contrib/typer/issues/23
+            ancestor: click.Context | None = parent
+            while ancestor:
+                ancestor.info_name = ""
+                ancestor = ancestor.parent
         return self.generate_nodes(self.prog_name, command, parent)
 
 
@@ -682,10 +760,10 @@ def typer_get_iframe_height(
     1) Return the global iframe-height parameter if one was supplied as a parameter on the
        directive.
     2) Check for a cached height value.
-    3) Attempt to use Selenium to dynamically determine the height of the iframe. Padding will
-       be added from the config.typer_iframe_height_padding configuration value. The resulting
-       height is then cached if that path is not None. If the attempt to use Selenium fails
-       (it is not installed) a warning is issued and a default height of 600 is returned.
+    3) Render the page in a headless browser (see :func:`typer_get_page`) to dynamically
+       determine the height of the iframe. Padding will be added from the
+       config.typer_iframe_height_padding configuration value. The resulting height is then
+       cached.
 
     :param directive: The TyperDirective instance
     :param normal_cmd: The normalized name of the command.
@@ -701,21 +779,13 @@ def typer_get_iframe_height(
     if height := directive.env.iframe_heights.get(normal_cmd, None):
         return height
 
-    with get_function(directive.env.app.config.typer_get_web_driver)(
-        directive
-    ) as driver:
-        # use base64 to avoid issues with special characters
-        driver.get(
-            f"data:text/html;base64,"
-            f"{base64.b64encode(html_page.encode('utf-8')).decode()}"
-        )
+    with get_function(directive.env.config.typer_get_page)(directive) as page:
+        page.set_content(html_page)
         height = (
             int(
-                driver.execute_script(
-                    "return document.documentElement.getBoundingClientRect().height"
-                )
+                page.evaluate("document.documentElement.getBoundingClientRect().height")
             )
-            + directive.env.app.config.typer_iframe_height_padding
+            + directive.env.config.typer_iframe_height_padding
         )
     directive.env.iframe_heights[normal_cmd] = height
     return height
@@ -735,7 +805,7 @@ def typer_render_html(
     :param html_page: The html page rendered by console.export_html
     """
 
-    height = get_function(directive.env.app.config.typer_get_iframe_height)(
+    height = get_function(directive.env.config.typer_get_iframe_height)(
         directive, normal_cmd, html_page
     )
     return (
@@ -764,282 +834,244 @@ def typer_svg2pdf(directive: TyperDirective, svg_contents: str, pdf_path: str):
         import cairosvg
 
         cairosvg.svg2pdf(bytestring=svg_contents, write_to=str(pdf_path))
-    except ImportError:
-        directive.severe("cairosvg must be installed to render SVG in pdfs")
+    except ImportError as err:
+        raise directive.severe(
+            "cairosvg must be installed to render SVG in pdfs. "
+            "Install the pdf extra: pip install sphinxcontrib-typer[pdf]"
+        ) from err
 
 
 @contextmanager
-def typer_get_web_driver(
-    directive: TyperDirective,
-    width: int = SELENIUM_DEFAULT_WINDOW_WIDTH,
-    height: int = SELENIUM_DEFAULT_WINDOW_HEIGHT,
-) -> t.Any:
+def typer_install_browser(directive: TyperDirective) -> None:
     """
-    The default get_web_driver function. This function yields a selenium web driver
-    instance. It requires selenium to be installed.
+    Install the chromium browser used by playwright by running
+    ``python -m playwright install chromium`` in a subprocess with the active interpreter.
 
-    To override this function with a custom function see the ``typer_get_web_driver``
+    This is invoked automatically by :func:`typer_get_page` when the browser is missing
+    and the ``typer_playwright_install`` configuration value is enabled.
+
+    :param directive: The TyperDirective instance
+    """
+    directive.logger.info(
+        "sphinxcontrib-typer: installing the playwright chromium browser..."
+    )
+    subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"], check=True
+    )
+
+
+@contextmanager
+def typer_get_page(
+    directive: TyperDirective,
+    width: int = BROWSER_DEFAULT_VIEWPORT_WIDTH,
+    height: int = BROWSER_DEFAULT_VIEWPORT_HEIGHT,
+) -> t.Iterator[t.Any]:
+    """
+    The default get_page function. This function yields a headless :pypi:`playwright`
+    chromium :class:`~playwright.sync_api.Page`. It requires playwright to be installed. If
+    the chromium browser has not been installed it will be installed on first use unless
+    the ``typer_playwright_install`` configuration value is False.
+
+    To override this function with a custom function see the ``typer_get_page``
     configuration parameter.
 
     .. note::
 
-        This must be implemented as a context manager that yields the webdriver
-        instance and cleans it up on exit!
+        This must be implemented as a context manager that yields the page instance and
+        cleans it up on exit!
 
     :param directive: The TyperDirective instance
+    :param width: The width of the browser viewport in pixels
+    :param height: The height of the browser viewport in pixels
     """
-    import platform
-
     try:
-        from selenium import webdriver
-        from selenium.webdriver.chrome.options import Options as ChromeOptions
-    except ImportError:
+        from playwright.sync_api import Error, sync_playwright
+    except ImportError as err:
         raise directive.severe(
-            "This feature requires selenium and webdriver-manager to be installed."
-        )
+            "This feature requires playwright to be installed. "
+            "Install the html or png extra: pip install sphinxcontrib-typer[html]"
+        ) from err
 
-    # Set up headless browser options
-    def opts(options=ChromeOptions()):
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument(f"--window-size={width}x{height}")
-        return options
+    def missing_browser(err: Exception) -> bool:
+        msg = str(err)
+        return "playwright install" in msg or "Executable doesn't exist" in msg
 
-    def chrome():
-        from selenium.webdriver.chrome.service import Service
-        from webdriver_manager.chrome import ChromeDriverManager
-
+    with sync_playwright() as playwright:
         try:
-            return webdriver.Chrome(options=opts())
-        except Exception:
-            return webdriver.Chrome(
-                service=Service(ChromeDriverManager().install()), options=opts()
-            )
-
-    def chromium():
-        from selenium.webdriver.chrome.service import Service as ChromiumService
-        from webdriver_manager.chrome import ChromeDriverManager
-        from webdriver_manager.core.os_manager import ChromeType
-
-        return webdriver.Chrome(
-            service=ChromiumService(
-                ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
-            ),
-            options=opts(),
-        )
-
-    def firefox():
-        from selenium import webdriver
-        from selenium.webdriver.firefox.options import Options
-        from selenium.webdriver.firefox.service import Service as FirefoxService
-        from webdriver_manager.firefox import GeckoDriverManager
-
-        return webdriver.Firefox(
-            service=FirefoxService(GeckoDriverManager().install()),
-            options=opts(Options()),
-        )
-
-    def edge():
-        from selenium.webdriver.edge.options import Options
-        from selenium.webdriver.edge.service import Service as EdgeService
-        from webdriver_manager.microsoft import EdgeChromiumDriverManager
-
-        options = Options()
-        options.use_chromium = True
-        return webdriver.Edge(
-            service=EdgeService(EdgeChromiumDriverManager().install()),
-            options=opts(options),
-        )
-
-    services = [
-        chrome,
-        edge if platform.system().lower() == "windows" else chromium,
-        firefox,
-    ]
-
-    driver = None
-    for service in services:
+            browser = playwright.chromium.launch()
+        except Error as err:
+            if not missing_browser(err):
+                raise
+            if not directive.env.config.typer_playwright_install:
+                raise directive.severe(
+                    "The playwright chromium browser is not installed, run: "
+                    "playwright install chromium"
+                ) from err
+            typer_install_browser(directive)
+            browser = playwright.chromium.launch()
         try:
-            driver = service()
-            break  # use the first one that works!
-        except Exception as err:
-            directive.debug(f"Unable to initialize webdriver {service.__name__}: {err}")
-
-    if driver:
-        yield driver
-        driver.quit()
-    else:
-        raise directive.severe("Unable to initialize any webdriver.")
+            yield browser.new_page(viewport={"width": width, "height": height})
+        finally:
+            browser.close()
 
 
 def typer_convert_png(
     directive: TyperDirective,
     rendered: str,
-    png_path: t.Union[str, Path],
-    selenium_width: int = SELENIUM_DEFAULT_WINDOW_WIDTH,
-    selenium_height: int = SELENIUM_DEFAULT_WINDOW_HEIGHT,
+    png_path: str | Path,
+    width: int = BROWSER_DEFAULT_VIEWPORT_WIDTH,
+    height: int = BROWSER_DEFAULT_VIEWPORT_HEIGHT,
 ):
     """
     The default typer_convert_png function. This function writes a png file to the given
-    path by taking a selenium screen shot. It requires selenium to be installed.
+    path by taking a screenshot of the rendered help in a headless browser (see
+    :func:`typer_get_page`). It requires playwright to be installed.
+
     To override this function with a custom function see the ``typer_convert_png``
     configuration parameter.
 
     :param directive: The TyperDirective instance
     :param rendered: The rendered command help. May be html, svg, or text.
     :param png_path: The path to write the png to
-    :param selenium_width: The width of the selenium window - must be larger than the png
-        to avoid cropping, default auto determine
-    :param selenium_height: The height of the selenium window - must be larger than the png
-        to avoid cropping, default auto determine
+    :param width: The width of the browser viewport, the screenshot is of the rendered
+        element only so this just needs to be larger than the help output.
+    :param height: The height of the browser viewport.
     """
-    import tempfile
-    from io import BytesIO
-
-    from PIL import Image
-    from selenium.webdriver.common.by import By
-
     tag = "code"
-    with get_function(directive.env.app.config.typer_get_web_driver)(
-        directive
-    ) as driver:
-        with tempfile.NamedTemporaryFile(suffix=".html") as tmp:
-            if directive.target is RenderTarget.TEXT:
-                tag = "pre"
-                rendered = f"<html><body><pre>{rendered}</pre></body></html>"
-            elif directive.target is RenderTarget.SVG:
-                tag = "svg"
-                rendered = f"<html><body>{rendered}</body></html>"
-
-            tmp.write(rendered.encode("utf-8"))
-            tmp.flush()
-            driver.get(f"file://{tmp.name}")
-            png = driver.get_screenshot_as_png()
-            # Find the element you want a screenshot of
-            element = driver.find_element(By.CSS_SELECTOR, tag)
-            pixel_ratio = driver.execute_script("return window.devicePixelRatio")
-            # Get the element's location and size
-            location = element.location
-            size = element.size
-
-            if size["width"] > selenium_width or size["height"] > selenium_height:
-                # if our window is too small, resize it with some padding and try again
-                return typer_convert_png(
-                    directive,
-                    rendered,
-                    png_path,
-                    size["width"] + 100,
-                    size["height"] + 100,
-                )
-
-            # Open the screenshot and crop it to the element
-            im = Image.open(BytesIO(png))
-            left = location["x"] * pixel_ratio
-            top = location["y"] * pixel_ratio
-            if directive.target is RenderTarget.TEXT:
-                # getting the width of the text is actually a bit tricky
-                script = """
-                    const pre = arguments[0];
-                    const textContent = pre.textContent || pre.innerText;
-                    const temporarySpan = document.createElement('span');
-                    document.body.appendChild(temporarySpan);
-
-                    // Copy styles to match formatting
-                    const preStyle = window.getComputedStyle(pre);
-                    temporarySpan.style.fontFamily = preStyle.fontFamily;
-                    temporarySpan.style.fontSize = preStyle.fontSize;
-                    temporarySpan.style.whiteSpace = 'pre';
-                    temporarySpan.textContent = textContent;
-
-                    return temporarySpan.offsetWidth;
-                """
-                width = driver.execute_script(script, element)
-                right = left + width * pixel_ratio
-            else:
-                right = left + size["width"] * pixel_ratio
-            bottom = top + size["height"] * pixel_ratio
-            im = im.crop((left, top, right, bottom))  # Defines crop points
-            im.save(str(png_path))  # Saves the screenshot
-
-
-_link_regex = re.compile(r"([^<]+)(?:<(.+?)>)?")
-
-
-def _link_and_text(text):
-    return _link_regex.search(text).groups()
-
-
-def resolve_typer_reference(app, env, node, contnode):
-    if node["reftype"] != "typer":
-        return
-    target_id = node["reftarget"]
-    if target_id in env.domaindata["std"].get("typer", {}):
-        docname, labelid, sectionname = env.domaindata["std"]["typer"][target_id]
-        refnode = make_refnode(
-            env.app.builder,
-            node["refdoc"],
-            docname,
-            labelid,
-            nodes.Text(node["reftitle"] or sectionname.strip()),
-            target_id,
+    if directive.target is RenderTarget.TEXT:
+        tag = "pre"
+        # inline-block so the element shrinks to the width of the text
+        rendered = (
+            "<html><body><pre style='display: inline-block; margin: 0;'>"
+            f"{rendered}</pre></body></html>"
         )
-        return refnode
-    else:
-        lineno = node.line or getattr(node.parent, "line", 0)
-        error_message = env.get_doctree(node["refdoc"]).reporter.error(
-            f"Unresolved :typer: reference: '{target_id}' in document '{node['refdoc']}'. "
-            f"Expected one of: {pformat(list(env.domaindata['std'].get('typer', {}).keys()), indent=2)}",
-            line=lineno,
+    elif directive.target is RenderTarget.SVG:
+        tag = "svg"
+        rendered = f"<html><body>{rendered}</body></html>"
+
+    with get_function(directive.env.config.typer_get_page)(
+        directive, width, height
+    ) as page:
+        page.set_content(rendered)
+        page.locator(tag).first.screenshot(path=str(png_path))
+
+
+class TyperXRefRole(XRefRole):
+    """
+    The ``:typer:`` cross-reference role. Accepts either the section id form
+    (``prog-subcommand``) or the invocation form (``prog subcommand``) and
+    normalizes both to the id that :class:`TyperDirective` registers. When
+    no explicit link text is given the rendered link shows the full command
+    invocation.
+    """
+
+    def run(self) -> tuple[list[nodes.Node], list[nodes.system_message]]:
+        # route the short ``:typer:`` form into the typer domain
+        self.name = f"{TyperDomain.name}:command"
+        return super().run()
+
+    def process_link(
+        self,
+        env: BuildEnvironment,
+        refnode: nodes.Element,
+        has_explicit_title: bool,
+        title: str,
+        target: str,
+    ) -> tuple[str, str]:
+        return title.strip(), nodes.make_id(target.strip())
+
+
+class TyperDomain(Domain):
+    """
+    Sphinx domain holding the cross-reference targets registered by the
+    :class:`TyperDirective` so that references survive parallel reads,
+    are cleared on incremental rebuilds, and are exported to the
+    intersphinx inventory.
+    """
+
+    name = "typer"
+    label = "Typer"
+
+    object_types: t.ClassVar[dict[str, ObjType]] = {
+        "command": ObjType("Typer command", "command")
+    }
+    roles: t.ClassVar[dict[str, t.Any]] = {"command": TyperXRefRole(warn_dangling=True)}
+    initial_data: t.ClassVar[dict[str, dict[str, tuple[str, str, str]]]] = {
+        # command id -> (docname, anchor, display name)
+        "commands": {}
+    }
+
+    @property
+    def commands(self) -> dict[str, tuple[str, str, str]]:
+        return self.data.setdefault("commands", {})
+
+    def note_command(self, command_id: str, display_name: str) -> None:
+        self.commands[command_id] = (self.env.docname, command_id, display_name)
+
+    def clear_doc(self, docname: str) -> None:
+        for command_id, (doc, _, _) in list(self.commands.items()):
+            if doc == docname:
+                del self.commands[command_id]
+
+    def merge_domaindata(self, docnames: set[str], otherdata: dict[str, t.Any]) -> None:
+        for command_id, entry in otherdata.get("commands", {}).items():
+            if entry[0] in docnames:
+                self.commands[command_id] = entry
+
+    def resolve_xref(
+        self,
+        env: BuildEnvironment,
+        fromdocname: str,
+        builder: t.Any,
+        typ: str,
+        target: str,
+        node: nodes.Element,
+        contnode: nodes.Element,
+    ) -> nodes.reference | None:
+        entry = self.commands.get(target)
+        if not entry:
+            return None
+        docname, anchor, display_name = entry
+        if not node.get("refexplicit"):
+            contnode = nodes.literal(
+                display_name, display_name, classes=contnode.get("classes", [])
+            )
+        return make_refnode(
+            builder, fromdocname, docname, anchor, contnode, display_name
         )
-        msgid = node.document.set_id(error_message, node.parent)
-        problematic = nodes.problematic(node.rawsource, node.rawsource, refid=msgid)
-        prbid = node.document.set_id(problematic)
-        error_message.add_backref(prbid)
-        return problematic
 
-
-def typer_ref_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
-    env = inliner.document.settings.env
-    title, link = _link_and_text(text)
-    title = title.strip()
-    if link:
-        link = link.strip()
-    target_id = nodes.make_id(link or title)
-    if target_id in env.domaindata["std"].get("typer", {}):
-        docname, labelid, sectionname = env.domaindata["std"]["typer"][target_id]
-        refnode = make_refnode(
-            env.app.builder,
-            env.docname,
-            docname,
-            labelid,
-            nodes.Text(sectionname.strip() if not link else title),
-            target_id,
+    def resolve_any_xref(
+        self,
+        env: BuildEnvironment,
+        fromdocname: str,
+        builder: t.Any,
+        target: str,
+        node: nodes.Element,
+        contnode: nodes.Element,
+    ) -> list[tuple[str, nodes.reference]]:
+        refnode = self.resolve_xref(
+            env, fromdocname, builder, "command", nodes.make_id(target), node, contnode
         )
-        return [refnode], []
-    else:
-        pending = pending_xref(
-            rawtext,
-            refdomain="std",
-            reftype="typer",
-            reftarget=target_id,
-            modname=None,
-            classname=None,
-            refexplicit=True,
-            refwarn=True,
-            reftitle=title if link else None,
-            refdoc=env.docname,
-        )
-        pending += nodes.Text(text)
-        return [pending], []
+        return [(f"{self.name}:command", refnode)] if refnode else []
+
+    def get_objects(self) -> t.Iterator[tuple[str, str, str, str, str, int]]:
+        for command_id, (docname, anchor, display_name) in self.commands.items():
+            yield command_id, display_name, "command", docname, anchor, 1
 
 
-def setup(app: application.Sphinx) -> t.Dict[str, t.Any]:
+STATIC_CSS = Path(__file__).parent / "static" / "sphinxcontrib_typer.css"
+
+
+def _copy_static_css(app: application.Sphinx, exception: Exception | None) -> None:
+    if exception is None and app.builder.format == "html":
+        copy_asset_file(str(STATIC_CSS), str(Path(app.outdir) / "_static"))
+
+
+def setup(app: application.Sphinx) -> dict[str, t.Any]:
     # Need autodoc to support mocking modules
     app.add_directive("typer", TyperDirective)
-    app.add_role("typer", typer_ref_role)
-    app.connect("missing-reference", resolve_typer_reference)
+    app.add_domain(TyperDomain)
+    app.add_role("typer", TyperXRefRole(warn_dangling=True))
 
     app.add_config_value(
         "typer_render_html", "sphinxcontrib.typer.typer_render_html", "env"
@@ -1054,9 +1086,12 @@ def setup(app: application.Sphinx) -> t.Dict[str, t.Any]:
     app.add_config_value(
         "typer_convert_png", "sphinxcontrib.typer.typer_convert_png", "env"
     )
-    app.add_config_value(
-        "typer_get_web_driver", "sphinxcontrib.typer.typer_get_web_driver", "env"
-    )
+    app.add_config_value("typer_get_page", "sphinxcontrib.typer.typer_get_page", "env")
+    app.add_config_value("typer_playwright_install", True, "env")
+    app.add_config_value("typer_dark_theme", "auto", "env")
+
+    app.add_css_file(STATIC_CSS.name)
+    app.connect("build-finished", _copy_static_css)
 
     return {
         "version": __version__,

@@ -563,40 +563,32 @@ class TestConvert:
             (
                 {"url": "u"},
                 (
-                    "4 errors occured while converting the loaded option values to an "
+                    "3 errors occured while converting the loaded option values to an "
                     "instance of 'Settings'",
                     "No value set for required option 'host.name'",
                     "No value set for required option 'host.port'",
                     "No value set for required option 'alias'",
-                    "Could not convert loaded settings: "
-                    'TypeError("Settings.__init__() missing 2 required positional '
-                    "arguments: 'host' and 'alias'\")",
                 ),
             ),
             (
                 {"host": {"name": "h"}, "url": "u"},
                 (
-                    "3 errors occured while converting the loaded option values to an "
+                    "2 errors occured while converting the loaded option values to an "
                     "instance of 'Settings'",
                     "No value set for required option 'host.port'",
                     "No value set for required option 'alias'",
-                    'Could not convert loaded settings: TypeError("Host.__init__() '
-                    "missing 1 required positional argument: 'port'\")",
                 ),
             ),
             (
                 {"host": {"name": "h", "port": "spam"}, "url": "u"},
                 (
-                    "4 errors occured while converting the loaded option values to an "
+                    "3 errors occured while converting the loaded option values to an "
                     "instance of 'Settings'",
                     "Could not convert value 'spam' for option 'host.port' from "
                     'loader test: ValueError("invalid literal for int() with base 10: '
                     "'spam'\")",
                     "No value set for required option 'host.port'",
                     "No value set for required option 'alias'",
-                    "Could not convert loaded settings: "
-                    'TypeError("Host.__init__() missing 1 required positional '
-                    "argument: 'port'\")",
                 ),
             ),
             (
@@ -609,8 +601,8 @@ class TestConvert:
                 (
                     "1 errors occured while converting the loaded option values to an "
                     "instance of 'Settings'",
-                    "Could not convert loaded settings: ValueError(\"'default' must be "
-                    '> 0: -1")',
+                    "Could not convert loaded settings: \n"
+                    "- ValueError: 'default' must be > 0: -1",
                 ),
             ),
         ],

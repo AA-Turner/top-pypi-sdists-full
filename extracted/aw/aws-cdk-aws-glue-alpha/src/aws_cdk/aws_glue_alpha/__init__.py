@@ -71,7 +71,7 @@ for more granular details.
 #### ETL Jobs
 
 ETL jobs support pySpark and Scala languages, for which there are separate but
-similar constructors. ETL jobs default to the G2 worker type, but you can
+similar constructors. ETL jobs default to the G1 worker type, but you can
 override this default with other supported worker type values (G1, G2, G4
 and G8). ETL jobs defaults to Glue version 4.0, which you can override to 3.0.
 The following ETL features are enabled by default:
@@ -142,7 +142,7 @@ Streaming jobs are similar to ETL jobs, except that they perform ETL on data
 streams using the Apache Spark Structured Streaming framework. Some Spark
 job features are not available to Streaming ETL jobs. They support Scala
 and pySpark languages. PySpark streaming jobs run on Python 3. It
-defaults to the G2 worker type and Glue 4.0, both of which you can override.
+defaults to the G1 worker type and Glue 4.0, both of which you can override.
 The following best practice features are enabled by default:
 `—enable-metrics, —enable-continuous-cloudwatch-log`.
 The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
@@ -201,7 +201,7 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
 
 The flexible execution class is appropriate for non-urgent jobs such as
 pre-production jobs, testing, and one-time data loads. Flexible jobs default
-to Glue version 5.0 and worker type `G_2X`. The following best practice
+to Glue version 5.0 and worker type `G_1X`. The following best practice
 features are enabled by default:
 `—enable-metrics, —enable-continuous-cloudwatch-log`
 The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
@@ -1129,10 +1129,12 @@ Data Quality Definition Language (DQDL) — that are evaluated against a table i
 the Data Catalog.
 
 ```python
+# database: glue.IDatabase
+
 glue.DataQualityRuleset(self, "MyRuleset",
     ruleset_name="my_ruleset",
     dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
-    target_table=glue.DataQualityTargetTable("my_database", "my_table")
+    target_table=glue.DataQualityTargetTable.from_table_name(database, "my_table")
 )
 ```
 
@@ -3660,7 +3662,7 @@ class DataCatalogEncryptionAtRest(
     @builtins.classmethod
     def kms(
         cls,
-        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "DataCatalogEncryptionAtRest":
         '''(experimental) Encrypt the Data Catalog at rest with an AWS KMS key.
 
@@ -3678,7 +3680,7 @@ class DataCatalogEncryptionAtRest(
     def kms_with_service_role(
         cls,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
-        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "DataCatalogEncryptionAtRest":
         '''(experimental) Encrypt the Data Catalog at rest with an AWS KMS key, accessed through a service role that AWS Glue assumes on your behalf.
 
@@ -4039,11 +4041,10 @@ class DataFormatProps:
     jsii_struct_bases=[],
     name_mapping={
         "dqdl": "dqdl",
+        "ruleset_name": "rulesetName",
         "target_table": "targetTable",
-        "client_token": "clientToken",
         "description": "description",
         "removal_policy": "removalPolicy",
-        "ruleset_name": "rulesetName",
         "tags": "tags",
     },
 )
@@ -4052,21 +4053,19 @@ class DataQualityRulesetProps:
         self,
         *,
         dqdl: "Dqdl",
+        ruleset_name: builtins.str,
         target_table: "DataQualityTargetTable",
-        client_token: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
-        ruleset_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''(experimental) Construction properties for ``DataQualityRuleset``.
 
         :param dqdl: (experimental) The DQDL document defining the ruleset's data quality rules. Build it with ``Dqdl.fromString(...)``.
+        :param ruleset_name: (experimental) The name of the ruleset.
         :param target_table: (experimental) The target table of the ruleset.
-        :param client_token: (experimental) The client token of the ruleset.
         :param description: (experimental) The description of the ruleset.
         :param removal_policy: (experimental) Policy to apply when the ruleset is removed from the stack. Default: - resource will be destroyed
-        :param ruleset_name: (experimental) The name of the ruleset. Default: cloudformation generated name
         :param tags: (experimental) Key-Value pairs that define tags for the ruleset. Default: empty tags
 
         :stability: experimental
@@ -4074,33 +4073,31 @@ class DataQualityRulesetProps:
 
         Example::
 
+            # database: glue.IDatabase
+            
             glue.DataQualityRuleset(self, "MyRuleset",
                 ruleset_name="my_ruleset",
                 dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
-                target_table=glue.DataQualityTargetTable("my_database", "my_table")
+                target_table=glue.DataQualityTargetTable.from_table_name(database, "my_table")
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__abda2570732c667a87dd412c9aa6c70d5db49ac0b525ecc9c3c801e1271e451a)
             check_type(argname="argument dqdl", value=dqdl, expected_type=type_hints["dqdl"])
+            check_type(argname="argument ruleset_name", value=ruleset_name, expected_type=type_hints["ruleset_name"])
             check_type(argname="argument target_table", value=target_table, expected_type=type_hints["target_table"])
-            check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
-            check_type(argname="argument ruleset_name", value=ruleset_name, expected_type=type_hints["ruleset_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dqdl": dqdl,
+            "ruleset_name": ruleset_name,
             "target_table": target_table,
         }
-        if client_token is not None:
-            self._values["client_token"] = client_token
         if description is not None:
             self._values["description"] = description
         if removal_policy is not None:
             self._values["removal_policy"] = removal_policy
-        if ruleset_name is not None:
-            self._values["ruleset_name"] = ruleset_name
         if tags is not None:
             self._values["tags"] = tags
 
@@ -4117,6 +4114,16 @@ class DataQualityRulesetProps:
         return typing.cast("Dqdl", result)
 
     @builtins.property
+    def ruleset_name(self) -> builtins.str:
+        '''(experimental) The name of the ruleset.
+
+        :stability: experimental
+        '''
+        result = self._values.get("ruleset_name")
+        assert result is not None, "Required property 'ruleset_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
     def target_table(self) -> "DataQualityTargetTable":
         '''(experimental) The target table of the ruleset.
 
@@ -4126,16 +4133,6 @@ class DataQualityRulesetProps:
         result = self._values.get("target_table")
         assert result is not None, "Required property 'target_table' is missing"
         return typing.cast("DataQualityTargetTable", result)
-
-    @builtins.property
-    def client_token(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The client token of the ruleset.
-
-        :stability: experimental
-        :attribute: true
-        '''
-        result = self._values.get("client_token")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -4157,17 +4154,6 @@ class DataQualityRulesetProps:
         '''
         result = self._values.get("removal_policy")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
-
-    @builtins.property
-    def ruleset_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the ruleset.
-
-        :default: cloudformation generated name
-
-        :stability: experimental
-        '''
-        result = self._values.get("ruleset_name")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -4196,32 +4182,64 @@ class DataQualityTargetTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.DataQualityTargetTable",
 ):
-    '''(experimental) Properties of a DataQualityTargetTable.
+    '''(experimental) The Glue table a ``DataQualityRuleset`` evaluates.
 
     :stability: experimental
     :exampleMetadata: infused
 
     Example::
 
+        # database: glue.IDatabase
+        
         glue.DataQualityRuleset(self, "MyRuleset",
             ruleset_name="my_ruleset",
             dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
-            target_table=glue.DataQualityTargetTable("my_database", "my_table")
+            target_table=glue.DataQualityTargetTable.from_table_name(database, "my_table")
         )
     '''
 
-    def __init__(self, database_name: builtins.str, table_name: builtins.str) -> None:
-        '''
-        :param database_name: -
-        :param table_name: -
+    @jsii.member(jsii_name="fromTable")
+    @builtins.classmethod
+    def from_table(
+        cls,
+        database: "_aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef",
+        table: "ITable",
+    ) -> "DataQualityTargetTable":
+        '''(experimental) Target an L2 table in a database.
+
+        :param database: the database that holds the table.
+        :param table: the table to evaluate.
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__18073ec885df4d5126a63d11958df64b1c8b43f719ce0fd6c6c594b457b6d4af)
-            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            type_hints = cached_type_hints(_typecheckingstub__474986c74cfe58f66060a4f00aa8b51b946db5d1dfb8ed6f9f19d0f8030f556a)
+            check_type(argname="argument database", value=database, expected_type=type_hints["database"])
+            check_type(argname="argument table", value=table, expected_type=type_hints["table"])
+        return typing.cast("DataQualityTargetTable", jsii.sinvoke(cls, "fromTable", [database, table]))
+
+    @jsii.member(jsii_name="fromTableName")
+    @builtins.classmethod
+    def from_table_name(
+        cls,
+        database: "_aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef",
+        table_name: builtins.str,
+    ) -> "DataQualityTargetTable":
+        '''(experimental) Target a table by name in a database.
+
+        Use this when the table is not
+        modeled as an L2 construct (e.g. it is imported or created elsewhere).
+
+        :param database: the database that holds the table.
+        :param table_name: the name of the table to evaluate.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7b72ae0ac46fc71a21f820d408e80190e46b12b7f6580c7bdae098c42a4e222b)
+            check_type(argname="argument database", value=database, expected_type=type_hints["database"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-        jsii.create(self.__class__, self, [database_name, table_name])
+        return typing.cast("DataQualityTargetTable", jsii.sinvoke(cls, "fromTableName", [database, table_name]))
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
@@ -4619,10 +4637,12 @@ class Dqdl(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Dqdl"):
 
     Example::
 
+        # database: glue.IDatabase
+        
         glue.DataQualityRuleset(self, "MyRuleset",
             ruleset_name="my_ruleset",
             dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
-            target_table=glue.DataQualityTargetTable("my_database", "my_table")
+            target_table=glue.DataQualityTargetTable.from_table_name(database, "my_table")
         )
     '''
 
@@ -5134,7 +5154,11 @@ typing.cast(typing.Any, IDataQualityRuleset).__jsii_proxy_class__ = lambda : _ID
 
 
 @jsii.interface(jsii_type="@aws-cdk/aws-glue-alpha.IDatabase")
-class IDatabase(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
+class IDatabase(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef,
+    typing_extensions.Protocol,
+):
     '''
     :stability: experimental
     '''
@@ -5171,6 +5195,7 @@ class IDatabase(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
 
 class _IDatabaseProxy(
     jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef), # type: ignore[misc]
 ):
     '''
     :stability: experimental
@@ -7228,7 +7253,7 @@ class JobProps:
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -7413,7 +7438,7 @@ class JobProps:
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -8104,7 +8129,7 @@ class Predicate:
         '''(experimental) Represents a trigger predicate.
 
         :param conditions: (experimental) A list of the conditions that determine when the trigger will fire. Default: - no conditions are provided
-        :param logical: (experimental) The logical operator to be applied to the conditions. Default: - ConditionLogical.AND if multiple conditions are provided, no logical operator if only one condition
+        :param logical: (experimental) The logical operator to be applied to the conditions. Default: - PredicateLogical.AND if multiple conditions are provided, no logical operator if only one condition
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -8153,7 +8178,7 @@ class Predicate:
     def logical(self) -> typing.Optional["PredicateLogical"]:
         '''(experimental) The logical operator to be applied to the conditions.
 
-        :default: - ConditionLogical.AND if multiple conditions are provided, no logical operator if only one condition
+        :default: - PredicateLogical.AND if multiple conditions are provided, no logical operator if only one condition
 
         :stability: experimental
         '''
@@ -8243,7 +8268,7 @@ class PythonShellJobProps(JobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -8409,7 +8434,7 @@ class PythonShellJobProps(JobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -8664,7 +8689,7 @@ class RayJobProps(JobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -8880,7 +8905,7 @@ class RayJobProps(JobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -10163,7 +10188,7 @@ class SparkJobProps(JobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -10380,7 +10405,7 @@ class SparkJobProps(JobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -12146,7 +12171,7 @@ class TableClientSideEncryption(
     @builtins.classmethod
     def kms(
         cls,
-        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "TableClientSideEncryption":
         '''(experimental) Client-side encryption (CSE-KMS) with an AWS KMS key managed by the account owner.
 
@@ -13789,10 +13814,12 @@ class DataQualityRuleset(
 
     Example::
 
+        # database: glue.IDatabase
+        
         glue.DataQualityRuleset(self, "MyRuleset",
             ruleset_name="my_ruleset",
             dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
-            target_table=glue.DataQualityTargetTable("my_database", "my_table")
+            target_table=glue.DataQualityTargetTable.from_table_name(database, "my_table")
         )
     '''
 
@@ -13802,22 +13829,20 @@ class DataQualityRuleset(
         id: builtins.str,
         *,
         dqdl: "Dqdl",
+        ruleset_name: builtins.str,
         target_table: "DataQualityTargetTable",
-        client_token: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
-        ruleset_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
         :param scope: -
         :param id: -
         :param dqdl: (experimental) The DQDL document defining the ruleset's data quality rules. Build it with ``Dqdl.fromString(...)``.
+        :param ruleset_name: (experimental) The name of the ruleset.
         :param target_table: (experimental) The target table of the ruleset.
-        :param client_token: (experimental) The client token of the ruleset.
         :param description: (experimental) The description of the ruleset.
         :param removal_policy: (experimental) Policy to apply when the ruleset is removed from the stack. Default: - resource will be destroyed
-        :param ruleset_name: (experimental) The name of the ruleset. Default: cloudformation generated name
         :param tags: (experimental) Key-Value pairs that define tags for the ruleset. Default: empty tags
 
         :stability: experimental
@@ -13828,11 +13853,10 @@ class DataQualityRuleset(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DataQualityRulesetProps(
             dqdl=dqdl,
+            ruleset_name=ruleset_name,
             target_table=target_table,
-            client_token=client_token,
             description=description,
             removal_policy=removal_policy,
-            ruleset_name=ruleset_name,
             tags=tags,
         )
 
@@ -14028,6 +14052,15 @@ class Database(
         :stability: experimental
         '''
         return typing.cast(builtins.str, jsii.get(self, "databaseName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseRef")
+    def database_ref(self) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.DatabaseReference":
+        '''(experimental) A reference to a Database resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.DatabaseReference", jsii.get(self, "databaseRef"))
 
     @builtins.property
     @jsii.member(jsii_name="locationUri")
@@ -15086,7 +15119,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -15288,7 +15321,7 @@ class PySparkEtlJobProps(SparkJobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -15566,7 +15599,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -15756,7 +15789,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -16017,7 +16050,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -16207,7 +16240,7 @@ class PySparkStreamingJobProps(SparkJobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -16471,7 +16504,7 @@ class PythonShellJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -16660,7 +16693,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -16971,14 +17004,14 @@ class S3Table(
     @jsii.member(jsii_name="clientSideEncryptionKey")
     def client_side_encryption_key(
         self,
-    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key used for client-side encryption of the table's data, if ``clientSideEncryption`` was configured. Otherwise, ``undefined``.
 
         For server-side (bucket) encryption, read ``bucket.encryptionKey`` instead.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "clientSideEncryptionKey"))
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "clientSideEncryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="partitionIndexes")
@@ -17455,7 +17488,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -17701,7 +17734,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -17970,16 +18003,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         extra_jars_first: typing.Optional[builtins.bool] = None,
         notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Flex Jobs class.
-
-        Flex jobs supports Python and Scala language.
-        The flexible execution class is appropriate for non-urgent jobs such as
-        pre-production jobs, testing, and one-time data loads.
-        Flexible job runs are supported for jobs using AWS Glue version 3.0 or later and G.1X or
-        G.2X worker types but will default to the latest version of Glue (currently Glue 3.0.)
-
-        Similar to ETL, we’ll enable these features: —enable-metrics, —enable-spark-ui,
-        —enable-continuous-cloudwatch-log
+        '''(experimental) Properties for a ``ScalaSparkFlexEtlJob``.
 
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -17987,7 +18011,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -18228,7 +18252,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -18489,7 +18513,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -18730,7 +18754,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
-        :default: 3.0 for ETL
+        :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
         :stability: experimental
         '''
@@ -18994,7 +19018,7 @@ class SparkJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -19063,7 +19087,7 @@ class SparkJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -20006,7 +20030,7 @@ class PySparkEtlJob(
     '''(experimental) PySpark ETL Jobs class.
 
     ETL jobs support pySpark and Scala languages, for which there are separate
-    but similar constructors. ETL jobs default to the G2 worker type, but you
+    but similar constructors. ETL jobs default to the G1 worker type, but you
     can override this default with other supported worker type values
     (G1, G2, G4 and G8). ETL jobs defaults to Glue version 4.0, which you can
     override to 3.0. The following ETL features are enabled by default:
@@ -20086,7 +20110,7 @@ class PySparkEtlJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -20167,7 +20191,7 @@ class PySparkFlexEtlJob(
     The flexible execution class is appropriate for non-urgent jobs such as
     pre-production jobs, testing, and one-time data loads.
     Flexible job runs are supported for jobs using AWS Glue version 3.0 or later and G.1X or
-    G.2X worker types but will default to the latest version of Glue (currently Glue 3.0.)
+    G.2X worker types but will default to the latest version of Glue (currently Glue 5.0.)
 
     Similar to ETL, we’ll enable these features: --enable-metrics,
     --enable-continuous-cloudwatch-log. The Spark UI (--enable-spark-ui) is off by
@@ -20234,7 +20258,7 @@ class PySparkFlexEtlJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -20315,7 +20339,7 @@ class PySparkStreamingJob(
     These jobs will default to use Python 3.9.
 
     Similar to ETL jobs, streaming job supports Scala and Python languages. Similar to ETL,
-    it supports G1 and G2 worker type and 2.0, 3.0 and 4.0 version. We’ll default to G2 worker
+    it supports G1 and G2 worker type and 2.0, 3.0 and 4.0 version. We’ll default to G1 worker
     and 4.0 version for streaming jobs which developers can override.
     We will enable --enable-metrics, --enable-continuous-cloudwatch-log. The Spark UI
     (--enable-spark-ui) is off by default; enable it by setting the ``sparkUI`` prop.
@@ -20381,7 +20405,7 @@ class PySparkStreamingJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -20458,11 +20482,12 @@ class ScalaSparkEtlJob(
     '''(experimental) Spark ETL Jobs class.
 
     ETL jobs support pySpark and Scala languages, for which there are separate
-    but similar constructors. ETL jobs default to the G2 worker type, but you
+    but similar constructors. ETL jobs default to the G1 worker type, but you
     can override this default with other supported worker type values
     (G1, G2, G4 and G8). ETL jobs defaults to Glue version 4.0, which you can
     override to 3.0. The following ETL features are enabled by default:
-    —enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log.
+    --enable-metrics, --enable-continuous-cloudwatch-log. The Spark UI
+    (--enable-spark-ui) is off by default; enable it by setting the ``sparkUI`` prop.
     You can find more details about version, worker type and other features
     in Glue's public documentation.
 
@@ -20582,7 +20607,7 @@ class ScalaSparkEtlJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -20657,16 +20682,17 @@ class ScalaSparkFlexEtlJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.ScalaSparkFlexEtlJob",
 ):
-    '''(experimental) Spark ETL Jobs class.
+    '''(experimental) Scala Spark Flex ETL Jobs class.
 
-    ETL jobs support pySpark and Scala languages, for which there are separate
-    but similar constructors. ETL jobs default to the G2 worker type, but you
-    can override this default with other supported worker type values
-    (G1, G2, G4 and G8). ETL jobs defaults to Glue version 4.0, which you can
-    override to 3.0. The following ETL features are enabled by default:
-    —enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log.
-    You can find more details about version, worker type and other features
-    in Glue's public documentation.
+    Flex jobs support Python and Scala languages.
+    The flexible execution class is appropriate for non-urgent jobs such as
+    pre-production jobs, testing, and one-time data loads.
+    Flexible job runs are supported for jobs using AWS Glue version 3.0 or later and ``G_1X`` or
+    ``G_2X`` worker types but will default to the latest version of Glue (currently Glue 5.0).
+
+    Similar to ETL, we’ll enable these features: --enable-metrics,
+    --enable-continuous-cloudwatch-log. The Spark UI (--enable-spark-ui) is off by
+    default; enable it by setting the ``sparkUI`` prop.
 
     :stability: experimental
     :exampleMetadata: fixture=_generated
@@ -20781,7 +20807,7 @@ class ScalaSparkFlexEtlJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -20862,9 +20888,10 @@ class ScalaSparkStreamingJob(
     These jobs will default to use Python 3.9.
 
     Similar to ETL jobs, streaming job supports Scala and Python languages. Similar to ETL,
-    it supports G1 and G2 worker type and 2.0, 3.0 and 4.0 version. We’ll default to G2 worker
+    it supports G1 and G2 worker type and 2.0, 3.0 and 4.0 version. We’ll default to G1 worker
     and 4.0 version for streaming jobs which developers can override.
-    We will enable —enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log.
+    We will enable --enable-metrics, --enable-continuous-cloudwatch-log. The Spark UI
+    (--enable-spark-ui) is off by default; enable it by setting the ``sparkUI`` prop.
 
     :stability: experimental
     :exampleMetadata: fixture=_generated
@@ -20979,7 +21006,7 @@ class ScalaSparkStreamingJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
+        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
@@ -21336,14 +21363,14 @@ def _typecheckingstub__6be4bb41017f52f2aa453e36400fa3a47b2e6bf3a87cf64d46e0345d6
     pass
 
 def _typecheckingstub__2e67d66150729d3a1d21e6b214b3b9937871de81ab46af00f3e83ecf24fe8b22(
-    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6b86817eec411efa47f1e2dcfb5982cbdc079fb5c41382c6463a998e3e755194(
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
-    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21361,18 +21388,24 @@ def _typecheckingstub__f5302ed9f621270e44cf453ed62f78ee39e66f12961a87e084ec3d874
 def _typecheckingstub__abda2570732c667a87dd412c9aa6c70d5db49ac0b525ecc9c3c801e1271e451a(
     *,
     dqdl: Dqdl,
+    ruleset_name: builtins.str,
     target_table: DataQualityTargetTable,
-    client_token: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-    ruleset_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__18073ec885df4d5126a63d11958df64b1c8b43f719ce0fd6c6c594b457b6d4af(
-    database_name: builtins.str,
+def _typecheckingstub__474986c74cfe58f66060a4f00aa8b51b946db5d1dfb8ed6f9f19d0f8030f556a(
+    database: _aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef,
+    table: ITable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b72ae0ac46fc71a21f820d408e80190e46b12b7f6580c7bdae098c42a4e222b(
+    database: _aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef,
     table_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -22126,7 +22159,7 @@ def _typecheckingstub__c621f615cea5a292fe84c07e10ca61e7529536864f1701be1f19b1684
     pass
 
 def _typecheckingstub__1c9aafcca958a02033eeb95ddd63beee8aecb98a8cca7c8cc2883a868af786c2(
-    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22357,11 +22390,10 @@ def _typecheckingstub__9e874ec3f48fcb87408229a566f69396601cc87f18c40fa5579a09664
     id: builtins.str,
     *,
     dqdl: Dqdl,
+    ruleset_name: builtins.str,
     target_table: DataQualityTargetTable,
-    client_token: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-    ruleset_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

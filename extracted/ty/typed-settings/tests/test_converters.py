@@ -479,15 +479,18 @@ SUPPORTED_UNION: Example4T = [
     ("enum|None", "spam", LeEnum.spam, LeEnum | None),
     ("str|None(None)", None, None, str | None),
     ("str|None(int)", 1, "1", str | None),
-    # (S | List[str], [1, 2], ["1", "2"], "attrs|list(list)"),
-    # ("Union(None)", None, None, Union[None, S, List[str]]),
-    # (
-    #     "Union(attrs)",
-    #     {"u": "u", "p": "p"},
-    #     S("u", "p"),
-    #     Union[None, S, List[str]],
-    # ),
-    # ("Union(list)", [1, 2], ["1", "2"], Union[None, S, List[str]]),
+    (
+        "AttrsA|AttrsB(a)",
+        {"u": "u", "p": "p", "b": "b"},
+        AttrsCls("u", "p", "b"),
+        AttrsCls | ChildAttrs,
+    ),
+    (
+        "AttrsA|AttrsB(b)",
+        {"x": 1, "y": "y"},
+        ChildAttrs(1, "y"),
+        AttrsCls | ChildAttrs,
+    ),
 ]
 SUPPORTED_TYPES_DATA += SUPPORTED_UNION
 

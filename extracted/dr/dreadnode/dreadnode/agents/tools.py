@@ -201,7 +201,7 @@ async def offload_tool_output(
     return truncated, file_path
 
 
-ToolSource = t.Literal["builtin", "python", "mcp", "synthetic", "bundled"]
+ToolSource = t.Literal["builtin", "python", "command", "mcp", "synthetic", "bundled"]
 """The origin of a tool. See CAP-IDENT-001 in specs/capabilities/runtime.md."""
 
 _WIRE_NAME_MAX = 64

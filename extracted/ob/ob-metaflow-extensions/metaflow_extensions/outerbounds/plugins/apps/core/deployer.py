@@ -11,7 +11,11 @@ from ._state_machine import (
 )
 from .app_config import AppConfig, AppConfigError
 from .code_package import CodePackager
-from .config import PackagedCode, BakedImage, CapsuleType
+from .config import (
+    PackagedCode,
+    BakedImage,
+    CapsuleType,
+)
 from .app_config import CODE_PACKAGE_PREFIX, AuthType
 from .capsule import (
     CapsuleDeployer,
@@ -57,12 +61,16 @@ def _resolve_fast_bakery_url():
 def bake_image(
     pypi: Optional[Dict[str, str]] = None,
     conda: Optional[Dict[str, str]] = None,
+    anaconda: Optional[Dict[str, str]] = None,
     requirements_file: Optional[str] = None,
     pyproject_toml: Optional[str] = None,
     base_image: Optional[str] = None,
     python: Optional[str] = None,
     logger: Optional[Callable[[str], Any]] = None,
     cache_name: Optional[str] = None,
+    extra_configs: Optional[
+        dict
+    ] = None,  # advanced variable; NOT documenting in public API ATM.
 ) -> BakedImage:
     """
     Bake a Docker image with the specified dependencies.
@@ -78,6 +86,10 @@ def bake_image(
         Mutually exclusive with requirements_file and pyproject_toml.
     conda : Dict[str, str], optional
         Dictionary of Conda packages to install.
+    anaconda : Dict[str, Any], optional
+        Dictionary of Anaconda packages to install, mutually exclusive with
+        pypi, conda, requirements_file and pyproject_toml. Keys are package
+        names and values are version specifiers (str)
     requirements_file : str, optional
         Path to a requirements.txt file.
         Mutually exclusive with pypi and pyproject_toml.
@@ -153,6 +165,7 @@ def bake_image(
         [
             pypi is not None,
             conda is not None,
+            anaconda is not None,
             requirements_file is not None,
             pyproject_toml is not None,
         ]
@@ -162,7 +175,7 @@ def bake_image(
 
     if dep_sources > 1:
         raise ImageBakingException(
-            "Only one of pypi, conda, requirements_file, or pyproject_toml can be specified."
+            "Only one of pypi, conda, anaconda, requirements_file, or pyproject_toml can be specified."
         )
 
     # Set defaults
@@ -207,6 +220,9 @@ def bake_image(
     elif conda:
         conda_packages = conda.copy()
 
+    elif anaconda:
+        conda_packages = dict(anaconda or {})
+
     # Check if there are any packages to bake
     if not pypi_packages and not conda_packages:
         _logger("⚠️ No packages to bake. Returning base image.")
@@ -231,6 +247,7 @@ def bake_image(
         base_image=_base_image,
         logger=_logger,
         fast_bakery_url=fast_bakery_url,
+        extra_configs=extra_configs,
     )
 
     if fb_response.failure:

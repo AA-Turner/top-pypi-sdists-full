@@ -1,14 +1,16 @@
 [project]
 name = "detect-installer"
-version = "0.1.0"
+version = "0.2.1"
 description = "Detect how a Python package was installed and get the correct upgrade command"
 readme = "README.md"
-authors = [
-    { name = "Patrick Arminio", email = "patrick.arminio@gmail.com" }
-]
 requires-python = ">=3.10"
 license = "0BSD"
+license-files = ["LICENSE"]
 dependencies = []
+
+[[project.authors]]
+name = "Patrick Arminio"
+email = "patrick.arminio@gmail.com"
 
 [project.scripts]
 detect-installer-test = "detect_installer._test:main"
@@ -18,7 +20,10 @@ requires = ["uv_build>=0.9.8,<0.10.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = ["pytest", "coverage[toml]"]
+dev = [
+    "pytest",
+    "coverage[toml]",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -40,9 +45,10 @@ skip_covered = true
 skip_empty = true
 
 [tool.autopub]
-plugins = ["uv", "github"]
+plugins = [
+    "uv",
+    "github",
+]
 
 [tool.ty.environment]
-extra-paths = [
-    "src",
-]
+extra-paths = ["src"]

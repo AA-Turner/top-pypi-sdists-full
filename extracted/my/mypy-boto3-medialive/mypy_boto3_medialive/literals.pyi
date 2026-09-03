@@ -29,6 +29,8 @@ __all__ = (
     "AacRawFormatType",
     "AacSpecType",
     "AacVbrQualityType",
+    "AbWatermarkerIdLengthType",
+    "AbWatermarkingProfileType",
     "Ac3AttenuationControlType",
     "Ac3BitstreamModeType",
     "Ac3CodingModeType",
@@ -426,6 +428,8 @@ AacRateControlModeType = Literal["CBR", "VBR"]
 AacRawFormatType = Literal["LATM_LOAS", "NONE"]
 AacSpecType = Literal["MPEG2", "MPEG4"]
 AacVbrQualityType = Literal["HIGH", "LOW", "MEDIUM_HIGH", "MEDIUM_LOW"]
+AbWatermarkerIdLengthType = Literal["ID_2048", "ID_512"]
+AbWatermarkingProfileType = Literal["CAMCORDING", "CUSTOM", "DEFAULT", "HQ", "MEZZANINE", "ROBUST"]
 Ac3AttenuationControlType = Literal["ATTENUATE_3_DB", "NONE"]
 Ac3BitstreamModeType = Literal[
     "COMMENTARY",
@@ -1319,6 +1323,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",

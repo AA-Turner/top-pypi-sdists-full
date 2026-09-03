@@ -27,7 +27,8 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -578,7 +579,7 @@ def write_pin_file(
     payload = {
         "state_dir": str(resolved),
         "workflow": workflow,
-        "created_utc": datetime.now(timezone.utc).isoformat(),
+        "created_utc": datetime.now(UTC).isoformat(),
         "ttl_hours": ttl_hours,
     }
 
@@ -685,8 +686,8 @@ def read_and_validate_pin_file(git_root: Path, *, create: bool = True) -> Path |
         created = datetime.fromisoformat(created_utc)
         # Ensure timezone-aware comparison
         if created.tzinfo is None:
-            created = created.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+            created = created.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
         elapsed_hours = (now - created).total_seconds() / 3600
         if elapsed_hours > ttl_hours:
             _emit_pin_diagnostic(
@@ -778,7 +779,7 @@ def refresh_pin_file_ttl() -> None:
         return
 
     # Update created_utc
-    data["created_utc"] = datetime.now(timezone.utc).isoformat()
+    data["created_utc"] = datetime.now(UTC).isoformat()
 
     # Atomic write
     agdt_dir = git_root / ".agdt"
@@ -1683,14 +1684,12 @@ def set_workflow_state(
         step: Current step within the workflow (e.g., "initiate", "review-file")
         context: Workflow-specific context data (e.g., PR ID, Jira key)
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     # Get existing workflow state to preserve started_at if updating
     existing = get_workflow_state()
     started_at = (
-        existing.get("started_at")
-        if existing and existing.get("active") == name
-        else datetime.now(timezone.utc).isoformat()
+        existing.get("started_at") if existing and existing.get("active") == name else datetime.now(UTC).isoformat()
     )
 
     workflow_data: dict[str, Any] = {
@@ -1723,11 +1722,17 @@ def clear_workflow_state(force_delete: bool = False, completing_workflow: str | 
 
     Args:
         force_delete: When True (used by ``agdt-clear-workflow``), unconditionally
-            delete the pin file regardless of its ``workflow`` field.
+            delete the pin file regardless of its ``workflow`` field, and remove
+            retained hierarchy traces tracked by the retention registry.
         completing_workflow: When provided (used by workflow-completion handlers),
             delete the pin file only if its ``workflow`` field matches this value.
     """
     delete_value("workflow")
+
+    if force_delete:
+        from .orchestration.hierarchy.aggregation import cleanup_workflow_retention
+
+        cleanup_workflow_retention(get_state_dir() / "orchestration" / "hierarchy" / "retention-registry.ndjson")
 
     # Pin file cleanup
     git_root = _get_git_repo_root()
@@ -1813,3 +1818,44 @@ def update_workflow_context(context: dict[str, Any]) -> None:
         step=workflow.get("step"),
         context=context,
     )
+
+
+def serialize_queue_document(data: dict[str, Any]) -> bytes:
+    """Serialize a queue state document to canonical UTF-8 JSON bytes."""
+    return json.dumps(
+        data,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+        default=_queue_json_default,
+    ).encode("utf-8")
+
+
+def deserialize_queue_document(raw: bytes) -> dict[str, Any]:
+    """Deserialize raw UTF-8 JSON bytes back into a queue state mapping."""
+    try:
+        value = json.loads(raw.decode("utf-8"), parse_constant=_reject_queue_non_finite_constant)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"Invalid queue document bytes: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"Queue document must be a JSON object, got {type(value).__name__}")
+    return value
+
+
+def _reject_queue_non_finite_constant(value: str) -> Any:
+    """Fail closed when decoding non-finite JSON constants."""
+    raise ValueError(f"Queue document must not contain non-finite numbers: {value}")
+
+
+def _queue_json_default(value: Any) -> Any:
+    """Serialize supported queue-document values and reject everything else."""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            raise TypeError("Queue document datetimes must be timezone-aware")
+        return value.isoformat()
+    if isinstance(value, Enum):
+        enum_value = value.value
+        if isinstance(enum_value, (str, int, float, bool)) or enum_value is None:
+            return enum_value
+        raise TypeError(f"Unsupported enum value type {type(enum_value).__name__} for queue document serialization")
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")

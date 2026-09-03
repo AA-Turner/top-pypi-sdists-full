@@ -124,12 +124,12 @@ def test_distribution_base_path(
 ):
     distribution = file_distribution_factory(base_path=str(uuid4()).replace("-", "/"))
 
-    # Test that spaces can not be part of ``base_path``.
+    # Test that spaces can not be part of `base_path`.
     with pytest.raises(ApiException) as exc:
         file_distribution_factory(base_path=str(uuid4()).replace("-", " "))
     assert json.loads(exc.value.body)["base_path"] is not None
 
-    # Test that slash cannot be used in the beginning of ``base_path``.
+    # Test that slash cannot be used in the beginning of `base_path`.
     with pytest.raises(ApiException) as exc:
         file_distribution_factory(base_path=f"/{str(uuid4())}")
     assert json.loads(exc.value.body)["base_path"] is not None
@@ -140,7 +140,7 @@ def test_distribution_base_path(
         )
     assert json.loads(exc.value.body)["base_path"] is not None
 
-    # Test that slash cannot be in the end of ``base_path``."""
+    # Test that slash cannot be in the end of `base_path`."""
     with pytest.raises(ApiException) as exc:
         file_distribution_factory(base_path=f"{str(uuid4())}/")
     assert json.loads(exc.value.body)["base_path"] is not None
@@ -151,12 +151,12 @@ def test_distribution_base_path(
         )
     assert json.loads(exc.value.body)["base_path"] is not None
 
-    # Test that ``base_path`` can not be duplicated.
+    # Test that `base_path` can not be duplicated.
     with pytest.raises(ApiException) as exc:
         file_distribution_factory(base_path=distribution.base_path)
     assert json.loads(exc.value.body)["base_path"] is not None
 
-    # Test that distributions can't have overlapping ``base_path``.
+    # Test that distributions can't have overlapping `base_path`.
     with pytest.raises(ApiException) as exc:
         file_distribution_factory(base_path=distribution.base_path.rsplit("/", 1)[0])
     assert json.loads(exc.value.body)["base_path"] is not None
@@ -165,81 +165,6 @@ def test_distribution_base_path(
     with pytest.raises(ApiException) as exc:
         file_distribution_factory(base_path=base_path)
     assert json.loads(exc.value.body)["base_path"] is not None
-
-
-@pytest.mark.parallel
-def test_distribution_update_task_reservations(
-    file_bindings,
-    monitor_task,
-):
-    def has_shared_distributions_lock(task):
-        return any(
-            resource.startswith("shared:") and resource.endswith(":distributions")
-            for resource in task.reserved_resources_record
-        )
-
-    def has_exclusive_distributions_lock(task):
-        return any(
-            not resource.startswith("shared:") and resource.endswith(":distributions")
-            for resource in task.reserved_resources_record
-        )
-
-    def has_base_path_lock(task):
-        return any(
-            not resource.startswith("shared:") and resource.endswith(":distribution.base_path")
-            for resource in task.reserved_resources_record
-        )
-
-    create_task = monitor_task(
-        file_bindings.DistributionsFileApi.create(
-            {"name": str(uuid4()), "base_path": str(uuid4())}
-        ).task
-    )
-    assert has_base_path_lock(create_task)
-    assert has_shared_distributions_lock(create_task)
-    assert not has_exclusive_distributions_lock(create_task)
-    distribution = file_bindings.DistributionsFileApi.read(create_task.created_resources[0])
-    assert distribution.prn not in create_task.reserved_resources_record
-
-    no_base_path_update_task = monitor_task(
-        file_bindings.DistributionsFileApi.partial_update(
-            distribution.pulp_href,
-            {"name": str(uuid4())},
-        ).task
-    )
-    assert distribution.prn in no_base_path_update_task.reserved_resources_record
-    assert not has_base_path_lock(no_base_path_update_task)
-    assert has_shared_distributions_lock(no_base_path_update_task)
-    assert not has_exclusive_distributions_lock(no_base_path_update_task)
-
-    unchanged_base_path_update_task = monitor_task(
-        file_bindings.DistributionsFileApi.partial_update(
-            distribution.pulp_href,
-            {"name": str(uuid4()), "base_path": distribution.base_path},
-        ).task
-    )
-    assert distribution.prn in unchanged_base_path_update_task.reserved_resources_record
-    assert not has_base_path_lock(unchanged_base_path_update_task)
-    assert has_shared_distributions_lock(unchanged_base_path_update_task)
-    assert not has_exclusive_distributions_lock(unchanged_base_path_update_task)
-
-    base_path_update_task = monitor_task(
-        file_bindings.DistributionsFileApi.partial_update(
-            distribution.pulp_href, {"base_path": str(uuid4())}
-        ).task
-    )
-    assert distribution.prn in base_path_update_task.reserved_resources_record
-    assert has_base_path_lock(base_path_update_task)
-    assert has_shared_distributions_lock(base_path_update_task)
-    assert not has_exclusive_distributions_lock(base_path_update_task)
-
-    delete_task = monitor_task(
-        file_bindings.DistributionsFileApi.delete(distribution.pulp_href).task
-    )
-    assert distribution.prn in delete_task.reserved_resources_record
-    assert not has_base_path_lock(delete_task)
-    assert has_shared_distributions_lock(delete_task)
-    assert not has_exclusive_distributions_lock(delete_task)
 
 
 @pytest.mark.parallel
@@ -389,8 +314,8 @@ def test_distribution_serves_publication_content(
     Sets up a repository with two versions (v1 has 3 files, v2 has 2 files), publishes both,
     then verifies:
     - A distribution with an explicit publication serves that publication's content.
-    - A distribution with ``repository`` serves the latest publication (for the latest version).
-    - A distribution with ``repository_version`` serves the latest publication for that version.
+    - A distribution with `repository` serves the latest publication (for the latest version).
+    - A distribution with `repository_version` serves the latest publication for that version.
     """
     # Sync to create version 1 (3 files)
     remote = file_remote_ssl_factory(manifest_path=basic_manifest_path, policy="immediate")

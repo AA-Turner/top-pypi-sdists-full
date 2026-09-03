@@ -159,12 +159,31 @@ async def poll_and_classify(
     task discriminator: when supplied, the poll selects that specific task (or
     returns the typed ``NOT_FOUND`` sentinel if it is not among the polled
     results); when ``None`` the unfiltered poll runs, which raises
-    ``AmbiguousResearchTaskError`` if two or more tasks are in flight. The CLI
-    ``research status`` command passes ``None`` (unchanged); the MCP
-    ``research_status`` / ``research_import`` tools pass the agent-supplied id so
-    start→status→import stays pinned to one task.
+    ``AmbiguousResearchTaskError`` if two or more tasks are in flight. CLI
+    ``research status --run-id/--task-id``, MCP ``research_status`` /
+    ``research_import``, and the REST adapter pass their caller-supplied id so
+    start→status→import stays pinned to one task; the CLI flag remains
+    optional for backward compatibility.
     """
     status = await client.research.poll(notebook_id, task_id)
+    return classify_research_task(status)
+
+
+async def discover_and_classify(
+    client: Any, notebook_id: str, query: str, mode: str = "default"
+) -> ResearchStatusResult:
+    """Run one synchronous ``research.discover`` and classify it like a poll.
+
+    The completed task a discovery returns is projected through the same
+    :class:`ResearchStatusResult` the ``research status`` render and ``--json``
+    payload consume, so the command layer needs no second render path.
+    """
+    task = await client.research.discover(notebook_id, query, mode=mode)
+    return classify_research_task(task)
+
+
+def classify_research_task(status: Any) -> ResearchStatusResult:
+    """Project one typed ``ResearchTask`` into the command-layer result."""
     # ``ResearchStatus`` is a ``str`` enum; ``.value`` yields the canonical
     # lowercase code the CLI render branches + the original status command keyed
     # off (matches ``execute_research_wait``'s ``status.status.value``).
@@ -438,6 +457,7 @@ class ResearchWaitPlan:
     import_all: bool = False
     cited_only: bool = False
     json_output: bool = False
+    task_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -547,8 +567,11 @@ async def execute_research_wait(
 
     async with wait_context():
         try:
+            wait_args = (
+                (nb_id_resolved,) if plan.task_id is None else (nb_id_resolved, plan.task_id)
+            )
             status = await client.research.wait_for_completion(
-                nb_id_resolved,
+                *wait_args,
                 timeout=float(plan.timeout),
                 initial_interval=float(plan.interval),
             )

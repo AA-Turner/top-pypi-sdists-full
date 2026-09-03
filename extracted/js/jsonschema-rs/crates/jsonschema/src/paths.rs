@@ -648,6 +648,26 @@ impl Location {
         })
     }
 
+    /// Append a segment taken straight from a [`LazyLocation`] frame.
+    #[must_use]
+    pub(crate) fn join_pointer_segment(&self, segment: &JsonPointerSegment<'_>) -> Self {
+        let parent = &self.0;
+        match segment {
+            JsonPointerSegment::Key(property) => {
+                build_location(parent.len() + property.len() + 1, |buffer| {
+                    buffer.push_str(parent);
+                    buffer.push('/');
+                    write_escaped_str(buffer, property);
+                })
+            }
+            JsonPointerSegment::Index(index) => build_location(parent.len() + 2, |buffer| {
+                buffer.push_str(parent);
+                buffer.push('/');
+                write_index(buffer, *index);
+            }),
+        }
+    }
+
     #[must_use]
     pub fn join<'a>(&self, segment: impl Into<LocationSegment<'a>>) -> Self {
         let parent = &self.0;
@@ -702,6 +722,15 @@ impl Location {
     pub fn iter(&self) -> std::vec::IntoIter<LocationSegment<'_>> {
         <&Self as IntoIterator>::into_iter(self)
     }
+    /// Iterate the segments without materializing them.
+    pub fn segments(&self) -> impl Iterator<Item = LocationSegment<'_>> + Clone {
+        self.as_str().split('/').filter(|p| !p.is_empty()).map(|p| {
+            p.parse::<usize>().map_or_else(
+                |_| LocationSegment::Property(unescape_segment(p)),
+                LocationSegment::Index,
+            )
+        })
+    }
 }
 
 impl Default for Location {
@@ -721,17 +750,7 @@ impl<'a> IntoIterator for &'a Location {
     type IntoIter = std::vec::IntoIter<LocationSegment<'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.as_str()
-            .split('/')
-            .filter(|p| !p.is_empty())
-            .map(|p| {
-                p.parse::<usize>().map_or(
-                    LocationSegment::Property(unescape_segment(p)),
-                    LocationSegment::Index,
-                )
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
+        self.segments().collect::<Vec<_>>().into_iter()
     }
 }
 

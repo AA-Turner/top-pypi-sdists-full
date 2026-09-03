@@ -140,7 +140,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -172,6 +172,7 @@ class AccountsClient:
         self,
         *,
         affiliate_code: typing.Optional[str] = OMIT,
+        blueprint_id: typing.Optional[str] = OMIT,
         country: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
@@ -185,6 +186,9 @@ class AccountsClient:
         ----------
         affiliate_code : typing.Optional[str]
             The username, if any, of the partner who referred this account
+
+        blueprint_id : typing.Optional[str]
+            The blueprint App ID, prefixed `app_`. Creates a hosted website for the account and queues its deployment asynchronously; the Account response does not report deployment completion.
 
         country : typing.Optional[str]
             The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
@@ -211,7 +215,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -219,6 +223,7 @@ class AccountsClient:
         """
         _response = self._raw_client.create(
             affiliate_code=affiliate_code,
+            blueprint_id=blueprint_id,
             country=country,
             email=email,
             metadata=metadata,
@@ -246,7 +251,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -277,7 +282,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -469,7 +474,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -556,7 +561,7 @@ class AccountsClient:
             High-level business category, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
 
         formation_state : FormCompanyAccountsRequestFormationState
-            Two-letter code of the US state (or `DC`) to form the company in.
+            Two-letter code of the US state (or `DC`) to form the company in. We recommend `WY` because Wyoming formations are completed the same day.
 
         founders : typing.Sequence[FormCompanyAccountsRequestFoundersItem]
             The company's founders. Exactly one must be marked `is_primary` — the responsible party for the filing.
@@ -610,7 +615,7 @@ class AccountsClient:
         )
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -631,7 +636,7 @@ class AccountsClient:
             entity_suffix="LLC",
             entity_type="llc",
             expedite_ein=True,
-            formation_state="TX",
+            formation_state="WY",
             founders=[
                 FormCompanyAccountsRequestFoundersItem(
                     address=FormCompanyAccountsRequestFoundersItemAddress(
@@ -682,12 +687,46 @@ class AccountsClient:
         )
         return _response.data
 
+    def suspend(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Account:
+        """
+        Suspends a connected account directly owned by the authenticated platform account. This cannot suspend the platform account itself or an account owned by another platform.
+
+        Parameters
+        ----------
+        id : str
+            Connected account ID, prefixed `biz_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Account
+            Connected account suspended.
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-02-2",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.accounts.suspend(
+            id="id",
+        )
+        """
+        _response = self._raw_client.suspend(id, request_options=request_options)
+        return _response.data
+
     def transfer_ownership(
         self,
         id: str,
         *,
         identifier: str,
         as_partner: typing.Optional[bool] = OMIT,
+        message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TransferOwnershipAccountsResponse:
         """
@@ -704,6 +743,9 @@ class AccountsClient:
         as_partner : typing.Optional[bool]
             If true, the current owner is credited as the account's Whop partner, earning partner commission on its sales. Requires the current owner to already be an enrolled Whop partner. Skipped if the account already has an active partner.
 
+        message : typing.Optional[str]
+            A note from the partner, shown as a quote in the invite email and signed with their name. Requires `as_partner`; sending it on an ordinary transfer is a 400. Omit it and the email sends without a note.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -717,7 +759,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -727,7 +769,7 @@ class AccountsClient:
         )
         """
         _response = self._raw_client.transfer_ownership(
-            id, identifier=identifier, as_partner=as_partner, request_options=request_options
+            id, identifier=identifier, as_partner=as_partner, message=message, request_options=request_options
         )
         return _response.data
 
@@ -843,7 +885,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -882,6 +924,7 @@ class AsyncAccountsClient:
         self,
         *,
         affiliate_code: typing.Optional[str] = OMIT,
+        blueprint_id: typing.Optional[str] = OMIT,
         country: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
@@ -895,6 +938,9 @@ class AsyncAccountsClient:
         ----------
         affiliate_code : typing.Optional[str]
             The username, if any, of the partner who referred this account
+
+        blueprint_id : typing.Optional[str]
+            The blueprint App ID, prefixed `app_`. Creates a hosted website for the account and queues its deployment asynchronously; the Account response does not report deployment completion.
 
         country : typing.Optional[str]
             The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
@@ -923,7 +969,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -937,6 +983,7 @@ class AsyncAccountsClient:
         """
         _response = await self._raw_client.create(
             affiliate_code=affiliate_code,
+            blueprint_id=blueprint_id,
             country=country,
             email=email,
             metadata=metadata,
@@ -966,7 +1013,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1005,7 +1052,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1205,7 +1252,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1298,7 +1345,7 @@ class AsyncAccountsClient:
             High-level business category, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
 
         formation_state : FormCompanyAccountsRequestFormationState
-            Two-letter code of the US state (or `DC`) to form the company in.
+            Two-letter code of the US state (or `DC`) to form the company in. We recommend `WY` because Wyoming formations are completed the same day.
 
         founders : typing.Sequence[FormCompanyAccountsRequestFoundersItem]
             The company's founders. Exactly one must be marked `is_primary` — the responsible party for the filing.
@@ -1354,7 +1401,7 @@ class AsyncAccountsClient:
         )
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1378,7 +1425,7 @@ class AsyncAccountsClient:
                 entity_suffix="LLC",
                 entity_type="llc",
                 expedite_ein=True,
-                formation_state="TX",
+                formation_state="WY",
                 founders=[
                     FormCompanyAccountsRequestFoundersItem(
                         address=FormCompanyAccountsRequestFoundersItemAddress(
@@ -1432,12 +1479,54 @@ class AsyncAccountsClient:
         )
         return _response.data
 
+    async def suspend(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Account:
+        """
+        Suspends a connected account directly owned by the authenticated platform account. This cannot suspend the platform account itself or an account owned by another platform.
+
+        Parameters
+        ----------
+        id : str
+            Connected account ID, prefixed `biz_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Account
+            Connected account suspended.
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-02-2",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.accounts.suspend(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.suspend(id, request_options=request_options)
+        return _response.data
+
     async def transfer_ownership(
         self,
         id: str,
         *,
         identifier: str,
         as_partner: typing.Optional[bool] = OMIT,
+        message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TransferOwnershipAccountsResponse:
         """
@@ -1454,6 +1543,9 @@ class AsyncAccountsClient:
         as_partner : typing.Optional[bool]
             If true, the current owner is credited as the account's Whop partner, earning partner commission on its sales. Requires the current owner to already be an enrolled Whop partner. Skipped if the account already has an active partner.
 
+        message : typing.Optional[str]
+            A note from the partner, shown as a quote in the invite email and signed with their name. Requires `as_partner`; sending it on an ordinary transfer is a 400. Omit it and the email sends without a note.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1469,7 +1561,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1485,7 +1577,7 @@ class AsyncAccountsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.transfer_ownership(
-            id, identifier=identifier, as_partner=as_partner, request_options=request_options
+            id, identifier=identifier, as_partner=as_partner, message=message, request_options=request_options
         )
         return _response.data
 

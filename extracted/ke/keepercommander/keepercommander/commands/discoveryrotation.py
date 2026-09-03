@@ -35,6 +35,7 @@ from .pam.vault_target import (
     get_vault_record_title_type, find_pam_records_by_search,
     resolve_pam_config_folder_info, pam_folder_json_payload, place_record_in_folder,
     create_pam_configuration_in_folder, update_pam_record, records_in_folder,
+    reload_pam_record_if_nsf_updated,
 )
 from .pam.config_helper import configuration_controller_get, \
     pam_configurations_get_all, pam_configuration_remove, \
@@ -75,13 +76,11 @@ from .discover.rule_add import PAMGatewayActionDiscoverRuleAddCommand
 from .discover.rule_list import PAMGatewayActionDiscoverRuleListCommand
 from .discover.rule_remove import PAMGatewayActionDiscoverRuleRemoveCommand
 from .discover.rule_update import PAMGatewayActionDiscoverRuleUpdateCommand
-from .pam_debug.acl import PAMDebugACLCommand
 from .pam_debug.dump import PAMDebugDumpCommand
 from .pam_debug.gateway import PAMDebugGatewayCommand
 from .pam_debug.graph import PAMDebugGraphCommand
 from .pam_debug.info import PAMDebugInfoCommand
 from .pam_debug.krouter import PAMDebugKRouterCommand
-from .pam_debug.link import PAMDebugLinkCommand
 from .pam_debug.rotation_setting import PAMDebugRotationSettingsCommand
 from .pam_debug.vertex import PAMDebugVertexCommand
 from .pam.cnapp_commands import PAMCnappCommand
@@ -463,11 +462,6 @@ class PAMDebugCommand(GroupCommand):
         self.register_command('gateway', PAMDebugGatewayCommand(), 'Debug a gateway', 'g')
         self.register_command('krouter', PAMDebugKRouterCommand(), 'Show connected krouter version', 'k')
         self.register_command('graph', PAMDebugGraphCommand(), 'Render graphs', 'r')
-
-        # Disable for now. Needs more work.
-        # self.register_command('verify', PAMDebugVerifyCommand(), 'Verify graphs')
-        self.register_command('acl', PAMDebugACLCommand(), 'Control ACL of PAM Users', 'c')
-        self.register_command('link', PAMDebugLinkCommand(), 'Link resource to configuration', 'l')
         self.register_command('rs-reset', PAMDebugRotationSettingsCommand(),
                               'Create/reset rotation settings', 'rs')
         self.register_command('vertex', PAMDebugVertexCommand(),
@@ -3128,7 +3122,8 @@ class PAMConfigurationEditCommand(Command, PamConfigurationEditMixin):
         self.parse_properties(params, configuration, config_edit=True, **kwargs)
         self.verify_required(configuration, command='pam-config-edit')
 
-        update_pam_record(params, configuration, command='pam-config-edit')
+        was_nsf = update_pam_record(params, configuration, command='pam-config-edit')
+        configuration = reload_pam_record_if_nsf_updated(params, configuration, configuration.record_uid, was_nsf)
 
         admin_cred_ref = ''
         value = field.get_default_value(dict)

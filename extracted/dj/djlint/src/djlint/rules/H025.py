@@ -5,17 +5,17 @@ from __future__ import annotations
 from itertools import chain
 from typing import TYPE_CHECKING
 
-import regex as re
-
 from djlint.const import HTML_VOID_ELEMENTS
-from djlint.formatter.tokenizer import tokenize_tags
 from djlint.helpers import (
+    branch_context,
+    branched_blocks,
     child_of_unformatted_block,
-    inside_ignored_block,
     inside_ignored_linter_block,
     inside_ignored_rule,
     inside_template_block,
+    mutually_exclusive,
     overlaps_ignored_block,
+    tokenize_markup,
 )
 from djlint.lint import get_line
 
@@ -32,48 +32,6 @@ if TYPE_CHECKING:
 P_LIST_CHILD_MESSAGE: Final = "List tags should not be nested inside p tags."
 P_LIST_CHILD_TAGS: Final = frozenset(("ol", "ul"))
 
-_CONDITIONAL_PATTERN: Final = re.compile(
-    r"\{%[-+]?\s*(endif|elseif|elif|else|if)\b", cache_pattern=False
-)
-
-
-def _conditional_branches(html: str) -> tuple[tuple[tuple[int, int], ...], ...]:
-    """Branch spans of every complete {% if %}...{% endif %} block."""
-    complete: list[tuple[tuple[int, int], ...]] = []
-    open_blocks: list[tuple[list[tuple[int, int]], int]] = []
-    for match in _CONDITIONAL_PATTERN.finditer(html):
-        keyword = match.group(1)
-        if keyword == "if":
-            open_blocks.append(([], match.end()))
-        elif not open_blocks:
-            continue
-        elif keyword == "endif":
-            branches, start = open_blocks.pop()
-            branches.append((start, match.start()))
-            complete.append(tuple(branches))
-        else:
-            branches, start = open_blocks[-1]
-            branches.append((start, match.start()))
-            open_blocks[-1] = (branches, match.end())
-    return tuple(complete)
-
-
-def _branch_context(
-    conditionals: tuple[tuple[tuple[int, int], ...], ...], pos: int
-) -> dict[int, int]:
-    """Map each conditional containing pos to the branch pos is in."""
-    return {
-        index: branch
-        for index, branches in enumerate(conditionals)
-        for branch, (start, end) in enumerate(branches)
-        if start <= pos < end
-    }
-
-
-def _mutually_exclusive(a: dict[int, int], b: dict[int, int]) -> bool:
-    """Whether two positions are in sibling branches of a conditional."""
-    return any(b.get(cond, branch) != branch for cond, branch in a.items())
-
 
 def run(
     rule: dict[str, Any],
@@ -84,17 +42,31 @@ def run(
     *args: Any,
     **kwargs: Any,
 ) -> tuple[LintError, ...]:
-    """Check for orphans html tags."""
+    """Check for orphans html tags.
+
+    A tag left open when its parent closes is mis-nested and reported, as
+    the `<b>` in `<h1>a <b>b</h1>`.
+
+    Tags in sibling branches of a block are not orphans of each
+    other: only one branch renders, so several opens share one close, and
+    a close in another branch shares an open already matched.
+    """
     open_tags: list[TagToken] = []
     orphan_tags: list[TagToken] = []
     p_child_tags: list[TagToken] = []
     matched_closes: list[TagToken] = []
-    conditionals = _conditional_branches(html)
+    blocks = branched_blocks(html)
+    branch_contexts: dict[int, dict[int, int]] = {}
 
     def context(token: TagToken) -> dict[int, int]:
-        return _branch_context(conditionals, token.start)
+        cached = branch_contexts.get(token.start)
+        if cached is None:
+            cached = branch_contexts[token.start] = branch_context(
+                blocks, token.start
+            )
+        return cached
 
-    for token in tokenize_tags(html):
+    for token in tokenize_markup(html):
         tag_name = token.name.lower()
         if (
             token.declaration
@@ -108,7 +80,7 @@ def run(
             (
                 not in_unformatted_block
                 and (
-                    inside_ignored_block(config, html, token)
+                    overlaps_ignored_block(config, html, token)
                     or inside_ignored_rule(config, html, token, rule["name"])
                 )
             )
@@ -117,7 +89,6 @@ def run(
         ):
             continue
 
-        # close tags should equal open tags
         if not token.closing:
             if tag_name in P_LIST_CHILD_TAGS:
                 for tag in open_tags:
@@ -126,11 +97,9 @@ def run(
                         break
             if any(
                 tag.name.lower() == tag_name
-                and _mutually_exclusive(context(tag), context(token))
+                and mutually_exclusive(context(tag), context(token))
                 for tag in open_tags
             ):
-                # the same tag opened in a sibling branch of a conditional;
-                # only one branch renders, so they share one close tag.
                 continue
             open_tags.insert(0, token)
         else:
@@ -138,23 +107,19 @@ def run(
                 if tag.name.lower() != tag_name:
                     continue
                 close_context = context(token)
-                remaining: list[TagToken] = []
+                still_open: list[TagToken] = []
                 for crossed in open_tags[:i]:
                     if context(crossed) == close_context:
-                        # opened after the tag being closed but not closed
-                        # inside it, e.g. <h1>a <b>b</h1>: mis-nested.
                         orphan_tags.append(crossed)
                     else:
-                        remaining.append(crossed)
-                open_tags[: i + 1] = remaining
+                        still_open.append(crossed)
+                open_tags[: i + 1] = still_open
                 matched_closes.append(token)
                 break
             else:
-                # no open tag matches the close tag; a close tag in a
-                # sibling branch of a conditional may share the open tag.
                 close_context = context(token)
                 for j, matched in enumerate(matched_closes):
-                    if matched.name.lower() == tag_name and _mutually_exclusive(
+                    if matched.name.lower() == tag_name and mutually_exclusive(
                         context(matched), close_context
                     ):
                         matched_closes[j] = token
@@ -162,30 +127,27 @@ def run(
                 else:
                     orphan_tags.append(token)
 
+    def reportable(token: TagToken) -> bool:
+        return (
+            not overlaps_ignored_block(config, html, token)
+            and not inside_ignored_rule(config, html, token, rule["name"])
+            and not inside_ignored_linter_block(config, html, token)
+        )
+
+    def error(token: TagToken, message: str) -> LintError:
+        return {
+            "code": rule["name"],
+            "line": get_line(token.start, line_ends),
+            "match": html[token.start : token.end].strip()[:20],
+            "message": message,
+        }
+
     return tuple(
-        {
-            "code": rule["name"],
-            "line": get_line(token.start, line_ends),
-            "match": html[token.start : token.end].strip()[:20],
-            "message": rule["message"],
-        }
+        error(token, rule["message"])
         for token in chain(open_tags, orphan_tags)
-        if (
-            not overlaps_ignored_block(config, html, token)
-            and not inside_ignored_rule(config, html, token, rule["name"])
-            and not inside_ignored_linter_block(config, html, token)
-        )
+        if reportable(token)
     ) + tuple(
-        {
-            "code": rule["name"],
-            "line": get_line(token.start, line_ends),
-            "match": html[token.start : token.end].strip()[:20],
-            "message": P_LIST_CHILD_MESSAGE,
-        }
+        error(token, P_LIST_CHILD_MESSAGE)
         for token in p_child_tags
-        if (
-            not overlaps_ignored_block(config, html, token)
-            and not inside_ignored_rule(config, html, token, rule["name"])
-            and not inside_ignored_linter_block(config, html, token)
-        )
+        if reportable(token)
     )

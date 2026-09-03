@@ -9,7 +9,8 @@ __all__ = ['ProtocolError', 'AsyncTransport', 'SyncTransport', 'HttpCli', 'Async
 
 # %% ../nbs/00_core.ipynb #ca352892
 from fastcore.meta import delegates
-import httpx2, json as jsonlib
+from fastcore.basics import store_attr, patch
+import asyncio, time, httpx2, json as jsonlib
 from functools import partial
 from contextlib import nullcontext
 from httpx2 import EventSource
@@ -21,8 +22,8 @@ class ProtocolError(Exception):
 # %% ../nbs/00_core.ipynb #a3a6efd9
 class AsyncTransport:
     "Thin async transport over httpx2. By default each request gets a fresh client, so nothing is tied to an event loop; pass `client=` to use a persistent client that you manage (and close via `aclose`)."
-    def __init__(self, *, timeout=60.0, client=None, base_headers=None, follow_redirects=True, verify=True):
-        self.timeout,self.client,self.base_headers,self.follow_redirects,self.verify = timeout,client,base_headers or {},follow_redirects,verify
+    def __init__(self, *, timeout=60.0, client=None, base_headers=None, follow_redirects=True, verify=True, retries=2):
+        store_attr('timeout,client,follow_redirects,verify,retries', base_headers=base_headers or {})
 
     def _client(self):
         if self.client: return nullcontext(self.client)
@@ -51,18 +52,6 @@ class AsyncTransport:
         if ctype.startswith("text/") or "application/x-ndjson" in ctype: return resp.text
         return resp.content
 
-    async def request(self, method, url, *, headers=None, params=None, json=None, data=None,
-        files=None, content=None, raw=False):
-        "Execute a request and decode JSON/text/binary response."
-        async with self._client() as client:
-            resp = await client.request(method, url, headers=self._request_headers(headers, files=files),
-                params=params, json=json, data=data, files=files, content=content)
-            try: resp.raise_for_status()
-            except httpx2.HTTPStatusError as e:
-                e.args = (f"{e}\n{resp.text}",)
-                raise
-            return resp if raw else self._decode(resp)
-
     async def stream(self, method, url, *, headers=None, params=None, json=None, data=None, files=None):
         async with self._client() as client:
             async with client.stream(method, url, headers=self._request_headers(headers, files=files),
@@ -85,6 +74,38 @@ class AsyncTransport:
                         else: raise ProtocolError(f"Expected SSE JSON object, got {type(raw).__name__}")
                 finally: await events.aclose()
 
+# %% ../nbs/00_core.ipynb #7155346e
+@patch
+async def _send(self:AsyncTransport, method, url, **kw):
+    "One attempt: open a client and send the request"
+    async with self._client() as client: return await client.request(method, url, **kw)
+
+@patch
+async def _attempt(self:AsyncTransport, method, url, **kw):
+    "Send, retrying `retries` times with a backoff when the connection itself fails"
+    for i in range(self.retries):
+        try: return await self._send(method, url, **kw)
+        except (httpx2.ConnectTimeout, httpx2.ConnectError): await asyncio.sleep(0.5 * 2**i)
+    return await self._send(method, url, **kw)
+
+# %% ../nbs/00_core.ipynb #fd87a568
+@patch
+def _result(self:AsyncTransport, resp, raw):
+    "Raise on an error status, else the decoded body, or the response itself when `raw`"
+    try: resp.raise_for_status()
+    except httpx2.HTTPStatusError as e:
+        e.args = (f"{e}\n{resp.text}",)
+        raise
+    return resp if raw else self._decode(resp)
+
+@patch
+async def request(self:AsyncTransport, method, url, *, headers=None, params=None, json=None, data=None,
+    files=None, content=None, raw=False):
+    "Execute a request and decode JSON/text/binary response."
+    resp = await self._attempt(method, url, headers=self._request_headers(headers, files=files),
+        params=params, json=json, data=data, files=files, content=content)
+    return self._result(resp, raw)
+
 # %% ../nbs/00_core.ipynb #4df92440
 class SyncTransport(AsyncTransport):
     "Sync twin of `AsyncTransport`, over `httpx2.Client`. SSE needs the async transport, so `stream` raises."
@@ -98,17 +119,21 @@ class SyncTransport(AsyncTransport):
     def close(self):
         if self.client: self.client.close()
 
+    def _send(self, method, url, **kw):
+        with self._client() as client: return client.request(method, url, **kw)
+
+    def _attempt(self, method, url, **kw):
+        for i in range(self.retries):
+            try: return self._send(method, url, **kw)
+            except (httpx2.ConnectTimeout, httpx2.ConnectError): time.sleep(0.5 * 2**i)
+        return self._send(method, url, **kw)
+
     def request(self, method, url, *, headers=None, params=None, json=None, data=None,
         files=None, content=None, raw=False):
         "Sync version of `AsyncTransport.request`."
-        with self._client() as client:
-            resp = client.request(method, url, headers=self._request_headers(headers, files=files),
-                params=params, json=json, data=data, files=files, content=content)
-            try: resp.raise_for_status()
-            except httpx2.HTTPStatusError as e:
-                e.args = (f"{e}\n{resp.text}",)
-                raise
-            return resp if raw else self._decode(resp)
+        resp = self._attempt(method, url, headers=self._request_headers(headers, files=files),
+            params=params, json=json, data=data, files=files, content=content)
+        return self._result(resp, raw)
 
 # %% ../nbs/00_core.ipynb #4e549f4c
 class HttpCli:

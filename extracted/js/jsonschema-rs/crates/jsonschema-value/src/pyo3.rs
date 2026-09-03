@@ -609,6 +609,7 @@ impl JsonNumber for PyNumber<'_> {
                 }
                 Some(value)
             }
+            ObjType::Float => None,
             _ => self.to_number().as_u64(),
         }
     }
@@ -623,6 +624,7 @@ impl JsonNumber for PyNumber<'_> {
                 }
                 Some(value)
             }
+            ObjType::Float => None,
             _ => self.to_number().as_i64(),
         }
     }
@@ -644,6 +646,24 @@ impl JsonNumber for PyNumber<'_> {
 
     fn to_number(&self) -> Cow<'_, Number> {
         number_of(self.node).map_or(Cow::Owned(Number::from(0)), Cow::Owned)
+    }
+
+    fn is_integer(&self) -> bool {
+        match self.kind {
+            ObjType::Int => true,
+            ObjType::Float => unsafe { ffi::PyFloat_AsDouble(self.node.as_ptr()) }.fract() == 0.0,
+            _ => crate::types::number_is_integer(&self.to_number()),
+        }
+    }
+
+    fn is_written_as_integer(&self) -> bool {
+        match self.kind {
+            ObjType::Int => true,
+            // `json.dumps` writes a `float` with a fraction or exponent part either way.
+            ObjType::Float => false,
+            // A `Decimal` carries its own digits.
+            _ => !self.as_str().contains(['.', 'e', 'E']),
+        }
     }
 }
 
@@ -872,7 +892,7 @@ fn hash_node<H: Hasher>(node: PyNode<'_>, state: &mut H, depth: u8) {
         ObjType::Int | ObjType::Float | ObjType::Decimal => {
             if let Some(number) = number_of(node) {
                 if let Some(number) = number.as_f64() {
-                    number.to_bits().hash(state);
+                    crate::unique::number_bits(number).hash(state);
                 } else if let Some(number) = number.as_u64() {
                     number.hash(state);
                 } else if let Some(number) = number.as_i64() {

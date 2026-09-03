@@ -1390,445 +1390,6 @@ class CfnConfigurationProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IReferenceRef, _aws_cdk_0cae9daa.ITaggableV2)
-class CfnReference(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_omics.CfnReference",
-):
-    '''Represents a genomic reference stored in an AWS HealthOmics reference store.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-reference.html
-    :cloudformationResource: AWS::Omics::Reference
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_omics as omics
-        
-        cfn_reference = omics.CfnReference(self, "MyCfnReference",
-            description="description",
-            name="name",
-            reference_store_id="referenceStoreId",
-            tags=[omics.CfnReference.TagsItemsProperty(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        reference_store_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnReference.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Create a new ``AWS::Omics::Reference``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param description: The reference's description.
-        :param name: The reference's name.
-        :param reference_store_id: The reference's reference store ID.
-        :param tags: Tags for the reference.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__221c7175230db86e0471ce9cf53ce5ec2f3fcd7f1484c8bb9abefac5a01d2537)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnReferenceProps(
-            description=description,
-            name=name,
-            reference_store_id=reference_store_id,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForReference")
-    @builtins.classmethod
-    def arn_for_reference(
-        cls,
-        resource: "_aws_omics_49f0f1b2.IReferenceRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d465bfcb8264e34814866fa3946b29029ba20dc42d8d66b83975bdc707b87660)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReference", [resource]))
-
-    @jsii.member(jsii_name="isCfnReference")
-    @builtins.classmethod
-    def is_cfn_reference(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnReference.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__79b9aa6c474320bf39594a18f27a559ad5151f6f8e9523ce27e040677e3cbecf)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReference", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__570cdc11b4c511c6f8bf736cf42021a5c07498930124e694645d9f0456b7e3e3)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__b4c5ada1dbb3ae3244563ae3fcaba8decf958fa7cc536ec9fdbd2aaea47b6ca5)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The reference's ARN.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationJobId")
-    def attr_creation_job_id(self) -> builtins.str:
-        '''The reference's creation job ID.
-
-        :cloudformationAttribute: CreationJobId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationJobId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationTime")
-    def attr_creation_time(self) -> builtins.str:
-        '''When the reference was created.
-
-        :cloudformationAttribute: CreationTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationType")
-    def attr_creation_type(self) -> builtins.str:
-        '''The reference's creation type.
-
-        :cloudformationAttribute: CreationType
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The reference's ID.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrMd5")
-    def attr_md5(self) -> builtins.str:
-        '''The reference's MD5 checksum.
-
-        :cloudformationAttribute: Md5
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrMd5"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''The reference's status.
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrUpdateTime")
-    def attr_update_time(self) -> builtins.str:
-        '''When the reference was updated.
-
-        :cloudformationAttribute: UpdateTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrUpdateTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="referenceRef")
-    def reference_ref(self) -> "_aws_omics_49f0f1b2.ReferenceReference":
-        '''A reference to a Reference resource.'''
-        return typing.cast("_aws_omics_49f0f1b2.ReferenceReference", jsii.get(self, "referenceRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The reference's description.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__95ff1939cf7d3d1a8dd601c8bc7b6b03458c9436aff958f21900f9eca25e00d8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The reference's name.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__478c2c98098e9a7c1872dd467d2594ace06100240ac1c844a940a4bde77816d3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="referenceStoreId")
-    def reference_store_id(self) -> typing.Optional[builtins.str]:
-        '''The reference's reference store ID.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "referenceStoreId"))
-
-    @reference_store_id.setter
-    def reference_store_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__09f924b7376fe7a3f0e327db226b27863891c0b0d3f973ace37d38de9ccd0984)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "referenceStoreId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["CfnReference.TagsItemsProperty"]]:
-        '''Tags for the reference.'''
-        return typing.cast(typing.Optional[typing.List["CfnReference.TagsItemsProperty"]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(
-        self,
-        value: typing.Optional[typing.List["CfnReference.TagsItemsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__07b2a362986a26bef3b44d1a98d0c0c4f6f7f0d6575e8b52f1ae7b8b8bb500fa)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_omics.CfnReference.TagsItemsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class TagsItemsProperty:
-        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''
-            :param key: 
-            :param value: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-reference-tagsitems.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_omics as omics
-                
-                tags_items_property = omics.CfnReference.TagsItemsProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__3dc645adae9c1ca30ecb175a9c82203706d7a7ea13c4db3603113ce5819a0757)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "value": value,
-            }
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-reference-tagsitems.html#cfn-omics-reference-tagsitems-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-reference-tagsitems.html#cfn-omics-reference-tagsitems-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TagsItemsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_omics.CfnReferenceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "name": "name",
-        "reference_store_id": "referenceStoreId",
-        "tags": "tags",
-    },
-)
-class CfnReferenceProps:
-    def __init__(
-        self,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        reference_store_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnReference.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReference``.
-
-        :param description: The reference's description.
-        :param name: The reference's name.
-        :param reference_store_id: The reference's reference store ID.
-        :param tags: Tags for the reference.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-reference.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_omics as omics
-            
-            cfn_reference_props = omics.CfnReferenceProps(
-                description="description",
-                name="name",
-                reference_store_id="referenceStoreId",
-                tags=[omics.CfnReference.TagsItemsProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__09d53bc727fbc931770cec0c0924b0edf769ee4652b0cedce88fd09dd399603f)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument reference_store_id", value=reference_store_id, expected_type=type_hints["reference_store_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if reference_store_id is not None:
-            self._values["reference_store_id"] = reference_store_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The reference's description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-reference.html#cfn-omics-reference-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The reference's name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-reference.html#cfn-omics-reference-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def reference_store_id(self) -> typing.Optional[builtins.str]:
-        '''The reference's reference store ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-reference.html#cfn-omics-reference-referencestoreid
-        '''
-        result = self._values.get("reference_store_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List["CfnReference.TagsItemsProperty"]]:
-        '''Tags for the reference.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-reference.html#cfn-omics-reference-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["CfnReference.TagsItemsProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReferenceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IReferenceStoreRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnReferenceStore(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2288,6 +1849,414 @@ class CfnReferenceStoreProps:
 
     def __repr__(self) -> str:
         return "CfnReferenceStoreProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IRunCacheRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRunCache(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_omics.CfnRunCache",
+):
+    '''Definition of AWS::Omics::RunCache Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-runcache.html
+    :cloudformationResource: AWS::Omics::RunCache
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_omics as omics
+        
+        cfn_run_cache = omics.CfnRunCache(self, "MyCfnRunCache",
+            cache_behavior="cacheBehavior",
+            cache_bucket_owner_id="cacheBucketOwnerId",
+            cache_s3_location="cacheS3Location",
+            description="description",
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cache_behavior: typing.Optional[builtins.str] = None,
+        cache_bucket_owner_id: typing.Optional[builtins.str] = None,
+        cache_s3_location: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Omics::RunCache``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cache_behavior: The default cache behavior for runs using this cache.
+        :param cache_bucket_owner_id: The AWS account ID of the expected owner of the S3 bucket for the run cache.
+        :param cache_s3_location: The S3 location for storing the cached task outputs.
+        :param description: A description of the run cache.
+        :param name: A name for the run cache.
+        :param tags: Tags for the run cache.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b24769dbdad0e2a4d0d14969f3aa4b7e951d1d160b9bac0a56fd99108fb26d75)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRunCacheProps(
+            cache_behavior=cache_behavior,
+            cache_bucket_owner_id=cache_bucket_owner_id,
+            cache_s3_location=cache_s3_location,
+            description=description,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRunCache")
+    @builtins.classmethod
+    def arn_for_run_cache(
+        cls,
+        resource: "_aws_omics_49f0f1b2.IRunCacheRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8f16b526da8c9ae817d94ea7e17b4a36a417d78b12d3ce0152bd5c96ff591d2e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRunCache", [resource]))
+
+    @jsii.member(jsii_name="isCfnRunCache")
+    @builtins.classmethod
+    def is_cfn_run_cache(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRunCache.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cbc418f12b1efdb41764c9931f7852392436b33a4b71b84cff9d4f8adfd4a1b5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRunCache", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__48ed2551414262dd05796ca35130baca54997aef9748a28c1e0f8ab41e499507)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fb09ca290484b0e98acbea43d3cae88be76f8cea53b67b6b05aa928b81a8dc71)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The run cache ARN.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''Creation time of the run cache (an ISO 8601 formatted string).
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The run cache ID.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The run cache status.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="runCacheRef")
+    def run_cache_ref(self) -> "_aws_omics_49f0f1b2.RunCacheReference":
+        '''A reference to a RunCache resource.'''
+        return typing.cast("_aws_omics_49f0f1b2.RunCacheReference", jsii.get(self, "runCacheRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cacheBehavior")
+    def cache_behavior(self) -> typing.Optional[builtins.str]:
+        '''The default cache behavior for runs using this cache.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cacheBehavior"))
+
+    @cache_behavior.setter
+    def cache_behavior(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__04fb42989f6789e910044c6e98cd3ae3e7020405c4b826502e8b3300721865bb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cacheBehavior", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cacheBucketOwnerId")
+    def cache_bucket_owner_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID of the expected owner of the S3 bucket for the run cache.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cacheBucketOwnerId"))
+
+    @cache_bucket_owner_id.setter
+    def cache_bucket_owner_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dce57b766dbe7b65b1cefcf7b07cf8827c84d9a3decf27bace821796115e241b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cacheBucketOwnerId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cacheS3Location")
+    def cache_s3_location(self) -> typing.Optional[builtins.str]:
+        '''The S3 location for storing the cached task outputs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cacheS3Location"))
+
+    @cache_s3_location.setter
+    def cache_s3_location(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8cb85ee6645cc133835050a4117c8d2960edbac71d43732bb217e6f1ad7d4317)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cacheS3Location", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the run cache.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__725c151ee0aa787e617fae0ebc571de7109b402ef2cfff1a58df405849fdf9c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A name for the run cache.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__16cc2a912462a2b4bc6623e52115f322de44e44d9da520cb68a06529cccf3e9e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags for the run cache.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ae7daf91832a13911dda356e3193e5fb4db3cc6bbc6beaea56d8d7184879acd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_omics.CfnRunCacheProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cache_behavior": "cacheBehavior",
+        "cache_bucket_owner_id": "cacheBucketOwnerId",
+        "cache_s3_location": "cacheS3Location",
+        "description": "description",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnRunCacheProps:
+    def __init__(
+        self,
+        *,
+        cache_behavior: typing.Optional[builtins.str] = None,
+        cache_bucket_owner_id: typing.Optional[builtins.str] = None,
+        cache_s3_location: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRunCache``.
+
+        :param cache_behavior: The default cache behavior for runs using this cache.
+        :param cache_bucket_owner_id: The AWS account ID of the expected owner of the S3 bucket for the run cache.
+        :param cache_s3_location: The S3 location for storing the cached task outputs.
+        :param description: A description of the run cache.
+        :param name: A name for the run cache.
+        :param tags: Tags for the run cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-runcache.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_omics as omics
+            
+            cfn_run_cache_props = omics.CfnRunCacheProps(
+                cache_behavior="cacheBehavior",
+                cache_bucket_owner_id="cacheBucketOwnerId",
+                cache_s3_location="cacheS3Location",
+                description="description",
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d731b70c8f58e82bdd4f3af150eecb3657a5b1066e31e6dd8d482493d3b018a8)
+            check_type(argname="argument cache_behavior", value=cache_behavior, expected_type=type_hints["cache_behavior"])
+            check_type(argname="argument cache_bucket_owner_id", value=cache_bucket_owner_id, expected_type=type_hints["cache_bucket_owner_id"])
+            check_type(argname="argument cache_s3_location", value=cache_s3_location, expected_type=type_hints["cache_s3_location"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cache_behavior is not None:
+            self._values["cache_behavior"] = cache_behavior
+        if cache_bucket_owner_id is not None:
+            self._values["cache_bucket_owner_id"] = cache_bucket_owner_id
+        if cache_s3_location is not None:
+            self._values["cache_s3_location"] = cache_s3_location
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cache_behavior(self) -> typing.Optional[builtins.str]:
+        '''The default cache behavior for runs using this cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-runcache.html#cfn-omics-runcache-cachebehavior
+        '''
+        result = self._values.get("cache_behavior")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cache_bucket_owner_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID of the expected owner of the S3 bucket for the run cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-runcache.html#cfn-omics-runcache-cachebucketownerid
+        '''
+        result = self._values.get("cache_bucket_owner_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cache_s3_location(self) -> typing.Optional[builtins.str]:
+        '''The S3 location for storing the cached task outputs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-runcache.html#cfn-omics-runcache-caches3location
+        '''
+        result = self._values.get("cache_s3_location")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the run cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-runcache.html#cfn-omics-runcache-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A name for the run cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-runcache.html#cfn-omics-runcache-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags for the run cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-runcache.html#cfn-omics-runcache-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRunCacheProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -6808,10 +6777,10 @@ __all__ = [
     "CfnAnnotationStoreProps",
     "CfnConfiguration",
     "CfnConfigurationProps",
-    "CfnReference",
-    "CfnReferenceProps",
     "CfnReferenceStore",
     "CfnReferenceStoreProps",
+    "CfnRunCache",
+    "CfnRunCacheProps",
     "CfnRunGroup",
     "CfnRunGroupProps",
     "CfnSequenceStore",
@@ -7044,84 +7013,6 @@ def _typecheckingstub__3db57ee01781a1e8ad5b9e09fde7f31cc086a9ae74327c12233037330
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__221c7175230db86e0471ce9cf53ce5ec2f3fcd7f1484c8bb9abefac5a01d2537(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    reference_store_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnReference.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d465bfcb8264e34814866fa3946b29029ba20dc42d8d66b83975bdc707b87660(
-    resource: _aws_omics_49f0f1b2.IReferenceRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__79b9aa6c474320bf39594a18f27a559ad5151f6f8e9523ce27e040677e3cbecf(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__570cdc11b4c511c6f8bf736cf42021a5c07498930124e694645d9f0456b7e3e3(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b4c5ada1dbb3ae3244563ae3fcaba8decf958fa7cc536ec9fdbd2aaea47b6ca5(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__95ff1939cf7d3d1a8dd601c8bc7b6b03458c9436aff958f21900f9eca25e00d8(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__478c2c98098e9a7c1872dd467d2594ace06100240ac1c844a940a4bde77816d3(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__09f924b7376fe7a3f0e327db226b27863891c0b0d3f973ace37d38de9ccd0984(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__07b2a362986a26bef3b44d1a98d0c0c4f6f7f0d6575e8b52f1ae7b8b8bb500fa(
-    value: typing.Optional[typing.List[CfnReference.TagsItemsProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3dc645adae9c1ca30ecb175a9c82203706d7a7ea13c4db3603113ce5819a0757(
-    *,
-    key: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__09d53bc727fbc931770cec0c0924b0edf769ee4652b0cedce88fd09dd399603f(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    reference_store_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnReference.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e38c503967033ff76d3e45880727cc62a1df749cb0aac8298f6d06d14d6e3320(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7212,6 +7103,92 @@ def _typecheckingstub__1fa5ddefbb60b1902a7a8a0da56893c57cde7f27eb458a6b71907aad7
     description: typing.Optional[builtins.str] = None,
     sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReferenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b24769dbdad0e2a4d0d14969f3aa4b7e951d1d160b9bac0a56fd99108fb26d75(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cache_behavior: typing.Optional[builtins.str] = None,
+    cache_bucket_owner_id: typing.Optional[builtins.str] = None,
+    cache_s3_location: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f16b526da8c9ae817d94ea7e17b4a36a417d78b12d3ce0152bd5c96ff591d2e(
+    resource: _aws_omics_49f0f1b2.IRunCacheRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbc418f12b1efdb41764c9931f7852392436b33a4b71b84cff9d4f8adfd4a1b5(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48ed2551414262dd05796ca35130baca54997aef9748a28c1e0f8ab41e499507(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb09ca290484b0e98acbea43d3cae88be76f8cea53b67b6b05aa928b81a8dc71(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04fb42989f6789e910044c6e98cd3ae3e7020405c4b826502e8b3300721865bb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dce57b766dbe7b65b1cefcf7b07cf8827c84d9a3decf27bace821796115e241b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cb85ee6645cc133835050a4117c8d2960edbac71d43732bb217e6f1ad7d4317(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__725c151ee0aa787e617fae0ebc571de7109b402ef2cfff1a58df405849fdf9c1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16cc2a912462a2b4bc6623e52115f322de44e44d9da520cb68a06529cccf3e9e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ae7daf91832a13911dda356e3193e5fb4db3cc6bbc6beaea56d8d7184879acd(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d731b70c8f58e82bdd4f3af150eecb3657a5b1066e31e6dd8d482493d3b018a8(
+    *,
+    cache_behavior: typing.Optional[builtins.str] = None,
+    cache_bucket_owner_id: typing.Optional[builtins.str] = None,
+    cache_s3_location: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

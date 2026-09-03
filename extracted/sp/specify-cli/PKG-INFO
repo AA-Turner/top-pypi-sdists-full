@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: specify-cli
-Version: 1.0.3
+Version: 1.0.4
 Summary: Specify CLI, part of GitHub Spec Kit. A tool to bootstrap your projects for Spec-Driven Development (SDD).
 License-File: LICENSE
 Requires-Python: >=3.11

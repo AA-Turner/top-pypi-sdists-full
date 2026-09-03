@@ -171,6 +171,24 @@ class TestCohort:
         r = boost("cohort", "apply")
         assert "no cohorts defined" in r.out
 
+    def test_create_over_existing_updates_and_preserves_created(
+            self, boost, tapped):
+        first = boost("cohort", "create", "pilot", "--skills", "brainstorming",
+                      "--percent", "50")
+        assert "created cohort pilot" in first.out
+        before = json.loads(boost("cohort", "list", "--json").out)[0]["created"]
+
+        second = boost("cohort", "create", "pilot", "--skills",
+                       "brainstorming,tdd-workflow", "--percent", "100")
+        assert "updated cohort pilot (was 50% / 1 skill)" in second.out
+        assert "now 100% rollout, 2 skills" in second.out
+        assert "created cohort pilot" not in second.out
+
+        after = json.loads(boost("cohort", "list", "--json").out)[0]
+        assert after["created"] == before   # replacement, not a fresh cohort
+        assert after["skills"] == ["brainstorming", "tdd-workflow"]
+        assert after["percent"] == 100
+
     def test_empty_listing_hint_wraps_and_keeps_the_command_atomic(
             self, boost, tapped, monkeypatch):
         # The hint's backtick-quoted command is 62 columns by itself — wider
@@ -222,6 +240,19 @@ class TestProfile:
         assert "switched to profile daily" in r.out
         assert "tdd-workflow" in json.loads(
             paths.lockfile_path().read_text(encoding="utf-8"))["skills"]
+
+    def test_save_over_existing_reports_the_update_and_replaces(
+            self, boost, tapped):
+        boost("install", "brainstorming")
+        first = boost("profile", "save", "daily")
+        assert "saved profile daily (1 skill)" in first.out
+
+        boost("install", "tdd-workflow")
+        second = boost("profile", "save", "daily")
+        assert "updated profile daily (was 1 skill, now 2 skills)" in second.out
+        assert "saved profile daily" not in second.out
+        assert json.loads(boost("profile", "show", "daily", "--json").out)[
+            "skills"].keys() == {"brainstorming", "tdd-workflow"}
 
     def test_use_sidelines_then_prune_uninstalls_extras(self, boost, tapped):
         boost("install", "brainstorming")
@@ -312,6 +343,29 @@ class TestProfile:
         assert prof["skills"]["brainstorming"] == {"tap": "fixture-tap",
                                                    "version": "1.4.0"}
         assert prof["user"] == USER
+
+    def test_list_marks_a_corrupt_profile_unreadable_instead_of_hiding_it(
+            self, boost, sandbox):
+        paths.ensure_dirs()
+        (paths.profiles_dir() / "broken.json").write_text(
+            "{not json", encoding="utf-8")
+        r = boost("profile", "list")
+        assert "broken" in r.out
+        assert "unreadable" in r.out
+
+    def test_delete_removes_a_corrupt_profile_that_show_cannot_read(
+            self, boost, sandbox):
+        # `show`/`diff` need the content, so they still refuse; `delete` only
+        # needs to know the file is there — a corrupt profile used to be
+        # undeletable because its own existence check parsed it.
+        paths.ensure_dirs()
+        p = paths.profiles_dir() / "broken.json"
+        p.write_text("{not json", encoding="utf-8")
+        r = boost("profile", "show", "broken", expect=1)
+        assert "unreadable" in r.err
+        r = boost("profile", "delete", "broken")
+        assert "deleted profile broken" in r.out
+        assert not p.exists()
 
 
 # ---------------------------------------------------------------- protocol
@@ -547,6 +601,27 @@ class TestReplay:
         boost("untap", "fixture-tap", "--force")
         r = boost("replay", "rollback", snap_id)
         assert "brainstorming is gone from every tap — cannot restore" in r.out
+
+    def test_corrupt_snapshot_is_framed_not_raw_and_list_names_it(
+            self, boost, tapped, tick_clock):
+        # Two installs (no uninstall) is enough to produce one snapshot.
+        boost("install", "brainstorming")
+        boost("install", "tdd-workflow")
+        history = lockfile.history_list()
+        corrupt_id = history[0]["id"]
+        (paths.lock_history_dir() / ("lock-%s.json" % corrupt_id)).write_text(
+            "not json", encoding="utf-8")
+
+        # show/rollback on the now-corrupt entry: a framed BoostError, not a
+        # raw JSONDecodeError traceback and exit 70.
+        r = boost("replay", "show", corrupt_id, expect=1)
+        assert "unreadable" in r.err
+
+        # list: the id doesn't just vanish — one line says how many were
+        # dropped, alongside the entries that still parse.
+        r = boost("replay", "list")
+        assert "1 unreadable snapshot skipped" in r.out
+        assert corrupt_id not in r.out
 
     def test_unknown_and_missing_id(self, boost, sandbox):
         r = boost("replay", "show", "99999999", expect=1)

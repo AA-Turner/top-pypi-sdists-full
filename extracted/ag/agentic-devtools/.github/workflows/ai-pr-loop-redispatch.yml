@@ -52,22 +52,90 @@ jobs:
       - name: Check stop conditions
         id: check
         env:
-          GH_TOKEN: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
-          FALLBACK_GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [[ -z "${GH_TOKEN}" ]]; then
-            echo "::warning::REPO_VARIABLE_WRITER_PAT is unavailable; falling back to SPECKIT_PR_TOKEN for stop-condition checks."
-            export GH_TOKEN="${FALLBACK_GH_TOKEN}"
+
+          fail_closed() {
+            echo "::error::$1"
+            echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
+          }
+
+          select_pr_read_token() {
+            local -a candidate_names=("REPO_VARIABLE_WRITER_PAT" "SPECKIT_PR_TOKEN" "GITHUB_TOKEN")
+            local -a candidate_tokens=("${REPO_VARIABLE_WRITER_PAT:-}" "${SPECKIT_PR_TOKEN:-}" "${GITHUB_TOKEN:-}")
+            local candidate_name candidate_token probe_dir probe_output probe_status
+            local auth_status_pattern='(^|[^[:alnum:]])HTTP(/[0-9]+([.][0-9]+)?)?[[:space:]]+(401|403)([^0-9]|$)'
+
+            for index in "${!candidate_names[@]}"; do
+              candidate_name="${candidate_names[$index]}"
+              candidate_token="${candidate_tokens[$index]}"
+              [[ -z "$candidate_token" ]] && continue
+
+              probe_dir=$(mktemp -d)
+              if timeout 15s env GH_TOKEN="$candidate_token" gh api --method GET \
+                "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=1" \
+                >"$probe_dir/stdout" 2>"$probe_dir/stderr"
+              then
+                probe_status=0
+              else
+                probe_status=$?
+              fi
+
+              if (( probe_status == 0 )); then
+                probe_output=$(cat "$probe_dir/stdout")
+                if ! printf '%s' "$probe_output" | jq -e 'type == "array"' >/dev/null 2>&1; then
+                  rm -rf "$probe_dir"
+                  fail_closed "Pull-request inventory probe returned a malformed response for ${candidate_name}; refusing redispatch."
+                  return 1
+                fi
+                rm -rf "$probe_dir"
+                export GH_TOKEN="$candidate_token"
+                return 0
+              fi
+
+              probe_output="$(cat "$probe_dir/stdout"; printf '\n'; cat "$probe_dir/stderr")"
+              rm -rf "$probe_dir"
+              if (( probe_status == 124 )); then
+                fail_closed "Pull-request inventory probe timed out for ${candidate_name}; refusing redispatch because the inventory is unavailable."
+                return 1
+              fi
+              if [[ "$probe_output" =~ $auth_status_pattern ]] ||
+                [[ "$probe_output" == *"Resource not accessible by personal access token"* ]] ||
+                [[ "$probe_output" == *"repository.pullRequests"* ]]; then
+                continue
+              fi
+
+              fail_closed "Pull-request inventory probe failed for ${candidate_name}; refusing redispatch because the inventory is unavailable."
+              return 1
+            done
+
+            fail_closed "No credential can read repository pull requests; grant Pull requests: read to a configured PAT or the workflow GITHUB_TOKEN."
+            return 1
+          }
+
+          if ! select_pr_read_token; then
+            exit 0
           fi
 
           # --- Stop condition 1: no eligible open PRs ---
-          OPEN_COUNT=$(gh pr list \
-            --repo "$GITHUB_REPOSITORY" \
-            --state open \
-            --limit 500 \
-            --json labels,number,isCrossRepository \
-            | jq '[.[] | select((.isCrossRepository | not) and (.labels | map(.name) | index("ai-pr-loop-ignore") | not))] | length')
+          if ! OPEN_JSON=$(gh pr list \
+              --repo "$GITHUB_REPOSITORY" \
+              --state open \
+              --limit 500 \
+              --json labels,number,isCrossRepository)
+          then
+            fail_closed "Open pull-request inventory failed after credential selection; refusing redispatch."
+            exit 0
+          fi
+          if ! OPEN_COUNT=$(printf '%s' "$OPEN_JSON" |
+            jq 'if type == "array" then [.[] | select((.isCrossRepository | not) and (.labels | map(.name) | index("ai-pr-loop-ignore") | not))] | length else error("expected an array") end')
+          then
+            fail_closed "Open pull-request inventory was malformed; refusing redispatch."
+            exit 0
+          fi
 
           if [ "$OPEN_COUNT" -eq 0 ]; then
             echo "No eligible open PRs — stopping loop."
@@ -79,20 +147,27 @@ jobs:
 
           # --- Stop condition 2: no merges to main in 24+ hours ---
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
-          LAST_MERGE=$(gh pr list \
-            --repo "$GITHUB_REPOSITORY" \
-            --state merged \
-            --base "$DEFAULT_BRANCH" \
-            --limit 1 \
-            --json mergedAt \
-            --jq '.[0].mergedAt // empty')
+          if ! LAST_MERGE=$(gh pr list \
+              --repo "$GITHUB_REPOSITORY" \
+              --state merged \
+              --base "$DEFAULT_BRANCH" \
+              --limit 1 \
+              --json mergedAt \
+              --jq '.[0].mergedAt // empty')
+          then
+            fail_closed "Merged pull-request inventory failed after credential selection; refusing redispatch."
+            exit 0
+          fi
           if [ -z "$LAST_MERGE" ]; then
             echo "Could not determine last merge date — stopping loop (fail-safe)."
             echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          LAST_MERGE_EPOCH=$(date -d "$LAST_MERGE" +%s)
+          if ! LAST_MERGE_EPOCH=$(date -d "$LAST_MERGE" +%s); then
+            fail_closed "Merged pull-request inventory returned an invalid merge date; refusing redispatch."
+            exit 0
+          fi
           NOW_EPOCH=$(date +%s)
           SECONDS_SINCE_MERGE=$(( NOW_EPOCH - LAST_MERGE_EPOCH ))
           HOURS_SINCE_MERGE=$(( SECONDS_SINCE_MERGE / 3600 ))

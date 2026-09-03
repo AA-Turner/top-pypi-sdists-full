@@ -7941,6 +7941,1735 @@ class CfnFleetMetricProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iot_df2fec1f.IJobRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnJob(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iot.CfnJob",
+):
+    '''Use the AWS::IoT::Job resource to declare an AWS IoT job.
+
+    A job can be used to define a set of remote operations that are sent to and run on one or more devices (things or thing groups) connected to AWS IoT.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html
+    :cloudformationResource: AWS::IoT::Job
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iot as iot
+        
+        cfn_job = iot.CfnJob(self, "MyCfnJob",
+            job_id="jobId",
+            targets=["targets"],
+        
+            # the properties below are optional
+            abort_config=iot.CfnJob.AbortConfigProperty(
+                criteria_list=[iot.CfnJob.AbortCriteriaProperty(
+                    action="action",
+                    failure_type="failureType",
+                    min_number_of_executed_things=123,
+                    threshold_percentage=123
+                )]
+            ),
+            description="description",
+            destination_package_versions=["destinationPackageVersions"],
+            document="document",
+            document_parameters={
+                "document_parameters_key": "documentParameters"
+            },
+            document_source="documentSource",
+            job_executions_retry_config=iot.CfnJob.JobExecutionsRetryConfigProperty(
+                criteria_list=[iot.CfnJob.RetryCriteriaProperty(
+                    failure_type="failureType",
+                    number_of_retries=123
+                )]
+            ),
+            job_executions_rollout_config=iot.CfnJob.JobExecutionsRolloutConfigProperty(
+                exponential_rate=iot.CfnJob.ExponentialRolloutRateProperty(
+                    base_rate_per_minute=123,
+                    increment_factor=123,
+                    rate_increase_criteria=iot.CfnJob.RateIncreaseCriteriaProperty(
+                        number_of_notified_things=123,
+                        number_of_succeeded_things=123
+                    )
+                ),
+                maximum_per_minute=123
+            ),
+            job_template_arn="jobTemplateArn",
+            presigned_url_config=iot.CfnJob.PresignedUrlConfigProperty(
+                expires_in_sec=123,
+                role_arn="roleArn"
+            ),
+            scheduling_config=iot.CfnJob.SchedulingConfigProperty(
+                end_behavior="endBehavior",
+                end_time="endTime",
+                maintenance_windows=[iot.CfnJob.MaintenanceWindowProperty(
+                    duration_in_minutes=123,
+                    start_time="startTime"
+                )],
+                start_time="startTime"
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            target_selection="targetSelection",
+            timeout_config=iot.CfnJob.TimeoutConfigProperty(
+                in_progress_timeout_in_minutes=123
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        job_id: builtins.str,
+        targets: typing.Sequence[builtins.str],
+        abort_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.AbortConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        destination_package_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        document: typing.Optional[builtins.str] = None,
+        document_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        document_source: typing.Optional[builtins.str] = None,
+        job_executions_retry_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.JobExecutionsRetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_executions_rollout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.JobExecutionsRolloutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_template_arn: typing.Optional[builtins.str] = None,
+        presigned_url_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.PresignedUrlConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        scheduling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.SchedulingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_selection: typing.Optional[builtins.str] = None,
+        timeout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.TimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IoT::Job``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param job_id: A job identifier which must be unique for your AWS account. We recommend using a UUID. Alpha-numeric characters, '-' and '_' are valid for use here.
+        :param targets: A list of things and thing groups to which the job should be sent.
+        :param abort_config: The criteria that determine when and how a job abort takes place.
+        :param description: A short text description of the job.
+        :param destination_package_versions: The package version Amazon Resource Names (ARNs) that are installed on the device when the job successfully completes.
+        :param document: The job document. Required if you don't specify a value for documentSource.
+        :param document_parameters: Parameters of an Amazon Web Services managed template that you can specify to create the job document.
+        :param document_source: An S3 link, or S3 object URL, to the job document. The link is an Amazon S3 object URL and is required if you don't specify a value for document.
+        :param job_executions_retry_config: The configuration that determines how many retries are allowed for each failure type for a job.
+        :param job_executions_rollout_config: Allows you to create a staged rollout of a job.
+        :param job_template_arn: The ARN of the job template used to create the job.
+        :param presigned_url_config: Configuration for pre-signed S3 URLs.
+        :param scheduling_config: Specifies the date and time that a job will begin the rollout of the job document to all devices in the target group.
+        :param tags: Metadata which can be used to manage the job.
+        :param target_selection: Specifies whether the job will continue to run (CONTINUOUS), or will be complete after all those things specified as targets have completed the job (SNAPSHOT).
+        :param timeout_config: Specifies the amount of time each device has to finish its execution of the job.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1d6aa35ab9327e1bf41e742cb719cdf52cf446e3697b046437b9e3720b446573)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnJobProps(
+            job_id=job_id,
+            targets=targets,
+            abort_config=abort_config,
+            description=description,
+            destination_package_versions=destination_package_versions,
+            document=document,
+            document_parameters=document_parameters,
+            document_source=document_source,
+            job_executions_retry_config=job_executions_retry_config,
+            job_executions_rollout_config=job_executions_rollout_config,
+            job_template_arn=job_template_arn,
+            presigned_url_config=presigned_url_config,
+            scheduling_config=scheduling_config,
+            tags=tags,
+            target_selection=target_selection,
+            timeout_config=timeout_config,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForJob")
+    @builtins.classmethod
+    def arn_for_job(cls, resource: "_aws_iot_df2fec1f.IJobRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce9113ec52de388b8b10717990979b55e95fa84735f7e1d7762d600fcb9d4851)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForJob", [resource]))
+
+    @jsii.member(jsii_name="isCfnJob")
+    @builtins.classmethod
+    def is_cfn_job(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnJob.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f552843c4265114b1a29249514bbb57b0fb2ed483db29924e6e7b81d151a4d6e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnJob", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b93784823d30d5daac251a953f8da771f96ae2b8d11cd709f871e4fd72b1a10e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b172f252f9a1f002faf7eefc048cddd71a12975c7fb522bd1382e55da6b8eea7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the job.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time when the job was created, in ISO 8601 date-time format.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jobRef")
+    def job_ref(self) -> "_aws_iot_df2fec1f.JobReference":
+        '''A reference to a Job resource.'''
+        return typing.cast("_aws_iot_df2fec1f.JobReference", jsii.get(self, "jobRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jobId")
+    def job_id(self) -> builtins.str:
+        '''A job identifier which must be unique for your AWS account.'''
+        return typing.cast(builtins.str, jsii.get(self, "jobId"))
+
+    @job_id.setter
+    def job_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c72300bc5746759eb65b46f33dee4fa2d1d8dcf4fcb6ebdef5b9d4d2976e090c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jobId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targets")
+    def targets(self) -> typing.List[builtins.str]:
+        '''A list of things and thing groups to which the job should be sent.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "targets"))
+
+    @targets.setter
+    def targets(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6a8e77fdb8cad37800e9dca550a3a243dedf2ae452ee4501db49506c6dcf4760)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="abortConfig")
+    def abort_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.AbortConfigProperty"]]:
+        '''The criteria that determine when and how a job abort takes place.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.AbortConfigProperty"]], jsii.get(self, "abortConfig"))
+
+    @abort_config.setter
+    def abort_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.AbortConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__626eb1892ec1fe9d21a357b2c3de0a85179a51c889187a6588404866293faf65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "abortConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A short text description of the job.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9bf09cad2113629bdb20a1638967ec51f027fd008c15f1698901140501911607)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationPackageVersions")
+    def destination_package_versions(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The package version Amazon Resource Names (ARNs) that are installed on the device when the job successfully completes.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "destinationPackageVersions"))
+
+    @destination_package_versions.setter
+    def destination_package_versions(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2e12272d54d1f74a5e0500ab92ead7c57828e74ec9d78bfb3201584dacdb0b24)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "destinationPackageVersions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="document")
+    def document(self) -> typing.Optional[builtins.str]:
+        '''The job document.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "document"))
+
+    @document.setter
+    def document(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__be5f20819fbd563c5b7c93882a4b25014a27068e7f323c7da5725d9f534bf568)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "document", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="documentParameters")
+    def document_parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''Parameters of an Amazon Web Services managed template that you can specify to create the job document.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "documentParameters"))
+
+    @document_parameters.setter
+    def document_parameters(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__acfe277684c3aabdb35cbec8e35adba5580a5039ae8d47a6d9401705413c13e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "documentParameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="documentSource")
+    def document_source(self) -> typing.Optional[builtins.str]:
+        '''An S3 link, or S3 object URL, to the job document.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "documentSource"))
+
+    @document_source.setter
+    def document_source(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__451e076f23537474903e0f8ae6bba64392e5d7ac7644e1fcd1ca855dc8c9aa41)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "documentSource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="jobExecutionsRetryConfig")
+    def job_executions_retry_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRetryConfigProperty"]]:
+        '''The configuration that determines how many retries are allowed for each failure type for a job.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRetryConfigProperty"]], jsii.get(self, "jobExecutionsRetryConfig"))
+
+    @job_executions_retry_config.setter
+    def job_executions_retry_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRetryConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__024c735801d770d8b01c4e28c2ed29bd9a05dd48f3215708d0eca16d99f86d96)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jobExecutionsRetryConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="jobExecutionsRolloutConfig")
+    def job_executions_rollout_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRolloutConfigProperty"]]:
+        '''Allows you to create a staged rollout of a job.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRolloutConfigProperty"]], jsii.get(self, "jobExecutionsRolloutConfig"))
+
+    @job_executions_rollout_config.setter
+    def job_executions_rollout_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRolloutConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1f77091d7c6c96937e83c7e800f76d735dc1576cd895f8b2fde7b1071dbeb9ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jobExecutionsRolloutConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateArn")
+    def job_template_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the job template used to create the job.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "jobTemplateArn"))
+
+    @job_template_arn.setter
+    def job_template_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d242dddacecc98649363d970bb857f66dcffc384ef797db34a881fa7073da0d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jobTemplateArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="presignedUrlConfig")
+    def presigned_url_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.PresignedUrlConfigProperty"]]:
+        '''Configuration for pre-signed S3 URLs.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.PresignedUrlConfigProperty"]], jsii.get(self, "presignedUrlConfig"))
+
+    @presigned_url_config.setter
+    def presigned_url_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.PresignedUrlConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b3d5d22abe66997d00df709fdabe2d08c6465fb61a6dd741a6e41fb41a0305ae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "presignedUrlConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="schedulingConfig")
+    def scheduling_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.SchedulingConfigProperty"]]:
+        '''Specifies the date and time that a job will begin the rollout of the job document to all devices in the target group.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.SchedulingConfigProperty"]], jsii.get(self, "schedulingConfig"))
+
+    @scheduling_config.setter
+    def scheduling_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.SchedulingConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd2f44943a913c2bcf8802e5428cddff2386eb815a1f77c154570e1ec0ee01a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schedulingConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Metadata which can be used to manage the job.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ad1cb378a662ed0b30df178866b24edbee086894e3ffcd2d06f0b922abde71f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetSelection")
+    def target_selection(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the job will continue to run (CONTINUOUS), or will be complete after all those things specified as targets have completed the job (SNAPSHOT).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetSelection"))
+
+    @target_selection.setter
+    def target_selection(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a275d252ada13cba8ce0afa6257ca0f3181c21539f68a6484668d71d511efdec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetSelection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="timeoutConfig")
+    def timeout_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.TimeoutConfigProperty"]]:
+        '''Specifies the amount of time each device has to finish its execution of the job.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.TimeoutConfigProperty"]], jsii.get(self, "timeoutConfig"))
+
+    @timeout_config.setter
+    def timeout_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.TimeoutConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f67bb86795ddc2014971a32644396ec1453801f81b22ca9c51eead2eac48f613)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timeoutConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.AbortConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"criteria_list": "criteriaList"},
+    )
+    class AbortConfigProperty:
+        def __init__(
+            self,
+            *,
+            criteria_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.AbortCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The criteria that determine when and how a job abort takes place.
+
+            :param criteria_list: The list of criteria that determine when and how to abort the job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-abortconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                abort_config_property = iot.CfnJob.AbortConfigProperty(
+                    criteria_list=[iot.CfnJob.AbortCriteriaProperty(
+                        action="action",
+                        failure_type="failureType",
+                        min_number_of_executed_things=123,
+                        threshold_percentage=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e931da3ecafcf743f54684c2a16216a9f703c2209f4e856e609e898a9906c4a6)
+                check_type(argname="argument criteria_list", value=criteria_list, expected_type=type_hints["criteria_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "criteria_list": criteria_list,
+            }
+
+        @builtins.property
+        def criteria_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.AbortCriteriaProperty"]]]:
+            '''The list of criteria that determine when and how to abort the job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-abortconfig.html#cfn-iot-job-abortconfig-criterialist
+            '''
+            result = self._values.get("criteria_list")
+            assert result is not None, "Required property 'criteria_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.AbortCriteriaProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AbortConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.AbortCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "action": "action",
+            "failure_type": "failureType",
+            "min_number_of_executed_things": "minNumberOfExecutedThings",
+            "threshold_percentage": "thresholdPercentage",
+        },
+    )
+    class AbortCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            action: builtins.str,
+            failure_type: builtins.str,
+            min_number_of_executed_things: jsii.Number,
+            threshold_percentage: jsii.Number,
+        ) -> None:
+            '''The criteria that determine when and how a job abort takes place.
+
+            :param action: The type of job action to take to initiate the job abort.
+            :param failure_type: The type of job execution failures that can initiate a job abort.
+            :param min_number_of_executed_things: The minimum number of things which must receive job execution notifications before the job can be aborted.
+            :param threshold_percentage: The minimum percentage of job execution failures that must occur to initiate the job abort.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-abortcriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                abort_criteria_property = iot.CfnJob.AbortCriteriaProperty(
+                    action="action",
+                    failure_type="failureType",
+                    min_number_of_executed_things=123,
+                    threshold_percentage=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a23d700aa164c69fe1b22a9ec5f54468fba62b07443b49907523b00140ac4f1b)
+                check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+                check_type(argname="argument failure_type", value=failure_type, expected_type=type_hints["failure_type"])
+                check_type(argname="argument min_number_of_executed_things", value=min_number_of_executed_things, expected_type=type_hints["min_number_of_executed_things"])
+                check_type(argname="argument threshold_percentage", value=threshold_percentage, expected_type=type_hints["threshold_percentage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "action": action,
+                "failure_type": failure_type,
+                "min_number_of_executed_things": min_number_of_executed_things,
+                "threshold_percentage": threshold_percentage,
+            }
+
+        @builtins.property
+        def action(self) -> builtins.str:
+            '''The type of job action to take to initiate the job abort.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-abortcriteria.html#cfn-iot-job-abortcriteria-action
+            '''
+            result = self._values.get("action")
+            assert result is not None, "Required property 'action' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def failure_type(self) -> builtins.str:
+            '''The type of job execution failures that can initiate a job abort.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-abortcriteria.html#cfn-iot-job-abortcriteria-failuretype
+            '''
+            result = self._values.get("failure_type")
+            assert result is not None, "Required property 'failure_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def min_number_of_executed_things(self) -> jsii.Number:
+            '''The minimum number of things which must receive job execution notifications before the job can be aborted.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-abortcriteria.html#cfn-iot-job-abortcriteria-minnumberofexecutedthings
+            '''
+            result = self._values.get("min_number_of_executed_things")
+            assert result is not None, "Required property 'min_number_of_executed_things' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def threshold_percentage(self) -> jsii.Number:
+            '''The minimum percentage of job execution failures that must occur to initiate the job abort.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-abortcriteria.html#cfn-iot-job-abortcriteria-thresholdpercentage
+            '''
+            result = self._values.get("threshold_percentage")
+            assert result is not None, "Required property 'threshold_percentage' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AbortCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.ExponentialRolloutRateProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "base_rate_per_minute": "baseRatePerMinute",
+            "increment_factor": "incrementFactor",
+            "rate_increase_criteria": "rateIncreaseCriteria",
+        },
+    )
+    class ExponentialRolloutRateProperty:
+        def __init__(
+            self,
+            *,
+            base_rate_per_minute: jsii.Number,
+            increment_factor: jsii.Number,
+            rate_increase_criteria: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.RateIncreaseCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Allows you to create an exponential rate of rollout for a job.
+
+            :param base_rate_per_minute: The minimum number of things that will be notified of a pending job, per minute at the start of job rollout.
+            :param increment_factor: The exponential factor to increase the rate of rollout for a job.
+            :param rate_increase_criteria: Allows you to define a criteria to initiate the increase in rate of rollout for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-exponentialrolloutrate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                exponential_rollout_rate_property = iot.CfnJob.ExponentialRolloutRateProperty(
+                    base_rate_per_minute=123,
+                    increment_factor=123,
+                    rate_increase_criteria=iot.CfnJob.RateIncreaseCriteriaProperty(
+                        number_of_notified_things=123,
+                        number_of_succeeded_things=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c8d827a804d64e4df98ac638434810c8aa6ff7aa565ca3eb2a59eea9c3f6150a)
+                check_type(argname="argument base_rate_per_minute", value=base_rate_per_minute, expected_type=type_hints["base_rate_per_minute"])
+                check_type(argname="argument increment_factor", value=increment_factor, expected_type=type_hints["increment_factor"])
+                check_type(argname="argument rate_increase_criteria", value=rate_increase_criteria, expected_type=type_hints["rate_increase_criteria"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "base_rate_per_minute": base_rate_per_minute,
+                "increment_factor": increment_factor,
+                "rate_increase_criteria": rate_increase_criteria,
+            }
+
+        @builtins.property
+        def base_rate_per_minute(self) -> jsii.Number:
+            '''The minimum number of things that will be notified of a pending job, per minute at the start of job rollout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-exponentialrolloutrate.html#cfn-iot-job-exponentialrolloutrate-baserateperminute
+            '''
+            result = self._values.get("base_rate_per_minute")
+            assert result is not None, "Required property 'base_rate_per_minute' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def increment_factor(self) -> jsii.Number:
+            '''The exponential factor to increase the rate of rollout for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-exponentialrolloutrate.html#cfn-iot-job-exponentialrolloutrate-incrementfactor
+            '''
+            result = self._values.get("increment_factor")
+            assert result is not None, "Required property 'increment_factor' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def rate_increase_criteria(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.RateIncreaseCriteriaProperty"]:
+            '''Allows you to define a criteria to initiate the increase in rate of rollout for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-exponentialrolloutrate.html#cfn-iot-job-exponentialrolloutrate-rateincreasecriteria
+            '''
+            result = self._values.get("rate_increase_criteria")
+            assert result is not None, "Required property 'rate_increase_criteria' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.RateIncreaseCriteriaProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExponentialRolloutRateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.JobExecutionsRetryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"criteria_list": "criteriaList"},
+    )
+    class JobExecutionsRetryConfigProperty:
+        def __init__(
+            self,
+            *,
+            criteria_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.RetryCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The configuration that determines how many retries are allowed for each failure type for a job.
+
+            :param criteria_list: The list of criteria that determines how many retries are allowed for each failure type for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-jobexecutionsretryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                job_executions_retry_config_property = iot.CfnJob.JobExecutionsRetryConfigProperty(
+                    criteria_list=[iot.CfnJob.RetryCriteriaProperty(
+                        failure_type="failureType",
+                        number_of_retries=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__813074a2b64a12eb4386a231013d565f88ded759f8cb9b24d2f1f7d4f6985f38)
+                check_type(argname="argument criteria_list", value=criteria_list, expected_type=type_hints["criteria_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "criteria_list": criteria_list,
+            }
+
+        @builtins.property
+        def criteria_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.RetryCriteriaProperty"]]]:
+            '''The list of criteria that determines how many retries are allowed for each failure type for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-jobexecutionsretryconfig.html#cfn-iot-job-jobexecutionsretryconfig-criterialist
+            '''
+            result = self._values.get("criteria_list")
+            assert result is not None, "Required property 'criteria_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.RetryCriteriaProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "JobExecutionsRetryConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.JobExecutionsRolloutConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "exponential_rate": "exponentialRate",
+            "maximum_per_minute": "maximumPerMinute",
+        },
+    )
+    class JobExecutionsRolloutConfigProperty:
+        def __init__(
+            self,
+            *,
+            exponential_rate: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.ExponentialRolloutRateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            maximum_per_minute: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Allows you to create a staged rollout of a job.
+
+            :param exponential_rate: Allows you to create an exponential rate of rollout for a job.
+            :param maximum_per_minute: The maximum number of things that will be notified of a pending job, per minute. This parameter allows you to create a staged rollout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-jobexecutionsrolloutconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                job_executions_rollout_config_property = iot.CfnJob.JobExecutionsRolloutConfigProperty(
+                    exponential_rate=iot.CfnJob.ExponentialRolloutRateProperty(
+                        base_rate_per_minute=123,
+                        increment_factor=123,
+                        rate_increase_criteria=iot.CfnJob.RateIncreaseCriteriaProperty(
+                            number_of_notified_things=123,
+                            number_of_succeeded_things=123
+                        )
+                    ),
+                    maximum_per_minute=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3517420d6462693cd1f1d4711f3d80f7df016524d37f126d14d0f6402296d77f)
+                check_type(argname="argument exponential_rate", value=exponential_rate, expected_type=type_hints["exponential_rate"])
+                check_type(argname="argument maximum_per_minute", value=maximum_per_minute, expected_type=type_hints["maximum_per_minute"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if exponential_rate is not None:
+                self._values["exponential_rate"] = exponential_rate
+            if maximum_per_minute is not None:
+                self._values["maximum_per_minute"] = maximum_per_minute
+
+        @builtins.property
+        def exponential_rate(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.ExponentialRolloutRateProperty"]]:
+            '''Allows you to create an exponential rate of rollout for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-jobexecutionsrolloutconfig.html#cfn-iot-job-jobexecutionsrolloutconfig-exponentialrate
+            '''
+            result = self._values.get("exponential_rate")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.ExponentialRolloutRateProperty"]], result)
+
+        @builtins.property
+        def maximum_per_minute(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of things that will be notified of a pending job, per minute.
+
+            This parameter allows you to create a staged rollout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-jobexecutionsrolloutconfig.html#cfn-iot-job-jobexecutionsrolloutconfig-maximumperminute
+            '''
+            result = self._values.get("maximum_per_minute")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "JobExecutionsRolloutConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.MaintenanceWindowProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "duration_in_minutes": "durationInMinutes",
+            "start_time": "startTime",
+        },
+    )
+    class MaintenanceWindowProperty:
+        def __init__(
+            self,
+            *,
+            duration_in_minutes: jsii.Number,
+            start_time: builtins.str,
+        ) -> None:
+            '''An optional configuration within the SchedulingConfig to setup a recurring maintenance window with a predetermined start time and duration for the rollout of a job document to all devices in a target group for a job.
+
+            :param duration_in_minutes: Displays the duration of the next maintenance window.
+            :param start_time: Displays the start time of the next maintenance window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-maintenancewindow.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                maintenance_window_property = iot.CfnJob.MaintenanceWindowProperty(
+                    duration_in_minutes=123,
+                    start_time="startTime"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__78081bca943d5c61ed429085f8ec02e310ab38b6f0194baed7b4d8b42292f872)
+                check_type(argname="argument duration_in_minutes", value=duration_in_minutes, expected_type=type_hints["duration_in_minutes"])
+                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "duration_in_minutes": duration_in_minutes,
+                "start_time": start_time,
+            }
+
+        @builtins.property
+        def duration_in_minutes(self) -> jsii.Number:
+            '''Displays the duration of the next maintenance window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-maintenancewindow.html#cfn-iot-job-maintenancewindow-durationinminutes
+            '''
+            result = self._values.get("duration_in_minutes")
+            assert result is not None, "Required property 'duration_in_minutes' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def start_time(self) -> builtins.str:
+            '''Displays the start time of the next maintenance window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-maintenancewindow.html#cfn-iot-job-maintenancewindow-starttime
+            '''
+            result = self._values.get("start_time")
+            assert result is not None, "Required property 'start_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MaintenanceWindowProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.PresignedUrlConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"expires_in_sec": "expiresInSec", "role_arn": "roleArn"},
+    )
+    class PresignedUrlConfigProperty:
+        def __init__(
+            self,
+            *,
+            expires_in_sec: typing.Optional[jsii.Number] = None,
+            role_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for pre-signed S3 URLs.
+
+            :param expires_in_sec: How long (in seconds) pre-signed URLs are valid. Valid values are 60 - 3600, the default value is 3600 seconds.
+            :param role_arn: The ARN of an IAM role that grants permission to download files from the S3 bucket where the job data/updates are stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-presignedurlconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                presigned_url_config_property = iot.CfnJob.PresignedUrlConfigProperty(
+                    expires_in_sec=123,
+                    role_arn="roleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c926f14178027c0370999355deff3db95fe7340ef914d138f5b8b045d5a5b906)
+                check_type(argname="argument expires_in_sec", value=expires_in_sec, expected_type=type_hints["expires_in_sec"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if expires_in_sec is not None:
+                self._values["expires_in_sec"] = expires_in_sec
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
+
+        @builtins.property
+        def expires_in_sec(self) -> typing.Optional[jsii.Number]:
+            '''How long (in seconds) pre-signed URLs are valid.
+
+            Valid values are 60 - 3600, the default value is 3600 seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-presignedurlconfig.html#cfn-iot-job-presignedurlconfig-expiresinsec
+            '''
+            result = self._values.get("expires_in_sec")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of an IAM role that grants permission to download files from the S3 bucket where the job data/updates are stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-presignedurlconfig.html#cfn-iot-job-presignedurlconfig-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PresignedUrlConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.RateIncreaseCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "number_of_notified_things": "numberOfNotifiedThings",
+            "number_of_succeeded_things": "numberOfSucceededThings",
+        },
+    )
+    class RateIncreaseCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            number_of_notified_things: typing.Optional[jsii.Number] = None,
+            number_of_succeeded_things: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Allows you to define a criteria to initiate the increase in rate of rollout for a job.
+
+            :param number_of_notified_things: The threshold for number of notified things that will initiate the increase in rate of rollout.
+            :param number_of_succeeded_things: The threshold for number of succeeded things that will initiate the increase in rate of rollout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-rateincreasecriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                rate_increase_criteria_property = iot.CfnJob.RateIncreaseCriteriaProperty(
+                    number_of_notified_things=123,
+                    number_of_succeeded_things=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5f8bb04d66512766a042361003a3dc4f1682dbe0730f8015eb61e5eea6cda283)
+                check_type(argname="argument number_of_notified_things", value=number_of_notified_things, expected_type=type_hints["number_of_notified_things"])
+                check_type(argname="argument number_of_succeeded_things", value=number_of_succeeded_things, expected_type=type_hints["number_of_succeeded_things"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if number_of_notified_things is not None:
+                self._values["number_of_notified_things"] = number_of_notified_things
+            if number_of_succeeded_things is not None:
+                self._values["number_of_succeeded_things"] = number_of_succeeded_things
+
+        @builtins.property
+        def number_of_notified_things(self) -> typing.Optional[jsii.Number]:
+            '''The threshold for number of notified things that will initiate the increase in rate of rollout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-rateincreasecriteria.html#cfn-iot-job-rateincreasecriteria-numberofnotifiedthings
+            '''
+            result = self._values.get("number_of_notified_things")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def number_of_succeeded_things(self) -> typing.Optional[jsii.Number]:
+            '''The threshold for number of succeeded things that will initiate the increase in rate of rollout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-rateincreasecriteria.html#cfn-iot-job-rateincreasecriteria-numberofsucceededthings
+            '''
+            result = self._values.get("number_of_succeeded_things")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RateIncreaseCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.RetryCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "failure_type": "failureType",
+            "number_of_retries": "numberOfRetries",
+        },
+    )
+    class RetryCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            failure_type: builtins.str,
+            number_of_retries: jsii.Number,
+        ) -> None:
+            '''The criteria that determines how many retries are allowed for each failure type for a job.
+
+            :param failure_type: The type of job execution failures that can initiate a job retry.
+            :param number_of_retries: The number of retries allowed for a failure type for the job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-retrycriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                retry_criteria_property = iot.CfnJob.RetryCriteriaProperty(
+                    failure_type="failureType",
+                    number_of_retries=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__df91fa6732079445baad93e9cd19a0fa141417d5f5d3cc01961c699111be5ff2)
+                check_type(argname="argument failure_type", value=failure_type, expected_type=type_hints["failure_type"])
+                check_type(argname="argument number_of_retries", value=number_of_retries, expected_type=type_hints["number_of_retries"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "failure_type": failure_type,
+                "number_of_retries": number_of_retries,
+            }
+
+        @builtins.property
+        def failure_type(self) -> builtins.str:
+            '''The type of job execution failures that can initiate a job retry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-retrycriteria.html#cfn-iot-job-retrycriteria-failuretype
+            '''
+            result = self._values.get("failure_type")
+            assert result is not None, "Required property 'failure_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def number_of_retries(self) -> jsii.Number:
+            '''The number of retries allowed for a failure type for the job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-retrycriteria.html#cfn-iot-job-retrycriteria-numberofretries
+            '''
+            result = self._values.get("number_of_retries")
+            assert result is not None, "Required property 'number_of_retries' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RetryCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.SchedulingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "end_behavior": "endBehavior",
+            "end_time": "endTime",
+            "maintenance_windows": "maintenanceWindows",
+            "start_time": "startTime",
+        },
+    )
+    class SchedulingConfigProperty:
+        def __init__(
+            self,
+            *,
+            end_behavior: typing.Optional[builtins.str] = None,
+            end_time: typing.Optional[builtins.str] = None,
+            maintenance_windows: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            start_time: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies the date and time that a job will begin the rollout of the job document to all devices in the target group.
+
+            :param end_behavior: Specifies the end behavior for all job executions after a job reaches the selected endTime.
+            :param end_time: The time a job will stop rollout of the job document to all devices in the target group for a job.
+            :param maintenance_windows: An optional configuration within the SchedulingConfig to setup a recurring maintenance window.
+            :param start_time: The time a job will begin rollout of the job document to all devices in the target group for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-schedulingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                scheduling_config_property = iot.CfnJob.SchedulingConfigProperty(
+                    end_behavior="endBehavior",
+                    end_time="endTime",
+                    maintenance_windows=[iot.CfnJob.MaintenanceWindowProperty(
+                        duration_in_minutes=123,
+                        start_time="startTime"
+                    )],
+                    start_time="startTime"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__73b1989741e82195f1865d67e6b96b18252a6dc39c2642c77d5821cfbf04abea)
+                check_type(argname="argument end_behavior", value=end_behavior, expected_type=type_hints["end_behavior"])
+                check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
+                check_type(argname="argument maintenance_windows", value=maintenance_windows, expected_type=type_hints["maintenance_windows"])
+                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if end_behavior is not None:
+                self._values["end_behavior"] = end_behavior
+            if end_time is not None:
+                self._values["end_time"] = end_time
+            if maintenance_windows is not None:
+                self._values["maintenance_windows"] = maintenance_windows
+            if start_time is not None:
+                self._values["start_time"] = start_time
+
+        @builtins.property
+        def end_behavior(self) -> typing.Optional[builtins.str]:
+            '''Specifies the end behavior for all job executions after a job reaches the selected endTime.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-schedulingconfig.html#cfn-iot-job-schedulingconfig-endbehavior
+            '''
+            result = self._values.get("end_behavior")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def end_time(self) -> typing.Optional[builtins.str]:
+            '''The time a job will stop rollout of the job document to all devices in the target group for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-schedulingconfig.html#cfn-iot-job-schedulingconfig-endtime
+            '''
+            result = self._values.get("end_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def maintenance_windows(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.MaintenanceWindowProperty"]]]]:
+            '''An optional configuration within the SchedulingConfig to setup a recurring maintenance window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-schedulingconfig.html#cfn-iot-job-schedulingconfig-maintenancewindows
+            '''
+            result = self._values.get("maintenance_windows")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.MaintenanceWindowProperty"]]]], result)
+
+        @builtins.property
+        def start_time(self) -> typing.Optional[builtins.str]:
+            '''The time a job will begin rollout of the job document to all devices in the target group for a job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-schedulingconfig.html#cfn-iot-job-schedulingconfig-starttime
+            '''
+            result = self._values.get("start_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchedulingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnJob.TimeoutConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"in_progress_timeout_in_minutes": "inProgressTimeoutInMinutes"},
+    )
+    class TimeoutConfigProperty:
+        def __init__(
+            self,
+            *,
+            in_progress_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Specifies the amount of time each device has to finish its execution of the job.
+
+            :param in_progress_timeout_in_minutes: Specifies the amount of time, in minutes, this device has to finish execution of this job. The timeout interval can be anywhere between 1 minute and 7 days (1 to 10080 minutes).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-timeoutconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                timeout_config_property = iot.CfnJob.TimeoutConfigProperty(
+                    in_progress_timeout_in_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4b457fc0c781d1557b14a381e8dc9f66c2a0ae276a3ede21b6f44febbb5a629a)
+                check_type(argname="argument in_progress_timeout_in_minutes", value=in_progress_timeout_in_minutes, expected_type=type_hints["in_progress_timeout_in_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if in_progress_timeout_in_minutes is not None:
+                self._values["in_progress_timeout_in_minutes"] = in_progress_timeout_in_minutes
+
+        @builtins.property
+        def in_progress_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''Specifies the amount of time, in minutes, this device has to finish execution of this job.
+
+            The timeout interval can be anywhere between 1 minute and 7 days (1 to 10080 minutes).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-timeoutconfig.html#cfn-iot-job-timeoutconfig-inprogresstimeoutinminutes
+            '''
+            result = self._values.get("in_progress_timeout_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TimeoutConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnJobProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "job_id": "jobId",
+        "targets": "targets",
+        "abort_config": "abortConfig",
+        "description": "description",
+        "destination_package_versions": "destinationPackageVersions",
+        "document": "document",
+        "document_parameters": "documentParameters",
+        "document_source": "documentSource",
+        "job_executions_retry_config": "jobExecutionsRetryConfig",
+        "job_executions_rollout_config": "jobExecutionsRolloutConfig",
+        "job_template_arn": "jobTemplateArn",
+        "presigned_url_config": "presignedUrlConfig",
+        "scheduling_config": "schedulingConfig",
+        "tags": "tags",
+        "target_selection": "targetSelection",
+        "timeout_config": "timeoutConfig",
+    },
+)
+class CfnJobProps:
+    def __init__(
+        self,
+        *,
+        job_id: builtins.str,
+        targets: typing.Sequence[builtins.str],
+        abort_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.AbortConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        destination_package_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        document: typing.Optional[builtins.str] = None,
+        document_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        document_source: typing.Optional[builtins.str] = None,
+        job_executions_retry_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.JobExecutionsRetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_executions_rollout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.JobExecutionsRolloutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_template_arn: typing.Optional[builtins.str] = None,
+        presigned_url_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.PresignedUrlConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        scheduling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.SchedulingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_selection: typing.Optional[builtins.str] = None,
+        timeout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJob.TimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnJob``.
+
+        :param job_id: A job identifier which must be unique for your AWS account. We recommend using a UUID. Alpha-numeric characters, '-' and '_' are valid for use here.
+        :param targets: A list of things and thing groups to which the job should be sent.
+        :param abort_config: The criteria that determine when and how a job abort takes place.
+        :param description: A short text description of the job.
+        :param destination_package_versions: The package version Amazon Resource Names (ARNs) that are installed on the device when the job successfully completes.
+        :param document: The job document. Required if you don't specify a value for documentSource.
+        :param document_parameters: Parameters of an Amazon Web Services managed template that you can specify to create the job document.
+        :param document_source: An S3 link, or S3 object URL, to the job document. The link is an Amazon S3 object URL and is required if you don't specify a value for document.
+        :param job_executions_retry_config: The configuration that determines how many retries are allowed for each failure type for a job.
+        :param job_executions_rollout_config: Allows you to create a staged rollout of a job.
+        :param job_template_arn: The ARN of the job template used to create the job.
+        :param presigned_url_config: Configuration for pre-signed S3 URLs.
+        :param scheduling_config: Specifies the date and time that a job will begin the rollout of the job document to all devices in the target group.
+        :param tags: Metadata which can be used to manage the job.
+        :param target_selection: Specifies whether the job will continue to run (CONTINUOUS), or will be complete after all those things specified as targets have completed the job (SNAPSHOT).
+        :param timeout_config: Specifies the amount of time each device has to finish its execution of the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_job_props = iot.CfnJobProps(
+                job_id="jobId",
+                targets=["targets"],
+            
+                # the properties below are optional
+                abort_config=iot.CfnJob.AbortConfigProperty(
+                    criteria_list=[iot.CfnJob.AbortCriteriaProperty(
+                        action="action",
+                        failure_type="failureType",
+                        min_number_of_executed_things=123,
+                        threshold_percentage=123
+                    )]
+                ),
+                description="description",
+                destination_package_versions=["destinationPackageVersions"],
+                document="document",
+                document_parameters={
+                    "document_parameters_key": "documentParameters"
+                },
+                document_source="documentSource",
+                job_executions_retry_config=iot.CfnJob.JobExecutionsRetryConfigProperty(
+                    criteria_list=[iot.CfnJob.RetryCriteriaProperty(
+                        failure_type="failureType",
+                        number_of_retries=123
+                    )]
+                ),
+                job_executions_rollout_config=iot.CfnJob.JobExecutionsRolloutConfigProperty(
+                    exponential_rate=iot.CfnJob.ExponentialRolloutRateProperty(
+                        base_rate_per_minute=123,
+                        increment_factor=123,
+                        rate_increase_criteria=iot.CfnJob.RateIncreaseCriteriaProperty(
+                            number_of_notified_things=123,
+                            number_of_succeeded_things=123
+                        )
+                    ),
+                    maximum_per_minute=123
+                ),
+                job_template_arn="jobTemplateArn",
+                presigned_url_config=iot.CfnJob.PresignedUrlConfigProperty(
+                    expires_in_sec=123,
+                    role_arn="roleArn"
+                ),
+                scheduling_config=iot.CfnJob.SchedulingConfigProperty(
+                    end_behavior="endBehavior",
+                    end_time="endTime",
+                    maintenance_windows=[iot.CfnJob.MaintenanceWindowProperty(
+                        duration_in_minutes=123,
+                        start_time="startTime"
+                    )],
+                    start_time="startTime"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_selection="targetSelection",
+                timeout_config=iot.CfnJob.TimeoutConfigProperty(
+                    in_progress_timeout_in_minutes=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1424021c7380588bd6285d815a9d2704f86cdc0acfbf77c2b7b90605ce33baa7)
+            check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+            check_type(argname="argument abort_config", value=abort_config, expected_type=type_hints["abort_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument destination_package_versions", value=destination_package_versions, expected_type=type_hints["destination_package_versions"])
+            check_type(argname="argument document", value=document, expected_type=type_hints["document"])
+            check_type(argname="argument document_parameters", value=document_parameters, expected_type=type_hints["document_parameters"])
+            check_type(argname="argument document_source", value=document_source, expected_type=type_hints["document_source"])
+            check_type(argname="argument job_executions_retry_config", value=job_executions_retry_config, expected_type=type_hints["job_executions_retry_config"])
+            check_type(argname="argument job_executions_rollout_config", value=job_executions_rollout_config, expected_type=type_hints["job_executions_rollout_config"])
+            check_type(argname="argument job_template_arn", value=job_template_arn, expected_type=type_hints["job_template_arn"])
+            check_type(argname="argument presigned_url_config", value=presigned_url_config, expected_type=type_hints["presigned_url_config"])
+            check_type(argname="argument scheduling_config", value=scheduling_config, expected_type=type_hints["scheduling_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_selection", value=target_selection, expected_type=type_hints["target_selection"])
+            check_type(argname="argument timeout_config", value=timeout_config, expected_type=type_hints["timeout_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "job_id": job_id,
+            "targets": targets,
+        }
+        if abort_config is not None:
+            self._values["abort_config"] = abort_config
+        if description is not None:
+            self._values["description"] = description
+        if destination_package_versions is not None:
+            self._values["destination_package_versions"] = destination_package_versions
+        if document is not None:
+            self._values["document"] = document
+        if document_parameters is not None:
+            self._values["document_parameters"] = document_parameters
+        if document_source is not None:
+            self._values["document_source"] = document_source
+        if job_executions_retry_config is not None:
+            self._values["job_executions_retry_config"] = job_executions_retry_config
+        if job_executions_rollout_config is not None:
+            self._values["job_executions_rollout_config"] = job_executions_rollout_config
+        if job_template_arn is not None:
+            self._values["job_template_arn"] = job_template_arn
+        if presigned_url_config is not None:
+            self._values["presigned_url_config"] = presigned_url_config
+        if scheduling_config is not None:
+            self._values["scheduling_config"] = scheduling_config
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_selection is not None:
+            self._values["target_selection"] = target_selection
+        if timeout_config is not None:
+            self._values["timeout_config"] = timeout_config
+
+    @builtins.property
+    def job_id(self) -> builtins.str:
+        '''A job identifier which must be unique for your AWS account.
+
+        We recommend using a UUID. Alpha-numeric characters, '-' and '_' are valid for use here.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-jobid
+        '''
+        result = self._values.get("job_id")
+        assert result is not None, "Required property 'job_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def targets(self) -> typing.List[builtins.str]:
+        '''A list of things and thing groups to which the job should be sent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-targets
+        '''
+        result = self._values.get("targets")
+        assert result is not None, "Required property 'targets' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def abort_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.AbortConfigProperty"]]:
+        '''The criteria that determine when and how a job abort takes place.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-abortconfig
+        '''
+        result = self._values.get("abort_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.AbortConfigProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A short text description of the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination_package_versions(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The package version Amazon Resource Names (ARNs) that are installed on the device when the job successfully completes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-destinationpackageversions
+        '''
+        result = self._values.get("destination_package_versions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def document(self) -> typing.Optional[builtins.str]:
+        '''The job document.
+
+        Required if you don't specify a value for documentSource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-document
+        '''
+        result = self._values.get("document")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def document_parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''Parameters of an Amazon Web Services managed template that you can specify to create the job document.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-documentparameters
+        '''
+        result = self._values.get("document_parameters")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+    @builtins.property
+    def document_source(self) -> typing.Optional[builtins.str]:
+        '''An S3 link, or S3 object URL, to the job document.
+
+        The link is an Amazon S3 object URL and is required if you don't specify a value for document.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-documentsource
+        '''
+        result = self._values.get("document_source")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def job_executions_retry_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRetryConfigProperty"]]:
+        '''The configuration that determines how many retries are allowed for each failure type for a job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-jobexecutionsretryconfig
+        '''
+        result = self._values.get("job_executions_retry_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRetryConfigProperty"]], result)
+
+    @builtins.property
+    def job_executions_rollout_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRolloutConfigProperty"]]:
+        '''Allows you to create a staged rollout of a job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-jobexecutionsrolloutconfig
+        '''
+        result = self._values.get("job_executions_rollout_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.JobExecutionsRolloutConfigProperty"]], result)
+
+    @builtins.property
+    def job_template_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the job template used to create the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-jobtemplatearn
+        '''
+        result = self._values.get("job_template_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def presigned_url_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.PresignedUrlConfigProperty"]]:
+        '''Configuration for pre-signed S3 URLs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-presignedurlconfig
+        '''
+        result = self._values.get("presigned_url_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.PresignedUrlConfigProperty"]], result)
+
+    @builtins.property
+    def scheduling_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.SchedulingConfigProperty"]]:
+        '''Specifies the date and time that a job will begin the rollout of the job document to all devices in the target group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-schedulingconfig
+        '''
+        result = self._values.get("scheduling_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.SchedulingConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Metadata which can be used to manage the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def target_selection(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the job will continue to run (CONTINUOUS), or will be complete after all those things specified as targets have completed the job (SNAPSHOT).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-targetselection
+        '''
+        result = self._values.get("target_selection")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def timeout_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.TimeoutConfigProperty"]]:
+        '''Specifies the amount of time each device has to finish its execution of the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html#cfn-iot-job-timeoutconfig
+        '''
+        result = self._values.get("timeout_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJob.TimeoutConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnJobProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iot_df2fec1f.IJobTemplateRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnJobTemplate(
     _aws_cdk_0cae9daa.CfnResource,
@@ -15568,6 +17297,567 @@ class CfnSoftwarePackageVersionProps:
 
     def __repr__(self) -> str:
         return "CfnSoftwarePackageVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iot_df2fec1f.IStreamRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnStream(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iot.CfnStream",
+):
+    '''Resource Type definition for AWS IoT Stream.
+
+    A stream is a publicly addressable resource that is an abstraction for a list of files that can be transferred to an IoT device.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-stream.html
+    :cloudformationResource: AWS::IoT::Stream
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iot as iot
+        
+        cfn_stream = iot.CfnStream(self, "MyCfnStream",
+            files=[iot.CfnStream.StreamFileProperty(
+                file_id=123,
+                s3_location=iot.CfnStream.S3LocationProperty(
+                    bucket="bucket",
+                    key="key",
+                    version="version"
+                )
+            )],
+            role_arn="roleArn",
+            stream_id="streamId",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        files: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.StreamFileProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        role_arn: builtins.str,
+        stream_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IoT::Stream``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param files: The files to stream.
+        :param role_arn: An IAM role that allows the IoT service principal to access your S3 files.
+        :param stream_id: The stream ID.
+        :param description: The description of the stream.
+        :param tags: Metadata which can be used to manage streams.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6f158ac2f1cfd97d17cf986941f4ff366251e9d8ea51afd5dad83b11c61a7c4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnStreamProps(
+            files=files,
+            role_arn=role_arn,
+            stream_id=stream_id,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForStream")
+    @builtins.classmethod
+    def arn_for_stream(cls, resource: "_aws_iot_df2fec1f.IStreamRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__61a76e368697aad3f06ab981c5c4ebca8612c8c96426c38b309f5fbf83f67062)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStream", [resource]))
+
+    @jsii.member(jsii_name="isCfnStream")
+    @builtins.classmethod
+    def is_cfn_stream(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnStream.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5e72f4f606d566c8581471e7f1b73f0c69ba4c369086b432aab4f41af9b6ff9e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStream", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a66bc6ee7e1ff674a958344db2da6edb4f33792263c680c8360b38578bded132)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2e12ec37915304e8f069b78c05636aafb4e02f1845f5708af7f5a56891a90ff3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the stream.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The date when the stream was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''The date when the stream was last updated.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamVersion")
+    def attr_stream_version(self) -> jsii.Number:
+        '''The stream version.
+
+        :cloudformationAttribute: StreamVersion
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrStreamVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> "_aws_iot_df2fec1f.StreamReference":
+        '''A reference to a Stream resource.'''
+        return typing.cast("_aws_iot_df2fec1f.StreamReference", jsii.get(self, "streamRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="files")
+    def files(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamFileProperty"]]]:
+        '''The files to stream.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamFileProperty"]]], jsii.get(self, "files"))
+
+    @files.setter
+    def files(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamFileProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__17e17c4baf743d5c385bfdf8fe2e7ae2f84db646562952ca0bc83c36a00f9535)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "files", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''An IAM role that allows the IoT service principal to access your S3 files.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__63c56bdb105e238681f00a6ded5f8f236dd3eb4647b4a417bcc6634d37e5df6e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamId")
+    def stream_id(self) -> builtins.str:
+        '''The stream ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "streamId"))
+
+    @stream_id.setter
+    def stream_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36f46afdba6d2b1213ed058af5c8282dfa6b2360ad616f7f787e93a2ee05c30b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the stream.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__59f0f3f7b6a0ec42f31895ca4d1b853b33b05387762b7081acdcf5344dbc6557)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Metadata which can be used to manage streams.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a921af31c8463889372ffd9f717b57a7cb72288c4a1a76847906d1b15f88d4e4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnStream.S3LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "key": "key", "version": "version"},
+    )
+    class S3LocationProperty:
+        def __init__(
+            self,
+            *,
+            bucket: typing.Optional[builtins.str] = None,
+            key: typing.Optional[builtins.str] = None,
+            version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The location of the file in S3.
+
+            :param bucket: The S3 bucket.
+            :param key: The S3 key.
+            :param version: The S3 bucket version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-s3location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                s3_location_property = iot.CfnStream.S3LocationProperty(
+                    bucket="bucket",
+                    key="key",
+                    version="version"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__75a5153512e2c7cc0dbdde99969129d4abfbc824a09692070ec48faf1e7f1053)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if bucket is not None:
+                self._values["bucket"] = bucket
+            if key is not None:
+                self._values["key"] = key
+            if version is not None:
+                self._values["version"] = version
+
+        @builtins.property
+        def bucket(self) -> typing.Optional[builtins.str]:
+            '''The S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-s3location.html#cfn-iot-stream-s3location-bucket
+            '''
+            result = self._values.get("bucket")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''The S3 key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-s3location.html#cfn-iot-stream-s3location-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def version(self) -> typing.Optional[builtins.str]:
+            '''The S3 bucket version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-s3location.html#cfn-iot-stream-s3location-version
+            '''
+            result = self._values.get("version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnStream.StreamFileProperty",
+        jsii_struct_bases=[],
+        name_mapping={"file_id": "fileId", "s3_location": "s3Location"},
+    )
+    class StreamFileProperty:
+        def __init__(
+            self,
+            *,
+            file_id: typing.Optional[jsii.Number] = None,
+            s3_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents a file to stream.
+
+            :param file_id: The file ID.
+            :param s3_location: The location of the file in S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-streamfile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                stream_file_property = iot.CfnStream.StreamFileProperty(
+                    file_id=123,
+                    s3_location=iot.CfnStream.S3LocationProperty(
+                        bucket="bucket",
+                        key="key",
+                        version="version"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ef9846df3320d0da4b851db957359a8fe62f9bb4d0fd9e82034ca7c0f252b318)
+                check_type(argname="argument file_id", value=file_id, expected_type=type_hints["file_id"])
+                check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if file_id is not None:
+                self._values["file_id"] = file_id
+            if s3_location is not None:
+                self._values["s3_location"] = s3_location
+
+        @builtins.property
+        def file_id(self) -> typing.Optional[jsii.Number]:
+            '''The file ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-streamfile.html#cfn-iot-stream-streamfile-fileid
+            '''
+            result = self._values.get("file_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def s3_location(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.S3LocationProperty"]]:
+            '''The location of the file in S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-streamfile.html#cfn-iot-stream-streamfile-s3location
+            '''
+            result = self._values.get("s3_location")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.S3LocationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamFileProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnStreamProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "files": "files",
+        "role_arn": "roleArn",
+        "stream_id": "streamId",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnStreamProps:
+    def __init__(
+        self,
+        *,
+        files: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.StreamFileProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        role_arn: builtins.str,
+        stream_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStream``.
+
+        :param files: The files to stream.
+        :param role_arn: An IAM role that allows the IoT service principal to access your S3 files.
+        :param stream_id: The stream ID.
+        :param description: The description of the stream.
+        :param tags: Metadata which can be used to manage streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-stream.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_stream_props = iot.CfnStreamProps(
+                files=[iot.CfnStream.StreamFileProperty(
+                    file_id=123,
+                    s3_location=iot.CfnStream.S3LocationProperty(
+                        bucket="bucket",
+                        key="key",
+                        version="version"
+                    )
+                )],
+                role_arn="roleArn",
+                stream_id="streamId",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__967c5b973256934bdb81ef4423381cd2ee082918cbfc3da567d9d1b62bc31573)
+            check_type(argname="argument files", value=files, expected_type=type_hints["files"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "files": files,
+            "role_arn": role_arn,
+            "stream_id": stream_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def files(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamFileProperty"]]]:
+        '''The files to stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-stream.html#cfn-iot-stream-files
+        '''
+        result = self._values.get("files")
+        assert result is not None, "Required property 'files' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamFileProperty"]]], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''An IAM role that allows the IoT service principal to access your S3 files.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-stream.html#cfn-iot-stream-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_id(self) -> builtins.str:
+        '''The stream ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-stream.html#cfn-iot-stream-streamid
+        '''
+        result = self._values.get("stream_id")
+        assert result is not None, "Required property 'stream_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-stream.html#cfn-iot-stream-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Metadata which can be used to manage streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-stream.html#cfn-iot-stream-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStreamProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -24399,6 +26689,8 @@ __all__ = [
     "CfnEncryptionConfigurationProps",
     "CfnFleetMetric",
     "CfnFleetMetricProps",
+    "CfnJob",
+    "CfnJobProps",
     "CfnJobTemplate",
     "CfnJobTemplateProps",
     "CfnLogging",
@@ -24423,6 +26715,8 @@ __all__ = [
     "CfnSoftwarePackageProps",
     "CfnSoftwarePackageVersion",
     "CfnSoftwarePackageVersionProps",
+    "CfnStream",
+    "CfnStreamProps",
     "CfnThing",
     "CfnThingGroup",
     "CfnThingGroupProps",
@@ -25845,6 +28139,262 @@ def _typecheckingstub__2c32ae9eaf57bd249c6b754fc4d62115363b123e65d8aa0149b1fdfe3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1d6aa35ab9327e1bf41e742cb719cdf52cf446e3697b046437b9e3720b446573(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    job_id: builtins.str,
+    targets: typing.Sequence[builtins.str],
+    abort_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.AbortConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    destination_package_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    document: typing.Optional[builtins.str] = None,
+    document_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    document_source: typing.Optional[builtins.str] = None,
+    job_executions_retry_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.JobExecutionsRetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_executions_rollout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.JobExecutionsRolloutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_template_arn: typing.Optional[builtins.str] = None,
+    presigned_url_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.PresignedUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scheduling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.SchedulingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_selection: typing.Optional[builtins.str] = None,
+    timeout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.TimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce9113ec52de388b8b10717990979b55e95fa84735f7e1d7762d600fcb9d4851(
+    resource: _aws_iot_df2fec1f.IJobRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f552843c4265114b1a29249514bbb57b0fb2ed483db29924e6e7b81d151a4d6e(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b93784823d30d5daac251a953f8da771f96ae2b8d11cd709f871e4fd72b1a10e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b172f252f9a1f002faf7eefc048cddd71a12975c7fb522bd1382e55da6b8eea7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c72300bc5746759eb65b46f33dee4fa2d1d8dcf4fcb6ebdef5b9d4d2976e090c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a8e77fdb8cad37800e9dca550a3a243dedf2ae452ee4501db49506c6dcf4760(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__626eb1892ec1fe9d21a357b2c3de0a85179a51c889187a6588404866293faf65(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJob.AbortConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bf09cad2113629bdb20a1638967ec51f027fd008c15f1698901140501911607(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e12272d54d1f74a5e0500ab92ead7c57828e74ec9d78bfb3201584dacdb0b24(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be5f20819fbd563c5b7c93882a4b25014a27068e7f323c7da5725d9f534bf568(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acfe277684c3aabdb35cbec8e35adba5580a5039ae8d47a6d9401705413c13e2(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__451e076f23537474903e0f8ae6bba64392e5d7ac7644e1fcd1ca855dc8c9aa41(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__024c735801d770d8b01c4e28c2ed29bd9a05dd48f3215708d0eca16d99f86d96(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJob.JobExecutionsRetryConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f77091d7c6c96937e83c7e800f76d735dc1576cd895f8b2fde7b1071dbeb9ad(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJob.JobExecutionsRolloutConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d242dddacecc98649363d970bb857f66dcffc384ef797db34a881fa7073da0d2(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3d5d22abe66997d00df709fdabe2d08c6465fb61a6dd741a6e41fb41a0305ae(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJob.PresignedUrlConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd2f44943a913c2bcf8802e5428cddff2386eb815a1f77c154570e1ec0ee01a9(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJob.SchedulingConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ad1cb378a662ed0b30df178866b24edbee086894e3ffcd2d06f0b922abde71f(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a275d252ada13cba8ce0afa6257ca0f3181c21539f68a6484668d71d511efdec(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f67bb86795ddc2014971a32644396ec1453801f81b22ca9c51eead2eac48f613(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJob.TimeoutConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e931da3ecafcf743f54684c2a16216a9f703c2209f4e856e609e898a9906c4a6(
+    *,
+    criteria_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.AbortCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a23d700aa164c69fe1b22a9ec5f54468fba62b07443b49907523b00140ac4f1b(
+    *,
+    action: builtins.str,
+    failure_type: builtins.str,
+    min_number_of_executed_things: jsii.Number,
+    threshold_percentage: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8d827a804d64e4df98ac638434810c8aa6ff7aa565ca3eb2a59eea9c3f6150a(
+    *,
+    base_rate_per_minute: jsii.Number,
+    increment_factor: jsii.Number,
+    rate_increase_criteria: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.RateIncreaseCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__813074a2b64a12eb4386a231013d565f88ded759f8cb9b24d2f1f7d4f6985f38(
+    *,
+    criteria_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.RetryCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3517420d6462693cd1f1d4711f3d80f7df016524d37f126d14d0f6402296d77f(
+    *,
+    exponential_rate: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.ExponentialRolloutRateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maximum_per_minute: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78081bca943d5c61ed429085f8ec02e310ab38b6f0194baed7b4d8b42292f872(
+    *,
+    duration_in_minutes: jsii.Number,
+    start_time: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c926f14178027c0370999355deff3db95fe7340ef914d138f5b8b045d5a5b906(
+    *,
+    expires_in_sec: typing.Optional[jsii.Number] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f8bb04d66512766a042361003a3dc4f1682dbe0730f8015eb61e5eea6cda283(
+    *,
+    number_of_notified_things: typing.Optional[jsii.Number] = None,
+    number_of_succeeded_things: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df91fa6732079445baad93e9cd19a0fa141417d5f5d3cc01961c699111be5ff2(
+    *,
+    failure_type: builtins.str,
+    number_of_retries: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73b1989741e82195f1865d67e6b96b18252a6dc39c2642c77d5821cfbf04abea(
+    *,
+    end_behavior: typing.Optional[builtins.str] = None,
+    end_time: typing.Optional[builtins.str] = None,
+    maintenance_windows: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    start_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b457fc0c781d1557b14a381e8dc9f66c2a0ae276a3ede21b6f44febbb5a629a(
+    *,
+    in_progress_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1424021c7380588bd6285d815a9d2704f86cdc0acfbf77c2b7b90605ce33baa7(
+    *,
+    job_id: builtins.str,
+    targets: typing.Sequence[builtins.str],
+    abort_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.AbortConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    destination_package_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    document: typing.Optional[builtins.str] = None,
+    document_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    document_source: typing.Optional[builtins.str] = None,
+    job_executions_retry_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.JobExecutionsRetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_executions_rollout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.JobExecutionsRolloutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_template_arn: typing.Optional[builtins.str] = None,
+    presigned_url_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.PresignedUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scheduling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.SchedulingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_selection: typing.Optional[builtins.str] = None,
+    timeout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJob.TimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__41042e233d09c55a1d146a4913894e94014a62c885bf42884b1cf86236083dd2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -27157,6 +29707,101 @@ def _typecheckingstub__1ee35d011adab7a2d8df83c92656187b403d2781df8df06d9575d380e
     sbom: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSoftwarePackageVersion.SbomProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     version_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6f158ac2f1cfd97d17cf986941f4ff366251e9d8ea51afd5dad83b11c61a7c4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    files: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.StreamFileProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    role_arn: builtins.str,
+    stream_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61a76e368697aad3f06ab981c5c4ebca8612c8c96426c38b309f5fbf83f67062(
+    resource: _aws_iot_df2fec1f.IStreamRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e72f4f606d566c8581471e7f1b73f0c69ba4c369086b432aab4f41af9b6ff9e(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a66bc6ee7e1ff674a958344db2da6edb4f33792263c680c8360b38578bded132(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e12ec37915304e8f069b78c05636aafb4e02f1845f5708af7f5a56891a90ff3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17e17c4baf743d5c385bfdf8fe2e7ae2f84db646562952ca0bc83c36a00f9535(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStream.StreamFileProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63c56bdb105e238681f00a6ded5f8f236dd3eb4647b4a417bcc6634d37e5df6e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36f46afdba6d2b1213ed058af5c8282dfa6b2360ad616f7f787e93a2ee05c30b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59f0f3f7b6a0ec42f31895ca4d1b853b33b05387762b7081acdcf5344dbc6557(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a921af31c8463889372ffd9f717b57a7cb72288c4a1a76847906d1b15f88d4e4(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75a5153512e2c7cc0dbdde99969129d4abfbc824a09692070ec48faf1e7f1053(
+    *,
+    bucket: typing.Optional[builtins.str] = None,
+    key: typing.Optional[builtins.str] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef9846df3320d0da4b851db957359a8fe62f9bb4d0fd9e82034ca7c0f252b318(
+    *,
+    file_id: typing.Optional[jsii.Number] = None,
+    s3_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__967c5b973256934bdb81ef4423381cd2ee082918cbfc3da567d9d1b62bc31573(
+    *,
+    files: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.StreamFileProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    role_arn: builtins.str,
+    stream_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

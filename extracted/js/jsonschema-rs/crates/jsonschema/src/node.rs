@@ -380,6 +380,24 @@ impl<F: Json> SchemaNode<F> {
         self.evaluate_instance_at(instance, location, &instance_location, tracker, ctx)
     }
 
+    /// [`Self::evaluate_instance`] for a position one segment below the one being evaluated.
+    ///
+    /// Renders from the location already on the context instead of walking the chain again.
+    pub(crate) fn evaluate_instance_below(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationNode {
+        let instance_location = match ctx.instance_location() {
+            Some(parent) => parent.join_pointer_segment(location.segment()),
+            None => location.into(),
+        };
+        debug_assert_eq!(instance_location, Location::from(location));
+        self.evaluate_instance_at(instance, location, &instance_location, tracker, ctx)
+    }
+
     /// [`Self::evaluate_instance`] for a caller that already rendered this instance position.
     pub(crate) fn evaluate_instance_at(
         &self,
@@ -396,7 +414,11 @@ impl<F: Json> SchemaNode<F> {
             crate::evaluation::format_schema_location(&self.location, self.absolute_path.as_ref())
         }));
 
-        match self.evaluate_at(instance, location, &instance_location, tracker, ctx) {
+        let previous = ctx.enter_instance_location(instance_location.clone());
+        let result = self.evaluate_at(instance, location, &instance_location, tracker, ctx);
+        ctx.leave_instance_location(previous);
+
+        match result {
             EvaluationResult::Valid {
                 annotations,
                 children,
@@ -460,20 +482,13 @@ impl<F: Json> SchemaNode<F> {
             // Per JSON Schema spec: "MUST NOT include by-reference applicators such as $ref"
             // For by-reference validators like $ref, use the target's canonical location.
             // For regular validators, use the keyword's location.
-            let formatted_schema_location =
-                if let Some(schema_location) = validator.canonical_location() {
-                    crate::evaluation::format_schema_location(
-                        schema_location,
-                        absolute_location.as_ref(),
-                    )
-                } else {
-                    Arc::clone(cached_schema_location.get_or_init(|| {
-                        crate::evaluation::format_schema_location(
-                            child_location,
-                            absolute_location.as_ref(),
-                        )
-                    }))
-                };
+            // schemaLocation is fixed per subschema, by-reference or not, so it is rendered once.
+            let formatted_schema_location = Arc::clone(cached_schema_location.get_or_init(|| {
+                crate::evaluation::format_schema_location(
+                    validator.canonical_location().unwrap_or(child_location),
+                    absolute_location.as_ref(),
+                )
+            }));
 
             let child_node = match child_result {
                 EvaluationResult::Valid {

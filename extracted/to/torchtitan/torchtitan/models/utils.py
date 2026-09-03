@@ -10,10 +10,31 @@ from torch.distributed.device_mesh import DeviceMesh
 from torch.distributed.tensor import DTensor
 from torch.distributed.tensor.placement_types import _StridedShard, Replicate, Shard
 
-from torchtitan.protocols.model import BaseModelArgs
+from torchtitan.models.common.decoder import Decoder
 from torchtitan.protocols.state_dict_adapter import StateDictAdapter
-
 from torchtitan.tools.logging import logger
+
+
+def validate_converter_order(converters: list) -> None:
+    """Validate that quantization/QAT converters precede LoRA.
+
+    Raises ``ValueError`` if a quantization converter appears after a LoRA
+    converter in the list.
+    """
+    from torchtitan.components.lora import LoRAConverter
+    from torchtitan.components.quantization import QuantizationConverter
+
+    _BEFORE_LORA = (QuantizationConverter.Config,)
+
+    seen_lora = False
+    for converter in converters:
+        if isinstance(converter, LoRAConverter.Config):
+            seen_lora = True
+        elif seen_lora and isinstance(converter, _BEFORE_LORA):
+            raise ValueError(
+                f"{type(converter).__name__} must be applied before "
+                f"LoRAConverter. Reorder the converters list."
+            )
 
 
 class MoEStateDictAdapter(StateDictAdapter):
@@ -28,11 +49,11 @@ class MoEStateDictAdapter(StateDictAdapter):
 
     def __init__(
         self,
-        model_args: BaseModelArgs,
+        model_config: Decoder.Config,
         hf_assets_path: str | None,
     ):
-        super().__init__(model_args, hf_assets_path)
-        self.model_args = model_args
+        super().__init__(model_config, hf_assets_path)
+        self.model_config = model_config
         self.hf_assets_path = hf_assets_path
         # Store metadata for GroupedExperts <-> individual experts conversion
         self.grouped_expert_weight_placements = {}  # {titan_abstract_key: placements}
@@ -172,7 +193,6 @@ class MoEStateDictAdapter(StateDictAdapter):
 
         This method handles various sharding strategies for expert weights:
         - FSDP + EP: StridedShard(0)Shard(0) or Shard(0)
-        - FSDP + ETP + EP: StridedShard(0)Shard(0)Shard(1/2) or StridedShard(1)Shard(0)Shard(1/2)
 
         Args:
             abstract_key: HuggingFace templage key with {} placeholders for layer and expert IDs
@@ -223,8 +243,7 @@ class MoEStateDictAdapter(StateDictAdapter):
                 # Strided shard on non-expert dim, keep in sub-mesh
                 sub_mesh_names.append(name)
                 sub_placements.append(
-                    # pyrefly: ignore [unexpected-positional-argument]
-                    _StridedShard(placement.dim, placement.split_factor)
+                    _StridedShard(placement.dim, split_factor=placement.split_factor)
                 )
             else:
                 raise ValueError(f"Unsupported placement type: {type(placement)}")
@@ -386,23 +405,29 @@ class MoEStateDictAdapter(StateDictAdapter):
 
 
 def get_dense_model_nparams_and_flops(
-    model_args: BaseModelArgs,
     model: nn.Module,
+    n_layers: int,
+    n_heads: int,
     head_dims: int,
     seq_len: int,
+    enable_weight_tying: bool = False,
 ) -> tuple[int, int]:
     """
     Args:
-        model_args: BaseModelArgs object containing model configuration parameters.
         model: nn.Module representing the model.
+        n_layers: The number of transformer layers.
+        n_heads: The number of attention heads.
         head_dims: The sum of qk and v head dimensions.
         seq_len: The sequence length in training configs.
+        enable_weight_tying: Whether weight tying is enabled.
 
     Returns:
         Tuple of (nparams, num_flops_per_token):
             nparams: Total number of model parameters.
             num_flops_per_token: Estimated number of floating point operations per token.
     """
+    # model.parameters() de-duplicates shared parameters, so tied input/output
+    # embeddings are counted once.
     nparams = sum(p.numel() for p in model.parameters())
     nparams_embedding = sum(
         sum(p.numel() for p in m.parameters())
@@ -418,22 +443,21 @@ def get_dense_model_nparams_and_flops(
     #    but recomputation should not be counted in calculating MFU           (+0)
     # 3. each matmul performs 1 multiplication and 1 addition                 (*2)
     # 4. we follow the convention and do not account for sparsity in causal attention
+    # With tied embeddings, PyTorch's parameter iterator already counts the
+    # shared input/output parameter once. That parameter still participates in
+    # the lm_head matmul, so do not subtract it for either size or FLOPs.
+    nparams_for_matmul = nparams if enable_weight_tying else nparams - nparams_embedding
     num_flops_per_token = (
-        6 * (nparams - nparams_embedding)
-        # pyrefly: ignore [missing-attribute]
-        + 6 * model_args.n_layers * model_args.n_heads * head_dims * seq_len
+        6 * nparams_for_matmul + 6 * n_layers * n_heads * head_dims * seq_len
     )
-
-    # If weight tying is enabled, subtract embedding parameters from total count
-    if hasattr(model_args, "enable_weight_tying") and model_args.enable_weight_tying:
-        nparams = nparams - nparams_embedding
 
     return nparams, num_flops_per_token
 
 
 def get_moe_model_nparams_and_flops(
-    model_args: BaseModelArgs,
+    model_config: Decoder.Config,
     model: nn.Module,
+    n_heads: int,
     head_dims: int,
     seq_len: int,
 ) -> tuple[int, int]:
@@ -441,8 +465,9 @@ def get_moe_model_nparams_and_flops(
     Calculate nparams and nflops for MoE models.
 
     Args:
-        model_args: BaseModelArgs object containing model configuration parameters including MoE settings.
+        model_config: Decoder.Config object containing model configuration parameters including MoE settings.
         model: nn.Module representing the MoE model.
+        n_heads: The number of attention heads.
         head_dims: The sum of qk and v head dimensions.
         seq_len: The sequence length in training configs.
 
@@ -457,75 +482,59 @@ def get_moe_model_nparams_and_flops(
     nparams_shared_experts = 0
     nparams_experts = 0
     nparams_dense = 0
+    # TODO: add a per-batch vision encoder FLOP term for accurate VLM MFU.
+    nparams_vision = 0
 
     for name, p in model.named_parameters():
-        if "embedding" in name:
+        if "vision_encoder" in name:
+            nparams_vision += p.numel()
+        elif "embedding" in name:
             nparams_embedding += p.numel()
             nparams_dense += p.numel()
         elif "moe.shared_experts" in name:
             nparams_shared_experts += p.numel()
         elif "moe.router" in name:
             nparams_moe_router += p.numel()
-        elif "moe.experts" in name:
+        elif "moe.routed_experts" in name:
             nparams_experts += p.numel()
         else:
             nparams_dense += p.numel()
 
     nparams_sparse = nparams_moe_router + nparams_shared_experts + nparams_experts
-    nparams = nparams_dense + nparams_sparse
-    nparams_sparse_active = (
-        nparams_moe_router
-        + nparams_shared_experts
-        # pyrefly: ignore [missing-attribute]
-        + nparams_experts * model_args.moe_args.top_k // model_args.moe_args.num_experts
-    )
+    nparams = nparams_dense + nparams_sparse + nparams_vision
+
+    moe_config = next((l.moe for l in model_config.layers if l.moe is not None), None)
+    if moe_config is not None:
+        nparams_sparse_active = (
+            nparams_moe_router
+            + nparams_shared_experts
+            + nparams_experts * moe_config.router.top_k // moe_config.num_experts
+        )
+    else:
+        nparams_sparse_active = 0
 
     logger.info(
         f"Total parameter count: dense {nparams_dense:,}, "
-        f"sparse {nparams_sparse:,}, active {nparams_dense + nparams_sparse_active:,}"
+        f"sparse {nparams_sparse:,}, vision {nparams_vision:,}, "
+        f"active {nparams_dense + nparams_sparse_active:,}"
     )
 
+    # With tied embeddings, PyTorch's parameter iterator already counts the
+    # shared input/output parameter once. That parameter still participates in
+    # the lm_head matmul, so do not subtract it for either size or FLOPs.
+    if getattr(model_config, "enable_weight_tying", False):
+        nparams_for_matmul = nparams_dense + nparams_sparse_active
+    else:
+        nparams_for_matmul = nparams_dense - nparams_embedding + nparams_sparse_active
+    # Only full attention layers contribute the quadratic O(L²) FLOPs
+    # term. Hybrid models mix full attention with linear attention
+    # layers whose block leaves ``attention=None``; standard decoders carry
+    # full attention on every layer, so this counts all of them.
+    num_full_attn = sum(
+        1 for l in model_config.layers if getattr(l, "attention", None) is not None
+    )
     num_flops_per_token = (
-        6 * (nparams_dense - nparams_embedding + nparams_sparse_active)
-        # pyrefly: ignore [missing-attribute]
-        + 6 * model_args.n_layers * model_args.n_heads * head_dims * seq_len
+        6 * nparams_for_matmul + 6 * num_full_attn * n_heads * head_dims * seq_len
     )
-
-    # If weight tying is enabled, subtract embedding parameters from total count
-    if hasattr(model_args, "enable_weight_tying") and model_args.enable_weight_tying:
-        nparams = nparams - nparams_embedding
 
     return nparams, num_flops_per_token
-
-
-def trunc_normal_(
-    tensor: torch.Tensor,
-    mean: float = 0.0,
-    std: float = 1.0,
-    a: float = -2.0,
-    b: float = 2.0,
-):
-    """
-    Fills the input tensor with values sampled from a truncated normal distribution.
-    Values are drawn from a normal distribution with the given mean and standard
-    deviation. Any sampled values outside the range defined by a and b are resampled
-    until they fall within the bounds.
-
-    To avoid numerical instability in torch.nn.init.trunc_normal_, the initialization
-    is always performed using float32 precision. The result is then cast back to the
-    original data type of the input tensor.
-
-    Args:
-        tensor: an n dimensional torch Tensor
-        mean: the mean of the normal distribution
-        std: the standard deviation of the normal distribution
-        a: the lower bound for truncation
-        b: the upper bound for truncation
-
-    Returns:
-        The input tensor filled with values from the truncated normal distribution.
-    """
-
-    tmp = tensor.float()
-    nn.init.trunc_normal_(tmp, mean=mean, std=std, a=a, b=b)
-    tensor.copy_(tmp)

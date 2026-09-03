@@ -68,6 +68,23 @@ class DeviceAttributes(StrEnum):
     outdoor_temperature = "outdoor_temperature"
     temp_tw_in = "temp_tw_in"
     temp_tw_out = "temp_tw_out"
+    comp_run_freq = "comp_run_freq"
+    unit_mode_run = "unit_mode_run"
+    fan_speed = "fan_speed"
+    temp_t1 = "temp_t1"
+    temp_t2 = "temp_t2"
+    temp_t2b = "temp_t2b"
+    temp_t3 = "temp_t3"
+    temp_tp = "temp_tp"
+    temp_th = "temp_th"
+    temp_tf = "temp_tf"
+    pressure_high = "pressure_high"
+    pressure_low = "pressure_low"
+    odu_voltage = "odu_voltage"
+    odu_comp_current = "odu_comp_current"
+    odu_target_fre = "odu_target_fre"
+    exv_current = "exv_current"
+    fg_capacity_need = "fg_capacity_need"
     instant_power0 = "instant_power0"
     silent_mode = "silent_mode"
     silent_level = "silent_level"
@@ -138,6 +155,23 @@ class MideaC3Device(MideaDevice):
                 DeviceAttributes.outdoor_temperature: None,
                 DeviceAttributes.temp_tw_in: None,
                 DeviceAttributes.temp_tw_out: None,
+                DeviceAttributes.comp_run_freq: None,
+                DeviceAttributes.unit_mode_run: None,
+                DeviceAttributes.fan_speed: None,
+                DeviceAttributes.temp_t1: None,
+                DeviceAttributes.temp_t2: None,
+                DeviceAttributes.temp_t2b: None,
+                DeviceAttributes.temp_t3: None,
+                DeviceAttributes.temp_tp: None,
+                DeviceAttributes.temp_th: None,
+                DeviceAttributes.temp_tf: None,
+                DeviceAttributes.pressure_high: None,
+                DeviceAttributes.pressure_low: None,
+                DeviceAttributes.odu_voltage: None,
+                DeviceAttributes.odu_comp_current: None,
+                DeviceAttributes.odu_target_fre: None,
+                DeviceAttributes.exv_current: None,
+                DeviceAttributes.fg_capacity_need: None,
                 DeviceAttributes.instant_power0: None,
                 DeviceAttributes.error_code: 0,
             },
@@ -298,8 +332,8 @@ class MideaC3Device(MideaDevice):
             DeviceAttributes.silent_mode.value,
             DeviceAttributes.silent_level.value,
         ]:
-            message = MessageSetSilent(self._message_protocol_version)
             if attr == DeviceAttributes.silent_mode.value and isinstance(value, bool):
+                message = MessageSetSilent(self._message_protocol_version)
                 message.silent_mode = bool(value)
                 message.silent_level = (
                     C3SilentLevel.SILENT
@@ -309,6 +343,7 @@ class MideaC3Device(MideaDevice):
                     else C3SilentLevel[self._attributes[DeviceAttributes.silent_level]]
                 )
             elif attr == DeviceAttributes.silent_level.value and isinstance(value, str):
+                message = MessageSetSilent(self._message_protocol_version)
                 message.silent_level = C3SilentLevel[value]
                 message.silent_mode = value != C3SilentLevel.OFF.name
         if message is not None:

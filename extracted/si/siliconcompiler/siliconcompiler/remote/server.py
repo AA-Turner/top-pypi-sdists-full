@@ -1,5 +1,7 @@
 # Copyright 2020 Silicon Compiler Authors. All Rights Reserved.
 
+import asyncio
+import contextlib
 import fastjsonschema
 import json
 import logging
@@ -8,6 +10,7 @@ import shutil
 import sys
 import tarfile
 import threading
+import time
 import uuid
 
 from aiohttp import web
@@ -24,6 +27,7 @@ from siliconcompiler.schema import __version__ as sc_schema_version
 
 from siliconcompiler.flowgraph import RuntimeFlowgraph
 from siliconcompiler.scheduler import SchedulerNode
+from siliconcompiler.scheduler import SlurmSchedulerNode
 from siliconcompiler.scheduler import TaskScheduler
 
 from siliconcompiler.remote import JobStatus, NodeStatus
@@ -72,6 +76,9 @@ class Server(ServerSchema):
 
     __version__ = '0.0.1'
 
+    # How long __shutdown() waits for a running job to wind down.
+    __SHUTDOWN_TIMEOUT = 10
+
     ####################
     def __init__(self):
         '''
@@ -88,9 +95,16 @@ class Server(ServerSchema):
         self.logger.addHandler(handler)
         self.logger.setLevel(logging.INFO)
 
-        # Set up a dictionary to track running jobs.
+        # Set up dictionaries to track running jobs, all guarded by
+        # sc_jobs_lock and keyed by job name:
+        #   sc_jobs         the per-node status reported by 'check_progress'
+        #   sc_job_threads  the thread running each job, so 'cancel_job' and
+        #                   server shutdown can reach a job in flight
+        #   sc_canceled_jobs  jobs a client has asked to stop
         self.sc_jobs_lock = threading.Lock()
         self.sc_jobs = {}
+        self.sc_job_threads = {}
+        self.sc_canceled_jobs = set()
         self.sc_project_lookup = {}
 
     def __run_start(self, project):
@@ -120,7 +134,9 @@ class Server(ServerSchema):
     def __node_start(self, project, step, index):
         with self.sc_jobs_lock:
             job_name = self.sc_project_lookup[project]["name"]
-            self.sc_jobs[job_name][f"{step}{index}"]["status"] = NodeStatus.RUNNING
+            node = self.sc_jobs[job_name][f"{step}{index}"]
+            node["status"] = NodeStatus.RUNNING
+            node["starttime"] = time.time()
 
     def __node_end(self, project, step, index):
         with self.sc_jobs_lock:
@@ -136,14 +152,15 @@ class Server(ServerSchema):
             SchedulerNode(project, step, index).archive(tf, include="*")
 
         with self.sc_jobs_lock:
-            self.sc_jobs[job_name][f"{step}{index}"]["status"] = \
-                project.get('record', 'status', step=step, index=index)
+            node = self.sc_jobs[job_name][f"{step}{index}"]
+            node["status"] = project.get('record', 'status', step=step, index=index)
+            node["endtime"] = time.time()
 
     def run(self):
-        if not os.path.exists(self.nfs_mount):
-            os.makedirs(self.nfs_mount, exist_ok=True)
-        if not os.path.exists(self.nfs_mount):
-            raise FileNotFoundError(f'{self.nfs_mount} could not be found.')
+        # makedirs() raises if it cannot deliver the directory, so there is
+        # nothing left to test for afterwards.
+        os.makedirs(self.nfs_mount, exist_ok=True)
+        os.makedirs(self.staging_mount, exist_ok=True)
         with open(os.path.join(self.nfs_mount, ".gitignore"), "w") as f:
             f.write("*")
 
@@ -184,19 +201,26 @@ class Server(ServerSchema):
         TaskScheduler.register_callback("post_node", self.__node_end)
 
         # Create a minimal web server to process the 'remote_run' API call.
-        self.app = web.Application()
+        # aiohttp's own default body limit is 1MB, which no real job fits in:
+        # 'remote_run' carries the manifest and the collected sources together.
+        self.app = web.Application(client_max_size=self.max_upload_size)
         self.app.add_routes([
             web.post('/remote_run/', self.handle_remote_run),
             web.post('/check_progress/', self.handle_check_progress),
             web.post('/check_server/', self.handle_check_server),
+            web.post('/cancel_job/', self.handle_cancel_job),
             web.post('/delete_job/', self.handle_delete_job),
             web.post('/get_results/{job_hash}.tar.gz', self.handle_get_results),
         ])
-        # TODO: Put zip files in a different directory.
-        # For security reasons, this is not a good public-facing solution.
-        # There's no access control on which files can be downloaded.
-        # But this is an example server which only implements a minimal API.
-        self.app.router.add_static('/get_results/', self.nfs_mount)
+
+        # Results are handed out only by handle_get_results(), which resolves
+        # the archive from a schema-validated job hash. A static route over
+        # nfs_mount would serve every job's data -- and every upload staged
+        # under it -- to any unauthenticated GET.
+
+        # Jobs in flight when the server goes down are canceled rather than
+        # abandoned; see __shutdown().
+        self.app.on_cleanup.append(self.__shutdown)
 
         # Start the async server.
         web.run_app(self.app, port=self.get('option', 'port'))
@@ -208,8 +232,12 @@ class Server(ServerSchema):
         a 'Project.run(...)' method to a compute node using slurm.
         '''
 
-        # Temporary file path to store streamed data.
-        tmp_file = os.path.join(self.nfs_mount, uuid.uuid4().hex)
+        # Temporary file path to store streamed data. Uploads are staged in
+        # their own directory: nfs_mount holds one entry per job hash, and a
+        # half-written upload parked among them is neither a job nor something
+        # anything walking them knows to clean up.
+        os.makedirs(self.staging_mount, exist_ok=True)
+        tmp_file = os.path.join(self.staging_mount, uuid.uuid4().hex)
 
         # Set up a multipart reader to read in the large file, and param data.
         reader = await request.multipart()
@@ -265,12 +293,21 @@ class Server(ServerSchema):
 
         # Move the uploaded archive and un-zip it.
         # (Contents will be encrypted for authenticated jobs)
-        with tarfile.open(tmp_file, "r:gz") as tar:
-            tar.extractall(path=job_dir, **tar_extract_kwargs())
+        try:
+            # Inside the try: claiming the job for its submitter has to happen
+            # before anything can ask who owns it, but a failure to write that
+            # record must still drop the staged upload.
+            self.__record_job_owner(job_hash, job_params['username'])
 
-        # Delete the temporary file if it still exists.
-        if os.path.exists(tmp_file):
-            os.remove(tmp_file)
+            with tarfile.open(tmp_file, "r:gz") as tar:
+                tar.extractall(path=job_dir, **tar_extract_kwargs())
+        finally:
+            # Drop the staged upload even if the extract raised: on that path
+            # the old code kept it forever. suppress() rather than a prior
+            # exists() check, which only narrows the window for the file to go
+            # away underneath us.
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(tmp_file)
 
         # Create the working directory for the given 'job hash' if necessary.
         project.option.set_builddir(job_root)
@@ -288,9 +325,24 @@ class Server(ServerSchema):
         self.logger.info(f"Received job: {job_hash}")
 
         # Run the job with the configured clustering option. (Non-blocking)
+        # The thread is a daemon so a job that never returns cannot hold the
+        # interpreter open after web.run_app() has exited; __shutdown() gives
+        # running jobs a bounded chance to finish before that happens.
         job_proc = threading.Thread(target=self.remote_sc,
                                     args=[project,
-                                          job_params['username']])
+                                          job_params['username']],
+                                    daemon=True)
+
+        sc_job_name = self.job_name(job_params['username'], job_hash)
+        with self.sc_jobs_lock:
+            self.sc_job_threads[sc_job_name] = {
+                "thread": job_proc,
+                "jobhash": job_hash
+            }
+            # Claim the job before the thread runs: remote_sc() fills in the
+            # node list, and until it does a 'check_progress' call that beat it
+            # here would be told the job had already completed.
+            self.sc_jobs[sc_job_name] = {}
         job_proc.start()
 
         # Return a response to the client.
@@ -304,16 +356,25 @@ class Server(ServerSchema):
         API handler to redirect 'get_results' POST calls.
         '''
 
-        # Process input parameters
+        # Process input parameters. The job hash arrives in the URL rather than
+        # the body, so it is put into the parameters before they are checked:
+        # aiohttp percent-decodes a path segment into match_info, so an
+        # unvalidated hash carries '../' through to the path built below.
         params = await request.json()
+        if isinstance(params, dict):
+            params['job_hash'] = request.match_info.get('job_hash', '')
+
         job_params, response = self._check_request(params,
                                                    validate_get_results)
-        job_params['job_hash'] = request.match_info.get('job_hash', '')
         if response is not None:
             return response
 
         job_hash = job_params['job_hash']
         node = job_params['node'] if 'node' in job_params else None
+
+        # Authenticating the caller says nothing about whose results these are.
+        if not self.__job_belongs_to(job_hash, job_params['username']):
+            return self.__not_owner_response()
 
         zipfn = os.path.join(self.nfs_mount, job_hash, f'{job_hash}_{node}.tar.gz')
         if not os.path.exists(zipfn):
@@ -322,6 +383,55 @@ class Server(ServerSchema):
                 status=404)
 
         return web.FileResponse(zipfn)
+
+    ####################
+    async def handle_cancel_job(self, request):
+        '''
+        API handler for 'cancel_job' requests. Stop a job that is currently
+        running.
+
+        How much can be stopped depends on where the job's nodes are running.
+        Slurm nodes are cancelable: they are named after the job hash, so the
+        server can hand them to scancel. Nodes running locally are not -- they
+        are children of the thread executing the job, and this server has no
+        handle on them -- so those run to completion. Either way the job is
+        marked canceled, which is what 'check_progress' reports and what
+        releases a waiting client.
+        '''
+
+        # Process input parameters
+        job_params, response = self._check_request(await request.json(),
+                                                   validate_cancel_job)
+        if response is not None:
+            return response
+
+        job_hash = job_params['job_hash']
+
+        # The job name is namespaced by user, so a stranger's cancel would miss the
+        # entry and be told the job is not running. Say what is actually true.
+        if not self.__job_belongs_to(job_hash, job_params['username']):
+            return self.__not_owner_response(success=False)
+
+        job_name = self.job_name(job_params['username'], job_hash)
+
+        with self.sc_jobs_lock:
+            if job_name not in self.sc_jobs:
+                return web.json_response({'message': 'Job is not running.',
+                                          'success': False},
+                                         status=404)
+
+        cluster = self.get('option', 'cluster')
+        # Off the event loop: cancelling shells out to scancel, and a request
+        # handler that blocks stalls every other client too.
+        await asyncio.to_thread(self.__cancel_job, job_name, job_hash)
+
+        if cluster == 'slurm':
+            message = f'Canceling job: {job_hash}.'
+        else:
+            message = f'Job {job_hash} marked as canceled. Nodes already ' \
+                      'running on this server will finish on their own.'
+
+        return web.json_response({'message': message, 'success': True})
 
     ####################
     async def handle_delete_job(self, request):
@@ -338,27 +448,41 @@ class Server(ServerSchema):
 
         job_hash = job_params['job_hash']
 
+        # Validating the shape of a hash says nothing about who is asking for it.
+        if not self.__job_belongs_to(job_hash, job_params['username']):
+            return self.__not_owner_response(success=False)
+
         # Determine if the job is running.
         with self.sc_jobs_lock:
             for job in self.sc_jobs:
                 if job_hash in job:
-                    return self.__response("Error: job is still running.", status=400)
+                    return self.__response("Error: job is still running.",
+                                           status=400, success=False)
 
-        # Delete job hash directory, only if it exists.
-        # TODO: This assumes no malicious input.
-        # Again, we will need a more mature server framework to implement
-        # good access control and security policies for a public-facing service.
+        # Delete job hash directory, only if it exists. job_hash reaching here
+        # has matched '^[0-9a-f]{32}$' in delete_job.json, so it cannot carry a
+        # path separator; the check below is what keeps that guarantee load
+        # bearing if the schema is ever loosened.
         build_dir = os.path.join(self.nfs_mount, job_hash)
         check_dir = os.path.dirname(build_dir)
+        deleted = False
         if check_dir == self.nfs_mount:
-            if os.path.exists(build_dir):
+            # suppress() rather than an exists() check first: nothing here holds
+            # a lock on the job's data, so a file can go away between the two.
+            with contextlib.suppress(FileNotFoundError):
                 shutil.rmtree(build_dir)
+                deleted = True
 
-            tar_file = f'{build_dir}.tar.gz'
-            if os.path.exists(tar_file):
-                os.remove(tar_file)
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(f'{build_dir}.tar.gz')
+                deleted = True
 
-        return web.Response(text="Job deleted.")
+        if not deleted:
+            # Nothing was there to delete, which is the 404 the response schema
+            # documents and the handler used to answer 200 to.
+            return self.__response("Job does not exist.", status=404, success=False)
+
+        return self.__response("Job deleted.", success=True)
 
     ####################
     async def handle_check_progress(self, request):
@@ -378,15 +502,23 @@ class Server(ServerSchema):
         job_hash = job_params['job_hash']
         username = job_params['username']
 
+        # A stranger polling this would otherwise be told the job had completed,
+        # because the job name it looks up is namespaced by user.
+        if not self.__job_belongs_to(job_hash, username):
+            return self.__not_owner_response(status=JobStatus.REJECTED)
+
         jobname = self.job_name(username, job_hash)
 
         # Determine if the job is running.
-        # TODO: Return information about individual flowgraph nodes.
         with self.sc_jobs_lock:
             if jobname in self.sc_jobs:
+                if jobname in self.sc_canceled_jobs:
+                    status = JobStatus.CANCELED
+                else:
+                    status = JobStatus.RUNNING
                 resp = {
-                    'status': JobStatus.RUNNING,
-                    'message': self.sc_jobs[jobname],
+                    'status': status,
+                    'message': self.__progress_message(jobname),
                 }
             else:
                 resp = {
@@ -394,6 +526,42 @@ class Server(ServerSchema):
                     'message': 'Job has no running steps.',
                 }
         return web.json_response(resp)
+
+    def __progress_message(self, job_name):
+        '''
+        Assemble the per-node payload for 'check_progress'.
+
+        Callers must hold sc_jobs_lock. The node records carry the timestamps
+        that 'elapsed_time' is derived from; those are the server's own
+        bookkeeping, so each node is reported without them.
+        '''
+
+        now = time.time()
+
+        message = {}
+        for node, info in self.sc_jobs[job_name].items():
+            report = {key: value for key, value in info.items()
+                      if key not in ('starttime', 'endtime', 'step', 'index')}
+            if 'starttime' in info:
+                # A finished node reports how long it took, a running one how
+                # long it has been going.
+                report['elapsed_time'] = self.__format_elapsed(
+                    info.get('endtime', now) - info['starttime'])
+            message[node] = report
+
+        return message
+
+    @staticmethod
+    def __format_elapsed(seconds):
+        '''
+        Format an elapsed time as H:MM:SS, the form the client's progress
+        display parses.
+        '''
+
+        seconds = max(0, int(seconds))
+        hours, seconds = divmod(seconds, 3600)
+        minutes, seconds = divmod(seconds, 60)
+        return f'{hours}:{minutes:02d}:{seconds:02d}'
 
     ####################
     async def handle_check_server(self, request):
@@ -434,6 +602,70 @@ class Server(ServerSchema):
             return job_hash
 
     ####################
+    def __cancel_job(self, job_name, job_hash):
+        '''
+        Mark a job canceled and stop what can be stopped.
+
+        Only slurm nodes can be reached, and the scheduler that submitted them
+        is what knows how: the node list this server tracks is enough for
+        SlurmSchedulerNode.cancel_nodes().
+        '''
+
+        with self.sc_jobs_lock:
+            if job_name not in self.sc_jobs:
+                # It finished between being looked up and being canceled, so
+                # there is nothing to stop and no flag worth keeping: the job's
+                # own teardown has already run.
+                return
+            self.sc_canceled_jobs.add(job_name)
+            nodes = [(info['step'], info['index'])
+                     for info in self.sc_jobs[job_name].values()
+                     if 'step' in info and not SCNodeStatus.is_done(info['status'])]
+
+        if self.get('option', 'cluster') != 'slurm':
+            return
+
+        if not SlurmSchedulerNode.cancel_nodes(job_hash, nodes) and nodes:
+            self.logger.warning(f'Unable to cancel nodes for job: {job_hash}')
+
+    ####################
+    async def __shutdown(self, app):
+        '''
+        aiohttp cleanup hook: deal with jobs that are still running when the
+        server goes down.
+
+        The job threads are daemons, so nothing waits on them once web.run_app()
+        returns. Without this, a Ctrl+C or SIGTERM mid-job would leave the slurm
+        jobs it submitted queued with nobody left to collect them.
+        '''
+
+        with self.sc_jobs_lock:
+            running = dict(self.sc_job_threads)
+
+        if not running:
+            return
+
+        for job_name, info in running.items():
+            self.logger.warning(f"Shutting down with job still running: {info['jobhash']}")
+            await asyncio.to_thread(self.__cancel_job, job_name, info['jobhash'])
+
+        # Canceling reaches the slurm nodes; the ones running here are processes
+        # this server's job threads started, and only their scheduler can end
+        # them. Left alone they are joined at interpreter exit, which is what
+        # used to keep an sc-server alive long after it was told to stop.
+        await asyncio.to_thread(TaskScheduler.halt_all)
+
+        # One deadline for the shutdown rather than one per job, and the joins
+        # run off the event loop: a timeout each would multiply the wait by the
+        # number of jobs, and blocking here holds up the rest of the teardown.
+        deadline = time.monotonic() + Server.__SHUTDOWN_TIMEOUT
+        for info in running.values():
+            remaining = max(0.0, deadline - time.monotonic())
+            await asyncio.to_thread(info['thread'].join, remaining)
+            if info['thread'].is_alive():
+                self.logger.warning(f"Job did not stop in time: {info['jobhash']}")
+
+    ####################
     def remote_sc(self, project, username):
         '''
         Async method to delegate an '.run()' command to a host,
@@ -442,6 +674,26 @@ class Server(ServerSchema):
 
         # Assemble core job parameters.
         job_hash = project.get('record', 'remoteid')
+        sc_job_name = self.job_name(username, job_hash)
+
+        try:
+            self.__run_job(project, job_hash, sc_job_name)
+        finally:
+            # Whatever happened, the job is over: a job left in sc_jobs is one
+            # that 'check_progress' reports as running forever, and handle_
+            # remote_run has already claimed the name by the time we get here.
+            with self.sc_jobs_lock:
+                self.sc_jobs.pop(sc_job_name, None)
+                self.sc_job_threads.pop(sc_job_name, None)
+                self.sc_canceled_jobs.discard(sc_job_name)
+                self.sc_project_lookup.pop(project, None)
+
+    ####################
+    def __run_job(self, project, job_hash, sc_job_name):
+        '''
+        Set up the job's node tracking and run it. Called on the job's own
+        thread by remote_sc(), which owns the tracking teardown.
+        '''
 
         runtime = RuntimeFlowgraph(
             project.get_flow(),
@@ -460,11 +712,14 @@ class Server(ServerSchema):
             if SCNodeStatus.is_done(status):
                 status = NodeStatus.UPLOADED
             nodes[f"{step}{index}"] = {
-                "status": status
+                "status": status,
+                # Kept so a cancel request can name the node to slurm:
+                # f"{step}{index}" cannot be split back apart.
+                "step": step,
+                "index": index
             }
 
         # Mark the job run as busy.
-        sc_job_name = self.job_name(username, job_hash)
         with self.sc_jobs_lock:
             self.sc_project_lookup[project] = {
                 "name": sc_job_name,
@@ -483,11 +738,6 @@ class Server(ServerSchema):
         # Run the job.
         project.run()
 
-        # Mark the job hash as being done.
-        with self.sc_jobs_lock:
-            self.sc_jobs.pop(sc_job_name)
-            self.sc_project_lookup.pop(project)
-
     ####################
     def __auth_password(self, username, password):
         '''
@@ -504,15 +754,14 @@ class Server(ServerSchema):
         return password == self.user_keys[username]['password']
 
     def _check_request(self, request, json_validator):
+        # An empty body is validated like any other: it is exactly how a
+        # required parameter goes missing, and skipping the check turned that
+        # into a KeyError below rather than a 400 here.
         params = {}
-        if request:
-            try:
-                params = json_validator(request)
-            except JsonSchemaException as e:
-                return (params, self.__response(f"Error: Invalid parameters: {e}.", status=400))
-
-            if not request:
-                return (params, self.__response("Error: Invalid parameters.", status=400))
+        try:
+            params = json_validator(request if request else {})
+        except JsonSchemaException as e:
+            return (params, self.__response(f"Error: Invalid parameters: {e}.", status=400))
 
         # Check for authentication parameters.
         if self.get('option', 'auth'):
@@ -532,14 +781,98 @@ class Server(ServerSchema):
         return (params, None)
 
     ###################
-    def __response(self, message, status=200):
-        return web.json_response({'message': message}, status=status)
+    def __response(self, message, status=200, **fields):
+        return web.json_response({'message': message, **fields}, status=status)
+
+    ###################
+    def __not_owner_response(self, **fields):
+        '''
+        The answer to a request naming a job that belongs to somebody else.
+
+        Each endpoint documents its own response shape, so the caller passes the
+        fields its schema names; the message and the status are the same everywhere.
+        '''
+        return web.json_response({'message': 'Error: job belongs to another user.',
+                                  **fields}, status=403)
+
+    ###################
+    def __job_owner_file(self, job_hash):
+        return os.path.join(self.nfs_mount, job_hash, '.owner')
+
+    ###################
+    def __record_job_owner(self, job_hash, username):
+        '''
+        Records who submitted a job so that a later request naming it can be checked
+        against the submitter.
+
+        A job submitted without authentication is recorded as having no owner rather
+        than not recorded at all: __job_belongs_to() treats only a *missing* record as
+        ownerless, so an unowned job has to say so. A record that exists but cannot be
+        read is not the same thing, and is left to raise there.
+        '''
+        with open(self.__job_owner_file(job_hash), 'w') as f:
+            json.dump({'username': username}, f)
+
+    ###################
+    def __job_belongs_to(self, job_hash, username):
+        '''
+        Whether the given user may act on the given job.
+
+        A job has an owner only when it was submitted with authentication. Without one
+        there is no identity to check a request against, so any client holding the hash
+        may act on the job: on a server running without authentication that is the
+        documented behaviour of this reference implementation, not an oversight.
+
+        A job that does have an owner may only be acted on by that owner.
+        '''
+        try:
+            with open(self.__job_owner_file(job_hash)) as f:
+                record = json.load(f)
+        except FileNotFoundError:
+            # A job submitted before this record existed, or one whose directory has
+            # gone: either way there is no owner to enforce. Only a missing record
+            # opens the job -- an unreadable or malformed one must not, or a
+            # permission error would hand the job to whoever asked next.
+            return True
+
+        if not isinstance(record, dict) or 'username' not in record:
+            # A record that exists but is not one this server wrote says nothing
+            # about who owns the job, which is not the same as saying nobody does.
+            self.logger.warning(f'Malformed owner record for job: {job_hash}')
+            return False
+
+        owner = record['username']
+        if owner is None:
+            return True
+
+        return owner == username
 
     ###################
     @property
     def nfs_mount(self):
         # Ensure that NFS mounting path is absolute.
         return os.path.abspath(self.get('option', 'nfsmount'))
+
+    ###################
+    @property
+    def staging_mount(self):
+        # Uploads are staged here rather than in nfs_mount itself, which holds
+        # one directory per job hash.
+        return os.path.join(self.nfs_mount, '.staging')
+
+    ###################
+    @property
+    def max_upload_size(self):
+        # Schema is in MB, aiohttp wants bytes.
+        #
+        # No limit is sys.maxsize rather than 0: aiohttp reads 0 as no limit
+        # when reading a whole body, but its multipart reader -- which is the
+        # path an upload takes -- compares part sizes against the value
+        # unconditionally, where 0 rejects everything.
+        limit = self.get('option', 'maxuploadsize')
+        if not limit:
+            return sys.maxsize
+        return limit * 1024 * 1024
 
     ###################
     @property

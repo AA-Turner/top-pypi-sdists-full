@@ -327,6 +327,43 @@ def test_uses_explicit_azure_devops_state_without_remote_context(mock_get_value,
     assert request.repository == "repo"
 
 
+@pytest.mark.parametrize(
+    ("missing_key", "expected"),
+    [
+        ("organization", "https://dev.azure.com/remote-org"),
+        ("project", "remote-project"),
+        ("repository", "remote-repo"),
+    ],
+)
+@patch(
+    "agentic_devtools.cli.pull_request_threads.get_azure_devops_context_from_git_remote",
+    return_value=("https://dev.azure.com/remote-org", "remote-project", "remote-repo"),
+)
+@patch("agentic_devtools.cli.pull_request_threads.get_value")
+def test_partial_azure_devops_state_uses_remote_fallback(
+    mock_get_value, _mock_remote_context, missing_key, expected
+) -> None:
+    """A partially configured Azure DevOps state fills only its missing coordinate."""
+    values = {
+        "platform.code_hosting": "azure_devops",
+        "organization": "https://dev.azure.com/state-org",
+        "project": "state-project",
+        "repository": "state-repo",
+        "thread_id": 99,
+    }
+    values[missing_key] = None
+    mock_get_value.side_effect = values.get
+
+    request = build_thread_resolution_request(pull_request_id=7)
+
+    actual = {
+        "organization": request.azure_devops_organization,
+        "project": request.azure_devops_project,
+        "repository": request.repository,
+    }
+    assert actual[missing_key] == expected
+
+
 @patch("agentic_devtools.cli.pull_request_threads.get_azure_devops_context_from_git_remote", return_value=None)
 @patch("agentic_devtools.cli.pull_request_threads.get_value")
 def test_rejects_missing_azure_devops_context_without_placeholder_defaults(

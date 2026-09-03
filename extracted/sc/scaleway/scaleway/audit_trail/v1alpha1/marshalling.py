@@ -16,14 +16,18 @@ from .types import (
     AuthenticationEventMethod,
     AuthenticationEventOrigin,
     AuthenticationEventResult,
+    CustomAlertRuleSeverity,
+    CustomAlertRuleStatus,
     SystemEventKind,
+    CustomAlertRule,
     ExportJobS3,
     ExportJobStatus,
     ExportJob,
     AlertRule,
     DisableAlertRulesResponse,
+    DisableCustomAlertRulesResponse,
     EnableAlertRulesResponse,
-    ListAlertRulesResponse,
+    EnableCustomAlertRulesResponse,
     AccountContractSignatureInfoAccountContractInfo,
     AccountContractSignatureInfo,
     AccountOrganizationInfo,
@@ -32,6 +36,7 @@ from .types import (
     AppleSiliconRunnerInfo,
     AppleSiliconServerInfo,
     AuditTrailAlertRuleInfo,
+    AuditTrailCustomAlertRuleInfo,
     AuditTrailExportJobInfo,
     BaremetalServerInfo,
     BaremetalSettingInfo,
@@ -43,6 +48,7 @@ from .types import (
     EdgeServicesRouteRulesInfo,
     EdgeServicesRouteStageInfo,
     EdgeServicesTLSStageInfo,
+    EdgeServicesVPCEndpointInfo,
     EdgeServicesWAFStageInfo,
     InstancePrivateNetworkInterfaceInfo,
     InstanceServerInfo,
@@ -59,22 +65,37 @@ from .types import (
     LoadBalancerIpInfo,
     LoadBalancerLbInfo,
     LoadBalancerRouteInfo,
+    ObservabilityAlertRuleInfo,
+    ObservabilityContactPointInfo,
     SecretManagerSecretInfo,
     SecretManagerSecretVersionInfo,
+    ServerlessContainersContainerInfo,
+    ServerlessContainersDomainInfo,
+    ServerlessContainersNamespaceInfo,
+    ServerlessContainersTriggerInfo,
+    ServerlessFunctionsCronInfo,
+    ServerlessFunctionsDomainInfo,
+    ServerlessFunctionsFunctionInfo,
+    ServerlessFunctionsNamespaceInfo,
+    ServerlessFunctionsTriggerInfo,
     VpcConnectorInfo,
     VpcGwGatewayInfo,
     VpcGwGatewayNetworkInfo,
+    VpcIngressRuleInfo,
     VpcPrivateNetworkInfo,
     VpcRouteInfo,
     VpcSubnetInfo,
+    EventPrincipal,
     Resource,
+    Event,
+    EventsOverview,
+    ListAlertRulesResponse,
     AuthenticationEvent,
     ListAuthenticationEventsResponse,
-    EventPrincipal,
-    Event,
     SystemEvent,
     ListCombinedEventsResponseCombinedEvent,
     ListCombinedEventsResponse,
+    ListCustomAlertRulesResponse,
     ListEventsResponse,
     ListExportJobsResponse,
     ProductService,
@@ -82,14 +103,91 @@ from .types import (
     ListProductsResponse,
     ListSystemEventsResponse,
     SetEnabledAlertRulesResponse,
+    SetEnabledCustomAlertRulesResponse,
+    CreateCustomAlertRuleRequest,
     CreateExportJobRequest,
     DisableAlertRulesRequest,
+    DisableCustomAlertRulesRequest,
     EnableAlertRulesRequest,
+    EnableCustomAlertRulesRequest,
     SetEnabledAlertRulesRequest,
+    SetEnabledCustomAlertRulesRequest,
+    UpdateCustomAlertRuleRequest,
 )
 from ...std.types import (
     CountryCode as StdCountryCode,
 )
+
+
+def unmarshal_CustomAlertRule(data: Any) -> CustomAlertRule:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'CustomAlertRule' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("id", None)
+    if field is not None:
+        args["id"] = field
+    else:
+        args["id"] = None
+
+    field = data.get("name", None)
+    if field is not None:
+        args["name"] = field
+    else:
+        args["name"] = None
+
+    field = data.get("status", None)
+    if field is not None:
+        args["status"] = field
+    else:
+        args["status"] = CustomAlertRuleStatus.UNKNOWN_STATUS
+
+    field = data.get("query", None)
+    if field is not None:
+        args["query"] = field
+    else:
+        args["query"] = None
+
+    field = data.get("occurrences", None)
+    if field is not None:
+        args["occurrences"] = field
+    else:
+        args["occurrences"] = 0
+
+    field = data.get("severity", None)
+    if field is not None:
+        args["severity"] = field
+    else:
+        args["severity"] = CustomAlertRuleSeverity.UNKNOWN_SEVERITY
+
+    field = data.get("description", None)
+    if field is not None:
+        args["description"] = field
+    else:
+        args["description"] = None
+
+    field = data.get("evaluation_window", None)
+    if field is not None:
+        args["evaluation_window"] = field
+    else:
+        args["evaluation_window"] = None
+
+    field = data.get("created_at", None)
+    if field is not None:
+        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["created_at"] = None
+
+    field = data.get("updated_at", None)
+    if field is not None:
+        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["updated_at"] = None
+
+    return CustomAlertRule(**args)
 
 
 def unmarshal_ExportJobS3(data: Any) -> ExportJobS3:
@@ -265,6 +363,27 @@ def unmarshal_DisableAlertRulesResponse(data: Any) -> DisableAlertRulesResponse:
     return DisableAlertRulesResponse(**args)
 
 
+def unmarshal_DisableCustomAlertRulesResponse(
+    data: Any,
+) -> DisableCustomAlertRulesResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'DisableCustomAlertRulesResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("custom_alert_rules", None)
+    if field is not None:
+        args["custom_alert_rules"] = (
+            [unmarshal_CustomAlertRule(v) for v in field] if field is not None else None
+        )
+    else:
+        args["custom_alert_rules"] = []
+
+    return DisableCustomAlertRulesResponse(**args)
+
+
 def unmarshal_EnableAlertRulesResponse(data: Any) -> EnableAlertRulesResponse:
     if not isinstance(data, dict):
         raise TypeError(
@@ -284,29 +403,25 @@ def unmarshal_EnableAlertRulesResponse(data: Any) -> EnableAlertRulesResponse:
     return EnableAlertRulesResponse(**args)
 
 
-def unmarshal_ListAlertRulesResponse(data: Any) -> ListAlertRulesResponse:
+def unmarshal_EnableCustomAlertRulesResponse(
+    data: Any,
+) -> EnableCustomAlertRulesResponse:
     if not isinstance(data, dict):
         raise TypeError(
-            "Unmarshalling the type 'ListAlertRulesResponse' failed as data isn't a dictionary."
+            "Unmarshalling the type 'EnableCustomAlertRulesResponse' failed as data isn't a dictionary."
         )
 
     args: dict[str, Any] = {}
 
-    field = data.get("alert_rules", None)
+    field = data.get("custom_alert_rules", None)
     if field is not None:
-        args["alert_rules"] = (
-            [unmarshal_AlertRule(v) for v in field] if field is not None else None
+        args["custom_alert_rules"] = (
+            [unmarshal_CustomAlertRule(v) for v in field] if field is not None else None
         )
     else:
-        args["alert_rules"] = []
+        args["custom_alert_rules"] = []
 
-    field = data.get("total_count", None)
-    if field is not None:
-        args["total_count"] = field
-    else:
-        args["total_count"] = 0
-
-    return ListAlertRulesResponse(**args)
+    return EnableCustomAlertRulesResponse(**args)
 
 
 def unmarshal_AccountContractSignatureInfoAccountContractInfo(
@@ -503,6 +618,17 @@ def unmarshal_AuditTrailAlertRuleInfo(data: Any) -> AuditTrailAlertRuleInfo:
     return AuditTrailAlertRuleInfo(**args)
 
 
+def unmarshal_AuditTrailCustomAlertRuleInfo(data: Any) -> AuditTrailCustomAlertRuleInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'AuditTrailCustomAlertRuleInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return AuditTrailCustomAlertRuleInfo(**args)
+
+
 def unmarshal_AuditTrailExportJobInfo(data: Any) -> AuditTrailExportJobInfo:
     if not isinstance(data, dict):
         raise TypeError(
@@ -682,6 +808,23 @@ def unmarshal_EdgeServicesTLSStageInfo(data: Any) -> EdgeServicesTLSStageInfo:
         args["pipeline_id"] = None
 
     return EdgeServicesTLSStageInfo(**args)
+
+
+def unmarshal_EdgeServicesVPCEndpointInfo(data: Any) -> EdgeServicesVPCEndpointInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'EdgeServicesVPCEndpointInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("private_network_id", None)
+    if field is not None:
+        args["private_network_id"] = field
+    else:
+        args["private_network_id"] = None
+
+    return EdgeServicesVPCEndpointInfo(**args)
 
 
 def unmarshal_EdgeServicesWAFStageInfo(data: Any) -> EdgeServicesWAFStageInfo:
@@ -994,6 +1137,40 @@ def unmarshal_LoadBalancerRouteInfo(data: Any) -> LoadBalancerRouteInfo:
     return LoadBalancerRouteInfo(**args)
 
 
+def unmarshal_ObservabilityAlertRuleInfo(data: Any) -> ObservabilityAlertRuleInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ObservabilityAlertRuleInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("rule_ids", None)
+    if field is not None:
+        args["rule_ids"] = field
+    else:
+        args["rule_ids"] = None
+
+    return ObservabilityAlertRuleInfo(**args)
+
+
+def unmarshal_ObservabilityContactPointInfo(data: Any) -> ObservabilityContactPointInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ObservabilityContactPointInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("email", None)
+    if field is not None:
+        args["email"] = field
+    else:
+        args["email"] = None
+
+    return ObservabilityContactPointInfo(**args)
+
+
 def unmarshal_SecretManagerSecretInfo(data: Any) -> SecretManagerSecretInfo:
     if not isinstance(data, dict):
         raise TypeError(
@@ -1034,6 +1211,173 @@ def unmarshal_SecretManagerSecretVersionInfo(
         args["revision"] = None
 
     return SecretManagerSecretVersionInfo(**args)
+
+
+def unmarshal_ServerlessContainersContainerInfo(
+    data: Any,
+) -> ServerlessContainersContainerInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessContainersContainerInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("namespace_id", None)
+    if field is not None:
+        args["namespace_id"] = field
+    else:
+        args["namespace_id"] = None
+
+    return ServerlessContainersContainerInfo(**args)
+
+
+def unmarshal_ServerlessContainersDomainInfo(
+    data: Any,
+) -> ServerlessContainersDomainInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessContainersDomainInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("container_id", None)
+    if field is not None:
+        args["container_id"] = field
+    else:
+        args["container_id"] = None
+
+    return ServerlessContainersDomainInfo(**args)
+
+
+def unmarshal_ServerlessContainersNamespaceInfo(
+    data: Any,
+) -> ServerlessContainersNamespaceInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessContainersNamespaceInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return ServerlessContainersNamespaceInfo(**args)
+
+
+def unmarshal_ServerlessContainersTriggerInfo(
+    data: Any,
+) -> ServerlessContainersTriggerInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessContainersTriggerInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("container_id", None)
+    if field is not None:
+        args["container_id"] = field
+    else:
+        args["container_id"] = None
+
+    field = data.get("source_type", None)
+    if field is not None:
+        args["source_type"] = field
+    else:
+        args["source_type"] = None
+
+    return ServerlessContainersTriggerInfo(**args)
+
+
+def unmarshal_ServerlessFunctionsCronInfo(data: Any) -> ServerlessFunctionsCronInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessFunctionsCronInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("function_id", None)
+    if field is not None:
+        args["function_id"] = field
+    else:
+        args["function_id"] = None
+
+    return ServerlessFunctionsCronInfo(**args)
+
+
+def unmarshal_ServerlessFunctionsDomainInfo(data: Any) -> ServerlessFunctionsDomainInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessFunctionsDomainInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("function_id", None)
+    if field is not None:
+        args["function_id"] = field
+    else:
+        args["function_id"] = None
+
+    return ServerlessFunctionsDomainInfo(**args)
+
+
+def unmarshal_ServerlessFunctionsFunctionInfo(
+    data: Any,
+) -> ServerlessFunctionsFunctionInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessFunctionsFunctionInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("namespace_id", None)
+    if field is not None:
+        args["namespace_id"] = field
+    else:
+        args["namespace_id"] = None
+
+    return ServerlessFunctionsFunctionInfo(**args)
+
+
+def unmarshal_ServerlessFunctionsNamespaceInfo(
+    data: Any,
+) -> ServerlessFunctionsNamespaceInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessFunctionsNamespaceInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    return ServerlessFunctionsNamespaceInfo(**args)
+
+
+def unmarshal_ServerlessFunctionsTriggerInfo(
+    data: Any,
+) -> ServerlessFunctionsTriggerInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ServerlessFunctionsTriggerInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("function_id", None)
+    if field is not None:
+        args["function_id"] = field
+    else:
+        args["function_id"] = None
+
+    field = data.get("input_type", None)
+    if field is not None:
+        args["input_type"] = field
+    else:
+        args["input_type"] = None
+
+    return ServerlessFunctionsTriggerInfo(**args)
 
 
 def unmarshal_VpcConnectorInfo(data: Any) -> VpcConnectorInfo:
@@ -1117,6 +1461,41 @@ def unmarshal_VpcGwGatewayNetworkInfo(data: Any) -> VpcGwGatewayNetworkInfo:
     return VpcGwGatewayNetworkInfo(**args)
 
 
+def unmarshal_VpcIngressRuleInfo(data: Any) -> VpcIngressRuleInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'VpcIngressRuleInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("vpc_id", None)
+    if field is not None:
+        args["vpc_id"] = field
+    else:
+        args["vpc_id"] = None
+
+    field = data.get("source", None)
+    if field is not None:
+        args["source"] = field
+    else:
+        args["source"] = None
+
+    field = data.get("nexthop_private_network_id", None)
+    if field is not None:
+        args["nexthop_private_network_id"] = field
+    else:
+        args["nexthop_private_network_id"] = None
+
+    field = data.get("nexthop_resource_ip", None)
+    if field is not None:
+        args["nexthop_resource_ip"] = field
+    else:
+        args["nexthop_resource_ip"] = None
+
+    return VpcIngressRuleInfo(**args)
+
+
 def unmarshal_VpcPrivateNetworkInfo(data: Any) -> VpcPrivateNetworkInfo:
     if not isinstance(data, dict):
         raise TypeError(
@@ -1198,6 +1577,23 @@ def unmarshal_VpcSubnetInfo(data: Any) -> VpcSubnetInfo:
     return VpcSubnetInfo(**args)
 
 
+def unmarshal_EventPrincipal(data: Any) -> EventPrincipal:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'EventPrincipal' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("id", None)
+    if field is not None:
+        args["id"] = field
+    else:
+        args["id"] = None
+
+    return EventPrincipal(**args)
+
+
 def unmarshal_Resource(data: Any) -> Resource:
     if not isinstance(data, dict):
         raise TypeError(
@@ -1241,6 +1637,12 @@ def unmarshal_Resource(data: Any) -> Resource:
         args["name"] = field
     else:
         args["name"] = None
+
+    field = data.get("action", None)
+    if field is not None:
+        args["action"] = field
+    else:
+        args["action"] = None
 
     field = data.get("secm_secret_info", None)
     if field is not None:
@@ -1530,7 +1932,266 @@ def unmarshal_Resource(data: Any) -> Resource:
     else:
         args["instance_private_network_interface_info"] = None
 
+    field = data.get("vpc_ingress_rule_info", None)
+    if field is not None:
+        args["vpc_ingress_rule_info"] = unmarshal_VpcIngressRuleInfo(field)
+    else:
+        args["vpc_ingress_rule_info"] = None
+
+    field = data.get("observability_contact_point_info", None)
+    if field is not None:
+        args["observability_contact_point_info"] = (
+            unmarshal_ObservabilityContactPointInfo(field)
+        )
+    else:
+        args["observability_contact_point_info"] = None
+
+    field = data.get("observability_alert_rule_info", None)
+    if field is not None:
+        args["observability_alert_rule_info"] = unmarshal_ObservabilityAlertRuleInfo(
+            field
+        )
+    else:
+        args["observability_alert_rule_info"] = None
+
+    field = data.get("edge_services_vpc_endpoint_info", None)
+    if field is not None:
+        args["edge_services_vpc_endpoint_info"] = unmarshal_EdgeServicesVPCEndpointInfo(
+            field
+        )
+    else:
+        args["edge_services_vpc_endpoint_info"] = None
+
+    field = data.get("audit_trail_custom_alert_rule_info", None)
+    if field is not None:
+        args["audit_trail_custom_alert_rule_info"] = (
+            unmarshal_AuditTrailCustomAlertRuleInfo(field)
+        )
+    else:
+        args["audit_trail_custom_alert_rule_info"] = None
+
+    field = data.get("serverless_containers_namespace_info", None)
+    if field is not None:
+        args["serverless_containers_namespace_info"] = (
+            unmarshal_ServerlessContainersNamespaceInfo(field)
+        )
+    else:
+        args["serverless_containers_namespace_info"] = None
+
+    field = data.get("serverless_containers_container_info", None)
+    if field is not None:
+        args["serverless_containers_container_info"] = (
+            unmarshal_ServerlessContainersContainerInfo(field)
+        )
+    else:
+        args["serverless_containers_container_info"] = None
+
+    field = data.get("serverless_containers_domain_info", None)
+    if field is not None:
+        args["serverless_containers_domain_info"] = (
+            unmarshal_ServerlessContainersDomainInfo(field)
+        )
+    else:
+        args["serverless_containers_domain_info"] = None
+
+    field = data.get("serverless_containers_trigger_info", None)
+    if field is not None:
+        args["serverless_containers_trigger_info"] = (
+            unmarshal_ServerlessContainersTriggerInfo(field)
+        )
+    else:
+        args["serverless_containers_trigger_info"] = None
+
+    field = data.get("serverless_functions_namespace_info", None)
+    if field is not None:
+        args["serverless_functions_namespace_info"] = (
+            unmarshal_ServerlessFunctionsNamespaceInfo(field)
+        )
+    else:
+        args["serverless_functions_namespace_info"] = None
+
+    field = data.get("serverless_functions_function_info", None)
+    if field is not None:
+        args["serverless_functions_function_info"] = (
+            unmarshal_ServerlessFunctionsFunctionInfo(field)
+        )
+    else:
+        args["serverless_functions_function_info"] = None
+
+    field = data.get("serverless_functions_domain_info", None)
+    if field is not None:
+        args["serverless_functions_domain_info"] = (
+            unmarshal_ServerlessFunctionsDomainInfo(field)
+        )
+    else:
+        args["serverless_functions_domain_info"] = None
+
+    field = data.get("serverless_functions_cron_info", None)
+    if field is not None:
+        args["serverless_functions_cron_info"] = unmarshal_ServerlessFunctionsCronInfo(
+            field
+        )
+    else:
+        args["serverless_functions_cron_info"] = None
+
+    field = data.get("serverless_functions_trigger_info", None)
+    if field is not None:
+        args["serverless_functions_trigger_info"] = (
+            unmarshal_ServerlessFunctionsTriggerInfo(field)
+        )
+    else:
+        args["serverless_functions_trigger_info"] = None
+
     return Resource(**args)
+
+
+def unmarshal_Event(data: Any) -> Event:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'Event' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("id", None)
+    if field is not None:
+        args["id"] = field
+    else:
+        args["id"] = None
+
+    field = data.get("locality", None)
+    if field is not None:
+        args["locality"] = field
+    else:
+        args["locality"] = None
+
+    field = data.get("organization_id", None)
+    if field is not None:
+        args["organization_id"] = field
+    else:
+        args["organization_id"] = None
+
+    field = data.get("source_ip", None)
+    if field is not None:
+        args["source_ip"] = field
+    else:
+        args["source_ip"] = None
+
+    field = data.get("product_name", None)
+    if field is not None:
+        args["product_name"] = field
+    else:
+        args["product_name"] = None
+
+    field = data.get("recorded_at", None)
+    if field is not None:
+        args["recorded_at"] = (
+            parser.isoparse(field) if isinstance(field, str) else field
+        )
+    else:
+        args["recorded_at"] = None
+
+    field = data.get("principal", None)
+    if field is not None:
+        args["principal"] = unmarshal_EventPrincipal(field)
+    else:
+        args["principal"] = None
+
+    field = data.get("project_id", None)
+    if field is not None:
+        args["project_id"] = field
+    else:
+        args["project_id"] = None
+
+    field = data.get("user_agent", None)
+    if field is not None:
+        args["user_agent"] = field
+    else:
+        args["user_agent"] = None
+
+    field = data.get("service_name", None)
+    if field is not None:
+        args["service_name"] = field
+    else:
+        args["service_name"] = None
+
+    field = data.get("method_name", None)
+    if field is not None:
+        args["method_name"] = field
+    else:
+        args["method_name"] = None
+
+    field = data.get("resources", None)
+    if field is not None:
+        args["resources"] = (
+            [unmarshal_Resource(v) for v in field] if field is not None else None
+        )
+    else:
+        args["resources"] = []
+
+    field = data.get("request_id", None)
+    if field is not None:
+        args["request_id"] = field
+    else:
+        args["request_id"] = None
+
+    field = data.get("status_code", None)
+    if field is not None:
+        args["status_code"] = field
+    else:
+        args["status_code"] = 0
+
+    field = data.get("request_body", None)
+    if field is not None:
+        args["request_body"] = field
+    else:
+        args["request_body"] = {}
+
+    return Event(**args)
+
+
+def unmarshal_EventsOverview(data: Any) -> EventsOverview:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'EventsOverview' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("last_events", None)
+    if field is not None:
+        args["last_events"] = (
+            [unmarshal_Event(v) for v in field] if field is not None else None
+        )
+    else:
+        args["last_events"] = None
+
+    return EventsOverview(**args)
+
+
+def unmarshal_ListAlertRulesResponse(data: Any) -> ListAlertRulesResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ListAlertRulesResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("alert_rules", None)
+    if field is not None:
+        args["alert_rules"] = (
+            [unmarshal_AlertRule(v) for v in field] if field is not None else None
+        )
+    else:
+        args["alert_rules"] = []
+
+    field = data.get("total_count", None)
+    if field is not None:
+        args["total_count"] = field
+    else:
+        args["total_count"] = 0
+
+    return ListAlertRulesResponse(**args)
 
 
 def unmarshal_AuthenticationEvent(data: Any) -> AuthenticationEvent:
@@ -1647,128 +2308,6 @@ def unmarshal_ListAuthenticationEventsResponse(
         args["next_page_token"] = None
 
     return ListAuthenticationEventsResponse(**args)
-
-
-def unmarshal_EventPrincipal(data: Any) -> EventPrincipal:
-    if not isinstance(data, dict):
-        raise TypeError(
-            "Unmarshalling the type 'EventPrincipal' failed as data isn't a dictionary."
-        )
-
-    args: dict[str, Any] = {}
-
-    field = data.get("id", None)
-    if field is not None:
-        args["id"] = field
-    else:
-        args["id"] = None
-
-    return EventPrincipal(**args)
-
-
-def unmarshal_Event(data: Any) -> Event:
-    if not isinstance(data, dict):
-        raise TypeError(
-            "Unmarshalling the type 'Event' failed as data isn't a dictionary."
-        )
-
-    args: dict[str, Any] = {}
-
-    field = data.get("id", None)
-    if field is not None:
-        args["id"] = field
-    else:
-        args["id"] = None
-
-    field = data.get("locality", None)
-    if field is not None:
-        args["locality"] = field
-    else:
-        args["locality"] = None
-
-    field = data.get("organization_id", None)
-    if field is not None:
-        args["organization_id"] = field
-    else:
-        args["organization_id"] = None
-
-    field = data.get("source_ip", None)
-    if field is not None:
-        args["source_ip"] = field
-    else:
-        args["source_ip"] = None
-
-    field = data.get("product_name", None)
-    if field is not None:
-        args["product_name"] = field
-    else:
-        args["product_name"] = None
-
-    field = data.get("recorded_at", None)
-    if field is not None:
-        args["recorded_at"] = (
-            parser.isoparse(field) if isinstance(field, str) else field
-        )
-    else:
-        args["recorded_at"] = None
-
-    field = data.get("principal", None)
-    if field is not None:
-        args["principal"] = unmarshal_EventPrincipal(field)
-    else:
-        args["principal"] = None
-
-    field = data.get("project_id", None)
-    if field is not None:
-        args["project_id"] = field
-    else:
-        args["project_id"] = None
-
-    field = data.get("user_agent", None)
-    if field is not None:
-        args["user_agent"] = field
-    else:
-        args["user_agent"] = None
-
-    field = data.get("service_name", None)
-    if field is not None:
-        args["service_name"] = field
-    else:
-        args["service_name"] = None
-
-    field = data.get("method_name", None)
-    if field is not None:
-        args["method_name"] = field
-    else:
-        args["method_name"] = None
-
-    field = data.get("resources", None)
-    if field is not None:
-        args["resources"] = (
-            [unmarshal_Resource(v) for v in field] if field is not None else None
-        )
-    else:
-        args["resources"] = []
-
-    field = data.get("request_id", None)
-    if field is not None:
-        args["request_id"] = field
-    else:
-        args["request_id"] = None
-
-    field = data.get("status_code", None)
-    if field is not None:
-        args["status_code"] = field
-    else:
-        args["status_code"] = 0
-
-    field = data.get("request_body", None)
-    if field is not None:
-        args["request_body"] = field
-    else:
-        args["request_body"] = {}
-
-    return Event(**args)
 
 
 def unmarshal_SystemEvent(data: Any) -> SystemEvent:
@@ -1902,6 +2441,31 @@ def unmarshal_ListCombinedEventsResponse(data: Any) -> ListCombinedEventsRespons
         args["next_page_token"] = None
 
     return ListCombinedEventsResponse(**args)
+
+
+def unmarshal_ListCustomAlertRulesResponse(data: Any) -> ListCustomAlertRulesResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ListCustomAlertRulesResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("custom_alert_rules", None)
+    if field is not None:
+        args["custom_alert_rules"] = (
+            [unmarshal_CustomAlertRule(v) for v in field] if field is not None else None
+        )
+    else:
+        args["custom_alert_rules"] = []
+
+    field = data.get("total_count", None)
+    if field is not None:
+        args["total_count"] = field
+    else:
+        args["total_count"] = 0
+
+    return ListCustomAlertRulesResponse(**args)
 
 
 def unmarshal_ListEventsResponse(data: Any) -> ListEventsResponse:
@@ -2077,6 +2641,59 @@ def unmarshal_SetEnabledAlertRulesResponse(data: Any) -> SetEnabledAlertRulesRes
     return SetEnabledAlertRulesResponse(**args)
 
 
+def unmarshal_SetEnabledCustomAlertRulesResponse(
+    data: Any,
+) -> SetEnabledCustomAlertRulesResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'SetEnabledCustomAlertRulesResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("custom_alert_rules", None)
+    if field is not None:
+        args["custom_alert_rules"] = (
+            [unmarshal_CustomAlertRule(v) for v in field] if field is not None else None
+        )
+    else:
+        args["custom_alert_rules"] = []
+
+    return SetEnabledCustomAlertRulesResponse(**args)
+
+
+def marshal_CreateCustomAlertRuleRequest(
+    request: CreateCustomAlertRuleRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.name is not None:
+        output["name"] = request.name
+
+    if request.query is not None:
+        output["query"] = request.query
+
+    if request.occurrences is not None:
+        output["occurrences"] = request.occurrences
+
+    if request.organization_id is not None:
+        output["organization_id"] = request.organization_id
+    else:
+        output["organization_id"] = defaults.default_organization_id
+
+    if request.description is not None:
+        output["description"] = request.description
+
+    if request.evaluation_window is not None:
+        output["evaluation_window"] = request.evaluation_window
+
+    if request.severity is not None:
+        output["severity"] = request.severity
+
+    return output
+
+
 def marshal_ExportJobS3(
     request: ExportJobS3,
     defaults: ProfileDefaults,
@@ -2146,6 +2763,23 @@ def marshal_DisableAlertRulesRequest(
     return output
 
 
+def marshal_DisableCustomAlertRulesRequest(
+    request: DisableCustomAlertRulesRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.organization_id is not None:
+        output["organization_id"] = request.organization_id
+    else:
+        output["organization_id"] = defaults.default_organization_id
+
+    if request.custom_alert_rule_ids is not None:
+        output["custom_alert_rule_ids"] = request.custom_alert_rule_ids
+
+    return output
+
+
 def marshal_EnableAlertRulesRequest(
     request: EnableAlertRulesRequest,
     defaults: ProfileDefaults,
@@ -2163,6 +2797,23 @@ def marshal_EnableAlertRulesRequest(
     return output
 
 
+def marshal_EnableCustomAlertRulesRequest(
+    request: EnableCustomAlertRulesRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.organization_id is not None:
+        output["organization_id"] = request.organization_id
+    else:
+        output["organization_id"] = defaults.default_organization_id
+
+    if request.custom_alert_rule_ids is not None:
+        output["custom_alert_rule_ids"] = request.custom_alert_rule_ids
+
+    return output
+
+
 def marshal_SetEnabledAlertRulesRequest(
     request: SetEnabledAlertRulesRequest,
     defaults: ProfileDefaults,
@@ -2176,5 +2827,37 @@ def marshal_SetEnabledAlertRulesRequest(
 
     if request.enabled_alert_rule_ids is not None:
         output["enabled_alert_rule_ids"] = request.enabled_alert_rule_ids
+
+    return output
+
+
+def marshal_SetEnabledCustomAlertRulesRequest(
+    request: SetEnabledCustomAlertRulesRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.organization_id is not None:
+        output["organization_id"] = request.organization_id
+    else:
+        output["organization_id"] = defaults.default_organization_id
+
+    if request.enabled_custom_alert_rule_ids is not None:
+        output["enabled_custom_alert_rule_ids"] = request.enabled_custom_alert_rule_ids
+
+    return output
+
+
+def marshal_UpdateCustomAlertRuleRequest(
+    request: UpdateCustomAlertRuleRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.name is not None:
+        output["name"] = request.name
+
+    if request.description is not None:
+        output["description"] = request.description
 
     return output

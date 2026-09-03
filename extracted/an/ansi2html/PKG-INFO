@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansi2html
-Version: 1.9.3
+Version: 1.9.4
 Summary: Convert text with ANSI color codes to HTML or to LaTeX
 Author-email: Ralph Bean <rbean@redhat.com>
 Maintainer-email: Ralph Bean <rbean@redhat.com>

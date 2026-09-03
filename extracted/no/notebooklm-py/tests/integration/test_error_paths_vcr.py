@@ -31,7 +31,7 @@ a real-world error shape (e.g. a quota-exhaustion 429 with a real
 Recording note (maintainers)
 ----------------------------
 As of Tier-12 PR 12.6, synthetic-error substitution lives in
-:class:`notebooklm._middleware.error_injection.ErrorInjectionMiddleware`
+:class:`notebooklm._web.transport.middleware.error_injection.ErrorInjectionMiddleware`
 at the chain layer — well above the ``httpx`` transport. VCR's record
 hook patches ``httpcore.AsyncConnectionPool.handle_async_request`` (below
 httpx), so the chain short-circuit happens before VCR ever sees the
@@ -203,8 +203,9 @@ class TestErrorPaths:
         # ``test_auth_refresh_vcr.py`` exercises that full three-leg flow.
         refresh_calls: list[object] = []
 
-        async def stub_refresh() -> AuthTokens:
+        async def stub_refresh(expected_epoch: int) -> AuthTokens:
             refresh_calls.append(None)
+            client._collaborators.auth_coord.assert_epoch(expected_epoch)
             # Mutate the in-memory CSRF token to simulate a successful refresh.
             # The retry loop rebuilds the request body from the refreshed
             # auth snapshot after refresh, so
@@ -220,6 +221,7 @@ class TestErrorPaths:
             client._collaborators.auth_coord.update_auth_headers(
                 auth=client._auth,
                 kernel=client._collaborators.kernel,
+                expected_epoch=expected_epoch,
             )
             return client._auth
 

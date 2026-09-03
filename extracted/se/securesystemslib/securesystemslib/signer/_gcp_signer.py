@@ -4,27 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Any
 from urllib import parse
 
 from securesystemslib import exceptions
-from securesystemslib.signer._constants import (
-    ECDSA_SHA2_NISTP256,
-    ECDSA_SHA2_NISTP384,
-    KEY_TYPE_ECDSA,
-    KEY_TYPE_MLDSA,
-    KEY_TYPE_RSA,
-    MLDSA_44_1,
-    MLDSA_65_1,
-    MLDSA_87_1,
-    RSA_PKCS1V15_SHA256,
-    RSA_PKCS1V15_SHA512,
-    RSASSA_PSS_SHA256,
-    RSASSA_PSS_SHA512,
-)
 from securesystemslib.signer._key import Key, SSlibKey
 from securesystemslib.signer._signer import SecretsHandler, Signature, Signer
-from securesystemslib.signer._utils import compute_default_keyid, get_mldsa_payload
+from securesystemslib.signer._utils import compute_default_keyid
 
 logger = logging.getLogger(__name__)
 
@@ -35,56 +20,44 @@ try:
 
     KEYTYPES_AND_SCHEMES = {
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.EC_SIGN_P256_SHA256: (
-            KEY_TYPE_ECDSA,
-            ECDSA_SHA2_NISTP256,
+            "ecdsa",
+            "ecdsa-sha2-nistp256",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384: (
-            KEY_TYPE_ECDSA,
-            ECDSA_SHA2_NISTP384,
+            "ecdsa",
+            "ecdsa-sha2-nistp384",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.RSA_SIGN_PSS_2048_SHA256: (
-            KEY_TYPE_RSA,
-            RSASSA_PSS_SHA256,
+            "rsa",
+            "rsassa-pss-sha256",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.RSA_SIGN_PSS_3072_SHA256: (
-            KEY_TYPE_RSA,
-            RSASSA_PSS_SHA256,
+            "rsa",
+            "rsassa-pss-sha256",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.RSA_SIGN_PSS_4096_SHA256: (
-            KEY_TYPE_RSA,
-            RSASSA_PSS_SHA256,
+            "rsa",
+            "rsassa-pss-sha256",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.RSA_SIGN_PSS_4096_SHA512: (
-            KEY_TYPE_RSA,
-            RSASSA_PSS_SHA512,
+            "rsa",
+            "rsassa-pss-sha512",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.RSA_SIGN_PKCS1_2048_SHA256: (
-            KEY_TYPE_RSA,
-            RSA_PKCS1V15_SHA256,
+            "rsa",
+            "rsa-pkcs1v15-sha256",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.RSA_SIGN_PKCS1_3072_SHA256: (
-            KEY_TYPE_RSA,
-            RSA_PKCS1V15_SHA256,
+            "rsa",
+            "rsa-pkcs1v15-sha256",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.RSA_SIGN_PKCS1_4096_SHA256: (
-            KEY_TYPE_RSA,
-            RSA_PKCS1V15_SHA256,
+            "rsa",
+            "rsa-pkcs1v15-sha256",
         ),
         CryptoKeyVersion.CryptoKeyVersionAlgorithm.RSA_SIGN_PKCS1_4096_SHA512: (
-            KEY_TYPE_RSA,
-            RSA_PKCS1V15_SHA512,
-        ),
-        CryptoKeyVersion.CryptoKeyVersionAlgorithm.PQ_SIGN_ML_DSA_44: (
-            KEY_TYPE_MLDSA,
-            MLDSA_44_1,
-        ),
-        CryptoKeyVersion.CryptoKeyVersionAlgorithm.PQ_SIGN_ML_DSA_65: (
-            KEY_TYPE_MLDSA,
-            MLDSA_65_1,
-        ),
-        CryptoKeyVersion.CryptoKeyVersionAlgorithm.PQ_SIGN_ML_DSA_87: (
-            KEY_TYPE_MLDSA,
-            MLDSA_87_1,
+            "rsa",
+            "rsa-pkcs1v15-sha512",
         ),
     }
 except ImportError:
@@ -94,24 +67,34 @@ except ImportError:
 
 
 class GCPSigner(Signer):
-    """Google Cloud KMS Signer.
+    """Google Cloud KMS Signer
 
-    This Signer uses Google Cloud KMS to sign. The payload is hashed locally,
+    This Signer uses Google Cloud KMS to sign: the payload is hashed locally,
     but the signature is created on the KMS.
 
-    The private key URI scheme is: ``gcpkms:<gcp_keyid>``, where ``<gcp_keyid>``
-    is the fully qualified GCP KMS key name:
-    ``projects/<project>/locations/<location>/keyRings/<keyRing>/cryptoKeys/<key>/cryptoKeyVersions/<version>``.
-
-    Authentication uses ambient credentials (typically the environment variable
-    ``GOOGLE_APPLICATION_CREDENTIALS`` pointing to a service account key file,
-    or Google Application Default Credentials):
+    The signer uses "ambient" credentials: typically environment var
+    GOOGLE_APPLICATION_CREDENTIALS that points to a file with valid
+    credentials. These will be found by google.cloud.kms, see
     https://cloud.google.com/docs/authentication/getting-started.
+    Some practical authentication options include:
+    * GitHub Action: https://github.com/google-github-actions/auth
+    * gcloud CLI: https://cloud.google.com/sdk/gcloud
 
-    The specific Google Cloud IAM roles that GCPSigner needs are:
+    The specific permissions that GCPSigner needs are:
+    * roles/cloudkms.signer for sign()
+    * roles/cloudkms.publicKeyViewer for import()
 
-    * ``roles/cloudkms.publicKeyViewer`` for ``GCPSigner.import_()``
-    * ``roles/cloudkms.signer`` for ``Signer.sign()``
+    Arguments:
+        gcp_keyid: Fully qualified GCP KMS key name, like
+            projects/python-tuf-kms/locations/global/keyRings/securesystemslib-tests/cryptoKeys/ecdsa-sha2-nistp256/cryptoKeyVersions/1
+        public_key: The related public key instance
+
+    Raises:
+        UnsupportedAlgorithmError: The payload hash algorithm is unsupported.
+        UnsupportedLibraryError: google.cloud.kms was not found
+        Various errors from google.cloud modules: e.g.
+            google.auth.exceptions.DefaultCredentialsError if ambient
+            credentials are not found
     """
 
     SCHEME = "gcpkms"
@@ -156,25 +139,14 @@ class GCPSigner(Signer):
     def import_(cls, gcp_keyid: str) -> tuple[str, SSlibKey]:
         """Load key and signer details from KMS
 
-        This method should only be called once per key: the uri and
-        Key should be stored for later use.
-
-        Requires ``roles/cloudkms.publicKeyViewer`` role on Google Cloud.
-
-        Args:
-            gcp_id: Fully qualified GCP KMS key name
-                (``projects/<P>/locations/<L>/keyRings/<R>/cryptoKeys/<K>/cryptoKeyVersions/<V>``).
-        Returns:
-            Tuple with private key URI and the public key
+        Returns the private key uri and the public key. This method should only
+        be called once per key: the uri and Key should be stored for later use.
         """
         if GCP_IMPORT_ERROR:
             raise exceptions.UnsupportedLibraryError(GCP_IMPORT_ERROR)
 
         client = kms.KeyManagementServiceClient()
-        request = {
-            "name": gcp_keyid,
-            "public_key_format": kms.PublicKey.PublicKeyFormat.PEM,
-        }
+        request = {"name": gcp_keyid}
         kms_pubkey = client.get_public_key(request)
         try:
             keytype, scheme = KEYTYPES_AND_SCHEMES[kms_pubkey.algorithm]
@@ -183,23 +155,31 @@ class GCPSigner(Signer):
                 f"{kms_pubkey.algorithm} is not a supported signing algorithm"
             ) from e
 
-        keyval = {"public": kms_pubkey.public_key.data.decode("utf-8")}
+        keyval = {"public": kms_pubkey.pem}
         keyid = compute_default_keyid(keytype, scheme, keyval)
         public_key = SSlibKey(keyid, keytype, scheme, keyval)
 
         return f"{cls.SCHEME}:{gcp_keyid}", public_key
 
     def sign(self, payload: bytes) -> Signature:
+        """Signs payload with Google Cloud KMS.
+
+        Arguments:
+            payload: bytes to be signed.
+
+        Raises:
+            Various errors from google.cloud modules.
+
+        Returns:
+            Signature.
+        """
         # NOTE: request and response can contain CRC32C of the digest/sig:
         # Verifying could be useful but would require another dependency...
 
-        request: dict[str, Any] = {"name": self.gcp_keyid}
-        if self.public_key.keytype == KEY_TYPE_MLDSA:
-            request["data"] = get_mldsa_payload(payload, 1)
-        else:
-            hasher = hashlib.new(self.hash_algorithm)
-            hasher.update(payload)
-            request["digest"] = {self.hash_algorithm: hasher.digest()}
+        hasher = hashlib.new(self.hash_algorithm)
+        hasher.update(payload)
+        digest = {self.hash_algorithm: hasher.digest()}
+        request = {"name": self.gcp_keyid, "digest": digest}
 
         logger.debug("signing request %s", request)
         response = self.client.asymmetric_sign(request)

@@ -4,6 +4,7 @@ import importlib
 import json
 import sys
 import types
+from pathlib import Path
 
 import pytest
 
@@ -240,6 +241,54 @@ def test_without_either_home_the_message_names_the_extra(monkeypatch):
         _load_copy(monkeypatch, mcpserver=None, fastmcp=None)
 
 
+def test_lint_paths_resolves_relative_paths_against_the_callers_root(tmp_path, monkeypatch):
+    """A session in a git worktree names files relative to ITS checkout, while the server's
+    working directory is wherever the client started it: without `root` the relative path
+    named nothing (or the other checkout) and the answer looked clean. With `root` the paths
+    resolve against the caller's tree, the findings carry absolute paths and the summary
+    names the root they were counted from - as the meta_* tools do.
+    """
+    m = _with_stub(monkeypatch)
+    try:
+        project = tmp_path / "acme" / "Проба"
+        project.mkdir(parents=True)
+        (project / "Ч.xbsl").write_text(_TRAILING, encoding="utf-8")
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+
+        blind = m.lint_paths(["acme/Проба/Ч.xbsl"], ignore=_NO_PAIR)
+        res = m.lint_paths(["acme/Проба/Ч.xbsl"], ignore=_NO_PAIR, root=str(tmp_path))
+
+        assert blind["diagnostics"] == []
+        assert len(res["diagnostics"]) == 1
+        assert Path(res["diagnostics"][0]["path"]) == project / "Ч.xbsl"
+        assert res["summary"]["root"] == str(tmp_path)
+    finally:
+        sys.modules.pop("xbsl.mcp_server", None)
+
+
+def test_lint_paths_resolves_a_relative_baseline_against_the_root(tmp_path, monkeypatch):
+    """The named baseline is a path of the caller's tree as well."""
+    m = _with_stub(monkeypatch)
+    try:
+        project = tmp_path / "acme" / "Проба"
+        project.mkdir(parents=True)
+        f = project / "Ч.xbsl"
+        f.write_text(_TRAILING, encoding="utf-8")
+        cli.main(["--write-baseline", str(tmp_path / "frozen.baseline"),
+                  "--ignore", _NO_PAIR[0], str(f)])
+        monkeypatch.chdir(tmp_path / "acme")
+
+        res = m.lint_paths(["acme/Проба/Ч.xbsl"], ignore=_NO_PAIR,
+                           baseline="frozen.baseline", root=str(tmp_path))
+
+        assert res["diagnostics"] == []
+        assert res["summary"]["baselined"] == 1
+    finally:
+        sys.modules.pop("xbsl.mcp_server", None)
+
+
 def test_lint_paths_can_add_a_rule_that_is_off_by_default(tmp_path, monkeypatch):
     """`select` answers with one rule alone; `enable` adds it on top of the defaults - the
     way a project asks for its translation gaps without losing everything else."""
@@ -264,5 +313,56 @@ def test_lint_paths_can_add_a_rule_that_is_off_by_default(tmp_path, monkeypatch)
         assert not any(d["rule"] == off_by_default for d in default["diagnostics"])
         assert any(d["rule"] == off_by_default for d in added["diagnostics"])
         assert len(added["diagnostics"]) > len(default["diagnostics"])
+    finally:
+        sys.modules.pop("xbsl.mcp_server", None)
+
+
+def test_lint_paths_over_a_few_files_judges_their_entries_alone(tmp_path, monkeypatch):
+    """The entries of files the request did not name are not stale - nobody looked at them.
+
+    One server, one baseline, one minute apart: a request for two files answered
+    `baselined: 0, baseline_stale: 76`, a request for the project `baselined: 74,
+    baseline_stale: 4`. The whole baseline was being weighed against a partial run.
+    """
+    m = _with_stub(monkeypatch)
+    try:
+        project = tmp_path / "acme" / "Проба"
+        project.mkdir(parents=True)
+        first = project / "А.xbsl"
+        second = project / "Б.xbsl"
+        first.write_text(_TRAILING, encoding="utf-8")
+        second.write_text(_TRAILING, encoding="utf-8")
+        cli.main(["--write-baseline", str(tmp_path / ".xbsllint-baseline"),
+                  "--ignore", _NO_PAIR[0], str(first), str(second)])
+
+        part = m.lint_paths([str(first)], ignore=_NO_PAIR)["summary"]
+        whole = m.lint_paths([str(project)], ignore=_NO_PAIR)["summary"]
+
+        assert part["baselined"] == 1
+        assert part["baseline_stale"] == 0 and part["baseline_unused"] == 0
+        assert part["baseline_not_checked"] == 1 and part["baseline_not_checked_paths"] == 1
+        assert whole["baselined"] == 2 and whole["baseline_stale"] == 0
+        assert "baseline_not_checked" not in whole
+    finally:
+        sys.modules.pop("xbsl.mcp_server", None)
+
+
+def test_lint_paths_names_the_engine_and_the_rule_set_it_judged_by(tmp_path, monkeypatch):
+    """Two environments answering differently about one tree must SAY what they ran with."""
+    from xbsl import __version__
+
+    m = _with_stub(monkeypatch)
+    try:
+        f = tmp_path / "Ч.xbsl"
+        f.write_text(_TRAILING, encoding="utf-8")
+
+        summary = m.lint_paths([str(f)], ignore=_NO_PAIR)["summary"]
+
+        assert summary["engine"] == __version__
+        assert isinstance(summary["plugins"], list)
+        rules = summary["rules"]
+        assert set(rules) == {"active", "total", "plugin"}
+        assert 0 < rules["active"] < rules["total"]  # one rule ignored, some off by default
+        assert 0 <= rules["plugin"] <= rules["active"]
     finally:
         sys.modules.pop("xbsl.mcp_server", None)

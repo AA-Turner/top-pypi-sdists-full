@@ -894,6 +894,51 @@ class _IPermissionRefProxy(
 typing.cast(typing.Any, IPermissionRef).__jsii_proxy_class__ = lambda : _IPermissionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IResourcePolicyRef")
+class IResourcePolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IUrlRef")
 class IUrlRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1246,6 +1291,55 @@ class PermissionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, resource_arn: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param resource_arn: The ResourceArn of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            resource_policy_reference = interfaces_lambda.ResourcePolicyReference(
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e4fff31c6055c9ef697bb2ed7e59004d538d89f2ef8bb8951ed19fc544e61d4a)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceArn of the ResourcePolicy resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lambda.UrlReference",
     jsii_struct_bases=[],
     name_mapping={"function_arn": "functionArn"},
@@ -1361,6 +1455,7 @@ __all__ = [
     "IMicrovmImageRef",
     "INetworkConnectorRef",
     "IPermissionRef",
+    "IResourcePolicyRef",
     "IUrlRef",
     "IVersionRef",
     "LayerVersionPermissionReference",
@@ -1368,6 +1463,7 @@ __all__ = [
     "MicrovmImageReference",
     "NetworkConnectorReference",
     "PermissionReference",
+    "ResourcePolicyReference",
     "UrlReference",
     "VersionReference",
 ]
@@ -1456,6 +1552,13 @@ def _typecheckingstub__4ae650600646cc849a26dcaf279873a6f95a9ec8ad73f8dc4af5d9055
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e4fff31c6055c9ef697bb2ed7e59004d538d89f2ef8bb8951ed19fc544e61d4a(
+    *,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7993d40300b6226e3801bcd00ef035491568259a4dee9da3e5a1980adb1133eb(
     *,
     function_arn: builtins.str,
@@ -1470,5 +1573,5 @@ def _typecheckingstub__4eef012bdf282178fc15f29261bb73aca6423bb74d9618d940489c8c8
     """Type checking stubs"""
     pass
 
-for cls in [IAliasRef, ICapacityProviderRef, ICodeSigningConfigRef, IEventInvokeConfigRef, IEventSourceMappingRef, IFunctionRef, ILayerVersionPermissionRef, ILayerVersionRef, IMicrovmImageRef, INetworkConnectorRef, IPermissionRef, IUrlRef, IVersionRef]:
+for cls in [IAliasRef, ICapacityProviderRef, ICodeSigningConfigRef, IEventInvokeConfigRef, IEventSourceMappingRef, IFunctionRef, ILayerVersionPermissionRef, ILayerVersionRef, IMicrovmImageRef, INetworkConnectorRef, IPermissionRef, IResourcePolicyRef, IUrlRef, IVersionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

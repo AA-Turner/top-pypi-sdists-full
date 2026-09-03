@@ -1,5 +1,5 @@
 from . import SwitchbotCloudConfigEntry as SwitchbotCloudConfigEntry
-from .const import AFTER_COMMAND_REFRESH as AFTER_COMMAND_REFRESH, AirPurifierMode as AirPurifierMode
+from .const import AFTER_COMMAND_REFRESH as AFTER_COMMAND_REFRESH
 from .entity import SwitchBotCloudEntity as SwitchBotCloudEntity
 from _typeshed import Incomplete
 from homeassistant.components.fan import FanEntity as FanEntity, FanEntityFeature as FanEntityFeature
@@ -35,6 +35,8 @@ class SwitchBotCloudFan(SwitchBotCloudEntity, FanEntity):
     async def async_set_percentage(self, percentage: int) -> None: ...
     @override
     async def async_set_preset_mode(self, preset_mode: str) -> None: ...
+
+_AIR_PURIFIER_PRESET_MODES: Incomplete
 
 class SwitchBotAirPurifierEntity(SwitchBotCloudEntity, FanEntity):
     _api: SwitchBotAPI

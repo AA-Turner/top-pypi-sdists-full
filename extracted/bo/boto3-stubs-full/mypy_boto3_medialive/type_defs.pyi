@@ -31,6 +31,8 @@ from .literals import (
     AacRawFormatType,
     AacSpecType,
     AacVbrQualityType,
+    AbWatermarkerIdLengthType,
+    AbWatermarkingProfileType,
     Ac3AttenuationControlType,
     Ac3BitstreamModeType,
     Ac3CodingModeType,
@@ -367,6 +369,7 @@ else:
 
 __all__ = (
     "AacSettingsTypeDef",
+    "AbWatermarkingCustomProfileTypeDef",
     "Ac3SettingsTypeDef",
     "AcceptInputDeviceTransferRequestTypeDef",
     "AccountConfigurationTypeDef",
@@ -470,10 +473,14 @@ __all__ = (
     "ClusterNetworkSettingsCreateRequestTypeDef",
     "ClusterNetworkSettingsTypeDef",
     "ClusterNetworkSettingsUpdateRequestTypeDef",
+    "CmafIngestAbWatermarkerIrdetoSettingsOutputTypeDef",
+    "CmafIngestAbWatermarkerIrdetoSettingsTypeDef",
     "CmafIngestCaptionLanguageMappingTypeDef",
     "CmafIngestGroupSettingsOutputTypeDef",
     "CmafIngestGroupSettingsTypeDef",
     "CmafIngestOutputSettingsTypeDef",
+    "CmafIngestWatermarkingSettingsOutputTypeDef",
+    "CmafIngestWatermarkingSettingsTypeDef",
     "ColorCorrectionSettingsOutputTypeDef",
     "ColorCorrectionSettingsTypeDef",
     "ColorCorrectionTypeDef",
@@ -814,9 +821,13 @@ __all__ = (
     "MediaPackageGroupSettingsTypeDef",
     "MediaPackageOutputDestinationSettingsTypeDef",
     "MediaPackageOutputSettingsTypeDef",
+    "MediaPackageV2AbWatermarkerIrdetoSettingsOutputTypeDef",
+    "MediaPackageV2AbWatermarkerIrdetoSettingsTypeDef",
     "MediaPackageV2DestinationSettingsTypeDef",
     "MediaPackageV2GroupSettingsOutputTypeDef",
     "MediaPackageV2GroupSettingsTypeDef",
+    "MediaPackageV2WatermarkingSettingsOutputTypeDef",
+    "MediaPackageV2WatermarkingSettingsTypeDef",
     "MediaResourceNeighborTypeDef",
     "MediaResourceTypeDef",
     "MonitorDeploymentTypeDef",
@@ -1073,6 +1084,11 @@ class AacSettingsTypeDef(TypedDict):
     SampleRate: NotRequired[float]
     Spec: NotRequired[AacSpecType]
     VbrQuality: NotRequired[AacVbrQualityType]
+
+class AbWatermarkingCustomProfileTypeDef(TypedDict):
+    EmbeddingFrequency: float
+    SceneCut: float
+    TargetPsnr: float
 
 class Ac3SettingsTypeDef(TypedDict):
     Bitrate: NotRequired[float]
@@ -2572,8 +2588,48 @@ class UpdateAccountConfigurationRequestTypeDef(TypedDict):
 class AdditionalDestinationsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
 
+class CmafIngestAbWatermarkerIrdetoSettingsOutputTypeDef(TypedDict):
+    AlternateDestination: OutputLocationRefTypeDef
+    OperatorId: int
+    Profile: AbWatermarkingProfileType
+    AdditionalDestinationsAlternateDestinations: NotRequired[list[OutputLocationRefTypeDef]]
+    CustomProfile: NotRequired[AbWatermarkingCustomProfileTypeDef]
+    License: NotRequired[str]
+    PolyPeriod: NotRequired[int]
+    WatermarkIdLength: NotRequired[AbWatermarkerIdLengthType]
+
+class CmafIngestAbWatermarkerIrdetoSettingsTypeDef(TypedDict):
+    AlternateDestination: OutputLocationRefTypeDef
+    OperatorId: int
+    Profile: AbWatermarkingProfileType
+    AdditionalDestinationsAlternateDestinations: NotRequired[Sequence[OutputLocationRefTypeDef]]
+    CustomProfile: NotRequired[AbWatermarkingCustomProfileTypeDef]
+    License: NotRequired[str]
+    PolyPeriod: NotRequired[int]
+    WatermarkIdLength: NotRequired[AbWatermarkerIdLengthType]
+
 class MediaPackageAdditionalDestinationsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
+
+class MediaPackageV2AbWatermarkerIrdetoSettingsOutputTypeDef(TypedDict):
+    AlternateDestination: OutputLocationRefTypeDef
+    OperatorId: int
+    Profile: AbWatermarkingProfileType
+    AdditionalDestinationsAlternateDestinations: NotRequired[list[OutputLocationRefTypeDef]]
+    CustomProfile: NotRequired[AbWatermarkingCustomProfileTypeDef]
+    License: NotRequired[str]
+    PolyPeriod: NotRequired[int]
+    WatermarkIdLength: NotRequired[AbWatermarkerIdLengthType]
+
+class MediaPackageV2AbWatermarkerIrdetoSettingsTypeDef(TypedDict):
+    AlternateDestination: OutputLocationRefTypeDef
+    OperatorId: int
+    Profile: AbWatermarkingProfileType
+    AdditionalDestinationsAlternateDestinations: NotRequired[Sequence[OutputLocationRefTypeDef]]
+    CustomProfile: NotRequired[AbWatermarkingCustomProfileTypeDef]
+    License: NotRequired[str]
+    PolyPeriod: NotRequired[int]
+    WatermarkIdLength: NotRequired[AbWatermarkerIdLengthType]
 
 class MsSmoothGroupSettingsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
@@ -3971,69 +4027,23 @@ class VideoSelectorSettingsTypeDef(TypedDict):
     VideoSelectorPid: NotRequired[VideoSelectorPidTypeDef]
     VideoSelectorProgramId: NotRequired[VideoSelectorProgramIdTypeDef]
 
-class CmafIngestGroupSettingsOutputTypeDef(TypedDict):
-    Destination: OutputLocationRefTypeDef
-    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
-    Scte35Type: NotRequired[Scte35TypeType]
-    SegmentLength: NotRequired[int]
-    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
-    SendDelayMs: NotRequired[int]
-    KlvBehavior: NotRequired[CmafKLVBehaviorType]
-    KlvNameModifier: NotRequired[str]
-    NielsenId3NameModifier: NotRequired[str]
-    Scte35NameModifier: NotRequired[str]
-    Id3Behavior: NotRequired[CmafId3BehaviorType]
-    Id3NameModifier: NotRequired[str]
-    CaptionLanguageMappings: NotRequired[list[CmafIngestCaptionLanguageMappingTypeDef]]
-    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
-    TimedMetadataId3Period: NotRequired[int]
-    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
-    AdditionalDestinations: NotRequired[list[AdditionalDestinationsTypeDef]]
+class CmafIngestWatermarkingSettingsOutputTypeDef(TypedDict):
+    CmafIngestAbWatermarkerIrdetoSettings: NotRequired[
+        CmafIngestAbWatermarkerIrdetoSettingsOutputTypeDef
+    ]
 
-class CmafIngestGroupSettingsTypeDef(TypedDict):
-    Destination: OutputLocationRefTypeDef
-    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
-    Scte35Type: NotRequired[Scte35TypeType]
-    SegmentLength: NotRequired[int]
-    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
-    SendDelayMs: NotRequired[int]
-    KlvBehavior: NotRequired[CmafKLVBehaviorType]
-    KlvNameModifier: NotRequired[str]
-    NielsenId3NameModifier: NotRequired[str]
-    Scte35NameModifier: NotRequired[str]
-    Id3Behavior: NotRequired[CmafId3BehaviorType]
-    Id3NameModifier: NotRequired[str]
-    CaptionLanguageMappings: NotRequired[Sequence[CmafIngestCaptionLanguageMappingTypeDef]]
-    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
-    TimedMetadataId3Period: NotRequired[int]
-    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
-    AdditionalDestinations: NotRequired[Sequence[AdditionalDestinationsTypeDef]]
+class CmafIngestWatermarkingSettingsTypeDef(TypedDict):
+    CmafIngestAbWatermarkerIrdetoSettings: NotRequired[CmafIngestAbWatermarkerIrdetoSettingsTypeDef]
 
-class MediaPackageV2GroupSettingsOutputTypeDef(TypedDict):
-    CaptionLanguageMappings: NotRequired[list[CaptionLanguageMappingTypeDef]]
-    Id3Behavior: NotRequired[CmafId3BehaviorType]
-    KlvBehavior: NotRequired[CmafKLVBehaviorType]
-    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
-    Scte35Type: NotRequired[Scte35TypeType]
-    SegmentLength: NotRequired[int]
-    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
-    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
-    TimedMetadataId3Period: NotRequired[int]
-    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
-    AdditionalDestinations: NotRequired[list[MediaPackageAdditionalDestinationsTypeDef]]
+class MediaPackageV2WatermarkingSettingsOutputTypeDef(TypedDict):
+    MediaPackageV2AbWatermarkerIrdetoSettings: NotRequired[
+        MediaPackageV2AbWatermarkerIrdetoSettingsOutputTypeDef
+    ]
 
-class MediaPackageV2GroupSettingsTypeDef(TypedDict):
-    CaptionLanguageMappings: NotRequired[Sequence[CaptionLanguageMappingTypeDef]]
-    Id3Behavior: NotRequired[CmafId3BehaviorType]
-    KlvBehavior: NotRequired[CmafKLVBehaviorType]
-    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
-    Scte35Type: NotRequired[Scte35TypeType]
-    SegmentLength: NotRequired[int]
-    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
-    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
-    TimedMetadataId3Period: NotRequired[int]
-    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
-    AdditionalDestinations: NotRequired[Sequence[MediaPackageAdditionalDestinationsTypeDef]]
+class MediaPackageV2WatermarkingSettingsTypeDef(TypedDict):
+    MediaPackageV2AbWatermarkerIrdetoSettings: NotRequired[
+        MediaPackageV2AbWatermarkerIrdetoSettingsTypeDef
+    ]
 
 class ArchiveGroupSettingsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
@@ -4844,13 +4854,73 @@ class VideoSelectorTypeDef(TypedDict):
     ColorSpaceUsage: NotRequired[VideoSelectorColorSpaceUsageType]
     SelectorSettings: NotRequired[VideoSelectorSettingsTypeDef]
 
-class MediaPackageGroupSettingsOutputTypeDef(TypedDict):
+class CmafIngestGroupSettingsOutputTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
-    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsOutputTypeDef]
+    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
+    Scte35Type: NotRequired[Scte35TypeType]
+    SegmentLength: NotRequired[int]
+    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
+    SendDelayMs: NotRequired[int]
+    KlvBehavior: NotRequired[CmafKLVBehaviorType]
+    KlvNameModifier: NotRequired[str]
+    NielsenId3NameModifier: NotRequired[str]
+    Scte35NameModifier: NotRequired[str]
+    Id3Behavior: NotRequired[CmafId3BehaviorType]
+    Id3NameModifier: NotRequired[str]
+    CaptionLanguageMappings: NotRequired[list[CmafIngestCaptionLanguageMappingTypeDef]]
+    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
+    TimedMetadataId3Period: NotRequired[int]
+    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
+    AdditionalDestinations: NotRequired[list[AdditionalDestinationsTypeDef]]
+    WatermarkingSettings: NotRequired[CmafIngestWatermarkingSettingsOutputTypeDef]
 
-class MediaPackageGroupSettingsTypeDef(TypedDict):
+class CmafIngestGroupSettingsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
-    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsTypeDef]
+    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
+    Scte35Type: NotRequired[Scte35TypeType]
+    SegmentLength: NotRequired[int]
+    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
+    SendDelayMs: NotRequired[int]
+    KlvBehavior: NotRequired[CmafKLVBehaviorType]
+    KlvNameModifier: NotRequired[str]
+    NielsenId3NameModifier: NotRequired[str]
+    Scte35NameModifier: NotRequired[str]
+    Id3Behavior: NotRequired[CmafId3BehaviorType]
+    Id3NameModifier: NotRequired[str]
+    CaptionLanguageMappings: NotRequired[Sequence[CmafIngestCaptionLanguageMappingTypeDef]]
+    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
+    TimedMetadataId3Period: NotRequired[int]
+    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
+    AdditionalDestinations: NotRequired[Sequence[AdditionalDestinationsTypeDef]]
+    WatermarkingSettings: NotRequired[CmafIngestWatermarkingSettingsTypeDef]
+
+class MediaPackageV2GroupSettingsOutputTypeDef(TypedDict):
+    CaptionLanguageMappings: NotRequired[list[CaptionLanguageMappingTypeDef]]
+    Id3Behavior: NotRequired[CmafId3BehaviorType]
+    KlvBehavior: NotRequired[CmafKLVBehaviorType]
+    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
+    Scte35Type: NotRequired[Scte35TypeType]
+    SegmentLength: NotRequired[int]
+    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
+    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
+    TimedMetadataId3Period: NotRequired[int]
+    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
+    AdditionalDestinations: NotRequired[list[MediaPackageAdditionalDestinationsTypeDef]]
+    WatermarkingSettings: NotRequired[MediaPackageV2WatermarkingSettingsOutputTypeDef]
+
+class MediaPackageV2GroupSettingsTypeDef(TypedDict):
+    CaptionLanguageMappings: NotRequired[Sequence[CaptionLanguageMappingTypeDef]]
+    Id3Behavior: NotRequired[CmafId3BehaviorType]
+    KlvBehavior: NotRequired[CmafKLVBehaviorType]
+    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
+    Scte35Type: NotRequired[Scte35TypeType]
+    SegmentLength: NotRequired[int]
+    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
+    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
+    TimedMetadataId3Period: NotRequired[int]
+    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
+    AdditionalDestinations: NotRequired[Sequence[MediaPackageAdditionalDestinationsTypeDef]]
+    WatermarkingSettings: NotRequired[MediaPackageV2WatermarkingSettingsTypeDef]
 
 class AudioPreMixerSettingsOutputTypeDef(TypedDict):
     AudioNormalizationSettings: NotRequired[AudioNormalizationSettingsTypeDef]
@@ -5136,6 +5206,14 @@ class UpdateChannelClassRequestTypeDef(TypedDict):
 class Scte35DescriptorTypeDef(TypedDict):
     Scte35DescriptorSettings: Scte35DescriptorSettingsTypeDef
 
+class MediaPackageGroupSettingsOutputTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsOutputTypeDef]
+
+class MediaPackageGroupSettingsTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsTypeDef]
+
 class AudioPidOutputTypeDef(TypedDict):
     Pid: int
     DolbyEDecode: NotRequired[AudioDolbyEDecodeTypeDef]
@@ -5161,32 +5239,6 @@ class AudioDescriptionTypeDef(TypedDict):
     DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
 
 RemixSettingsUnionTypeDef = Union[RemixSettingsTypeDef, RemixSettingsOutputTypeDef]
-
-class OutputGroupSettingsOutputTypeDef(TypedDict):
-    ArchiveGroupSettings: NotRequired[ArchiveGroupSettingsTypeDef]
-    FrameCaptureGroupSettings: NotRequired[FrameCaptureGroupSettingsTypeDef]
-    HlsGroupSettings: NotRequired[HlsGroupSettingsOutputTypeDef]
-    MediaPackageGroupSettings: NotRequired[MediaPackageGroupSettingsOutputTypeDef]
-    MsSmoothGroupSettings: NotRequired[MsSmoothGroupSettingsTypeDef]
-    MultiplexGroupSettings: NotRequired[dict[str, Any]]
-    RtmpGroupSettings: NotRequired[RtmpGroupSettingsOutputTypeDef]
-    UdpGroupSettings: NotRequired[UdpGroupSettingsTypeDef]
-    CmafIngestGroupSettings: NotRequired[CmafIngestGroupSettingsOutputTypeDef]
-    SrtGroupSettings: NotRequired[SrtGroupSettingsTypeDef]
-    MediaConnectRouterGroupSettings: NotRequired[MediaConnectRouterGroupSettingsOutputTypeDef]
-
-class OutputGroupSettingsTypeDef(TypedDict):
-    ArchiveGroupSettings: NotRequired[ArchiveGroupSettingsTypeDef]
-    FrameCaptureGroupSettings: NotRequired[FrameCaptureGroupSettingsTypeDef]
-    HlsGroupSettings: NotRequired[HlsGroupSettingsTypeDef]
-    MediaPackageGroupSettings: NotRequired[MediaPackageGroupSettingsTypeDef]
-    MsSmoothGroupSettings: NotRequired[MsSmoothGroupSettingsTypeDef]
-    MultiplexGroupSettings: NotRequired[Mapping[str, Any]]
-    RtmpGroupSettings: NotRequired[RtmpGroupSettingsTypeDef]
-    UdpGroupSettings: NotRequired[UdpGroupSettingsTypeDef]
-    CmafIngestGroupSettings: NotRequired[CmafIngestGroupSettingsTypeDef]
-    SrtGroupSettings: NotRequired[SrtGroupSettingsTypeDef]
-    MediaConnectRouterGroupSettings: NotRequired[MediaConnectRouterGroupSettingsTypeDef]
 
 class CaptionSelectorTypeDef(TypedDict):
     Name: str
@@ -5317,6 +5369,32 @@ class Scte35TimeSignalScheduleActionSettingsOutputTypeDef(TypedDict):
 
 class Scte35TimeSignalScheduleActionSettingsTypeDef(TypedDict):
     Scte35Descriptors: Sequence[Scte35DescriptorTypeDef]
+
+class OutputGroupSettingsOutputTypeDef(TypedDict):
+    ArchiveGroupSettings: NotRequired[ArchiveGroupSettingsTypeDef]
+    FrameCaptureGroupSettings: NotRequired[FrameCaptureGroupSettingsTypeDef]
+    HlsGroupSettings: NotRequired[HlsGroupSettingsOutputTypeDef]
+    MediaPackageGroupSettings: NotRequired[MediaPackageGroupSettingsOutputTypeDef]
+    MsSmoothGroupSettings: NotRequired[MsSmoothGroupSettingsTypeDef]
+    MultiplexGroupSettings: NotRequired[dict[str, Any]]
+    RtmpGroupSettings: NotRequired[RtmpGroupSettingsOutputTypeDef]
+    UdpGroupSettings: NotRequired[UdpGroupSettingsTypeDef]
+    CmafIngestGroupSettings: NotRequired[CmafIngestGroupSettingsOutputTypeDef]
+    SrtGroupSettings: NotRequired[SrtGroupSettingsTypeDef]
+    MediaConnectRouterGroupSettings: NotRequired[MediaConnectRouterGroupSettingsOutputTypeDef]
+
+class OutputGroupSettingsTypeDef(TypedDict):
+    ArchiveGroupSettings: NotRequired[ArchiveGroupSettingsTypeDef]
+    FrameCaptureGroupSettings: NotRequired[FrameCaptureGroupSettingsTypeDef]
+    HlsGroupSettings: NotRequired[HlsGroupSettingsTypeDef]
+    MediaPackageGroupSettings: NotRequired[MediaPackageGroupSettingsTypeDef]
+    MsSmoothGroupSettings: NotRequired[MsSmoothGroupSettingsTypeDef]
+    MultiplexGroupSettings: NotRequired[Mapping[str, Any]]
+    RtmpGroupSettings: NotRequired[RtmpGroupSettingsTypeDef]
+    UdpGroupSettings: NotRequired[UdpGroupSettingsTypeDef]
+    CmafIngestGroupSettings: NotRequired[CmafIngestGroupSettingsTypeDef]
+    SrtGroupSettings: NotRequired[SrtGroupSettingsTypeDef]
+    MediaConnectRouterGroupSettings: NotRequired[MediaConnectRouterGroupSettingsTypeDef]
 
 class AudioPidSelectionOutputTypeDef(TypedDict):
     Pid: int

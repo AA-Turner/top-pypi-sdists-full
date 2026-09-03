@@ -7135,6 +7135,199 @@ class CfnScheduledQueryProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_logs_8e99d4be.IStorageTierPolicyRef)
+class CfnStorageTierPolicy(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_logs.CfnStorageTierPolicy",
+):
+    '''Resource Type definition for AWS::Logs::StorageTierPolicy.
+
+    Manages the storage tier policy for a CloudWatch Logs account. When created, enables Intelligent-Tiering which automatically moves infrequently accessed log data to lower-cost storage tiers. Deleting this resource reverts the account to standard (single-tier) storage.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-storagetierpolicy.html
+    :cloudformationResource: AWS::Logs::StorageTierPolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_logs as logs
+        
+        cfn_storage_tier_policy = logs.CfnStorageTierPolicy(self, "MyCfnStorageTierPolicy",
+            storage_tier="storageTier"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        storage_tier: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Logs::StorageTierPolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param storage_tier: The storage tier to apply. Only INTELLIGENT_TIERING is accepted for creation.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d2885b44bb58c7dd26a4069651c81549910d8883d4fa475785932676585c72b9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnStorageTierPolicyProps(storage_tier=storage_tier)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnStorageTierPolicy")
+    @builtins.classmethod
+    def is_cfn_storage_tier_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnStorageTierPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9ec4396668c402ef1fed919921a3881e1210789cd2632dee7a672bf0e20e97b2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStorageTierPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__06af97120adb7e74f5a39def3f32e2260dc2491305f07bfde6324a9d808226d9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1206ac43b26e2f232064fe4e154b985c95b97654faa7bedb45f7db79f928d43e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''The AWS account ID that owns this storage tier policy.
+
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Timestamp (milliseconds after Jan 1, 1970 00:00:00 UTC) when the storage tier policy was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="storageTierPolicyRef")
+    def storage_tier_policy_ref(
+        self,
+    ) -> "_aws_logs_8e99d4be.StorageTierPolicyReference":
+        '''A reference to a StorageTierPolicy resource.'''
+        return typing.cast("_aws_logs_8e99d4be.StorageTierPolicyReference", jsii.get(self, "storageTierPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="storageTier")
+    def storage_tier(self) -> builtins.str:
+        '''The storage tier to apply.'''
+        return typing.cast(builtins.str, jsii.get(self, "storageTier"))
+
+    @storage_tier.setter
+    def storage_tier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ddbd44e78d46c7075f55649a61b3ee2bf7ef2eae287d1014e3cfaad6bd00e566)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storageTier", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_logs.CfnStorageTierPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"storage_tier": "storageTier"},
+)
+class CfnStorageTierPolicyProps:
+    def __init__(self, *, storage_tier: builtins.str) -> None:
+        '''Properties for defining a ``CfnStorageTierPolicy``.
+
+        :param storage_tier: The storage tier to apply. Only INTELLIGENT_TIERING is accepted for creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-storagetierpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_logs as logs
+            
+            cfn_storage_tier_policy_props = logs.CfnStorageTierPolicyProps(
+                storage_tier="storageTier"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6a29de2e1dfa712d00fb29288212e366f5fffe57e8cbaa3854e7d7454acb69e2)
+            check_type(argname="argument storage_tier", value=storage_tier, expected_type=type_hints["storage_tier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "storage_tier": storage_tier,
+        }
+
+    @builtins.property
+    def storage_tier(self) -> builtins.str:
+        '''The storage tier to apply.
+
+        Only INTELLIGENT_TIERING is accepted for creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-storagetierpolicy.html#cfn-logs-storagetierpolicy-storagetier
+        '''
+        result = self._values.get("storage_tier")
+        assert result is not None, "Required property 'storage_tier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStorageTierPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_logs_8e99d4be.ISubscriptionFilterRef)
 class CfnSubscriptionFilter(
     _aws_cdk_0cae9daa.CfnResource,
@@ -20117,6 +20310,8 @@ __all__ = [
     "CfnResourcePolicyProps",
     "CfnScheduledQuery",
     "CfnScheduledQueryProps",
+    "CfnStorageTierPolicy",
+    "CfnStorageTierPolicyProps",
     "CfnSubscriptionFilter",
     "CfnSubscriptionFilterProps",
     "CfnTransformer",
@@ -21444,6 +21639,46 @@ def _typecheckingstub__c947027b91ab136ae7c5b7152fae2d5ab6acb310b610204fd1e6335a6
     state: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnScheduledQuery.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     timezone: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2885b44bb58c7dd26a4069651c81549910d8883d4fa475785932676585c72b9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    storage_tier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ec4396668c402ef1fed919921a3881e1210789cd2632dee7a672bf0e20e97b2(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06af97120adb7e74f5a39def3f32e2260dc2491305f07bfde6324a9d808226d9(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1206ac43b26e2f232064fe4e154b985c95b97654faa7bedb45f7db79f928d43e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddbd44e78d46c7075f55649a61b3ee2bf7ef2eae287d1014e3cfaad6bd00e566(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a29de2e1dfa712d00fb29288212e366f5fffe57e8cbaa3854e7d7454acb69e2(
+    *,
+    storage_tier: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

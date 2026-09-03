@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.62
+Version: 0.2.63
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -18,20 +18,24 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 License-File: LICENSE
-Summary: A fast Markdown linter written in Rust
-Home-Page: https://github.com/rvben/rumdl
+Summary: A fast Markdown linter and formatter written in Rust
+Home-Page: https://rumdl.dev
 Author-email: "Ruben J. Jongejan" <ruben.jongejan@gmail.com>
 License: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://github.com/rvben/rumdl
+Project-URL: Documentation, https://rumdl.dev
+Project-URL: Homepage, https://rumdl.dev
 Project-URL: Repository, https://github.com/rvben/rumdl.git
 
-# rumdl - A high-performance Markdown linter, written in Rust
+# rumdl
 
 <div align="center">
 
-![rumdl Logo](https://raw.githubusercontent.com/rvben/rumdl/main/assets/logo.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/rvben/rumdl/main/assets/logo-dark.svg">
+  <img alt="rumdl Logo" src="https://raw.githubusercontent.com/rvben/rumdl/main/assets/logo.svg" width="400">
+</picture>
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/rvben/rumdl/ci.yml)](https://github.com/rvben/rumdl/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -42,8 +46,14 @@ Project-URL: Repository, https://github.com/rvben/rumdl.git
 [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/ADTJFSFUyn)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github-sponsors)](https://github.com/sponsors/rvben)
 
-## A modern Markdown linter and formatter, built for speed with Rust
+<!-- rumdl-disable-next-line MD026 -->
+## Clean Markdown. Fast.
 
+One fast native binary for checking and formatting Markdown, with broad
+markdownlint configuration compatibility and built-in support for modern
+Markdown flavors.
+
+| [**Get Started**](docs/getting-started/installation.md)
 | [**Docs**](https://rumdl.dev)
 | [**Rules**](https://rumdl.dev/rules)
 | [**Configuration**](https://rumdl.dev/global-settings)
@@ -55,10 +65,10 @@ Project-URL: Repository, https://github.com/rvben/rumdl.git
 ## Quick Start
 
 ```bash
-# Install using Cargo
-cargo install rumdl
+# Run once without installing
+uvx rumdl check .
 
-# Lint Markdown files in the current directory
+# After installing with Homebrew, Cargo, npm, pip, uv, or another package manager
 rumdl check .
 
 # Format files (exits 0 on success, even if unfixable violations remain)
@@ -71,21 +81,30 @@ rumdl check --fix .
 rumdl init
 ```
 
+Already use markdownlint? Keep the existing configuration for the first run.
+rumdl discovers common markdownlint and markdownlint-cli2 configuration files
+automatically, so you can compare results before changing your workflow.
+
+Projects using rumdl include Firefox, Docker Docs, Apache Lucene, Carbon,
+Crystal, PyO3, and Rustlings. See the complete [public adopter list](#used-by).
+
 ## Overview
 
-rumdl is a high-performance Markdown linter and formatter that helps ensure consistency and best practices in your Markdown files. Inspired by [ruff](https://github.com/astral-sh/ruff) 's approach to
-Python linting, rumdl brings similar speed and developer experience improvements to the Markdown ecosystem.
+rumdl helps authors and maintainers keep Markdown consistent without pulling
+slow feedback out of the editor and CI loop. Inspired by
+[Ruff](https://github.com/astral-sh/ruff), it combines linting, formatting,
+caching, and editor integration in a single tool.
 
 > Questions or feedback? Join us on [Discord](https://discord.gg/ADTJFSFUyn).
 
 It offers:
 
-- ⚡️ **Built for speed** with Rust - significantly faster than alternatives
+- ⚡️ **Built for fast feedback** with a native Rust binary and result caching
 - 🔍 **<!-- RULE_COUNT -->82<!-- /RULE_COUNT --> lint rules** covering common Markdown issues
 - 🛠️ **Automatic formatting** with `--fix` for files and stdin/stdout
 - 📦 **Zero dependencies** - single binary with no runtime requirements
 - 🔧 **Highly configurable** with TOML-based config files
-- 🎯 **Multiple Markdown flavors** - [GFM, MkDocs, MDX, Quarto, MyST](docs/flavors.md) support with auto-detection
+- 🎯 **Built-in Markdown flavors** - [GFM, MkDocs, MDX, Quarto, MyST, and more](docs/flavors.md), with auto-detection for supported file names
 - 🌐 **Multiple installation options** - Rust, Python, standalone binaries
 - 🐍 **Installable via pip** for Python users
 - 📏 **Modern CLI** with detailed error reporting
@@ -93,7 +112,7 @@ It offers:
 
 ### Performance
 
-rumdl is designed for speed. Benchmarked on the [Rust Book](https://github.com/rust-lang/book) repository (478 markdown files, October 2025):
+rumdl is designed for speed. See the [benchmark methodology](https://rumdl.dev/benchmarks/) for the dated Rust Book results, scope, and limitations:
 
 ![Cold start benchmark comparison](assets/benchmark.svg)
 
@@ -237,7 +256,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.62
+mise use rumdl@0.2.63
 ```
 
 ### Using Nix (macOS/Linux)
@@ -469,7 +488,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.62
+    rev: v0.2.63
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, always exits 0
@@ -485,7 +504,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.62
+    rev: v0.2.63
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -502,7 +521,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.62
+    rev: v0.2.63
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -638,6 +657,7 @@ rumdl supports multiple Markdown flavors to accommodate different documentation 
 | [kramdown](docs/flavors/kramdown.md)         | Jekyll / kramdown            | IALs, ALDs, extension blocks                        |
 | [azure_devops](docs/flavors/azure_devops.md) | Azure DevOps Wiki            | Colon code fences (:::lang ... :::)                 |
 | [myst](docs/flavors/myst.md)                 | MyST / Jupyter Book / Sphinx | Directives, roles, `%` comments                     |
+| [hugo](docs/flavors/hugo.md)                 | Hugo / Goldmark              | Block attribute lists                               |
 | [mdg](docs/flavors/mdg.md)                   | Markdown with Gherkin        | Gherkin-safe headings, tags, Doc Strings, tables    |
 
 ### Configuring Flavors

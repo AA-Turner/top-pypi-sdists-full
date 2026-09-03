@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentic-devtools
-Version: 0.2.470
+Version: 0.2.473
 Summary: Agentic devtools integrate Jira, DevOps & more
 Author: ayaiayorg
 License-Expression: MIT
@@ -10,6 +10,7 @@ Requires-Dist: atlassian-python-api<5,>=4.0
 Requires-Dist: azure-identity>=1.0.0
 Requires-Dist: azure-monitor-query>=1.0.0
 Requires-Dist: build>=1.2.2
+Requires-Dist: cryptography>=42.0.0
 Requires-Dist: github-copilot-sdk<2.0.0,>=1.0.0
 Requires-Dist: jinja2>=3.0.0
 Requires-Dist: jsonschema>=4.20.0

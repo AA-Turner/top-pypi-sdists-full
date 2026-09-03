@@ -8,13 +8,12 @@ import json
 import os
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
 from torch.distributed.checkpoint import HuggingFaceStorageReader
 
 from torchtitan.tools.logging import logger
-
-from .model import BaseModelArgs
+from .model import BaseModel
 
 
 class BaseStateDictAdapter(ABC):
@@ -23,17 +22,17 @@ class BaseStateDictAdapter(ABC):
     This class defines the interface for converting between native model
     state dict format and other model state dict formats.
     Args:
-        model_args: for initializing the model's memory space
+        model_config: for initializing the model's memory space
         hf_assets_path: path to HF assets folder containing tokenizer, model weights, etc.
     """
 
-    fqn_to_index_mapping: Dict[Any, int] | None
+    fqn_to_index_mapping: dict[Any, int] | None
     hf_assets_path: str | None
 
     @abstractmethod
     def __init__(
         self,
-        model_args: BaseModelArgs,
+        model_config: BaseModel.Config,
         hf_assets_path: str | None,
     ):
         pass
@@ -83,9 +82,10 @@ class StateDictAdapter(BaseStateDictAdapter):
 
     def __init__(
         self,
-        model_args: BaseModelArgs,
+        model_config: BaseModel.Config,
         hf_assets_path: str | None,
     ):
+        self.model_config = model_config
         self.hf_assets_path = hf_assets_path
         if hf_assets_path:
             mapping_path = os.path.join(hf_assets_path, "model.safetensors.index.json")
@@ -109,6 +109,19 @@ class StateDictAdapter(BaseStateDictAdapter):
                 self.fqn_to_index_mapping = None
         else:
             self.fqn_to_index_mapping = None
+
+    def _validate_hf_rope_config(
+        self,
+        expected_rope_cls: type,
+    ) -> None:
+        for layer in self.model_config.layers:  # pyrefly: ignore [missing-attribute]
+            rope = layer.attention.rope
+            if not isinstance(rope, expected_rope_cls):
+                expected_name = expected_rope_cls.__qualname__
+                raise ValueError(
+                    f"HF checkpoint conversion assumes {expected_name}; "
+                    f"got {type(rope).__name__}."
+                )
 
     def get_hf_storage_reader(
         self, path: str, from_quantized: bool = False

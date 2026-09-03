@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.38                                                                                #
-# Generated on 2026-08-18T00:36:54.478643                                                            #
+# MF version: 2.19.39                                                                                #
+# Generated on 2026-09-02T21:19:46.714955                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,32 +9,33 @@ from __future__ import annotations
 
 from . import test_unbounded_foreach_decorator as test_unbounded_foreach_decorator
 from .test_unbounded_foreach_decorator import InternalTestUnboundedForeachInput as InternalTestUnboundedForeachInput
-from . import cards as cards
-from . import timeout_decorator as timeout_decorator
-from . import argo as argo
-from . import catch_decorator as catch_decorator
 from . import pypi as pypi
-from . import frameworks as frameworks
 from . import parallel_decorator as parallel_decorator
-from . import airflow as airflow
-from . import aws as aws
-from . import datatools as datatools
-from . import secrets as secrets
 from . import retry_decorator as retry_decorator
 from . import kubernetes as kubernetes
 from . import resources_decorator as resources_decorator
+from . import timeout_decorator as timeout_decorator
+from . import aws as aws
+from . import datatools as datatools
+from . import secrets as secrets
+from . import argo as argo
+from . import catch_decorator as catch_decorator
+from . import frameworks as frameworks
+from . import airflow as airflow
 from . import environment_decorator as environment_decorator
+from . import cards as cards
 from . import project_decorator as project_decorator
 from . import events_decorator as events_decorator
 from . import exit_hook as exit_hook
 from . import uv as uv
-from . import gcp as gcp
-from . import storage_executor as storage_executor
 from . import azure as azure
+from . import storage_executor as storage_executor
+from . import gcp as gcp
 from . import debug_logger as debug_logger
 from . import debug_monitor as debug_monitor
-from . import namespaced_events as namespaced_events
+from . import package_sources as package_sources
 from . import parsers as parsers
+from . import namespaced_events as namespaced_events
 from .cards.card_modules.basic import BlankCard as BlankCard
 from .cards.card_modules.basic import DefaultCard as DefaultCard
 from .cards.card_modules.basic import DefaultCardJSON as DefaultCardJSON

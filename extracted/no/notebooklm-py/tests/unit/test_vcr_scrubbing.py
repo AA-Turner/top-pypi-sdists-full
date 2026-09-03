@@ -7,7 +7,7 @@ on a per-cookie-name allowlist (:data:`SESSION_COOKIES` + the ``__Secure-*`` /
 ``__Host-*`` umbrellas). The Google **login** cookie ``LSID`` was missing from
 that allowlist, so its value — which embeds a raw ``g.a000-...`` SID token, the
 same credential family as ``SID`` — round-tripped into a committed cassette
-(``tests/cassettes/notebooks_share.yaml``) unscrubbed. That is a live-session
+(``tests/cassettes/web/notebooks_share.yaml``) unscrubbed. That is a live-session
 credential leak in a public repo.
 
 Two complementary hardenings closed the gap and are pinned here:
@@ -16,7 +16,8 @@ Two complementary hardenings closed the gap and are pinned here:
    :data:`SESSION_COOKIES`, so the cookie-header / storage_state scrubbers
    collapse their values to ``SCRUBBED`` like every other session cookie.
 2. **Catch-all token regexes (defense in depth).** ``scrub_string`` now scrubs
-   the raw Google credential shapes ``g.a000-...`` / ``sidts-...`` / ``ya29....``
+   the raw Google credential shapes ``aas_et/...`` / ``g.a000-...`` /
+   ``sidts-...`` / ``ya29....``
    wherever they appear — request/response BODIES, HEADERS, and cookie values
    carried by a name that is NOT on the allowlist. This backstop never depends
    on a cookie name being enumerated, so a future unknown login cookie cannot
@@ -191,7 +192,7 @@ def test_committed_share_cassette_is_clean() -> None:
     hand-edited) and the ``g.a000`` token sneaks back in. Reads the on-disk
     file the leak originally lived in.
     """
-    cassette = Path(__file__).resolve().parent.parent / "cassettes" / "notebooks_share.yaml"
+    cassette = Path(__file__).resolve().parent.parent / "cassettes" / "web" / "notebooks_share.yaml"
     if not cassette.exists():  # pragma: no cover - cassette is committed
         return
     text = cassette.read_text(encoding="utf-8")

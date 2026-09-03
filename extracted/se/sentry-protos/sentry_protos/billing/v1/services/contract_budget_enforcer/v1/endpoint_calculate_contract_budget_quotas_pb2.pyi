@@ -18,13 +18,16 @@ class CalculateContractBudgetQuotasRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CONTRACT_ID_FIELD_NUMBER: builtins.int
+    PROJECT_ID_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
+    project_id: builtins.int
     def __init__(
         self,
         *,
         contract_id: builtins.int = ...,
+        project_id: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id", "project_id", b"project_id"]) -> None: ...
 
 global___CalculateContractBudgetQuotasRequest = CalculateContractBudgetQuotasRequest
 

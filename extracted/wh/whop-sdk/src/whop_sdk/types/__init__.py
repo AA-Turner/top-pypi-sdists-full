@@ -49,11 +49,13 @@ if typing.TYPE_CHECKING:
     from .account_payment_controls_restricted_payment_methods_item import (
         AccountPaymentControlsRestrictedPaymentMethodsItem,
     )
+    from .account_payment_controls_undated_pending_reason import AccountPaymentControlsUndatedPendingReason
     from .account_preferences import AccountPreferences
     from .account_recommended_action import AccountRecommendedAction
     from .account_recommended_action_action import AccountRecommendedActionAction
     from .account_recommended_action_chain import AccountRecommendedActionChain
     from .account_recommended_action_chain_step import AccountRecommendedActionChainStep
+    from .account_recommended_action_chain_step_execution_type import AccountRecommendedActionChainStepExecutionType
     from .account_recommended_action_chain_step_status import AccountRecommendedActionChainStepStatus
     from .account_recommended_action_outcome import AccountRecommendedActionOutcome
     from .account_recommended_action_status import AccountRecommendedActionStatus
@@ -80,6 +82,8 @@ if typing.TYPE_CHECKING:
     from .account_three_ds_level import AccountThreeDsLevel
     from .account_wallet import AccountWallet
     from .account_wallet_network import AccountWalletNetwork
+    from .account_withdrawal_schedule_control import AccountWithdrawalScheduleControl
+    from .account_withdrawal_schedule_control_frequency import AccountWithdrawalScheduleControlFrequency
     from .ad import Ad
     from .ad_call_to_action import AdCallToAction
     from .ad_campaign import AdCampaign
@@ -165,16 +169,10 @@ if typing.TYPE_CHECKING:
     from .ad_lead_form_question import AdLeadFormQuestion
     from .ad_lead_form_question_option import AdLeadFormQuestionOption
     from .ad_messaging_config import AdMessagingConfig
+    from .ad_music import AdMusic
     from .ad_platform_issue import AdPlatformIssue
     from .ad_platform_issue_resource_type import AdPlatformIssueResourceType
     from .ad_post_source import AdPostSource
-    from .ad_report import AdReport
-    from .ad_report_breakdown_item import AdReportBreakdownItem
-    from .ad_report_breakdown_item_granularity_item import AdReportBreakdownItemGranularityItem
-    from .ad_report_breakdown_item_summary import AdReportBreakdownItemSummary
-    from .ad_report_breakdown_levels import AdReportBreakdownLevels
-    from .ad_report_granularity_item import AdReportGranularityItem
-    from .ad_report_summary import AdReportSummary
     from .ad_result_event import AdResultEvent
     from .ad_status import AdStatus
     from .affiliate import Affiliate
@@ -287,6 +285,7 @@ if typing.TYPE_CHECKING:
     from .card_funding_types import CardFundingTypes
     from .card_issuing_transaction_status import CardIssuingTransactionStatus
     from .card_transaction import CardTransaction
+    from .card_transaction_legacy import CardTransactionLegacy
     from .card_transaction_list_item import CardTransactionListItem
     from .card_transaction_status import CardTransactionStatus
     from .card_transaction_transaction_type import CardTransactionTransactionType
@@ -310,98 +309,8 @@ if typing.TYPE_CHECKING:
     from .checkout_configuration_three_ds_level import CheckoutConfigurationThreeDsLevel
     from .checkout_fonts import CheckoutFonts
     from .checkout_modes import CheckoutModes
-    from .checkout_session import CheckoutSession
-    from .checkout_session_authenticate_action import CheckoutSessionAuthenticateAction
-    from .checkout_session_await_claim_action import CheckoutSessionAwaitClaimAction
-    from .checkout_session_await_claim_action_state import CheckoutSessionAwaitClaimActionState
-    from .checkout_session_branding import CheckoutSessionBranding
-    from .checkout_session_branding_border_style import CheckoutSessionBrandingBorderStyle
-    from .checkout_session_branding_font_family import CheckoutSessionBrandingFontFamily
-    from .checkout_session_breakdown import CheckoutSessionBreakdown
-    from .checkout_session_breakdown_adjustment import CheckoutSessionBreakdownAdjustment
-    from .checkout_session_breakdown_adjustment_applied import CheckoutSessionBreakdownAdjustmentApplied
-    from .checkout_session_breakdown_adjustment_kind import CheckoutSessionBreakdownAdjustmentKind
-    from .checkout_session_breakdown_adjustment_status import CheckoutSessionBreakdownAdjustmentStatus
-    from .checkout_session_breakdown_currency import CheckoutSessionBreakdownCurrency
-    from .checkout_session_breakdown_display import CheckoutSessionBreakdownDisplay
-    from .checkout_session_breakdown_display_headline import CheckoutSessionBreakdownDisplayHeadline
-    from .checkout_session_breakdown_display_headline_kind import CheckoutSessionBreakdownDisplayHeadlineKind
-    from .checkout_session_breakdown_display_row import CheckoutSessionBreakdownDisplayRow
-    from .checkout_session_breakdown_display_row_detail import CheckoutSessionBreakdownDisplayRowDetail
-    from .checkout_session_breakdown_display_row_detail_applied import CheckoutSessionBreakdownDisplayRowDetailApplied
-    from .checkout_session_breakdown_display_row_kind import CheckoutSessionBreakdownDisplayRowKind
-    from .checkout_session_breakdown_display_row_status import CheckoutSessionBreakdownDisplayRowStatus
-    from .checkout_session_breakdown_display_sections import CheckoutSessionBreakdownDisplaySections
-    from .checkout_session_breakdown_line import CheckoutSessionBreakdownLine
-    from .checkout_session_breakdown_line_kind import CheckoutSessionBreakdownLineKind
-    from .checkout_session_breakdown_upcoming import (
-        CheckoutSessionBreakdownUpcoming,
-        CheckoutSessionBreakdownUpcoming_Installments,
-        CheckoutSessionBreakdownUpcoming_OneTime,
-        CheckoutSessionBreakdownUpcoming_Recurring,
-    )
-    from .checkout_session_breakdown_upcoming_installments import CheckoutSessionBreakdownUpcomingInstallments
-    from .checkout_session_breakdown_upcoming_one_time import CheckoutSessionBreakdownUpcomingOneTime
-    from .checkout_session_breakdown_upcoming_recurring import CheckoutSessionBreakdownUpcomingRecurring
-    from .checkout_session_buyer_identity import CheckoutSessionBuyerIdentity
-    from .checkout_session_buyer_identity_method import CheckoutSessionBuyerIdentityMethod
-    from .checkout_session_complete_action import CheckoutSessionCompleteAction
-    from .checkout_session_complete_action_kind import CheckoutSessionCompleteActionKind
-    from .checkout_session_confirm_error import CheckoutSessionConfirmError
-    from .checkout_session_confirm_error_code import CheckoutSessionConfirmErrorCode
-    from .checkout_session_cta_label import CheckoutSessionCtaLabel
-    from .checkout_session_custom_field import CheckoutSessionCustomField
-    from .checkout_session_custom_field_field_type import CheckoutSessionCustomFieldFieldType
-    from .checkout_session_custom_field_response import CheckoutSessionCustomFieldResponse
-    from .checkout_session_entry import CheckoutSessionEntry
-    from .checkout_session_entry_status import CheckoutSessionEntryStatus
-    from .checkout_session_item import CheckoutSessionItem
-    from .checkout_session_mode import CheckoutSessionMode
-    from .checkout_session_next_action import (
-        CheckoutSessionNextAction,
-        CheckoutSessionNextAction_Authenticate,
-        CheckoutSessionNextAction_AwaitClaim,
-        CheckoutSessionNextAction_Complete,
-        CheckoutSessionNextAction_Redirect,
-        CheckoutSessionNextAction_UpgradeAuthentication,
-        CheckoutSessionNextAction_VerifyPhone,
-        CheckoutSessionNextAction_WaitForPayment,
-    )
-    from .checkout_session_payment import CheckoutSessionPayment
     from .checkout_session_payment_method_configuration import CheckoutSessionPaymentMethodConfiguration
-    from .checkout_session_payment_status import CheckoutSessionPaymentStatus
-    from .checkout_session_promo import CheckoutSessionPromo
-    from .checkout_session_promo_currency import CheckoutSessionPromoCurrency
-    from .checkout_session_promo_duration import CheckoutSessionPromoDuration
-    from .checkout_session_promo_promo_type import CheckoutSessionPromoPromoType
-    from .checkout_session_quote import CheckoutSessionQuote
-    from .checkout_session_redirect_action import CheckoutSessionRedirectAction
-    from .checkout_session_requirement import CheckoutSessionRequirement
-    from .checkout_session_requirement_type import CheckoutSessionRequirementType
-    from .checkout_session_seller import CheckoutSessionSeller
-    from .checkout_session_seller_terms import CheckoutSessionSellerTerms
-    from .checkout_session_shipping_address import CheckoutSessionShippingAddress
-    from .checkout_session_status import CheckoutSessionStatus
-    from .checkout_session_tax_behavior import CheckoutSessionTaxBehavior
-    from .checkout_session_tax_id import CheckoutSessionTaxId
-    from .checkout_session_tax_id_type import CheckoutSessionTaxIdType
-    from .checkout_session_three_ds_level import CheckoutSessionThreeDsLevel
-    from .checkout_session_transfer import CheckoutSessionTransfer
-    from .checkout_session_upgrade_authentication_action import CheckoutSessionUpgradeAuthenticationAction
-    from .checkout_session_upgrade_authentication_action_sign_in_intent import (
-        CheckoutSessionUpgradeAuthenticationActionSignInIntent,
-    )
-    from .checkout_session_verify_phone_action import CheckoutSessionVerifyPhoneAction
-    from .checkout_session_wait_for_payment_action import CheckoutSessionWaitForPaymentAction
     from .checkout_shapes import CheckoutShapes
-    from .company import Company
-    from .company_featured_affiliate_product import CompanyFeaturedAffiliateProduct
-    from .company_list_item import CompanyListItem
-    from .company_list_item_logo import CompanyListItemLogo
-    from .company_list_item_owner_user import CompanyListItemOwnerUser
-    from .company_logo import CompanyLogo
-    from .company_owner_user import CompanyOwnerUser
-    from .company_social_links_item import CompanySocialLinksItem
     from .company_token_transaction import CompanyTokenTransaction
     from .company_token_transaction_company import CompanyTokenTransactionCompany
     from .company_token_transaction_list_item import CompanyTokenTransactionListItem
@@ -411,9 +320,10 @@ if typing.TYPE_CHECKING:
     from .company_token_transaction_member import CompanyTokenTransactionMember
     from .company_token_transaction_types import CompanyTokenTransactionTypes
     from .company_token_transaction_user import CompanyTokenTransactionUser
+    from .confirmation_token import ConfirmationToken
+    from .confirmation_token_status import ConfirmationTokenStatus
     from .conversion_event import ConversionEvent
     from .conversion_event_zero import ConversionEventZero
-    from .countries import Countries
     from .course import Course
     from .course_chapter import CourseChapter
     from .course_chapter_lessons_item import CourseChapterLessonsItem
@@ -480,6 +390,12 @@ if typing.TYPE_CHECKING:
     from .direction import Direction
     from .dispute import Dispute
     from .dispute_alert import DisputeAlert
+    from .dispute_alert_legacy import DisputeAlertLegacy
+    from .dispute_alert_legacy_dispute import DisputeAlertLegacyDispute
+    from .dispute_alert_legacy_payment import DisputeAlertLegacyPayment
+    from .dispute_alert_legacy_payment_member import DisputeAlertLegacyPaymentMember
+    from .dispute_alert_legacy_payment_membership import DisputeAlertLegacyPaymentMembership
+    from .dispute_alert_legacy_payment_user import DisputeAlertLegacyPaymentUser
     from .dispute_alert_list_item import DisputeAlertListItem
     from .dispute_alert_list_item_dispute import DisputeAlertListItemDispute
     from .dispute_alert_list_item_payment import DisputeAlertListItemPayment
@@ -496,6 +412,27 @@ if typing.TYPE_CHECKING:
     from .dispute_evidence_document_visibility import DisputeEvidenceDocumentVisibility
     from .dispute_evidence_locked_reason import DisputeEvidenceLockedReason
     from .dispute_issuer_comment import DisputeIssuerComment
+    from .dispute_legacy import DisputeLegacy
+    from .dispute_legacy_cancellation_policy_attachment import DisputeLegacyCancellationPolicyAttachment
+    from .dispute_legacy_company import DisputeLegacyCompany
+    from .dispute_legacy_customer_communication_attachment import DisputeLegacyCustomerCommunicationAttachment
+    from .dispute_legacy_payment import DisputeLegacyPayment
+    from .dispute_legacy_payment_member import DisputeLegacyPaymentMember
+    from .dispute_legacy_payment_membership import DisputeLegacyPaymentMembership
+    from .dispute_legacy_payment_payment_instrument import DisputeLegacyPaymentPaymentInstrument
+    from .dispute_legacy_payment_payment_instrument_icons import DisputeLegacyPaymentPaymentInstrumentIcons
+    from .dispute_legacy_payment_payment_instrument_icons_square import DisputeLegacyPaymentPaymentInstrumentIconsSquare
+    from .dispute_legacy_payment_payment_instrument_icons_square_dark import (
+        DisputeLegacyPaymentPaymentInstrumentIconsSquareDark,
+    )
+    from .dispute_legacy_payment_payment_instrument_icons_square_light import (
+        DisputeLegacyPaymentPaymentInstrumentIconsSquareLight,
+    )
+    from .dispute_legacy_payment_user import DisputeLegacyPaymentUser
+    from .dispute_legacy_plan import DisputeLegacyPlan
+    from .dispute_legacy_product import DisputeLegacyProduct
+    from .dispute_legacy_refund_policy_attachment import DisputeLegacyRefundPolicyAttachment
+    from .dispute_legacy_uncategorized_attachment import DisputeLegacyUncategorizedAttachment
     from .dispute_list_item import DisputeListItem
     from .dispute_list_item_company import DisputeListItemCompany
     from .dispute_list_item_payment import DisputeListItemPayment
@@ -580,7 +517,6 @@ if typing.TYPE_CHECKING:
     from .future_usage_types import FutureUsageTypes
     from .global_affiliate_statuses import GlobalAffiliateStatuses
     from .grantable_authorized_user_roles import GrantableAuthorizedUserRoles
-    from .granularities import Granularities
     from .identity_profile import IdentityProfile
     from .identity_profile_business_address import IdentityProfileBusinessAddress
     from .identity_profile_kinds import IdentityProfileKinds
@@ -648,6 +584,9 @@ if typing.TYPE_CHECKING:
     from .ledger_activity_object import LedgerActivityObject
     from .ledger_activity_payment import LedgerActivityPayment
     from .ledger_activity_payment_object import LedgerActivityPaymentObject
+    from .ledger_activity_payment_plan import LedgerActivityPaymentPlan
+    from .ledger_activity_payment_product import LedgerActivityPaymentProduct
+    from .ledger_activity_payment_user import LedgerActivityPaymentUser
     from .ledger_activity_resource import LedgerActivityResource
     from .ledger_activity_resource_account_reference import LedgerActivityResourceAccountReference
     from .ledger_activity_resource_account_reference_object import LedgerActivityResourceAccountReferenceObject
@@ -691,6 +630,9 @@ if typing.TYPE_CHECKING:
     from .media_asset_status import MediaAssetStatus
     from .member import Member
     from .member_access_level import MemberAccessLevel
+    from .member_legacy import MemberLegacy
+    from .member_legacy_company import MemberLegacyCompany
+    from .member_legacy_user import MemberLegacyUser
     from .member_list_item import MemberListItem
     from .member_list_item_user import MemberListItemUser
     from .member_most_recent_actions import MemberMostRecentActions
@@ -698,8 +640,15 @@ if typing.TYPE_CHECKING:
     from .member_statuses import MemberStatuses
     from .members_sortable_columns import MembersSortableColumns
     from .membership import Membership
-    from .membership_account import MembershipAccount
     from .membership_cancellation_modes import MembershipCancellationModes
+    from .membership_legacy import MembershipLegacy
+    from .membership_legacy_company import MembershipLegacyCompany
+    from .membership_legacy_custom_field_responses_item import MembershipLegacyCustomFieldResponsesItem
+    from .membership_legacy_member import MembershipLegacyMember
+    from .membership_legacy_plan import MembershipLegacyPlan
+    from .membership_legacy_product import MembershipLegacyProduct
+    from .membership_legacy_promo_code import MembershipLegacyPromoCode
+    from .membership_legacy_user import MembershipLegacyUser
     from .membership_list_item import MembershipListItem
     from .membership_list_item_company import MembershipListItemCompany
     from .membership_list_item_member import MembershipListItemMember
@@ -748,14 +697,14 @@ if typing.TYPE_CHECKING:
     from .pagination import Pagination
     from .passkey import Passkey
     from .payment import Payment
-    from .payment_application_fee import PaymentApplicationFee
+    from .payment_address import PaymentAddress
     from .payment_bank_transfer import PaymentBankTransfer
     from .payment_bank_transfer_instructions import PaymentBankTransferInstructions
-    from .payment_billing_address import PaymentBillingAddress
-    from .payment_company import PaymentCompany
+    from .payment_billing_details_preview import PaymentBillingDetailsPreview
     from .payment_decline_codes import PaymentDeclineCodes
-    from .payment_disputes_item import PaymentDisputesItem
-    from .payment_financing_transactions_item import PaymentFinancingTransactionsItem
+    from .payment_fee import PaymentFee
+    from .payment_fee_origin import PaymentFeeOrigin
+    from .payment_fee_type import PaymentFeeType
     from .payment_instructions import (
         PaymentInstructions,
         PaymentInstructions_BankTransfer,
@@ -766,6 +715,35 @@ if typing.TYPE_CHECKING:
     from .payment_instrument_card import PaymentInstrumentCard
     from .payment_last_payment_error import PaymentLastPaymentError
     from .payment_last_payment_error_decline_code import PaymentLastPaymentErrorDeclineCode
+    from .payment_legacy import PaymentLegacy
+    from .payment_legacy_application_fee import PaymentLegacyApplicationFee
+    from .payment_legacy_billing_address import PaymentLegacyBillingAddress
+    from .payment_legacy_company import PaymentLegacyCompany
+    from .payment_legacy_disputes_item import PaymentLegacyDisputesItem
+    from .payment_legacy_fees_item import PaymentLegacyFeesItem
+    from .payment_legacy_financing_transactions_item import PaymentLegacyFinancingTransactionsItem
+    from .payment_legacy_member import PaymentLegacyMember
+    from .payment_legacy_membership import PaymentLegacyMembership
+    from .payment_legacy_payment_instrument import PaymentLegacyPaymentInstrument
+    from .payment_legacy_payment_instrument_card import PaymentLegacyPaymentInstrumentCard
+    from .payment_legacy_payment_instrument_icons import PaymentLegacyPaymentInstrumentIcons
+    from .payment_legacy_payment_instrument_icons_card import PaymentLegacyPaymentInstrumentIconsCard
+    from .payment_legacy_payment_instrument_icons_card_dark import PaymentLegacyPaymentInstrumentIconsCardDark
+    from .payment_legacy_payment_instrument_icons_card_light import PaymentLegacyPaymentInstrumentIconsCardLight
+    from .payment_legacy_payment_instrument_icons_square import PaymentLegacyPaymentInstrumentIconsSquare
+    from .payment_legacy_payment_instrument_icons_square_dark import PaymentLegacyPaymentInstrumentIconsSquareDark
+    from .payment_legacy_payment_instrument_icons_square_light import PaymentLegacyPaymentInstrumentIconsSquareLight
+    from .payment_legacy_payment_method import PaymentLegacyPaymentMethod
+    from .payment_legacy_payment_method_card import PaymentLegacyPaymentMethodCard
+    from .payment_legacy_plan import PaymentLegacyPlan
+    from .payment_legacy_product import PaymentLegacyProduct
+    from .payment_legacy_promo_code import PaymentLegacyPromoCode
+    from .payment_legacy_refunds_item import PaymentLegacyRefundsItem
+    from .payment_legacy_resolutions_item import PaymentLegacyResolutionsItem
+    from .payment_legacy_shipment import PaymentLegacyShipment
+    from .payment_legacy_shipping_address import PaymentLegacyShippingAddress
+    from .payment_legacy_user import PaymentLegacyUser
+    from .payment_legacy_verification_checks import PaymentLegacyVerificationChecks
     from .payment_list_item import PaymentListItem
     from .payment_list_item_application_fee import PaymentListItemApplicationFee
     from .payment_list_item_billing_address import PaymentListItemBillingAddress
@@ -791,15 +769,12 @@ if typing.TYPE_CHECKING:
     from .payment_list_item_shipment import PaymentListItemShipment
     from .payment_list_item_shipping_address import PaymentListItemShippingAddress
     from .payment_list_item_user import PaymentListItemUser
-    from .payment_member import PaymentMember
-    from .payment_membership import PaymentMembership
     from .payment_method import (
         PaymentMethod,
         PaymentMethod_BasePaymentMethod,
         PaymentMethod_CardPaymentMethod,
         PaymentMethod_CashappPaymentMethod,
         PaymentMethod_IdealPaymentMethod,
-        PaymentMethod_PlatformBalancePaymentMethod,
         PaymentMethod_SepaDebitPaymentMethod,
         PaymentMethod_UsBankAccountPaymentMethod,
     )
@@ -833,6 +808,9 @@ if typing.TYPE_CHECKING:
     from .payment_method_cashapp_payment_method_icons_square_light import (
         PaymentMethodCashappPaymentMethodIconsSquareLight,
     )
+    from .payment_method_display import PaymentMethodDisplay
+    from .payment_method_display_category import PaymentMethodDisplayCategory
+    from .payment_method_display_preview import PaymentMethodDisplayPreview
     from .payment_method_domain import PaymentMethodDomain
     from .payment_method_domain_provider import PaymentMethodDomainProvider
     from .payment_method_domain_status import PaymentMethodDomainStatus
@@ -854,7 +832,6 @@ if typing.TYPE_CHECKING:
         PaymentMethodListItem_CardPaymentMethod,
         PaymentMethodListItem_CashappPaymentMethod,
         PaymentMethodListItem_IdealPaymentMethod,
-        PaymentMethodListItem_PlatformBalancePaymentMethod,
         PaymentMethodListItem_SepaDebitPaymentMethod,
         PaymentMethodListItem_UsBankAccountPaymentMethod,
     )
@@ -939,42 +916,6 @@ if typing.TYPE_CHECKING:
         PaymentMethodListItemIdealPaymentMethodIconsSquareLight,
     )
     from .payment_method_list_item_ideal_payment_method_ideal import PaymentMethodListItemIdealPaymentMethodIdeal
-    from .payment_method_list_item_platform_balance_payment_method import (
-        PaymentMethodListItemPlatformBalancePaymentMethod,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_icons import (
-        PaymentMethodListItemPlatformBalancePaymentMethodIcons,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_icons_card import (
-        PaymentMethodListItemPlatformBalancePaymentMethodIconsCard,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_icons_card_dark import (
-        PaymentMethodListItemPlatformBalancePaymentMethodIconsCardDark,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_icons_card_light import (
-        PaymentMethodListItemPlatformBalancePaymentMethodIconsCardLight,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_icons_square import (
-        PaymentMethodListItemPlatformBalancePaymentMethodIconsSquare,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_icons_square_dark import (
-        PaymentMethodListItemPlatformBalancePaymentMethodIconsSquareDark,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_icons_square_light import (
-        PaymentMethodListItemPlatformBalancePaymentMethodIconsSquareLight,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_platform_balance import (
-        PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalance,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_platform_balance_account import (
-        PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceAccount,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_platform_balance_account_logo import (
-        PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceAccountLogo,
-    )
-    from .payment_method_list_item_platform_balance_payment_method_platform_balance_balances_item import (
-        PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceBalancesItem,
-    )
     from .payment_method_list_item_sepa_debit_payment_method import PaymentMethodListItemSepaDebitPaymentMethod
     from .payment_method_list_item_sepa_debit_payment_method_icons import (
         PaymentMethodListItemSepaDebitPaymentMethodIcons,
@@ -1024,38 +965,6 @@ if typing.TYPE_CHECKING:
     )
     from .payment_method_list_item_us_bank_account_payment_method_us_bank_account import (
         PaymentMethodListItemUsBankAccountPaymentMethodUsBankAccount,
-    )
-    from .payment_method_platform_balance_payment_method import PaymentMethodPlatformBalancePaymentMethod
-    from .payment_method_platform_balance_payment_method_icons import PaymentMethodPlatformBalancePaymentMethodIcons
-    from .payment_method_platform_balance_payment_method_icons_card import (
-        PaymentMethodPlatformBalancePaymentMethodIconsCard,
-    )
-    from .payment_method_platform_balance_payment_method_icons_card_dark import (
-        PaymentMethodPlatformBalancePaymentMethodIconsCardDark,
-    )
-    from .payment_method_platform_balance_payment_method_icons_card_light import (
-        PaymentMethodPlatformBalancePaymentMethodIconsCardLight,
-    )
-    from .payment_method_platform_balance_payment_method_icons_square import (
-        PaymentMethodPlatformBalancePaymentMethodIconsSquare,
-    )
-    from .payment_method_platform_balance_payment_method_icons_square_dark import (
-        PaymentMethodPlatformBalancePaymentMethodIconsSquareDark,
-    )
-    from .payment_method_platform_balance_payment_method_icons_square_light import (
-        PaymentMethodPlatformBalancePaymentMethodIconsSquareLight,
-    )
-    from .payment_method_platform_balance_payment_method_platform_balance import (
-        PaymentMethodPlatformBalancePaymentMethodPlatformBalance,
-    )
-    from .payment_method_platform_balance_payment_method_platform_balance_account import (
-        PaymentMethodPlatformBalancePaymentMethodPlatformBalanceAccount,
-    )
-    from .payment_method_platform_balance_payment_method_platform_balance_account_logo import (
-        PaymentMethodPlatformBalancePaymentMethodPlatformBalanceAccountLogo,
-    )
-    from .payment_method_platform_balance_payment_method_platform_balance_balances_item import (
-        PaymentMethodPlatformBalancePaymentMethodPlatformBalanceBalancesItem,
     )
     from .payment_method_sepa_debit_payment_method import PaymentMethodSepaDebitPaymentMethod
     from .payment_method_sepa_debit_payment_method_icons import PaymentMethodSepaDebitPaymentMethodIcons
@@ -1112,36 +1021,17 @@ if typing.TYPE_CHECKING:
     from .payment_next_action_redirect import PaymentNextActionRedirect
     from .payment_next_action_redirect_data import PaymentNextActionRedirectData
     from .payment_next_action_redirect_render_item import PaymentNextActionRedirectRenderItem
-    from .payment_payment_instrument import PaymentPaymentInstrument
-    from .payment_payment_instrument_card import PaymentPaymentInstrumentCard
-    from .payment_payment_instrument_icons import PaymentPaymentInstrumentIcons
-    from .payment_payment_instrument_icons_card import PaymentPaymentInstrumentIconsCard
-    from .payment_payment_instrument_icons_card_dark import PaymentPaymentInstrumentIconsCardDark
-    from .payment_payment_instrument_icons_card_light import PaymentPaymentInstrumentIconsCardLight
-    from .payment_payment_instrument_icons_square import PaymentPaymentInstrumentIconsSquare
-    from .payment_payment_instrument_icons_square_dark import PaymentPaymentInstrumentIconsSquareDark
-    from .payment_payment_instrument_icons_square_light import PaymentPaymentInstrumentIconsSquareLight
-    from .payment_payment_method import PaymentPaymentMethod
-    from .payment_payment_method_card import PaymentPaymentMethodCard
-    from .payment_plan import PaymentPlan
     from .payment_processing_details import PaymentProcessingDetails
-    from .payment_product import PaymentProduct
-    from .payment_promo_code import PaymentPromoCode
     from .payment_providers import PaymentProviders
     from .payment_qr import PaymentQr
     from .payment_qr_instructions import PaymentQrInstructions
-    from .payment_refunds_item import PaymentRefundsItem
     from .payment_required_error_body import PaymentRequiredErrorBody
     from .payment_required_error_body_error import PaymentRequiredErrorBodyError
     from .payment_required_error_body_error_type import PaymentRequiredErrorBodyErrorType
-    from .payment_resolutions_item import PaymentResolutionsItem
-    from .payment_shipment import PaymentShipment
-    from .payment_shipping_address import PaymentShippingAddress
     from .payment_status import PaymentStatus
     from .payment_status_status import PaymentStatusStatus
     from .payment_transaction_statuses import PaymentTransactionStatuses
     from .payment_transaction_types import PaymentTransactionTypes
-    from .payment_user import PaymentUser
     from .payment_verification_checks import PaymentVerificationChecks
     from .payment_voucher import PaymentVoucher
     from .payment_voucher_instructions import PaymentVoucherInstructions
@@ -1152,7 +1042,6 @@ if typing.TYPE_CHECKING:
     from .payout_account_calculated_statuses import PayoutAccountCalculatedStatuses
     from .payout_account_latest_verification import PayoutAccountLatestVerification
     from .payout_destination_category import PayoutDestinationCategory
-    from .payout_error_codes import PayoutErrorCodes
     from .payout_method import PayoutMethod
     from .payout_method_company import PayoutMethodCompany
     from .payout_method_destination import PayoutMethodDestination
@@ -1162,7 +1051,6 @@ if typing.TYPE_CHECKING:
     from .permission import Permission
     from .permission_action import PermissionAction
     from .permission_granted_to_system_roles_item import PermissionGrantedToSystemRolesItem
-    from .permission_system_roles import PermissionSystemRoles
     from .pixel_validation import PixelValidation
     from .plan import Plan
     from .plan_currency import PlanCurrency
@@ -1184,6 +1072,11 @@ if typing.TYPE_CHECKING:
     from .product_custom_cta import ProductCustomCta
     from .product_gallery_image import ProductGalleryImage
     from .product_global_affiliate_status import ProductGlobalAffiliateStatus
+    from .product_legacy import ProductLegacy
+    from .product_legacy_company import ProductLegacyCompany
+    from .product_legacy_gallery_images_item import ProductLegacyGalleryImagesItem
+    from .product_legacy_owner_user import ProductLegacyOwnerUser
+    from .product_legacy_product_tax_code import ProductLegacyProductTaxCode
     from .product_list_item import ProductListItem
     from .product_marketplace_status import ProductMarketplaceStatus
     from .product_member_affiliate_status import ProductMemberAffiliateStatus
@@ -1218,16 +1111,22 @@ if typing.TYPE_CHECKING:
     from .recommended_action_execution import RecommendedActionExecution
     from .recommended_action_execution_status import RecommendedActionExecutionStatus
     from .refund import Refund
+    from .refund_failure_reason import RefundFailureReason
+    from .refund_legacy import RefundLegacy
+    from .refund_legacy_payment import RefundLegacyPayment
+    from .refund_legacy_payment_member import RefundLegacyPaymentMember
+    from .refund_legacy_payment_membership import RefundLegacyPaymentMembership
+    from .refund_legacy_payment_plan import RefundLegacyPaymentPlan
+    from .refund_legacy_payment_product import RefundLegacyPaymentProduct
+    from .refund_legacy_payment_user import RefundLegacyPaymentUser
     from .refund_list_item import RefundListItem
     from .refund_list_item_payment import RefundListItemPayment
-    from .refund_payment import RefundPayment
-    from .refund_payment_member import RefundPaymentMember
-    from .refund_payment_membership import RefundPaymentMembership
-    from .refund_payment_plan import RefundPaymentPlan
-    from .refund_payment_product import RefundPaymentProduct
-    from .refund_payment_user import RefundPaymentUser
+    from .refund_reason import RefundReason
+    from .refund_reference_status import RefundReferenceStatus
     from .refund_reference_statuses import RefundReferenceStatuses
+    from .refund_reference_type import RefundReferenceType
     from .refund_reference_types import RefundReferenceTypes
+    from .refund_status import RefundStatus
     from .refund_statuses import RefundStatuses
     from .release_method import ReleaseMethod
     from .resolution_attachment import ResolutionAttachment
@@ -1237,6 +1136,12 @@ if typing.TYPE_CHECKING:
     from .resolution_center_case_available_actions_item import ResolutionCenterCaseAvailableActionsItem
     from .resolution_center_case_customer_responses import ResolutionCenterCaseCustomerResponses
     from .resolution_center_case_issue_types import ResolutionCenterCaseIssueTypes
+    from .resolution_center_case_legacy import ResolutionCenterCaseLegacy
+    from .resolution_center_case_legacy_company import ResolutionCenterCaseLegacyCompany
+    from .resolution_center_case_legacy_member import ResolutionCenterCaseLegacyMember
+    from .resolution_center_case_legacy_payment import ResolutionCenterCaseLegacyPayment
+    from .resolution_center_case_legacy_resolution_events_item import ResolutionCenterCaseLegacyResolutionEventsItem
+    from .resolution_center_case_legacy_user import ResolutionCenterCaseLegacyUser
     from .resolution_center_case_list_item import ResolutionCenterCaseListItem
     from .resolution_center_case_list_item_company import ResolutionCenterCaseListItemCompany
     from .resolution_center_case_list_item_payment import ResolutionCenterCaseListItemPayment
@@ -1253,7 +1158,6 @@ if typing.TYPE_CHECKING:
     from .resolution_event_action import ResolutionEventAction
     from .resolution_event_reporter_type import ResolutionEventReporterType
     from .resolution_payment import ResolutionPayment
-    from .result_label_keys import ResultLabelKeys
     from .review import Review
     from .review_attachments_item import ReviewAttachmentsItem
     from .review_company import ReviewCompany
@@ -1287,6 +1191,8 @@ if typing.TYPE_CHECKING:
     from .shipment import Shipment
     from .shipment_checkpoint import ShipmentCheckpoint
     from .shipment_checkpoint_status import ShipmentCheckpointStatus
+    from .shipment_legacy import ShipmentLegacy
+    from .shipment_legacy_payment import ShipmentLegacyPayment
     from .shipment_list_item import ShipmentListItem
     from .shipment_list_item_payment import ShipmentListItemPayment
     from .shipment_status import ShipmentStatus
@@ -1301,7 +1207,6 @@ if typing.TYPE_CHECKING:
     from .social_account_post import SocialAccountPost
     from .social_account_post_call_to_action import SocialAccountPostCallToAction
     from .social_account_post_restrictions_item import SocialAccountPostRestrictionsItem
-    from .social_link_websites import SocialLinkWebsites
     from .specific_fee_origins import SpecificFeeOrigins
     from .status import Status
     from .statuses import Statuses
@@ -1381,13 +1286,6 @@ if typing.TYPE_CHECKING:
     from .webhook_testable_events_item import WebhookTestableEventsItem
     from .who_can_post_types import WhoCanPostTypes
     from .who_can_react_types import WhoCanReactTypes
-    from .withdrawal import Withdrawal
-    from .withdrawal_fee_types import WithdrawalFeeTypes
-    from .withdrawal_ledger_account import WithdrawalLedgerAccount
-    from .withdrawal_list_item import WithdrawalListItem
-    from .withdrawal_payout_token import WithdrawalPayoutToken
-    from .withdrawal_speeds import WithdrawalSpeeds
-    from .withdrawal_status import WithdrawalStatus
     from .workforce_bounty import WorkforceBounty
     from .workforce_bounty_list_item import WorkforceBountyListItem
 _dynamic_imports: typing.Dict[str, str] = {
@@ -1432,11 +1330,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountParent": ".account_parent",
     "AccountPaymentControls": ".account_payment_controls",
     "AccountPaymentControlsRestrictedPaymentMethodsItem": ".account_payment_controls_restricted_payment_methods_item",
+    "AccountPaymentControlsUndatedPendingReason": ".account_payment_controls_undated_pending_reason",
     "AccountPreferences": ".account_preferences",
     "AccountRecommendedAction": ".account_recommended_action",
     "AccountRecommendedActionAction": ".account_recommended_action_action",
     "AccountRecommendedActionChain": ".account_recommended_action_chain",
     "AccountRecommendedActionChainStep": ".account_recommended_action_chain_step",
+    "AccountRecommendedActionChainStepExecutionType": ".account_recommended_action_chain_step_execution_type",
     "AccountRecommendedActionChainStepStatus": ".account_recommended_action_chain_step_status",
     "AccountRecommendedActionOutcome": ".account_recommended_action_outcome",
     "AccountRecommendedActionStatus": ".account_recommended_action_status",
@@ -1463,6 +1363,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountThreeDsLevel": ".account_three_ds_level",
     "AccountWallet": ".account_wallet",
     "AccountWalletNetwork": ".account_wallet_network",
+    "AccountWithdrawalScheduleControl": ".account_withdrawal_schedule_control",
+    "AccountWithdrawalScheduleControlFrequency": ".account_withdrawal_schedule_control_frequency",
     "Ad": ".ad",
     "AdCallToAction": ".ad_call_to_action",
     "AdCampaign": ".ad_campaign",
@@ -1542,16 +1444,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdLeadFormQuestion": ".ad_lead_form_question",
     "AdLeadFormQuestionOption": ".ad_lead_form_question_option",
     "AdMessagingConfig": ".ad_messaging_config",
+    "AdMusic": ".ad_music",
     "AdPlatformIssue": ".ad_platform_issue",
     "AdPlatformIssueResourceType": ".ad_platform_issue_resource_type",
     "AdPostSource": ".ad_post_source",
-    "AdReport": ".ad_report",
-    "AdReportBreakdownItem": ".ad_report_breakdown_item",
-    "AdReportBreakdownItemGranularityItem": ".ad_report_breakdown_item_granularity_item",
-    "AdReportBreakdownItemSummary": ".ad_report_breakdown_item_summary",
-    "AdReportBreakdownLevels": ".ad_report_breakdown_levels",
-    "AdReportGranularityItem": ".ad_report_granularity_item",
-    "AdReportSummary": ".ad_report_summary",
     "AdResultEvent": ".ad_result_event",
     "AdStatus": ".ad_status",
     "Affiliate": ".affiliate",
@@ -1664,6 +1560,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CardFundingTypes": ".card_funding_types",
     "CardIssuingTransactionStatus": ".card_issuing_transaction_status",
     "CardTransaction": ".card_transaction",
+    "CardTransactionLegacy": ".card_transaction_legacy",
     "CardTransactionListItem": ".card_transaction_list_item",
     "CardTransactionStatus": ".card_transaction_status",
     "CardTransactionTransactionType": ".card_transaction_transaction_type",
@@ -1685,92 +1582,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CheckoutConfigurationThreeDsLevel": ".checkout_configuration_three_ds_level",
     "CheckoutFonts": ".checkout_fonts",
     "CheckoutModes": ".checkout_modes",
-    "CheckoutSession": ".checkout_session",
-    "CheckoutSessionAuthenticateAction": ".checkout_session_authenticate_action",
-    "CheckoutSessionAwaitClaimAction": ".checkout_session_await_claim_action",
-    "CheckoutSessionAwaitClaimActionState": ".checkout_session_await_claim_action_state",
-    "CheckoutSessionBranding": ".checkout_session_branding",
-    "CheckoutSessionBrandingBorderStyle": ".checkout_session_branding_border_style",
-    "CheckoutSessionBrandingFontFamily": ".checkout_session_branding_font_family",
-    "CheckoutSessionBreakdown": ".checkout_session_breakdown",
-    "CheckoutSessionBreakdownAdjustment": ".checkout_session_breakdown_adjustment",
-    "CheckoutSessionBreakdownAdjustmentApplied": ".checkout_session_breakdown_adjustment_applied",
-    "CheckoutSessionBreakdownAdjustmentKind": ".checkout_session_breakdown_adjustment_kind",
-    "CheckoutSessionBreakdownAdjustmentStatus": ".checkout_session_breakdown_adjustment_status",
-    "CheckoutSessionBreakdownCurrency": ".checkout_session_breakdown_currency",
-    "CheckoutSessionBreakdownDisplay": ".checkout_session_breakdown_display",
-    "CheckoutSessionBreakdownDisplayHeadline": ".checkout_session_breakdown_display_headline",
-    "CheckoutSessionBreakdownDisplayHeadlineKind": ".checkout_session_breakdown_display_headline_kind",
-    "CheckoutSessionBreakdownDisplayRow": ".checkout_session_breakdown_display_row",
-    "CheckoutSessionBreakdownDisplayRowDetail": ".checkout_session_breakdown_display_row_detail",
-    "CheckoutSessionBreakdownDisplayRowDetailApplied": ".checkout_session_breakdown_display_row_detail_applied",
-    "CheckoutSessionBreakdownDisplayRowKind": ".checkout_session_breakdown_display_row_kind",
-    "CheckoutSessionBreakdownDisplayRowStatus": ".checkout_session_breakdown_display_row_status",
-    "CheckoutSessionBreakdownDisplaySections": ".checkout_session_breakdown_display_sections",
-    "CheckoutSessionBreakdownLine": ".checkout_session_breakdown_line",
-    "CheckoutSessionBreakdownLineKind": ".checkout_session_breakdown_line_kind",
-    "CheckoutSessionBreakdownUpcoming": ".checkout_session_breakdown_upcoming",
-    "CheckoutSessionBreakdownUpcomingInstallments": ".checkout_session_breakdown_upcoming_installments",
-    "CheckoutSessionBreakdownUpcomingOneTime": ".checkout_session_breakdown_upcoming_one_time",
-    "CheckoutSessionBreakdownUpcomingRecurring": ".checkout_session_breakdown_upcoming_recurring",
-    "CheckoutSessionBreakdownUpcoming_Installments": ".checkout_session_breakdown_upcoming",
-    "CheckoutSessionBreakdownUpcoming_OneTime": ".checkout_session_breakdown_upcoming",
-    "CheckoutSessionBreakdownUpcoming_Recurring": ".checkout_session_breakdown_upcoming",
-    "CheckoutSessionBuyerIdentity": ".checkout_session_buyer_identity",
-    "CheckoutSessionBuyerIdentityMethod": ".checkout_session_buyer_identity_method",
-    "CheckoutSessionCompleteAction": ".checkout_session_complete_action",
-    "CheckoutSessionCompleteActionKind": ".checkout_session_complete_action_kind",
-    "CheckoutSessionConfirmError": ".checkout_session_confirm_error",
-    "CheckoutSessionConfirmErrorCode": ".checkout_session_confirm_error_code",
-    "CheckoutSessionCtaLabel": ".checkout_session_cta_label",
-    "CheckoutSessionCustomField": ".checkout_session_custom_field",
-    "CheckoutSessionCustomFieldFieldType": ".checkout_session_custom_field_field_type",
-    "CheckoutSessionCustomFieldResponse": ".checkout_session_custom_field_response",
-    "CheckoutSessionEntry": ".checkout_session_entry",
-    "CheckoutSessionEntryStatus": ".checkout_session_entry_status",
-    "CheckoutSessionItem": ".checkout_session_item",
-    "CheckoutSessionMode": ".checkout_session_mode",
-    "CheckoutSessionNextAction": ".checkout_session_next_action",
-    "CheckoutSessionNextAction_Authenticate": ".checkout_session_next_action",
-    "CheckoutSessionNextAction_AwaitClaim": ".checkout_session_next_action",
-    "CheckoutSessionNextAction_Complete": ".checkout_session_next_action",
-    "CheckoutSessionNextAction_Redirect": ".checkout_session_next_action",
-    "CheckoutSessionNextAction_UpgradeAuthentication": ".checkout_session_next_action",
-    "CheckoutSessionNextAction_VerifyPhone": ".checkout_session_next_action",
-    "CheckoutSessionNextAction_WaitForPayment": ".checkout_session_next_action",
-    "CheckoutSessionPayment": ".checkout_session_payment",
     "CheckoutSessionPaymentMethodConfiguration": ".checkout_session_payment_method_configuration",
-    "CheckoutSessionPaymentStatus": ".checkout_session_payment_status",
-    "CheckoutSessionPromo": ".checkout_session_promo",
-    "CheckoutSessionPromoCurrency": ".checkout_session_promo_currency",
-    "CheckoutSessionPromoDuration": ".checkout_session_promo_duration",
-    "CheckoutSessionPromoPromoType": ".checkout_session_promo_promo_type",
-    "CheckoutSessionQuote": ".checkout_session_quote",
-    "CheckoutSessionRedirectAction": ".checkout_session_redirect_action",
-    "CheckoutSessionRequirement": ".checkout_session_requirement",
-    "CheckoutSessionRequirementType": ".checkout_session_requirement_type",
-    "CheckoutSessionSeller": ".checkout_session_seller",
-    "CheckoutSessionSellerTerms": ".checkout_session_seller_terms",
-    "CheckoutSessionShippingAddress": ".checkout_session_shipping_address",
-    "CheckoutSessionStatus": ".checkout_session_status",
-    "CheckoutSessionTaxBehavior": ".checkout_session_tax_behavior",
-    "CheckoutSessionTaxId": ".checkout_session_tax_id",
-    "CheckoutSessionTaxIdType": ".checkout_session_tax_id_type",
-    "CheckoutSessionThreeDsLevel": ".checkout_session_three_ds_level",
-    "CheckoutSessionTransfer": ".checkout_session_transfer",
-    "CheckoutSessionUpgradeAuthenticationAction": ".checkout_session_upgrade_authentication_action",
-    "CheckoutSessionUpgradeAuthenticationActionSignInIntent": ".checkout_session_upgrade_authentication_action_sign_in_intent",
-    "CheckoutSessionVerifyPhoneAction": ".checkout_session_verify_phone_action",
-    "CheckoutSessionWaitForPaymentAction": ".checkout_session_wait_for_payment_action",
     "CheckoutShapes": ".checkout_shapes",
-    "Company": ".company",
-    "CompanyFeaturedAffiliateProduct": ".company_featured_affiliate_product",
-    "CompanyListItem": ".company_list_item",
-    "CompanyListItemLogo": ".company_list_item_logo",
-    "CompanyListItemOwnerUser": ".company_list_item_owner_user",
-    "CompanyLogo": ".company_logo",
-    "CompanyOwnerUser": ".company_owner_user",
-    "CompanySocialLinksItem": ".company_social_links_item",
     "CompanyTokenTransaction": ".company_token_transaction",
     "CompanyTokenTransactionCompany": ".company_token_transaction_company",
     "CompanyTokenTransactionListItem": ".company_token_transaction_list_item",
@@ -1780,9 +1593,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CompanyTokenTransactionMember": ".company_token_transaction_member",
     "CompanyTokenTransactionTypes": ".company_token_transaction_types",
     "CompanyTokenTransactionUser": ".company_token_transaction_user",
+    "ConfirmationToken": ".confirmation_token",
+    "ConfirmationTokenStatus": ".confirmation_token_status",
     "ConversionEvent": ".conversion_event",
     "ConversionEventZero": ".conversion_event_zero",
-    "Countries": ".countries",
     "Course": ".course",
     "CourseChapter": ".course_chapter",
     "CourseChapterLessonsItem": ".course_chapter_lessons_item",
@@ -1845,6 +1659,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Direction": ".direction",
     "Dispute": ".dispute",
     "DisputeAlert": ".dispute_alert",
+    "DisputeAlertLegacy": ".dispute_alert_legacy",
+    "DisputeAlertLegacyDispute": ".dispute_alert_legacy_dispute",
+    "DisputeAlertLegacyPayment": ".dispute_alert_legacy_payment",
+    "DisputeAlertLegacyPaymentMember": ".dispute_alert_legacy_payment_member",
+    "DisputeAlertLegacyPaymentMembership": ".dispute_alert_legacy_payment_membership",
+    "DisputeAlertLegacyPaymentUser": ".dispute_alert_legacy_payment_user",
     "DisputeAlertListItem": ".dispute_alert_list_item",
     "DisputeAlertListItemDispute": ".dispute_alert_list_item_dispute",
     "DisputeAlertListItemPayment": ".dispute_alert_list_item_payment",
@@ -1861,6 +1681,23 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DisputeEvidenceDocumentVisibility": ".dispute_evidence_document_visibility",
     "DisputeEvidenceLockedReason": ".dispute_evidence_locked_reason",
     "DisputeIssuerComment": ".dispute_issuer_comment",
+    "DisputeLegacy": ".dispute_legacy",
+    "DisputeLegacyCancellationPolicyAttachment": ".dispute_legacy_cancellation_policy_attachment",
+    "DisputeLegacyCompany": ".dispute_legacy_company",
+    "DisputeLegacyCustomerCommunicationAttachment": ".dispute_legacy_customer_communication_attachment",
+    "DisputeLegacyPayment": ".dispute_legacy_payment",
+    "DisputeLegacyPaymentMember": ".dispute_legacy_payment_member",
+    "DisputeLegacyPaymentMembership": ".dispute_legacy_payment_membership",
+    "DisputeLegacyPaymentPaymentInstrument": ".dispute_legacy_payment_payment_instrument",
+    "DisputeLegacyPaymentPaymentInstrumentIcons": ".dispute_legacy_payment_payment_instrument_icons",
+    "DisputeLegacyPaymentPaymentInstrumentIconsSquare": ".dispute_legacy_payment_payment_instrument_icons_square",
+    "DisputeLegacyPaymentPaymentInstrumentIconsSquareDark": ".dispute_legacy_payment_payment_instrument_icons_square_dark",
+    "DisputeLegacyPaymentPaymentInstrumentIconsSquareLight": ".dispute_legacy_payment_payment_instrument_icons_square_light",
+    "DisputeLegacyPaymentUser": ".dispute_legacy_payment_user",
+    "DisputeLegacyPlan": ".dispute_legacy_plan",
+    "DisputeLegacyProduct": ".dispute_legacy_product",
+    "DisputeLegacyRefundPolicyAttachment": ".dispute_legacy_refund_policy_attachment",
+    "DisputeLegacyUncategorizedAttachment": ".dispute_legacy_uncategorized_attachment",
     "DisputeListItem": ".dispute_list_item",
     "DisputeListItemCompany": ".dispute_list_item_company",
     "DisputeListItemPayment": ".dispute_list_item_payment",
@@ -1939,7 +1776,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FutureUsageTypes": ".future_usage_types",
     "GlobalAffiliateStatuses": ".global_affiliate_statuses",
     "GrantableAuthorizedUserRoles": ".grantable_authorized_user_roles",
-    "Granularities": ".granularities",
     "IdentityProfile": ".identity_profile",
     "IdentityProfileBusinessAddress": ".identity_profile_business_address",
     "IdentityProfileKinds": ".identity_profile_kinds",
@@ -2003,6 +1839,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LedgerActivityObject": ".ledger_activity_object",
     "LedgerActivityPayment": ".ledger_activity_payment",
     "LedgerActivityPaymentObject": ".ledger_activity_payment_object",
+    "LedgerActivityPaymentPlan": ".ledger_activity_payment_plan",
+    "LedgerActivityPaymentProduct": ".ledger_activity_payment_product",
+    "LedgerActivityPaymentUser": ".ledger_activity_payment_user",
     "LedgerActivityResource": ".ledger_activity_resource",
     "LedgerActivityResourceAccountReference": ".ledger_activity_resource_account_reference",
     "LedgerActivityResourceAccountReferenceObject": ".ledger_activity_resource_account_reference_object",
@@ -2046,6 +1885,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MediaAssetStatus": ".media_asset_status",
     "Member": ".member",
     "MemberAccessLevel": ".member_access_level",
+    "MemberLegacy": ".member_legacy",
+    "MemberLegacyCompany": ".member_legacy_company",
+    "MemberLegacyUser": ".member_legacy_user",
     "MemberListItem": ".member_list_item",
     "MemberListItemUser": ".member_list_item_user",
     "MemberMostRecentActions": ".member_most_recent_actions",
@@ -2053,8 +1895,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MemberStatuses": ".member_statuses",
     "MembersSortableColumns": ".members_sortable_columns",
     "Membership": ".membership",
-    "MembershipAccount": ".membership_account",
     "MembershipCancellationModes": ".membership_cancellation_modes",
+    "MembershipLegacy": ".membership_legacy",
+    "MembershipLegacyCompany": ".membership_legacy_company",
+    "MembershipLegacyCustomFieldResponsesItem": ".membership_legacy_custom_field_responses_item",
+    "MembershipLegacyMember": ".membership_legacy_member",
+    "MembershipLegacyPlan": ".membership_legacy_plan",
+    "MembershipLegacyProduct": ".membership_legacy_product",
+    "MembershipLegacyPromoCode": ".membership_legacy_promo_code",
+    "MembershipLegacyUser": ".membership_legacy_user",
     "MembershipListItem": ".membership_list_item",
     "MembershipListItemCompany": ".membership_list_item_company",
     "MembershipListItemMember": ".membership_list_item_member",
@@ -2103,14 +1952,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Pagination": ".pagination",
     "Passkey": ".passkey",
     "Payment": ".payment",
-    "PaymentApplicationFee": ".payment_application_fee",
+    "PaymentAddress": ".payment_address",
     "PaymentBankTransfer": ".payment_bank_transfer",
     "PaymentBankTransferInstructions": ".payment_bank_transfer_instructions",
-    "PaymentBillingAddress": ".payment_billing_address",
-    "PaymentCompany": ".payment_company",
+    "PaymentBillingDetailsPreview": ".payment_billing_details_preview",
     "PaymentDeclineCodes": ".payment_decline_codes",
-    "PaymentDisputesItem": ".payment_disputes_item",
-    "PaymentFinancingTransactionsItem": ".payment_financing_transactions_item",
+    "PaymentFee": ".payment_fee",
+    "PaymentFeeOrigin": ".payment_fee_origin",
+    "PaymentFeeType": ".payment_fee_type",
     "PaymentInstructions": ".payment_instructions",
     "PaymentInstructions_BankTransfer": ".payment_instructions",
     "PaymentInstructions_Qr": ".payment_instructions",
@@ -2119,6 +1968,35 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentInstrumentCard": ".payment_instrument_card",
     "PaymentLastPaymentError": ".payment_last_payment_error",
     "PaymentLastPaymentErrorDeclineCode": ".payment_last_payment_error_decline_code",
+    "PaymentLegacy": ".payment_legacy",
+    "PaymentLegacyApplicationFee": ".payment_legacy_application_fee",
+    "PaymentLegacyBillingAddress": ".payment_legacy_billing_address",
+    "PaymentLegacyCompany": ".payment_legacy_company",
+    "PaymentLegacyDisputesItem": ".payment_legacy_disputes_item",
+    "PaymentLegacyFeesItem": ".payment_legacy_fees_item",
+    "PaymentLegacyFinancingTransactionsItem": ".payment_legacy_financing_transactions_item",
+    "PaymentLegacyMember": ".payment_legacy_member",
+    "PaymentLegacyMembership": ".payment_legacy_membership",
+    "PaymentLegacyPaymentInstrument": ".payment_legacy_payment_instrument",
+    "PaymentLegacyPaymentInstrumentCard": ".payment_legacy_payment_instrument_card",
+    "PaymentLegacyPaymentInstrumentIcons": ".payment_legacy_payment_instrument_icons",
+    "PaymentLegacyPaymentInstrumentIconsCard": ".payment_legacy_payment_instrument_icons_card",
+    "PaymentLegacyPaymentInstrumentIconsCardDark": ".payment_legacy_payment_instrument_icons_card_dark",
+    "PaymentLegacyPaymentInstrumentIconsCardLight": ".payment_legacy_payment_instrument_icons_card_light",
+    "PaymentLegacyPaymentInstrumentIconsSquare": ".payment_legacy_payment_instrument_icons_square",
+    "PaymentLegacyPaymentInstrumentIconsSquareDark": ".payment_legacy_payment_instrument_icons_square_dark",
+    "PaymentLegacyPaymentInstrumentIconsSquareLight": ".payment_legacy_payment_instrument_icons_square_light",
+    "PaymentLegacyPaymentMethod": ".payment_legacy_payment_method",
+    "PaymentLegacyPaymentMethodCard": ".payment_legacy_payment_method_card",
+    "PaymentLegacyPlan": ".payment_legacy_plan",
+    "PaymentLegacyProduct": ".payment_legacy_product",
+    "PaymentLegacyPromoCode": ".payment_legacy_promo_code",
+    "PaymentLegacyRefundsItem": ".payment_legacy_refunds_item",
+    "PaymentLegacyResolutionsItem": ".payment_legacy_resolutions_item",
+    "PaymentLegacyShipment": ".payment_legacy_shipment",
+    "PaymentLegacyShippingAddress": ".payment_legacy_shipping_address",
+    "PaymentLegacyUser": ".payment_legacy_user",
+    "PaymentLegacyVerificationChecks": ".payment_legacy_verification_checks",
     "PaymentListItem": ".payment_list_item",
     "PaymentListItemApplicationFee": ".payment_list_item_application_fee",
     "PaymentListItemBillingAddress": ".payment_list_item_billing_address",
@@ -2142,8 +2020,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentListItemShipment": ".payment_list_item_shipment",
     "PaymentListItemShippingAddress": ".payment_list_item_shipping_address",
     "PaymentListItemUser": ".payment_list_item_user",
-    "PaymentMember": ".payment_member",
-    "PaymentMembership": ".payment_membership",
     "PaymentMethod": ".payment_method",
     "PaymentMethodBasePaymentMethod": ".payment_method_base_payment_method",
     "PaymentMethodBasePaymentMethodIcons": ".payment_method_base_payment_method_icons",
@@ -2171,6 +2047,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentMethodCashappPaymentMethodIconsSquare": ".payment_method_cashapp_payment_method_icons_square",
     "PaymentMethodCashappPaymentMethodIconsSquareDark": ".payment_method_cashapp_payment_method_icons_square_dark",
     "PaymentMethodCashappPaymentMethodIconsSquareLight": ".payment_method_cashapp_payment_method_icons_square_light",
+    "PaymentMethodDisplay": ".payment_method_display",
+    "PaymentMethodDisplayCategory": ".payment_method_display_category",
+    "PaymentMethodDisplayPreview": ".payment_method_display_preview",
     "PaymentMethodDomain": ".payment_method_domain",
     "PaymentMethodDomainProvider": ".payment_method_domain_provider",
     "PaymentMethodDomainStatus": ".payment_method_domain_status",
@@ -2222,18 +2101,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentMethodListItemIdealPaymentMethodIconsSquareDark": ".payment_method_list_item_ideal_payment_method_icons_square_dark",
     "PaymentMethodListItemIdealPaymentMethodIconsSquareLight": ".payment_method_list_item_ideal_payment_method_icons_square_light",
     "PaymentMethodListItemIdealPaymentMethodIdeal": ".payment_method_list_item_ideal_payment_method_ideal",
-    "PaymentMethodListItemPlatformBalancePaymentMethod": ".payment_method_list_item_platform_balance_payment_method",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIcons": ".payment_method_list_item_platform_balance_payment_method_icons",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsCard": ".payment_method_list_item_platform_balance_payment_method_icons_card",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsCardDark": ".payment_method_list_item_platform_balance_payment_method_icons_card_dark",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsCardLight": ".payment_method_list_item_platform_balance_payment_method_icons_card_light",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsSquare": ".payment_method_list_item_platform_balance_payment_method_icons_square",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsSquareDark": ".payment_method_list_item_platform_balance_payment_method_icons_square_dark",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsSquareLight": ".payment_method_list_item_platform_balance_payment_method_icons_square_light",
-    "PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalance": ".payment_method_list_item_platform_balance_payment_method_platform_balance",
-    "PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceAccount": ".payment_method_list_item_platform_balance_payment_method_platform_balance_account",
-    "PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceAccountLogo": ".payment_method_list_item_platform_balance_payment_method_platform_balance_account_logo",
-    "PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceBalancesItem": ".payment_method_list_item_platform_balance_payment_method_platform_balance_balances_item",
     "PaymentMethodListItemSepaDebitPaymentMethod": ".payment_method_list_item_sepa_debit_payment_method",
     "PaymentMethodListItemSepaDebitPaymentMethodIcons": ".payment_method_list_item_sepa_debit_payment_method_icons",
     "PaymentMethodListItemSepaDebitPaymentMethodIconsCard": ".payment_method_list_item_sepa_debit_payment_method_icons_card",
@@ -2256,21 +2123,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentMethodListItem_CardPaymentMethod": ".payment_method_list_item",
     "PaymentMethodListItem_CashappPaymentMethod": ".payment_method_list_item",
     "PaymentMethodListItem_IdealPaymentMethod": ".payment_method_list_item",
-    "PaymentMethodListItem_PlatformBalancePaymentMethod": ".payment_method_list_item",
     "PaymentMethodListItem_SepaDebitPaymentMethod": ".payment_method_list_item",
     "PaymentMethodListItem_UsBankAccountPaymentMethod": ".payment_method_list_item",
-    "PaymentMethodPlatformBalancePaymentMethod": ".payment_method_platform_balance_payment_method",
-    "PaymentMethodPlatformBalancePaymentMethodIcons": ".payment_method_platform_balance_payment_method_icons",
-    "PaymentMethodPlatformBalancePaymentMethodIconsCard": ".payment_method_platform_balance_payment_method_icons_card",
-    "PaymentMethodPlatformBalancePaymentMethodIconsCardDark": ".payment_method_platform_balance_payment_method_icons_card_dark",
-    "PaymentMethodPlatformBalancePaymentMethodIconsCardLight": ".payment_method_platform_balance_payment_method_icons_card_light",
-    "PaymentMethodPlatformBalancePaymentMethodIconsSquare": ".payment_method_platform_balance_payment_method_icons_square",
-    "PaymentMethodPlatformBalancePaymentMethodIconsSquareDark": ".payment_method_platform_balance_payment_method_icons_square_dark",
-    "PaymentMethodPlatformBalancePaymentMethodIconsSquareLight": ".payment_method_platform_balance_payment_method_icons_square_light",
-    "PaymentMethodPlatformBalancePaymentMethodPlatformBalance": ".payment_method_platform_balance_payment_method_platform_balance",
-    "PaymentMethodPlatformBalancePaymentMethodPlatformBalanceAccount": ".payment_method_platform_balance_payment_method_platform_balance_account",
-    "PaymentMethodPlatformBalancePaymentMethodPlatformBalanceAccountLogo": ".payment_method_platform_balance_payment_method_platform_balance_account_logo",
-    "PaymentMethodPlatformBalancePaymentMethodPlatformBalanceBalancesItem": ".payment_method_platform_balance_payment_method_platform_balance_balances_item",
     "PaymentMethodSepaDebitPaymentMethod": ".payment_method_sepa_debit_payment_method",
     "PaymentMethodSepaDebitPaymentMethodIcons": ".payment_method_sepa_debit_payment_method_icons",
     "PaymentMethodSepaDebitPaymentMethodIconsCard": ".payment_method_sepa_debit_payment_method_icons_card",
@@ -2294,7 +2148,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentMethod_CardPaymentMethod": ".payment_method",
     "PaymentMethod_CashappPaymentMethod": ".payment_method",
     "PaymentMethod_IdealPaymentMethod": ".payment_method",
-    "PaymentMethod_PlatformBalancePaymentMethod": ".payment_method",
     "PaymentMethod_SepaDebitPaymentMethod": ".payment_method",
     "PaymentMethod_UsBankAccountPaymentMethod": ".payment_method",
     "PaymentNextAction": ".payment_next_action",
@@ -2309,36 +2162,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentNextAction_AwaitConfirmation": ".payment_next_action",
     "PaymentNextAction_DisplayInstructions": ".payment_next_action",
     "PaymentNextAction_Redirect": ".payment_next_action",
-    "PaymentPaymentInstrument": ".payment_payment_instrument",
-    "PaymentPaymentInstrumentCard": ".payment_payment_instrument_card",
-    "PaymentPaymentInstrumentIcons": ".payment_payment_instrument_icons",
-    "PaymentPaymentInstrumentIconsCard": ".payment_payment_instrument_icons_card",
-    "PaymentPaymentInstrumentIconsCardDark": ".payment_payment_instrument_icons_card_dark",
-    "PaymentPaymentInstrumentIconsCardLight": ".payment_payment_instrument_icons_card_light",
-    "PaymentPaymentInstrumentIconsSquare": ".payment_payment_instrument_icons_square",
-    "PaymentPaymentInstrumentIconsSquareDark": ".payment_payment_instrument_icons_square_dark",
-    "PaymentPaymentInstrumentIconsSquareLight": ".payment_payment_instrument_icons_square_light",
-    "PaymentPaymentMethod": ".payment_payment_method",
-    "PaymentPaymentMethodCard": ".payment_payment_method_card",
-    "PaymentPlan": ".payment_plan",
     "PaymentProcessingDetails": ".payment_processing_details",
-    "PaymentProduct": ".payment_product",
-    "PaymentPromoCode": ".payment_promo_code",
     "PaymentProviders": ".payment_providers",
     "PaymentQr": ".payment_qr",
     "PaymentQrInstructions": ".payment_qr_instructions",
-    "PaymentRefundsItem": ".payment_refunds_item",
     "PaymentRequiredErrorBody": ".payment_required_error_body",
     "PaymentRequiredErrorBodyError": ".payment_required_error_body_error",
     "PaymentRequiredErrorBodyErrorType": ".payment_required_error_body_error_type",
-    "PaymentResolutionsItem": ".payment_resolutions_item",
-    "PaymentShipment": ".payment_shipment",
-    "PaymentShippingAddress": ".payment_shipping_address",
     "PaymentStatus": ".payment_status",
     "PaymentStatusStatus": ".payment_status_status",
     "PaymentTransactionStatuses": ".payment_transaction_statuses",
     "PaymentTransactionTypes": ".payment_transaction_types",
-    "PaymentUser": ".payment_user",
     "PaymentVerificationChecks": ".payment_verification_checks",
     "PaymentVoucher": ".payment_voucher",
     "PaymentVoucherInstructions": ".payment_voucher_instructions",
@@ -2349,7 +2183,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PayoutAccountCalculatedStatuses": ".payout_account_calculated_statuses",
     "PayoutAccountLatestVerification": ".payout_account_latest_verification",
     "PayoutDestinationCategory": ".payout_destination_category",
-    "PayoutErrorCodes": ".payout_error_codes",
     "PayoutMethod": ".payout_method",
     "PayoutMethodCompany": ".payout_method_company",
     "PayoutMethodDestination": ".payout_method_destination",
@@ -2359,7 +2192,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Permission": ".permission",
     "PermissionAction": ".permission_action",
     "PermissionGrantedToSystemRolesItem": ".permission_granted_to_system_roles_item",
-    "PermissionSystemRoles": ".permission_system_roles",
     "PixelValidation": ".pixel_validation",
     "Plan": ".plan",
     "PlanCurrency": ".plan_currency",
@@ -2381,6 +2213,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProductCustomCta": ".product_custom_cta",
     "ProductGalleryImage": ".product_gallery_image",
     "ProductGlobalAffiliateStatus": ".product_global_affiliate_status",
+    "ProductLegacy": ".product_legacy",
+    "ProductLegacyCompany": ".product_legacy_company",
+    "ProductLegacyGalleryImagesItem": ".product_legacy_gallery_images_item",
+    "ProductLegacyOwnerUser": ".product_legacy_owner_user",
+    "ProductLegacyProductTaxCode": ".product_legacy_product_tax_code",
     "ProductListItem": ".product_list_item",
     "ProductMarketplaceStatus": ".product_marketplace_status",
     "ProductMemberAffiliateStatus": ".product_member_affiliate_status",
@@ -2415,16 +2252,22 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RecommendedActionExecution": ".recommended_action_execution",
     "RecommendedActionExecutionStatus": ".recommended_action_execution_status",
     "Refund": ".refund",
+    "RefundFailureReason": ".refund_failure_reason",
+    "RefundLegacy": ".refund_legacy",
+    "RefundLegacyPayment": ".refund_legacy_payment",
+    "RefundLegacyPaymentMember": ".refund_legacy_payment_member",
+    "RefundLegacyPaymentMembership": ".refund_legacy_payment_membership",
+    "RefundLegacyPaymentPlan": ".refund_legacy_payment_plan",
+    "RefundLegacyPaymentProduct": ".refund_legacy_payment_product",
+    "RefundLegacyPaymentUser": ".refund_legacy_payment_user",
     "RefundListItem": ".refund_list_item",
     "RefundListItemPayment": ".refund_list_item_payment",
-    "RefundPayment": ".refund_payment",
-    "RefundPaymentMember": ".refund_payment_member",
-    "RefundPaymentMembership": ".refund_payment_membership",
-    "RefundPaymentPlan": ".refund_payment_plan",
-    "RefundPaymentProduct": ".refund_payment_product",
-    "RefundPaymentUser": ".refund_payment_user",
+    "RefundReason": ".refund_reason",
+    "RefundReferenceStatus": ".refund_reference_status",
     "RefundReferenceStatuses": ".refund_reference_statuses",
+    "RefundReferenceType": ".refund_reference_type",
     "RefundReferenceTypes": ".refund_reference_types",
+    "RefundStatus": ".refund_status",
     "RefundStatuses": ".refund_statuses",
     "ReleaseMethod": ".release_method",
     "ResolutionAttachment": ".resolution_attachment",
@@ -2434,6 +2277,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResolutionCenterCaseAvailableActionsItem": ".resolution_center_case_available_actions_item",
     "ResolutionCenterCaseCustomerResponses": ".resolution_center_case_customer_responses",
     "ResolutionCenterCaseIssueTypes": ".resolution_center_case_issue_types",
+    "ResolutionCenterCaseLegacy": ".resolution_center_case_legacy",
+    "ResolutionCenterCaseLegacyCompany": ".resolution_center_case_legacy_company",
+    "ResolutionCenterCaseLegacyMember": ".resolution_center_case_legacy_member",
+    "ResolutionCenterCaseLegacyPayment": ".resolution_center_case_legacy_payment",
+    "ResolutionCenterCaseLegacyResolutionEventsItem": ".resolution_center_case_legacy_resolution_events_item",
+    "ResolutionCenterCaseLegacyUser": ".resolution_center_case_legacy_user",
     "ResolutionCenterCaseListItem": ".resolution_center_case_list_item",
     "ResolutionCenterCaseListItemCompany": ".resolution_center_case_list_item_company",
     "ResolutionCenterCaseListItemPayment": ".resolution_center_case_list_item_payment",
@@ -2450,7 +2299,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResolutionEventAction": ".resolution_event_action",
     "ResolutionEventReporterType": ".resolution_event_reporter_type",
     "ResolutionPayment": ".resolution_payment",
-    "ResultLabelKeys": ".result_label_keys",
     "Review": ".review",
     "ReviewAttachmentsItem": ".review_attachments_item",
     "ReviewCompany": ".review_company",
@@ -2484,6 +2332,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Shipment": ".shipment",
     "ShipmentCheckpoint": ".shipment_checkpoint",
     "ShipmentCheckpointStatus": ".shipment_checkpoint_status",
+    "ShipmentLegacy": ".shipment_legacy",
+    "ShipmentLegacyPayment": ".shipment_legacy_payment",
     "ShipmentListItem": ".shipment_list_item",
     "ShipmentListItemPayment": ".shipment_list_item_payment",
     "ShipmentStatus": ".shipment_status",
@@ -2498,7 +2348,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SocialAccountPost": ".social_account_post",
     "SocialAccountPostCallToAction": ".social_account_post_call_to_action",
     "SocialAccountPostRestrictionsItem": ".social_account_post_restrictions_item",
-    "SocialLinkWebsites": ".social_link_websites",
     "SpecificFeeOrigins": ".specific_fee_origins",
     "Status": ".status",
     "Statuses": ".statuses",
@@ -2576,13 +2425,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WebhookTestableEventsItem": ".webhook_testable_events_item",
     "WhoCanPostTypes": ".who_can_post_types",
     "WhoCanReactTypes": ".who_can_react_types",
-    "Withdrawal": ".withdrawal",
-    "WithdrawalFeeTypes": ".withdrawal_fee_types",
-    "WithdrawalLedgerAccount": ".withdrawal_ledger_account",
-    "WithdrawalListItem": ".withdrawal_list_item",
-    "WithdrawalPayoutToken": ".withdrawal_payout_token",
-    "WithdrawalSpeeds": ".withdrawal_speeds",
-    "WithdrawalStatus": ".withdrawal_status",
     "WorkforceBounty": ".workforce_bounty",
     "WorkforceBountyListItem": ".workforce_bounty_list_item",
 }
@@ -2651,11 +2493,13 @@ __all__ = [
     "AccountParent",
     "AccountPaymentControls",
     "AccountPaymentControlsRestrictedPaymentMethodsItem",
+    "AccountPaymentControlsUndatedPendingReason",
     "AccountPreferences",
     "AccountRecommendedAction",
     "AccountRecommendedActionAction",
     "AccountRecommendedActionChain",
     "AccountRecommendedActionChainStep",
+    "AccountRecommendedActionChainStepExecutionType",
     "AccountRecommendedActionChainStepStatus",
     "AccountRecommendedActionOutcome",
     "AccountRecommendedActionStatus",
@@ -2682,6 +2526,8 @@ __all__ = [
     "AccountThreeDsLevel",
     "AccountWallet",
     "AccountWalletNetwork",
+    "AccountWithdrawalScheduleControl",
+    "AccountWithdrawalScheduleControlFrequency",
     "Ad",
     "AdCallToAction",
     "AdCampaign",
@@ -2761,16 +2607,10 @@ __all__ = [
     "AdLeadFormQuestion",
     "AdLeadFormQuestionOption",
     "AdMessagingConfig",
+    "AdMusic",
     "AdPlatformIssue",
     "AdPlatformIssueResourceType",
     "AdPostSource",
-    "AdReport",
-    "AdReportBreakdownItem",
-    "AdReportBreakdownItemGranularityItem",
-    "AdReportBreakdownItemSummary",
-    "AdReportBreakdownLevels",
-    "AdReportGranularityItem",
-    "AdReportSummary",
     "AdResultEvent",
     "AdStatus",
     "Affiliate",
@@ -2883,6 +2723,7 @@ __all__ = [
     "CardFundingTypes",
     "CardIssuingTransactionStatus",
     "CardTransaction",
+    "CardTransactionLegacy",
     "CardTransactionListItem",
     "CardTransactionStatus",
     "CardTransactionTransactionType",
@@ -2904,92 +2745,8 @@ __all__ = [
     "CheckoutConfigurationThreeDsLevel",
     "CheckoutFonts",
     "CheckoutModes",
-    "CheckoutSession",
-    "CheckoutSessionAuthenticateAction",
-    "CheckoutSessionAwaitClaimAction",
-    "CheckoutSessionAwaitClaimActionState",
-    "CheckoutSessionBranding",
-    "CheckoutSessionBrandingBorderStyle",
-    "CheckoutSessionBrandingFontFamily",
-    "CheckoutSessionBreakdown",
-    "CheckoutSessionBreakdownAdjustment",
-    "CheckoutSessionBreakdownAdjustmentApplied",
-    "CheckoutSessionBreakdownAdjustmentKind",
-    "CheckoutSessionBreakdownAdjustmentStatus",
-    "CheckoutSessionBreakdownCurrency",
-    "CheckoutSessionBreakdownDisplay",
-    "CheckoutSessionBreakdownDisplayHeadline",
-    "CheckoutSessionBreakdownDisplayHeadlineKind",
-    "CheckoutSessionBreakdownDisplayRow",
-    "CheckoutSessionBreakdownDisplayRowDetail",
-    "CheckoutSessionBreakdownDisplayRowDetailApplied",
-    "CheckoutSessionBreakdownDisplayRowKind",
-    "CheckoutSessionBreakdownDisplayRowStatus",
-    "CheckoutSessionBreakdownDisplaySections",
-    "CheckoutSessionBreakdownLine",
-    "CheckoutSessionBreakdownLineKind",
-    "CheckoutSessionBreakdownUpcoming",
-    "CheckoutSessionBreakdownUpcomingInstallments",
-    "CheckoutSessionBreakdownUpcomingOneTime",
-    "CheckoutSessionBreakdownUpcomingRecurring",
-    "CheckoutSessionBreakdownUpcoming_Installments",
-    "CheckoutSessionBreakdownUpcoming_OneTime",
-    "CheckoutSessionBreakdownUpcoming_Recurring",
-    "CheckoutSessionBuyerIdentity",
-    "CheckoutSessionBuyerIdentityMethod",
-    "CheckoutSessionCompleteAction",
-    "CheckoutSessionCompleteActionKind",
-    "CheckoutSessionConfirmError",
-    "CheckoutSessionConfirmErrorCode",
-    "CheckoutSessionCtaLabel",
-    "CheckoutSessionCustomField",
-    "CheckoutSessionCustomFieldFieldType",
-    "CheckoutSessionCustomFieldResponse",
-    "CheckoutSessionEntry",
-    "CheckoutSessionEntryStatus",
-    "CheckoutSessionItem",
-    "CheckoutSessionMode",
-    "CheckoutSessionNextAction",
-    "CheckoutSessionNextAction_Authenticate",
-    "CheckoutSessionNextAction_AwaitClaim",
-    "CheckoutSessionNextAction_Complete",
-    "CheckoutSessionNextAction_Redirect",
-    "CheckoutSessionNextAction_UpgradeAuthentication",
-    "CheckoutSessionNextAction_VerifyPhone",
-    "CheckoutSessionNextAction_WaitForPayment",
-    "CheckoutSessionPayment",
     "CheckoutSessionPaymentMethodConfiguration",
-    "CheckoutSessionPaymentStatus",
-    "CheckoutSessionPromo",
-    "CheckoutSessionPromoCurrency",
-    "CheckoutSessionPromoDuration",
-    "CheckoutSessionPromoPromoType",
-    "CheckoutSessionQuote",
-    "CheckoutSessionRedirectAction",
-    "CheckoutSessionRequirement",
-    "CheckoutSessionRequirementType",
-    "CheckoutSessionSeller",
-    "CheckoutSessionSellerTerms",
-    "CheckoutSessionShippingAddress",
-    "CheckoutSessionStatus",
-    "CheckoutSessionTaxBehavior",
-    "CheckoutSessionTaxId",
-    "CheckoutSessionTaxIdType",
-    "CheckoutSessionThreeDsLevel",
-    "CheckoutSessionTransfer",
-    "CheckoutSessionUpgradeAuthenticationAction",
-    "CheckoutSessionUpgradeAuthenticationActionSignInIntent",
-    "CheckoutSessionVerifyPhoneAction",
-    "CheckoutSessionWaitForPaymentAction",
     "CheckoutShapes",
-    "Company",
-    "CompanyFeaturedAffiliateProduct",
-    "CompanyListItem",
-    "CompanyListItemLogo",
-    "CompanyListItemOwnerUser",
-    "CompanyLogo",
-    "CompanyOwnerUser",
-    "CompanySocialLinksItem",
     "CompanyTokenTransaction",
     "CompanyTokenTransactionCompany",
     "CompanyTokenTransactionListItem",
@@ -2999,9 +2756,10 @@ __all__ = [
     "CompanyTokenTransactionMember",
     "CompanyTokenTransactionTypes",
     "CompanyTokenTransactionUser",
+    "ConfirmationToken",
+    "ConfirmationTokenStatus",
     "ConversionEvent",
     "ConversionEventZero",
-    "Countries",
     "Course",
     "CourseChapter",
     "CourseChapterLessonsItem",
@@ -3064,6 +2822,12 @@ __all__ = [
     "Direction",
     "Dispute",
     "DisputeAlert",
+    "DisputeAlertLegacy",
+    "DisputeAlertLegacyDispute",
+    "DisputeAlertLegacyPayment",
+    "DisputeAlertLegacyPaymentMember",
+    "DisputeAlertLegacyPaymentMembership",
+    "DisputeAlertLegacyPaymentUser",
     "DisputeAlertListItem",
     "DisputeAlertListItemDispute",
     "DisputeAlertListItemPayment",
@@ -3080,6 +2844,23 @@ __all__ = [
     "DisputeEvidenceDocumentVisibility",
     "DisputeEvidenceLockedReason",
     "DisputeIssuerComment",
+    "DisputeLegacy",
+    "DisputeLegacyCancellationPolicyAttachment",
+    "DisputeLegacyCompany",
+    "DisputeLegacyCustomerCommunicationAttachment",
+    "DisputeLegacyPayment",
+    "DisputeLegacyPaymentMember",
+    "DisputeLegacyPaymentMembership",
+    "DisputeLegacyPaymentPaymentInstrument",
+    "DisputeLegacyPaymentPaymentInstrumentIcons",
+    "DisputeLegacyPaymentPaymentInstrumentIconsSquare",
+    "DisputeLegacyPaymentPaymentInstrumentIconsSquareDark",
+    "DisputeLegacyPaymentPaymentInstrumentIconsSquareLight",
+    "DisputeLegacyPaymentUser",
+    "DisputeLegacyPlan",
+    "DisputeLegacyProduct",
+    "DisputeLegacyRefundPolicyAttachment",
+    "DisputeLegacyUncategorizedAttachment",
     "DisputeListItem",
     "DisputeListItemCompany",
     "DisputeListItemPayment",
@@ -3158,7 +2939,6 @@ __all__ = [
     "FutureUsageTypes",
     "GlobalAffiliateStatuses",
     "GrantableAuthorizedUserRoles",
-    "Granularities",
     "IdentityProfile",
     "IdentityProfileBusinessAddress",
     "IdentityProfileKinds",
@@ -3222,6 +3002,9 @@ __all__ = [
     "LedgerActivityObject",
     "LedgerActivityPayment",
     "LedgerActivityPaymentObject",
+    "LedgerActivityPaymentPlan",
+    "LedgerActivityPaymentProduct",
+    "LedgerActivityPaymentUser",
     "LedgerActivityResource",
     "LedgerActivityResourceAccountReference",
     "LedgerActivityResourceAccountReferenceObject",
@@ -3265,6 +3048,9 @@ __all__ = [
     "MediaAssetStatus",
     "Member",
     "MemberAccessLevel",
+    "MemberLegacy",
+    "MemberLegacyCompany",
+    "MemberLegacyUser",
     "MemberListItem",
     "MemberListItemUser",
     "MemberMostRecentActions",
@@ -3272,8 +3058,15 @@ __all__ = [
     "MemberStatuses",
     "MembersSortableColumns",
     "Membership",
-    "MembershipAccount",
     "MembershipCancellationModes",
+    "MembershipLegacy",
+    "MembershipLegacyCompany",
+    "MembershipLegacyCustomFieldResponsesItem",
+    "MembershipLegacyMember",
+    "MembershipLegacyPlan",
+    "MembershipLegacyProduct",
+    "MembershipLegacyPromoCode",
+    "MembershipLegacyUser",
     "MembershipListItem",
     "MembershipListItemCompany",
     "MembershipListItemMember",
@@ -3322,14 +3115,14 @@ __all__ = [
     "Pagination",
     "Passkey",
     "Payment",
-    "PaymentApplicationFee",
+    "PaymentAddress",
     "PaymentBankTransfer",
     "PaymentBankTransferInstructions",
-    "PaymentBillingAddress",
-    "PaymentCompany",
+    "PaymentBillingDetailsPreview",
     "PaymentDeclineCodes",
-    "PaymentDisputesItem",
-    "PaymentFinancingTransactionsItem",
+    "PaymentFee",
+    "PaymentFeeOrigin",
+    "PaymentFeeType",
     "PaymentInstructions",
     "PaymentInstructions_BankTransfer",
     "PaymentInstructions_Qr",
@@ -3338,6 +3131,35 @@ __all__ = [
     "PaymentInstrumentCard",
     "PaymentLastPaymentError",
     "PaymentLastPaymentErrorDeclineCode",
+    "PaymentLegacy",
+    "PaymentLegacyApplicationFee",
+    "PaymentLegacyBillingAddress",
+    "PaymentLegacyCompany",
+    "PaymentLegacyDisputesItem",
+    "PaymentLegacyFeesItem",
+    "PaymentLegacyFinancingTransactionsItem",
+    "PaymentLegacyMember",
+    "PaymentLegacyMembership",
+    "PaymentLegacyPaymentInstrument",
+    "PaymentLegacyPaymentInstrumentCard",
+    "PaymentLegacyPaymentInstrumentIcons",
+    "PaymentLegacyPaymentInstrumentIconsCard",
+    "PaymentLegacyPaymentInstrumentIconsCardDark",
+    "PaymentLegacyPaymentInstrumentIconsCardLight",
+    "PaymentLegacyPaymentInstrumentIconsSquare",
+    "PaymentLegacyPaymentInstrumentIconsSquareDark",
+    "PaymentLegacyPaymentInstrumentIconsSquareLight",
+    "PaymentLegacyPaymentMethod",
+    "PaymentLegacyPaymentMethodCard",
+    "PaymentLegacyPlan",
+    "PaymentLegacyProduct",
+    "PaymentLegacyPromoCode",
+    "PaymentLegacyRefundsItem",
+    "PaymentLegacyResolutionsItem",
+    "PaymentLegacyShipment",
+    "PaymentLegacyShippingAddress",
+    "PaymentLegacyUser",
+    "PaymentLegacyVerificationChecks",
     "PaymentListItem",
     "PaymentListItemApplicationFee",
     "PaymentListItemBillingAddress",
@@ -3361,8 +3183,6 @@ __all__ = [
     "PaymentListItemShipment",
     "PaymentListItemShippingAddress",
     "PaymentListItemUser",
-    "PaymentMember",
-    "PaymentMembership",
     "PaymentMethod",
     "PaymentMethodBasePaymentMethod",
     "PaymentMethodBasePaymentMethodIcons",
@@ -3390,6 +3210,9 @@ __all__ = [
     "PaymentMethodCashappPaymentMethodIconsSquare",
     "PaymentMethodCashappPaymentMethodIconsSquareDark",
     "PaymentMethodCashappPaymentMethodIconsSquareLight",
+    "PaymentMethodDisplay",
+    "PaymentMethodDisplayCategory",
+    "PaymentMethodDisplayPreview",
     "PaymentMethodDomain",
     "PaymentMethodDomainProvider",
     "PaymentMethodDomainStatus",
@@ -3441,18 +3264,6 @@ __all__ = [
     "PaymentMethodListItemIdealPaymentMethodIconsSquareDark",
     "PaymentMethodListItemIdealPaymentMethodIconsSquareLight",
     "PaymentMethodListItemIdealPaymentMethodIdeal",
-    "PaymentMethodListItemPlatformBalancePaymentMethod",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIcons",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsCard",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsCardDark",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsCardLight",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsSquare",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsSquareDark",
-    "PaymentMethodListItemPlatformBalancePaymentMethodIconsSquareLight",
-    "PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalance",
-    "PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceAccount",
-    "PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceAccountLogo",
-    "PaymentMethodListItemPlatformBalancePaymentMethodPlatformBalanceBalancesItem",
     "PaymentMethodListItemSepaDebitPaymentMethod",
     "PaymentMethodListItemSepaDebitPaymentMethodIcons",
     "PaymentMethodListItemSepaDebitPaymentMethodIconsCard",
@@ -3475,21 +3286,8 @@ __all__ = [
     "PaymentMethodListItem_CardPaymentMethod",
     "PaymentMethodListItem_CashappPaymentMethod",
     "PaymentMethodListItem_IdealPaymentMethod",
-    "PaymentMethodListItem_PlatformBalancePaymentMethod",
     "PaymentMethodListItem_SepaDebitPaymentMethod",
     "PaymentMethodListItem_UsBankAccountPaymentMethod",
-    "PaymentMethodPlatformBalancePaymentMethod",
-    "PaymentMethodPlatformBalancePaymentMethodIcons",
-    "PaymentMethodPlatformBalancePaymentMethodIconsCard",
-    "PaymentMethodPlatformBalancePaymentMethodIconsCardDark",
-    "PaymentMethodPlatformBalancePaymentMethodIconsCardLight",
-    "PaymentMethodPlatformBalancePaymentMethodIconsSquare",
-    "PaymentMethodPlatformBalancePaymentMethodIconsSquareDark",
-    "PaymentMethodPlatformBalancePaymentMethodIconsSquareLight",
-    "PaymentMethodPlatformBalancePaymentMethodPlatformBalance",
-    "PaymentMethodPlatformBalancePaymentMethodPlatformBalanceAccount",
-    "PaymentMethodPlatformBalancePaymentMethodPlatformBalanceAccountLogo",
-    "PaymentMethodPlatformBalancePaymentMethodPlatformBalanceBalancesItem",
     "PaymentMethodSepaDebitPaymentMethod",
     "PaymentMethodSepaDebitPaymentMethodIcons",
     "PaymentMethodSepaDebitPaymentMethodIconsCard",
@@ -3513,7 +3311,6 @@ __all__ = [
     "PaymentMethod_CardPaymentMethod",
     "PaymentMethod_CashappPaymentMethod",
     "PaymentMethod_IdealPaymentMethod",
-    "PaymentMethod_PlatformBalancePaymentMethod",
     "PaymentMethod_SepaDebitPaymentMethod",
     "PaymentMethod_UsBankAccountPaymentMethod",
     "PaymentNextAction",
@@ -3528,36 +3325,17 @@ __all__ = [
     "PaymentNextAction_AwaitConfirmation",
     "PaymentNextAction_DisplayInstructions",
     "PaymentNextAction_Redirect",
-    "PaymentPaymentInstrument",
-    "PaymentPaymentInstrumentCard",
-    "PaymentPaymentInstrumentIcons",
-    "PaymentPaymentInstrumentIconsCard",
-    "PaymentPaymentInstrumentIconsCardDark",
-    "PaymentPaymentInstrumentIconsCardLight",
-    "PaymentPaymentInstrumentIconsSquare",
-    "PaymentPaymentInstrumentIconsSquareDark",
-    "PaymentPaymentInstrumentIconsSquareLight",
-    "PaymentPaymentMethod",
-    "PaymentPaymentMethodCard",
-    "PaymentPlan",
     "PaymentProcessingDetails",
-    "PaymentProduct",
-    "PaymentPromoCode",
     "PaymentProviders",
     "PaymentQr",
     "PaymentQrInstructions",
-    "PaymentRefundsItem",
     "PaymentRequiredErrorBody",
     "PaymentRequiredErrorBodyError",
     "PaymentRequiredErrorBodyErrorType",
-    "PaymentResolutionsItem",
-    "PaymentShipment",
-    "PaymentShippingAddress",
     "PaymentStatus",
     "PaymentStatusStatus",
     "PaymentTransactionStatuses",
     "PaymentTransactionTypes",
-    "PaymentUser",
     "PaymentVerificationChecks",
     "PaymentVoucher",
     "PaymentVoucherInstructions",
@@ -3568,7 +3346,6 @@ __all__ = [
     "PayoutAccountCalculatedStatuses",
     "PayoutAccountLatestVerification",
     "PayoutDestinationCategory",
-    "PayoutErrorCodes",
     "PayoutMethod",
     "PayoutMethodCompany",
     "PayoutMethodDestination",
@@ -3578,7 +3355,6 @@ __all__ = [
     "Permission",
     "PermissionAction",
     "PermissionGrantedToSystemRolesItem",
-    "PermissionSystemRoles",
     "PixelValidation",
     "Plan",
     "PlanCurrency",
@@ -3600,6 +3376,11 @@ __all__ = [
     "ProductCustomCta",
     "ProductGalleryImage",
     "ProductGlobalAffiliateStatus",
+    "ProductLegacy",
+    "ProductLegacyCompany",
+    "ProductLegacyGalleryImagesItem",
+    "ProductLegacyOwnerUser",
+    "ProductLegacyProductTaxCode",
     "ProductListItem",
     "ProductMarketplaceStatus",
     "ProductMemberAffiliateStatus",
@@ -3634,16 +3415,22 @@ __all__ = [
     "RecommendedActionExecution",
     "RecommendedActionExecutionStatus",
     "Refund",
+    "RefundFailureReason",
+    "RefundLegacy",
+    "RefundLegacyPayment",
+    "RefundLegacyPaymentMember",
+    "RefundLegacyPaymentMembership",
+    "RefundLegacyPaymentPlan",
+    "RefundLegacyPaymentProduct",
+    "RefundLegacyPaymentUser",
     "RefundListItem",
     "RefundListItemPayment",
-    "RefundPayment",
-    "RefundPaymentMember",
-    "RefundPaymentMembership",
-    "RefundPaymentPlan",
-    "RefundPaymentProduct",
-    "RefundPaymentUser",
+    "RefundReason",
+    "RefundReferenceStatus",
     "RefundReferenceStatuses",
+    "RefundReferenceType",
     "RefundReferenceTypes",
+    "RefundStatus",
     "RefundStatuses",
     "ReleaseMethod",
     "ResolutionAttachment",
@@ -3653,6 +3440,12 @@ __all__ = [
     "ResolutionCenterCaseAvailableActionsItem",
     "ResolutionCenterCaseCustomerResponses",
     "ResolutionCenterCaseIssueTypes",
+    "ResolutionCenterCaseLegacy",
+    "ResolutionCenterCaseLegacyCompany",
+    "ResolutionCenterCaseLegacyMember",
+    "ResolutionCenterCaseLegacyPayment",
+    "ResolutionCenterCaseLegacyResolutionEventsItem",
+    "ResolutionCenterCaseLegacyUser",
     "ResolutionCenterCaseListItem",
     "ResolutionCenterCaseListItemCompany",
     "ResolutionCenterCaseListItemPayment",
@@ -3669,7 +3462,6 @@ __all__ = [
     "ResolutionEventAction",
     "ResolutionEventReporterType",
     "ResolutionPayment",
-    "ResultLabelKeys",
     "Review",
     "ReviewAttachmentsItem",
     "ReviewCompany",
@@ -3703,6 +3495,8 @@ __all__ = [
     "Shipment",
     "ShipmentCheckpoint",
     "ShipmentCheckpointStatus",
+    "ShipmentLegacy",
+    "ShipmentLegacyPayment",
     "ShipmentListItem",
     "ShipmentListItemPayment",
     "ShipmentStatus",
@@ -3717,7 +3511,6 @@ __all__ = [
     "SocialAccountPost",
     "SocialAccountPostCallToAction",
     "SocialAccountPostRestrictionsItem",
-    "SocialLinkWebsites",
     "SpecificFeeOrigins",
     "Status",
     "Statuses",
@@ -3795,13 +3588,6 @@ __all__ = [
     "WebhookTestableEventsItem",
     "WhoCanPostTypes",
     "WhoCanReactTypes",
-    "Withdrawal",
-    "WithdrawalFeeTypes",
-    "WithdrawalLedgerAccount",
-    "WithdrawalListItem",
-    "WithdrawalPayoutToken",
-    "WithdrawalSpeeds",
-    "WithdrawalStatus",
     "WorkforceBounty",
     "WorkforceBountyListItem",
 ]

@@ -44,6 +44,7 @@ from agentic_devtools.cli.ci.models import (
     VerificationVerdict,
 )
 from agentic_devtools.cli.ci.provider import CIPlatformProvider
+from agentic_devtools.cli.ci.reconciliation import config
 from agentic_devtools.cli.ci.resolution.engine import TieredResolutionEngine
 from agentic_devtools.cli.ci.resolution.github_adapter import (
     GitHubResolutionContext,
@@ -72,6 +73,28 @@ from agentic_devtools.config import load_platform_config
 from agentic_devtools.state import get_state_dir
 
 logger = logging.getLogger(__name__)
+
+
+def _decode_observation_watermark(value: str) -> tuple[int, int, str]:
+    """Decode the persisted review/comment/commit observation watermark."""
+    if not value:
+        return 0, 0, ""
+    try:
+        decoded = json.loads(value)
+    except json.JSONDecodeError:
+        return 0, 0, value
+    if not isinstance(decoded, dict):
+        return 0, 0, value
+    review = decoded.get("review", 0)
+    comment = decoded.get("comment", 0)
+    commit = decoded.get("commit", "")
+    return (
+        review if isinstance(review, int) and review >= 0 else 0,
+        comment if isinstance(comment, int) and comment >= 0 else 0,
+        commit if isinstance(commit, str) else "",
+    )
+
+
 _NOT_FOUND_RE = re.compile(r"\b(?:HTTP )?404\b|\bnot found\b", re.IGNORECASE)
 _COOLDOWN_COMPONENT_RE = re.compile(r"[A-Za-z0-9_.-]{1,128}")
 
@@ -331,6 +354,28 @@ query($owner: String!, $name: String!, $endCursor: String!) {
             }
           }
         }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}
+"""
+
+_RELEVANT_PRS_QUERY = """
+query($owner: String!, $name: String!, $after: String, $first: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(states: OPEN, first: $first, after: $after, orderBy: {field: CREATED_AT, direction: ASC}) {
+      nodes {
+        number
+        title
+        headRefName
+        headRefOid
+        baseRefName
+        isDraft
+        isCrossRepository
+        headRepository { nameWithOwner }
+        repository { nameWithOwner }
+        labels(first: 100) { nodes { name } }
       }
       pageInfo { hasNextPage endCursor }
     }
@@ -2269,6 +2314,171 @@ class GitHubActionsProvider(CIPlatformProvider):
             mergeable=data.get("mergeable"),
             mergeable_state=data.get("mergeable_state", ""),
         )
+
+    @retry_with_backoff()
+    def list_relevant_pull_requests(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 25,
+    ) -> tuple[list[PRMetadata], str | None]:
+        """List a cursor-paginated page of open pull-request metadata."""
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer between 1 and 100")
+        if cursor is not None and not isinstance(cursor, str):
+            raise ValueError("cursor must be a string or None")
+
+        repo = self._resolve_repo()
+        owner, repo_name = repo.split("/", 1)
+        from agentic_devtools.cli.ci.scheduler import SKIP_LABEL
+
+        response = _gh_api(
+            "/graphql",
+            method="POST",
+            body={
+                "query": _RELEVANT_PRS_QUERY,
+                "variables": {
+                    "owner": owner,
+                    "name": repo_name,
+                    "after": cursor,
+                    "first": limit,
+                },
+            },
+        )
+        data = json.loads(response)
+        if not isinstance(data, dict):
+            raise RuntimeError(
+                f"Malformed relevant pull-request inventory response: expected object, got {type(data).__name__}"
+            )
+        errors = data.get("errors")
+        if isinstance(errors, list) and errors:
+            messages = [error.get("message", "Unknown GraphQL error") for error in errors if isinstance(error, dict)]
+            raise RuntimeError(
+                "Relevant pull-request inventory query failed: " + "; ".join(messages or ["unknown error"])
+            )
+        response_data = data.get("data")
+        repository = response_data.get("repository") if isinstance(response_data, dict) else None
+        pull_requests = repository.get("pullRequests") if isinstance(repository, dict) else None
+        if not isinstance(pull_requests, dict):
+            raise RuntimeError("Malformed relevant pull-request inventory response")
+        nodes = pull_requests.get("nodes")
+        page_info = pull_requests.get("pageInfo")
+        if not isinstance(nodes, list) or not isinstance(page_info, dict):
+            raise RuntimeError("Malformed relevant pull-request inventory response")
+
+        metadata: list[PRMetadata] = []
+        for node in nodes:
+            if not isinstance(node, dict):
+                raise RuntimeError("Malformed relevant pull-request inventory node")
+            if node.get("isCrossRepository") is True:
+                continue
+            number = node.get("number")
+            title = node.get("title")
+            head_ref = node.get("headRefName")
+            head_sha = node.get("headRefOid")
+            base_ref = node.get("baseRefName")
+            if (
+                not isinstance(number, int)
+                or number <= 0
+                or not isinstance(title, str)
+                or not isinstance(head_ref, str)
+                or not isinstance(head_sha, str)
+                or not isinstance(base_ref, str)
+            ):
+                raise RuntimeError("Malformed relevant pull-request inventory node")
+            labels_container = node.get("labels")
+            labels_payload = labels_container.get("nodes", []) if isinstance(labels_container, dict) else []
+            labels = (
+                [
+                    label["name"]
+                    for label in labels_payload
+                    if isinstance(label, dict) and isinstance(label.get("name"), str)
+                ]
+                if isinstance(labels_payload, list)
+                else []
+            )
+            if SKIP_LABEL in labels:
+                continue
+            head_repository = node.get("headRepository")
+            base_repository = node.get("repository")
+            metadata.append(
+                PRMetadata(
+                    number=number,
+                    title=title,
+                    head_branch=head_ref,
+                    head_sha=head_sha,
+                    base_branch=base_ref,
+                    head_repo_full_name=head_repository.get("nameWithOwner", "")
+                    if isinstance(head_repository, dict) and isinstance(head_repository.get("nameWithOwner"), str)
+                    else "",
+                    base_repo_full_name=base_repository.get("nameWithOwner", "")
+                    if isinstance(base_repository, dict) and isinstance(base_repository.get("nameWithOwner"), str)
+                    else "",
+                    labels=labels,
+                    is_draft=node.get("isDraft", False) if isinstance(node.get("isDraft"), bool) else False,
+                )
+            )
+
+        has_next = page_info.get("hasNextPage")
+        next_cursor = page_info.get("endCursor")
+        if not isinstance(has_next, bool) or (has_next and not isinstance(next_cursor, str)):
+            raise RuntimeError("Malformed relevant pull-request inventory page info")
+        return metadata, next_cursor if has_next else None
+
+    def get_pr_copilot_attribution(self, pr_number: int, *, observation_watermark: str = "") -> dict[str, bool | str]:
+        """Identify Copilot-authored reviews/comments and pushes since a watermark."""
+        if not isinstance(pr_number, int) or isinstance(pr_number, bool) or pr_number <= 0:
+            raise ValueError("pr_number must be a positive integer")
+        review_watermark, comment_watermark, commit_watermark = _decode_observation_watermark(observation_watermark)
+        reviews = self.list_reviews(pr_number)
+        comments = self.list_issue_comments(pr_number)
+        new_reviews = [review for review in reviews if review.id > review_watermark]
+        new_comments = [comment for comment in comments if comment.id > comment_watermark]
+        has_review = any(review.user in COPILOT_COMMENT_LOGINS for review in new_reviews)
+        has_review = has_review or any(comment.author in COPILOT_COMMENT_LOGINS for comment in new_comments)
+        metadata = self.get_pr_metadata(pr_number)
+        if commit_watermark:
+            from agentic_devtools.cli.ci.push_attribution import list_commits_since_watermark
+
+            per_page = 100
+            scan_state: dict[str, bool] = {}
+            commits = list_commits_since_watermark(
+                self._repo or os.environ.get("GITHUB_REPOSITORY", ""),
+                commit_watermark,
+                pr_number=pr_number,
+                per_page=per_page,
+                max_pages=config.MAX_PAGINATION_PAGES_PER_RUN,
+                scan_state=scan_state,
+            )
+            watermark_scan_incomplete = bool(commit_watermark) and not scan_state.get("watermark_found", False)
+            has_push = any(
+                isinstance(commit, dict)
+                and any(
+                    isinstance(commit.get(actor), dict) and commit[actor].get("login") in COPILOT_COMMENT_LOGINS
+                    for actor in ("author", "committer")
+                )
+                for commit in commits
+            )
+            if watermark_scan_incomplete:
+                logger.warning(
+                    "Commit watermark %r was not found; treating push attribution as unknown", commit_watermark
+                )
+                has_push = True
+        else:
+            head_author = self.get_commit_author_login(metadata.head_sha) if metadata.head_sha else ""
+            has_push = head_author in COPILOT_COMMENT_LOGINS
+        return {
+            "review": has_review,
+            "push": has_push,
+            "observation_watermark": json.dumps(
+                {
+                    "commit": metadata.head_sha,
+                    "review": max((review.id for review in reviews), default=review_watermark),
+                    "comment": max((comment.id for comment in comments), default=comment_watermark),
+                },
+                separators=(",", ":"),
+            ),
+        }
 
     @retry_with_backoff()
     def get_commit_author_login(self, sha: str) -> str:

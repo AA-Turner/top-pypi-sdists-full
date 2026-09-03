@@ -677,8 +677,13 @@ def build_capability(source_dir: Path, *, name: str | None = None) -> OCIImage:
                 "name": tool.name,
                 "description": tool.description,
                 "path": _tool_source_path(tool),
+                "input_schema": tool.parameters_schema,
             }
             for tool in cap.tools
+        ],
+        "commands": [
+            command.model_dump(mode="json", exclude_none=True)
+            for command in cap.manifest.commands or []
         ],
         "skills": skill_paths,
         "mcp_servers": [

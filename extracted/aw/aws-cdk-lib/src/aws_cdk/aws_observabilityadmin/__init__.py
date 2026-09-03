@@ -118,7 +118,14 @@ class CfnOrganizationCentralizationRule(
         
                             # the properties below are optional
                             encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
+                            encryption_scope="encryptionScope",
                             kms_key_arn="kmsKeyArn"
+                        ),
+                        tag_propagation_configuration=observabilityadmin.CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty(
+                            destination_role_arn="destinationRoleArn",
+        
+                            # the properties below are optional
+                            tag_conflict_resolution_strategy="tagConflictResolutionStrategy"
                         )
                     ),
                     destination_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
@@ -357,7 +364,14 @@ class CfnOrganizationCentralizationRule(
                 
                             # the properties below are optional
                             encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
+                            encryption_scope="encryptionScope",
                             kms_key_arn="kmsKeyArn"
+                        ),
+                        tag_propagation_configuration=observabilityadmin.CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty(
+                            destination_role_arn="destinationRoleArn",
+                
+                            # the properties below are optional
+                            tag_conflict_resolution_strategy="tagConflictResolutionStrategy"
                         )
                     ),
                     destination_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
@@ -481,7 +495,14 @@ class CfnOrganizationCentralizationRule(
                 
                                 # the properties below are optional
                                 encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
+                                encryption_scope="encryptionScope",
                                 kms_key_arn="kmsKeyArn"
+                            ),
+                            tag_propagation_configuration=observabilityadmin.CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty(
+                                destination_role_arn="destinationRoleArn",
+                
+                                # the properties below are optional
+                                tag_conflict_resolution_strategy="tagConflictResolutionStrategy"
                             )
                         ),
                         destination_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
@@ -678,6 +699,7 @@ class CfnOrganizationCentralizationRule(
             "backup_configuration": "backupConfiguration",
             "log_group_name_configuration": "logGroupNameConfiguration",
             "logs_encryption_configuration": "logsEncryptionConfiguration",
+            "tag_propagation_configuration": "tagPropagationConfiguration",
         },
     )
     class DestinationLogsConfigurationProperty:
@@ -687,12 +709,14 @@ class CfnOrganizationCentralizationRule(
             backup_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             log_group_name_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             logs_encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tag_propagation_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for centralization destination log groups, including encryption and backup settings.
 
             :param backup_configuration: Configuration defining the backup region and an optional KMS key for the backup destination.
             :param log_group_name_configuration: 
             :param logs_encryption_configuration: The encryption configuration for centralization destination log groups.
+            :param tag_propagation_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -718,7 +742,14 @@ class CfnOrganizationCentralizationRule(
                 
                         # the properties below are optional
                         encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
+                        encryption_scope="encryptionScope",
                         kms_key_arn="kmsKeyArn"
+                    ),
+                    tag_propagation_configuration=observabilityadmin.CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty(
+                        destination_role_arn="destinationRoleArn",
+                
+                        # the properties below are optional
+                        tag_conflict_resolution_strategy="tagConflictResolutionStrategy"
                     )
                 )
             '''
@@ -727,6 +758,7 @@ class CfnOrganizationCentralizationRule(
                 check_type(argname="argument backup_configuration", value=backup_configuration, expected_type=type_hints["backup_configuration"])
                 check_type(argname="argument log_group_name_configuration", value=log_group_name_configuration, expected_type=type_hints["log_group_name_configuration"])
                 check_type(argname="argument logs_encryption_configuration", value=logs_encryption_configuration, expected_type=type_hints["logs_encryption_configuration"])
+                check_type(argname="argument tag_propagation_configuration", value=tag_propagation_configuration, expected_type=type_hints["tag_propagation_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if backup_configuration is not None:
                 self._values["backup_configuration"] = backup_configuration
@@ -734,6 +766,8 @@ class CfnOrganizationCentralizationRule(
                 self._values["log_group_name_configuration"] = log_group_name_configuration
             if logs_encryption_configuration is not None:
                 self._values["logs_encryption_configuration"] = logs_encryption_configuration
+            if tag_propagation_configuration is not None:
+                self._values["tag_propagation_configuration"] = tag_propagation_configuration
 
         @builtins.property
         def backup_configuration(
@@ -766,6 +800,16 @@ class CfnOrganizationCentralizationRule(
             '''
             result = self._values.get("logs_encryption_configuration")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty"]], result)
+
+        @builtins.property
+        def tag_propagation_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration-tagpropagationconfiguration
+            '''
+            result = self._values.get("tag_propagation_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -964,6 +1008,7 @@ class CfnOrganizationCentralizationRule(
         name_mapping={
             "encryption_strategy": "encryptionStrategy",
             "encryption_conflict_resolution_strategy": "encryptionConflictResolutionStrategy",
+            "encryption_scope": "encryptionScope",
             "kms_key_arn": "kmsKeyArn",
         },
     )
@@ -973,6 +1018,7 @@ class CfnOrganizationCentralizationRule(
             *,
             encryption_strategy: builtins.str,
             encryption_conflict_resolution_strategy: typing.Optional[builtins.str] = None,
+            encryption_scope: typing.Optional[builtins.str] = None,
             kms_key_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for encrypting centralized log groups.
@@ -981,6 +1027,7 @@ class CfnOrganizationCentralizationRule(
 
             :param encryption_strategy: Configuration that determines the encryption strategy of the destination log groups. CUSTOMER_MANAGED uses the configured KmsKeyArn to encrypt newly created destination log groups.
             :param encryption_conflict_resolution_strategy: Conflict resolution strategy for centralization if the encryption strategy is set to CUSTOMER_MANAGED and the destination log group is encrypted with an AWS_OWNED KMS Key. ALLOW lets centralization go through while SKIP prevents centralization into the destination log group.
+            :param encryption_scope: 
             :param kms_key_arn: KMS Key ARN belonging to the primary destination account and region, to encrypt newly created central log groups in the primary destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-logsencryptionconfiguration.html
@@ -997,6 +1044,7 @@ class CfnOrganizationCentralizationRule(
                 
                     # the properties below are optional
                     encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
+                    encryption_scope="encryptionScope",
                     kms_key_arn="kmsKeyArn"
                 )
             '''
@@ -1004,12 +1052,15 @@ class CfnOrganizationCentralizationRule(
                 type_hints = cached_type_hints(_typecheckingstub__9d66f88a29d04606b9d6748d2a92fb0d7bf4a500a64fceff8556e1ac2275828e)
                 check_type(argname="argument encryption_strategy", value=encryption_strategy, expected_type=type_hints["encryption_strategy"])
                 check_type(argname="argument encryption_conflict_resolution_strategy", value=encryption_conflict_resolution_strategy, expected_type=type_hints["encryption_conflict_resolution_strategy"])
+                check_type(argname="argument encryption_scope", value=encryption_scope, expected_type=type_hints["encryption_scope"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "encryption_strategy": encryption_strategy,
             }
             if encryption_conflict_resolution_strategy is not None:
                 self._values["encryption_conflict_resolution_strategy"] = encryption_conflict_resolution_strategy
+            if encryption_scope is not None:
+                self._values["encryption_scope"] = encryption_scope
             if kms_key_arn is not None:
                 self._values["kms_key_arn"] = kms_key_arn
 
@@ -1036,6 +1087,14 @@ class CfnOrganizationCentralizationRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-logsencryptionconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-logsencryptionconfiguration-encryptionconflictresolutionstrategy
             '''
             result = self._values.get("encryption_conflict_resolution_strategy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def encryption_scope(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-logsencryptionconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-logsencryptionconfiguration-encryptionscope
+            '''
+            result = self._values.get("encryption_scope")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -1256,6 +1315,81 @@ class CfnOrganizationCentralizationRule(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_role_arn": "destinationRoleArn",
+            "tag_conflict_resolution_strategy": "tagConflictResolutionStrategy",
+        },
+    )
+    class TagPropagationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_role_arn: builtins.str,
+            tag_conflict_resolution_strategy: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param destination_role_arn: The ARN of the destination account IAM role used for tag propagation.
+            :param tag_conflict_resolution_strategy: The strategy to resolve tag conflicts during propagation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-tagpropagationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                tag_propagation_configuration_property = observabilityadmin.CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty(
+                    destination_role_arn="destinationRoleArn",
+                
+                    # the properties below are optional
+                    tag_conflict_resolution_strategy="tagConflictResolutionStrategy"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c9910a6f8f157eae478692d436c9306ecb2bee03f30a3cea204b1af280778b30)
+                check_type(argname="argument destination_role_arn", value=destination_role_arn, expected_type=type_hints["destination_role_arn"])
+                check_type(argname="argument tag_conflict_resolution_strategy", value=tag_conflict_resolution_strategy, expected_type=type_hints["tag_conflict_resolution_strategy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_role_arn": destination_role_arn,
+            }
+            if tag_conflict_resolution_strategy is not None:
+                self._values["tag_conflict_resolution_strategy"] = tag_conflict_resolution_strategy
+
+        @builtins.property
+        def destination_role_arn(self) -> builtins.str:
+            '''The ARN of the destination account IAM role used for tag propagation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-tagpropagationconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-tagpropagationconfiguration-destinationrolearn
+            '''
+            result = self._values.get("destination_role_arn")
+            assert result is not None, "Required property 'destination_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tag_conflict_resolution_strategy(self) -> typing.Optional[builtins.str]:
+            '''The strategy to resolve tag conflicts during propagation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-tagpropagationconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-tagpropagationconfiguration-tagconflictresolutionstrategy
+            '''
+            result = self._values.get("tag_conflict_resolution_strategy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagPropagationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRuleProps",
@@ -1308,7 +1442,14 @@ class CfnOrganizationCentralizationRuleProps:
             
                                 # the properties below are optional
                                 encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
+                                encryption_scope="encryptionScope",
                                 kms_key_arn="kmsKeyArn"
+                            ),
+                            tag_propagation_configuration=observabilityadmin.CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty(
+                                destination_role_arn="destinationRoleArn",
+            
+                                # the properties below are optional
+                                tag_conflict_resolution_strategy="tagConflictResolutionStrategy"
                             )
                         ),
                         destination_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
@@ -1451,6 +1592,7 @@ class CfnOrganizationTelemetryRule(
                         field_delimiter="fieldDelimiter",
                         output_format="outputFormat"
                     ),
+                    kms_key_arn="kmsKeyArn",
                     log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
                         log_types=["logTypes"]
                     ),
@@ -2713,6 +2855,7 @@ class CfnOrganizationTelemetryRule(
             "destination_pattern": "destinationPattern",
             "destination_type": "destinationType",
             "elb_load_balancer_logging_parameters": "elbLoadBalancerLoggingParameters",
+            "kms_key_arn": "kmsKeyArn",
             "log_delivery_parameters": "logDeliveryParameters",
             "retention_in_days": "retentionInDays",
             "vpc_flow_log_parameters": "vpcFlowLogParameters",
@@ -2727,6 +2870,7 @@ class CfnOrganizationTelemetryRule(
             destination_pattern: typing.Optional[builtins.str] = None,
             destination_type: typing.Optional[builtins.str] = None,
             elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kms_key_arn: typing.Optional[builtins.str] = None,
             log_delivery_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retention_in_days: typing.Optional[jsii.Number] = None,
             vpc_flow_log_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2738,6 +2882,7 @@ class CfnOrganizationTelemetryRule(
             :param destination_pattern: The pattern used to generate the destination path or name, supporting macros like and .
             :param destination_type: The type of destination for the telemetry data (e.g., "Amazon CloudWatch Logs", "S3").
             :param elb_load_balancer_logging_parameters: Configuration parameters specific to ELB load balancer logging when ELB is the resource type.
+            :param kms_key_arn: The Amazon Resource Name (ARN) of the customer-managed AWS KMS key used to encrypt the destination log groups specified in the Telemetry Rule.
             :param log_delivery_parameters: Parameters for log delivery configuration.
             :param retention_in_days: The number of days to retain the telemetry data in the destination.
             :param vpc_flow_log_parameters: Configuration parameters specific to VPC Flow Logs when VPC is the resource type.
@@ -2775,6 +2920,7 @@ class CfnOrganizationTelemetryRule(
                         field_delimiter="fieldDelimiter",
                         output_format="outputFormat"
                     ),
+                    kms_key_arn="kmsKeyArn",
                     log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
                         log_types=["logTypes"]
                     ),
@@ -2818,6 +2964,7 @@ class CfnOrganizationTelemetryRule(
                 check_type(argname="argument destination_pattern", value=destination_pattern, expected_type=type_hints["destination_pattern"])
                 check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
                 check_type(argname="argument elb_load_balancer_logging_parameters", value=elb_load_balancer_logging_parameters, expected_type=type_hints["elb_load_balancer_logging_parameters"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument log_delivery_parameters", value=log_delivery_parameters, expected_type=type_hints["log_delivery_parameters"])
                 check_type(argname="argument retention_in_days", value=retention_in_days, expected_type=type_hints["retention_in_days"])
                 check_type(argname="argument vpc_flow_log_parameters", value=vpc_flow_log_parameters, expected_type=type_hints["vpc_flow_log_parameters"])
@@ -2831,6 +2978,8 @@ class CfnOrganizationTelemetryRule(
                 self._values["destination_type"] = destination_type
             if elb_load_balancer_logging_parameters is not None:
                 self._values["elb_load_balancer_logging_parameters"] = elb_load_balancer_logging_parameters
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
             if log_delivery_parameters is not None:
                 self._values["log_delivery_parameters"] = log_delivery_parameters
             if retention_in_days is not None:
@@ -2879,6 +3028,15 @@ class CfnOrganizationTelemetryRule(
             '''
             result = self._values.get("elb_load_balancer_logging_parameters")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]], result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the customer-managed AWS KMS key used to encrypt the destination log groups specified in the Telemetry Rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def log_delivery_parameters(
@@ -3013,6 +3171,7 @@ class CfnOrganizationTelemetryRule(
                             field_delimiter="fieldDelimiter",
                             output_format="outputFormat"
                         ),
+                        kms_key_arn="kmsKeyArn",
                         log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
                             log_types=["logTypes"]
                         ),
@@ -3453,6 +3612,7 @@ class CfnOrganizationTelemetryRuleProps:
                             field_delimiter="fieldDelimiter",
                             output_format="outputFormat"
                         ),
+                        kms_key_arn="kmsKeyArn",
                         log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
                             log_types=["logTypes"]
                         ),
@@ -4956,6 +5116,7 @@ class CfnTelemetryRule(
                         field_delimiter="fieldDelimiter",
                         output_format="outputFormat"
                     ),
+                    kms_key_arn="kmsKeyArn",
                     log_delivery_parameters=observabilityadmin.CfnTelemetryRule.LogDeliveryParametersProperty(
                         log_types=["logTypes"]
                     ),
@@ -6215,6 +6376,7 @@ class CfnTelemetryRule(
             "destination_pattern": "destinationPattern",
             "destination_type": "destinationType",
             "elb_load_balancer_logging_parameters": "elbLoadBalancerLoggingParameters",
+            "kms_key_arn": "kmsKeyArn",
             "log_delivery_parameters": "logDeliveryParameters",
             "retention_in_days": "retentionInDays",
             "vpc_flow_log_parameters": "vpcFlowLogParameters",
@@ -6229,6 +6391,7 @@ class CfnTelemetryRule(
             destination_pattern: typing.Optional[builtins.str] = None,
             destination_type: typing.Optional[builtins.str] = None,
             elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kms_key_arn: typing.Optional[builtins.str] = None,
             log_delivery_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retention_in_days: typing.Optional[jsii.Number] = None,
             vpc_flow_log_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6240,6 +6403,7 @@ class CfnTelemetryRule(
             :param destination_pattern: The pattern used to generate the destination path or name, supporting macros like and .
             :param destination_type: The type of destination for the telemetry data (e.g., "Amazon CloudWatch Logs", "S3").
             :param elb_load_balancer_logging_parameters: Configuration parameters specific to ELB load balancer logging when ELB is the resource type.
+            :param kms_key_arn: The Amazon Resource Name (ARN) of the customer-managed AWS KMS key used to encrypt the destination log groups specified in the Telemetry Rule.
             :param log_delivery_parameters: Configuration parameters specific to Amazon Bedrock AgentCore logging when Amazon Bedrock AgentCore is the resource type.
             :param retention_in_days: The number of days to retain the telemetry data in the destination.
             :param vpc_flow_log_parameters: Configuration parameters specific to VPC Flow Logs when VPC is the resource type.
@@ -6277,6 +6441,7 @@ class CfnTelemetryRule(
                         field_delimiter="fieldDelimiter",
                         output_format="outputFormat"
                     ),
+                    kms_key_arn="kmsKeyArn",
                     log_delivery_parameters=observabilityadmin.CfnTelemetryRule.LogDeliveryParametersProperty(
                         log_types=["logTypes"]
                     ),
@@ -6320,6 +6485,7 @@ class CfnTelemetryRule(
                 check_type(argname="argument destination_pattern", value=destination_pattern, expected_type=type_hints["destination_pattern"])
                 check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
                 check_type(argname="argument elb_load_balancer_logging_parameters", value=elb_load_balancer_logging_parameters, expected_type=type_hints["elb_load_balancer_logging_parameters"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument log_delivery_parameters", value=log_delivery_parameters, expected_type=type_hints["log_delivery_parameters"])
                 check_type(argname="argument retention_in_days", value=retention_in_days, expected_type=type_hints["retention_in_days"])
                 check_type(argname="argument vpc_flow_log_parameters", value=vpc_flow_log_parameters, expected_type=type_hints["vpc_flow_log_parameters"])
@@ -6333,6 +6499,8 @@ class CfnTelemetryRule(
                 self._values["destination_type"] = destination_type
             if elb_load_balancer_logging_parameters is not None:
                 self._values["elb_load_balancer_logging_parameters"] = elb_load_balancer_logging_parameters
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
             if log_delivery_parameters is not None:
                 self._values["log_delivery_parameters"] = log_delivery_parameters
             if retention_in_days is not None:
@@ -6381,6 +6549,15 @@ class CfnTelemetryRule(
             '''
             result = self._values.get("elb_load_balancer_logging_parameters")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]], result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the customer-managed AWS KMS key used to encrypt the destination log groups specified in the Telemetry Rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-telemetryrule-telemetrydestinationconfiguration-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def log_delivery_parameters(
@@ -6512,6 +6689,7 @@ class CfnTelemetryRule(
                             field_delimiter="fieldDelimiter",
                             output_format="outputFormat"
                         ),
+                        kms_key_arn="kmsKeyArn",
                         log_delivery_parameters=observabilityadmin.CfnTelemetryRule.LogDeliveryParametersProperty(
                             log_types=["logTypes"]
                         ),
@@ -6939,6 +7117,7 @@ class CfnTelemetryRuleProps:
                             field_delimiter="fieldDelimiter",
                             output_format="outputFormat"
                         ),
+                        kms_key_arn="kmsKeyArn",
                         log_delivery_parameters=observabilityadmin.CfnTelemetryRule.LogDeliveryParametersProperty(
                             log_types=["logTypes"]
                         ),
@@ -7142,6 +7321,7 @@ def _typecheckingstub__5dd7a39f2c94fa5f25cdcfc83cd888a8c3b22c09afa009f3ed5de76fd
     backup_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_group_name_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logs_encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tag_propagation_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.TagPropagationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7172,6 +7352,7 @@ def _typecheckingstub__9d66f88a29d04606b9d6748d2a92fb0d7bf4a500a64fceff8556e1ac2
     *,
     encryption_strategy: builtins.str,
     encryption_conflict_resolution_strategy: typing.Optional[builtins.str] = None,
+    encryption_scope: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7196,6 +7377,14 @@ def _typecheckingstub__20a12247cb1287e19ec3a764cc738d756d26c889450a5b771811f8378
 def _typecheckingstub__1abb00d621ef0b57f2a59903b6b7f71e880aedf0f23fa9a0f8e004a87eb64e51(
     *,
     metrics_selection_criteria: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9910a6f8f157eae478692d436c9306ecb2bee03f30a3cea204b1af280778b30(
+    *,
+    destination_role_arn: builtins.str,
+    tag_conflict_resolution_strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7370,6 +7559,7 @@ def _typecheckingstub__36b4168c57b4555036ca598e8299a36985c9aab7a1eb6b84357df4454
     destination_pattern: typing.Optional[builtins.str] = None,
     destination_type: typing.Optional[builtins.str] = None,
     elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     log_delivery_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
     vpc_flow_log_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7798,6 +7988,7 @@ def _typecheckingstub__01ec7a824466c4f6343ec939656046b6c12a168edd9bbf6ebca41e4b5
     destination_pattern: typing.Optional[builtins.str] = None,
     destination_type: typing.Optional[builtins.str] = None,
     elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     log_delivery_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
     vpc_flow_log_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

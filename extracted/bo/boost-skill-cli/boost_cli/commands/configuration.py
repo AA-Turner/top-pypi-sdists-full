@@ -394,8 +394,14 @@ def cmd_create(argv) -> int:
     journal.log("create", name, path=str(target))
     out.ok("created %s" % _tilde(skill_md))
     if args.install:
+        owner = store.existing_skill_owner(name)
+        if owner and not out.confirm(
+                "%s is already installed from %s — replace it?" % (name, owner)):
+            out.warn("not installed: %s is already installed from %s" % (name, owner))
+            out.dim("  next: edit it, then `boost import %s`" % _tilde(target))
+            return 0
         res = store.install_from_path(target, name=name)
-        out.ok("installed %s → %s" % (name, _tilde(res.dest)))
+        out.ok("%s %s → %s" % ("replaced" if owner else "installed", name, _tilde(res.dest)))
         if res.linked:
             out.info("linked: " + ", ".join(agents.display_name(a) for a in res.linked))
     else:
@@ -1692,10 +1698,11 @@ def _offer_boost_first(hosts: list[str]) -> None:
     if lockfile.get_rule(builtin.BUILTIN_RULES[0]):
         return                      # already installed; do not re-ask
     body = (builtin.source_dir() / (builtin.BUILTIN_RULES[0] + ".mdc"))
+    scoped_agents = {builtin.AGENT_FOR_HOST.get(h) for h in hosts}
     targets = [str(rules.rule_target(agent, skills_dir,
                                      builtin.BUILTIN_RULES[0])[1])
                for agent, skills_dir in agents.enabled_agents().items()
-               if agent in {builtin.AGENT_FOR_HOST.get(h) for h in hosts}]
+               if agent in scoped_agents]
     if not targets:
         return
     out.info("")
@@ -1714,7 +1721,8 @@ def _offer_boost_first(hosts: list[str]) -> None:
     try:
         builtin.ensure_tap()
         catalog.rebuild_tap(registry.get(builtin.BUILTIN_TAP))
-        store.install(catalog.resolve_one(builtin.BUILTIN_RULES[0]))
+        store.install(catalog.resolve_one(builtin.BUILTIN_RULES[0]),
+                     only_agents=[a for a in scoped_agents if a])
     except (BoostError, OSError) as exc:
         out.warn("could not install %s: %s" % (builtin.BUILTIN_RULES[0], exc))
         return

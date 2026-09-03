@@ -1548,6 +1548,280 @@ class CfnCertificateProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lightsail_3214a409.IContactMethodRef)
+class CfnContactMethod(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lightsail.CfnContactMethod",
+):
+    '''Resource Type definition for AWS::Lightsail::ContactMethod.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-contactmethod.html
+    :cloudformationResource: AWS::Lightsail::ContactMethod
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lightsail as lightsail
+        
+        cfn_contact_method = lightsail.CfnContactMethod(self, "MyCfnContactMethod",
+            contact_endpoint="contactEndpoint",
+            protocol="protocol"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        contact_endpoint: builtins.str,
+        protocol: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Lightsail::ContactMethod``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param contact_endpoint: The destination of the contact method, such as an email address or a mobile phone number.
+        :param protocol: The protocol of the contact method, such as Email or SMS (text messaging).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1128317a2a85033e9b8c3200792826324b09c11bbf50700866aec4c7a36bb689)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContactMethodProps(
+            contact_endpoint=contact_endpoint, protocol=protocol
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForContactMethod")
+    @builtins.classmethod
+    def arn_for_contact_method(
+        cls,
+        resource: "_aws_lightsail_3214a409.IContactMethodRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b1f8a3122b31342da545f86ed4d974dba7e3ba93893547233b43ebee73903685)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContactMethod", [resource]))
+
+    @jsii.member(jsii_name="isCfnContactMethod")
+    @builtins.classmethod
+    def is_cfn_contact_method(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContactMethod.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__15d38f670e3393f2007efd3d6789fc6681da1cbeb7a8147fd8ad46042e76fa41)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContactMethod", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80a0c7830837d1aa08f7a9b538a75ad86ec04eec865ab942a386eb3f51059da8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2174769b2a27c071f2699ee01bb75099874898dfbb04114ce46d80201e06097d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the contact method.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the contact method was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''The name of the contact method.
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceType")
+    def attr_resource_type(self) -> builtins.str:
+        '''The Lightsail resource type of the contact method.
+
+        :cloudformationAttribute: ResourceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the contact method.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSupportCode")
+    def attr_support_code(self) -> builtins.str:
+        '''The support code for the contact method.
+
+        :cloudformationAttribute: SupportCode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSupportCode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactMethodRef")
+    def contact_method_ref(self) -> "_aws_lightsail_3214a409.ContactMethodReference":
+        '''A reference to a ContactMethod resource.'''
+        return typing.cast("_aws_lightsail_3214a409.ContactMethodReference", jsii.get(self, "contactMethodRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactEndpoint")
+    def contact_endpoint(self) -> builtins.str:
+        '''The destination of the contact method, such as an email address or a mobile phone number.'''
+        return typing.cast(builtins.str, jsii.get(self, "contactEndpoint"))
+
+    @contact_endpoint.setter
+    def contact_endpoint(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__26b92a3a75e55ec8e4aa1b67d27b537c8dbde96465b249a31b268cbf93dca18d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contactEndpoint", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="protocol")
+    def protocol(self) -> builtins.str:
+        '''The protocol of the contact method, such as Email or SMS (text messaging).'''
+        return typing.cast(builtins.str, jsii.get(self, "protocol"))
+
+    @protocol.setter
+    def protocol(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e33c9b9efb2fe20aff2acd0af3dd920c82b77dae9c2a128e17544fe245e1ca08)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lightsail.CfnContactMethodProps",
+    jsii_struct_bases=[],
+    name_mapping={"contact_endpoint": "contactEndpoint", "protocol": "protocol"},
+)
+class CfnContactMethodProps:
+    def __init__(
+        self,
+        *,
+        contact_endpoint: builtins.str,
+        protocol: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnContactMethod``.
+
+        :param contact_endpoint: The destination of the contact method, such as an email address or a mobile phone number.
+        :param protocol: The protocol of the contact method, such as Email or SMS (text messaging).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-contactmethod.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lightsail as lightsail
+            
+            cfn_contact_method_props = lightsail.CfnContactMethodProps(
+                contact_endpoint="contactEndpoint",
+                protocol="protocol"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__67edea9b7e8b714023e04f0bcc6095016ff1b4cb35356031cb740a7562cedd6f)
+            check_type(argname="argument contact_endpoint", value=contact_endpoint, expected_type=type_hints["contact_endpoint"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_endpoint": contact_endpoint,
+            "protocol": protocol,
+        }
+
+    @builtins.property
+    def contact_endpoint(self) -> builtins.str:
+        '''The destination of the contact method, such as an email address or a mobile phone number.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-contactmethod.html#cfn-lightsail-contactmethod-contactendpoint
+        '''
+        result = self._values.get("contact_endpoint")
+        assert result is not None, "Required property 'contact_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def protocol(self) -> builtins.str:
+        '''The protocol of the contact method, such as Email or SMS (text messaging).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-contactmethod.html#cfn-lightsail-contactmethod-protocol
+        '''
+        result = self._values.get("protocol")
+        assert result is not None, "Required property 'protocol' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContactMethodProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lightsail_3214a409.IContainerRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnContainer(
     _aws_cdk_0cae9daa.CfnResource,
@@ -11021,6 +11295,8 @@ __all__ = [
     "CfnBucketProps",
     "CfnCertificate",
     "CfnCertificateProps",
+    "CfnContactMethod",
+    "CfnContactMethodProps",
     "CfnContainer",
     "CfnContainerProps",
     "CfnDatabase",
@@ -11343,6 +11619,60 @@ def _typecheckingstub__2fece9fd02d544f5e7457740dc0b59430a4b93239cb2e0ea2ff7d402d
     domain_name: builtins.str,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1128317a2a85033e9b8c3200792826324b09c11bbf50700866aec4c7a36bb689(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    contact_endpoint: builtins.str,
+    protocol: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1f8a3122b31342da545f86ed4d974dba7e3ba93893547233b43ebee73903685(
+    resource: _aws_lightsail_3214a409.IContactMethodRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15d38f670e3393f2007efd3d6789fc6681da1cbeb7a8147fd8ad46042e76fa41(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80a0c7830837d1aa08f7a9b538a75ad86ec04eec865ab942a386eb3f51059da8(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2174769b2a27c071f2699ee01bb75099874898dfbb04114ce46d80201e06097d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26b92a3a75e55ec8e4aa1b67d27b537c8dbde96465b249a31b268cbf93dca18d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e33c9b9efb2fe20aff2acd0af3dd920c82b77dae9c2a128e17544fe245e1ca08(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67edea9b7e8b714023e04f0bcc6095016ff1b4cb35356031cb740a7562cedd6f(
+    *,
+    contact_endpoint: builtins.str,
+    protocol: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

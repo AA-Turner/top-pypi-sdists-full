@@ -4,7 +4,7 @@ import logging
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any
 
 import dask.array as da
 import numpy as np
@@ -20,7 +20,7 @@ from .types import JSONDict
 LOGGER = logging.getLogger("ome_zarr.writer")
 
 ListOfArrayLike = list[da.Array] | list[np.ndarray]
-ArrayLike: TypeAlias = da.Array | np.ndarray
+type ArrayLike = da.Array | np.ndarray
 
 AxesType = str | list[str] | list[dict[str, str]] | None
 
@@ -127,12 +127,12 @@ def _validate_well_images(
             if "path" not in image:
                 raise ValueError(f"{image} must contain a path key")
             if not isinstance(image["path"], str):
-                raise ValueError(f"{image} path must be of string type")
+                raise TypeError(f"{image} path must be of string type")
             if "acquisition" in image and not isinstance(image["acquisition"], int):
-                raise ValueError(f"{image} acquisition must be of int type")
+                raise TypeError(f"{image} acquisition must be of int type")
             validated_images.append(image)
         else:
-            raise ValueError(f"Unrecognized type for {image}")
+            raise TypeError(f"Unrecognized type for {image}")
     return validated_images
 
 
@@ -150,13 +150,13 @@ def _validate_plate_acquisitions(
 
     for acquisition in acquisitions:
         if not isinstance(acquisition, dict):
-            raise ValueError(f"{acquisition} must be a dictionary")
+            raise TypeError(f"{acquisition} must be a dictionary")
         if any(e not in VALID_KEYS for e in acquisition):
             LOGGER.debug("%s contains unspecified keys", acquisition)
         if "id" not in acquisition:
             raise ValueError(f"{acquisition} must contain an id key")
         if not isinstance(acquisition["id"], int):
-            raise ValueError(f"{acquisition} id must be of int type")
+            raise TypeError(f"{acquisition} id must be of int type")
     return acquisitions
 
 
@@ -189,7 +189,7 @@ def _validate_datasets(
             if transformation is not None:
                 transformations.append(transformation)
         else:
-            raise ValueError(f"Unrecognized type for {dataset}")
+            raise TypeError(f"Unrecognized type for {dataset}")
 
     fmt.validate_coordinate_transformations(dims, len(datasets), transformations)
     return datasets
@@ -213,7 +213,7 @@ def _validate_plate_wells(
             fmt.validate_well_dict(well, rows, columns)
             validated_wells.append(well)
         else:
-            raise ValueError(f"Unrecognized type for {well}")
+            raise TypeError(f"Unrecognized type for {well}")
     return validated_wells
 
 
@@ -374,7 +374,7 @@ def write_multiscale(
         group,
         fmt=fmt,
         scale=scale,
-        axes=axes,
+        axes=list(scale.keys()),
         axes_units=axes_units,
         coordinate_transformations=coordinate_transformations,
         storage_options=storage_options,
@@ -770,8 +770,8 @@ def _write_pyramid_to_zarr(
     group: zarr.Group,
     fmt: Format,
     scale: dict[str, float],
+    axes: list[str] | tuple[str],
     axes_units: dict[str, str] | None = None,
-    axes: AxesType = None,
     coordinate_transformations: list[list[dict[str, Any]]] | None = None,
     storage_options: JSONDict | list[JSONDict] | None = None,
     name: str | None = None,
@@ -780,12 +780,11 @@ def _write_pyramid_to_zarr(
 ) -> list:
 
     group, fmt = check_group_fmt(group, fmt)
-    _axes = _get_valid_axes(len(pyramid[0].shape), axes, axes_units=axes_units, fmt=fmt)
-    dims = _extract_dims_from_axes(_axes)
 
-    # Normalize `scale` so every axis in `dims` is represented.
-    # Missing axes are allowed and default to 1.0.
-    scale = {d: scale.get(d, 1.0) for d in dims}
+    # make sure every axis is represented in `scale`;
+    # coerce to 1.0 if not provided
+    # but don't allow missing axes to avoid silent errors
+    scale = {d: scale.get(d, 1.0) for d in axes}
 
     # Set up common kwargs for da.to_zarr
     # zarr_array_kwargs needs dask 2025.12.0 or later
@@ -810,9 +809,7 @@ def _write_pyramid_to_zarr(
         zarr_array_kwargs["dimension_separator"] = "/"
 
     if axes is not None and zarr_format != 2:
-        zarr_array_kwargs["dimension_names"] = [
-            a["name"] for a in axes if isinstance(a, dict)
-        ]
+        zarr_array_kwargs["dimension_names"] = axes
 
     shapes = []
     datasets: list[dict] = []
@@ -918,7 +915,7 @@ def _write_pyramid_to_zarr(
             for transform in coordinate_transformations:
                 transform[0]["scale"] = [
                     transform[0]["scale"][i] * scale.get(d, 1.0)
-                    for i, d in enumerate(dims)
+                    for i, d in enumerate(axes)
                 ]
 
     # we validate again later, but this catches length mismatch before zip(datasets...)
@@ -933,7 +930,7 @@ def _write_pyramid_to_zarr(
         group,
         datasets=datasets,
         fmt=fmt,
-        axes=axes,
+        axes=list(axes),
         name=name,
         axes_units=axes_units,
         **metadata,
@@ -1150,7 +1147,7 @@ def write_multiscale_labels(
         sub_group,
         fmt=fmt,
         scale=scale,
-        axes=axes,
+        axes=list(scale.keys()),
         axes_units=axes_units,
         coordinate_transformations=coordinate_transformations,
         storage_options=storage_options,
@@ -1172,7 +1169,7 @@ def write_labels(
     labels: np.ndarray | da.Array,
     group: zarr.Group | str,
     name: str = "labels",
-    scaler: Scaler | None = Scaler(order=0),
+    scaler: Scaler | None = None,
     scale_factors: list[int] | tuple[int, ...] | list[dict[str, int]] = (2, 4, 8, 16),
     method: Methods = Methods.NEAREST,
     fmt: Format | None = None,

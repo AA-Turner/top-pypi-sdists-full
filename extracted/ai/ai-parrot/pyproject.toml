@@ -64,6 +64,17 @@ dependencies = [
     # chunking used by AbstractLoader. Moved here from ai-parrot-loaders to
     # break the circular import (loaders depends on core).
     "semantic-text-splitter>=0.30,<1.0",
+    # A2UI v1.0 catalog/envelope validation against the vendored official
+    # JSON Schemas (parrot.outputs.a2ui.catalog) — FEAT-470 hard dependency
+    # (G8: jsonschema>=4.20 for Draft 2020-12 + `referencing`-based $ref
+    # resolution between the vendored spec/*.json documents).
+    "jsonschema>=4.20",
+    # `_unicode_aware_jsonschema` (parrot.outputs.a2ui.catalog.__init__)
+    # monkeypatches jsonschema's format-checker internals to evaluate the
+    # `\p{XID_Start}`-style Unicode property escape used by a vendored A2UI
+    # schema — Python's stdlib `re` doesn't support `\p{...}`. Declared
+    # explicitly (was previously only present via transitive resolution).
+    "regex>=2023.0",
     # Navigator stack (core)
     "navconfig[default]>=2.2.2",
     # navigator-auth<=0.20.9 passes a `PolicyEffect` enum (not a str) to the
@@ -137,6 +148,15 @@ dependencies = [
     # enables episodic memory without an explicit pgvector DSN.
     "faiss-cpu>=1.9.0",
     "navigator-eventbus>=0.2.1",
+    # wikitoolkit ships in core (project.scripts) and its import chain
+    # (wiki/cli.py → graphindex/__init__.py → signals.py / communities.py /
+    # builder.py / sqlite_reader.py) imports these unconditionally at module
+    # level, so a bare install must carry them (FEAT-471).
+    "rustworkx>=0.15",
+    "networkx>=3.0",
+    "pathspec>=0.12",
+    "aiosqlite>=0.17",
+    "orjson>=3.9",
 ]
 
 [project.scripts]
@@ -201,20 +221,19 @@ finance = [
 # FlowtTask DAG execution (pulls asyncdb[all] — heavy)
 # 5.12.3 relaxes its requests pin (==2.32.4 -> >=2.33.0), compatible with
 # the workspace's requests>=2.33,<2.34 pin (intersection with arxiv>=3.0.0).
+# 5.12.14 loosens azure-identity (==1.20.0 -> >=1.20.0,<2) and
+# msal (>=1.30.0 -> >=1.30.0,<2), unblocking async-notify>=1.6.0.
 flowtask = [
-    "flowtask>=5.12.3",
+    "flowtask>=5.12.14",
 ]
 
 # GraphIndex knowledge graph indexing (FEAT-187)
 # Note: faiss-cpu is already in core dependencies — not included here
+# Note: rustworkx, networkx, pathspec, aiosqlite, orjson moved to core
+# dependencies (FEAT-471) — wikitoolkit imports them unconditionally.
 graphindex = [
-    "rustworkx>=0.15",
-    "networkx>=3.0",
     "tree-sitter>=0.23",
     "tree-sitter-languages>=1.10",
-    "pathspec>=0.12",
-    "aiosqlite>=0.17",
-    "orjson>=3.9",
 ]
 
 # LLM Wiki pluggable per-language scanners (FEAT-394) — accurate
@@ -235,6 +254,15 @@ wiki-languages = [
     "tree-sitter-perl>=0.23",
 ]
 
+# Optional declarative structural backend (FEAT-498): ast-grep-py powers
+# `languages/astgrep.py`, a seam slotted in front of every tree-sitter
+# scanner. Every scanner degrades unchanged to its tree-sitter/heuristic
+# tiers when this extra is not installed (`force_no_astgrep` fixture
+# covers the absent case in CI).
+wiki-structural = [
+    "ast-grep-py>=0.45",
+]
+
 # Leiden community detection for GraphIndex (FEAT-401) — guarantees
 # internally well-connected communities, unlike Louvain. `python-igraph`
 # is a C library (~15 MB installed); kept opt-in like `graphindex` and
@@ -248,7 +276,7 @@ leiden = [
 # Full wiki stack: graph indexing + accurate tree-sitter language grammars
 # + Leiden community detection. One-shot install for `wikitoolkit build`.
 wiki = [
-    "ai-parrot[graphindex,wiki-languages,leiden]",
+    "ai-parrot[graphindex,wiki-languages,wiki-structural,leiden]",
     "pymupdf>=1.27",
 ]
 
@@ -420,8 +448,8 @@ mcp = [
 # NOTE: torchvision/transformers are aligned with whisperx 3.8.5 so that
 # `audio` (ai-parrot-loaders) and `images` can coexist on the same server.
 # whisperx 3.8.5 pins `torchvision~=0.23.0` and `huggingface-hub<1.0`
-# (which blocks transformers>=5.0). For Gemma 4 / transformers 5.x workloads
-# use the mutually-exclusive `gemma4` extra on a separate environment.
+# (which blocks transformers>=5.0). For transformers 5.x workloads
+# install transformers>=5.0 + torch>=2.13 in a dedicated venv.
 images = [
     "torchvision>=0.23.0,<0.24",
     "timm==1.0.15",
@@ -581,15 +609,10 @@ xai = [
     "xai-sdk>=1.12.0",
 ]
 
-# WARNING: `gemma4` is MUTUALLY EXCLUSIVE with `audio` / `ml-heavy` / `images`.
-# Gemma 4 requires transformers>=5.0 + huggingface_hub>=1.0 + torch 2.11,
-# but whisperx 3.8.5 (used by the audio pipeline) pins huggingface-hub<1.0
-# and torch~=2.8.0. Install this extra in a dedicated environment.
-gemma4 = [
-    "transformers>=5.0.0",
-    "torch>=2.13.0",
-    "accelerate>=1.9.0",
-]
+# REMOVED: gemma4 extra — was mutually exclusive with audio/images/all/dev/
+# security/ml-heavy (8 conflict pairs), causing massive resolver backtracking.
+# Not used in any deployment. If needed again, install transformers>=5.0 +
+# torch>=2.13 + accelerate>=1.9 in a dedicated venv.
 
 deploy = [
     "gunicorn>=23.0.0",
@@ -750,6 +773,9 @@ parrot = ["py.typed", "templates/*.tpl", "**/*.pyx", "**/*.pxd"]
 # parrot.outputs.formats.assets moved to ai-parrot-visualizations (FEAT-200)
 "parrot.openapi" = ["*.yaml"]
 "parrot.knowledge.ontology.defaults" = ["*.yaml", "domains/*.yaml"]
+# FEAT-498: one ast-grep RuleSet YAML per language, loaded via
+# importlib.resources by parrot.knowledge.wiki.languages.astgrep.RuleSet.
+"parrot.knowledge.wiki.languages.rules" = ["*.yaml"]
 "parrot.forms.renderers" = ["templates/*.j2"]
 "parrot.flows.dev_loop" = ["_subagent_data/*.md"]
 # FEAT-412: dev_flow ships its own prompt set (sdd-ideation); the loader
@@ -771,6 +797,9 @@ parrot = ["py.typed", "templates/*.tpl", "**/*.pyx", "**/*.pxd"]
 "parrot.pipelines" = ["*.sql"]
 # Core default compressor manifest (FEAT-380), loaded by CompressorRegistry.
 "parrot.tools.compression" = ["*.toml"]
+# Vendored official A2UI v1.0 JSON Schemas, pinned by SHA (FEAT-470),
+# loaded at runtime by parrot.outputs.a2ui.catalog.basic.load_spec.
+"parrot.outputs.a2ui.catalog.basic" = ["spec/*.json"]
 
 # ---------------------------------------------------------------------------
 # Maturin (Rust extensions) — TASK-1955 (FEAT-380) investigation note:
@@ -810,6 +839,7 @@ features = ["pyo3/extension-module"]
 asyncio_mode = "auto"
 markers = [
     "real_llm: mark a test as requiring a live LLM provider",
+    "network: mark a test as requiring live network access (e.g. spec drift checks)",
 ]
 
 [tool.cibuildwheel]

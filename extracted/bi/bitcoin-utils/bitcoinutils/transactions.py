@@ -75,7 +75,7 @@ class TxInput:
         self,
         txid: str,
         txout_index: int,
-        script_sig=Script([]),
+        script_sig: Optional[Script] = None,
         sequence: str | bytes = DEFAULT_TX_SEQUENCE,
     ) -> None:
         """See TxInput description"""
@@ -83,7 +83,7 @@ class TxInput:
         # expected in the format used for displaying Bitcoin hashes
         self.txid = txid
         self.txout_index = txout_index
-        self.script_sig = script_sig
+        self.script_sig = script_sig if script_sig is not None else Script([])
 
         # if user provided a sequence it would be as string (for now...)
         if isinstance(sequence, str):
@@ -350,6 +350,25 @@ class TxOutput:
         return cls(txout.amount, txout.script_pubkey)
 
 
+def _hash256(data: bytes) -> bytes:
+    """Double SHA-256 used by legacy and segwit v0 transaction digests."""
+
+    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+
+
+def _serialize_outputs(outputs: list[TxOutput]) -> bytes:
+    """Serialize transaction outputs without a count prefix."""
+
+    return b"".join(txout.to_bytes() for txout in outputs)
+
+
+def _serialize_script_pubkey(script: Script) -> bytes:
+    """Serialize a scriptPubKey with its CompactSize length prefix."""
+
+    script_bytes = script.to_bytes()
+    return encode_varint(len(script_bytes)) + script_bytes
+
+
 class Sequence:
     """Helps setting up appropriate sequence. Used to provide the sequence to
     transaction inputs and to scripts.
@@ -457,55 +476,52 @@ class Locktime:
 
 
 class Transaction:
-    """Represents a Bitcoin transaction
+    """Represents a Bitcoin transaction.
+
+    A transaction contains inputs, outputs, version, locktime, and optionally
+    SegWit witness stacks. It can serialize itself, parse raw transactions,
+    compute txids/wtxids, and produce legacy, SegWit v0, and Taproot signing
+    digests.
 
     Attributes
     ----------
-    inputs : list (TxInput)
-        A list of all the transaction inputs
-    outputs : list (TxOutput)
-        A list of all the transaction outputs
+    inputs : list[TxInput]
+        Transaction inputs.
+    outputs : list[TxOutput]
+        Transaction outputs.
     locktime : bytes
-        The transaction's locktime parameter
+        Transaction locktime.
     version : bytes
-        The transaction version
+        Transaction version.
     has_segwit : bool
-        Specifies a tx that includes segwit inputs
-    witnesses : list (TxWitnessInput)
-        The witness structure that corresponds to the inputs
+        Whether the transaction should serialize with SegWit marker/flag.
+    witnesses : list[TxWitnessInput]
+        Witness stacks corresponding to inputs.
 
-
-    Methods
-    -------
-    to_bytes()
-        Serializes Transaction to bytes
-    to_hex()
-        converts result of to_bytes to hexadecimal string
-    serialize()
-        converts result of to_bytes to hexadecimal string
-    from_raw()
-        Instantiates a Transaction from serialized raw hexadacimal data (classmethod)
-    get_txid()
-        Calculates txid and returns it
-    get_wtxid()
-        Calculates tx hash (wtxid) and returns it
-    get_size()
-        Calculates the tx size
-    get_vsize()
-        Calculates the tx segwit size
-    copy()
-        creates a copy of the object (classmethod)
-    set_witness(txin_index, witness)
-        sets the witness for a particular input index
-    get_transaction_digest(txin_index, script, sighash)
-        returns the transaction input's digest that is to be signed according
-    get_transaction_segwit_digest(txin_index, script, amount, sighash)
-        returns the transaction input's segwit digest that is to be signed
-        according to sighash
-    get_transaction_taproot_digest(txin_index, script_pubkeys, amounts, ext_flag,
-            script, leaf_ver, sighash)
-        returns the transaction input's taproot digest that is to be signed
-        according to sighash
+    Common methods
+    --------------
+    ``from_raw(rawtxhex)``
+        Instantiate a transaction from serialized raw hexadecimal data.
+    ``to_bytes(has_segwit)``
+        Serialize the transaction to bytes.
+    ``to_hex()`` / ``serialize()``
+        Serialize the transaction to hexadecimal text.
+    ``get_txid()``
+        Return the transaction id without witness data.
+    ``get_wtxid()``
+        Return the witness transaction id.
+    ``get_size()`` / ``get_vsize()``
+        Return byte size and virtual size.
+    ``copy(tx)``
+        Deep-copy a transaction.
+    ``set_witness(txin_index, witness)``
+        Set the witness stack for an input.
+    ``get_transaction_digest(...)``
+        Return the legacy signing digest.
+    ``get_transaction_segwit_digest(...)``
+        Return the SegWit v0 signing digest.
+    ``get_transaction_taproot_digest(...)``
+        Return the Taproot signing digest.
     """
 
     def __init__(
@@ -782,18 +798,16 @@ class Transaction:
              |      - with NONE - signs only the txin_index input
              |      - with SINGLE - signs txin_index input and output
 
-             Attributes
-             ----------
-             txin_index : int
-                 The index of the input that we wish to sign
-             script : list (string)
-                 The scriptCode (template) that corresponds to the segwit
-                 transaction output type that we want to spend
-             amount : int/float/Decimal
-                 The amount of the UTXO to spend is included in the
-                 signature for segwit (in satoshis)
-             sighash : int
-                 The type of the signature hash to be created
+        Parameters
+        ----------
+        txin_index : int
+            The index of the input that we wish to sign.
+        script : Script
+            The scriptCode that corresponds to the SegWit output being spent.
+        amount : int
+            The amount of the UTXO being spent, in satoshis.
+        sighash : int
+            The signature hash type to create.
         """
 
         # defaults for BIP143
@@ -831,27 +845,10 @@ class Transaction:
 
         if sign_all:
             # Hash all output
-            hash_outputs = b""
-            for txout in self.outputs:
-                amount_bytes = struct.pack("<q", txout.amount)
-                script_bytes = txout.script_pubkey.to_bytes()
-                hash_outputs += (
-                    amount_bytes + struct.pack("B", len(script_bytes)) + script_bytes
-                )
-            hash_outputs = hashlib.sha256(
-                hashlib.sha256(hash_outputs).digest()
-            ).digest()
+            hash_outputs = _hash256(_serialize_outputs(self.outputs))
         elif basic_sig_hash_type == SIGHASH_SINGLE and txin_index < len(self.outputs):
             # Hash one output
-            txout = self.outputs[txin_index]
-            amount_bytes = struct.pack("<q", txout.amount)
-            script_bytes = txout.script_pubkey.to_bytes()
-            hash_outputs = (
-                amount_bytes + struct.pack("B", len(script_bytes)) + script_bytes
-            )
-            hash_outputs = hashlib.sha256(
-                hashlib.sha256(hash_outputs).digest()
-            ).digest()
+            hash_outputs = _hash256(self.outputs[txin_index].to_bytes())
 
         # add sighash version
         tx_for_signing = self.version
@@ -865,8 +862,8 @@ class Transaction:
         tx_for_signing += h_to_b(txin.txid)[::-1] + struct.pack("<I", txin.txout_index)
 
         # add tx script code
-        tx_for_signing += struct.pack("B", len(script.to_bytes()))
-        tx_for_signing += script.to_bytes()
+        script_bytes = script.to_bytes()
+        tx_for_signing += encode_varint(len(script_bytes)) + script_bytes
 
         # add txin amount
         tx_for_signing += struct.pack("<q", amount)
@@ -885,15 +882,13 @@ class Transaction:
 
         return hashlib.sha256(hashlib.sha256(tx_for_signing).digest()).digest()
 
-    # TODO Update doc with TAPROOT_SIGHASH_ALL
-    # clean prints after finishing other sighashes
     def get_transaction_taproot_digest(
         self,
         txin_index: int,
         script_pubkeys: list[Script],
         amounts,
         ext_flag=0,
-        script=Script([]),
+        script: Optional[Script] = None,
         leaf_ver=LEAF_VERSION_TAPSCRIPT,
         sighash=TAPROOT_SIGHASH_ALL,
     ):
@@ -912,28 +907,26 @@ class Transaction:
              |      - with NONE - signs only the txin_index input
              |      - with SINGLE - signs txin_index input and output
 
-             Attributes
-             ----------
-             txin_index : int
-                 The index of the input that we wish to sign
-             script_pubkeys : list(Script)
-                 The scriptPubkeys that correspond to all the inputs/UTXOs
-             amounts : int/float/Decimal
-                 The amounts that correspond to all the inputs/UTXOs
-             ext_flag : int
-                 Extension mechanism, default is 0; 1 is for script spending (BIP342)
-             script : Script object
-                 The script that we are spending (ext_flag=1)
-             leaf_ver : int
-                 The script version, LEAF_VERSION_TAPSCRIPT for the default tapscript
-             sighash : int
-                 The type of the signature hash to be created
+        Parameters
+        ----------
+        txin_index : int
+            The index of the input that we wish to sign.
+        script_pubkeys : list[Script]
+            The scriptPubKeys that correspond to all inputs/UTXOs.
+        amounts : list[int]
+            The amounts that correspond to all inputs/UTXOs, in satoshis.
+        ext_flag : int
+            Extension mechanism. Use 0 for key path and 1 for script path.
+        script : Script, optional
+            The tapleaf script being spent when ``ext_flag`` is 1.
+        leaf_ver : int
+            The script version. Defaults to ``LEAF_VERSION_TAPSCRIPT``.
+        sighash : int
+            The signature hash type to create.
         """
 
-        # clone transaction to modify without messing up the real transaction
-        # tmp_tx is not really used for its to_bytes() here
-        # TODO we could use self directly to access fields
-        tmp_tx = Transaction.copy(self)
+        if script is None:
+            script = Script([])
 
         # acquiring the signature type
         # sign_all = sig_hash & 0x03 == SIGHASH_ALL
@@ -962,9 +955,8 @@ class Transaction:
 
         # Data about the transaction
         if not anyone_can_pay:
-            # print('1')
             # the SHA256 of the serialization of all input outpoints
-            for txin in tmp_tx.inputs:
+            for txin in self.inputs:
                 hash_prevouts += h_to_b(txin.txid)[::-1] + struct.pack(
                     "<I",
                     txin.txout_index,
@@ -980,27 +972,18 @@ class Transaction:
 
             # the SHA256 of all spent outputs' scriptPubKeys
             for scr in script_pubkeys:
-                s = scr.to_hex()
-                script_len = int(len(s) / 2)
-                hash_script_pubkeys += bytes([script_len]) + h_to_b(s)
+                hash_script_pubkeys += _serialize_script_pubkey(scr)
             hash_script_pubkeys = hashlib.sha256(hash_script_pubkeys).digest()
             tx_for_signing += hash_script_pubkeys
 
             # the SHA256 of the serialization of all input nSequence
-            for txin in tmp_tx.inputs:
+            for txin in self.inputs:
                 hash_sequences += txin.sequence
             hash_sequences = hashlib.sha256(hash_sequences).digest()
             tx_for_signing += hash_sequences
 
         if not (sighash_none or sighash_single):
-            # print('2')
-            for txout in tmp_tx.outputs:
-                amount_bytes = struct.pack("<Q", txout.amount)
-                script_bytes = txout.script_pubkey.to_bytes()
-                hash_outputs += (
-                    amount_bytes + struct.pack("B", len(script_bytes)) + script_bytes
-                )
-            hash_outputs = hashlib.sha256(hash_outputs).digest()
+            hash_outputs = hashlib.sha256(_serialize_outputs(self.outputs)).digest()
             tx_for_signing += hash_outputs
 
         # Data about this input
@@ -1009,8 +992,7 @@ class Transaction:
         tx_for_signing += bytes([spend_type])
 
         if anyone_can_pay:
-            # print('3')
-            txin = tmp_tx.inputs[txin_index]
+            txin = self.inputs[txin_index]
             # convert txid to big-endian first
             tx_for_signing += h_to_b(txin.txid)[::-1] + struct.pack(
                 "<I",
@@ -1019,13 +1001,10 @@ class Transaction:
 
             tx_for_signing += amounts[txin_index].to_bytes(8, "little")
 
-            script_pubkey = script_pubkeys[txin_index].to_hex()
-            script_len = int(len(script_pubkey) / 2)
-            tx_for_signing += bytes([script_len]) + h_to_b(script_pubkey)
+            tx_for_signing += _serialize_script_pubkey(script_pubkeys[txin_index])
 
             tx_for_signing += txin.sequence
         else:
-            # print('4')
             tx_for_signing += txin_index.to_bytes(4, "little")
 
         # TODO if annex is present it should be added here
@@ -1033,14 +1012,9 @@ class Transaction:
 
         # Data about this output
         if sighash_single:
-            # print('5')
-            txout = tmp_tx.outputs[txin_index]
-            amount_bytes = struct.pack("<Q", txout.amount)
-            script_bytes = txout.script_pubkey.to_bytes()
-            hash_output = (
-                amount_bytes + struct.pack("B", len(script_bytes)) + script_bytes
-            )
-            tx_for_signing += hashlib.sha256(hash_output).digest()
+            tx_for_signing += hashlib.sha256(
+                self.outputs[txin_index].to_bytes()
+            ).digest()
 
         if ext_flag == 1:  # script spending path (Signature Message Extension BIP-342)
             # committing the tapleaf hash - makes it safe to reuse keys for separate
@@ -1194,11 +1168,3 @@ class Transaction:
         except Exception:
             p = PSBT.from_hex(psbt_b64_or_hex)
         return p.extract_transaction()
-
-
-def main():
-    pass
-
-
-if __name__ == "__main__":
-    main()

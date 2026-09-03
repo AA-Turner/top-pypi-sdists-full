@@ -73,7 +73,7 @@ from uqff_registry_primitives import (
     DELTA_M2_21_EV2, DELTA_M2_32_EV2,
 )
 
-VERSION = "0.411.0"
+VERSION = "0.412.0"
 
 # NAMED OBSERVED SI ANCHORS (constant drain 2026-08-16, PAPER_2141 bulk pattern + PAPER_2149 observation-headlining)
 # Bit-identical to the literals they replace; UQFF-derived counterparts live in uqff_registry_primitives.
@@ -155,8 +155,19 @@ def calc(paper_id, dataset=None):
 
 
 def list_wired():
-    """Return sorted list of PAPER_Ns currently wired."""
-    return sorted(DISPATCH.keys(), key=lambda p: int(p.split('_')[1]))
+    """Return sorted list of PAPER_Ns currently wired (alias-safe: suffixed ids
+    like PAPER_1209X sort by numeric stem then suffix - v0.412.0 fix of the
+    public-API crash found by independent evaluation)."""
+    def _key(p):
+        tail = p.split('_', 1)[1] if '_' in p else p
+        digits = ''
+        for ch in tail:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        return (int(digits) if digits else 10**9, tail)
+    return sorted(DISPATCH.keys(), key=_key)
 
 
 def wired_count():

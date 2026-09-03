@@ -47,6 +47,7 @@ from .literals import (
     EncryptionKeyProviderType,
     ExternalIdTypeType,
     GridImageTypeType,
+    HardwareTypeType,
     IamRoleStatusType,
     IormLifecycleStateType,
     LicenseModelType,
@@ -175,6 +176,7 @@ __all__ = (
     "ExascaleDbStorageVaultTypeDef",
     "FailoverAutonomousDatabaseInputTypeDef",
     "FailoverAutonomousDatabaseOutputTypeDef",
+    "FlexComponentSummaryTypeDef",
     "GetAutonomousDatabaseBackupInputTypeDef",
     "GetAutonomousDatabaseBackupOutputTypeDef",
     "GetAutonomousDatabaseInputTypeDef",
@@ -252,6 +254,9 @@ __all__ = (
     "ListExascaleDbStorageVaultsInputPaginateTypeDef",
     "ListExascaleDbStorageVaultsInputTypeDef",
     "ListExascaleDbStorageVaultsOutputTypeDef",
+    "ListFlexComponentsInputPaginateTypeDef",
+    "ListFlexComponentsInputTypeDef",
+    "ListFlexComponentsOutputTypeDef",
     "ListGiMinorVersionsInputPaginateTypeDef",
     "ListGiMinorVersionsInputTypeDef",
     "ListGiMinorVersionsOutputTypeDef",
@@ -759,6 +764,19 @@ class FailoverAutonomousDatabaseInputTypeDef(TypedDict):
     autonomousDatabaseId: str
     peerDbArn: NotRequired[str]
 
+class FlexComponentSummaryTypeDef(TypedDict):
+    availableCoreCount: NotRequired[int]
+    availableDbStorageInGBs: NotRequired[int]
+    availableLocalStorageInGBs: NotRequired[int]
+    availableMemoryInGBs: NotRequired[int]
+    computeModel: NotRequired[ComputeModelType]
+    descriptionSummary: NotRequired[str]
+    hardwareType: NotRequired[HardwareTypeType]
+    minimumCoreCount: NotRequired[int]
+    name: NotRequired[str]
+    runtimeMinimumCoreCount: NotRequired[int]
+    shape: NotRequired[str]
+
 class GetAutonomousDatabaseBackupInputTypeDef(TypedDict):
     autonomousDatabaseBackupId: str
 
@@ -934,6 +952,11 @@ class ListExadbVmClustersInputTypeDef(TypedDict):
 class ListExascaleDbStorageVaultsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class ListFlexComponentsInputTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    shape: NotRequired[str]
 
 class ListGiMinorVersionsInputTypeDef(TypedDict):
     giVersion: str
@@ -1563,6 +1586,11 @@ class ExascaleDbStorageVaultTypeDef(TypedDict):
     statusReason: NotRequired[str]
     timeZone: NotRequired[str]
 
+class ListFlexComponentsOutputTypeDef(TypedDict):
+    flexComponents: list[FlexComponentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class GetOciOnboardingStatusOutputTypeDef(TypedDict):
     status: OciOnboardingStatusType
     existingTenancyActivationLink: str
@@ -1652,6 +1680,10 @@ class ListExadbVmClustersInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListExascaleDbStorageVaultsInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListFlexComponentsInputPaginateTypeDef(TypedDict):
+    shape: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListGiMinorVersionsInputPaginateTypeDef(TypedDict):

@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager, contextmanager
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from .requests.conversations_sip_outbound_call_request_sip import ConversationsSipOutboundCallRequestSipParams
 from ..requests.outbound_call_config import OutboundCallConfigParams
 from .raw_client import AsyncRawConversationsClient, RawConversationsClient
 from .reconnectable_socket_client import ReconnectableAsyncConversationsSocketClient, ReconnectableConversationsSocketClient
@@ -517,8 +518,10 @@ class ConversationsClient:
         to_phone_number: str,
         sip_auth_username: typing.Optional[str] = None,
         sip_auth_password: typing.Optional[str] = None,
+        from_display_name: typing.Optional[str] = OMIT,
         config: typing.Optional[OutboundCallConfigParams] = OMIT,
         dry_run: typing.Optional[bool] = OMIT,
+        sip: typing.Optional[ConversationsSipOutboundCallRequestSipParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ConversationsSipOutboundCallResponse:
         """
@@ -541,10 +544,16 @@ class ConversationsClient:
         sip_auth_password : typing.Optional[str]
             SIP auth password, if your provider requires it.
 
+        from_display_name : typing.Optional[str]
+            Display name for the caller ID (the SIP `From` header) on this call. Sent only when non-empty. Whether it reaches the callee depends on your SIP carrier - carriers that forward the `From` display name (e.g. Telnyx) present it, while others (e.g. Twilio) drop it or override it with a CNAM lookup.
+
         config : typing.Optional[OutboundCallConfigParams]
 
         dry_run : typing.Optional[bool]
             If true, validates the outbound call setup without placing a call. Returns HTTP 200 with `conversation_id` and `twilio_call_sid` set to null.
+
+        sip : typing.Optional[ConversationsSipOutboundCallRequestSipParams]
+            SIP trunk settings for the outbound trunk created for this call.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -573,8 +582,10 @@ class ConversationsClient:
             to_phone_number=to_phone_number,
             sip_auth_username=sip_auth_username,
             sip_auth_password=sip_auth_password,
+            from_display_name=from_display_name,
             config=config,
             dry_run=dry_run,
+            sip=sip,
             request_options=request_options,
         )
         return _response.data
@@ -1185,8 +1196,10 @@ class AsyncConversationsClient:
         to_phone_number: str,
         sip_auth_username: typing.Optional[str] = None,
         sip_auth_password: typing.Optional[str] = None,
+        from_display_name: typing.Optional[str] = OMIT,
         config: typing.Optional[OutboundCallConfigParams] = OMIT,
         dry_run: typing.Optional[bool] = OMIT,
+        sip: typing.Optional[ConversationsSipOutboundCallRequestSipParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ConversationsSipOutboundCallResponse:
         """
@@ -1209,10 +1222,16 @@ class AsyncConversationsClient:
         sip_auth_password : typing.Optional[str]
             SIP auth password, if your provider requires it.
 
+        from_display_name : typing.Optional[str]
+            Display name for the caller ID (the SIP `From` header) on this call. Sent only when non-empty. Whether it reaches the callee depends on your SIP carrier - carriers that forward the `From` display name (e.g. Telnyx) present it, while others (e.g. Twilio) drop it or override it with a CNAM lookup.
+
         config : typing.Optional[OutboundCallConfigParams]
 
         dry_run : typing.Optional[bool]
             If true, validates the outbound call setup without placing a call. Returns HTTP 200 with `conversation_id` and `twilio_call_sid` set to null.
+
+        sip : typing.Optional[ConversationsSipOutboundCallRequestSipParams]
+            SIP trunk settings for the outbound trunk created for this call.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1249,8 +1268,10 @@ class AsyncConversationsClient:
             to_phone_number=to_phone_number,
             sip_auth_username=sip_auth_username,
             sip_auth_password=sip_auth_password,
+            from_display_name=from_display_name,
             config=config,
             dry_run=dry_run,
+            sip=sip,
             request_options=request_options,
         )
         return _response.data

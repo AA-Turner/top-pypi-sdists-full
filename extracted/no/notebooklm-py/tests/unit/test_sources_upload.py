@@ -1,18 +1,20 @@
-"""Unit tests for SourcesAPI file upload pipeline and YouTube detection."""
+"""Unit tests for WebSourcesAPI file upload pipeline and YouTube detection."""
 
 import ast
+import asyncio
 import inspect
 import textwrap
 import warnings
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from notebooklm._source.upload import SourceUploadPipeline
-from notebooklm._sources import SourcesAPI
+from notebooklm._web.sources import WebSourcesAPI
+from notebooklm._web.sources.upload import SourceUploadPipeline
 from notebooklm.exceptions import NetworkError, RPCError, ValidationError
 from notebooklm.rpc import RPCMethod
 from notebooklm.rpc.types import SourceStatus
@@ -21,7 +23,7 @@ from notebooklm.types import Source
 
 @pytest.fixture
 def mock_core():
-    """Create a mocked Session for SourcesAPI."""
+    """Create a mocked Session for WebSourcesAPI."""
     from tests._fixtures.fake_core import make_fake_core
 
     core = make_fake_core(rpc_call=AsyncMock())
@@ -62,8 +64,8 @@ def mock_core():
 
     def operation_scope(_label):
         @asynccontextmanager
-        async def scope() -> AsyncIterator[None]:
-            yield None
+        async def scope() -> AsyncIterator[SimpleNamespace]:
+            yield SimpleNamespace(epoch=1)
 
         return scope()
 
@@ -75,29 +77,36 @@ def mock_core():
     # misuse. MagicMock blocks ``assert``-prefixed attribute access as a
     # foot-gun guard, so the no-op stub must be installed explicitly.
     core.assert_bound_loop = MagicMock()
+
+    async def spawn_child(label, factory):
+        return asyncio.create_task(factory(), name=label)
+
+    core.spawn_child = spawn_child
     return core
 
 
 @pytest.fixture
 def sources_api(mock_core):
-    """Create SourcesAPI with mocked core.
+    """Create WebSourcesAPI with mocked core.
 
     The uploader is constructed explicitly from the same mocked core so the
     upload-path tests still exercise the real :class:`SourceUploadPipeline`
     while honoring the now-required ``uploader=`` kwarg on
-    :class:`SourcesAPI`. ``mock_core`` bundles ``rpc_call`` /
+    :class:`WebSourcesAPI`. ``mock_core`` bundles ``rpc_call`` /
     ``operation_scope`` / ``assert_bound_loop`` so it structurally
     satisfies all three of the pipeline's narrow collaborator slots.
     """
     uploader = SourceUploadPipeline(
         rpc=mock_core,
-        drain=mock_core,
-        lifecycle=mock_core,
+        supervisor=mock_core,
         kernel=mock_core.kernel,
         auth=mock_core.auth,
         record_upload_queue_wait=mock_core.record_upload_queue_wait,
     )
-    return SourcesAPI(mock_core, uploader=uploader)
+    uploader._active_epoch = 1
+    uploader._closing = False
+    uploader._registry_lock = asyncio.Lock()
+    return WebSourcesAPI(mock_core, supervisor=mock_core, uploader=uploader)
 
 
 @pytest.mark.asyncio
@@ -116,12 +125,12 @@ async def test_add_drive_file_asserts_bound_loop_before_fetch(sources_api, mock_
 
 
 def test_sources_api_makes_uploader_share_lifecycle_collaborators(sources_api):
-    """SourcesAPI is the single owner of the source-lifecycle verbs.
+    """WebSourcesAPI is the single owner of the source-lifecycle verbs.
 
     The upload pipeline's ``list_sources`` / ``get_source`` / ``wait_*``
     helpers must delegate to the SAME ``SourceLister`` / ``SourcePoller``
     instances the public API uses, rather than parallel copies built in the
-    pipeline constructor (issue #1205). ``SourcesAPI.__init__`` injects its
+    pipeline constructor (issue #1205). ``WebSourcesAPI.__init__`` injects its
     own collaborators via ``configure_source_lifecycle``.
     """
     assert sources_api._uploader._lister is sources_api._lister
@@ -158,9 +167,9 @@ def _self_core_http_client_cookies_read(node: ast.AST) -> bool:
 @pytest.mark.parametrize(
     "helper",
     [
-        SourcesAPI._start_resumable_upload,
-        SourcesAPI._upload_file_streaming,
-        SourcesAPI._cancel_upload_session,
+        WebSourcesAPI._start_resumable_upload,
+        WebSourcesAPI._upload_file_streaming,
+        WebSourcesAPI._cancel_upload_session,
         SourceUploadPipeline.start_resumable_upload,
         SourceUploadPipeline.upload_file_streaming,
         SourceUploadPipeline.cancel_upload_session,
@@ -324,7 +333,7 @@ class TestExtractYoutubeVideoId:
 # A decoded GET_NOTEBOOK payload for a notebook with no sources, in the shape
 # the server actually sends: the title in slot 0, and slot 1 **elided to None**
 # rather than an empty list. Verified against the recorded zero-source frame in
-# ``tests/cassettes/notebook_zero_sources.yaml``. ``SourceLister._extract_sources_list``
+# ``tests/cassettes/web/notebook_zero_sources.yaml``. ``SourceLister._extract_sources_list``
 # has a dedicated branch for that ``None`` (its comment names this very cassette),
 # so a ``[]`` here would decode to the same ``[]`` while exercising the *other*
 # branch — the one a notebook that once had sources returns.

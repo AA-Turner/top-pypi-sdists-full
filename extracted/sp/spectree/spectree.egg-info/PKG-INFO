@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spectree
-Version: 2.0.2
+Version: 2.0.3
 Summary: Generate OpenAPI document and validate request & response with Python annotations.
 Author-email: Keming Yang <kemingy94@gmail.com>
 License-Expression: Apache-2.0

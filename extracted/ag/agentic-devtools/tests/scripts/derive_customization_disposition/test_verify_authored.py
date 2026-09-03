@@ -57,6 +57,26 @@ def test_unexpected_authored_unit_is_reported(tmp_path: Path) -> None:
     assert unexpected == ["agdt-surprise"]
 
 
+def test_existing_skill_for_deleted_wrapper_is_reported_unexpected(tmp_path: Path) -> None:
+    """A deleted wrapper does not exempt a same-named authored skill from verification."""
+    skill = tmp_path / ".agents" / "skills" / "agdt-example"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("# Example\n", encoding="utf-8")
+    authored, missing, unexpected = derive.verify_authored(
+        [
+            row(
+                disposition="delete",
+                target="-",
+                slug="agdt.example",
+                batch="wrappers",
+                reason="T0: wraps an `agdt-*` entry point and adds nothing to it.",
+            )
+        ],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == (["agdt-example"], [], ["agdt-example"])
+
+
 def test_non_migration_skill_is_ignored(tmp_path: Path) -> None:
     """Skills outside the ``agdt-*`` namespace are not migration artifacts."""
     non_agdt = tmp_path / ".agents" / "skills" / "run-targeted-checks"
@@ -106,3 +126,29 @@ def test_collapse_only_target_does_not_require_authored_skill(tmp_path: Path) ->
         tmp_path,
     )
     assert (authored, missing, unexpected) == ([], [], [])
+
+
+def test_legacy_slug_for_collapse_only_target_is_unexpected(tmp_path: Path) -> None:
+    """A collapse-only row must not register a legacy slug expectation with empty artifact kinds."""
+    agents = tmp_path / ".github" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "agdt-collapse-only.agent.md").write_text("# Collapse-only\n", encoding="utf-8")
+
+    authored, missing, unexpected = derive.verify_authored(
+        [row(disposition="collapse", target="agdt-collapse-only", slug="agdt.collapse.only")],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == (["agdt-collapse-only"], [], ["agdt-collapse-only"])
+
+
+def test_legacy_slug_honors_expected_artifact_kind(tmp_path: Path) -> None:
+    """A legacy dotted slug must still match the artifact kind allowed by its target rows."""
+    agents = tmp_path / ".github" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "agdt-example.agent.md").write_text("# Example\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="expects a skill artifact"):
+        derive.verify_authored(
+            [row(target="agdt-example", disposition="skill", path=".agents/skills/agdt.example/SKILL.md")],
+            tmp_path,
+        )

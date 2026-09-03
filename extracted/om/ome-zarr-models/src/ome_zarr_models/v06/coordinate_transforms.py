@@ -737,8 +737,8 @@ class ByDimensionTransform(BaseAttrs):
     transformation: AnyTransform = Field(
         ..., description="The coordinate transformation."
     )
-    input_axes: tuple[int, ...] = Field(..., description="Input axes indices.")
-    output_axes: tuple[int, ...] = Field(..., description="Output axes indices.")
+    inputAxes: tuple[int, ...] = Field(..., description="Input axes indices.")
+    outputAxes: tuple[int, ...] = Field(..., description="Output axes indices.")
 
     @property
     def has_inverse(self) -> bool:
@@ -747,8 +747,8 @@ class ByDimensionTransform(BaseAttrs):
     def get_inverse(self) -> ByDimensionTransform:
         return ByDimensionTransform(
             transformation=self.transformation.get_inverse(),
-            input_axes=self.output_axes,
-            output_axes=self.input_axes,
+            inputAxes=self.outputAxes,
+            outputAxes=self.inputAxes,
         )
 
 
@@ -777,9 +777,9 @@ class ByDimension(Transform):
         point_in = list(point)
         point_out = point_in.copy()
         for t in self.transformations:
-            coord_in = tuple(point_in[i] for i in t.input_axes)
+            coord_in = tuple(point_in[i] for i in t.inputAxes)
             coord_out = t.transformation.transform_point(coord_in)
-            for coord, i in zip(coord_out, t.output_axes, strict=True):
+            for coord, i in zip(coord_out, t.outputAxes, strict=True):
                 point_out[i] = coord
 
         return tuple(point_out)

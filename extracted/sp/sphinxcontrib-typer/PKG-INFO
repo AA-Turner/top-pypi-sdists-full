@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: sphinxcontrib-typer
-Version: 0.9.1
+Version: 0.10.0
 Summary: Auto generate docs for typer commands.
 Project-URL: Homepage, https://sphinxcontrib-typer.readthedocs.io
 Project-URL: Documentation, https://sphinxcontrib-typer.readthedocs.io
@@ -19,28 +19,26 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
-Requires-Python: <4.0,>=3.10
-Requires-Dist: sphinx>=6.0
+Requires-Python: <4.0,>=3.11
+Requires-Dist: sphinx>=8.0
 Requires-Dist: typer<1.0.0,>=0.26.8
 Provides-Extra: html
-Requires-Dist: selenium<5.0.0,>=4.0.0; extra == 'html'
-Requires-Dist: webdriver-manager<5.0.0,>=3.0.0; extra == 'html'
+Requires-Dist: playwright<2.0,>=1.40; extra == 'html'
 Provides-Extra: pdf
 Requires-Dist: cairosvg<3.0.0,>=2.7.0; extra == 'pdf'
 Requires-Dist: lxml<7.0.0,>=4.2.0; extra == 'pdf'
 Provides-Extra: png
 Requires-Dist: pillow>=8.0.0; extra == 'png'
-Requires-Dist: selenium<5.0.0,>=4.0.0; extra == 'png'
-Requires-Dist: webdriver-manager<5.0.0,>=3.0.0; extra == 'png'
+Requires-Dist: playwright<2.0,>=1.40; extra == 'png'
 Description-Content-Type: text/markdown
 
 # sphinxcontrib-typer
@@ -51,8 +49,8 @@ Description-Content-Type: text/markdown
 [![PyPI status](https://img.shields.io/pypi/status/sphinxcontrib-typer.svg)](https://pypi.python.org/pypi/sphinxcontrib-typer)
 [![Documentation Status](https://readthedocs.org/projects/sphinxcontrib-typer/badge/?version=latest)](http://sphinxcontrib-typer.readthedocs.io/?badge=latest/)
 [![Code Cov](https://codecov.io/gh/sphinx-contrib/typer/branch/main/graph/badge.svg?token=0IZOKN2DYL)](https://app.codecov.io/gh/sphinx-contrib/typer)
-[![Test Status](https://github.com/sphinx-contrib/typer/workflows/Test/badge.svg)](https://github.com/sphinx-contrib/typer/actions/workflows/test.yml)
-[![Lint Status](https://github.com/sphinx-contrib/typer/workflows/Lint/badge.svg)](https://github.com/sphinx-contrib/typer/actions/workflows/lint.yml)
+[![Test Status](https://github.com/sphinx-contrib/typer/workflows/Test/badge.svg)](https://github.com/sphinx-contrib/typer/actions/workflows/test.yml?query=branch:main)
+[![Lint Status](https://github.com/sphinx-contrib/typer/workflows/Lint/badge.svg)](https://github.com/sphinx-contrib/typer/actions/workflows/lint.yml?query=branch:main)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/sphinx-contrib/typer/badge)](https://securityscorecards.dev/viewer/?uri=github.com/sphinx-contrib/typer)
 
@@ -99,19 +97,18 @@ import typing as t
 
 app = typer.Typer(add_completion=False)
 
+
 @app.callback()
 def callback(
     flag1: bool = typer.Option(False, help="Flag 1."),
-    flag2: bool = typer.Option(False, help="Flag 2.")
+    flag2: bool = typer.Option(False, help="Flag 2."),
 ):
     """This is the callback function."""
     pass
 
 
 @app.command()
-def foo(
-    name: str = typer.Option(..., help="The name of the item to foo.")
-):
+def foo(name: str = typer.Option(..., help="The name of the item to foo.")):
     """This is the foo command."""
     pass
 

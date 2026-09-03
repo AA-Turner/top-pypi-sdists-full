@@ -10267,6 +10267,960 @@ class CfnIndexProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kendra_b43b596c.IQuerySuggestionsBlockListRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnQuerySuggestionsBlockList(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kendra.CfnQuerySuggestionsBlockList",
+):
+    '''A block list used for query suggestions for an Amazon Kendra index.
+
+    A block list contains words or phrases that should not appear as query suggestions.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html
+    :cloudformationResource: AWS::Kendra::QuerySuggestionsBlockList
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kendra as kendra
+        
+        cfn_query_suggestions_block_list = kendra.CfnQuerySuggestionsBlockList(self, "MyCfnQuerySuggestionsBlockList",
+            index_id="indexId",
+            name="name",
+            role_arn="roleArn",
+            source_s3_path=kendra.CfnQuerySuggestionsBlockList.S3PathProperty(
+                bucket="bucket",
+                key="key"
+            ),
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        index_id: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        source_s3_path: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQuerySuggestionsBlockList.S3PathProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Kendra::QuerySuggestionsBlockList``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param index_id: The identifier of the index for the block list.
+        :param name: The name of the block list.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permission to access the S3 bucket that contains the block list text file.
+        :param source_s3_path: Information required to find a specific file in an Amazon S3 bucket.
+        :param description: A description for the block list.
+        :param tags: A list of key-value pairs that identify or categorize the block list.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c898de886e5fe72dcc463c4e09e19dabcd8fef260ae969b404a4ba5004bf6ef0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnQuerySuggestionsBlockListProps(
+            index_id=index_id,
+            name=name,
+            role_arn=role_arn,
+            source_s3_path=source_s3_path,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForQuerySuggestionsBlockList")
+    @builtins.classmethod
+    def arn_for_query_suggestions_block_list(
+        cls,
+        resource: "_aws_kendra_b43b596c.IQuerySuggestionsBlockListRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__819f670d3c2e6cf693ddf8ebaed9f4a25e8271e5894f0c8e2e38d09914ef517d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForQuerySuggestionsBlockList", [resource]))
+
+    @jsii.member(jsii_name="isCfnQuerySuggestionsBlockList")
+    @builtins.classmethod
+    def is_cfn_query_suggestions_block_list(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnQuerySuggestionsBlockList.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5f69aeba46c1d3004923ddbf2bf800752dabf699621749789055235e1ea16b3a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQuerySuggestionsBlockList", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bc45f2ad6f60f9cd70882be8dcdc4ee382d0e608eb24c1bb117bec523090cf5d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f3d89be07d5ddd4cfadd61c621a1459e899917cfb140bf7e7c366183cd492f1f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the query suggestions block list.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The identifier of the block list.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="querySuggestionsBlockListRef")
+    def query_suggestions_block_list_ref(
+        self,
+    ) -> "_aws_kendra_b43b596c.QuerySuggestionsBlockListReference":
+        '''A reference to a QuerySuggestionsBlockList resource.'''
+        return typing.cast("_aws_kendra_b43b596c.QuerySuggestionsBlockListReference", jsii.get(self, "querySuggestionsBlockListRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="indexId")
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index for the block list.'''
+        return typing.cast(builtins.str, jsii.get(self, "indexId"))
+
+    @index_id.setter
+    def index_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0ac349202a8cf7e46618b503b4f3cc55f0a54c48c25f3790f4ea0b87ac39275c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "indexId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the block list.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e91fb941065587c31dce2a37433657c542148022a9e930bcd751e7f944b463dd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of an IAM role with permission to access the S3 bucket that contains the block list text file.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__725c47f6699447310a2f2f2dad54136174d9d88d0da3c45b9fdad7b26eefd557)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceS3Path")
+    def source_s3_path(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQuerySuggestionsBlockList.S3PathProperty"]:
+        '''Information required to find a specific file in an Amazon S3 bucket.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQuerySuggestionsBlockList.S3PathProperty"], jsii.get(self, "sourceS3Path"))
+
+    @source_s3_path.setter
+    def source_s3_path(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQuerySuggestionsBlockList.S3PathProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__190150e14cd574433fbcf6006894349be8edfa62660a9d22b213fc45d4dd8fce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceS3Path", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the block list.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f359841d42d0abd1ce6b8d8e11d432652c7f5bc7791b3d62f9db15fb72854467)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of key-value pairs that identify or categorize the block list.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__24a9fadd302a896736f74e7a0c93e1b27c6652b1699c1677f8bec8b92931ff3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kendra.CfnQuerySuggestionsBlockList.S3PathProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "key": "key"},
+    )
+    class S3PathProperty:
+        def __init__(self, *, bucket: builtins.str, key: builtins.str) -> None:
+            '''Information required to find a specific file in an Amazon S3 bucket.
+
+            :param bucket: The name of the S3 bucket that contains the file.
+            :param key: The name of the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-querysuggestionsblocklist-s3path.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kendra as kendra
+                
+                s3_path_property = kendra.CfnQuerySuggestionsBlockList.S3PathProperty(
+                    bucket="bucket",
+                    key="key"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__296380fbd549b121e2b22287e5683da42accf1d4d02aa4b22df5e730f6771f85)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket": bucket,
+                "key": key,
+            }
+
+        @builtins.property
+        def bucket(self) -> builtins.str:
+            '''The name of the S3 bucket that contains the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-querysuggestionsblocklist-s3path.html#cfn-kendra-querysuggestionsblocklist-s3path-bucket
+            '''
+            result = self._values.get("bucket")
+            assert result is not None, "Required property 'bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The name of the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-querysuggestionsblocklist-s3path.html#cfn-kendra-querysuggestionsblocklist-s3path-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3PathProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.CfnQuerySuggestionsBlockListProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "index_id": "indexId",
+        "name": "name",
+        "role_arn": "roleArn",
+        "source_s3_path": "sourceS3Path",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnQuerySuggestionsBlockListProps:
+    def __init__(
+        self,
+        *,
+        index_id: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        source_s3_path: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQuerySuggestionsBlockList.S3PathProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnQuerySuggestionsBlockList``.
+
+        :param index_id: The identifier of the index for the block list.
+        :param name: The name of the block list.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permission to access the S3 bucket that contains the block list text file.
+        :param source_s3_path: Information required to find a specific file in an Amazon S3 bucket.
+        :param description: A description for the block list.
+        :param tags: A list of key-value pairs that identify or categorize the block list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            cfn_query_suggestions_block_list_props = kendra.CfnQuerySuggestionsBlockListProps(
+                index_id="indexId",
+                name="name",
+                role_arn="roleArn",
+                source_s3_path=kendra.CfnQuerySuggestionsBlockList.S3PathProperty(
+                    bucket="bucket",
+                    key="key"
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__354bf1174abc875444eeb2cf0d4c1a04829acc934d963ece07087b757bd1abda)
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument source_s3_path", value=source_s3_path, expected_type=type_hints["source_s3_path"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "index_id": index_id,
+            "name": name,
+            "role_arn": role_arn,
+            "source_s3_path": source_s3_path,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index for the block list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html#cfn-kendra-querysuggestionsblocklist-indexid
+        '''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the block list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html#cfn-kendra-querysuggestionsblocklist-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of an IAM role with permission to access the S3 bucket that contains the block list text file.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html#cfn-kendra-querysuggestionsblocklist-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_s3_path(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQuerySuggestionsBlockList.S3PathProperty"]:
+        '''Information required to find a specific file in an Amazon S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html#cfn-kendra-querysuggestionsblocklist-sources3path
+        '''
+        result = self._values.get("source_s3_path")
+        assert result is not None, "Required property 'source_s3_path' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQuerySuggestionsBlockList.S3PathProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the block list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html#cfn-kendra-querysuggestionsblocklist-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of key-value pairs that identify or categorize the block list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html#cfn-kendra-querysuggestionsblocklist-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnQuerySuggestionsBlockListProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kendra_b43b596c.IThesaurusRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnThesaurus(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kendra.CfnThesaurus",
+):
+    '''A thesaurus for an Amazon Kendra index.
+
+    The thesaurus contains a list of synonyms in Solr format.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html
+    :cloudformationResource: AWS::Kendra::Thesaurus
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kendra as kendra
+        
+        cfn_thesaurus = kendra.CfnThesaurus(self, "MyCfnThesaurus",
+            index_id="indexId",
+            name="name",
+            role_arn="roleArn",
+            source_s3_path=kendra.CfnThesaurus.S3PathProperty(
+                bucket="bucket",
+                key="key"
+            ),
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        index_id: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        source_s3_path: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnThesaurus.S3PathProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Kendra::Thesaurus``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param index_id: The identifier of the index for the thesaurus.
+        :param name: A name for the thesaurus.
+        :param role_arn: An IAM role that gives Amazon Kendra permissions to access the thesaurus file specified in SourceS3Path.
+        :param source_s3_path: Information required to find a specific file in an Amazon S3 bucket.
+        :param description: A description for the thesaurus.
+        :param tags: A list of key-value pairs that identify or categorize the thesaurus.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b0e87fafad2d1a3ac83316d851a947b49e235825f425242d774f871eb448bc9a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnThesaurusProps(
+            index_id=index_id,
+            name=name,
+            role_arn=role_arn,
+            source_s3_path=source_s3_path,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForThesaurus")
+    @builtins.classmethod
+    def arn_for_thesaurus(
+        cls,
+        resource: "_aws_kendra_b43b596c.IThesaurusRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4bafe49c0eb12f2bdeb83c7a747782abf4f9c82e468f5702927534caa1df7ed6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForThesaurus", [resource]))
+
+    @jsii.member(jsii_name="isCfnThesaurus")
+    @builtins.classmethod
+    def is_cfn_thesaurus(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnThesaurus.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6996f1e9b3bf947006d93e2c616b633d4219e9b174d210c663036f3061670ac1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnThesaurus", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__398ea78557bed78dcf7f9f97046115553ccafb83efc609bd6d97b023cfe7b714)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3f55fe8a5f6cc36f637a9b3f8a40f5a6634c3451de2a7e8772dac9fdb15e911e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the thesaurus.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The identifier of the thesaurus.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="thesaurusRef")
+    def thesaurus_ref(self) -> "_aws_kendra_b43b596c.ThesaurusReference":
+        '''A reference to a Thesaurus resource.'''
+        return typing.cast("_aws_kendra_b43b596c.ThesaurusReference", jsii.get(self, "thesaurusRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="indexId")
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index for the thesaurus.'''
+        return typing.cast(builtins.str, jsii.get(self, "indexId"))
+
+    @index_id.setter
+    def index_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__da12e8fe27677d6d4d4990847a2b1cc447aa1c80bc53a5a80c9a3738527ca1ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "indexId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name for the thesaurus.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2f90c8c7917f19ef1cb21ac03309fe00b2601f5cbc88f33931c97b44c1cffa98)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''An IAM role that gives Amazon Kendra permissions to access the thesaurus file specified in SourceS3Path.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c2cbc589fda66967ba049b644c97fce3a0d1d7bd45c0225ba6c1eb6def71afcc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceS3Path")
+    def source_s3_path(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnThesaurus.S3PathProperty"]:
+        '''Information required to find a specific file in an Amazon S3 bucket.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnThesaurus.S3PathProperty"], jsii.get(self, "sourceS3Path"))
+
+    @source_s3_path.setter
+    def source_s3_path(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnThesaurus.S3PathProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d4892d157d2dbd8310151bbaa39a0e942ae5b4a268a8e8508d2561add5fe497f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceS3Path", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the thesaurus.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e920d6f45fccda7a24ba0ea03988300c94481b3485a76a1a1a60505a6b185438)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of key-value pairs that identify or categorize the thesaurus.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__294ae5e9b6ceb02c5952b6e92c0422c4bd57950a31decb6a31ba8cbd91684293)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kendra.CfnThesaurus.S3PathProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "key": "key"},
+    )
+    class S3PathProperty:
+        def __init__(self, *, bucket: builtins.str, key: builtins.str) -> None:
+            '''Information required to find a specific file in an Amazon S3 bucket.
+
+            :param bucket: The name of the S3 bucket that contains the file.
+            :param key: The name of the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-thesaurus-s3path.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kendra as kendra
+                
+                s3_path_property = kendra.CfnThesaurus.S3PathProperty(
+                    bucket="bucket",
+                    key="key"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c3c977fcd4787ae53ed0f0615a85ba90e82e3b069d62bfc89a5275c1298aac4d)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket": bucket,
+                "key": key,
+            }
+
+        @builtins.property
+        def bucket(self) -> builtins.str:
+            '''The name of the S3 bucket that contains the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-thesaurus-s3path.html#cfn-kendra-thesaurus-s3path-bucket
+            '''
+            result = self._values.get("bucket")
+            assert result is not None, "Required property 'bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The name of the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-thesaurus-s3path.html#cfn-kendra-thesaurus-s3path-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3PathProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.CfnThesaurusProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "index_id": "indexId",
+        "name": "name",
+        "role_arn": "roleArn",
+        "source_s3_path": "sourceS3Path",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnThesaurusProps:
+    def __init__(
+        self,
+        *,
+        index_id: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        source_s3_path: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnThesaurus.S3PathProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnThesaurus``.
+
+        :param index_id: The identifier of the index for the thesaurus.
+        :param name: A name for the thesaurus.
+        :param role_arn: An IAM role that gives Amazon Kendra permissions to access the thesaurus file specified in SourceS3Path.
+        :param source_s3_path: Information required to find a specific file in an Amazon S3 bucket.
+        :param description: A description for the thesaurus.
+        :param tags: A list of key-value pairs that identify or categorize the thesaurus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            cfn_thesaurus_props = kendra.CfnThesaurusProps(
+                index_id="indexId",
+                name="name",
+                role_arn="roleArn",
+                source_s3_path=kendra.CfnThesaurus.S3PathProperty(
+                    bucket="bucket",
+                    key="key"
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__31054d0f7c4ef9ed07f94c3cdcb809f57745faa4a5378646b76d9b7c603d5c1f)
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument source_s3_path", value=source_s3_path, expected_type=type_hints["source_s3_path"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "index_id": index_id,
+            "name": name,
+            "role_arn": role_arn,
+            "source_s3_path": source_s3_path,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index for the thesaurus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html#cfn-kendra-thesaurus-indexid
+        '''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name for the thesaurus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html#cfn-kendra-thesaurus-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''An IAM role that gives Amazon Kendra permissions to access the thesaurus file specified in SourceS3Path.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html#cfn-kendra-thesaurus-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_s3_path(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnThesaurus.S3PathProperty"]:
+        '''Information required to find a specific file in an Amazon S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html#cfn-kendra-thesaurus-sources3path
+        '''
+        result = self._values.get("source_s3_path")
+        assert result is not None, "Required property 'source_s3_path' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnThesaurus.S3PathProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the thesaurus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html#cfn-kendra-thesaurus-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of key-value pairs that identify or categorize the thesaurus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html#cfn-kendra-thesaurus-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThesaurusProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnDataSource",
     "CfnDataSourceProps",
@@ -10274,6 +11228,10 @@ __all__ = [
     "CfnFaqProps",
     "CfnIndex",
     "CfnIndexProps",
+    "CfnQuerySuggestionsBlockList",
+    "CfnQuerySuggestionsBlockListProps",
+    "CfnThesaurus",
+    "CfnThesaurusProps",
 ]
 
 publication.publish()
@@ -11218,6 +12176,194 @@ def _typecheckingstub__8ce90bfc8458d52938a1a8558591d2e8ee975572889b24651808cc701
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_context_policy: typing.Optional[builtins.str] = None,
     user_token_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIndex.UserTokenConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c898de886e5fe72dcc463c4e09e19dabcd8fef260ae969b404a4ba5004bf6ef0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    index_id: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    source_s3_path: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQuerySuggestionsBlockList.S3PathProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__819f670d3c2e6cf693ddf8ebaed9f4a25e8271e5894f0c8e2e38d09914ef517d(
+    resource: _aws_kendra_b43b596c.IQuerySuggestionsBlockListRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f69aeba46c1d3004923ddbf2bf800752dabf699621749789055235e1ea16b3a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc45f2ad6f60f9cd70882be8dcdc4ee382d0e608eb24c1bb117bec523090cf5d(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3d89be07d5ddd4cfadd61c621a1459e899917cfb140bf7e7c366183cd492f1f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ac349202a8cf7e46618b503b4f3cc55f0a54c48c25f3790f4ea0b87ac39275c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e91fb941065587c31dce2a37433657c542148022a9e930bcd751e7f944b463dd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__725c47f6699447310a2f2f2dad54136174d9d88d0da3c45b9fdad7b26eefd557(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__190150e14cd574433fbcf6006894349be8edfa62660a9d22b213fc45d4dd8fce(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnQuerySuggestionsBlockList.S3PathProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f359841d42d0abd1ce6b8d8e11d432652c7f5bc7791b3d62f9db15fb72854467(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24a9fadd302a896736f74e7a0c93e1b27c6652b1699c1677f8bec8b92931ff3b(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__296380fbd549b121e2b22287e5683da42accf1d4d02aa4b22df5e730f6771f85(
+    *,
+    bucket: builtins.str,
+    key: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__354bf1174abc875444eeb2cf0d4c1a04829acc934d963ece07087b757bd1abda(
+    *,
+    index_id: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    source_s3_path: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQuerySuggestionsBlockList.S3PathProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0e87fafad2d1a3ac83316d851a947b49e235825f425242d774f871eb448bc9a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    index_id: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    source_s3_path: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnThesaurus.S3PathProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bafe49c0eb12f2bdeb83c7a747782abf4f9c82e468f5702927534caa1df7ed6(
+    resource: _aws_kendra_b43b596c.IThesaurusRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6996f1e9b3bf947006d93e2c616b633d4219e9b174d210c663036f3061670ac1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__398ea78557bed78dcf7f9f97046115553ccafb83efc609bd6d97b023cfe7b714(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f55fe8a5f6cc36f637a9b3f8a40f5a6634c3451de2a7e8772dac9fdb15e911e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da12e8fe27677d6d4d4990847a2b1cc447aa1c80bc53a5a80c9a3738527ca1ed(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f90c8c7917f19ef1cb21ac03309fe00b2601f5cbc88f33931c97b44c1cffa98(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2cbc589fda66967ba049b644c97fce3a0d1d7bd45c0225ba6c1eb6def71afcc(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4892d157d2dbd8310151bbaa39a0e942ae5b4a268a8e8508d2561add5fe497f(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnThesaurus.S3PathProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e920d6f45fccda7a24ba0ea03988300c94481b3485a76a1a1a60505a6b185438(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__294ae5e9b6ceb02c5952b6e92c0422c4bd57950a31decb6a31ba8cbd91684293(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3c977fcd4787ae53ed0f0615a85ba90e82e3b069d62bfc89a5275c1298aac4d(
+    *,
+    bucket: builtins.str,
+    key: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31054d0f7c4ef9ed07f94c3cdcb809f57745faa4a5378646b76d9b7c603d5c1f(
+    *,
+    index_id: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    source_s3_path: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnThesaurus.S3PathProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -130,6 +130,7 @@ class TockLoader:
             "microbit_v2": {"start_address": 0x00040000},
             "qemu_rv32_virt": {
                 "start_address": 0x80100000,
+                "app_ram_address": 0x80300000,
             },
             "qemu_rv64_virt": {
                 "start_address": 0x80100000,
@@ -152,6 +153,10 @@ class TockLoader:
             },
             "lpc55s69": {
                 "start_address": 0x20000,
+            },
+            "stm32wle5jc": {
+                "start_address": 0x8018000,
+                "cmd_flags": {"openocd": True},
             },
             "nucleo_u545re_q": {
                 "start_address": 0x08040000,
@@ -1093,20 +1098,20 @@ class TockLoader:
         # have a good way to mark it as unset since
         # app_settings['start_address'] is set by default.
         cached = getattr(self, "apps_start_address", None)
-        if cached:
+        if cached is not None:
             return cached
 
         # Highest priority is the command line argument. If the user specifies
         # that, we use that unconditionally.
         cmdline_app_address = getattr(self.args, "app_address", None)
-        if cmdline_app_address:
+        if cmdline_app_address is not None:
             self.apps_start_address = cmdline_app_address
             return cmdline_app_address
 
         # Next we check if the attached board can tell us.
         if self.channel:
             channel_apps_start_address = self.channel.get_apps_start_address()
-            if channel_apps_start_address:
+            if channel_apps_start_address is not None:
                 self.apps_start_address = channel_apps_start_address
                 return channel_apps_start_address
 
@@ -1122,7 +1127,7 @@ class TockLoader:
         # Check if the attached board can tell us.
         if self.channel:
             channel_flash_address = self.channel.get_flash_address()
-            if channel_flash_address:
+            if channel_flash_address is not None:
                 return channel_flash_address
 
         # In the default case flash starts at address 0.
@@ -1138,19 +1143,27 @@ class TockLoader:
         # app RAM address often, so we don't want to have to query the board for
         # it each time.
         cached = getattr(self, "app_ram_address", None)
-        if cached:
+        if cached is not None:
             return cached
 
         # Next we check for kernel attributes.
         if self.channel:
             app_start_flash = self._get_apps_start_address()
-            kernel_attr_binary = self.channel.read_range(app_start_flash - 1000, 1000)
-            kernel_attrs = KernelAttributes(kernel_attr_binary, app_start_flash)
-            app_ram = kernel_attrs.get_app_memory_region()
-            if app_ram != None:
-                app_ram_start_address = app_ram[0]
-                self.app_ram_address = app_ram_start_address
-                return app_ram_start_address
+
+            # Check if there is room for the kernel before the apps. If not,
+            # this is OK, but unusual. In the future, we will need to have full
+            # tockloader support for boards where apps do not immediately follow
+            # the kernel in flash.
+            if app_start_flash >= 1000:
+                kernel_attr_binary = self.channel.read_range(
+                    app_start_flash - 1000, 1000
+                )
+                kernel_attrs = KernelAttributes(kernel_attr_binary, app_start_flash)
+                app_ram = kernel_attrs.get_app_memory_region()
+                if app_ram != None:
+                    app_ram_start_address = app_ram[0]
+                    self.app_ram_address = app_ram_start_address
+                    return app_ram_start_address
 
         # Finally we use a saved setting in tockloader itself.
         if "app_ram_address" in self.app_settings:
@@ -1448,8 +1461,16 @@ class TockLoader:
             to_flash_apps = []
             app_address = address
             for app in apps:
+                logging.debug(
+                    f"Locating app {app.get_name()} at or after {app_address:#02x}"
+                )
+
                 # Get a version of that app that we can put at a desirable address.
                 next_loadable_address = app.fix_at_next_loadable_address(app_address)
+
+                logging.debug(
+                    f"Found next loadable address: {next_loadable_address:#02x}"
+                )
 
                 if next_loadable_address == app_address:
                     to_flash_apps.append(app)

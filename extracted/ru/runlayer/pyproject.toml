@@ -1,6 +1,6 @@
 [project]
 name = "runlayer"
-version = "0.30.8"
+version = "0.30.9"
 description = "A command-line interface for running MCP servers via HTTP transport"
 readme = "README.md"
 requires-python = ">=3.10"

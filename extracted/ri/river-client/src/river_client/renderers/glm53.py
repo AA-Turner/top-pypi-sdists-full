@@ -8,10 +8,13 @@ unexpanded image marker in a rendered training prompt into River image chunks.
 
 from __future__ import annotations
 
+import json
 import math
-from typing import cast
+import re
+from typing import Any, cast
 
 from river_client.renderers.base import (
+    ContentPart,
     ImageChunk,
     ImageFormat,
     ImagePart,
@@ -22,9 +25,12 @@ from river_client.renderers.base import (
     TextPart,
     ThinkingPart,
     Tokenizer,
+    ToolCall,
+    ToolCallFunction,
     ToolSpec,
     TrainOnWhat,
     TrainingExample,
+    UnparsedToolCall,
     _ChunkBuilder,
     _truncate_chunks_to_length,
     image_part,
@@ -35,6 +41,160 @@ IMAGE_BEGIN = "<|begin_of_image|>"
 IMAGE_TOKEN = "<|image|>"
 IMAGE_END = "<|end_of_image|>"
 _IMAGE_MARKER = f"{IMAGE_BEGIN}{IMAGE_TOKEN}{IMAGE_END}"
+_EOS = "<|endoftext|>"
+_OBSERVATION = "<|observation|>"
+_THINK_OPEN = "<think>"
+_THINK_CLOSE = "</think>"
+_TOOL_CALL_OPEN = "<tool_call>"
+_TOOL_CALL_CLOSE = "</tool_call>"
+_ARG_KEY_OPEN = "<arg_key>"
+_ARG_KEY_CLOSE = "</arg_key>"
+_ARG_VALUE_OPEN = "<arg_value>"
+_ARG_VALUE_CLOSE = "</arg_value>"
+_TOOL_NAME_RE = re.compile(r"[A-Za-z_]\w*", re.ASCII)
+
+
+def _parse_glm53_tool_call(body: str, raw_text: str) -> ToolCall | UnparsedToolCall:
+    """Parse GLM's ``name<arg_key>key</arg_key>...`` call dialect.
+
+    Argument values deliberately stay strings. The checkpoint's template has
+    no type marker: it writes strings verbatim and serializes non-strings as
+    JSON, so decoding values that merely *look* like JSON would change a
+    subsequent template render.
+    """
+    body = body.strip()
+    first_arg = body.find(_ARG_KEY_OPEN)
+    name = (body if first_arg < 0 else body[:first_arg]).strip()
+    if not name:
+        return UnparsedToolCall(raw_text=raw_text, error="Missing function name")
+    if _TOOL_NAME_RE.fullmatch(name) is None:
+        return UnparsedToolCall(
+            raw_text=raw_text,
+            error=f"Invalid GLM function name: {name!r}",
+        )
+    if first_arg < 0:
+        return ToolCall(
+            type="function",
+            id=None,
+            function=ToolCallFunction(name=name, arguments="{}"),
+        )
+
+    arguments: dict[str, str] = {}
+    remaining = body[first_arg:]
+    while remaining.strip():
+        if not remaining.startswith(_ARG_KEY_OPEN):
+            return UnparsedToolCall(
+                raw_text=raw_text, error="Malformed GLM argument key"
+            )
+        key_end = remaining.find(_ARG_KEY_CLOSE, len(_ARG_KEY_OPEN))
+        if key_end < 0:
+            return UnparsedToolCall(
+                raw_text=raw_text, error="Unclosed GLM argument key"
+            )
+        key = remaining[len(_ARG_KEY_OPEN) : key_end].strip()
+        if not key:
+            return UnparsedToolCall(raw_text=raw_text, error="Missing argument name")
+        remaining = remaining[key_end + len(_ARG_KEY_CLOSE) :].lstrip()
+        if not remaining.startswith(_ARG_VALUE_OPEN):
+            return UnparsedToolCall(
+                raw_text=raw_text, error="Missing GLM argument value"
+            )
+        value_end = remaining.find(_ARG_VALUE_CLOSE, len(_ARG_VALUE_OPEN))
+        if value_end < 0:
+            return UnparsedToolCall(
+                raw_text=raw_text, error="Unclosed GLM argument value"
+            )
+        if key in arguments:
+            return UnparsedToolCall(
+                raw_text=raw_text, error=f"Duplicate GLM argument name: {key}"
+            )
+        arguments[key] = remaining[len(_ARG_VALUE_OPEN) : value_end]
+        remaining = remaining[value_end + len(_ARG_VALUE_CLOSE) :].lstrip()
+
+    return ToolCall(
+        type="function",
+        id=None,
+        function=ToolCallFunction(
+            name=name,
+            arguments=json.dumps(arguments, ensure_ascii=False),
+        ),
+    )
+
+
+def parse_glm53_content_blocks(
+    content: str,
+    *,
+    thinking: bool | None = None,
+) -> tuple[list[ContentPart], list[ToolCall | UnparsedToolCall]]:
+    """Parse a GLM-5.3 Flash completion into reasoning, text, and tools.
+
+    ``thinking`` says whether the generation prompt opened a ``<think>``
+    block. When omitted, a closing (or explicit opening) think tag selects
+    thinking mode; a bare tool call selects non-thinking mode. This keeps the
+    public parser useful for both checkpoint-template defaults while the
+    renderer itself always passes its configured mode.
+    """
+    if thinking is None:
+        thinking = (
+            content.startswith(_THINK_OPEN)
+            or _THINK_CLOSE in content
+            or _TOOL_CALL_OPEN not in content
+        )
+
+    parts: list[ContentPart] = []
+    remainder = content
+    if thinking:
+        if remainder.startswith(_THINK_OPEN):
+            remainder = remainder[len(_THINK_OPEN) :]
+        think_end = remainder.find(_THINK_CLOSE)
+        if think_end >= 0:
+            reasoning = remainder[:think_end]
+            remainder = remainder[think_end + len(_THINK_CLOSE) :].lstrip("\n")
+        else:
+            # A configured thinking prompt should normally close its block
+            # before invoking a tool. Still split at a call marker so a
+            # truncated or template-mismatched completion cannot silently
+            # discard the invocation.
+            first_tool = remainder.find(_TOOL_CALL_OPEN)
+            if first_tool < 0:
+                return (
+                    [ThinkingPart(type="thinking", thinking=remainder)]
+                    if remainder
+                    else [],
+                    [],
+                )
+            reasoning = remainder[:first_tool]
+            remainder = remainder[first_tool:]
+        if reasoning:
+            parts.append(ThinkingPart(type="thinking", thinking=reasoning))
+
+    tool_results: list[ToolCall | UnparsedToolCall] = []
+    position = 0
+    while True:
+        open_at = remainder.find(_TOOL_CALL_OPEN, position)
+        if open_at < 0:
+            break
+        text_before = remainder[position:open_at]
+        if text_before:
+            parts.append(TextPart(type="text", text=text_before))
+        body_start = open_at + len(_TOOL_CALL_OPEN)
+        close_at = remainder.find(_TOOL_CALL_CLOSE, body_start)
+        if close_at < 0:
+            tool_results.append(
+                UnparsedToolCall(
+                    raw_text=remainder[open_at:], error="Unclosed GLM tool call"
+                )
+            )
+            return parts, tool_results
+        raw_text = remainder[open_at : close_at + len(_TOOL_CALL_CLOSE)]
+        tool_results.append(
+            _parse_glm53_tool_call(remainder[body_start:close_at], raw_text)
+        )
+        position = close_at + len(_TOOL_CALL_CLOSE)
+    text_after = remainder[position:]
+    if text_after:
+        parts.append(TextPart(type="text", text=text_after))
+    return parts, tool_results
 
 
 def glm_smart_resize(
@@ -96,9 +256,10 @@ def glm_smart_resize(
 class Glm53FlashRenderer(Renderer):
     """Vision-aware renderer for GLM-5.3 Flash.
 
-    Tool calling is intentionally unsupported until GLM's tool-template
-    contract is wired into River. Rejecting it here prevents an image-capable
-    renderer from silently dropping tool declarations or tool-call history.
+    The checkpoint-owned template supplies the tools instruction block and
+    renders assistant calls as ``<tool_call>`` blocks. This renderer preserves
+    the structured call and tool-result fields that template consumes while
+    it expands GLM image markers into River image chunks.
     """
 
     DEFAULT_PATCH_SIZE = 14
@@ -110,6 +271,8 @@ class Glm53FlashRenderer(Renderer):
         self,
         tokenizer: Tokenizer,
         *,
+        thinking: bool = True,
+        strip_thinking_from_history: bool = False,
         patch_size: int = DEFAULT_PATCH_SIZE,
         merge_size: int = DEFAULT_MERGE_SIZE,
         min_image_tokens: int = DEFAULT_MIN_IMAGE_TOKENS,
@@ -122,6 +285,8 @@ class Glm53FlashRenderer(Renderer):
         self.merge_size = merge_size
         self.min_image_tokens = min_image_tokens
         self.max_image_tokens = max_image_tokens
+        self.thinking = thinking
+        self.strip_thinking_from_history = strip_thinking_from_history
         self._image_token_id = self._lookup_token_id(IMAGE_TOKEN)
 
     def _lookup_token_id(self, token: str) -> int:
@@ -170,19 +335,13 @@ class Glm53FlashRenderer(Renderer):
         )
 
     def _render_messages(
-        self, messages: list[Message], *, tools: list[ToolSpec] | None = None
-    ) -> tuple[list[dict[str, str]], list[ImagePart]]:
-        if tools or any(
-            "tool_calls" in message or message["role"] == "tool" for message in messages
-        ):
-            raise NotImplementedError(
-                "GLM-5.3 Flash tool rendering is not implemented; do not combine "
-                "tools or tool messages with this renderer."
-            )
-        rendered: list[dict[str, str]] = []
+        self, messages: list[Message]
+    ) -> tuple[list[dict[str, Any]], list[ImagePart]]:
+        rendered: list[dict[str, Any]] = []
         image_parts: list[ImagePart] = []
         for message in messages:
             content = message["content"]
+            has_structured_reasoning = isinstance(message.get("reasoning_content"), str)
             if isinstance(content, str):
                 rendered_content = content
             else:
@@ -192,6 +351,8 @@ class Glm53FlashRenderer(Renderer):
                     if part_type == "text":
                         parts.append(cast(TextPart, part)["text"])
                     elif part_type == "thinking":
+                        if has_structured_reasoning:
+                            continue
                         thinking = cast(ThinkingPart, part)["thinking"]
                         parts.append(f"<think>{thinking}</think>")
                     elif part_type == "image":
@@ -202,16 +363,63 @@ class Glm53FlashRenderer(Renderer):
                             f"Unsupported content part type: {part_type!r}"
                         )
                 rendered_content = "".join(parts)
-            rendered.append({"role": message["role"], "content": rendered_content})
+            rendered_content += "".join(
+                call["raw_text"] for call in message.get("unparsed_tool_calls", [])
+            )
+            rendered_message: dict[str, Any] = {
+                "role": message["role"],
+                "content": rendered_content,
+            }
+            if "reasoning_content" in message:
+                rendered_message["reasoning_content"] = message["reasoning_content"]
+            if "tool_calls" in message:
+                rendered_message["tool_calls"] = [
+                    self._tool_call_for_template(call) for call in message["tool_calls"]
+                ]
+            for field in ("tool_call_id", "name"):
+                if field in message:
+                    rendered_message[field] = message[field]
+            rendered.append(rendered_message)
         return rendered, image_parts
 
+    @staticmethod
+    def _tool_call_for_template(call: ToolCall) -> dict[str, Any]:
+        """Normalize River's JSON-string arguments for GLM's Jinja template."""
+        function = call["function"]
+        if _TOOL_NAME_RE.fullmatch(function["name"]) is None:
+            raise ValueError(f"Invalid GLM function name: {function['name']!r}")
+        arguments = function.get("arguments", {})
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"GLM tool call {function['name']!r} has invalid JSON arguments"
+                ) from exc
+        if not isinstance(arguments, dict):
+            raise ValueError(
+                f"GLM tool call {function['name']!r} arguments must be a JSON object"
+            )
+        return {
+            "type": "function",
+            "id": call.get("id"),
+            "function": {"name": function["name"], "arguments": arguments},
+        }
+
     def _apply_template(
-        self, messages: list[dict[str, str]], *, add_generation_prompt: bool
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        add_generation_prompt: bool,
+        tools: list[ToolSpec] | None = None,
     ) -> str:
         rendered = self.tokenizer.apply_chat_template(
             messages,
             tokenize=False,
             add_generation_prompt=add_generation_prompt,
+            tools=tools,
+            enable_thinking=self.thinking,
+            clear_thinking=self.strip_thinking_from_history,
         )
         if not isinstance(rendered, str):
             raise TypeError("GLM tokenizer chat template did not return a string")
@@ -244,8 +452,8 @@ class Glm53FlashRenderer(Renderer):
         *,
         tools: list[ToolSpec] | None = None,
     ) -> str:
-        rendered, _image_parts = self._render_messages(messages, tools=tools)
-        return self._apply_template(rendered, add_generation_prompt=True)
+        rendered, _image_parts = self._render_messages(messages)
+        return self._apply_template(rendered, add_generation_prompt=True, tools=tools)
 
     def build_sample_prompt(
         self,
@@ -253,28 +461,41 @@ class Glm53FlashRenderer(Renderer):
         *,
         tools: list[ToolSpec] | None = None,
     ) -> SamplePrompt:
-        rendered, image_parts = self._render_messages(messages, tools=tools)
+        rendered, image_parts = self._render_messages(messages)
         return SamplePrompt(
-            prompt=self._apply_template(rendered, add_generation_prompt=True),
+            prompt=self._apply_template(
+                rendered, add_generation_prompt=True, tools=tools
+            ),
             images=[part["image"] for part in image_parts],
             image_formats=[part["format"] for part in image_parts],
         )
 
     def get_stop_strings(self) -> list[str]:
+        stops = [_OBSERVATION]
         eos_token = getattr(self.tokenizer, "eos_token", None)
-        return [eos_token] if isinstance(eos_token, str) and eos_token else []
+        if isinstance(eos_token, str) and eos_token and eos_token not in stops:
+            stops.append(eos_token)
+        elif _EOS not in stops:
+            stops.append(_EOS)
+        return stops
 
     def parse_response(self, text: str) -> ParsedResponse:
+        stop_found = False
         for stop in self.get_stop_strings():
             if text.endswith(stop):
-                return ParsedResponse(
-                    message=Message(role="assistant", content=text[: -len(stop)]),
-                    stop_found=True,
-                )
-        return ParsedResponse(
-            message=Message(role="assistant", content=text),
-            stop_found=False,
-        )
+                text = text[: -len(stop)]
+                stop_found = True
+                break
+
+        parts, tool_results = parse_glm53_content_blocks(text, thinking=self.thinking)
+        message: Message = {"role": "assistant", "content": parts if parts else ""}
+        tool_calls = [result for result in tool_results if "function" in result]
+        unparsed = [result for result in tool_results if "error" in result]
+        if tool_calls:
+            message["tool_calls"] = tool_calls  # type: ignore[assignment]
+        if unparsed:
+            message["unparsed_tool_calls"] = unparsed  # type: ignore[assignment]
+        return ParsedResponse(message=message, stop_found=stop_found)
 
     def build_training_example(
         self,
@@ -283,10 +504,11 @@ class Glm53FlashRenderer(Renderer):
         train_on: TrainOnWhat = TrainOnWhat.LAST_ASSISTANT,
         train_on_eos: bool = True,
         max_length: int | None = None,
+        tools: list[ToolSpec] | None = None,
     ) -> TrainingExample:
         rendered, image_parts = self._render_messages(messages)
         full_ids = self._encode(
-            self._apply_template(rendered, add_generation_prompt=False)
+            self._apply_template(rendered, add_generation_prompt=False, tools=tools)
         )
         weights = [0.0] * len(full_ids)
         assistant_indexes = [
@@ -303,20 +525,27 @@ class Glm53FlashRenderer(Renderer):
                 continue
             without_content = [dict(message) for message in rendered]
             without_content[index]["content"] = ""
+            # The GLM template emits reasoning and calls from structured
+            # fields, not ``content``. Remove all assistant output fields so
+            # their token ranges receive the same training weight as text.
+            without_content[index].pop("reasoning_content", None)
+            without_content[index].pop("tool_calls", None)
             without_ids = self._encode(
-                self._apply_template(without_content, add_generation_prompt=False)
+                self._apply_template(
+                    without_content, add_generation_prompt=False, tools=tools
+                )
             )
             prefix = self._common_prefix_length(full_ids, without_ids)
             suffix = self._common_suffix_length(full_ids, without_ids, prefix)
-            content_end = len(full_ids) - suffix
+            generated_end = len(full_ids) - suffix
+            content_end, terminator_end = self._turn_terminator_range(
+                full_ids, generated_end
+            )
             weights[prefix:content_end] = [1.0] * (content_end - prefix)
-            if train_on_eos:
-                eos_token_id = getattr(self.tokenizer, "eos_token_id", None)
-                if eos_token_id is not None:
-                    for token_index in range(content_end, len(full_ids)):
-                        if full_ids[token_index] == eos_token_id:
-                            weights[token_index] = 1.0
-                            break
+            if train_on_eos and terminator_end is not None:
+                weights[content_end:terminator_end] = [1.0] * (
+                    terminator_end - content_end
+                )
 
         builder = _ChunkBuilder()
         image_index = 0
@@ -359,6 +588,26 @@ class Glm53FlashRenderer(Renderer):
             model_input=model_input,
         )
 
+    def _turn_terminator_range(
+        self, input_ids: list[int], generated_end: int
+    ) -> tuple[int, int | None]:
+        """Return the content end and adjacent stop range for one assistant turn."""
+        for stop in self.get_stop_strings():
+            stop_ids = self._encode(stop)
+            if (
+                stop_ids
+                and input_ids[generated_end - len(stop_ids) : generated_end] == stop_ids
+            ):
+                return generated_end - len(stop_ids), generated_end
+        for stop in self.get_stop_strings():
+            stop_ids = self._encode(stop)
+            if (
+                stop_ids
+                and input_ids[generated_end : generated_end + len(stop_ids)] == stop_ids
+            ):
+                return generated_end, generated_end + len(stop_ids)
+        return generated_end, None
+
 
 __all__ = [
     "Glm53FlashRenderer",
@@ -366,4 +615,5 @@ __all__ = [
     "IMAGE_END",
     "IMAGE_TOKEN",
     "glm_smart_resize",
+    "parse_glm53_content_blocks",
 ]

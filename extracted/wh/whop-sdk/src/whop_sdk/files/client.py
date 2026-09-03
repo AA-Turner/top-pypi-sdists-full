@@ -3,11 +3,15 @@
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.file import File
 from .raw_client import AsyncRawFilesClient, RawFilesClient
 from .types.complete_files_request_multipart_parts_item import CompleteFilesRequestMultipartPartsItem
 from .types.create_files_request_visibility import CreateFilesRequestVisibility
+from .types.list_files_request_direction import ListFilesRequestDirection
+from .types.list_files_request_order import ListFilesRequestOrder
+from .types.list_files_response import ListFilesResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -28,6 +32,81 @@ class FilesClient:
         """
         return self._raw_client
 
+    def list(
+        self,
+        *,
+        file_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        order: typing.Optional[ListFilesRequestOrder] = None,
+        direction: typing.Optional[ListFilesRequestDirection] = None,
+        first: typing.Optional[int] = None,
+        after: typing.Optional[str] = None,
+        last: typing.Optional[int] = None,
+        before: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[File, ListFilesResponse]:
+        """
+        Returns the files with the given IDs, newest first — fetch a batch in one request instead of retrieving each file individually. Only files you created are returned; IDs that do not exist, or that another credential created, are omitted. A request for up to 100 IDs answers in a single page by default; a larger batch pages at up to 100 files per response — follow `page_info` with the same `file_ids` to walk the rest.
+
+        Parameters
+        ----------
+        file_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            The files to return, each prefixed `file_`. Repeat the parameter to pass several, up to 250 per request. Batches of up to 100 answer in one page by default; larger batches page at up to 100 per response.
+
+        order : typing.Optional[ListFilesRequestOrder]
+            The field to sort by.
+
+        direction : typing.Optional[ListFilesRequestDirection]
+            The sort direction.
+
+        first : typing.Optional[int]
+            The number of files to return.
+
+        after : typing.Optional[str]
+            A cursor; returns files after this position.
+
+        last : typing.Optional[int]
+            The number of files to return from the end of the range.
+
+        before : typing.Optional[str]
+            A cursor; returns files before this position.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[File, ListFilesResponse]
+            files listed
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-02-2",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        response = client.files.list(
+            file_ids=["file_xxxxxxxxxxxxx"],
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.list(
+            file_ids=file_ids,
+            order=order,
+            direction=direction,
+            first=first,
+            after=after,
+            last=last,
+            before=before,
+            request_options=request_options,
+        )
+
     def create(
         self,
         *,
@@ -38,7 +117,7 @@ class FilesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> File:
         """
-        Creates a file and returns a presigned destination to upload its bytes to. PUT the bytes to `upload_url` (single-part), or to each of `multipart_upload_urls` and then call Complete File Multipart Upload. Once the bytes land the file becomes `ready`, and its ID can be attached wherever a file is accepted — account legal documents, dispute evidence documents.
+        Creates a file and returns a presigned destination to upload its bytes to. PUT the bytes to `upload_url` (single-part), or to each of `multipart_upload_urls` and then call Complete File Multipart Upload. Once the bytes land the file becomes `ready`, and its ID can be attached wherever a file is accepted — account legal documents, dispute evidence documents. For a step-by-step walkthrough of single-part and multipart uploads, see the [direct file uploads guide](/developer/guides/direct-file-uploads).
 
         Parameters
         ----------
@@ -67,7 +146,7 @@ class FilesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -106,7 +185,7 @@ class FilesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -126,7 +205,7 @@ class FilesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> File:
         """
-        Assembles the parts of a multipart upload after every part has been PUT to its presigned URL. Pass the `multipart_upload_id` from Create File and each part's `ETag` response header.
+        Assembles the parts of a multipart upload after every part has been PUT to its presigned URL. Pass the `multipart_upload_id` from Create File and each part's `ETag` response header. For a step-by-step walkthrough of multipart uploads, see the [direct file uploads guide](/developer/guides/direct-file-uploads).
 
         Parameters
         ----------
@@ -153,7 +232,7 @@ class FilesClient:
         from whop_sdk.files import CompleteFilesRequestMultipartPartsItem
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -192,6 +271,90 @@ class AsyncFilesClient:
         """
         return self._raw_client
 
+    async def list(
+        self,
+        *,
+        file_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        order: typing.Optional[ListFilesRequestOrder] = None,
+        direction: typing.Optional[ListFilesRequestDirection] = None,
+        first: typing.Optional[int] = None,
+        after: typing.Optional[str] = None,
+        last: typing.Optional[int] = None,
+        before: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[File, ListFilesResponse]:
+        """
+        Returns the files with the given IDs, newest first — fetch a batch in one request instead of retrieving each file individually. Only files you created are returned; IDs that do not exist, or that another credential created, are omitted. A request for up to 100 IDs answers in a single page by default; a larger batch pages at up to 100 files per response — follow `page_info` with the same `file_ids` to walk the rest.
+
+        Parameters
+        ----------
+        file_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            The files to return, each prefixed `file_`. Repeat the parameter to pass several, up to 250 per request. Batches of up to 100 answer in one page by default; larger batches page at up to 100 per response.
+
+        order : typing.Optional[ListFilesRequestOrder]
+            The field to sort by.
+
+        direction : typing.Optional[ListFilesRequestDirection]
+            The sort direction.
+
+        first : typing.Optional[int]
+            The number of files to return.
+
+        after : typing.Optional[str]
+            A cursor; returns files after this position.
+
+        last : typing.Optional[int]
+            The number of files to return from the end of the range.
+
+        before : typing.Optional[str]
+            A cursor; returns files before this position.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[File, ListFilesResponse]
+            files listed
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-02-2",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            response = await client.files.list(
+                file_ids=["file_xxxxxxxxxxxxx"],
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.list(
+            file_ids=file_ids,
+            order=order,
+            direction=direction,
+            first=first,
+            after=after,
+            last=last,
+            before=before,
+            request_options=request_options,
+        )
+
     async def create(
         self,
         *,
@@ -202,7 +365,7 @@ class AsyncFilesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> File:
         """
-        Creates a file and returns a presigned destination to upload its bytes to. PUT the bytes to `upload_url` (single-part), or to each of `multipart_upload_urls` and then call Complete File Multipart Upload. Once the bytes land the file becomes `ready`, and its ID can be attached wherever a file is accepted — account legal documents, dispute evidence documents.
+        Creates a file and returns a presigned destination to upload its bytes to. PUT the bytes to `upload_url` (single-part), or to each of `multipart_upload_urls` and then call Complete File Multipart Upload. Once the bytes land the file becomes `ready`, and its ID can be attached wherever a file is accepted — account legal documents, dispute evidence documents. For a step-by-step walkthrough of single-part and multipart uploads, see the [direct file uploads guide](/developer/guides/direct-file-uploads).
 
         Parameters
         ----------
@@ -233,7 +396,7 @@ class AsyncFilesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -280,7 +443,7 @@ class AsyncFilesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -306,7 +469,7 @@ class AsyncFilesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> File:
         """
-        Assembles the parts of a multipart upload after every part has been PUT to its presigned URL. Pass the `multipart_upload_id` from Create File and each part's `ETag` response header.
+        Assembles the parts of a multipart upload after every part has been PUT to its presigned URL. Pass the `multipart_upload_id` from Create File and each part's `ETag` response header. For a step-by-step walkthrough of multipart uploads, see the [direct file uploads guide](/developer/guides/direct-file-uploads).
 
         Parameters
         ----------
@@ -335,7 +498,7 @@ class AsyncFilesClient:
         from whop_sdk.files import CompleteFilesRequestMultipartPartsItem
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

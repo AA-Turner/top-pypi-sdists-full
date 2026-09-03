@@ -26,6 +26,7 @@ Usage::
         ListDbSystemShapesPaginator,
         ListExadbVmClustersPaginator,
         ListExascaleDbStorageVaultsPaginator,
+        ListFlexComponentsPaginator,
         ListGiMinorVersionsPaginator,
         ListGiVersionsPaginator,
         ListOdbNetworksPaginator,
@@ -52,6 +53,7 @@ Usage::
     list_db_system_shapes_paginator: ListDbSystemShapesPaginator = client.get_paginator("list_db_system_shapes")
     list_exadb_vm_clusters_paginator: ListExadbVmClustersPaginator = client.get_paginator("list_exadb_vm_clusters")
     list_exascale_db_storage_vaults_paginator: ListExascaleDbStorageVaultsPaginator = client.get_paginator("list_exascale_db_storage_vaults")
+    list_flex_components_paginator: ListFlexComponentsPaginator = client.get_paginator("list_flex_components")
     list_gi_minor_versions_paginator: ListGiMinorVersionsPaginator = client.get_paginator("list_gi_minor_versions")
     list_gi_versions_paginator: ListGiVersionsPaginator = client.get_paginator("list_gi_versions")
     list_odb_networks_paginator: ListOdbNetworksPaginator = client.get_paginator("list_odb_networks")
@@ -77,6 +79,7 @@ from .paginator import (
     ListDbSystemShapesPaginator,
     ListExadbVmClustersPaginator,
     ListExascaleDbStorageVaultsPaginator,
+    ListFlexComponentsPaginator,
     ListGiMinorVersionsPaginator,
     ListGiVersionsPaginator,
     ListOdbNetworksPaginator,
@@ -103,6 +106,7 @@ __all__ = (
     "ListDbSystemShapesPaginator",
     "ListExadbVmClustersPaginator",
     "ListExascaleDbStorageVaultsPaginator",
+    "ListFlexComponentsPaginator",
     "ListGiMinorVersionsPaginator",
     "ListGiVersionsPaginator",
     "ListOdbNetworksPaginator",

@@ -238,6 +238,158 @@ def select_stages_for_ml(stages_features, method="latest", n=100):
     return selected_stages
 
 
+def cutoff_month_of(stages_features):
+    """The fold's data-cutoff month: first element of the LONGEST stage array.
+
+    ``monthly_r`` stages are REVERSE-cumulative — in ``[9, 8, 7, 6, 5, 4]``
+    ("Sep 1-Apr 30") the FIRST month is the as-of/cutoff month. Every other
+    window available at this fold is a sub-span ending at or before that
+    cutoff, so the longest array always carries it up front. Using max-by-len
+    (not element-wise max) keeps this correct for seasons that wrap the
+    calendar year (e.g. poppy Nov..Aug, where Nov=11 > Aug=8).
+    """
+    if not stages_features:
+        return None
+    longest = max(stages_features, key=len)
+    try:
+        return int(longest[0])
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def keep_cci_window(cid, stage, cutoff_month, policy="all"):
+    """CCI window policy for candidate feature columns.
+
+    ``policy="current"`` keeps, per fold, ONLY the single-month CCI window of
+    the cutoff month (e.g. at the "Sep 1-Apr 30" stage: keep
+    ``MAX_CCI Sep 1-Sep 30``; drop ``MAX_CCI May 1-May 31`` and every
+    cumulative CCI span). Non-CCI CIDs always pass.
+
+    Why: measured on usa_admin2 2010-2019 (LOYO ridge on within-year county
+    anomalies), the single cutoff-month CCI beat the full window zoo at every
+    cutoff from July on (soybean Oct: +0.166 vs -0.62 R2 for 75 windows;
+    maize Oct: +0.087 vs -10 to -31). The many-window representation both
+    overfits (28 collinear windows x 3 stats) and, for sparse April/May
+    windows (~10% coverage), turns the fillna(0) at geocif._update_column_names
+    into a region-identity proxy (0 = "worst condition" for 90% of counties).
+    Restricting to the cutoff month removes the sparse windows structurally.
+
+    Args:
+        cid: CID base name for the candidate (e.g. "MAX_CCI", "PRCPTOT").
+        stage: the stage array the candidate is built from (e.g. [5] or [9,8]).
+        cutoff_month: from :func:`cutoff_month_of`.
+        policy: "all" (no-op, default) or "current".
+    """
+    if policy != "current" or "CCI" not in str(cid):
+        return True
+    if cutoff_month is None:
+        return True
+    try:
+        return len(stage) == 1 and int(stage[0]) == int(cutoff_month)
+    except (TypeError, ValueError):
+        return True
+
+
+_CCI_WINDOW_RE = None
+
+_MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def cci_delta_columns(df_columns, cutoff_month):
+    """Column pairs for decline-aware CCI change features (policy current_delta).
+
+    Motivated by CropProphet's finding that the WEEK-OVER-WEEK CHANGE in
+    condition (corrected for seasonal drift) carries the weather signal that
+    levels confound, and by the 2026-09-02 state-level A/B where the
+    current-month-only policy lost ground exactly in the 2012 drought year —
+    a collapsing season is visible in the condition trajectory, not the level.
+
+    For the cutoff month m and its predecessor p (December-wrapped), pairs
+    every single-month CCI statistic column of m with the same statistic of p:
+        DELTA_MEAN_CCI Aug  =  MEAN_CCI Aug 1-Aug 31  -  MEAN_CCI Jul 1-Jul 31
+    The subtraction itself is done by the caller (within-row arithmetic on
+    both train and test frames — leak-free by construction). No climatological
+    decline correction: with Region as a categorical, tree models learn the
+    region-specific seasonal baseline themselves.
+
+    Returns:
+        list of (new_name, col_current, col_previous) tuples; empty when the
+        cutoff is None or either month's single-window columns are absent.
+    """
+    import re
+    if cutoff_month is None:
+        return []
+    m = int(cutoff_month)
+    p = 12 if m == 1 else m - 1
+    mm, pm = _MONTH_ABBR[m - 1], _MONTH_ABBR[p - 1]
+    single = re.compile(
+        rf"^((?:[A-Z0-9-]+_)?[A-Z]*CCI)\s+({mm}|{pm})\s+\d{{1,2}}-\2\s+\d{{1,2}}\s*$"
+    )
+    cur, prev = {}, {}
+    for c in df_columns:
+        g = single.match(str(c))
+        if not g:
+            continue
+        stat, mon = g.group(1), g.group(2)
+        (cur if mon == mm else prev)[stat] = str(c)
+    return [(f"DELTA_{stat} {mm}", cur[stat], prev[stat])
+            for stat in sorted(cur) if stat in prev]
+
+
+def filter_feature_names_cci(feature_names, cutoff_month, policy="current"):
+    """Name-based CCI window filter applied to a FINISHED feature_names list.
+
+    Companion to :func:`keep_cci_window`, which filters candidates inside
+    ``create_feature_names``. That hook alone proved insufficient: with
+    ``correlation_plots = False`` the correlation preselection comes back
+    empty and ``_create_feature_names_for_region`` falls back to *all CID
+    columns*, bypassing ``create_feature_names`` entirely (this is exactly
+    what made A/B arms bit-identical on 2026-09-02 — 44 fallback events, zero
+    filter hits). This function runs on the final name list, so it covers the
+    fallback branch, the linear top-3 branch, and every future path alike.
+
+    Keeps a ``*CCI*`` feature only when its stage window is the SINGLE month
+    equal to ``cutoff_month`` (e.g. at a September cutoff: keep
+    ``MAX_CCI Sep 1-Sep 30``, drop ``MAX_CCI May 1-May 31`` and every
+    cumulative span like ``MIN_CCI Sep 1-Apr 30``). Non-CCI names always pass.
+    Fails open: unparseable names or an unknown cutoff are kept.
+    """
+    global _CCI_WINDOW_RE
+    if _CCI_WINDOW_RE is None:
+        import re
+        _CCI_WINDOW_RE = re.compile(
+            r"\s([A-Z][a-z]{2})\s+\d{1,2}\s*-\s*([A-Z][a-z]{2})\s+\d{1,2}\s*$"
+        )
+    if cutoff_month is None:
+        return list(feature_names)
+    months = {m: i for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)}
+    # Which CCI variant does this policy want?  "current_ge" swaps the
+    # weighted index for the raw %Good+Excellent share (farmdoc's metric,
+    # which beat weighted indices in their peanut study); every other policy
+    # keeps the weighted index and EXCLUDES the GE columns so that runs made
+    # before the CCIGE CIDs existed stay reproducible bit-for-bit.
+    want_ge = policy == "current_ge"
+    out = []
+    for f in feature_names:
+        name = str(f)
+        if "CCI" not in name:
+            out.append(f)
+            continue
+        if ("CCIGE" in name) != want_ge:
+            continue
+        m = _CCI_WINDOW_RE.search(name)
+        if not m:
+            out.append(f)          # fail open on unparseable window (DELTA_*)
+            continue
+        m1, m2 = months.get(m.group(1)), months.get(m.group(2))
+        if m1 == m2 == int(cutoff_month):
+            out.append(f)
+    return out
+
+
 def get_stage_information_dict(stage_str, method):
     """
     e.g. stage_str is 'GD4_8_7_6_5_4_3_2_1_37_36_35_34_33_32'

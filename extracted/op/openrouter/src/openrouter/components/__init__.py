@@ -504,6 +504,7 @@ if TYPE_CHECKING:
     )
     from .chatcontentvideoinput import (
         ChatContentVideoInput,
+        ChatContentVideoInputProcessing,
         ChatContentVideoInputTypedDict,
     )
     from .chatdebugoptions import ChatDebugOptions, ChatDebugOptionsTypedDict
@@ -1272,6 +1273,7 @@ if TYPE_CHECKING:
         GetWorkspaceResponseTypedDict,
     )
     from .guardrail import Guardrail, GuardrailTypedDict
+    from .guardraildataregion import GuardrailDataRegion
     from .guardrailinterval import GuardrailInterval
     from .imageconfig import ImageConfig, ImageConfigTypedDict
     from .imageendpoint import ImageEndpoint, ImageEndpointTypedDict
@@ -1477,7 +1479,12 @@ if TYPE_CHECKING:
         InputsUnionTypedDict,
     )
     from .inputtext import InputText, InputTextType, InputTextTypedDict
-    from .inputvideo import InputVideo, InputVideoType, InputVideoTypedDict
+    from .inputvideo import (
+        InputVideo,
+        InputVideoProcessing,
+        InputVideoType,
+        InputVideoTypedDict,
+    )
     from .instructtype import InstructType
     from .internalserverresponseerrordata import (
         InternalServerResponseErrorData,
@@ -1496,6 +1503,7 @@ if TYPE_CHECKING:
     )
     from .legacy_chatcontentvideoinput import (
         LegacyChatContentVideoInput,
+        LegacyChatContentVideoInputProcessing,
         LegacyChatContentVideoInputTypedDict,
     )
     from .legacy_websearchservertool import (
@@ -1857,6 +1865,17 @@ if TYPE_CHECKING:
     from .notfoundresponseerrordata import (
         NotFoundResponseErrorData,
         NotFoundResponseErrorDataTypedDict,
+    )
+    from .oautherrorresponse import ErrorEnum
+    from .oauthjwks import (
+        Alg,
+        Crv,
+        Key,
+        KeyTypedDict,
+        Kty,
+        OAuthJwks,
+        OAuthJwksTypedDict,
+        Use,
     )
     from .observabilityarizedestination import (
         ObservabilityArizeDestination,
@@ -2943,6 +2962,20 @@ if TYPE_CHECKING:
         TextExtendedConfigTypedDict,
         Verbosity,
     )
+    from .tokenexchangerequest import (
+        GrantType,
+        RequestedTokenType,
+        Scope,
+        SubjectTokenType,
+        TokenExchangeRequest,
+        TokenExchangeRequestTypedDict,
+    )
+    from .tokenexchangeresponse import (
+        IssuedTokenType,
+        TokenExchangeResponse,
+        TokenExchangeResponseTypedDict,
+        TokenType,
+    )
     from .toolcallstatus import ToolCallStatus
     from .toolchoiceallowed import (
         Mode,
@@ -3241,6 +3274,7 @@ __all__ = [
     "AgentMessageItemTypeInputImage",
     "AgentMessageItemTypedDict",
     "AgentTypedDict",
+    "Alg",
     "AllowedCaller",
     "AllowedTools",
     "AllowedToolsTypedDict",
@@ -3539,6 +3573,7 @@ __all__ = [
     "ChatContentTextTypedDict",
     "ChatContentVideo",
     "ChatContentVideoInput",
+    "ChatContentVideoInputProcessing",
     "ChatContentVideoInputTypedDict",
     "ChatContentVideoType",
     "ChatContentVideoTypedDict",
@@ -3828,6 +3863,7 @@ __all__ = [
     "CreateWorkspaceRequestTypedDict",
     "CreateWorkspaceResponse",
     "CreateWorkspaceResponseTypedDict",
+    "Crv",
     "CustomTool",
     "CustomToolCallInputDeltaEvent",
     "CustomToolCallInputDeltaEventType",
@@ -3924,6 +3960,7 @@ __all__ = [
     "EnumCapabilityTypedDict",
     "Environment",
     "ErrorCode",
+    "ErrorEnum",
     "ErrorEvent",
     "ErrorEventType",
     "ErrorEventTypedDict",
@@ -4090,7 +4127,9 @@ __all__ = [
     "GetWorkspaceBudgetResponseTypedDict",
     "GetWorkspaceResponse",
     "GetWorkspaceResponseTypedDict",
+    "GrantType",
     "Guardrail",
+    "GuardrailDataRegion",
     "GuardrailInterval",
     "GuardrailTypedDict",
     "ImageConfig",
@@ -4233,6 +4272,7 @@ __all__ = [
     "InputUnion",
     "InputUnionTypedDict",
     "InputVideo",
+    "InputVideoProcessing",
     "InputVideoType",
     "InputVideoTypedDict",
     "InputsContent1",
@@ -4267,6 +4307,7 @@ __all__ = [
     "InstructType",
     "InternalServerResponseErrorData",
     "InternalServerResponseErrorDataTypedDict",
+    "IssuedTokenType",
     "ItemReferenceItem",
     "ItemReferenceItemType",
     "ItemReferenceItemTypedDict",
@@ -4276,10 +4317,14 @@ __all__ = [
     "KeepEnum",
     "KeepType",
     "KeepTypedDict",
+    "Key",
     "KeyAssignment",
     "KeyAssignmentTypedDict",
+    "KeyTypedDict",
+    "Kty",
     "LegacyChatContentVideo",
     "LegacyChatContentVideoInput",
+    "LegacyChatContentVideoInputProcessing",
     "LegacyChatContentVideoInputTypedDict",
     "LegacyChatContentVideoType",
     "LegacyChatContentVideoTypedDict",
@@ -4472,6 +4517,8 @@ __all__ = [
     "NeverTypedDict",
     "NotFoundResponseErrorData",
     "NotFoundResponseErrorDataTypedDict",
+    "OAuthJwks",
+    "OAuthJwksTypedDict",
     "ObservabilityArizeDestination",
     "ObservabilityArizeDestinationConfig",
     "ObservabilityArizeDestinationConfigTypedDict",
@@ -5024,6 +5071,7 @@ __all__ = [
     "Region",
     "RequestTimeoutResponseErrorData",
     "RequestTimeoutResponseErrorDataTypedDict",
+    "RequestedTokenType",
     "RequireApproval",
     "RequireApprovalAlways",
     "RequireApprovalNever",
@@ -5091,6 +5139,7 @@ __all__ = [
     "ScimGroupMappingRole",
     "ScimGroupMappingTypedDict",
     "ScimGroupTypedDict",
+    "Scope",
     "SearchContextSizeEnum",
     "SearchModelsServerToolConfig",
     "SearchModelsServerToolConfigTypedDict",
@@ -5212,6 +5261,7 @@ __all__ = [
     "SubagentServerToolOpenRouter",
     "SubagentServerToolOpenRouterType",
     "SubagentServerToolOpenRouterTypedDict",
+    "SubjectTokenType",
     "SubmitGenerationFeedbackRequest",
     "SubmitGenerationFeedbackRequestTypedDict",
     "SubmitGenerationFeedbackResponse",
@@ -5260,6 +5310,11 @@ __all__ = [
     "ThinkingTypedDict",
     "Timings",
     "TimingsTypedDict",
+    "TokenExchangeRequest",
+    "TokenExchangeRequestTypedDict",
+    "TokenExchangeResponse",
+    "TokenExchangeResponseTypedDict",
+    "TokenType",
     "TooManyRequestsResponseErrorData",
     "TooManyRequestsResponseErrorDataTypedDict",
     "ToolAdvisor20260301",
@@ -5446,6 +5501,7 @@ __all__ = [
     "UsageCostDetails",
     "UsageCostDetailsTypedDict",
     "UsageTypedDict",
+    "Use",
     "UserLocation",
     "UserLocationTypedDict",
     "UtcDay",
@@ -5868,6 +5924,7 @@ _dynamic_imports: dict[str, str] = {
     "ChatContentVideoType": ".chatcontentvideo",
     "ChatContentVideoTypedDict": ".chatcontentvideo",
     "ChatContentVideoInput": ".chatcontentvideoinput",
+    "ChatContentVideoInputProcessing": ".chatcontentvideoinput",
     "ChatContentVideoInputTypedDict": ".chatcontentvideoinput",
     "ChatDebugOptions": ".chatdebugoptions",
     "ChatDebugOptionsTypedDict": ".chatdebugoptions",
@@ -6418,6 +6475,7 @@ _dynamic_imports: dict[str, str] = {
     "GetWorkspaceResponseTypedDict": ".getworkspaceresponse",
     "Guardrail": ".guardrail",
     "GuardrailTypedDict": ".guardrail",
+    "GuardrailDataRegion": ".guardraildataregion",
     "GuardrailInterval": ".guardrailinterval",
     "ImageConfig": ".imageconfig",
     "ImageConfigTypedDict": ".imageconfig",
@@ -6584,6 +6642,7 @@ _dynamic_imports: dict[str, str] = {
     "InputTextType": ".inputtext",
     "InputTextTypedDict": ".inputtext",
     "InputVideo": ".inputvideo",
+    "InputVideoProcessing": ".inputvideo",
     "InputVideoType": ".inputvideo",
     "InputVideoTypedDict": ".inputvideo",
     "InstructType": ".instructtype",
@@ -6598,6 +6657,7 @@ _dynamic_imports: dict[str, str] = {
     "LegacyChatContentVideoType": ".legacy_chatcontentvideo",
     "LegacyChatContentVideoTypedDict": ".legacy_chatcontentvideo",
     "LegacyChatContentVideoInput": ".legacy_chatcontentvideoinput",
+    "LegacyChatContentVideoInputProcessing": ".legacy_chatcontentvideoinput",
     "LegacyChatContentVideoInputTypedDict": ".legacy_chatcontentvideoinput",
     "LegacyWebSearchServerTool": ".legacy_websearchservertool",
     "LegacyWebSearchServerToolType": ".legacy_websearchservertool",
@@ -6902,6 +6962,15 @@ _dynamic_imports: dict[str, str] = {
     "UnknownNamespaceToolTool": ".namespacetool",
     "NotFoundResponseErrorData": ".notfoundresponseerrordata",
     "NotFoundResponseErrorDataTypedDict": ".notfoundresponseerrordata",
+    "ErrorEnum": ".oautherrorresponse",
+    "Alg": ".oauthjwks",
+    "Crv": ".oauthjwks",
+    "Key": ".oauthjwks",
+    "KeyTypedDict": ".oauthjwks",
+    "Kty": ".oauthjwks",
+    "OAuthJwks": ".oauthjwks",
+    "OAuthJwksTypedDict": ".oauthjwks",
+    "Use": ".oauthjwks",
     "ObservabilityArizeDestination": ".observabilityarizedestination",
     "ObservabilityArizeDestinationConfig": ".observabilityarizedestination",
     "ObservabilityArizeDestinationConfigTypedDict": ".observabilityarizedestination",
@@ -7697,6 +7766,16 @@ _dynamic_imports: dict[str, str] = {
     "TextExtendedConfig": ".textextendedconfig",
     "TextExtendedConfigTypedDict": ".textextendedconfig",
     "Verbosity": ".textextendedconfig",
+    "GrantType": ".tokenexchangerequest",
+    "RequestedTokenType": ".tokenexchangerequest",
+    "Scope": ".tokenexchangerequest",
+    "SubjectTokenType": ".tokenexchangerequest",
+    "TokenExchangeRequest": ".tokenexchangerequest",
+    "TokenExchangeRequestTypedDict": ".tokenexchangerequest",
+    "IssuedTokenType": ".tokenexchangeresponse",
+    "TokenExchangeResponse": ".tokenexchangeresponse",
+    "TokenExchangeResponseTypedDict": ".tokenexchangeresponse",
+    "TokenType": ".tokenexchangeresponse",
     "ToolCallStatus": ".toolcallstatus",
     "Mode": ".toolchoiceallowed",
     "ModeAuto": ".toolchoiceallowed",

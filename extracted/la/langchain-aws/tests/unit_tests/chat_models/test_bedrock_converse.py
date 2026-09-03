@@ -357,6 +357,13 @@ def test_deepseek_supports_tool_choice_values(
     assert chat_model.supports_tool_choice_values == expected_values
 
 
+def test_xai_supports_tool_choice_values() -> None:
+    chat_model = ChatBedrockConverse(
+        model="global.xai.grok-4.6", region_name="us-east-1"
+    )
+    assert chat_model.supports_tool_choice_values == ("auto", "any", "tool")
+
+
 def test_deepseek_r1_no_tool_choice_support() -> None:
     chat_model = ChatBedrockConverse(model="deepseek.r1-v1:0", region_name="us-east-1")  # type: ignore[call-arg]
 
@@ -1415,6 +1422,7 @@ def test_invocation_params_model_prefers_base_model_id() -> None:
         ("qwen.qwen3-32b-v1:0", False),
         ("moonshotai.kimi-k2.5", False),
         ("moonshot.kimi-k2-thinking", False),
+        ("xai.grok-4.6", False),
     ],
 )
 def test_set_disable_streaming(
@@ -3099,6 +3107,12 @@ def test__get_base_model() -> None:
             "arn:aws:bedrock:us-west-2:123456789012:application-inference-profile/my-profile",
             "anthropic.claude-fable-5",
             "anthropic",
+            False,
+        ),
+        (
+            "arn:aws:bedrock:us-west-2:123456789012:application-inference-profile/my-profile",
+            "xai.grok-4.6",
+            "xai",
             False,
         ),
         (

@@ -1298,9 +1298,420 @@ class CfnAnalyzerProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_accessanalyzer_9f0da0ff.IArchiveRuleRef)
+class CfnArchiveRule(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnArchiveRule",
+):
+    '''Creates an archive rule for the specified analyzer.
+
+    Archive rules automatically archive new findings that meet the criteria you define when you create the rule.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-archiverule.html
+    :cloudformationResource: AWS::AccessAnalyzer::ArchiveRule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_accessanalyzer as accessanalyzer
+        
+        cfn_archive_rule = accessanalyzer.CfnArchiveRule(self, "MyCfnArchiveRule",
+            analyzer_name="analyzerName",
+            filter={
+                "filter_key": accessanalyzer.CfnArchiveRule.FilterItemsProperty(
+                    contains=["contains"],
+                    eq=["eq"],
+                    exists=False,
+                    neq=["neq"]
+                )
+            },
+            rule_name="ruleName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        analyzer_name: builtins.str,
+        filter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnArchiveRule.FilterItemsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rule_name: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::AccessAnalyzer::ArchiveRule``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param analyzer_name: The name of the analyzer for the archive rule.
+        :param filter: The criteria for the archive rule. A map of filter criteria property names to their criterion values.
+        :param rule_name: The name of the archive rule.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__001c024f96f3b53248667703e921cf72a833b29467d23d1b9c263af262f0d914)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnArchiveRuleProps(
+            analyzer_name=analyzer_name, filter=filter, rule_name=rule_name
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForArchiveRule")
+    @builtins.classmethod
+    def arn_for_archive_rule(
+        cls,
+        resource: "_aws_accessanalyzer_9f0da0ff.IArchiveRuleRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__840837088279b998369feb9e3315590691278b78d1145469245403d0f23fe942)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForArchiveRule", [resource]))
+
+    @jsii.member(jsii_name="isCfnArchiveRule")
+    @builtins.classmethod
+    def is_cfn_archive_rule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnArchiveRule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__705208cb6b1d4873bd4ab1abf7017902ee8d1834e01c3a1ec89e0f9266befcd9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnArchiveRule", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dde95ddb2406d110f2ce3d42fe8902554f333e9f869b4dfd8abe9cbdd20667a0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80d453a5c66bb4fd59928bbe431994146622a3407f9f4a8836e901e39828a1c1)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveRuleRef")
+    def archive_rule_ref(self) -> "_aws_accessanalyzer_9f0da0ff.ArchiveRuleReference":
+        '''A reference to a ArchiveRule resource.'''
+        return typing.cast("_aws_accessanalyzer_9f0da0ff.ArchiveRuleReference", jsii.get(self, "archiveRuleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the archive rule.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time at which the archive rule was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The time at which the archive rule was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="analyzerName")
+    def analyzer_name(self) -> builtins.str:
+        '''The name of the analyzer for the archive rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "analyzerName"))
+
+    @analyzer_name.setter
+    def analyzer_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__35c256e2d06172902e7008818b52ebdb1b11e35a50004c623f8d89e80acbe90f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "analyzerName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="filter")
+    def filter(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArchiveRule.FilterItemsProperty"]]]:
+        '''The criteria for the archive rule.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArchiveRule.FilterItemsProperty"]]], jsii.get(self, "filter"))
+
+    @filter.setter
+    def filter(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArchiveRule.FilterItemsProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bc1c82ead2611efcfd46bf4c84717a8577c8c9f207c04319677b18f2ec82cd06)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filter", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleName")
+    def rule_name(self) -> builtins.str:
+        '''The name of the archive rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "ruleName"))
+
+    @rule_name.setter
+    def rule_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1e6de95657ffd9af5547315d3b8e6416337fdee2cfb6fa440e40c5f0e3e418ec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnArchiveRule.FilterItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "contains": "contains",
+            "eq": "eq",
+            "exists": "exists",
+            "neq": "neq",
+        },
+    )
+    class FilterItemsProperty:
+        def __init__(
+            self,
+            *,
+            contains: typing.Optional[typing.Sequence[builtins.str]] = None,
+            eq: typing.Optional[typing.Sequence[builtins.str]] = None,
+            exists: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            neq: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param contains: 
+            :param eq: 
+            :param exists: 
+            :param neq: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-archiverule-filteritems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_accessanalyzer as accessanalyzer
+                
+                filter_items_property = accessanalyzer.CfnArchiveRule.FilterItemsProperty(
+                    contains=["contains"],
+                    eq=["eq"],
+                    exists=False,
+                    neq=["neq"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__db1867728206d1ef8c6ce543283fa56fdfe70d7bce363a57275542115918fdb3)
+                check_type(argname="argument contains", value=contains, expected_type=type_hints["contains"])
+                check_type(argname="argument eq", value=eq, expected_type=type_hints["eq"])
+                check_type(argname="argument exists", value=exists, expected_type=type_hints["exists"])
+                check_type(argname="argument neq", value=neq, expected_type=type_hints["neq"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if contains is not None:
+                self._values["contains"] = contains
+            if eq is not None:
+                self._values["eq"] = eq
+            if exists is not None:
+                self._values["exists"] = exists
+            if neq is not None:
+                self._values["neq"] = neq
+
+        @builtins.property
+        def contains(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-archiverule-filteritems.html#cfn-accessanalyzer-archiverule-filteritems-contains
+            '''
+            result = self._values.get("contains")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def eq(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-archiverule-filteritems.html#cfn-accessanalyzer-archiverule-filteritems-eq
+            '''
+            result = self._values.get("eq")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def exists(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-archiverule-filteritems.html#cfn-accessanalyzer-archiverule-filteritems-exists
+            '''
+            result = self._values.get("exists")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def neq(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-archiverule-filteritems.html#cfn-accessanalyzer-archiverule-filteritems-neq
+            '''
+            result = self._values.get("neq")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnArchiveRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "analyzer_name": "analyzerName",
+        "filter": "filter",
+        "rule_name": "ruleName",
+    },
+)
+class CfnArchiveRuleProps:
+    def __init__(
+        self,
+        *,
+        analyzer_name: builtins.str,
+        filter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnArchiveRule.FilterItemsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rule_name: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnArchiveRule``.
+
+        :param analyzer_name: The name of the analyzer for the archive rule.
+        :param filter: The criteria for the archive rule. A map of filter criteria property names to their criterion values.
+        :param rule_name: The name of the archive rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-archiverule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_accessanalyzer as accessanalyzer
+            
+            cfn_archive_rule_props = accessanalyzer.CfnArchiveRuleProps(
+                analyzer_name="analyzerName",
+                filter={
+                    "filter_key": accessanalyzer.CfnArchiveRule.FilterItemsProperty(
+                        contains=["contains"],
+                        eq=["eq"],
+                        exists=False,
+                        neq=["neq"]
+                    )
+                },
+                rule_name="ruleName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0cbfa3bbc8672dc84666f601fcffb393084c8b907964dbb4fdec93575971a29a)
+            check_type(argname="argument analyzer_name", value=analyzer_name, expected_type=type_hints["analyzer_name"])
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "analyzer_name": analyzer_name,
+            "filter": filter,
+            "rule_name": rule_name,
+        }
+
+    @builtins.property
+    def analyzer_name(self) -> builtins.str:
+        '''The name of the analyzer for the archive rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-archiverule.html#cfn-accessanalyzer-archiverule-analyzername
+        '''
+        result = self._values.get("analyzer_name")
+        assert result is not None, "Required property 'analyzer_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def filter(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArchiveRule.FilterItemsProperty"]]]:
+        '''The criteria for the archive rule.
+
+        A map of filter criteria property names to their criterion values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-archiverule.html#cfn-accessanalyzer-archiverule-filter
+        '''
+        result = self._values.get("filter")
+        assert result is not None, "Required property 'filter' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArchiveRule.FilterItemsProperty"]]], result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the archive rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-archiverule.html#cfn-accessanalyzer-archiverule-rulename
+        '''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnArchiveRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAnalyzer",
     "CfnAnalyzerProps",
+    "CfnArchiveRule",
+    "CfnArchiveRuleProps",
 ]
 
 publication.publish()
@@ -1452,6 +1863,78 @@ def _typecheckingstub__d178159df606ae35bc43e8f369c7f3f27d01795dcec5d3d6824e97919
     analyzer_name: typing.Optional[builtins.str] = None,
     archive_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnalyzer.ArchiveRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__001c024f96f3b53248667703e921cf72a833b29467d23d1b9c263af262f0d914(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    analyzer_name: builtins.str,
+    filter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnArchiveRule.FilterItemsProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rule_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__840837088279b998369feb9e3315590691278b78d1145469245403d0f23fe942(
+    resource: _aws_accessanalyzer_9f0da0ff.IArchiveRuleRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__705208cb6b1d4873bd4ab1abf7017902ee8d1834e01c3a1ec89e0f9266befcd9(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dde95ddb2406d110f2ce3d42fe8902554f333e9f869b4dfd8abe9cbdd20667a0(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80d453a5c66bb4fd59928bbe431994146622a3407f9f4a8836e901e39828a1c1(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35c256e2d06172902e7008818b52ebdb1b11e35a50004c623f8d89e80acbe90f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc1c82ead2611efcfd46bf4c84717a8577c8c9f207c04319677b18f2ec82cd06(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnArchiveRule.FilterItemsProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e6de95657ffd9af5547315d3b8e6416337fdee2cfb6fa440e40c5f0e3e418ec(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db1867728206d1ef8c6ce543283fa56fdfe70d7bce363a57275542115918fdb3(
+    *,
+    contains: typing.Optional[typing.Sequence[builtins.str]] = None,
+    eq: typing.Optional[typing.Sequence[builtins.str]] = None,
+    exists: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    neq: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cbfa3bbc8672dc84666f601fcffb393084c8b907964dbb4fdec93575971a29a(
+    *,
+    analyzer_name: builtins.str,
+    filter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnArchiveRule.FilterItemsProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rule_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

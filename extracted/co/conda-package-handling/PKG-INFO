@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: conda-package-handling
-Version: 2.5.0
+Version: 2.6.0
 Summary: Create and extract conda packages of various formats.
 Author-email: "Anaconda, Inc. & Contributors" <conda@anaconda.com>
 Requires-Python: >=3.10
@@ -10,9 +10,9 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 License-File: LICENSE
-Requires-Dist: conda-package-streaming >= 0.12.0
+Requires-Dist: conda-package-streaming >= 0.13.0
 Requires-Dist: requests
-Requires-Dist: zstandard >=0.15
+Requires-Dist: backports.zstd >= 1.1.0; python_version<'3.14'
 Requires-Dist: furo ; extra == "docs"
 Requires-Dist: sphinx ; extra == "docs"
 Requires-Dist: sphinx-argparse ; extra == "docs"

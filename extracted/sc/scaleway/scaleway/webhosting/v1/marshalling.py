@@ -27,6 +27,7 @@ from .types import (
     DomainDnsAction,
     DomainStatus,
     DomainZoneOwner,
+    HostingProvider,
     HostingStatus,
     NameserverStatus,
     OfferOptionName,
@@ -761,6 +762,12 @@ def unmarshal_OfferCommitment(data: Any) -> OfferCommitment:
     else:
         args["type_"] = CommitmentType.UNKNOWN_COMMITMENT_TYPE
 
+    field = data.get("is_default", None)
+    if field is not None:
+        args["is_default"] = field
+    else:
+        args["is_default"] = False
+
     field = data.get("billing_mode", None)
     if field is not None:
         args["billing_mode"] = field
@@ -1228,6 +1235,12 @@ def unmarshal_Hosting(data: Any) -> Hosting:
         args["commitment"] = unmarshal_HostingCommitment(field)
     else:
         args["commitment"] = None
+
+    field = data.get("provider", None)
+    if field is not None:
+        args["provider"] = field
+    else:
+        args["provider"] = HostingProvider.UNKNOWN_PROVIDER
 
     return Hosting(**args)
 
@@ -2259,6 +2272,11 @@ def marshal_HostingApiUpdateHostingRequest(
 
     if request.protected is not None:
         output["protected"] = request.protected
+
+    if request.delete_hosting_after_commitment is not None:
+        output["delete_hosting_after_commitment"] = (
+            request.delete_hosting_after_commitment
+        )
 
     return output
 

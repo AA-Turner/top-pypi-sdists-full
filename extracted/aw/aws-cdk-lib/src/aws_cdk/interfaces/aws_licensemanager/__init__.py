@@ -132,6 +132,53 @@ class _IGrantRefProxy(
 typing.cast(typing.Any, IGrantRef).__jsii_proxy_class__ = lambda : _IGrantRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.ILicenseAssetRuleSetRef"
+)
+class ILicenseAssetRuleSetRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LicenseAssetRuleSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseAssetRuleSetRef")
+    def license_asset_rule_set_ref(self) -> "LicenseAssetRuleSetReference":
+        '''(experimental) A reference to a LicenseAssetRuleSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILicenseAssetRuleSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LicenseAssetRuleSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_licensemanager.ILicenseAssetRuleSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseAssetRuleSetRef")
+    def license_asset_rule_set_ref(self) -> "LicenseAssetRuleSetReference":
+        '''(experimental) A reference to a LicenseAssetRuleSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LicenseAssetRuleSetReference", jsii.get(self, "licenseAssetRuleSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILicenseAssetRuleSetRef).__jsii_proxy_class__ = lambda : _ILicenseAssetRuleSetRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.ILicenseRef")
 class ILicenseRef(
     _constructs_77d1e7e8.IConstruct,
@@ -175,6 +222,55 @@ class _ILicenseRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ILicenseRef).__jsii_proxy_class__ = lambda : _ILicenseRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.LicenseAssetRuleSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"license_asset_ruleset_arn": "licenseAssetRulesetArn"},
+)
+class LicenseAssetRuleSetReference:
+    def __init__(self, *, license_asset_ruleset_arn: builtins.str) -> None:
+        '''A reference to a LicenseAssetRuleSet resource.
+
+        :param license_asset_ruleset_arn: The LicenseAssetRulesetArn of the LicenseAssetRuleSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_licensemanager as interfaces_licensemanager
+            
+            license_asset_rule_set_reference = interfaces_licensemanager.LicenseAssetRuleSetReference(
+                license_asset_ruleset_arn="licenseAssetRulesetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__db24271a3c7b0124bc790d44c59879c5714dc1da35ad778acfa7f85886b06e2d)
+            check_type(argname="argument license_asset_ruleset_arn", value=license_asset_ruleset_arn, expected_type=type_hints["license_asset_ruleset_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "license_asset_ruleset_arn": license_asset_ruleset_arn,
+        }
+
+    @builtins.property
+    def license_asset_ruleset_arn(self) -> builtins.str:
+        '''The LicenseAssetRulesetArn of the LicenseAssetRuleSet resource.'''
+        result = self._values.get("license_asset_ruleset_arn")
+        assert result is not None, "Required property 'license_asset_ruleset_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LicenseAssetRuleSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -229,7 +325,9 @@ class LicenseReference:
 __all__ = [
     "GrantReference",
     "IGrantRef",
+    "ILicenseAssetRuleSetRef",
     "ILicenseRef",
+    "LicenseAssetRuleSetReference",
     "LicenseReference",
 ]
 
@@ -242,6 +340,13 @@ def _typecheckingstub__509345cf0b8df3531dd2233cb8ca72a49893c49948d88feade0b6e134
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__db24271a3c7b0124bc790d44c59879c5714dc1da35ad778acfa7f85886b06e2d(
+    *,
+    license_asset_ruleset_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0ce44a0b5c8ac0b1ac5b4c7e7e57091674992170e45de59a47767d1279342850(
     *,
     license_arn: builtins.str,
@@ -249,5 +354,5 @@ def _typecheckingstub__0ce44a0b5c8ac0b1ac5b4c7e7e57091674992170e45de59a47767d127
     """Type checking stubs"""
     pass
 
-for cls in [IGrantRef, ILicenseRef]:
+for cls in [IGrantRef, ILicenseAssetRuleSetRef, ILicenseRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

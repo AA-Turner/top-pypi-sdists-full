@@ -136,6 +136,55 @@ class ApplicationReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_securityagent.ArtifactReference",
+    jsii_struct_bases=[],
+    name_mapping={"artifact_arn": "artifactArn"},
+)
+class ArtifactReference:
+    def __init__(self, *, artifact_arn: builtins.str) -> None:
+        '''A reference to a Artifact resource.
+
+        :param artifact_arn: The Arn of the Artifact resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_securityagent as interfaces_securityagent
+            
+            artifact_reference = interfaces_securityagent.ArtifactReference(
+                artifact_arn="artifactArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c34b7a63eadccf538b02bdbf65be6c24340a2945bb9b8c604acbb87baeff8f02)
+            check_type(argname="argument artifact_arn", value=artifact_arn, expected_type=type_hints["artifact_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "artifact_arn": artifact_arn,
+        }
+
+    @builtins.property
+    def artifact_arn(self) -> builtins.str:
+        '''The Arn of the Artifact resource.'''
+        result = self._values.get("artifact_arn")
+        assert result is not None, "Required property 'artifact_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ArtifactReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_securityagent.IAgentSpaceRef")
 class IAgentSpaceRef(
     _constructs_77d1e7e8.IConstruct,
@@ -224,6 +273,51 @@ class _IApplicationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_securityagent.IArtifactRef")
+class IArtifactRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Artifact.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactRef")
+    def artifact_ref(self) -> "ArtifactReference":
+        '''(experimental) A reference to a Artifact resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IArtifactRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Artifact.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_securityagent.IArtifactRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactRef")
+    def artifact_ref(self) -> "ArtifactReference":
+        '''(experimental) A reference to a Artifact resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ArtifactReference", jsii.get(self, "artifactRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IArtifactRef).__jsii_proxy_class__ = lambda : _IArtifactRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_securityagent.IPentestRef")
@@ -529,8 +623,10 @@ class TargetDomainReference:
 __all__ = [
     "AgentSpaceReference",
     "ApplicationReference",
+    "ArtifactReference",
     "IAgentSpaceRef",
     "IApplicationRef",
+    "IArtifactRef",
     "IPentestRef",
     "ISecurityRequirementPackRef",
     "ITargetDomainRef",
@@ -551,6 +647,13 @@ def _typecheckingstub__80dedf4a214ecd7806d810d851b3baa4ed59f4243fc9421cf67a69809
 def _typecheckingstub__a74a282e747b054b47e21cebc993013e9c4a786746342d0a3b2c5e0aa3202151(
     *,
     application_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c34b7a63eadccf538b02bdbf65be6c24340a2945bb9b8c604acbb87baeff8f02(
+    *,
+    artifact_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -577,5 +680,5 @@ def _typecheckingstub__a75929dd06e26264ee7207057716102e007a7dbc3560e3d13e6150505
     """Type checking stubs"""
     pass
 
-for cls in [IAgentSpaceRef, IApplicationRef, IPentestRef, ISecurityRequirementPackRef, ITargetDomainRef]:
+for cls in [IAgentSpaceRef, IApplicationRef, IArtifactRef, IPentestRef, ISecurityRequirementPackRef, ITargetDomainRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

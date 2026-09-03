@@ -9,12 +9,14 @@ import platform
 import shutil
 import stat
 import urllib.parse
+from typing import Any
 
 from .. import cliparse
 from ..core import (
     catalog,
     complete,
     journal,
+    jsonstate,
     lockfile,
     paths,
     registry,
@@ -98,14 +100,27 @@ def cmd_cohort(argv) -> int:
         for s in skills:
             if not catalog.find(s):
                 out.warn("skill %r not found in any tap (kept anyway)" % s)
-        cohorts[args.name] = {"skills": skills, "percent": args.percent,
-                              "created": util.now_iso(), "creator": user}
+        existing = cohorts.get(args.name)
+        cohorts[args.name] = {
+            "skills": skills, "percent": args.percent,
+            # A second `create` over an existing cohort is a replacement, not
+            # a new cohort — preserving `created` is what makes the "updated"
+            # wording below honest instead of resetting a rollout's history.
+            "created": existing["created"] if existing else util.now_iso(),
+            "creator": user}
         _save_cohorts(cohorts)
         journal.log("cohort", args.name, op="create", percent=args.percent)
         member = _is_member(user, args.name, args.percent)
-        out.ok("created cohort %s (%d%% rollout, %d skill%s) — you are %s"
-               % (args.name, args.percent, len(skills), _s(len(skills)),
-                  "IN" if member else "OUT"))
+        if existing:
+            out.ok("updated cohort %s (was %d%% / %d skill%s) — now %d%% "
+                   "rollout, %d skill%s — you are %s"
+                   % (args.name, existing["percent"], len(existing["skills"]),
+                      _s(len(existing["skills"])), args.percent, len(skills),
+                      _s(len(skills)), "IN" if member else "OUT"))
+        else:
+            out.ok("created cohort %s (%d%% rollout, %d skill%s) — you are %s"
+                   % (args.name, args.percent, len(skills), _s(len(skills)),
+                      "IN" if member else "OUT"))
         return 0
 
     if args.action == "delete":
@@ -245,15 +260,20 @@ def cmd_profile(argv) -> int:
         p.error("%s needs a profile NAME" % args.action)
 
     if args.action == "list":
-        profiles = []
+        profiles: list[dict[str, Any]] = []
         for f in sorted(paths.profiles_dir().glob("*.json")):
-            try:
-                data = json.loads(f.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
+            data, _err = jsonstate.read_object(f)
+            if data is None:
+                # Surfaced rather than skipped: a corrupt profile used to be
+                # invisible here yet still block `profile delete` (it parsed
+                # the file again as an existence check) — see `delete` below.
+                profiles.append({"name": f.stem, "skills": None,
+                                 "saved": None, "unreadable": True})
                 continue
             profiles.append({"name": data.get("name", f.stem),
                              "skills": len(data.get("skills", {})),
-                             "saved": data.get("saved", "?")})
+                             "saved": data.get("saved", "?"),
+                             "unreadable": False})
         if args.json:
             print(json.dumps(profiles, indent=2))
             return 0
@@ -261,13 +281,22 @@ def cmd_profile(argv) -> int:
             out.info("no profiles saved")
             out.info(out.role("snapshot the current setup: `boost profile save daily`", "muted"))
             return 0
-        rows = [(pr["name"], str(pr["skills"]), util.rel_time(pr["saved"]))
-                for pr in profiles]
+        rows = [(pr["name"],
+                str(pr["skills"]) if not pr["unreadable"] else "?",
+                util.rel_time(pr["saved"]) if not pr["unreadable"]
+                else out.role("(unreadable)", "danger"))
+               for pr in profiles]
         out.table(rows, headers=("PROFILE", "SKILLS", "SAVED"))
         return 0
 
     if args.action == "save":
         installed = lockfile.installed()
+        was = None
+        if _profile_path(args.name).exists():
+            try:
+                was = len(_load_profile(args.name).get("skills", {}))
+            except BoostError:
+                was = None   # unreadable old profile: still fine to replace
         profile = {"name": args.name, "saved": util.now_iso(), "user": util.user(),
                    "skills": {n: {"tap": e.get("tap", "local"),
                                   "version": e.get("version", "0.0.0")}
@@ -275,8 +304,12 @@ def cmd_profile(argv) -> int:
         paths.ensure_dirs()
         _profile_path(args.name).write_text(json.dumps(profile, indent=2) + "\n", encoding="utf-8")
         journal.log("profile", args.name, op="save", skills=len(installed))
-        out.ok("saved profile %s (%d skill%s)"
-               % (args.name, len(installed), _s(len(installed))))
+        if was is not None:
+            out.ok("updated profile %s (was %d skill%s, now %d skill%s)"
+                   % (args.name, was, _s(was), len(installed), _s(len(installed))))
+        else:
+            out.ok("saved profile %s (%d skill%s)"
+                   % (args.name, len(installed), _s(len(installed))))
         n_rules = len(lockfile.installed_rules())
         n_workflows = len(lockfile.installed_workflows())
         if n_rules or n_workflows:
@@ -324,7 +357,9 @@ def cmd_profile(argv) -> int:
         return 0
 
     if args.action == "delete":
-        _load_profile(args.name)  # existence check
+        if not _profile_path(args.name).exists():
+            raise BoostError("no profile named %s" % args.name,
+                            hint="list profiles with `boost profile list`")
         if not out.confirm("delete profile %s?" % args.name):
             out.info("cancelled")
             return 1
@@ -560,7 +595,7 @@ def cmd_replay(argv) -> int:
     args = p.parse_args(argv)
 
     if args.action == "list":
-        history = lockfile.history_list()
+        history, skipped = lockfile.history_list(with_skipped=True)
         if args.json:
             print(json.dumps(history, indent=2))
             return 0
@@ -568,6 +603,9 @@ def cmd_replay(argv) -> int:
             print(out.empty_state(
                 "no lock history yet — every install/uninstall snapshots "
                 "the lock file", wrap=True))
+            if skipped:
+                out.dim("%d unreadable snapshot%s skipped"
+                        % (skipped, "" if skipped == 1 else "s"))
             return 0
         rows = []
         prev_items = None
@@ -596,6 +634,9 @@ def cmd_replay(argv) -> int:
                          str(h["count"]), delta))
         out.table(rows, headers=("ID", "WHEN", "ITEMS", "Δ"))
         print()
+        if skipped:
+            out.dim("%d unreadable snapshot%s skipped"
+                    % (skipped, "" if skipped == 1 else "s"))
         out.dim("inspect with `boost replay show <id>` · restore with `boost replay rollback <id>`")
         return 0
 

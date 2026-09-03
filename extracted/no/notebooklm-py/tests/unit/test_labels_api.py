@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from notebooklm._labels import LabelsAPI
+from notebooklm._web.labels import WebLabelsAPI
 from notebooklm.exceptions import LabelError, LabelNotFoundError, UnknownRPCMethodError
 from notebooklm.rpc import RPCMethod
 
@@ -43,6 +43,7 @@ class FakeRpc:
         *,
         disable_internal_retries: bool = False,
         operation_variant: str | None = None,
+        raise_on_null_status: bool = False,
     ) -> Any:
         self.calls.append(
             SimpleNamespace(
@@ -51,6 +52,7 @@ class FakeRpc:
                 source_path=source_path,
                 allow_null=allow_null,
                 operation_variant=operation_variant,
+                raise_on_null_status=raise_on_null_status,
             )
         )
         return self.responses.get(method)
@@ -62,7 +64,7 @@ class FakeRpc:
 def _api(responses: dict[RPCMethod, Any] | None = None, sources: list[Any] | None = None):
     rpc = FakeRpc(responses)
     list_sources = AsyncMock(return_value=sources or [])
-    return LabelsAPI(rpc, list_sources=list_sources), rpc, list_sources
+    return WebLabelsAPI(rpc, list_sources=list_sources), rpc, list_sources
 
 
 # -- read --------------------------------------------------------------------
@@ -85,13 +87,13 @@ async def test_generate_decodes_create_envelope_and_default_scope() -> None:
     labels = await api.generate("nb")
     assert {label.id for label in labels} == {"l1", "l2"}
     assert rpc.methods() == [RPCMethod.CREATE_LABEL]
-    assert rpc.calls[0].params[4] == [0]  # default scope="unlabeled"
+    assert rpc.calls[0].params[4] == [False]  # default scope="unlabeled"
 
 
 async def test_generate_scope_all_is_destructive_slot() -> None:
     api, rpc, _ = _api({RPCMethod.CREATE_LABEL: _create_env()})
     await api.generate("nb", scope="all")
-    assert rpc.calls[0].params[4] == []
+    assert rpc.calls[0].params[4] == [True]
 
 
 async def test_generate_rejects_invalid_scope_before_any_rpc() -> None:
@@ -361,6 +363,7 @@ async def test_add_sources_is_not_atomic_partial_failure_propagates() -> None:
             *,
             disable_internal_retries: bool = False,
             operation_variant: str | None = None,
+            raise_on_null_status: bool = False,
         ) -> Any:
             await super().rpc_call(
                 method,
@@ -370,13 +373,14 @@ async def test_add_sources_is_not_atomic_partial_failure_propagates() -> None:
                 _is_retry,
                 disable_internal_retries=disable_internal_retries,
                 operation_variant=operation_variant,
+                raise_on_null_status=raise_on_null_status,
             )
             if sum(c.method == RPCMethod.UPDATE_LABEL for c in self.calls) == 2:
                 raise RuntimeError("wire blip on the 2nd add")
             return None
 
     rpc = _RaiseOnSecondUpdate()
-    api = LabelsAPI(rpc, list_sources=AsyncMock(return_value=[]))
+    api = WebLabelsAPI(rpc, list_sources=AsyncMock(return_value=[]))
     with pytest.raises(RuntimeError):
         await api.add_sources("nb", "l1", ["s1", "s2", "s3"])
 

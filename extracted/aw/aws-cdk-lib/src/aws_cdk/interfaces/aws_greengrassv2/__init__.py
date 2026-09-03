@@ -39,55 +39,6 @@ else:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_greengrassv2.ComponentReference",
-    jsii_struct_bases=[],
-    name_mapping={"component_arn": "componentArn"},
-)
-class ComponentReference:
-    def __init__(self, *, component_arn: builtins.str) -> None:
-        '''A reference to a Component resource.
-
-        :param component_arn: The Arn of the Component resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_greengrassv2 as interfaces_greengrassv2
-            
-            component_reference = interfaces_greengrassv2.ComponentReference(
-                component_arn="componentArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__33251ef048ffb3ae51c8ba374464edbd8eaf71b181d11f6d025a07b115d32266)
-            check_type(argname="argument component_arn", value=component_arn, expected_type=type_hints["component_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "component_arn": component_arn,
-        }
-
-    @builtins.property
-    def component_arn(self) -> builtins.str:
-        '''The Arn of the Component resource.'''
-        result = self._values.get("component_arn")
-        assert result is not None, "Required property 'component_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ComponentReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_greengrassv2.ComponentVersionReference",
     jsii_struct_bases=[],
     name_mapping={"component_version_arn": "componentVersionArn"},
@@ -132,55 +83,6 @@ class ComponentVersionReference:
 
     def __repr__(self) -> str:
         return "ComponentVersionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_greengrassv2.CoreDeviceReference",
-    jsii_struct_bases=[],
-    name_mapping={"core_device_arn": "coreDeviceArn"},
-)
-class CoreDeviceReference:
-    def __init__(self, *, core_device_arn: builtins.str) -> None:
-        '''A reference to a CoreDevice resource.
-
-        :param core_device_arn: The Arn of the CoreDevice resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_greengrassv2 as interfaces_greengrassv2
-            
-            core_device_reference = interfaces_greengrassv2.CoreDeviceReference(
-                core_device_arn="coreDeviceArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a7869a8bf25987219a671ebe8300ae20f24902b9a2b03818de57f88eab07afc2)
-            check_type(argname="argument core_device_arn", value=core_device_arn, expected_type=type_hints["core_device_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "core_device_arn": core_device_arn,
-        }
-
-    @builtins.property
-    def core_device_arn(self) -> builtins.str:
-        '''The Arn of the CoreDevice resource.'''
-        result = self._values.get("core_device_arn")
-        assert result is not None, "Required property 'core_device_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CoreDeviceReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -234,51 +136,6 @@ class DeploymentReference:
         )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_greengrassv2.IComponentRef")
-class IComponentRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a Component.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="componentRef")
-    def component_ref(self) -> "ComponentReference":
-        '''(experimental) A reference to a Component resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IComponentRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Component.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_greengrassv2.IComponentRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="componentRef")
-    def component_ref(self) -> "ComponentReference":
-        '''(experimental) A reference to a Component resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ComponentReference", jsii.get(self, "componentRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IComponentRef).__jsii_proxy_class__ = lambda : _IComponentRefProxy
-
-
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_greengrassv2.IComponentVersionRef"
 )
@@ -324,51 +181,6 @@ class _IComponentVersionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IComponentVersionRef).__jsii_proxy_class__ = lambda : _IComponentVersionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_greengrassv2.ICoreDeviceRef")
-class ICoreDeviceRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CoreDevice.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="coreDeviceRef")
-    def core_device_ref(self) -> "CoreDeviceReference":
-        '''(experimental) A reference to a CoreDevice resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICoreDeviceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CoreDevice.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_greengrassv2.ICoreDeviceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="coreDeviceRef")
-    def core_device_ref(self) -> "CoreDeviceReference":
-        '''(experimental) A reference to a CoreDevice resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("CoreDeviceReference", jsii.get(self, "coreDeviceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICoreDeviceRef).__jsii_proxy_class__ = lambda : _ICoreDeviceRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_greengrassv2.IDeploymentRef")
@@ -417,35 +229,17 @@ typing.cast(typing.Any, IDeploymentRef).__jsii_proxy_class__ = lambda : _IDeploy
 
 
 __all__ = [
-    "ComponentReference",
     "ComponentVersionReference",
-    "CoreDeviceReference",
     "DeploymentReference",
-    "IComponentRef",
     "IComponentVersionRef",
-    "ICoreDeviceRef",
     "IDeploymentRef",
 ]
 
 publication.publish()
 
-def _typecheckingstub__33251ef048ffb3ae51c8ba374464edbd8eaf71b181d11f6d025a07b115d32266(
-    *,
-    component_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b561ccf5eed9b336d8c813bd63f949e53a31db1f1003b887c6411feb0176920e(
     *,
     component_version_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a7869a8bf25987219a671ebe8300ae20f24902b9a2b03818de57f88eab07afc2(
-    *,
-    core_device_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -457,5 +251,5 @@ def _typecheckingstub__cb98e887b4cc39f031bbc779f448bed967d9c4873a11f351be83a169a
     """Type checking stubs"""
     pass
 
-for cls in [IComponentRef, IComponentVersionRef, ICoreDeviceRef, IDeploymentRef]:
+for cls in [IComponentVersionRef, IDeploymentRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

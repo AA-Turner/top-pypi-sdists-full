@@ -6,6 +6,7 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawFinancialActivityClient, RawFinancialActivityClient
+from .types.list_financial_activity_request_direction import ListFinancialActivityRequestDirection
 from .types.list_financial_activity_request_line_types_item import ListFinancialActivityRequestLineTypesItem
 from .types.list_financial_activity_response import ListFinancialActivityResponse
 
@@ -37,6 +38,10 @@ class FinancialActivityClient:
                 ListFinancialActivityRequestLineTypesItem, typing.Sequence[ListFinancialActivityRequestLineTypesItem]
             ]
         ] = None,
+        direction: typing.Optional[ListFinancialActivityRequestDirection] = None,
+        resource_id: typing.Optional[str] = None,
+        activity_id: typing.Optional[str] = None,
+        exclude_internal_movements: typing.Optional[bool] = None,
         currency: typing.Optional[str] = None,
         posted_after: typing.Optional[dt.datetime] = None,
         posted_before: typing.Optional[dt.datetime] = None,
@@ -65,6 +70,18 @@ class FinancialActivityClient:
 
         line_types : typing.Optional[typing.Union[ListFinancialActivityRequestLineTypesItem, typing.Sequence[ListFinancialActivityRequestLineTypesItem]]]
             Optional ledger line categories to include. Some categories (for example `onchain_deposit`, which covers inbound crypto deposits such as MoonPay onramps) are only returned when explicitly requested here.
+
+        direction : typing.Optional[ListFinancialActivityRequestDirection]
+            Optional direction filter. `money_in` returns positive activity and `money_out` returns negative activity.
+
+        resource_id : typing.Optional[str]
+            Optional prefixed resource ID. Returns activity associated with that resource.
+
+        activity_id : typing.Optional[str]
+            Optional ledger activity ID (for example `line_3`). Returns at most that one activity.
+
+        exclude_internal_movements : typing.Optional[bool]
+            Whether to exclude balance reservations and balanced movements between the account's own balances.
 
         currency : typing.Optional[str]
             Optional currency code filter, for example `usd`.
@@ -100,7 +117,7 @@ class FinancialActivityClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -112,6 +129,10 @@ class FinancialActivityClient:
             include_owned_accounts=include_owned_accounts,
             include_resource=include_resource,
             line_types=line_types,
+            direction=direction,
+            resource_id=resource_id,
+            activity_id=activity_id,
+            exclude_internal_movements=exclude_internal_movements,
             currency=currency,
             posted_after=posted_after,
             posted_before=posted_before,
@@ -151,6 +172,10 @@ class AsyncFinancialActivityClient:
                 ListFinancialActivityRequestLineTypesItem, typing.Sequence[ListFinancialActivityRequestLineTypesItem]
             ]
         ] = None,
+        direction: typing.Optional[ListFinancialActivityRequestDirection] = None,
+        resource_id: typing.Optional[str] = None,
+        activity_id: typing.Optional[str] = None,
+        exclude_internal_movements: typing.Optional[bool] = None,
         currency: typing.Optional[str] = None,
         posted_after: typing.Optional[dt.datetime] = None,
         posted_before: typing.Optional[dt.datetime] = None,
@@ -179,6 +204,18 @@ class AsyncFinancialActivityClient:
 
         line_types : typing.Optional[typing.Union[ListFinancialActivityRequestLineTypesItem, typing.Sequence[ListFinancialActivityRequestLineTypesItem]]]
             Optional ledger line categories to include. Some categories (for example `onchain_deposit`, which covers inbound crypto deposits such as MoonPay onramps) are only returned when explicitly requested here.
+
+        direction : typing.Optional[ListFinancialActivityRequestDirection]
+            Optional direction filter. `money_in` returns positive activity and `money_out` returns negative activity.
+
+        resource_id : typing.Optional[str]
+            Optional prefixed resource ID. Returns activity associated with that resource.
+
+        activity_id : typing.Optional[str]
+            Optional ledger activity ID (for example `line_3`). Returns at most that one activity.
+
+        exclude_internal_movements : typing.Optional[bool]
+            Whether to exclude balance reservations and balanced movements between the account's own balances.
 
         currency : typing.Optional[str]
             Optional currency code filter, for example `usd`.
@@ -216,7 +253,7 @@ class AsyncFinancialActivityClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -234,6 +271,10 @@ class AsyncFinancialActivityClient:
             include_owned_accounts=include_owned_accounts,
             include_resource=include_resource,
             line_types=line_types,
+            direction=direction,
+            resource_id=resource_id,
+            activity_id=activity_id,
+            exclude_internal_movements=exclude_internal_movements,
             currency=currency,
             posted_after=posted_after,
             posted_before=posted_before,

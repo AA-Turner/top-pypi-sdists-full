@@ -46,6 +46,7 @@ class Band(models.Model):
 class Musician(models.Model):
     name = models.CharField(max_length=30)
     age = models.IntegerField(null=True, blank=True)
+    genre = models.ForeignKey(Genre, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.name
@@ -71,7 +72,7 @@ class Membership(models.Model):
 
 
 class Quartet(Group):
-    pass
+    plays_weddings = models.BooleanField(null=True)
 
 
 class ChordsMusician(Musician):
@@ -146,5 +147,9 @@ class ProxyUser(User):
 class MixedFieldsModel(models.Model):
     """Model with multiple field types for testing search validation."""
 
+    name = models.CharField(max_length=30, blank=True)
     int_field = models.IntegerField(null=True, blank=True)
+    choice_field = models.IntegerField(
+        choices=[(1, "Active"), (2, "Archived")], null=True, blank=True
+    )
     json_field = models.JSONField(null=True, blank=True)

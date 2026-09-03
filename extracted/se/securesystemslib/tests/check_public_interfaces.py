@@ -32,29 +32,23 @@ import shutil
 import tempfile
 import unittest
 
+import securesystemslib._gpg.constants
+import securesystemslib._gpg.util
 import securesystemslib.exceptions
 from securesystemslib.exceptions import (
     UnsupportedLibraryError,
     VerificationError,
 )
-
-# Import all Signers and Keys to ensure the import works without the actual libraries
-from securesystemslib.signer import (  # noqa: F401
-    AWSSigner,
-    AzureSigner,
+from securesystemslib.signer import (
     CryptoSigner,
-    GCPSigner,
     GPGKey,
-    HSMSigner,
     Key,
     Signature,
-    SigstoreKey,
-    SigstoreSigner,
     SpxKey,
     SpxSigner,
     SSlibKey,
-    TKeySigner,
 )
+from securesystemslib.signer._sigstore_signer import SigstoreKey
 
 
 class TestPublicInterfaces(unittest.TestCase):
@@ -103,7 +97,6 @@ class TestPublicInterfaces(unittest.TestCase):
             CryptoSigner.generate_rsa,
             CryptoSigner.generate_ecdsa,
             CryptoSigner.generate_ed25519,
-            CryptoSigner.generate_mldsa,
         ]:
             with self.assertRaises(UnsupportedLibraryError):
                 generate()

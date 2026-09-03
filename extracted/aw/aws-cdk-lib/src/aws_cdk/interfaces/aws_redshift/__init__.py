@@ -910,6 +910,51 @@ class _IScheduledActionRefProxy(
 typing.cast(typing.Any, IScheduledActionRef).__jsii_proxy_class__ = lambda : _IScheduledActionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.ISnapshotScheduleRef")
+class ISnapshotScheduleRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SnapshotSchedule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotScheduleRef")
+    def snapshot_schedule_ref(self) -> "SnapshotScheduleReference":
+        '''(experimental) A reference to a SnapshotSchedule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISnapshotScheduleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SnapshotSchedule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_redshift.ISnapshotScheduleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotScheduleRef")
+    def snapshot_schedule_ref(self) -> "SnapshotScheduleReference":
+        '''(experimental) A reference to a SnapshotSchedule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SnapshotScheduleReference", jsii.get(self, "snapshotScheduleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISnapshotScheduleRef).__jsii_proxy_class__ = lambda : _ISnapshotScheduleRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_redshift.IntegrationReference",
     jsii_struct_bases=[],
@@ -1008,6 +1053,55 @@ class ScheduledActionReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_redshift.SnapshotScheduleReference",
+    jsii_struct_bases=[],
+    name_mapping={"snapshot_schedule_arn": "snapshotScheduleArn"},
+)
+class SnapshotScheduleReference:
+    def __init__(self, *, snapshot_schedule_arn: builtins.str) -> None:
+        '''A reference to a SnapshotSchedule resource.
+
+        :param snapshot_schedule_arn: The Arn of the SnapshotSchedule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_redshift as interfaces_redshift
+            
+            snapshot_schedule_reference = interfaces_redshift.SnapshotScheduleReference(
+                snapshot_schedule_arn="snapshotScheduleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d9ef2e944c7dbe41587148f787579523b6362e12ef817d87ba32b6e06540a847)
+            check_type(argname="argument snapshot_schedule_arn", value=snapshot_schedule_arn, expected_type=type_hints["snapshot_schedule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_schedule_arn": snapshot_schedule_arn,
+        }
+
+    @builtins.property
+    def snapshot_schedule_arn(self) -> builtins.str:
+        '''The Arn of the SnapshotSchedule resource.'''
+        result = self._values.get("snapshot_schedule_arn")
+        assert result is not None, "Required property 'snapshot_schedule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SnapshotScheduleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "ClusterParameterGroupReference",
     "ClusterReference",
@@ -1027,8 +1121,10 @@ __all__ = [
     "IEventSubscriptionRef",
     "IIntegrationRef",
     "IScheduledActionRef",
+    "ISnapshotScheduleRef",
     "IntegrationReference",
     "ScheduledActionReference",
+    "SnapshotScheduleReference",
 ]
 
 publication.publish()
@@ -1104,5 +1200,12 @@ def _typecheckingstub__70d902e960d555dbfb1b278976b8cd3991371d19399bfcea38c0af930
     """Type checking stubs"""
     pass
 
-for cls in [IClusterParameterGroupRef, IClusterRef, IClusterSecurityGroupIngressRef, IClusterSecurityGroupRef, IClusterSubnetGroupRef, IEndpointAccessRef, IEndpointAuthorizationRef, IEventSubscriptionRef, IIntegrationRef, IScheduledActionRef]:
+def _typecheckingstub__d9ef2e944c7dbe41587148f787579523b6362e12ef817d87ba32b6e06540a847(
+    *,
+    snapshot_schedule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IClusterParameterGroupRef, IClusterRef, IClusterSecurityGroupIngressRef, IClusterSecurityGroupRef, IClusterSubnetGroupRef, IEndpointAccessRef, IEndpointAuthorizationRef, IEventSubscriptionRef, IIntegrationRef, IScheduledActionRef, ISnapshotScheduleRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

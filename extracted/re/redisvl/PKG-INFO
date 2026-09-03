@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: redisvl
-Version: 0.26.0
+Version: 0.27.0
 Summary: Python client library and CLI for using Redis as a vector database
 Project-URL: Homepage, https://github.com/redis/redis-vl-python
 Project-URL: Repository, https://github.com/redis/redis-vl-python
@@ -22,7 +22,7 @@ Requires-Dist: numpy<3,>=1.26.0
 Requires-Dist: pydantic<3,>=2
 Requires-Dist: python-ulid>=3.0.0
 Requires-Dist: pyyaml<7.0,>=5.4
-Requires-Dist: redis<8.0,>=5.0
+Requires-Dist: redis!=8.0.0,<9.0,>=6.3.0
 Requires-Dist: tenacity>=8.2.2
 Provides-Extra: all
 Requires-Dist: boto3<2,>=1.36.0; extra == 'all'
@@ -38,7 +38,7 @@ Requires-Dist: protobuf<6.0.0,>=5.28.0; extra == 'all'
 Requires-Dist: sentence-transformers<6,>=5.2.0; extra == 'all'
 Requires-Dist: sql-redis>=0.7.1; extra == 'all'
 Requires-Dist: urllib3<2.8.0; extra == 'all'
-Requires-Dist: voyageai>=0.2.2; extra == 'all'
+Requires-Dist: voyageai[video]>=0.5.0; extra == 'all'
 Provides-Extra: bedrock
 Requires-Dist: boto3<2,>=1.36.0; extra == 'bedrock'
 Requires-Dist: urllib3<2.8.0; extra == 'bedrock'
@@ -67,7 +67,7 @@ Provides-Extra: vertexai
 Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.26; extra == 'vertexai'
 Requires-Dist: protobuf<6.0.0,>=5.28.0; extra == 'vertexai'
 Provides-Extra: voyageai
-Requires-Dist: voyageai>=0.2.2; extra == 'voyageai'
+Requires-Dist: voyageai[video]>=0.5.0; extra == 'voyageai'
 Description-Content-Type: text/markdown
 
 <div align="center">

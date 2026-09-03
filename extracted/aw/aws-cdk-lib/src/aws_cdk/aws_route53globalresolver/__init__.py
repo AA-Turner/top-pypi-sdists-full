@@ -2509,7 +2509,7 @@ class CfnGlobalResolver(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: 
-        :param regions: A list of regions the Global Resolver will exist in. This list cannot be updated and will stay fixed for the duration of the Global Resolver.
+        :param regions: The list of regions the Global Resolver exists in. Regions can be added or removed on update; the order of this list is not significant.
         :param client_token: 
         :param description: 
         :param ip_address_type: 
@@ -2691,7 +2691,7 @@ class CfnGlobalResolver(
     @builtins.property
     @jsii.member(jsii_name="regions")
     def regions(self) -> typing.List[builtins.str]:
-        '''A list of regions the Global Resolver will exist in.'''
+        '''The list of regions the Global Resolver exists in.'''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "regions"))
 
     @regions.setter
@@ -2793,7 +2793,7 @@ class CfnGlobalResolverProps:
         '''Properties for defining a ``CfnGlobalResolver``.
 
         :param name: 
-        :param regions: A list of regions the Global Resolver will exist in. This list cannot be updated and will stay fixed for the duration of the Global Resolver.
+        :param regions: The list of regions the Global Resolver exists in. Regions can be added or removed on update; the order of this list is not significant.
         :param client_token: 
         :param description: 
         :param ip_address_type: 
@@ -2860,9 +2860,9 @@ class CfnGlobalResolverProps:
 
     @builtins.property
     def regions(self) -> typing.List[builtins.str]:
-        '''A list of regions the Global Resolver will exist in.
+        '''The list of regions the Global Resolver exists in.
 
-        This list cannot be updated and will stay fixed for the duration of the Global Resolver.
+        Regions can be added or removed on update; the order of this list is not significant.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-globalresolver.html#cfn-route53globalresolver-globalresolver-regions
         '''

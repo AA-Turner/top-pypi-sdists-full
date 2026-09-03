@@ -14,6 +14,7 @@ from scaleway_core.utils import (
 )
 from .types import (
     Action,
+    ListIngressRulesRequestOrderBy,
     ListPrivateNetworksRequestOrderBy,
     ListSubnetOverlapsRequestOrderBy,
     ListSubnetsRequestOrderBy,
@@ -21,15 +22,16 @@ from .types import (
     ListVPCsRequestOrderBy,
     VPCConnectorStatus,
     AclRule,
-    AddSubnetsRequest,
-    AddSubnetsResponse,
+    AddPrivateNetworkObjectStoragePrivateAccessRequest,
+    AddPrivateNetworkObjectStoragePrivateAccessResponse,
+    CreateIngressRuleRequest,
     CreatePrivateNetworkRequest,
     CreateRouteRequest,
     CreateVPCConnectorRequest,
     CreateVPCRequest,
-    DeleteSubnetsRequest,
-    DeleteSubnetsResponse,
     GetAclResponse,
+    IngressRule,
+    ListIngressRulesResponse,
     ListPrivateNetworksResponse,
     ListSubnetOverlapsResponse,
     ListSubnetOverlapsResponseSubnetOverlap,
@@ -40,7 +42,10 @@ from .types import (
     Route,
     SetAclRequest,
     SetAclResponse,
+    SetPrivateNetworksObjectStoragePrivateAccessRequest,
+    SetPrivateNetworksObjectStoragePrivateAccessResponse,
     Subnet,
+    UpdateIngressRuleRequest,
     UpdatePrivateNetworkRequest,
     UpdateRouteRequest,
     UpdateVPCConnectorRequest,
@@ -51,24 +56,28 @@ from .types import (
 from .marshalling import (
     unmarshal_PrivateNetwork,
     unmarshal_Route,
+    unmarshal_IngressRule,
     unmarshal_VPCConnector,
     unmarshal_VPC,
-    unmarshal_AddSubnetsResponse,
-    unmarshal_DeleteSubnetsResponse,
+    unmarshal_AddPrivateNetworkObjectStoragePrivateAccessResponse,
     unmarshal_GetAclResponse,
+    unmarshal_ListIngressRulesResponse,
     unmarshal_ListPrivateNetworksResponse,
     unmarshal_ListSubnetOverlapsResponse,
     unmarshal_ListSubnetsResponse,
     unmarshal_ListVPCConnectorsResponse,
     unmarshal_ListVPCsResponse,
     unmarshal_SetAclResponse,
-    marshal_AddSubnetsRequest,
+    unmarshal_SetPrivateNetworksObjectStoragePrivateAccessResponse,
+    marshal_AddPrivateNetworkObjectStoragePrivateAccessRequest,
+    marshal_CreateIngressRuleRequest,
     marshal_CreatePrivateNetworkRequest,
     marshal_CreateRouteRequest,
     marshal_CreateVPCConnectorRequest,
     marshal_CreateVPCRequest,
-    marshal_DeleteSubnetsRequest,
     marshal_SetAclRequest,
+    marshal_SetPrivateNetworksObjectStoragePrivateAccessRequest,
+    marshal_UpdateIngressRuleRequest,
     marshal_UpdatePrivateNetworkRequest,
     marshal_UpdateRouteRequest,
     marshal_UpdateVPCConnectorRequest,
@@ -94,6 +103,7 @@ class VpcV2API(API):
         project_id: Optional[str] = None,
         is_default: Optional[bool] = None,
         routing_enabled: Optional[bool] = None,
+        object_storage_private_access_enabled: Optional[bool] = None,
     ) -> ListVPCsResponse:
         """
         List VPCs.
@@ -108,6 +118,7 @@ class VpcV2API(API):
         :param project_id: Project ID to filter for. Only VPCs belonging to this Project will be returned.
         :param is_default: Defines whether to filter only for VPCs which are the default one for their Project.
         :param routing_enabled: Defines whether to filter only for VPCs which route traffic between their Private Networks.
+        :param object_storage_private_access_enabled: Defines whether to filter only for VPCs with Object Storage private access enabled.
         :return: :class:`ListVPCsResponse <ListVPCsResponse>`
 
         Usage:
@@ -126,6 +137,7 @@ class VpcV2API(API):
             params={
                 "is_default": is_default,
                 "name": name,
+                "object_storage_private_access_enabled": object_storage_private_access_enabled,
                 "order_by": order_by,
                 "organization_id": organization_id
                 or self.client.default_organization_id,
@@ -153,6 +165,7 @@ class VpcV2API(API):
         project_id: Optional[str] = None,
         is_default: Optional[bool] = None,
         routing_enabled: Optional[bool] = None,
+        object_storage_private_access_enabled: Optional[bool] = None,
     ) -> list[VPC]:
         """
         List VPCs.
@@ -167,6 +180,7 @@ class VpcV2API(API):
         :param project_id: Project ID to filter for. Only VPCs belonging to this Project will be returned.
         :param is_default: Defines whether to filter only for VPCs which are the default one for their Project.
         :param routing_enabled: Defines whether to filter only for VPCs which route traffic between their Private Networks.
+        :param object_storage_private_access_enabled: Defines whether to filter only for VPCs with Object Storage private access enabled.
         :return: :class:`list[VPC] <list[VPC]>`
 
         Usage:
@@ -190,6 +204,7 @@ class VpcV2API(API):
                 "project_id": project_id,
                 "is_default": is_default,
                 "routing_enabled": routing_enabled,
+                "object_storage_private_access_enabled": object_storage_private_access_enabled,
             },
         )
 
@@ -197,6 +212,7 @@ class VpcV2API(API):
         self,
         *,
         enable_routing: bool,
+        enable_transitivity: bool,
         region: Optional[ScwRegion] = None,
         name: Optional[str] = None,
         project_id: Optional[str] = None,
@@ -206,6 +222,7 @@ class VpcV2API(API):
         Create a VPC.
         Create a new VPC in the specified region.
         :param enable_routing: Enable routing between Private Networks in the VPC.
+        :param enable_transitivity: Enable packets from peered VPCs to transit through this VPC.
         :param region: Region to target. If none is passed will use default region from the config.
         :param name: Name for the VPC.
         :param project_id: Scaleway Project in which to create the VPC.
@@ -217,6 +234,7 @@ class VpcV2API(API):
 
             result = api.create_vpc(
                 enable_routing=False,
+                enable_transitivity=False,
             )
         """
 
@@ -230,6 +248,7 @@ class VpcV2API(API):
             body=marshal_CreateVPCRequest(
                 CreateVPCRequest(
                     enable_routing=enable_routing,
+                    enable_transitivity=enable_transitivity,
                     region=region,
                     name=name or random_name(prefix="vpc"),
                     project_id=project_id,
@@ -369,6 +388,7 @@ class VpcV2API(API):
         private_network_ids: Optional[list[str]] = None,
         vpc_id: Optional[str] = None,
         dhcp_enabled: Optional[bool] = None,
+        object_storage_private_access_enabled: Optional[bool] = None,
     ) -> ListPrivateNetworksResponse:
         """
         List Private Networks.
@@ -384,6 +404,7 @@ class VpcV2API(API):
         :param private_network_ids: Private Network IDs to filter for. Only Private Networks with one of these IDs will be returned.
         :param vpc_id: VPC ID to filter for. Only Private Networks belonging to this VPC will be returned.
         :param dhcp_enabled: DHCP status to filter for. When true, only Private Networks with managed DHCP enabled will be returned.
+        :param object_storage_private_access_enabled: Filter by whether Object Storage private access is enabled. When set, only matching Private Networks will be returned.
         :return: :class:`ListPrivateNetworksResponse <ListPrivateNetworksResponse>`
 
         Usage:
@@ -402,6 +423,7 @@ class VpcV2API(API):
             params={
                 "dhcp_enabled": dhcp_enabled,
                 "name": name,
+                "object_storage_private_access_enabled": object_storage_private_access_enabled,
                 "order_by": order_by,
                 "organization_id": organization_id
                 or self.client.default_organization_id,
@@ -431,6 +453,7 @@ class VpcV2API(API):
         private_network_ids: Optional[list[str]] = None,
         vpc_id: Optional[str] = None,
         dhcp_enabled: Optional[bool] = None,
+        object_storage_private_access_enabled: Optional[bool] = None,
     ) -> list[PrivateNetwork]:
         """
         List Private Networks.
@@ -446,6 +469,7 @@ class VpcV2API(API):
         :param private_network_ids: Private Network IDs to filter for. Only Private Networks with one of these IDs will be returned.
         :param vpc_id: VPC ID to filter for. Only Private Networks belonging to this VPC will be returned.
         :param dhcp_enabled: DHCP status to filter for. When true, only Private Networks with managed DHCP enabled will be returned.
+        :param object_storage_private_access_enabled: Filter by whether Object Storage private access is enabled. When set, only matching Private Networks will be returned.
         :return: :class:`list[PrivateNetwork] <list[PrivateNetwork]>`
 
         Usage:
@@ -470,6 +494,7 @@ class VpcV2API(API):
                 "private_network_ids": private_network_ids,
                 "vpc_id": vpc_id,
                 "dhcp_enabled": dhcp_enabled,
+                "object_storage_private_access_enabled": object_storage_private_access_enabled,
             },
         )
 
@@ -856,98 +881,6 @@ class VpcV2API(API):
                 "vpc_id": vpc_id,
             },
         )
-
-    def add_subnets(
-        self,
-        *,
-        private_network_id: str,
-        region: Optional[ScwRegion] = None,
-        subnets: Optional[list[str]] = None,
-    ) -> AddSubnetsResponse:
-        """
-        Add subnets to a Private Network.
-        Add new subnets to an existing Private Network.
-        :param private_network_id: Private Network ID.
-        :param region: Region to target. If none is passed will use default region from the config.
-        :param subnets: Private Network subnets CIDR.
-        :return: :class:`AddSubnetsResponse <AddSubnetsResponse>`
-
-        Usage:
-        ::
-
-            result = api.add_subnets(
-                private_network_id="example",
-            )
-        """
-
-        param_region = validate_path_param(
-            "region", region or self.client.default_region
-        )
-        param_private_network_id = validate_path_param(
-            "private_network_id", private_network_id
-        )
-
-        res = self._request(
-            "POST",
-            f"/vpc/v2/regions/{param_region}/private-networks/{param_private_network_id}/subnets",
-            body=marshal_AddSubnetsRequest(
-                AddSubnetsRequest(
-                    private_network_id=private_network_id,
-                    region=region,
-                    subnets=subnets,
-                ),
-                self.client,
-            ),
-        )
-
-        self._throw_on_error(res)
-        return unmarshal_AddSubnetsResponse(res.json())
-
-    def delete_subnets(
-        self,
-        *,
-        private_network_id: str,
-        region: Optional[ScwRegion] = None,
-        subnets: Optional[list[str]] = None,
-    ) -> DeleteSubnetsResponse:
-        """
-        Delete subnets from a Private Network.
-        Delete the specified subnets from a Private Network.
-        :param private_network_id: Private Network ID.
-        :param region: Region to target. If none is passed will use default region from the config.
-        :param subnets: Private Network subnets CIDR.
-        :return: :class:`DeleteSubnetsResponse <DeleteSubnetsResponse>`
-
-        Usage:
-        ::
-
-            result = api.delete_subnets(
-                private_network_id="example",
-            )
-        """
-
-        param_region = validate_path_param(
-            "region", region or self.client.default_region
-        )
-        param_private_network_id = validate_path_param(
-            "private_network_id", private_network_id
-        )
-
-        res = self._request(
-            "DELETE",
-            f"/vpc/v2/regions/{param_region}/private-networks/{param_private_network_id}/subnets",
-            body=marshal_DeleteSubnetsRequest(
-                DeleteSubnetsRequest(
-                    private_network_id=private_network_id,
-                    region=region,
-                    subnets=subnets,
-                ),
-                self.client,
-            ),
-        )
-
-        self._throw_on_error(res)
-        return unmarshal_DeleteSubnetsResponse(res.json())
 
     def create_route(
         self,
@@ -1525,8 +1458,8 @@ class VpcV2API(API):
     ) -> ListSubnetOverlapsResponse:
         """
         List subnet overlaps.
-        List subnet overlaps between the VPCConnector VPC and the target VPC or for a specific subnet if specified.
-        :param vpc_connector_id: VPCConnector ID.
+        List subnet overlaps between the VPCs on both sides of a connector, or for a specific subnet if specified.
+        :param vpc_connector_id: VPC Peering connector ID.
         :param region: Region to target. If none is passed will use default region from the config.
         :param order_by: Sort order of the returned Subnet overlaps.
         :param page: Page number to return, from the paginated results.
@@ -1572,8 +1505,8 @@ class VpcV2API(API):
     ) -> list[ListSubnetOverlapsResponseSubnetOverlap]:
         """
         List subnet overlaps.
-        List subnet overlaps between the VPCConnector VPC and the target VPC or for a specific subnet if specified.
-        :param vpc_connector_id: VPCConnector ID.
+        List subnet overlaps between the VPCs on both sides of a connector, or for a specific subnet if specified.
+        :param vpc_connector_id: VPC Peering connector ID.
         :param region: Region to target. If none is passed will use default region from the config.
         :param order_by: Sort order of the returned Subnet overlaps.
         :param page: Page number to return, from the paginated results.
@@ -1600,3 +1533,504 @@ class VpcV2API(API):
                 "page_size": page_size,
             },
         )
+
+    def list_ingress_rules(
+        self,
+        *,
+        region: Optional[ScwRegion] = None,
+        order_by: Optional[ListIngressRulesRequestOrderBy] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        vpc_id: Optional[str] = None,
+        nexthop_resource_ip: Optional[str] = None,
+        nexthop_private_network_id: Optional[str] = None,
+        is_ipv6: Optional[bool] = None,
+        tags: Optional[list[str]] = None,
+        organization_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> ListIngressRulesResponse:
+        """
+        List ingress rules.
+        List existing ingress rules in the specified region.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :param order_by: Sort order of the returned ingress rules.
+        :param page: Page number to return, from the paginated results.
+        :param page_size: Maximum number of ingress rules to return per page.
+        :param vpc_id: ID of the VPC to filter for.
+        :param nexthop_resource_ip: Next hop IP to filter for.
+        :param nexthop_private_network_id: Next hop Private Network ID to filter for. Only ingress rules with this Private Network as next hop will be returned.
+        :param is_ipv6: Whether to return only IPv4 or IPv6 ingress rules.
+        :param tags: Tags to filter for. Only ingress rules with one or more matching tags will be returned.
+        :param organization_id: Organization ID to filter for. Only ingress rules belonging to this Organization will be returned.
+        :param project_id: Project ID to filter for. Only ingress rules belonging to this Project will be returned.
+        :return: :class:`ListIngressRulesResponse <ListIngressRulesResponse>`
+
+        Usage:
+        ::
+
+            result = api.list_ingress_rules()
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+
+        res = self._request(
+            "GET",
+            f"/vpc/v2/regions/{param_region}/ingress-rules",
+            params={
+                "is_ipv6": is_ipv6,
+                "nexthop_private_network_id": nexthop_private_network_id,
+                "nexthop_resource_ip": nexthop_resource_ip,
+                "order_by": order_by,
+                "organization_id": organization_id
+                or self.client.default_organization_id,
+                "page": page,
+                "page_size": page_size or self.client.default_page_size,
+                "project_id": project_id or self.client.default_project_id,
+                "tags": tags,
+                "vpc_id": vpc_id,
+            },
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_ListIngressRulesResponse(res.json())
+
+    def list_ingress_rules_all(
+        self,
+        *,
+        region: Optional[ScwRegion] = None,
+        order_by: Optional[ListIngressRulesRequestOrderBy] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        vpc_id: Optional[str] = None,
+        nexthop_resource_ip: Optional[str] = None,
+        nexthop_private_network_id: Optional[str] = None,
+        is_ipv6: Optional[bool] = None,
+        tags: Optional[list[str]] = None,
+        organization_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> list[IngressRule]:
+        """
+        List ingress rules.
+        List existing ingress rules in the specified region.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :param order_by: Sort order of the returned ingress rules.
+        :param page: Page number to return, from the paginated results.
+        :param page_size: Maximum number of ingress rules to return per page.
+        :param vpc_id: ID of the VPC to filter for.
+        :param nexthop_resource_ip: Next hop IP to filter for.
+        :param nexthop_private_network_id: Next hop Private Network ID to filter for. Only ingress rules with this Private Network as next hop will be returned.
+        :param is_ipv6: Whether to return only IPv4 or IPv6 ingress rules.
+        :param tags: Tags to filter for. Only ingress rules with one or more matching tags will be returned.
+        :param organization_id: Organization ID to filter for. Only ingress rules belonging to this Organization will be returned.
+        :param project_id: Project ID to filter for. Only ingress rules belonging to this Project will be returned.
+        :return: :class:`list[IngressRule] <list[IngressRule]>`
+
+        Usage:
+        ::
+
+            result = api.list_ingress_rules_all()
+        """
+
+        return fetch_all_pages(
+            type=ListIngressRulesResponse,
+            key="rules",
+            fetcher=self.list_ingress_rules,
+            args={
+                "region": region,
+                "order_by": order_by,
+                "page": page,
+                "page_size": page_size,
+                "vpc_id": vpc_id,
+                "nexthop_resource_ip": nexthop_resource_ip,
+                "nexthop_private_network_id": nexthop_private_network_id,
+                "is_ipv6": is_ipv6,
+                "tags": tags,
+                "organization_id": organization_id,
+                "project_id": project_id,
+            },
+        )
+
+    def create_ingress_rule(
+        self,
+        *,
+        vpc_id: str,
+        source: str,
+        nexthop_resource_ip: str,
+        nexthop_private_network_id: str,
+        region: Optional[ScwRegion] = None,
+        description: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+    ) -> IngressRule:
+        """
+        Create an ingress rule.
+        Create an ingress rule in the specified region.
+        :param vpc_id: ID of the VPC this rule will belong to.
+        :param source: Source network to match ingress traffic on. Can be IPv6 or IPv4.
+        :param nexthop_resource_ip: IP of the local resource to redirect ingress traffic to. IP version must be consistent with the source network.
+        :param nexthop_private_network_id: ID of the Private Network the destination resource is in.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :param description: Description for this ingress rule.
+        :param tags: Tags for this ingress rule.
+        :return: :class:`IngressRule <IngressRule>`
+
+        Usage:
+        ::
+
+            result = api.create_ingress_rule(
+                vpc_id="example",
+                source="example",
+                nexthop_resource_ip="example",
+                nexthop_private_network_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+
+        res = self._request(
+            "POST",
+            f"/vpc/v2/regions/{param_region}/ingress-rules",
+            body=marshal_CreateIngressRuleRequest(
+                CreateIngressRuleRequest(
+                    vpc_id=vpc_id,
+                    source=source,
+                    nexthop_resource_ip=nexthop_resource_ip,
+                    nexthop_private_network_id=nexthop_private_network_id,
+                    region=region,
+                    description=description,
+                    tags=tags,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_IngressRule(res.json())
+
+    def get_ingress_rule(
+        self,
+        *,
+        rule_id: str,
+        region: Optional[ScwRegion] = None,
+    ) -> IngressRule:
+        """
+        Get an ingress rule.
+        Retrieve details of an existing ingress rule, specified by its ingress rule ID.
+        :param rule_id: ID of the ingress rule to return.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :return: :class:`IngressRule <IngressRule>`
+
+        Usage:
+        ::
+
+            result = api.get_ingress_rule(
+                rule_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_rule_id = validate_path_param("rule_id", rule_id)
+
+        res = self._request(
+            "GET",
+            f"/vpc/v2/regions/{param_region}/ingress-rules/{param_rule_id}",
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_IngressRule(res.json())
+
+    def update_ingress_rule(
+        self,
+        *,
+        rule_id: str,
+        region: Optional[ScwRegion] = None,
+        source: Optional[str] = None,
+        nexthop_resource_ip: Optional[str] = None,
+        nexthop_private_network_id: Optional[str] = None,
+        description: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+    ) -> IngressRule:
+        """
+        Update an ingress rule.
+        Update an ingress rule specified by its ingress rule ID.
+        :param rule_id: ID of the ingress rule to update.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :param source: Source network to match ingress traffic on. Can be IPv4 or IPv6.
+        :param nexthop_resource_ip: IP of the local resource to redirect ingress traffic to. IP version must be consistent with the source network.
+        :param nexthop_private_network_id: ID of the Private Network the destination resource is in.
+        :param description: Description to set for this ingress rule.
+        :param tags: Tags to set for this ingress rule.
+        :return: :class:`IngressRule <IngressRule>`
+
+        Usage:
+        ::
+
+            result = api.update_ingress_rule(
+                rule_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_rule_id = validate_path_param("rule_id", rule_id)
+
+        res = self._request(
+            "PATCH",
+            f"/vpc/v2/regions/{param_region}/ingress-rules/{param_rule_id}",
+            body=marshal_UpdateIngressRuleRequest(
+                UpdateIngressRuleRequest(
+                    rule_id=rule_id,
+                    region=region,
+                    source=source,
+                    nexthop_resource_ip=nexthop_resource_ip,
+                    nexthop_private_network_id=nexthop_private_network_id,
+                    description=description,
+                    tags=tags,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_IngressRule(res.json())
+
+    def delete_ingress_rule(
+        self,
+        *,
+        rule_id: str,
+        region: Optional[ScwRegion] = None,
+    ) -> None:
+        """
+        Delete an ingress rule.
+        Delete an ingress rule specified by its ingress rule ID.
+        :param rule_id: ID of the ingress rule to delete.
+        :param region: Region to target. If none is passed will use default region from the config.
+
+        Usage:
+        ::
+
+            result = api.delete_ingress_rule(
+                rule_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_rule_id = validate_path_param("rule_id", rule_id)
+
+        res = self._request(
+            "DELETE",
+            f"/vpc/v2/regions/{param_region}/ingress-rules/{param_rule_id}",
+        )
+
+        self._throw_on_error(res)
+
+    def enable_object_storage_private_access(
+        self,
+        *,
+        vpc_id: str,
+        region: Optional[ScwRegion] = None,
+        private_network_ids: Optional[list[str]] = None,
+    ) -> VPC:
+        """
+        Enable Object Storage private access.
+        Enable Object Storage private access for a VPC.
+        :param vpc_id: ID of the VPC for which to enable Object Storage private access.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :param private_network_ids: IDs of the Private Networks for which to enable Object Storage private access.
+        :return: :class:`VPC <VPC>`
+
+        Usage:
+        ::
+
+            result = api.enable_object_storage_private_access(
+                vpc_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_vpc_id = validate_path_param("vpc_id", vpc_id)
+
+        res = self._request(
+            "POST",
+            f"/vpc/v2/regions/{param_region}/object-storage-private-access/{param_vpc_id}/enable",
+            params={
+                "private_network_ids": private_network_ids,
+            },
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_VPC(res.json())
+
+    def disable_object_storage_private_access(
+        self,
+        *,
+        vpc_id: str,
+        region: Optional[ScwRegion] = None,
+    ) -> VPC:
+        """
+        Disable Object Storage private access.
+        Disable Object Storage private access for a VPC.
+        :param vpc_id: ID of the VPC for which to disable Object Storage private access.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :return: :class:`VPC <VPC>`
+
+        Usage:
+        ::
+
+            result = api.disable_object_storage_private_access(
+                vpc_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_vpc_id = validate_path_param("vpc_id", vpc_id)
+
+        res = self._request(
+            "POST",
+            f"/vpc/v2/regions/{param_region}/object-storage-private-access/{param_vpc_id}/disable",
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_VPC(res.json())
+
+    def add_private_network_object_storage_private_access(
+        self,
+        *,
+        vpc_id: str,
+        private_network_id: str,
+        region: Optional[ScwRegion] = None,
+    ) -> AddPrivateNetworkObjectStoragePrivateAccessResponse:
+        """
+        Add a Private Network to an Object Storage private access.
+        Add a Private Network to the Object Storage private access to enable Object Storage integration for its resources.
+        :param vpc_id: ID of the VPC containing the Object Storage private access.
+        :param private_network_id: ID of the Private Network to add to the Object Storage private access.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :return: :class:`AddPrivateNetworkObjectStoragePrivateAccessResponse <AddPrivateNetworkObjectStoragePrivateAccessResponse>`
+
+        Usage:
+        ::
+
+            result = api.add_private_network_object_storage_private_access(
+                vpc_id="example",
+                private_network_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_vpc_id = validate_path_param("vpc_id", vpc_id)
+
+        res = self._request(
+            "POST",
+            f"/vpc/v2/regions/{param_region}/object-storage-private-access/{param_vpc_id}/private-networks",
+            body=marshal_AddPrivateNetworkObjectStoragePrivateAccessRequest(
+                AddPrivateNetworkObjectStoragePrivateAccessRequest(
+                    vpc_id=vpc_id,
+                    private_network_id=private_network_id,
+                    region=region,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_AddPrivateNetworkObjectStoragePrivateAccessResponse(res.json())
+
+    def set_private_networks_object_storage_private_access(
+        self,
+        *,
+        vpc_id: str,
+        private_network_ids: list[str],
+        region: Optional[ScwRegion] = None,
+    ) -> SetPrivateNetworksObjectStoragePrivateAccessResponse:
+        """
+        Set Object Storage private access Private Networks.
+        Set the Private Networks associated with the Object Storage private access to enable Object Storage integration for their resources.
+        :param vpc_id: ID of the VPC containing the Object Storage private access.
+        :param private_network_ids: IDs of the Private Networks to associate with the Object Storage private access.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :return: :class:`SetPrivateNetworksObjectStoragePrivateAccessResponse <SetPrivateNetworksObjectStoragePrivateAccessResponse>`
+
+        Usage:
+        ::
+
+            result = api.set_private_networks_object_storage_private_access(
+                vpc_id="example",
+                private_network_ids=[],
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_vpc_id = validate_path_param("vpc_id", vpc_id)
+
+        res = self._request(
+            "PUT",
+            f"/vpc/v2/regions/{param_region}/object-storage-private-access/{param_vpc_id}/private-networks",
+            body=marshal_SetPrivateNetworksObjectStoragePrivateAccessRequest(
+                SetPrivateNetworksObjectStoragePrivateAccessRequest(
+                    vpc_id=vpc_id,
+                    private_network_ids=private_network_ids,
+                    region=region,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_SetPrivateNetworksObjectStoragePrivateAccessResponse(
+            res.json()
+        )
+
+    def delete_private_network_object_storage_private_access(
+        self,
+        *,
+        vpc_id: str,
+        private_network_id: str,
+        region: Optional[ScwRegion] = None,
+    ) -> None:
+        """
+        Remove a Private Network from an Object Storage private access.
+        Remove a Private Network from the Object Storage private access to disable Object Storage integration for its resources.
+        :param vpc_id: ID of the VPC containing the Object Storage private access.
+        :param private_network_id: ID of the Private Network to remove from the Object Storage private access.
+        :param region: Region to target. If none is passed will use default region from the config.
+
+        Usage:
+        ::
+
+            result = api.delete_private_network_object_storage_private_access(
+                vpc_id="example",
+                private_network_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_vpc_id = validate_path_param("vpc_id", vpc_id)
+        param_private_network_id = validate_path_param(
+            "private_network_id", private_network_id
+        )
+
+        res = self._request(
+            "DELETE",
+            f"/vpc/v2/regions/{param_region}/object-storage-private-access/{param_vpc_id}/private-networks/{param_private_network_id}",
+        )
+
+        self._throw_on_error(res)

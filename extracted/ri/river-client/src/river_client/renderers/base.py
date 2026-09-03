@@ -174,6 +174,10 @@ class ToolSpec(TypedDict):
 class Message(TypedDict):
     role: str  # "system", "user", "assistant", "tool"
     content: str | list[ContentPart]
+    # OpenAI-compatible reasoning channel. Renderers also accept an inline
+    # ``<think>...</think>`` block in ``content`` for callers that do not
+    # preserve this field separately.
+    reasoning_content: NotRequired[str]
     tool_calls: NotRequired[list[ToolCall]]
     unparsed_tool_calls: NotRequired[list[UnparsedToolCall]]
     tool_call_id: NotRequired[str]
@@ -552,6 +556,7 @@ class Renderer(ABC):
         train_on: TrainOnWhat = TrainOnWhat.LAST_ASSISTANT,
         train_on_eos: bool = True,
         max_length: int | None = None,
+        tools: list[ToolSpec] | None = None,
     ) -> TrainingExample:
         """Build tokenized input_ids and per-token weights for SFT.
 
@@ -562,6 +567,7 @@ class Renderer(ABC):
             train_on: Which assistant messages get weight=1.
             train_on_eos: Whether to include the stop token in trainable weights.
             max_length: Optional max sequence length (truncates from end).
+            tools: Optional tool definitions rendered into the training prompt.
 
         Returns:
             TrainingExample with input_ids and weights.

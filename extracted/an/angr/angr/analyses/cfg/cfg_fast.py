@@ -8,6 +8,7 @@ import re
 import string
 import time
 from collections import OrderedDict, defaultdict
+from collections.abc import Iterator
 from enum import Enum, unique
 from typing import TYPE_CHECKING, Any
 
@@ -57,10 +58,12 @@ from angr.utils.funcid import (
     is_function_security_init_cookie,
     is_function_security_init_cookie_win8,
 )
+from angr.utils.go_runtime import find_go_noreturn_functions, has_go_hint
 from angr.utils.ins_addr_list import InsAddrList
 
 from .cfg_arch_options import CFGArchOptions
 from .cfg_base import CFGBase
+from .go_prologue import find_go_stack_check_preambles, go_preamble_supported
 from .indirect_jump_resolvers.jumptable import JumpTableResolver
 from .meta_structs import get_data_regions_from_meta_regions, get_pointer_array_hints
 from .pe_msvc_eh_structs import (
@@ -648,6 +651,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         nodecode_window_size=2048,
         nodecode_threshold=0.6,
         nodecode_step=16483,
+        repeating_byte_run_threshold=64,
         check_funcret_max_job=500,
         indirect_calls_always_return: bool | None = None,
         jumptable_resolver_resolves_calls: bool | None = None,
@@ -711,6 +715,11 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                                         table resolver and must be resolved using their specific resolvers. By default,
                                         we will only disable JumpTableResolver from resolving indirect calls for large
                                         binaries (region > 50 KB).
+        :param repeating_byte_run_threshold: The minimum length of a run of one repeated byte that CFGFast refuses to
+                                        decode as code. Such runs are filler, but many of them decode cleanly (e.g.,
+                                        0x91 is `xchg ecx, eax` on x86), so linear disassembly would otherwise walk
+                                        through them forever. Runs of the architecture's nop byte are exempt because
+                                        execution really does flow through them. Set it to 0 to disable the check.
         :param check_funcret_max_job:   When popping return-site jobs out of the job queue, angr will prioritize jobs
                                         for which the callee is known to return. This check may be slow when there are
                                         a large amount of jobs in different caller functions, and this situation often
@@ -829,6 +838,13 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         self._nodecode_window_size = nodecode_window_size
         self._nodecode_threshold = nodecode_threshold
         self._nodecode_step = nodecode_step
+        self._repeating_byte_run_threshold = repeating_byte_run_threshold
+        # a run of the nop byte is transparent -- execution really does flow through it into whatever follows -- so
+        # repeating-byte-run detection must leave it alone. other padding bytes are not code, but they are still
+        # padding rather than data we failed to recognize.
+        nop = self.project.arch.nop_instruction
+        self._nop_byte = nop[0] if len(set(nop)) == 1 else None
+        self._padding_bytes = {0x00, 0xCC} if self.project.arch.name in {"X86", "AMD64"} else {0x00}
         self._indirect_calls_always_return = indirect_calls_always_return
         self._jumptable_resolver_resolve_calls = jumptable_resolver_resolves_calls
 
@@ -870,6 +886,9 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # mapping to all known thunks
         self._known_thunks = {}
 
+        # Go runtime functions that never return, mapped to the evidence that identified them
+        self._go_noreturn_funcs: dict[int, str] = {}
+
         # when True, jump/call targets loaded from registered read-only regions (e.g. PE IAT slots) are
         # constant-folded at lift time and consumed in _create_jobs without invoking indirect jump resolvers
         self._fold_ro_const_loads = False
@@ -885,7 +904,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
 
         self._remaining_eh_frame_addrs: list[int] | None = None
         self._remaining_function_prologue_addrs: list[int] | None = None
-        self._used_function_prologue_addrs: set[int] | None = None
+        self._used_function_prologue_addrs: set[int] = set()
         self._ptr_hints: SortedDict | None = None
         self._processed_eh_prolog3_callsites: set[int] = set()
         self._processed_cxx_frame_handler3_callsites: set[int] = set()
@@ -899,6 +918,9 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # always clear them after returning from _process_unresolved_indirect_jumps()
         self._transitory_resolved_indirect_jumps = 0
         self._transitory_unresolved_indirect_jumps = 0
+        # jump tables that the compiler emitted without a bounds check are sized from data references, so they are
+        # resolved only after the rest of the analysis is exhausted and those references are complete
+        self._defer_unbounded_jumptables = True
 
         self._drop_bad_funcs = drop_bad_funcs
 
@@ -1237,6 +1259,41 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         if repeating_length >= threshold:
             return repeating_length
         return 0
+
+    def _repeating_byte_run_length(self, start_addr: int, min_length: int, ignore: int | None = None) -> int:
+        """
+        Measure the run of one repeated byte that begins at ``start_addr``, bounded by the enclosing region.
+
+        Unlike :meth:`_scan_for_repeating_bytes`, this loads memory in bulk, so it stays cheap even when the run is
+        hundreds of kilobytes long.
+
+        :param start_addr:  The address the run has to begin at.
+        :param min_length:  The shortest run that counts.
+        :param ignore:      A byte whose runs are not reported.
+        :return:            The length of the run, or 0 if it is shorter than ``min_length``.
+        """
+
+        inside, region_end = self._inside_regions_and_region_end(start_addr)
+        if not inside or region_end is None or region_end - start_addr < min_length:
+            return 0
+
+        head = self._fast_memory_load_bytes(start_addr, min_length)
+        if head is None or len(head) < min_length:
+            return 0
+        filler = head[:1]
+        if filler[0] == ignore or head.lstrip(filler):
+            return 0
+
+        length = min_length
+        while start_addr + length < region_end:
+            chunk = self._fast_memory_load_bytes(start_addr + length, min(0x1000, region_end - start_addr - length))
+            if not chunk:
+                break
+            matched = len(chunk) - len(chunk.lstrip(filler))
+            length += matched
+            if matched < len(chunk):
+                break
+        return length
 
     def _scan_for_fp_constants(self, start_addr: int, threshold: int = 4) -> int:
         """
@@ -1638,6 +1695,13 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # Scan for __x86_return_thunk and friends
         self._known_thunks = self._find_thunks()
 
+        # Go runtime knowledge. Seeding the verdicts before recovery starts is what keeps the code
+        # that follows a morestack or panic-stub call site from ever being attached to a function.
+        self._go_noreturn_funcs = find_go_noreturn_functions(self.project, kb=self.kb) if self._is_go_binary() else {}
+        if self._go_noreturn_funcs:
+            l.debug("Identified %d non-returning Go runtime functions.", len(self._go_noreturn_funcs))
+        self._apply_go_noreturn_funcs(create=True)
+
         # Initialize variables used during analysis
         self._pending_jobs: PendingJobs = PendingJobs(self.kb, self._deregister_analysis_job)
         self._traced_addresses: set[int] = set(self.model.node_addrs)
@@ -1716,7 +1780,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         if self._use_eh_frame:
             self._remaining_eh_frame_addrs = sorted(self._function_addresses_from_eh_frame, reverse=True)
 
-        if self._use_function_prologues and self.project.concrete_target is None:
+        if self._use_function_prologues:
             func_addrs_from_prologs = self._func_addrs_from_prologues()
             if self._ptr_hints:
                 # ensure function addresses from prologs do not overlap with pointer hints
@@ -2405,6 +2469,34 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 self._insert_job(job)
                 self._register_analysis_job(addr, job)
 
+        if self._deferred_indirect_jumps and not self._job_info_queue:
+            # Nothing else is left to traverse, so the data references that bound unbounded jump tables are as
+            # complete as they will get. Resolve the jump tables that were postponed for that reason.
+            self._resolve_deferred_indirect_jumps()
+
+    def _resolve_deferred_indirect_jumps(self):
+        """
+        Resolve indirect jumps whose resolution was postponed until the data references bounding them were collected.
+
+        Resolving one may uncover code that carries the reference bounding the next, so this stops as soon as a jump
+        queues new jobs and resumes on the next call. Jumps that still cannot be resolved are marked unresolvable, so
+        every call shrinks the set and this terminates.
+        """
+
+        jumps = sorted(self._deferred_indirect_jumps, key=lambda j: j.addr)
+        self._deferred_indirect_jumps = set()
+        l.debug("Resolving %d deferred indirect jump(s).", len(jumps))
+
+        self._unbounded_jumptable_final_pass = True
+        try:
+            for idx, jump in enumerate(jumps):
+                self._process_one_indirect_jump(jump)
+                if self._job_info_queue:
+                    self._deferred_indirect_jumps |= set(jumps[idx + 1 :])
+                    break
+        finally:
+            self._unbounded_jumptable_final_pass = False
+
     def _repair_edges(self):
         remaining_edges_to_repair = []
 
@@ -2601,6 +2693,10 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # Revisit all edges and rebuild all functions to correctly handle returning/non-returning functions.
         self.make_functions()
         self._calculate_progress_and_notify(skip_percentage=True)
+
+        # make_functions() built a brand new function manager, so the Go verdicts must be re-applied
+        # before the returning fixpoint runs over it.
+        self._apply_go_noreturn_funcs()
 
         self._analyze_all_function_features(all_funcs_completed=True)
 
@@ -2906,10 +3002,21 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         is_arm = is_arm_arch(self.project.arch)
 
         for start_, bytes_ in self._binary.memory.backers():
+            # Preambles that precede a conventional prologue. The prologue match they cover is
+            # discarded in favor of the (earlier) preamble start, which is the real function entry.
+            covered_prologues = set()
+            for preamble_start, preamble_end, _ in self._prologue_preambles(bytes_, start_):
+                mapped_position = AT.from_rva(preamble_start + start_, self._binary).to_mva()
+                if self._addr_in_exec_memory_regions(mapped_position):
+                    unassured_functions.append(mapped_position)
+                    covered_prologues.add(preamble_end + start_)
+
             for regex in regexes:
                 # Match them!
                 for mo in regex.finditer(bytes_):
                     position = mo.start() + start_
+                    if position in covered_prologues:
+                        continue
                     if (not is_arm and position % self.project.arch.instruction_alignment == 0) or (
                         is_arm and position % 4 == 0
                     ):
@@ -2928,6 +3035,29 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
 
         l.info("Found %d functions with prologue scanning.", len(unassured_functions))
         return unassured_functions
+
+    def _prologue_preambles(self, blob: bytes, blob_rva: int) -> Iterator[tuple[int, int, int]]:
+        """
+        Find toolchain-specific preambles that sit in front of a conventional function prologue, so
+        that prologue scanning can report the start of the preamble instead of the prologue.
+
+        Currently only the Go goroutine stack-growth check is recognized.
+
+        :param blob:        A backer blob.
+        :param blob_rva:    The RVA the blob is loaded at.
+        :return:            An iterator of ``(start, end, branch_target)`` offsets into ``blob``.
+        """
+
+        arch_name = self.project.arch.name
+        if not go_preamble_supported(arch_name):
+            return
+
+        blob_mva = AT.from_rva(blob_rva, self._binary).to_mva()
+        for start, end, target in find_go_stack_check_preambles(blob, arch_name, blob_mva):
+            # a blind byte match may fire on unrelated code: require the stack-growth branch to stay
+            # within an executable region
+            if self._addr_in_exec_memory_regions(blob_mva + target):
+                yield start, end, target
 
     # Basic block scanning
 
@@ -3210,9 +3340,10 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # default statement
         default_branch_ins_addr = None
         if irsb.instruction_addresses:
-            if self.project.arch.branch_delay_slot:
-                if len(irsb.instruction_addresses) > 1:
-                    default_branch_ins_addr = irsb.instruction_addresses[-2]
+            if self.project.arch.branch_delay_slot and len(irsb.instruction_addresses) > 1:
+                # the last instruction is the delay slot, so the branch is the one before it. a
+                # single-instruction block has no delay slot and is its own branch.
+                default_branch_ins_addr = irsb.instruction_addresses[-2]
             else:
                 default_branch_ins_addr = irsb.instruction_addresses[-1]
 
@@ -3340,7 +3471,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
 
         if target_addr is None:
             # The target address is not a concrete value
-            assert irsb is not None and ins_addr is not None and stmt_idx is not None
+            assert irsb is not None and stmt_idx is not None
 
             if jumpkind == "Ijk_Ret":
                 # This block ends with a return instruction.
@@ -3356,6 +3487,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 jumpkind in ("Ijk_Boring", "Ijk_Call", "Ijk_InvalICache") or jumpkind.startswith("Ijk_Sys")
             ):
                 # This is an indirect jump. Try to resolve it.
+                assert ins_addr is not None
                 # fast path: the target may have been constant-folded from a read-only region at lift time
                 # (e.g. an AMD64 PE IAT slot); consuming it here avoids re-lifting the block and running the
                 # indirect jump resolvers
@@ -5513,6 +5645,21 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     # this is probably because our current node is unexpected
                     return None, None, None, None
 
+            # A long run of one repeated byte is filler, never code. Many such runs decode cleanly (0x91 is
+            # `xchg ecx, eax` on x86), so without this check linear disassembly walks the whole run and emits a
+            # fall-through block every VEX_IRSB_MAX_INST instructions until the run ends. See issue #6968.
+            if self._repeating_byte_run_threshold:
+                run_length = self._repeating_byte_run_length(
+                    real_addr, self._repeating_byte_run_threshold, ignore=self._nop_byte
+                )
+                if run_length:
+                    # same distinction _next_code_addr_core makes: padding is alignment, anything else is data we
+                    # cannot decode. only the latter may feed the smart scan's skip-a-window heuristic -- real code
+                    # regularly starts right after a padding run.
+                    is_padding = self._load_a_byte_as_int(real_addr) in self._padding_bytes
+                    self._seg_list.occupy(real_addr, run_length, "alignment" if is_padding else "nodecode")
+                    return None, None, None, None
+
             distance = VEX_IRSB_MAX_SIZE
             # if there is exception handling code, check the distance between `addr` and the closest ending address
             if self._exception_handling_by_endaddr:
@@ -5554,7 +5701,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
 
             # also check the distance between `addr` and the closest function.
             # we don't want to have a basic block that spans across function boundaries
-            next_func_addr_adjustment = None
+            next_func_addr_adjustment = 0
             next_func_addr = self.functions.ceiling_addr(addr + 1)
             if next_func_addr is not None:
                 next_func_addr_adjustment = 0
@@ -6297,6 +6444,42 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     result[addr] = meaning
 
         return result
+
+    def _is_go_binary(self) -> bool:
+        # LanguageDetector is the authority, but it costs seconds on binaries with large symbol
+        # tables, so only consult it once a cheap marker suggests Go.
+        return has_go_hint(self.project) and "go" in self.project.languages()
+
+    def _apply_go_noreturn_funcs(self, create: bool = False) -> None:
+        """
+        Mark the identified Go runtime functions as non-returning.
+
+        This runs twice: once before recovery starts, so the verdicts steer it, and once after
+        make_functions() has rebuilt the function manager from scratch. The second pass also picks up
+        jump thunks that inherited the marker from a Go non-returning function.
+        """
+        if not self._go_noreturn_funcs:
+            return
+
+        verdicts = dict(self._go_noreturn_funcs)
+        for addr in self.kb.functions.get_key_func_addrs("go_noreturn"):
+            verdicts.setdefault(addr, "jump thunk to a non-returning Go runtime function")
+
+        for addr, evidence in verdicts.items():
+            if not self._inside_regions(addr):
+                continue
+            if create:
+                func = self.kb.functions.function(addr, create=True)
+            elif self.kb.functions.contains_addr(addr):
+                func = self.kb.functions.get_by_addr(addr)
+            else:
+                continue
+            if func is None or func.is_simprocedure:
+                continue
+            func.returning = False
+            func.info["is_go_noreturn"] = True
+            func.info["go_noreturn_evidence"] = evidence
+            self.kb.functions.add_key_func_addr("go_noreturn", addr)
 
     def _x86_gcc_pie_find_pc_register_adjustment(self, addr: int, reg_offset: int) -> int | None:
         """

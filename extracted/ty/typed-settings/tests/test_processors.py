@@ -96,11 +96,14 @@ def test_handle_script() -> None:
         ("echo a; echo b 1>&2; exit 1", 1, "a\n", "b\n"),
     ],
 )
-def test_handle_script_error(cmd: str, code: int, stdout: str, stderr: str) -> None:
+def test_handle_script_error(
+    cmd: str, code: int, stdout: str, stderr: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """
     Raise ValueError if the command cannot be found or fails.  Include stdout
     and stderr in exception.
     """
+    monkeypatch.setenv("LC_ALL", "en_US.utf-8")
     msg = (
         f"Helper script failed: script://{cmd}\n"
         f"EXIT CODE: {code}\n"

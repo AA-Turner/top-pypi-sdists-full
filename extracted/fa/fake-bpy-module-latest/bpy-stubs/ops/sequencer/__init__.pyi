@@ -559,7 +559,7 @@ class effect_strip_add(bpy.ops._BPyOpsSubModOp):
         Compositor -- Compositor based effect.
                 :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
                 :param frame_start: Start Frame, Start frame of the strip (in [-inf, inf], optional)
-                :param length: Length, Length of the strip in frames, or the length of each strip if multiple are added (in [-inf, inf], optional)
+                :param length: Length, Length of the strip in frames, or the length of each strip if multiple are added (in [1, inf], optional)
                 :param channel: Channel, Channel to place this strip into (in [1, 128], optional)
                 :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes (optional)
                 :param overlap: Allow Overlap, Dont correct overlap on new strips (optional)
@@ -876,7 +876,7 @@ class image_strip_add(bpy.ops._BPyOpsSubModOp):
         Asset Catalog -- Sort the asset list so that assets in the same catalog are kept together. Within a single catalog, assets are ordered by name. The catalogs are in order of the flattened catalog hierarchy..
                 :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
                 :param frame_start: Start Frame, Start frame of the strip (in [-inf, inf], optional)
-                :param length: Length, Length of the strip in frames, or the length of each strip if multiple are added (in [-inf, inf], optional)
+                :param length: Length, Length of the strip in frames, or the length of each strip if multiple are added (in [1, inf], optional)
                 :param channel: Channel, Channel to place this strip into (in [1, 128], optional)
                 :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes (optional)
                 :param overlap: Allow Overlap, Dont correct overlap on new strips (optional)

@@ -74,48 +74,38 @@ def _exclude_match(config: Config, filepath: Path, root: Path) -> bool:
 
 def _included(config: Config, filepath: Path) -> bool:
     """Check a file against the filters that need it to exist on disk."""
-    return no_pragma(config, filepath) and (
+    return _has_required_pragma(config, filepath) and (
         not config.use_gitignore or not _gitignore_match(config, filepath)
     )
 
 
 def get_src(src: Iterable[Path], config: Config) -> SrcFiles:
     """Get source files."""
-    paths = []
+    paths: dict[Path, None] = {}
     excluded = False
     for item in src:
-        # normalize path
-
         normalized_item = item.resolve()
 
         if normalized_item.is_file():
-            if _exclude_match(
-                config, normalized_item, config.project_root
-            ) or not _included(config, normalized_item):
-                excluded = True
-            else:
-                paths.append(normalized_item)
-            continue
+            candidates: Iterable[Path] = (normalized_item,)
+            exclude_root = config.project_root
+        else:
+            extension = config.extension.removeprefix(".")
+            candidates = normalized_item.glob(f"**/*.{extension}")
+            exclude_root = normalized_item
 
-        # remove leading . from extension
-        extension = config.extension.removeprefix(".")
-
-        for candidate in normalized_item.glob(f"**/*.{extension}"):
-            if _exclude_match(config, candidate, normalized_item):
-                excluded = True
+        for candidate in candidates:
+            if candidate in paths:
                 continue
-            # a directory can match the extension glob too, and it is not a
-            # candidate at all: opening one raises rather than excluding it.
-            # The exclude pattern above is pure string work, so testing it
-            # first spares this syscall for everything the pattern drops.
-            if not candidate.is_file():
-                continue
-            if _included(config, candidate):
-                paths.append(candidate)
-            else:
+            if _exclude_match(config, candidate, exclude_root):
                 excluded = True
+            elif candidate.is_file():
+                if _included(config, candidate):
+                    paths[candidate] = None
+                else:
+                    excluded = True
 
-    return SrcFiles(paths, excluded)
+    return SrcFiles(list(paths), excluded)
 
 
 def print_no_files_to_check(*, excluded: bool) -> None:
@@ -179,12 +169,16 @@ def has_pragma(config: Config, first_line: str) -> bool:
     return False
 
 
-def no_pragma(config: Config, this_file: Path) -> bool:
-    """Verify there is no pragma present."""
+def _has_required_pragma(config: Config, this_file: Path) -> bool:
+    """Whether the file opens with the pragma, when one is required.
+
+    The pragma is ascii, so a byte the file's first line cannot decode
+    is not it, and is reported when the file itself is read.
+    """
     if not config.require_pragma:
         return True
 
-    with this_file.open(encoding="utf-8") as open_file:
+    with this_file.open(encoding="utf-8", errors="replace") as open_file:
         first_line = open_file.readline()
 
     return has_pragma(config, first_line)

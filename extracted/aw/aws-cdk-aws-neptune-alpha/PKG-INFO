@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-neptune-alpha
-Version: 2.267.0a0
+Version: 2.268.0a0
 Summary: The CDK Construct Library for AWS::Neptune
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -24,7 +24,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.267.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.268.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
 Requires-Dist: jsii<2.0.0,>=1.139.0
 Requires-Dist: publication>=0.0.3

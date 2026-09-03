@@ -4,7 +4,7 @@ from __future__ import annotations
 import contextlib
 import logging
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, cast
 
 import archinfo
@@ -666,9 +666,41 @@ class SimCC:
 
     STACK_ALIGNMENT = 1  # the alignment requirement of the stack pointer at function start BEFORE call
 
+    # The width in bytes of one argument slot. It can refer to an integer argument register or a stack argument slot.
+    # None means using the architecture's word size.
+    # Set ARG_SLOT_SIZE explicitly when the architecture's register width differs from its pointer width.
+    # A good example is MIPS n32, which passes arguments in its 64-bit registers while its has 32-bit pointers.
+    ARG_SLOT_SIZE: int | None = None
+
+    # Filter candidate register arguments against this convention's own ARG_REGS/FP_ARG_REGS instead of
+    # the platform-default register set. Set it on conventions that do not use the platform defaults.
+    ARG_REG_SANITY_FILTER = False
+    # Whether an undefined use of a caller-saved register rules this convention out. Turn it off for
+    # conventions with pinned registers that are legitimately read before being written.
+    STRICT_CALLER_SAVED_MATCH = True
+
+    @classmethod
+    def arg_reg_offsets(cls, arch: archinfo.Arch) -> set[int]:
+        """
+        Every register file offset covered by this convention's argument registers.
+        """
+        offsets = set()
+        for reg_name in cls.ARG_REGS + cls.FP_ARG_REGS:
+            if reg_name in arch.registers:
+                base, size = arch.registers[reg_name]
+                offsets.update(range(base, base + size))
+        return offsets
+
     #
     # Here are several things you MAY want to override to change your cc's convention
     #
+
+    @property
+    def arg_slot_size(self) -> int:
+        """
+        The width in bytes of one argument slot. See ``ARG_SLOT_SIZE``.
+        """
+        return self.ARG_SLOT_SIZE if self.ARG_SLOT_SIZE is not None else self.arch.bytes
 
     @property
     def int_args(self):
@@ -679,7 +711,7 @@ class SimCC:
         """
         if self.ARG_REGS is None:
             raise NotImplementedError
-        return SerializableListIterator([SimRegArg(reg, self.arch.bytes) for reg in self.ARG_REGS])
+        return SerializableListIterator([SimRegArg(reg, self.arg_slot_size) for reg in self.ARG_REGS])
 
     @property
     def memory_args(self):
@@ -689,7 +721,8 @@ class SimCC:
         Returns an iterator of SimFunctionArguments
         """
         start = self.STACKARG_SP_BUFF + self.STACKARG_SP_DIFF
-        return SerializableCounter(start, self.arch.bytes, lambda offset: SimStackArg(offset, self.arch.bytes))
+        slot = self.arg_slot_size
+        return SerializableCounter(start, slot, lambda offset: SimStackArg(offset, slot))
 
     @property
     def fp_args(self):
@@ -700,7 +733,7 @@ class SimCC:
         """
         if self.FP_ARG_REGS is None:
             raise NotImplementedError
-        return SerializableListIterator([SimRegArg(reg, self.arch.bytes) for reg in self.FP_ARG_REGS])
+        return SerializableListIterator([SimRegArg(reg, self.arg_slot_size) for reg in self.FP_ARG_REGS])
 
     def is_fp_arg(self, arg):
         """
@@ -748,7 +781,7 @@ class SimCC:
         out = self.STACKARG_SP_DIFF
         for arg in args:
             if isinstance(arg, SimStackArg):
-                out = max(out, arg.stack_offset + self.arch.bytes)
+                out = max(out, arg.stack_offset + self.arg_slot_size)
 
         out += self.STACKARG_SP_BUFF
         return out
@@ -1207,7 +1240,8 @@ class SimCC:
             arg_ident = _arg_ident(arg)
             if arg_ident not in all_fp_args and arg_ident not in all_int_args and arg_ident not in some_both_args:
                 if (
-                    (unused_hint is None or arg not in unused_hint)
+                    cls.STRICT_CALLER_SAVED_MATCH
+                    and (unused_hint is None or arg not in unused_hint)
                     and isinstance(arg, SimRegArg)
                     and arg.reg_name in sample_inst.CALLER_SAVED_REGS
                 ):
@@ -1232,7 +1266,9 @@ class SimCC:
     def _guess_arg_count(cls, args, limit: int = 64) -> int:
         # pylint:disable=not-callable
         assert cls.ARCH is not None
-        if hasattr(cls, "LANGUAGE"):  # noqa: SIM108
+        if cls.ARG_SLOT_SIZE is not None:
+            stack_arg_size = cls.ARG_SLOT_SIZE
+        elif hasattr(cls, "LANGUAGE"):
             # this is a PCode SimCC where cls.ARCH is directly callable
             stack_arg_size = cls.ARCH().bytes  # type: ignore
         else:
@@ -1249,6 +1285,7 @@ class SimCC:
         platform: str | None = "Linux",
         unused_hint: list[SimRegArg] | None = None,
         extra_pop: int | None = None,
+        language: str | None = None,
     ) -> SimCC | None:
         """
         Pinpoint the best-fit calling convention and return the corresponding SimCC instance, or None if no fit is
@@ -1260,15 +1297,21 @@ class SimCC:
         :param sp_delta:    The change of stack pointer before and after the call is made.
         :param extra_pop:   The number of bytes that are popped by the callee. This is used to distinguish between
                             callee-cleanup and caller-cleanup conventions.
+        :param language:    The source language of the binary (e.g. "go"), if known. Languages with their own ABI are
+                            matched against that ABI alone.
         :return:            A calling convention instance, or None if none of the SimCC subclasses seems to fit the
                             arguments provided.
         """
-        if arch.name not in CC:
-            return None
-        if platform not in CC[arch.name]:
-            # fallback to default
-            platform = "default"
-        possible_cc_classes = CC[arch.name][platform]
+        if platform is None:
+            platform = "Linux"
+        possible_cc_classes = _language_cc_map(CC_BY_LANGUAGE, arch.name, platform, language)
+        if possible_cc_classes is None:
+            if arch.name not in CC:
+                return None
+            if platform not in CC[arch.name]:
+                # fallback to default
+                platform = "default"
+            possible_cc_classes = CC[arch.name][platform]
         for cc_cls in possible_cc_classes:
             if cc_cls._match(arch, args, sp_delta, unused_hint, extra_pop):
                 return cc_cls(arch)
@@ -1543,7 +1586,7 @@ class SimCCSyscall(SimCC):
     def linux_syscall_update_error_reg(self, state, expr):
         # special handling for Linux syscalls: on some architectures (mips/a3, powerpc/cr0_0) a bool indicating success
         # or failure of a system call is used as an error flag (0 for success, 1 for error). we have to set this
-        if state.project is None or state.project.simos is None or state.project.simos.name != "Linux":
+        if state.project.simos is None or state.project.simos.name != "Linux":
             return expr
         if type(expr) is int:
             expr = claripy.BVV(expr, state.arch.bits)
@@ -1835,6 +1878,176 @@ class SimCCSystemVAMD64(SimCC):
         return "SSE"
 
 
+class SimCCGoAMD64(SimCC):
+    """
+    Go's register-based internal ABI (ABIInternal), used by the gc toolchain on amd64 since go1.17.
+
+    Integer arguments and results are assigned to RAX, RBX, RCX, RDI, RSI, R8, R9, R10, R11 and
+    floating-point ones to X0-X14. Results restart at the beginning of the same two sequences, so a
+    multi-value return comes back in RAX, RBX, ... -- model it as a struct return type.
+
+    RDX carries the closure context pointer, R12/R13 are scratch, R14 pins the current goroutine (g)
+    and X15 is a zero register; none of them are arguments. Unlike the System V ABI, Go assigns
+    registers per scalar leaf rather than per eightbyte, and an aggregate that does not fit entirely
+    in registers is passed wholly on the stack with the register counters rolled back.
+    """
+
+    ARG_REGS = ["rax", "rbx", "rcx", "rdi", "rsi", "r8", "r9", "r10", "r11"]
+    FP_ARG_REGS = [f"xmm{i}" for i in range(15)]
+    STACKARG_SP_DIFF = 8  # return address is pushed onto the stack by call
+    # a call clobbers everything except RSP, RBP, R14 (g) and X15 (zero)
+    CALLER_SAVED_REGS = [
+        "rax",
+        "rbx",
+        "rcx",
+        "rdx",
+        "rdi",
+        "rsi",
+        "r8",
+        "r9",
+        "r10",
+        "r11",
+        "r12",
+        "r13",
+        "r15",
+        *[f"xmm{i}" for i in range(15)],
+    ]
+    RETURN_ADDR = SimStackArg(0, 8)
+    RETURN_VAL = SimRegArg("rax", 8)
+    OVERFLOW_RETURN_VAL = SimRegArg("rbx", 8)
+    FP_RETURN_VAL = SimRegArg("xmm0", 128)
+    OVERFLOW_FP_RETURN_VAL = SimRegArg("xmm1", 128)
+    ARCH = archinfo.ArchAMD64
+    STACK_ALIGNMENT = 8
+    ARG_REG_SANITY_FILTER = True
+    # RDX/R12/R13/R14/X15 are read without being written all the time, so an undefined use of one of
+    # them says nothing about whether this convention applies.
+    STRICT_CALLER_SAVED_MATCH = False
+
+    def _go_classify(self, ty: SimType) -> list[str] | None:
+        """
+        Flatten `ty` into one "INTEGER"/"SSE" class per scalar leaf, in Go's register assignment
+        order. Returns None if the type can never be register-assigned and must go on the stack.
+        """
+        if isinstance(ty, SimTypeBottom):
+            return ["INTEGER"]
+        if isinstance(ty, SimTypeFloat):
+            # only float32/float64 have a register representation
+            return ["SSE"] if ty.size is not None and ty.size <= 64 else None
+        if isinstance(ty, SimStruct):
+            out: list[str] = []
+            for field_ty in ty.fields.values():
+                sub = self._go_classify(field_ty)
+                if sub is None:
+                    return None
+                out += sub
+            return out
+        if isinstance(ty, SimTypeFixedSizeArray):
+            # Go decomposes arrays of length 0 and 1 only; anything longer is passed on the stack
+            if ty.length == 0:
+                return []
+            if ty.length == 1:
+                return self._go_classify(ty.elem_type)
+            return None
+        if isinstance(ty, (SimUnion, SimTypeArray)):
+            # Go has no unions, and a variable-length array is never a value type
+            return None
+        if ty.size is None:
+            return ["INTEGER"]
+        words = -(-ty.size // self.arch.bits)
+        # an integral type spans at most two integer registers (e.g. a 128-bit int)
+        return ["INTEGER"] * max(1, words) if words <= 2 else None
+
+    def _go_build(self, ty: SimType, locs: Iterator[SimFunctionArgument]) -> SimFunctionArgument:
+        """
+        Consume one location per scalar leaf of `ty`, in the same order as :meth:`_go_classify`.
+        """
+        if isinstance(ty, SimStruct):
+            return SimStructArg(ty, {f: self._go_build(fty, locs) for f, fty in ty.fields.items()})
+        if isinstance(ty, SimTypeFixedSizeArray):
+            assert ty.length is not None
+            return SimArrayArg([self._go_build(ty.elem_type, locs) for _ in range(ty.length)])
+        is_fp = isinstance(ty, SimTypeFloat)
+        size = self.arch.bytes if ty.size is None else ty.size // self.arch.byte_width
+        if size > self.arch.bytes:
+            pieces = [
+                next(locs).refine(self.arch.bytes, arch=self.arch, is_fp=is_fp)
+                for _ in range(-(-size // self.arch.bytes))
+            ]
+            return SimComboArg(pieces, is_fp=is_fp)
+        return next(locs).refine(max(size, 1), arch=self.arch, is_fp=is_fp)
+
+    def _go_stack_locs(self, ty: SimType, session: ArgSession) -> list[SimFunctionArgument]:
+        size = self.arch.bytes if ty.size is None else ty.size // self.arch.byte_width
+        return [next(session.both_iter) for _ in range(max(1, -(-size // self.arch.bytes)))]
+
+    def next_arg(self, session: ArgSession, arg_type: SimType) -> SimFunctionArgument:
+        if isinstance(arg_type, SimTypeArray):
+            arg_type = SimTypePointer(arg_type.elem_type).with_arch(self.arch)
+        if arg_type._arch is None:
+            arg_type = arg_type.with_arch(self.arch)
+
+        state = session.getstate()
+        classification = self._go_classify(arg_type)
+        if classification is not None:
+            try:
+                locs = [next(session.fp_iter) if c == "SSE" else next(session.int_iter) for c in classification]
+            except StopIteration:
+                # Go reverts a partial register assignment and puts the whole value on the stack
+                session.setstate(state)
+            else:
+                return self._go_build(arg_type, iter(locs))
+
+        # stack-assigned values are laid out contiguously, so byte offsets map onto the slots directly
+        return refine_locs_with_struct_type(self.arch, self._go_stack_locs(arg_type, session), arg_type)
+
+    def return_val(self, ty: SimType | None, perspective_returned=False):
+        if ty is None or isinstance(ty, SimTypeBottom):
+            return None
+        if ty._arch is None:
+            ty = ty.with_arch(self.arch)
+
+        classification = self._go_classify(ty)
+        if (
+            classification is not None
+            and classification.count("INTEGER") <= len(self.ARG_REGS)
+            and classification.count("SSE") <= len(self.FP_ARG_REGS)
+        ):
+            int_iter = iter([SimRegArg(r, self.arch.bytes) for r in self.ARG_REGS])
+            fp_iter = iter([SimRegArg(r, self.arch.bytes) for r in self.FP_ARG_REGS])
+            locs = [next(fp_iter) if c == "SSE" else next(int_iter) for c in classification]
+            return self._go_build(ty, iter(locs))
+
+        # stack-assigned results sit above the stack-assigned arguments in the caller's frame; we do
+        # not know how much room those take here, so assume none
+        size = self.arch.bytes if ty.size is None else ty.size // self.arch.byte_width
+        locs = [
+            SimStackArg(self.STACKARG_SP_DIFF + i * self.arch.bytes, self.arch.bytes)
+            for i in range(max(1, -(-size // self.arch.bytes)))
+        ]
+        return refine_locs_with_struct_type(self.arch, locs, ty)
+
+    def stack_space(self, args):
+        # the caller reserves (but does not populate) spill space for every register-assigned argument
+        spill = sum(self.arch.bytes for arg in args for loc in arg.get_footprint() if isinstance(loc, SimRegArg))
+        return super().stack_space(args) + spill
+
+
+class SimCCGoAMD64ABI0(SimCCGoAMD64):
+    """
+    Go's original all-stack ABI (ABI0), still used by the hand-written assembly in the runtime. Every
+    argument and result is passed on the stack. The gc linker names these symbols "<name>.abi0".
+    """
+
+    ARG_REGS = []
+    FP_ARG_REGS = []
+    CALLER_SAVED_REGS = SimCCGoAMD64.CALLER_SAVED_REGS
+    RETURN_VAL = None
+    OVERFLOW_RETURN_VAL = None
+    FP_RETURN_VAL = None
+    OVERFLOW_FP_RETURN_VAL = None
+
+
 class SimCCAMD64LinuxSyscall(SimCCSyscall):
     ARG_REGS = ["rdi", "rsi", "rdx", "r10", "r8", "r9"]
     RETURN_VAL = SimRegArg("rax", 8)
@@ -2094,6 +2307,30 @@ class SimCCARMLinuxSyscall(SimCCSyscall):
         return state.regs.r7
 
 
+class SimCCARMWindowsSyscall(SimCCSyscall):
+    """
+    The system call convention of Windows on 32-bit ARM.
+
+    An ntdll stub loads the service index into r12 and traps with svc #1; arguments follow the ordinary ARM
+    convention. See https://codemachine.com/articles/arm_assembler_primer.html.
+    """
+
+    ARG_REGS = ["r0", "r1", "r2", "r3"]
+    FP_ARG_REGS = []
+    RETURN_ADDR = SimRegArg("ip_at_syscall", 4)
+    RETURN_VAL = SimRegArg("r0", 4)
+    ARCH = archinfo.ArchARM
+
+    @classmethod
+    def _match(cls, arch, args, sp_delta, unused_hint=None, extra_pop=None):  # pylint: disable=unused-argument
+        # never appears anywhere except syscalls
+        return False
+
+    @staticmethod
+    def syscall_num(state):
+        return state.regs.r12
+
+
 class SimCCAArch64(SimCC):
     ARG_REGS = ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"]
     FP_ARG_REGS = []  # TODO: ???
@@ -2118,6 +2355,35 @@ class SimCCAArch64LinuxSyscall(SimCCSyscall):
     @staticmethod
     def syscall_num(state):
         return state.regs.x8
+
+
+class SimCCAArch64WindowsSyscall(SimCCSyscall):
+    """
+    The system call convention of Windows on AArch64.
+
+    An ntdll stub is a bare "svc #index; ret": Windows encodes the service index in the SVC immediate rather than
+    in a register, and the kernel recovers it from ESR_EL1 as the low 12 bits. Arguments follow the ordinary AArch64
+    convention. See https://gracefulbits.wordpress.com/2018/07/26/system-call-dispatching-for-windows-on-arm64/.
+    """
+
+    ARG_REGS = ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"]
+    FP_ARG_REGS = []
+    RETURN_VAL = SimRegArg("x0", 8)
+    RETURN_ADDR = SimRegArg("ip_at_syscall", 8)
+    ARCH = archinfo.ArchAArch64
+
+    @classmethod
+    def _match(cls, arch, args, sp_delta, unused_hint=None, extra_pop=None):  # pylint: disable=unused-argument
+        # never appears anywhere except syscalls
+        return False
+
+    @staticmethod
+    def syscall_num(state):  # type: ignore
+        insn = state.mem[state.regs.ip_at_syscall - 4].dword.resolved
+        if not ((insn & 0xFFE0001F) == 0xD4000001).is_true():
+            l.error("AArch64 syscall number being queried at an address which is not an SVC")
+            return claripy.BVV(0, 64)
+        return ((insn >> 5) & 0xFFF).zero_extend(32)
 
 
 class SimCCRISCV64(SimCC):
@@ -2464,7 +2730,7 @@ class SimCCO32LinuxSyscall(SimCCSyscall):
         return state.regs.v0
 
 
-class SimCCN64(SimCC):  # TODO: add n32
+class SimCCN64(SimCC):
     ARG_REGS = ["a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"]
     CALLER_SAVED_REGS = ["t9", "gp"]
     FP_ARG_REGS = []  # TODO: ???
@@ -2475,6 +2741,15 @@ class SimCCN64(SimCC):  # TODO: add n32
 
 
 SimCCO64 = SimCCN64  # compatibility
+
+
+class SimCCN32(SimCCN64):
+    """
+    n32 passes its arguments like n64 does and differs only in the width of a pointer.
+    """
+
+    ARCH = archinfo.ArchMIPSN32
+    ARG_SLOT_SIZE = 8
 
 
 class SimCCN64LinuxSyscall(SimCCSyscall):
@@ -2495,6 +2770,11 @@ class SimCCN64LinuxSyscall(SimCCSyscall):
     @staticmethod
     def syscall_num(state):
         return state.regs.v0
+
+
+class SimCCN32LinuxSyscall(SimCCN64LinuxSyscall):
+    ARCH = archinfo.ArchMIPSN32
+    ARG_SLOT_SIZE = 8
 
 
 class SimCCPowerPC(SimCC):
@@ -2643,6 +2923,10 @@ CC: dict[str, dict[str, list[type[SimCC]]]] = {
         "default": [SimCCN64],
         "Linux": [SimCCN64],
     },
+    "MIPSN32": {
+        "default": [SimCCN32],
+        "Linux": [SimCCN32],
+    },
     "PPC32": {
         "default": [SimCCPowerPC],
         "Linux": [SimCCPowerPC],
@@ -2664,22 +2948,71 @@ CC: dict[str, dict[str, list[type[SimCC]]]] = {
 
 
 DEFAULT_CC: dict[str, dict[str, type[SimCC]]] = {
-    "AMD64": {"Linux": SimCCSystemVAMD64, "Win32": SimCCMicrosoftAMD64},
-    "X86": {"Linux": SimCCCdecl, "CGC": SimCCCdecl, "Win32": SimCCMicrosoftCdecl},
-    "ARMEL": {"Linux": SimCCARM},
+    "AMD64": {"Linux": SimCCSystemVAMD64, "Win32": SimCCMicrosoftAMD64, "UEFI": SimCCMicrosoftAMD64},
+    "X86": {"Linux": SimCCCdecl, "CGC": SimCCCdecl, "Win32": SimCCMicrosoftCdecl, "UEFI": SimCCMicrosoftCdecl},
+    "ARMEL": {"Linux": SimCCARM, "UEFI": SimCCARM},
     "ARMHF": {"Linux": SimCCARMHF},
     "ARMCortexM": {"Linux": SimCCARMHF},
     "MIPS32": {"Linux": SimCCO32},
     "MIPS64": {"Linux": SimCCN64},
+    "MIPSN32": {"Linux": SimCCN32},
     "PPC32": {"Linux": SimCCPowerPC},
     "PPC64": {"Linux": SimCCPowerPC64},
-    "AARCH64": {"Linux": SimCCAArch64},
+    "AARCH64": {"Linux": SimCCAArch64, "UEFI": SimCCAArch64},
     "Soot": {"Linux": SimCCSoot},
     "AVR8": {"Linux": SimCCUnknown},
     "MSP": {"Linux": SimCCUnknown},
     "S390X": {"Linux": SimCCS390X},
-    "RISCV64": {"Linux": SimCCRISCV64},
+    "RISCV64": {"Linux": SimCCRISCV64, "UEFI": SimCCRISCV64},
 }
+
+
+# Conventions that only apply to binaries written in a particular language, keyed by
+# language -> architecture -> platform. These are deliberately kept out of CC/DEFAULT_CC so that they
+# are never considered for binaries of other languages.
+CC_BY_LANGUAGE: dict[str, dict[str, dict[str, list[type[SimCC]]]]] = {
+    "go": {
+        "AMD64": {
+            "default": [SimCCGoAMD64],
+            "Linux": [SimCCGoAMD64],
+            "Win32": [SimCCGoAMD64],
+        },
+    },
+}
+
+DEFAULT_CC_BY_LANGUAGE: dict[str, dict[str, dict[str, type[SimCC]]]] = {
+    "go": {
+        "AMD64": {
+            "default": SimCCGoAMD64,
+            "Linux": SimCCGoAMD64,
+            "Win32": SimCCGoAMD64,
+        },
+    },
+}
+
+
+def register_default_cc_by_language(language: str, arch: str, cc: type[SimCC], platform: str = "Linux"):
+    DEFAULT_CC_BY_LANGUAGE.setdefault(language, {}).setdefault(arch, {})[platform] = cc
+    ccs = CC_BY_LANGUAGE.setdefault(language, {}).setdefault(arch, {}).setdefault(platform, [])
+    if cc not in ccs:
+        ccs.append(cc)
+
+
+def _language_cc_map[T](
+    registry: dict[str, dict[str, dict[str, T]]], arch: str, platform: str, language: str | None
+) -> T | None:
+    """
+    Look up a language-specific calling convention entry, falling back to the "default" platform.
+    """
+    if language is None:
+        return None
+    by_arch = registry.get(language)
+    if by_arch is None:
+        return None
+    entry = by_arch.get(arch) or by_arch.get(unify_arch_name(arch))
+    if entry is None:
+        return None
+    return entry.get(platform) or entry.get("default")
 
 
 def register_default_cc(arch: str, cc: type[SimCC], platform: str = "Linux"):
@@ -2706,6 +3039,7 @@ ARCH_NAME_ALIASES = {
     "AARCH64": ["arm64", "aarch64"],
     "MIPS32": [],
     "MIPS64": [],
+    "MIPSN32": ["mipsn32"],
     "PPC32": ["powerpc32"],
     "PPC64": ["powerpc64"],
     "RISCV64": ["riscv64"],
@@ -2721,7 +3055,7 @@ for k, vs in ARCH_NAME_ALIASES.items():
         ALIAS_TO_ARCH_NAME[v] = k
 
 
-def default_cc(  # pylint:disable=unused-argument
+def default_cc(
     arch: str,
     platform: str | None = "Linux",
     language: str | None = None,
@@ -2743,6 +3077,11 @@ def default_cc(  # pylint:disable=unused-argument
     if platform is None:
         platform = "Linux"
 
+    if not syscall:
+        lang_cc = _language_cc_map(DEFAULT_CC_BY_LANGUAGE, arch, platform, language)
+        if lang_cc is not None:
+            return lang_cc
+
     cc_map = SYSCALL_CC if syscall else DEFAULT_CC
 
     if arch in cc_map:
@@ -2759,6 +3098,35 @@ def default_cc(  # pylint:disable=unused-argument
     if alias not in cc_map or platform not in cc_map[alias]:
         return default
     return cc_map[alias][platform]
+
+
+def project_language(project) -> str | None:
+    """
+    The source language to pick a calling convention for, or None when there is no confident answer.
+
+    A language-specific ABI reinterprets every argument and return value in the binary, so a detection that rests on
+    something as thin as a single matching symbol name is not acted upon.
+    """
+    if project is None or not project.language_is_certain:
+        return None
+    languages = project.languages()
+    return languages[0] if languages else None
+
+
+def default_cc_for_project(project, syscall: bool = False, default: type[SimCC] | None = None) -> type[SimCC] | None:
+    """
+    Return the default calling convention for a project, taking its architecture, platform and detected source
+    language into account.
+    """
+    if project is None:
+        return default
+    return default_cc(
+        project.arch.name,
+        platform=project.simos.name if project.simos is not None else None,
+        language=project_language(project),
+        syscall=syscall,
+        default=default,
+    )
 
 
 def unify_arch_name(arch: str) -> str:
@@ -2800,6 +3168,7 @@ SYSCALL_CC: dict[str, dict[str, type[SimCCSyscall]]] = {
     "ARMEL": {
         "default": SimCCARMLinuxSyscall,
         "Linux": SimCCARMLinuxSyscall,
+        "Win32": SimCCARMWindowsSyscall,
     },
     "ARMCortexM": {
         # FIXME: TODO: This is wrong.  Fill in with a real CC when we support CM syscalls
@@ -2808,10 +3177,12 @@ SYSCALL_CC: dict[str, dict[str, type[SimCCSyscall]]] = {
     "ARMHF": {
         "default": SimCCARMLinuxSyscall,
         "Linux": SimCCARMLinuxSyscall,
+        "Win32": SimCCARMWindowsSyscall,
     },
     "AARCH64": {
         "default": SimCCAArch64LinuxSyscall,
         "Linux": SimCCAArch64LinuxSyscall,
+        "Win32": SimCCAArch64WindowsSyscall,
     },
     "MIPS32": {
         "default": SimCCO32LinuxSyscall,
@@ -2820,6 +3191,10 @@ SYSCALL_CC: dict[str, dict[str, type[SimCCSyscall]]] = {
     "MIPS64": {
         "default": SimCCN64LinuxSyscall,
         "Linux": SimCCN64LinuxSyscall,
+    },
+    "MIPSN32": {
+        "default": SimCCN32LinuxSyscall,
+        "Linux": SimCCN32LinuxSyscall,
     },
     "PPC32": {
         "default": SimCCPowerPCLinuxSyscall,

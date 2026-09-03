@@ -41,7 +41,6 @@ from .types import (
     CreateClusterRequestPoolConfig,
     CreatePoolRequest,
     CreatePoolRequestUpgradePolicy,
-    ExternalNode,
     ExternalNodeAuth,
     ListClusterACLRulesResponse,
     ListClusterAvailableTypesResponse,
@@ -50,6 +49,7 @@ from .types import (
     ListClustersResponse,
     ListNodesResponse,
     ListPoolsResponse,
+    ListUserDataResponse,
     ListVersionsResponse,
     Node,
     NodeMetadata,
@@ -81,7 +81,6 @@ from .marshalling import (
     unmarshal_Node,
     unmarshal_Pool,
     unmarshal_AddClusterACLRulesResponse,
-    unmarshal_ExternalNode,
     unmarshal_ExternalNodeAuth,
     unmarshal_ListClusterACLRulesResponse,
     unmarshal_ListClusterAvailableTypesResponse,
@@ -90,6 +89,7 @@ from .marshalling import (
     unmarshal_ListClustersResponse,
     unmarshal_ListNodesResponse,
     unmarshal_ListPoolsResponse,
+    unmarshal_ListUserDataResponse,
     unmarshal_ListVersionsResponse,
     unmarshal_NodeMetadata,
     unmarshal_SetClusterACLRulesResponse,
@@ -126,6 +126,7 @@ class K8SV1API(API):
         status: Optional[ClusterStatus] = None,
         type_: Optional[str] = None,
         private_network_id: Optional[str] = None,
+        version: Optional[str] = None,
     ) -> ListClustersResponse:
         """
         List Clusters.
@@ -140,6 +141,7 @@ class K8SV1API(API):
         :param status: Status to filter on, only clusters with this status will be returned.
         :param type_: Type to filter on, only clusters with this type will be returned.
         :param private_network_id: Private Network ID to filter on, only clusters within this Private Network will be returned.
+        :param version: Version to filter on, only cluster matching this prefix version will be returned.
         :return: :class:`ListClustersResponse <ListClustersResponse>`
 
         Usage:
@@ -166,6 +168,7 @@ class K8SV1API(API):
                 "project_id": project_id or self.client.default_project_id,
                 "status": status,
                 "type": type_,
+                "version": version,
             },
         )
 
@@ -185,6 +188,7 @@ class K8SV1API(API):
         status: Optional[ClusterStatus] = None,
         type_: Optional[str] = None,
         private_network_id: Optional[str] = None,
+        version: Optional[str] = None,
     ) -> list[Cluster]:
         """
         List Clusters.
@@ -199,6 +203,7 @@ class K8SV1API(API):
         :param status: Status to filter on, only clusters with this status will be returned.
         :param type_: Type to filter on, only clusters with this type will be returned.
         :param private_network_id: Private Network ID to filter on, only clusters within this Private Network will be returned.
+        :param version: Version to filter on, only cluster matching this prefix version will be returned.
         :return: :class:`list[Cluster] <list[Cluster]>`
 
         Usage:
@@ -222,6 +227,7 @@ class K8SV1API(API):
                 "status": status,
                 "type_": type_,
                 "private_network_id": private_network_id,
+                "version": version,
             },
         )
 
@@ -1043,15 +1049,15 @@ class K8SV1API(API):
         cluster_id: str,
         node_type: str,
         autoscaling: bool,
-        size: int,
         region: Optional[ScwRegion] = None,
         name: Optional[str] = None,
         placement_group_id: Optional[str] = None,
+        size: int,
+        autohealing: bool,
+        public_ip_disabled: bool,
         min_size: Optional[int] = None,
         max_size: Optional[int] = None,
         container_runtime: Optional[Runtime] = None,
-        autohealing: bool,
-        public_ip_disabled: bool,
         tags: Optional[list[str]] = None,
         kubelet_args: Optional[dict[str, str]] = None,
         upgrade_policy: Optional[CreatePoolRequestUpgradePolicy] = None,
@@ -1062,6 +1068,9 @@ class K8SV1API(API):
         labels: Optional[dict[str, str]] = None,
         taints: Optional[list[CoreV1Taint]] = None,
         startup_taints: Optional[list[CoreV1Taint]] = None,
+        private_network_id: Optional[str] = None,
+        user_data: Optional[dict[str, str]] = None,
+        max_termination_grace_period: Optional[str] = None,
     ) -> Pool:
         """
         Create a new Pool in a Cluster.
@@ -1069,18 +1078,18 @@ class K8SV1API(API):
         :param cluster_id: Cluster ID to which the pool will be attached.
         :param node_type: Node type is the type of Scaleway Instance wanted for the pool. Nodes with insufficient memory are not eligible (DEV1-S, PLAY2-PICO, STARDUST). 'external' is a special node type used to provision instances from other cloud providers in a Kosmos Cluster.
         :param autoscaling: Defines whether the autoscaling feature is enabled for the pool.
-        :param size: Size (number of nodes) of the pool.
         :param region: Region to target. If none is passed will use default region from the config.
         :param name: Pool name.
         :param placement_group_id: Placement group ID in which all the nodes of the pool will be created, placement groups are limited to 20 instances.
+        :param size: Size (number of nodes) of the pool.
+        :param autohealing: Defines whether the autohealing feature is enabled for the pool.
+        :param public_ip_disabled: Defines if the public IP should be removed from Nodes. To use this feature, your Cluster must have an attached Private Network set up with a Public Gateway.
         :param min_size: Defines the minimum size of the pool. Note that this field is only used when autoscaling is enabled on the pool.
         :param max_size: Defines the maximum size of the pool. Note that this field is only used when autoscaling is enabled on the pool.
         :param container_runtime: Customization of the container runtime is available for each pool.
-        :param autohealing: Defines whether the autohealing feature is enabled for the pool.
-        :param public_ip_disabled: Defines if the public IP should be removed from Nodes. To use this feature, your Cluster must have an attached Private Network set up with a Public Gateway.
         :param tags: Tags associated with the pool, see [managing tags](https://www.scaleway.com/en/docs/kubernetes/api-cli/managing-tags).
         :param kubelet_args: Kubelet arguments to be used by this pool. Note that this feature is experimental.
-        :param upgrade_policy: Pool upgrade policy.
+        :param upgrade_policy: Defines how node provisioning should behave during pool version upgrade.
         :param zone: Zone in which the pool's nodes will be spawned.
         :param root_volume_type: * `l_ssd` is a local block storage which means your system is stored locally on your node's hypervisor. This type is not available for all node types
         * `sbs_5k` is a remote block storage which means your system is stored on a centralized and resilient cluster with 5k IOPS limits
@@ -1091,6 +1100,9 @@ class K8SV1API(API):
         :param labels: Kubernetes labels applied and reconciled on the nodes.
         :param taints: Kubernetes taints applied and reconciled on the nodes.
         :param startup_taints: Kubernetes taints applied at node creation but not reconciled afterwards.
+        :param private_network_id: Private network where the nodes are attached. Should be member of the same VPC as the API Server.
+        :param user_data: User data applied and reconciled with the pool.
+        :param max_termination_grace_period: Maximum amount of time before the API forces the drain and deletion of a `deleting` node. It overrides pods `PodDisruptionBudget` and `terminationGracePeriodSeconds`. Defaults to 15 minutes, up to 1 hour.
         :return: :class:`Pool <Pool>`
 
         Usage:
@@ -1119,15 +1131,15 @@ class K8SV1API(API):
                     cluster_id=cluster_id,
                     node_type=node_type,
                     autoscaling=autoscaling,
-                    size=size,
                     region=region,
                     name=name or random_name(prefix="pool"),
                     placement_group_id=placement_group_id,
+                    size=size,
+                    autohealing=autohealing,
+                    public_ip_disabled=public_ip_disabled,
                     min_size=min_size,
                     max_size=max_size,
                     container_runtime=container_runtime,
-                    autohealing=autohealing,
-                    public_ip_disabled=public_ip_disabled,
                     tags=tags,
                     kubelet_args=kubelet_args,
                     upgrade_policy=upgrade_policy,
@@ -1138,6 +1150,9 @@ class K8SV1API(API):
                     labels=labels,
                     taints=taints,
                     startup_taints=startup_taints,
+                    private_network_id=private_network_id,
+                    user_data=user_data,
+                    max_termination_grace_period=max_termination_grace_period,
                 ),
                 self.client,
             ),
@@ -1277,6 +1292,7 @@ class K8SV1API(API):
         kubelet_args: Optional[dict[str, str]] = None,
         upgrade_policy: Optional[UpdatePoolRequestUpgradePolicy] = None,
         security_group_id: Optional[str] = None,
+        max_termination_grace_period: Optional[str] = None,
     ) -> Pool:
         """
         Update a Pool in a Cluster.
@@ -1292,6 +1308,7 @@ class K8SV1API(API):
         :param kubelet_args: New Kubelet arguments to be used by this pool. Note that this feature is experimental.
         :param upgrade_policy: New upgrade policy for the pool.
         :param security_group_id: Security group ID in which all the nodes of the pool will be moved.
+        :param max_termination_grace_period: New maximum amount of time before the API forces the drain and deletion of a `deleting` node.
         :return: :class:`Pool <Pool>`
 
         Usage:
@@ -1323,6 +1340,7 @@ class K8SV1API(API):
                     kubelet_args=kubelet_args,
                     upgrade_policy=upgrade_policy,
                     security_group_id=security_group_id,
+                    max_termination_grace_period=max_termination_grace_period,
                 ),
                 self.client,
             ),
@@ -1497,6 +1515,79 @@ class K8SV1API(API):
         self._throw_on_error(res)
         return unmarshal_Pool(res.json())
 
+    def get_user_data(
+        self,
+        *,
+        pool_id: str,
+        key: str,
+        region: Optional[ScwRegion] = None,
+    ) -> ScwFile:
+        """
+        Get a pool related user data.
+        Retrieve specific user data content for a given pool.
+        Tip: add `?dl=1` at the end of the URL to directly retrieve the base64 decoded content of your user data.
+        :param pool_id: Pool the user data are associated to.
+        :param key: User data key to retrieved.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :return: :class:`ScwFile <ScwFile>`
+
+        Usage:
+        ::
+
+            result = api.get_user_data(
+                pool_id="example",
+                key="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_pool_id = validate_path_param("pool_id", pool_id)
+        param_key = validate_path_param("key", key)
+
+        res = self._request(
+            "GET",
+            f"/k8s/v1/regions/{param_region}/pools/{param_pool_id}/user-data/{param_key}",
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_ScwFile(res.json())
+
+    def list_user_data(
+        self,
+        *,
+        pool_id: str,
+        region: Optional[ScwRegion] = None,
+    ) -> ListUserDataResponse:
+        """
+        List all user data related to a given pool.
+        This list only the user data key and not the content.
+        :param pool_id: Pool the user data are associated to.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :return: :class:`ListUserDataResponse <ListUserDataResponse>`
+
+        Usage:
+        ::
+
+            result = api.list_user_data(
+                pool_id="example",
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_pool_id = validate_path_param("pool_id", pool_id)
+
+        res = self._request(
+            "GET",
+            f"/k8s/v1/regions/{param_region}/pools/{param_pool_id}/user-data",
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_ListUserDataResponse(res.json())
+
     def get_node_metadata(
         self,
         *,
@@ -1560,41 +1651,6 @@ class K8SV1API(API):
 
         self._throw_on_error(res)
         return unmarshal_ExternalNodeAuth(res.json())
-
-    def create_external_node(
-        self,
-        *,
-        pool_id: str,
-        region: Optional[ScwRegion] = None,
-    ) -> ExternalNode:
-        """
-        Create a Kosmos node.
-        Retrieve metadata for a Kosmos node. This method is not intended to be called by end users but rather programmatically by the kapsule-node-agent.
-        :param pool_id:
-        :param region: Region to target. If none is passed will use default region from the config.
-        :return: :class:`ExternalNode <ExternalNode>`
-
-        Usage:
-        ::
-
-            result = api.create_external_node(
-                pool_id="example",
-            )
-        """
-
-        param_region = validate_path_param(
-            "region", region or self.client.default_region
-        )
-        param_pool_id = validate_path_param("pool_id", pool_id)
-
-        res = self._request(
-            "POST",
-            f"/k8s/v1/regions/{param_region}/pools/{param_pool_id}/external-nodes",
-            body={},
-        )
-
-        self._throw_on_error(res)
-        return unmarshal_ExternalNode(res.json())
 
     def list_nodes(
         self,
@@ -1782,7 +1838,6 @@ class K8SV1API(API):
         :param node_id: ID of the node to replace.
         :param region: Region to target. If none is passed will use default region from the config.
         :return: :class:`Node <Node>`
-        :deprecated
 
         Usage:
         ::
@@ -1846,15 +1901,13 @@ class K8SV1API(API):
         *,
         node_id: str,
         skip_drain: bool,
-        replace: bool,
         region: Optional[ScwRegion] = None,
     ) -> Node:
         """
         Delete a Node in a Cluster.
-        Delete a specific Node. The node will first be drained and pods will be rescheduled onto another node. Note that when there is not enough space to reschedule all the pods (such as in a one-node cluster, or with specific constraints), disruption of your applications may occur.
+        Delete a specific Node. Pool size is reduced by 1. The node will first be drained and pods will be rescheduled onto another node. Note that when there is not enough space to reschedule all the pods (such as in a one-node cluster, or with specific constraints), disruption of your applications may occur.
         :param node_id: ID of the node to replace.
         :param skip_drain: Skip draining node from its workload (Note: this parameter is currently inactive).
-        :param replace: Add a new node after the deletion of this node.
         :param region: Region to target. If none is passed will use default region from the config.
         :return: :class:`Node <Node>`
 
@@ -1864,7 +1917,6 @@ class K8SV1API(API):
             result = api.delete_node(
                 node_id="example",
                 skip_drain=False,
-                replace=False,
             )
         """
 
@@ -1877,7 +1929,6 @@ class K8SV1API(API):
             "DELETE",
             f"/k8s/v1/regions/{param_region}/nodes/{param_node_id}",
             params={
-                "replace": replace,
                 "skip_drain": skip_drain,
             },
         )

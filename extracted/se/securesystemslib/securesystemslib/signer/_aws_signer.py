@@ -10,18 +10,6 @@ from securesystemslib.exceptions import (
     UnsupportedAlgorithmError,
     UnsupportedLibraryError,
 )
-from securesystemslib.signer._constants import (
-    ECDSA_SHA2_NISTP256,
-    ECDSA_SHA2_NISTP384,
-    KEY_TYPE_ECDSA,
-    KEY_TYPE_RSA,
-    RSA_PKCS1V15_SHA256,
-    RSA_PKCS1V15_SHA384,
-    RSA_PKCS1V15_SHA512,
-    RSASSA_PSS_SHA256,
-    RSASSA_PSS_SHA384,
-    RSASSA_PSS_SHA512,
-)
 from securesystemslib.signer._key import Key, SSlibKey
 from securesystemslib.signer._signer import SecretsHandler, Signature, Signer
 from securesystemslib.signer._utils import compute_default_keyid
@@ -38,29 +26,39 @@ except ImportError:
 
 
 class AWSSigner(Signer):
-    """AWS Key Management Service Signer.
+    """AWS Key Management Service Signer
 
-    This Signer uses AWS KMS to sign, supporting RSA and EC keys.
+    This Signer uses AWS KMS to sign and supports signing with RSA/EC keys and
+    uses "ambient" credentials typically environment variables such as
+    AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_SESSION_TOKEN. These will
+    be recognized by the boto3 SDK, which underlies the aws_kms Python module.
+
     The signer computes hash digests locally and sends only the digest to AWS KMS.
 
-    The private key URI scheme is: ``awskms:<AWS_KEY_ID>``, where ``<AWS_KEY_ID>``
-    can be a key ID, key ARN, alias name, or alias ARN.
+    For more details on AWS authentication, refer to the AWS Command Line
+    Interface User Guide:
+        https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html
 
-    Authentication uses ambient credentials (typically environment variables such as
-    ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, and ``AWS_SESSION_TOKEN``)
-    recognized by the boto3 SDK.
+    Some practical authentication options include:
+        AWS CLI: https://aws.amazon.com/cli/
+        AWS SDKs: https://aws.amazon.com/tools/
 
-    For more details on AWS authentication, refer to the `AWS Command Line
-    Interface User Guide
-    <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html>`_.
+    The specific permissions that AWS KMS signer needs are:
+        kms:Sign for sign()
+        kms:GetPublicKey for import()
 
-    The specific IAM permissions that AWSSigner needs are:
+    Arguments:
+        aws_key_id (str): AWS KMS key ID or alias.
+        public_key (Key): The related public key instance.
 
-    * ``kms:GetPublicKey`` for ``AWSSigner.import_()``
-    * ``kms:Sign`` for ``Signer.sign()``
+    Returns:
+        AWSSigner: An instance of the AWSSigner class.
 
     Raises:
-        UnsupportedLibraryError: If boto3 or cryptography are not installed.
+        UnsupportedAlgorithmError: If the payload hash algorithm is unsupported.
+        BotoCoreError: Errors from the botocore.exceptions library.
+        ClientError: Errors related to AWS KMS client.
+        UnsupportedLibraryError: If necessary libraries for AWS KMS are not available.
     """
 
     SCHEME = "awskms"
@@ -68,15 +66,15 @@ class AWSSigner(Signer):
     # Ordered dict of securesystemslib schemes to aws signing algorithms
     # NOTE: the order matters when choosing a default (see _get_default_scheme)
     aws_algos = {
-        ECDSA_SHA2_NISTP256: "ECDSA_SHA_256",
-        ECDSA_SHA2_NISTP384: "ECDSA_SHA_384",
+        "ecdsa-sha2-nistp256": "ECDSA_SHA_256",
+        "ecdsa-sha2-nistp384": "ECDSA_SHA_384",
         # "ecdsa-sha2-nistp521": "ECDSA_SHA_512", # FIXME: needs SSlibKey support
-        RSASSA_PSS_SHA256: "RSASSA_PSS_SHA_256",
-        RSASSA_PSS_SHA384: "RSASSA_PSS_SHA_384",
-        RSASSA_PSS_SHA512: "RSASSA_PSS_SHA_512",
-        RSA_PKCS1V15_SHA256: "RSASSA_PKCS1_V1_5_SHA_256",
-        RSA_PKCS1V15_SHA384: "RSASSA_PKCS1_V1_5_SHA_384",
-        RSA_PKCS1V15_SHA512: "RSASSA_PKCS1_V1_5_SHA_512",
+        "rsassa-pss-sha256": "RSASSA_PSS_SHA_256",
+        "rsassa-pss-sha384": "RSASSA_PSS_SHA_384",
+        "rsassa-pss-sha512": "RSASSA_PSS_SHA_512",
+        "rsa-pkcs1v15-sha256": "RSASSA_PKCS1_V1_5_SHA_256",
+        "rsa-pkcs1v15-sha384": "RSASSA_PKCS1_V1_5_SHA_384",
+        "rsa-pkcs1v15-sha512": "RSASSA_PKCS1_V1_5_SHA_512",
     }
 
     def __init__(self, aws_key_id: str, public_key: SSlibKey):
@@ -120,10 +118,10 @@ class AWSSigner(Signer):
 
     @staticmethod
     def _get_keytype_for_scheme(scheme: str) -> str:
-        if scheme.startswith(KEY_TYPE_ECDSA):
-            return KEY_TYPE_ECDSA
-        if scheme.startswith(KEY_TYPE_RSA):
-            return KEY_TYPE_RSA
+        if scheme.startswith("ecdsa"):
+            return "ecdsa"
+        if scheme.startswith("rsa"):
+            return "rsa"
         raise RuntimeError
 
     @classmethod
@@ -136,18 +134,20 @@ class AWSSigner(Signer):
         be called once per key: the uri and Key should be stored for later use.
 
         Arguments:
-            aws_key_id: AWS KMS key ID.
-            local_scheme: securesystemslib key scheme.
-                Defaults to 'rsassa-pss-sha256' if not provided.
+            aws_key_id (str): AWS KMS key ID.
+            local_scheme (Optional[str]): The Secure Systems Library RSA/ECDSA scheme.
+            Defaults to 'rsassa-pss-sha256' if not provided and RSA.
+
+        Returns:
+            Tuple[str, SSlibKey]: A tuple where the first element is a string
+            representing the private key URI, and the second element is an
+            instance of the public key.
 
         Raises:
             UnsupportedAlgorithmError: If the AWS KMS signing algorithm is
-                unsupported.
+            unsupported.
             BotoCoreError: Errors from the botocore library.
             ClientError: Errors related to AWS KMS client.
-
-        Returns:
-            A tuple of private key URI string and public key.
         """
         if AWS_IMPORT_ERROR:
             raise UnsupportedLibraryError(AWS_IMPORT_ERROR)

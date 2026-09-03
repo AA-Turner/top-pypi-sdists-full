@@ -7,6 +7,7 @@ from __future__ import annotations
 import collections.abc
 import contextlib
 import dataclasses
+import functools
 import re
 import warnings
 from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
@@ -186,8 +187,9 @@ def default_converter(*, resolve_paths: bool = True) -> Converter:
 
     Return:
         If :program:`cattrs` is installed, a :class:`cattrs.Converter`.  Else, a
-        :class:`TSConverter`.  The converters are configured to handle the following
-        types:
+        :class:`TSConverter`.
+
+        The converter is configured to handle the following scalar types:
 
         - :class:`bool` (see :func:`to_bool()` for supported inputs)
         - :class:`int`
@@ -204,6 +206,9 @@ def default_converter(*, resolve_paths: bool = True) -> Converter:
         - :class:`typing.Literal` (for CLI generation, all values must be `str`).
         - :class:`typed_settings.types.Secret`
         - :class:`typed_settings.types.SecretStr`
+
+        The converter is configured to handle the following collection/composite types:
+
         - :class:`list`
         - :class:`tuple`
         - :class:`dict`
@@ -273,7 +278,7 @@ def get_default_cattrs_converter(resolve_paths: bool = True) -> cattrs.Converter
             "'python -m pip install -U typed-settings[cattrs]'"
         ) from e
 
-    converter = cattrs.Converter()
+    converter = cattrs.Converter(use_alias=True)
     register_mappingproxy_hook(converter)
     register_attrs_hook_factory(converter)
     register_dataclasses_hook_factory(converter)
@@ -352,31 +357,34 @@ def register_attrs_hook_factory(converter: cattrs.Converter) -> None:
     Args:
         converter: The :class:`cattrs.Converter` to register the hook at.
     """
+    import attrs
+    from cattrs.gen import make_dict_structure_fn
 
-    def allow_attrs_instances(typ):  # type: ignore[no-untyped-def]
-        def structure_attrs(val, _):  # type: ignore[no-untyped-def]
-            if isinstance(val, typ):
+    TA = TypeVar("TA", bound=attrs.AttrsInstance)
+
+    def gen_structure_attrs_fromdict(
+        cl: type[TA],
+    ) -> Callable[[Mapping[str, Any], Any], TA]:
+        attribs = attrs.fields(cl)
+        attrib_overrides = {
+            a.name: converter.type_overrides[a.type]
+            for a in attribs
+            if a.type in converter.type_overrides
+        }
+        structure_fn = make_dict_structure_fn(cl, converter, **attrib_overrides)  # type: ignore[arg-type]
+
+        # The "wraps()" call is essential because this is what cattrs use field aliases
+        # for uniton disambiguation if
+        @functools.wraps(structure_fn)
+        def structure_attrs(val, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if isinstance(val, cl):
                 return val
 
-            # Like structure_attrs_fromdict but using aliases instead of names. This is
-            # used instead of the `use_alias` argument as that only works with functions
-            # generated using `make_dict_structure_fn`, which is not used here.
-            conv_obj = {}  # Start with a fresh dict, to ignore extra keys.
-            for a in attrs.fields(typ):
-                try:
-                    _val = val[a.alias]
-                except KeyError:
-                    continue
-
-                conv_obj[a.alias] = converter._structure_attribute(a, _val)
-
-            return typ(**conv_obj)
+            return structure_fn(val, *args, **kwargs)
 
         return structure_attrs
 
-    import attrs
-
-    converter.register_structure_hook_factory(attrs.has, allow_attrs_instances)
+    converter.register_structure_hook_factory(attrs.has, gen_structure_attrs_fromdict)
 
 
 def register_dataclasses_hook_factory(converter: cattrs.Converter) -> None:

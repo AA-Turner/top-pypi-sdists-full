@@ -22,6 +22,7 @@ import base64
 import inspect
 import json
 import mimetypes
+import re
 import time
 from functools import lru_cache
 from pathlib import Path
@@ -785,6 +786,7 @@ def chat(
     messages = _build_messages(inputs, prompt)
     start_time = time.time()
     status_msg = f"Processing ([bold]{model}[/bold])..."
+    generation_s: Optional[float] = None
 
     # Stream by default for all input modalities (documents, images, videos,
     # text). The gateway emits SSE for every chat request: real token-by-token
@@ -816,7 +818,7 @@ def chat(
     elif output_json:
         # Stream from the gateway but buffer into a single JSON object.
         with handle_api_errors():
-            content, reasoning, usage = _drain_stream(
+            content, reasoning, usage, generation_s = _drain_stream(
                 client.gateway.completions.create(
                     model=model, messages=messages, stream=True, **create_kwargs
                 )
@@ -854,7 +856,7 @@ def chat(
                 seen["content"] = len(c)
 
         with handle_api_errors():
-            content, reasoning, usage = _drain_stream(
+            content, reasoning, usage, generation_s = _drain_stream(
                 client.gateway.completions.create(
                     model=model, messages=messages, stream=True, **create_kwargs
                 ),
@@ -867,26 +869,36 @@ def chat(
         if error:
             console.print(f"[red]Error:[/] {error}")
             raise typer.Exit(1)
-        console.rule(_stats_footer(model, latency_s, usage), align="right", style="blue")
+        pages = _parse_document_pages_from_content(content)
+        console.rule(
+            _stats_footer(
+                model, latency_s, usage, pages=pages, generation_s=generation_s
+            ),
+            align="right",
+            style="dim",
+        )
         return
 
     error = _content_error(content)
 
     if output_json:
-        out = {
-            "model": model,
-            "content": content,
-            "latency_s": latency_s,
-            "usage": usage.model_dump() if hasattr(usage, "model_dump") else usage,
-        }
-        print(json.dumps(out, indent=2, default=str))
+        print(
+            json.dumps(
+                _build_chat_json(model, content, latency_s, usage),
+                indent=2,
+                default=str,
+            )
+        )
         raise typer.Exit(1 if error else 0)
 
     if error:
         console.print(f"[red]Error:[/] {error}")
         raise typer.Exit(1)
 
-    _print_output(content, model, latency_s, usage)
+    pages = _parse_document_pages_from_content(content)
+    _print_output(
+        content, model, latency_s, usage, pages=pages, generation_s=generation_s
+    )
 
 
 EMBED_HELP = """Embed text, images or video with a gateway embedding model.
@@ -1005,24 +1017,109 @@ def _format_cost(cost: Any) -> Optional[str]:
     return formatted if formatted != "$0" else "<$0.000001"
 
 
-def _format_toks_per_sec(completion_tokens: int, latency_s: float) -> Optional[str]:
-    """Format completion throughput as integer tokens/sec, or None when not computable."""
-    if not completion_tokens or latency_s <= 0:
+def _format_toks_per_sec(completion_tokens: int, generation_s: float) -> Optional[str]:
+    """Format completion throughput as integer tokens/sec, or None when not computable.
+
+    ``generation_s`` should cover only the token-generation window (from the
+    first streamed token to the end), not time-to-first-token or request setup.
+    """
+    if not completion_tokens or generation_s <= 0:
         return None
-    return f"{int(completion_tokens / latency_s)} toks/s"
+    return f"{int(completion_tokens / generation_s)} toks/s"
 
 
-def _drain_stream(stream, on_update=None) -> Tuple[str, str, Any]:
-    """Consume a chat-completion stream into (content, reasoning, usage).
+
+_DOCUMENT_OPEN_RE = re.compile(r"<document\b[^>]*>", re.IGNORECASE)
+_PAGE_COUNT_ATTR_RE = re.compile(
+    r"(?:pages|num_pages)\s*=\s*['\"](\d+)['\"]",
+    re.IGNORECASE,
+)
+_PAGE_OPEN_RE = re.compile(r"<page\b", re.IGNORECASE)
+
+
+def _parse_document_pages_from_content(content: str) -> Optional[int]:
+    """Page count from gateway OCR output (``pages`` / ``num_pages`` or ``<page>`` tags)."""
+    if not content:
+        return None
+
+    from_attrs = 0
+    found_attr = False
+    for tag in _DOCUMENT_OPEN_RE.findall(content):
+        match = _PAGE_COUNT_ATTR_RE.search(tag)
+        if match:
+            from_attrs += int(match.group(1))
+            found_attr = True
+    if found_attr:
+        return from_attrs if from_attrs > 0 else None
+
+    # Attributes can appear outside a single-line opener (streaming / long tags).
+    try:
+        from_attrs = sum(int(m) for m in _PAGE_COUNT_ATTR_RE.findall(content))
+    except ValueError:
+        from_attrs = 0
+    if from_attrs > 0:
+        return from_attrs
+
+    # glm-ocr markdown: per-page ``<page page_index="N">`` blocks without a count attr.
+    page_tags = _PAGE_OPEN_RE.findall(content)
+    if page_tags:
+        return len(page_tags)
+
+    return None
+
+
+def _pages_per_sec(pages: int, latency_s: float) -> Optional[float]:
+    """Pages per second rounded to two decimals, or None when not computable."""
+    if pages <= 0 or latency_s <= 0:
+        return None
+    return round(pages / latency_s, 2)
+
+
+def _build_chat_json(
+    model: str,
+    content: str,
+    latency_s: float,
+    usage: Any,
+) -> Dict[str, Any]:
+    """JSON payload for ``gw chat --json``, including pages parsed from OCR output."""
+    out: Dict[str, Any] = {
+        "model": model,
+        "content": content,
+        "latency_s": latency_s,
+        "usage": usage.model_dump() if hasattr(usage, "model_dump") else usage,
+    }
+    pages = _parse_document_pages_from_content(content)
+    if pages is not None:
+        out["pages"] = pages
+        rate = _pages_per_sec(pages, latency_s)
+        if rate is not None:
+            out["pages_per_sec"] = rate
+    return out
+
+
+def _format_pages_per_sec(pages: int, latency_s: float) -> Optional[str]:
+    """Format document throughput as pages/sec with two decimal places."""
+    rate = _pages_per_sec(pages, latency_s)
+    if rate is None:
+        return None
+    return f"{rate:.2f} pages/s"
+
+
+def _drain_stream(stream, on_update=None) -> Tuple[str, str, Any, Optional[float]]:
+    """Consume a chat-completion stream into (content, reasoning, usage, generation_s).
 
     Collects ``delta.content`` and, for reasoning models (e.g. qwen3.8-27b),
     the ``delta.reasoning`` / ``delta.reasoning_content`` tokens they emit
     before the answer. ``on_update(content, reasoning)`` is called after each
     chunk that adds text, so callers can render incrementally.
+
+    ``generation_s`` is the wall time from the first content/reasoning token to
+    the end of the stream, excluding time-to-first-token.
     """
     content: List[str] = []
     reasoning: List[str] = []
     usage: Any = None
+    first_token_at: float | None = None
     for chunk in stream:
         changed = False
         choices = getattr(chunk, "choices", None)
@@ -1040,14 +1137,34 @@ def _drain_stream(stream, on_update=None) -> Tuple[str, str, Any]:
                 if thought:
                     reasoning.append(thought)
                     changed = True
+        if changed and first_token_at is None:
+            first_token_at = time.perf_counter()
         if getattr(chunk, "usage", None):
             usage = chunk.usage
         if changed and on_update is not None:
             on_update("".join(content), "".join(reasoning))
-    return "".join(content), "".join(reasoning), usage
+    generation_s: float | None = None
+    if first_token_at is not None:
+        generation_s = time.perf_counter() - first_token_at
+    return "".join(content), "".join(reasoning), usage, generation_s
 
 
-def _stats_parts(model: str, latency_s: Optional[float], usage: Any) -> List[str]:
+_STATS_LINE_STYLE = "dim white not bold"
+
+
+def _stats_markup(parts: List[str]) -> str:
+    """Rich markup for the gw chat stats line — dim white, not bold."""
+    return f"[{_STATS_LINE_STYLE}]{' · '.join(parts)}[/{_STATS_LINE_STYLE}]"
+
+
+def _stats_parts(
+    model: str,
+    latency_s: Optional[float],
+    usage: Any,
+    *,
+    pages: Optional[int] = None,
+    generation_s: Optional[float] = None,
+) -> List[str]:
     """The model / token / throughput / latency / cost fragments for a footer."""
     stats = [model]
     if usage is not None:
@@ -1055,13 +1172,20 @@ def _stats_parts(model: str, latency_s: Optional[float], usage: Any) -> List[str
         if total:
             prompt_toks = getattr(usage, "prompt_tokens", 0)
             completion_toks = getattr(usage, "completion_tokens", 0)
-            stats.append(f"P:{prompt_toks} / C:{completion_toks} / T:{total} tokens")
-            if latency_s is not None:
-                toks_per_sec = _format_toks_per_sec(completion_toks, latency_s)
+            stats.append(f"P:{prompt_toks} / C:{completion_toks} / T:{total} toks")
+            throughput_s = generation_s if generation_s is not None else latency_s
+            if throughput_s is not None:
+                toks_per_sec = _format_toks_per_sec(completion_toks, throughput_s)
                 if toks_per_sec:
                     stats.append(toks_per_sec)
+    if pages is not None:
+        stats.append(f"{pages} pages")
+        if latency_s is not None:
+            pages_per_sec = _format_pages_per_sec(pages, latency_s)
+            if pages_per_sec:
+                stats.append(pages_per_sec)
     if latency_s is not None:
-        stats.append(f"{latency_s:.2f}s")
+        stats.append(f"{int(round(latency_s))}s")
     if usage is not None:
         cost = _format_cost(getattr(usage, "cost", None))
         if cost:
@@ -1069,9 +1193,18 @@ def _stats_parts(model: str, latency_s: Optional[float], usage: Any) -> List[str
     return stats
 
 
-def _stats_footer(model: str, latency_s: Optional[float], usage: Any) -> str:
+def _stats_footer(
+    model: str,
+    latency_s: Optional[float],
+    usage: Any,
+    *,
+    pages: Optional[int] = None,
+    generation_s: Optional[float] = None,
+) -> str:
     """A dim one-line stats footer, right-padded to sit under streamed text."""
-    return f"[dim][white]{' · '.join(_stats_parts(model, latency_s, usage))}[/white][/dim]"
+    return _stats_markup(
+        _stats_parts(model, latency_s, usage, pages=pages, generation_s=generation_s)
+    )
 
 
 def _response_panel(
@@ -1081,6 +1214,8 @@ def _response_panel(
     usage: Any,
     *,
     reasoning: str = "",
+    pages: Optional[int] = None,
+    generation_s: Optional[float] = None,
 ) -> Panel:
     """Build the bordered Rich panel for a buffered gateway response.
 
@@ -1100,7 +1235,9 @@ def _response_panel(
     else:
         body = "[dim](empty response)[/dim]"
 
-    subtitle = f"[dim][white]{' · '.join(_stats_parts(model, latency_s, usage))}[/white][/dim]"
+    subtitle = _stats_markup(
+        _stats_parts(model, latency_s, usage, pages=pages, generation_s=generation_s)
+    )
     return Panel(
         body,
         title="[bold]Response[/bold]",
@@ -1112,9 +1249,26 @@ def _response_panel(
     )
 
 
-def _print_output(content: str, model: str, latency_s: float, usage: Any) -> None:
+def _print_output(
+    content: str,
+    model: str,
+    latency_s: float,
+    usage: Any,
+    *,
+    pages: Optional[int] = None,
+    generation_s: Optional[float] = None,
+) -> None:
     """Render the gateway response in a Rich panel."""
-    console.print(_response_panel(content, model, latency_s, usage))
+    console.print(
+        _response_panel(
+            content,
+            model,
+            latency_s,
+            usage,
+            pages=pages,
+            generation_s=generation_s,
+        )
+    )
 
 
 @app.command(help=EMBED_HELP, context_settings={"max_content_width": 120})

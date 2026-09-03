@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-28T18:11:58.370001                                                            #
+# Generated on 2026-09-02T23:51:38.052877                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
+    import typing
     import metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery
     import metaflow.exception
-    import typing
 
 from .....exception import MetaflowException as MetaflowException
 from .fast_bakery import FastBakery as FastBakery
@@ -28,7 +28,7 @@ class BakerException(metaflow.exception.MetaflowException, metaclass=type):
         ...
     ...
 
-def bake_image(cache_file_path: str, ref: typing.Union[str, None] = None, python: typing.Union[str, None] = None, pypi_packages: typing.Union[typing.Dict[str, str], None] = None, conda_packages: typing.Union[typing.Dict[str, str], None] = None, base_image: typing.Union[str, None] = None, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None, fast_bakery_url: typing.Union[str, None] = None, channels: typing.Union[list, None] = None) -> metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.FastBakeryApiResponse:
+def bake_image(cache_file_path: str, ref: typing.Union[str, None] = None, python: typing.Union[str, None] = None, pypi_packages: typing.Union[typing.Dict[str, str], None] = None, conda_packages: typing.Union[typing.Dict[str, str], None] = None, base_image: typing.Union[str, None] = None, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None, fast_bakery_url: typing.Union[str, None] = None, channels: typing.Union[list, None] = None, extra_configs: typing.Union[typing.Dict[str, str], None] = None) -> metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.FastBakeryApiResponse:
     """
     Bakes a Docker image with the specified dependencies.
     
@@ -41,6 +41,9 @@ def bake_image(cache_file_path: str, ref: typing.Union[str, None] = None, python
         base_image: Base Docker image to use
         logger: Optional logger function to output progress
         fast_bakery_url: Optional FB URL
+        channels: Optional list of conda channels to use
+        extra_configs: Optional dictionary of extra configuration values passed
+            through to the bakery
     
     Returns:
         FastBakeryApiResponse: The response from the bakery service

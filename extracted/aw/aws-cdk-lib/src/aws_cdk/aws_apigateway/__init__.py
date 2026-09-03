@@ -12594,7 +12594,8 @@ class CfnRestApi(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            version="version"
         )
     '''
 
@@ -12620,6 +12621,7 @@ class CfnRestApi(
         policy: typing.Any = None,
         security_policy: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ApiGateway::RestApi``.
 
@@ -12642,6 +12644,7 @@ class CfnRestApi(
         :param policy: A policy document that contains the permissions for the ``RestApi`` resource. To set the ARN for the policy, use the ``!Join`` intrinsic function with ``""`` as delimiter and values of ``"execute-api:/"`` and ``"*"`` .
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this RestApi.
         :param tags: The key-value map of strings. The valid character set is [a-zA-Z+-=._:/]. The tag key can be up to 128 characters and must not start with ``aws:`` . The tag value can be up to 256 characters.
+        :param version: 
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__781aae0a2f2512495cbd89d2be23edec0478e71fd6a59c0527cabb245cb94761)
@@ -12665,6 +12668,7 @@ class CfnRestApi(
             policy=policy,
             security_policy=security_policy,
             tags=tags,
+            version=version,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -13038,6 +13042,18 @@ class CfnRestApi(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="version")
+    def version(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "version"))
+
+    @version.setter
+    def version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f92a217c6a4c0b64405373be96ed29424c4da6803d916daf32712285548bcb55)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_apigateway.CfnRestApi.EndpointConfigurationProperty",
         jsii_struct_bases=[],
@@ -13268,6 +13284,7 @@ class CfnRestApi(
         "policy": "policy",
         "security_policy": "securityPolicy",
         "tags": "tags",
+        "version": "version",
     },
 )
 class CfnRestApiProps:
@@ -13291,6 +13308,7 @@ class CfnRestApiProps:
         policy: typing.Any = None,
         security_policy: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnRestApi``.
 
@@ -13311,6 +13329,7 @@ class CfnRestApiProps:
         :param policy: A policy document that contains the permissions for the ``RestApi`` resource. To set the ARN for the policy, use the ``!Join`` intrinsic function with ``""`` as delimiter and values of ``"execute-api:/"`` and ``"*"`` .
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this RestApi.
         :param tags: The key-value map of strings. The valid character set is [a-zA-Z+-=._:/]. The tag key can be up to 128 characters and must not start with ``aws:`` . The tag value can be up to 256 characters.
+        :param version: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-restapi.html
         :exampleMetadata: fixture=_generated
@@ -13356,7 +13375,8 @@ class CfnRestApiProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                version="version"
             )
         '''
         if __debug__:
@@ -13378,6 +13398,7 @@ class CfnRestApiProps:
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument security_policy", value=security_policy, expected_type=type_hints["security_policy"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if api_key_source_type is not None:
             self._values["api_key_source_type"] = api_key_source_type
@@ -13413,6 +13434,8 @@ class CfnRestApiProps:
             self._values["security_policy"] = security_policy
         if tags is not None:
             self._values["tags"] = tags
+        if version is not None:
+            self._values["version"] = version
 
     @builtins.property
     def api_key_source_type(self) -> typing.Optional[builtins.str]:
@@ -13612,6 +13635,14 @@ class CfnRestApiProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-restapi.html#cfn-apigateway-restapi-version
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -37273,6 +37304,7 @@ def _typecheckingstub__781aae0a2f2512495cbd89d2be23edec0478e71fd6a59c0527cabb245
     policy: typing.Any = None,
     security_policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37411,6 +37443,12 @@ def _typecheckingstub__9ae71bb5beb4f360ca0016003cbb508243a9ad4b5e494d1a4655780f8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f92a217c6a4c0b64405373be96ed29424c4da6803d916daf32712285548bcb55(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__df9522828c39c6e4b1e829251c3b77d5b94051a139bf4f10dfa3ac8717e878b6(
     *,
     ip_address_type: typing.Optional[builtins.str] = None,
@@ -37449,6 +37487,7 @@ def _typecheckingstub__5e6d4ed4722f0c07021ff207940f8656b0bbeb24224daef1a2a167c70
     policy: typing.Any = None,
     security_policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

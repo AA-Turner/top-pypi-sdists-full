@@ -191,18 +191,11 @@ class TimingTaskBase(OpenSTATask):
 
         self.set_script("sc_timing.tcl")
 
-        if f"{self.design_topmodule}.vg" in self.get_files_from_input_nodes():
-            self.add_input_file(ext="vg")
-        else:
-            # sc_timing.tcl reads the netlist from the design filesets when no vg
-            # input is present; declare them required so they are hashed (cache)
-            # and copied (remote runs).
-            for obj, key in self.get_fileset_file_keys("verilog"):
-                self.add_required_key(obj, *key)
+        self._add_netlist_inputs()
 
         if self.get("var", "timing_mode"):
             self.add_required_key("var", "timing_mode")
-            if self.get("var", "timing_mode") not in self.project.constraint.timing.get_modes():
+            if self.get("var", "timing_mode") not in self.project.constraint.timing.get_mode():
                 raise LookupError(f'{self.get("var", "timing_mode")} is not a defined mode')
         self.add_required_key("var", "top_n_paths")
         self.add_required_key("var", "unique_path_groups_per_clock")
@@ -248,6 +241,22 @@ class TimingTaskBase(OpenSTATask):
         else:
             # default: VCD provided via the active filesets
             for obj, key in self.get_fileset_file_keys("vcd"):
+                self.add_required_key(obj, *key)
+
+    def _add_netlist_inputs(self):
+        """Declare where sc_read_design.tcl will find the gate-level netlist.
+
+        Split out of :meth:`setup` so a subclass that supplies the netlist by
+        another route can suppress it -- :class:`.opensta.open.OpenTask` copies
+        ``showfilepath`` into ``inputs/`` instead.
+        """
+        if f"{self.design_topmodule}.vg" in self.get_files_from_input_nodes():
+            self.add_input_file(ext="vg")
+        else:
+            # sc_read_design.tcl reads the netlist from the design filesets when no
+            # vg input is present; declare them required so they are hashed (cache)
+            # and copied (remote runs).
+            for obj, key in self.get_fileset_file_keys("verilog"):
                 self.add_required_key(obj, *key)
 
     def post_process(self):
@@ -433,6 +442,26 @@ class TimingTask(TimingTaskBase):
         vars["opensta_timing_mode"] = "asic"
         return vars
 
+    def _get_delaymodel(self) -> Optional[str]:
+        """Return :keypath:`ASIC,asic,delaymodel`, rejecting what OpenSTA cannot read.
+
+        The ``(corner, delaymodel)`` key a library groups its timing filesets under
+        is free-form, so a target can name a model that is not a flavor of Liberty
+        at all (a compiled binary model, ECSM, ...). Reading such a fileset would
+        hand OpenSTA files it cannot parse, so reject the model here instead.
+
+        An unset delay model is passed through untouched; :meth:`.ASIC._check_manifest`
+        is what reports that, and with a better message than this can give.
+
+        Raises:
+            ValueError: if the delay model is set to anything but ``nldm`` or ``ccs``.
+        """
+        delaymodel = self.project.get("asic", "delaymodel")
+        if delaymodel is not None and delaymodel not in ("nldm", "ccs"):
+            raise ValueError(f"{delaymodel} is not a supported delay model, "
+                             "supported delay models are: nldm, ccs")
+        return delaymodel
+
     def setup(self):
         """
         Prepare timing-related input files for an ASIC timing task by registering SDC,
@@ -462,7 +491,12 @@ class TimingTask(TimingTaskBase):
             timing_mode = self.get("var", "timing_mode")
             if timing_mode:
                 mode_obj = self.project.constraint.timing.get_mode(timing_mode)
-                for lib, fileset in mode_obj.get_sdcfileset():
+                # step/index: sdcfileset is PerNode.OPTIONAL, and the tcl manifest
+                # carries the value resolved for this node, so reading the global
+                # here would declare files the script does not read and miss the
+                # ones it does.
+                for lib, fileset in mode_obj.get_sdcfileset(step=self.step,
+                                                            index=self.index):
                     libobj = self.project.get_library(lib)
                     for fs_lib, fs in self.project.get_filesets(library=libobj,
                                                                 filesets=[fileset]):
@@ -471,7 +505,7 @@ class TimingTask(TimingTaskBase):
 
         # per-corner liberty files are read by sc_timing.tcl; declare them required
         # so they are hashed (cache) and copied (remote runs).
-        delay_model = self.project.get("asic", "delaymodel")
+        delay_model = self._get_delaymodel()
         for asiclib in self.project.get("asic", "asiclib"):
             lib = self.project.get_library(asiclib)
             for scenario in self.project.constraint.timing.get_scenario().values():

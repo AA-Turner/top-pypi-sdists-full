@@ -1,9 +1,13 @@
 name: AI PR Loop Watchdog
 
 on:
-  schedule:
-    - cron: "*/20 * * * *"
   workflow_dispatch: {}
+  repository_dispatch:
+    types:
+      - ai-pr-loop-due-probe
+  schedule:
+    - cron: '*/20 * * * *'
+    - cron: '*/5 * * * *'
 
 concurrency:
   # Each scheduling workflow uses its own group to prevent cross-workflow
@@ -13,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   actions: write
   pull-requests: read
 
@@ -35,10 +39,36 @@ jobs:
           pip install -e .
       - name: Restart stalled ai-pr-loop when eligible PRs exist
         run: |
-          agdt-ai-pr-loop-watchdog \
-            --repo "${{ github.repository }}" \
-            --default-branch "${{ github.event.repository.default_branch }}"
+          MODE="watchdog"
+          if [ "${{ github.event_name }}" = "repository_dispatch" ] ||
+            { [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" = "*/5 * * * *" ]; }; then
+            MODE="due-probe-only"
+          fi
+          if [ "$MODE" = "due-probe-only" ] &&
+             [ "${{ github.event_name }}" = "schedule" ] &&
+             [ "${{ github.event.schedule }}" = "*/5 * * * *" ]; then
+            for iteration in 1 2 3 4 5; do
+              started_at=$(date +%s)
+              agdt-ai-pr-loop-watchdog \
+                --mode "$MODE" \
+                --repo "${{ github.repository }}" \
+                --default-branch "${{ github.event.repository.default_branch }}"
+              elapsed=$(( $(date +%s) - started_at ))
+              delay=$(( 60 - elapsed ))
+              if [ "$iteration" -lt 5 ] && [ "$delay" -gt 0 ]; then
+                sleep "$delay"
+              fi
+            done
+          else
+            agdt-ai-pr-loop-watchdog \
+              --mode "$MODE" \
+              --repo "${{ github.repository }}" \
+              --default-branch "${{ github.event.repository.default_branch }}"
+          fi
         env:
           GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          AGDT_PR_APPROVER_PAT: ${{ secrets.AGDT_PR_APPROVER_PAT }}
           AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
           REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}

@@ -62,6 +62,9 @@ class ResourceType(str, Enum, metaclass=StrEnumMeta):
     DTWH_DEPLOYMENT = "dtwh_deployment"
     SEDB_CLUSTER = "sedb_cluster"
     MSGQ_CLUSTER = "msgq_cluster"
+    EDGE_VPC_ENDPOINT = "edge_vpc_endpoint"
+    DVIZ_CLUSTER = "dviz_cluster"
+    NATS_CLUSTER = "nats_cluster"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -112,6 +115,8 @@ class Source:
     subnet_id: Optional[str] = None
 
     vpc_id: Optional[str] = None
+
+    regional: Optional[bool] = False
 
 
 @dataclass
@@ -365,6 +370,8 @@ class ListIPsRequest:
     """
 
     zonal: Optional[str] = None
+
+    regional: Optional[bool] = False
 
     private_network_id: Optional[str] = None
 

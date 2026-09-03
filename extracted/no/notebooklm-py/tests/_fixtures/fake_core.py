@@ -2,15 +2,15 @@
 
 This module provides a single entry point — :func:`make_fake_core` — that
 returns a ``FakeSession`` instance shaped to satisfy the **shared
-capability Protocols** in :mod:`notebooklm._runtime.contracts`
-(``RpcCaller``, ``LoopGuard``, ``Kernel``) plus the single-consumer
+capability Protocols** in :mod:`notebooklm._web.contracts`
+(``RpcCaller``, ``Kernel``) and :mod:`notebooklm._runtime.contracts`
+(``LoopGuard``), plus the single-consumer
 Protocols inlined into their owning feature modules in issue #1327
-(``AuthMetadata`` in ``notebooklm._source.upload``,
-``OperationScopeProvider`` in ``notebooklm._artifact.polling``). Feature APIs that
+(``AuthMetadata`` in ``notebooklm._web.sources.upload``). Feature APIs that
 need more than one capability take their direct collaborators by
-keyword-only constructor argument (``ChatAPI`` in ``notebooklm._chat.api``,
+keyword-only constructor argument (``ChatAPI`` in ``notebooklm._chat``,
 ``ArtifactsAPI`` in ``_artifacts.py``, ``SourceUploadPipeline`` in
-``notebooklm._source.upload``); the feature-local composite Protocols
+``notebooklm._web.sources.upload``); the feature-local composite Protocols
 ``ArtifactsRuntime`` and ``UploadRuntime`` (and their adapter
 dataclasses) were retired once it was clear they only hid three stable
 collaborators with one production satisfier. (``ChatRuntime`` was
@@ -24,7 +24,7 @@ feature API. Both attributes are wired to the same underlying mock so
 ``fake.rpc_call.assert_awaited`` and
 ``fake.rpc_executor.rpc_call.assert_awaited`` observe the same calls.
 Tests pass the result to a sub-client constructor (e.g.
-``NotebooksAPI(fake.rpc_executor)``) instead of constructing a real
+``WebNotebooksAPI(fake.rpc_executor)``) instead of constructing a real
 client/runtime stack and mutating its attributes after the fact.
 
 Phase 7 (refactor-history.md §Migration Plan step 10) deleted the broad
@@ -56,6 +56,7 @@ Design choices (documented in ADR-0007 "Alternatives considered"):
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -106,17 +107,20 @@ def make_fake_core(**overrides: Any) -> FakeSession:
     Example::
 
         fake = make_fake_core(rpc_call=AsyncMock(return_value=[payload]))
-        api = NotebooksAPI(fake.rpc_executor)
+        api = WebNotebooksAPI(fake.rpc_executor)
         result = await api.list()
         fake.rpc_executor.rpc_call.assert_awaited_once()
     """
 
     def _operation_scope(_label: str):
         @asynccontextmanager
-        async def scope() -> AsyncIterator[None]:
-            yield None
+        async def scope() -> AsyncIterator[SimpleNamespace]:
+            yield SimpleNamespace(epoch=1)
 
         return scope()
+
+    async def _spawn_child(label: str, factory: Any) -> asyncio.Task[Any]:
+        return asyncio.create_task(factory(), name=label)
 
     live_cookies = httpx.Cookies()
     fake_http_client = SimpleNamespace(cookies=live_cookies)
@@ -150,15 +154,14 @@ def make_fake_core(**overrides: Any) -> FakeSession:
         # that still treat the fake as a single bag-of-attributes.
         "rpc_call": rpc_call_mock,
         "rpc_executor": SimpleNamespace(rpc_call=rpc_call_mock),
-        # LoopGuard + OperationScopeProvider (the latter lives in
-        # ``notebooklm._artifact.polling`` after #1327) — used by ArtifactsAPI polling
-        # and SourceUploadPipeline.
+        # CallSupervisor-shaped polling seams plus the loop/operation surfaces
+        # used by source upload tests.
         "assert_bound_loop": MagicMock(return_value=None),
+        "is_closing": MagicMock(return_value=False),
         "operation_scope": MagicMock(side_effect=_operation_scope),
-        # DrainHookRegistration (local in ``_artifacts.py``) — close-time
-        # hook the artifacts runtime registers against in
-        # ``ArtifactsAPI.__init__``. Wave 2 of session-decoupling moved
-        # the storage onto ``TransportDrainTracker`` (ADR-0014 Rule 1); we
+        "spawn_child": _spawn_child,
+        # CallSupervisor delegates close-time artifact hook registration to
+        # its owned TransportDrainTracker. We
         # keep ``_drain_hooks`` as a public attribute on the fake so test
         # sites that previously read ``fake._drain_hooks["name"]`` still
         # work (the fake doesn't have a real ``_drain_tracker``).

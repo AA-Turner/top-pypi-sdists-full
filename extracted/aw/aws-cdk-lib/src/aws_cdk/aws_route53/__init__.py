@@ -3674,15 +3674,6 @@ class CfnRecordSet(
                 country_code="countryCode",
                 subdivision_code="subdivisionCode"
             ),
-            geo_proximity_location=route53.CfnRecordSet.GeoProximityLocationProperty(
-                aws_region="awsRegion",
-                bias=123,
-                coordinates=route53.CfnRecordSet.CoordinatesProperty(
-                    latitude="latitude",
-                    longitude="longitude"
-                ),
-                local_zone_group="localZoneGroup"
-            ),
             health_check_id="healthCheckId",
             hosted_zone_id="hostedZoneId",
             hosted_zone_name="hostedZoneName",
@@ -3707,7 +3698,6 @@ class CfnRecordSet(
         comment: typing.Optional[builtins.str] = None,
         failover: typing.Optional[builtins.str] = None,
         geo_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.GeoLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        geo_proximity_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.GeoProximityLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_id: typing.Optional[builtins.str] = None,
         hosted_zone_id: typing.Optional[builtins.str] = None,
         hosted_zone_name: typing.Optional[builtins.str] = None,
@@ -3729,7 +3719,6 @@ class CfnRecordSet(
         :param comment: *Optional:* Any comments you want to include about a change batch request.
         :param failover: *Failover resource record sets only:* To configure failover, you add the ``Failover`` element to two resource record sets. For one resource record set, you specify ``PRIMARY`` as the value for ``Failover`` ; for the other resource record set, you specify ``SECONDARY`` . In addition, you include the ``HealthCheckId`` element and specify the health check that you want Amazon Route 53 to perform for each resource record set. Except where noted, the following failover behaviors assume that you have included the ``HealthCheckId`` element in both resource record sets: - When the primary resource record set is healthy, Route 53 responds to DNS queries with the applicable value from the primary resource record set regardless of the health of the secondary resource record set. - When the primary resource record set is unhealthy and the secondary resource record set is healthy, Route 53 responds to DNS queries with the applicable value from the secondary resource record set. - When the secondary resource record set is unhealthy, Route 53 responds to DNS queries with the applicable value from the primary resource record set regardless of the health of the primary resource record set. - If you omit the ``HealthCheckId`` element for the secondary resource record set, and if the primary resource record set is unhealthy, Route 53 always responds to DNS queries with the applicable value from the secondary resource record set. This is true regardless of the health of the associated endpoint. You can't create non-failover resource record sets that have the same values for the ``Name`` and ``Type`` elements as failover resource record sets. For failover alias resource record sets, you must also include the ``EvaluateTargetHealth`` element and set the value to true. For more information about configuring failover for Route 53, see the following topics in the *Amazon Route 53 Developer Guide* : - `Route 53 Health Checks and DNS Failover <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ - `Configuring Failover in a Private Hosted Zone <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-private-hosted-zones.html>`_
         :param geo_location: *Geolocation resource record sets only:* A complex type that lets you control how Amazon Route 53 responds to DNS queries based on the geographic origin of the query. For example, if you want all queries from Africa to be routed to a web server with an IP address of ``192.0.2.111`` , create a resource record set with a ``Type`` of ``A`` and a ``ContinentCode`` of ``AF`` . If you create separate resource record sets for overlapping geographic regions (for example, one resource record set for a continent and one for a country on the same continent), priority goes to the smallest geographic region. This allows you to route most queries for a continent to one resource and to route queries for a country on that continent to a different resource. You can't create two geolocation resource record sets that specify the same geographic location. The value ``*`` in the ``CountryCode`` element matches all geographic locations that aren't specified in other geolocation resource record sets that have the same values for the ``Name`` and ``Type`` elements. .. epigraph:: Geolocation works by mapping IP addresses to locations. However, some IP addresses aren't mapped to geographic locations, so even if you create geolocation resource record sets that cover all seven continents, Route 53 will receive some DNS queries from locations that it can't identify. We recommend that you create a resource record set for which the value of ``CountryCode`` is ``*`` . Two groups of queries are routed to the resource that you specify in this record: queries that come from locations for which you haven't created geolocation resource record sets and queries from IP addresses that aren't mapped to a location. If you don't create a ``*`` resource record set, Route 53 returns a "no answer" response for queries from those locations. You can't create non-geolocation resource record sets that have the same values for the ``Name`` and ``Type`` elements as geolocation resource record sets.
-        :param geo_proximity_location: *GeoproximityLocation resource record sets only:* A complex type that lets you control how Route 53 responds to DNS queries based on the geographic origin of the query and your resources.
         :param health_check_id: If you want Amazon Route 53 to return this resource record set in response to a DNS query only when the status of a health check is healthy, include the ``HealthCheckId`` element and specify the ID of the applicable health check. Route 53 determines whether a resource record set is healthy based on one of the following: - By periodically sending a request to the endpoint that is specified in the health check - By aggregating the status of a specified group of health checks (calculated health checks) - By determining the current state of a CloudWatch alarm (CloudWatch metric health checks) .. epigraph:: Route 53 doesn't check the health of the endpoint that is specified in the resource record set, for example, the endpoint specified by the IP address in the ``Value`` element. When you add a ``HealthCheckId`` element to a resource record set, Route 53 checks the health of the endpoint that you specified in the health check. For more information, see the following topics in the *Amazon Route 53 Developer Guide* : - `How Amazon Route 53 Determines Whether an Endpoint Is Healthy <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-determining-health-of-endpoints.html>`_ - `Route 53 Health Checks and DNS Failover <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ - `Configuring Failover in a Private Hosted Zone <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-private-hosted-zones.html>`_ *When to Specify HealthCheckId* Specifying a value for ``HealthCheckId`` is useful only when Route 53 is choosing between two or more resource record sets to respond to a DNS query, and you want Route 53 to base the choice in part on the status of a health check. Configuring health checks makes sense only in the following configurations: - *Non-alias resource record sets* : You're checking the health of a group of non-alias resource record sets that have the same routing policy, name, and type (such as multiple weighted records named www.example.com with a type of A) and you specify health check IDs for all the resource record sets. If the health check status for a resource record set is healthy, Route 53 includes the record among the records that it responds to DNS queries with. If the health check status for a resource record set is unhealthy, Route 53 stops responding to DNS queries using the value for that resource record set. If the health check status for all resource record sets in the group is unhealthy, Route 53 considers all resource record sets in the group healthy and responds to DNS queries accordingly. - *Alias resource record sets* : You specify the following settings: - You set ``EvaluateTargetHealth`` to true for an alias resource record set in a group of resource record sets that have the same routing policy, name, and type (such as multiple weighted records named www.example.com with a type of A). - You configure the alias resource record set to route traffic to a non-alias resource record set in the same hosted zone. - You specify a health check ID for the non-alias resource record set. If the health check status is healthy, Route 53 considers the alias resource record set to be healthy and includes the alias record among the records that it responds to DNS queries with. If the health check status is unhealthy, Route 53 stops responding to DNS queries using the alias resource record set. .. epigraph:: The alias resource record set can also route traffic to a *group* of non-alias resource record sets that have the same routing policy, name, and type. In that configuration, associate health checks with all of the resource record sets in the group of non-alias resource record sets. *Geolocation Routing* For geolocation resource record sets, if an endpoint is unhealthy, Route 53 looks for a resource record set for the larger, associated geographic region. For example, suppose you have resource record sets for a state in the United States, for the entire United States, for North America, and a resource record set that has ``*`` for ``CountryCode`` is ``*`` , which applies to all locations. If the endpoint for the state resource record set is unhealthy, Route 53 checks for healthy resource record sets in the following order until it finds a resource record set for which the endpoint is healthy: - The United States - North America - The default resource record set *Specifying the Health Check Endpoint by Domain Name* If your health checks specify the endpoint only by domain name, we recommend that you create a separate health check for each endpoint. For example, create a health check for each ``HTTP`` server that is serving content for ``www.example.com`` . For the value of ``FullyQualifiedDomainName`` , specify the domain name of the server (such as ``us-east-2-www.example.com`` ), not the name of the resource record sets ( ``www.example.com`` ). .. epigraph:: Health check results will be unpredictable if you do the following: - Create a health check that has the same value for ``FullyQualifiedDomainName`` as the name of a resource record set. - Associate that health check with the resource record set.
         :param hosted_zone_id: The ID of the hosted zone that you want to create records in. Specify either ``HostedZoneName`` or ``HostedZoneId`` , but not both. If you have multiple hosted zones with the same domain name, you must specify the hosted zone using ``HostedZoneId`` .
         :param hosted_zone_name: The name of the hosted zone that you want to create records in. You must include a trailing dot (for example, ``www.example.com.`` ) as part of the ``HostedZoneName`` . When you create a stack using an AWS::Route53::RecordSet that specifies ``HostedZoneName`` , AWS CloudFormation attempts to find a hosted zone whose name matches the HostedZoneName. If AWS CloudFormation cannot find a hosted zone with a matching domain name, or if there is more than one hosted zone with the specified domain name, AWS CloudFormation will not create the stack. Specify either ``HostedZoneName`` or ``HostedZoneId`` , but not both. If you have multiple hosted zones with the same domain name, you must specify the hosted zone using ``HostedZoneId`` .
@@ -3752,7 +3741,6 @@ class CfnRecordSet(
             comment=comment,
             failover=failover,
             geo_location=geo_location,
-            geo_proximity_location=geo_proximity_location,
             health_check_id=health_check_id,
             hosted_zone_id=hosted_zone_id,
             hosted_zone_name=hosted_zone_name,
@@ -3807,15 +3795,6 @@ class CfnRecordSet(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''This element contains an ID that you use when performing a ``GetChange`` action to get detailed information about the change.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3938,24 +3917,6 @@ class CfnRecordSet(
             type_hints = cached_type_hints(_typecheckingstub__e7b257b8973ecbc1eff717cef5d9e9a86a7e93521a1f67acf22b2e8461e1b642)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "geoLocation", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="geoProximityLocation")
-    def geo_proximity_location(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]]:
-        '''*GeoproximityLocation resource record sets only:* A complex type that lets you control how Route 53 responds to DNS queries based on the geographic origin of the query and your resources.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]], jsii.get(self, "geoProximityLocation"))
-
-    @geo_proximity_location.setter
-    def geo_proximity_location(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ac8d1aee0fc5c4e2eba653391bb8b61826a08b6708db398bae5b22b4e13fcf05)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "geoProximityLocation", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckId")
@@ -4111,7 +4072,7 @@ class CfnRecordSet(
 
             :param dns_name: *Alias records only:* The value that you specify depends on where you want to route queries:. - **Amazon API Gateway custom regional APIs and edge-optimized APIs** - Specify the applicable domain name for your API. You can get the applicable value using the AWS CLI command `get-domain-names <https://docs.aws.amazon.com/cli/latest/reference/apigateway/get-domain-names.html>`_ : - For regional APIs, specify the value of ``regionalDomainName`` . - For edge-optimized APIs, specify the value of ``distributionDomainName`` . This is the name of the associated CloudFront distribution, such as ``da1b2c3d4e5.cloudfront.net`` . .. epigraph:: The name of the record that you're creating must match a custom domain name for your API, such as ``api.example.com`` . - **Amazon Virtual Private Cloud interface VPC endpoint** - Enter the API endpoint for the interface endpoint, such as ``vpce-123456789abcdef01-example-us-east-1a.elasticloadbalancing.us-east-1.vpce.amazonaws.com`` . For edge-optimized APIs, this is the domain name for the corresponding CloudFront distribution. You can get the value of ``DnsName`` using the AWS CLI command `describe-vpc-endpoints <https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-vpc-endpoints.html>`_ . - **CloudFront distribution** - Specify the domain name that CloudFront assigned when you created your distribution. Your CloudFront distribution must include an alternate domain name that matches the name of the record. For example, if the name of the record is *acme.example.com* , your CloudFront distribution must include *acme.example.com* as one of the alternate domain names. For more information, see `Using Alternate Domain Names (CNAMEs) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html>`_ in the *Amazon CloudFront Developer Guide* . You can't create a record in a private hosted zone to route traffic to a CloudFront distribution. .. epigraph:: For failover alias records, you can't specify a CloudFront distribution for both the primary and secondary records. A distribution must include an alternate domain name that matches the name of the record. However, the primary and secondary records have the same name, and you can't include the same alternate domain name in more than one distribution. - **Elastic Beanstalk environment** - If the domain name for your Elastic Beanstalk environment includes the region that you deployed the environment in, you can create an alias record that routes traffic to the environment. For example, the domain name ``my-environment. *us-west-2* .elasticbeanstalk.com`` is a regionalized domain name. .. epigraph:: For environments that were created before early 2016, the domain name doesn't include the region. To route traffic to these environments, you must create a CNAME record instead of an alias record. Note that you can't create a CNAME record for the root domain name. For example, if your domain name is example.com, you can create a record that routes traffic for acme.example.com to your Elastic Beanstalk environment, but you can't create a record that routes traffic for example.com to your Elastic Beanstalk environment. For Elastic Beanstalk environments that have regionalized subdomains, specify the ``CNAME`` attribute for the environment. You can use the following methods to get the value of the CNAME attribute: - *AWS Management Console* : For information about how to get the value by using the console, see `Using Custom Domains with AWS Elastic Beanstalk <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/customdomains.html>`_ in the *AWS Elastic Beanstalk Developer Guide* . - *Elastic Beanstalk API* : Use the ``DescribeEnvironments`` action to get the value of the ``CNAME`` attribute. For more information, see `DescribeEnvironments <https://docs.aws.amazon.com/elasticbeanstalk/latest/api/API_DescribeEnvironments.html>`_ in the *AWS Elastic Beanstalk API Reference* . - *AWS CLI* : Use the ``describe-environments`` command to get the value of the ``CNAME`` attribute. For more information, see `describe-environments <https://docs.aws.amazon.com/cli/latest/reference/elasticbeanstalk/describe-environments.html>`_ in the *AWS CLI* . - **ELB load balancer** - Specify the DNS name that is associated with the load balancer. Get the DNS name by using the AWS Management Console , the ELB API, or the AWS CLI . - *AWS Management Console* : Go to the EC2 page, choose *Load Balancers* in the navigation pane, choose the load balancer, choose the *Description* tab, and get the value of the *DNS name* field. If you're routing traffic to a Classic Load Balancer, get the value that begins with *dualstack* . If you're routing traffic to another type of load balancer, get the value that applies to the record type, A or AAAA. - *Elastic Load Balancing API* : Use ``DescribeLoadBalancers`` to get the value of ``DNSName`` . For more information, see the applicable guide: - Classic Load Balancers: `DescribeLoadBalancers <https://docs.aws.amazon.com/elasticloadbalancing/2012-06-01/APIReference/API_DescribeLoadBalancers.html>`_ - Application and Network Load Balancers: `DescribeLoadBalancers <https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_DescribeLoadBalancers.html>`_ - *CloudFormation Fn::GetAtt intrinsic function* : Use the `Fn::GetAtt <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html>`_ intrinsic function to get the value of ``DNSName`` : - `Classic Load Balancers <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-elb.html#aws-properties-ec2-elb-return-values>`_ . - `Application and Network Load Balancers <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#aws-resource-elasticloadbalancingv2-loadbalancer-return-values>`_ . - *AWS CLI* : Use ``describe-load-balancers`` to get the value of ``DNSName`` . For more information, see the applicable guide: - Classic Load Balancers: `describe-load-balancers <https://docs.aws.amazon.com/cli/latest/reference/elb/describe-load-balancers.html>`_ - Application and Network Load Balancers: `describe-load-balancers <https://docs.aws.amazon.com/cli/latest/reference/elbv2/describe-load-balancers.html>`_ - **Global Accelerator accelerator** - Specify the DNS name for your accelerator: - *Global Accelerator API* : To get the DNS name, use `DescribeAccelerator <https://docs.aws.amazon.com/global-accelerator/latest/api/API_DescribeAccelerator.html>`_ . - *AWS CLI* : To get the DNS name, use `describe-accelerator <https://docs.aws.amazon.com/cli/latest/reference/globalaccelerator/describe-accelerator.html>`_ . - **Amazon S3 bucket that is configured as a static website** - Specify the domain name of the Amazon S3 website endpoint that you created the bucket in, for example, ``s3-website.us-east-2.amazonaws.com`` . For more information about valid values, see the table `Amazon S3 Website Endpoints <https://docs.aws.amazon.com/general/latest/gr/s3.html#s3_website_region_endpoints>`_ in the *Amazon Web Services General Reference* . For more information about using S3 buckets for websites, see `Getting Started with Amazon Route 53 <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/getting-started.html>`_ in the *Amazon Route 53 Developer Guide.* - **Another Route 53 record** - Specify the value of the ``Name`` element for a record in the current hosted zone. .. epigraph:: If you're creating an alias record that has the same name as the hosted zone (known as the zone apex), you can't specify the domain name for a record for which the value of ``Type`` is ``CNAME`` . This is because the alias record must have the same type as the record that you're routing traffic to, and creating a CNAME record for the zone apex isn't supported even for an alias record.
             :param hosted_zone_id: *Alias resource records sets only* : The value used depends on where you want to route traffic:. - **Amazon API Gateway custom regional APIs and edge-optimized APIs** - Specify the hosted zone ID for your API. You can get the applicable value using the AWS CLI command `get-domain-names <https://docs.aws.amazon.com/cli/latest/reference/apigateway/get-domain-names.html>`_ : - For regional APIs, specify the value of ``regionalHostedZoneId`` . - For edge-optimized APIs, specify the value of ``distributionHostedZoneId`` . - **Amazon Virtual Private Cloud interface VPC endpoint** - Specify the hosted zone ID for your interface endpoint. You can get the value of ``HostedZoneId`` using the AWS CLI command `describe-vpc-endpoints <https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-vpc-endpoints.html>`_ . - **CloudFront distribution** - Specify ``Z2FDTNDATAQYW2`` . This is always the hosted zone ID when you create an alias record that routes traffic to a CloudFront distribution. .. epigraph:: Alias records for CloudFront can't be created in a private zone. - **Elastic Beanstalk environment** - Specify the hosted zone ID for the region that you created the environment in. The environment must have a regionalized subdomain. For a list of regions and the corresponding hosted zone IDs, see `AWS Elastic Beanstalk endpoints and quotas <https://docs.aws.amazon.com/general/latest/gr/elasticbeanstalk.html>`_ in the *Amazon Web Services General Reference* . - **ELB load balancer** - Specify the value of the hosted zone ID for the load balancer. Use the following methods to get the hosted zone ID: - `Service Endpoints <https://docs.aws.amazon.com/general/latest/gr/elb.html>`_ table in the "Elastic Load Balancing Endpoints and Quotas" topic in the *Amazon Web Services General Reference* : Use the value that corresponds with the region that you created your load balancer in. Note that there are separate columns for Application and Classic Load Balancers and for Network Load Balancers. - *AWS Management Console* : Go to the Amazon EC2 page, choose *Load Balancers* in the navigation pane, select the load balancer, and get the value of the *Hosted zone* field on the *Description* tab. - *Elastic Load Balancing API* : Use ``DescribeLoadBalancers`` to get the applicable value. For more information, see the applicable guide: - Classic Load Balancers: Use `DescribeLoadBalancers <https://docs.aws.amazon.com/elasticloadbalancing/2012-06-01/APIReference/API_DescribeLoadBalancers.html>`_ to get the value of ``CanonicalHostedZoneNameID`` . - Application and Network Load Balancers: Use `DescribeLoadBalancers <https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_DescribeLoadBalancers.html>`_ to get the value of ``CanonicalHostedZoneID`` . - *CloudFormation Fn::GetAtt intrinsic function* : Use the `Fn::GetAtt <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html>`_ intrinsic function to get the applicable value: - Classic Load Balancers: Get `CanonicalHostedZoneNameID <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-elb.html#aws-properties-ec2-elb-return-values>`_ . - Application and Network Load Balancers: Get `CanonicalHostedZoneID <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#aws-resource-elasticloadbalancingv2-loadbalancer-return-values>`_ . - *AWS CLI* : Use ``describe-load-balancers`` to get the applicable value. For more information, see the applicable guide: - Classic Load Balancers: Use `describe-load-balancers <https://docs.aws.amazon.com/cli/latest/reference/elb/describe-load-balancers.html>`_ to get the value of ``CanonicalHostedZoneNameID`` . - Application and Network Load Balancers: Use `describe-load-balancers <https://docs.aws.amazon.com/cli/latest/reference/elbv2/describe-load-balancers.html>`_ to get the value of ``CanonicalHostedZoneID`` . - **Global Accelerator accelerator** - Specify ``Z2BJ6XQ5FK7U4H`` . - **An Amazon S3 bucket configured as a static website** - Specify the hosted zone ID for the region that you created the bucket in. For more information about valid values, see the table `Amazon S3 Website Endpoints <https://docs.aws.amazon.com/general/latest/gr/s3.html#s3_website_region_endpoints>`_ in the *Amazon Web Services General Reference* . - **Another Route 53 record in your hosted zone** - Specify the hosted zone ID of your hosted zone. (An alias record can't reference a record in a different hosted zone.)
-            :param evaluate_target_health: *Applies only to alias, failover alias, geolocation alias, latency alias, and weighted alias resource record sets:* When ``EvaluateTargetHealth`` is ``true`` , an alias resource record set inherits the health of the referenced AWS resource, such as an ELB load balancer or another resource record set in the hosted zone. Note the following: - **CloudFront distributions** - You can't set ``EvaluateTargetHealth`` to ``true`` when the alias target is a CloudFront distribution. - **Elastic Beanstalk environments that have regionalized subdomains** - If you specify an Elastic Beanstalk environment in ``DNSName`` and the environment contains an ELB load balancer, Elastic Load Balancing routes queries only to the healthy Amazon EC2 instances that are registered with the load balancer. (An environment automatically contains an ELB load balancer if it includes more than one Amazon EC2 instance.) If you set ``EvaluateTargetHealth`` to ``true`` and either no Amazon EC2 instances are healthy or the load balancer itself is unhealthy, Route 53 routes queries to other available resources that are healthy, if any. If the environment contains a single Amazon EC2 instance, there are no special requirements. - **ELB load balancers** - Health checking behavior depends on the type of load balancer: - *Classic Load Balancers* : If you specify an ELB Classic Load Balancer in ``DNSName`` , Elastic Load Balancing routes queries only to the healthy Amazon EC2 instances that are registered with the load balancer. If you set ``EvaluateTargetHealth`` to ``true`` and either no EC2 instances are healthy or the load balancer itself is unhealthy, Route 53 routes queries to other resources. - *Application and Network Load Balancers* : If you specify an ELB Application or Network Load Balancer and you set ``EvaluateTargetHealth`` to ``true`` , Route 53 routes queries to the load balancer based on the health of the target groups that are associated with the load balancer: - For an Application or Network Load Balancer to be considered healthy, every target group that contains targets must contain at least one healthy target. If any target group contains only unhealthy targets, the load balancer is considered unhealthy, and Route 53 routes queries to other resources. - A target group that has no registered targets is considered unhealthy. .. epigraph:: When you create a load balancer, you configure settings for Elastic Load Balancing health checks; they're not Route 53 health checks, but they perform a similar function. Do not create Route 53 health checks for the EC2 instances that you register with an ELB load balancer. - **API Gateway APIs** - There are no special requirements for setting ``EvaluateTargetHealth`` to ``true`` when the alias target is an API Gateway API. However, because API Gateway is highly available by design, ``EvaluateTargetHealth`` provides no operational benefit and `Route 53 health checks <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ are recommended instead for failover scenarios. - **S3 buckets** - There are no special requirements for setting ``EvaluateTargetHealth`` to ``true`` when the alias target is an S3 bucket. However, because S3 buckets are highly available by design, ``EvaluateTargetHealth`` provides no operational benefit and `Route 53 health checks <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ are recommended instead for failover scenarios. - **VPC interface endpoints** - There are no special requirements for setting ``EvaluateTargetHealth`` to ``true`` when the alias target is a VPC interface endpoint. However, because VPC interface endpoints are highly available by design, ``EvaluateTargetHealth`` provides no operational benefit and `Route 53 health checks <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ are recommended instead for failover scenarios. - **Other records in the same hosted zone** - If the AWS resource that you specify in ``DNSName`` is a record or a group of records (for example, a group of weighted records) but is not another alias record, we recommend that you associate a health check with all of the records in the alias target. For more information, see `What Happens When You Omit Health Checks? <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-complex-configs.html#dns-failover-complex-configs-hc-omitting>`_ in the *Amazon Route 53 Developer Guide* . .. epigraph:: While ``EvaluateTargetHealth`` can be set to ``true`` for highly available AWS services (such as S3 buckets, VPC interface endpoints, and API Gateway), these services are designed for high availability and rarely experience outages that would be detected by this feature. For failover scenarios with these services, consider using `Route 53 health checks <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ that monitor your application's ability to access the service instead. For more information and examples, see `Amazon Route 53 Health Checks and DNS Failover <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ in the *Amazon Route 53 Developer Guide* .
+            :param evaluate_target_health: *Applies only to alias, failover alias, geolocation alias, latency alias, and weighted alias resource record sets:* When ``EvaluateTargetHealth`` is ``true`` , an alias resource record set inherits the health of the referenced AWS resource, such as an ELB load balancer or another resource record set in the hosted zone. Note the following: - **CloudFront distributions** - You can't set ``EvaluateTargetHealth`` to ``true`` when the alias target is a CloudFront distribution. - **Elastic Beanstalk environments that have regionalized subdomains** - If you specify an Elastic Beanstalk environment in ``DNSName`` and the environment contains an ELB load balancer, Elastic Load Balancing routes queries only to the healthy Amazon EC2 instances that are registered with the load balancer. (An environment automatically contains an ELB load balancer if it includes more than one Amazon EC2 instance.) If you set ``EvaluateTargetHealth`` to ``true`` and either no Amazon EC2 instances are healthy or the load balancer itself is unhealthy, Route 53 routes queries to other available resources that are healthy, if any. If the environment contains a single Amazon EC2 instance, there are no special requirements. - **ELB load balancers** - Health checking behavior depends on the type of load balancer: - *Classic Load Balancers* : If you specify an ELB Classic Load Balancer in ``DNSName`` , Elastic Load Balancing routes queries only to the healthy Amazon EC2 instances that are registered with the load balancer. If you set ``EvaluateTargetHealth`` to ``true`` and either no EC2 instances are healthy or the load balancer itself is unhealthy, Route 53 routes queries to other resources. - *Application and Network Load Balancers* : If you specify an ELB Application or Network Load Balancer and you set ``EvaluateTargetHealth`` to ``true`` , Route 53 routes queries to the load balancer based on the health of the target groups that are associated with the load balancer: - For an Application or Network Load Balancer to be considered healthy, every target group that contains targets must contain at least one healthy target. If any target group contains only unhealthy targets, the load balancer is considered unhealthy, and Route 53 routes queries to other resources. - A target group that has no registered targets is considered unhealthy. .. epigraph:: When you create a load balancer, you configure settings for Elastic Load Balancing health checks; they're not Route 53 health checks, but they perform a similar function. Do not create Route 53 health checks for the EC2 instances that you register with an ELB load balancer. - **API Gateway APIs** - There are no special requirements for setting ``EvaluateTargetHealth`` to ``true`` when the alias target is an API Gateway API. However, because API Gateway is highly available by design, ``EvaluateTargetHealth`` provides no operational benefit and `Route 53 health checks <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ are recommended instead for failover scenarios. - **S3 buckets** - There are no special requirements for setting ``EvaluateTargetHealth`` to ``true`` when the alias target is an S3 bucket. However, because S3 buckets are highly available by design, ``EvaluateTargetHealth`` provides no operational benefit and `Route 53 health checks <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ are recommended instead for failover scenarios. - **VPC interface endpoints** - There are no special requirements for setting ``EvaluateTargetHealth`` to ``true`` when the alias target is a VPC interface endpoint. However, because VPC interface endpoints are highly available by design, ``EvaluateTargetHealth`` provides no operational benefit and `Route 53 health checks <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ are recommended instead for failover scenarios. - **Other records in the same hosted zone** - If the AWS resource that you specify in ``DNSName`` is a record or a group of records (for example, a group of weighted records) but is not another alias record, we recommend that you associate a health check with all of the records in the alias target. For more information, see `What Happens When You Omit Health Checks? <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-complex-configs.html#dns-failover-complex-configs-hc-omitting>`_ in the *Amazon Route 53 Developer Guide* . .. epigraph:: While ``EvaluateTargetHealth`` can be set to ``true`` for highly available AWS services (such as S3 buckets, VPC interface endpoints, and API Gateway), these services are designed for high availability and rarely experience outages that would be detected by this feature. For failover scenarios with these services, consider using `Route 53 health checks <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ that monitor your application's ability to access the service instead. For more information and examples, see `Amazon Route 53 Health Checks and DNS Failover <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ in the *Amazon Route 53 Developer Guide* . Default: - false
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-aliastarget.html
             :exampleMetadata: fixture=_generated
@@ -4276,6 +4237,8 @@ class CfnRecordSet(
 
             For more information and examples, see `Amazon Route 53 Health Checks and DNS Failover <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ in the *Amazon Route 53 Developer Guide* .
 
+            :default: - false
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-aliastarget.html#cfn-route53-recordset-aliastarget-evaluatetargethealth
             '''
             result = self._values.get("evaluate_target_health")
@@ -4365,72 +4328,6 @@ class CfnRecordSet(
 
         def __repr__(self) -> str:
             return "CidrRoutingConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_route53.CfnRecordSet.CoordinatesProperty",
-        jsii_struct_bases=[],
-        name_mapping={"latitude": "latitude", "longitude": "longitude"},
-    )
-    class CoordinatesProperty:
-        def __init__(self, *, latitude: builtins.str, longitude: builtins.str) -> None:
-            '''A complex type that lists the coordinates for a geoproximity resource record.
-
-            :param latitude: Specifies a coordinate of the north–south position of a geographic point on the surface of the Earth (-90 - 90).
-            :param longitude: Specifies a coordinate of the east–west position of a geographic point on the surface of the Earth (-180 - 180).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-coordinates.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_route53 as route53
-                
-                coordinates_property = route53.CfnRecordSet.CoordinatesProperty(
-                    latitude="latitude",
-                    longitude="longitude"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__29683fc8d824969c71955a00cda4d10dde445180eb16e6a17c990ec1252a893a)
-                check_type(argname="argument latitude", value=latitude, expected_type=type_hints["latitude"])
-                check_type(argname="argument longitude", value=longitude, expected_type=type_hints["longitude"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "latitude": latitude,
-                "longitude": longitude,
-            }
-
-        @builtins.property
-        def latitude(self) -> builtins.str:
-            '''Specifies a coordinate of the north–south position of a geographic point on the surface of the Earth (-90 - 90).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-coordinates.html#cfn-route53-recordset-coordinates-latitude
-            '''
-            result = self._values.get("latitude")
-            assert result is not None, "Required property 'latitude' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def longitude(self) -> builtins.str:
-            '''Specifies a coordinate of the east–west position of a geographic point on the surface of the Earth (-180 - 180).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-coordinates.html#cfn-route53-recordset-coordinates-longitude
-            '''
-            result = self._values.get("longitude")
-            assert result is not None, "Required property 'longitude' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CoordinatesProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4536,131 +4433,6 @@ class CfnRecordSet(
 
         def __repr__(self) -> str:
             return "GeoLocationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_route53.CfnRecordSet.GeoProximityLocationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "aws_region": "awsRegion",
-            "bias": "bias",
-            "coordinates": "coordinates",
-            "local_zone_group": "localZoneGroup",
-        },
-    )
-    class GeoProximityLocationProperty:
-        def __init__(
-            self,
-            *,
-            aws_region: typing.Optional[builtins.str] = None,
-            bias: typing.Optional[jsii.Number] = None,
-            coordinates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.CoordinatesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            local_zone_group: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''(Resource record sets only): A complex type that lets you specify where your resources are located.
-
-            Only one of ``LocalZoneGroup`` , ``Coordinates`` , or ``AWS Region`` is allowed per request at a time.
-
-            For more information about geoproximity routing, see `Geoproximity routing <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-geoproximity.html>`_ in the *Amazon Route 53 Developer Guide* .
-
-            :param aws_region: The AWS Region the resource you are directing DNS traffic to, is in.
-            :param bias: The bias increases or decreases the size of the geographic region from which Route 53 routes traffic to a resource. To use ``Bias`` to change the size of the geographic region, specify the applicable value for the bias: - To expand the size of the geographic region from which Route 53 routes traffic to a resource, specify a positive integer from 1 to 99 for the bias. Route 53 shrinks the size of adjacent regions. - To shrink the size of the geographic region from which Route 53 routes traffic to a resource, specify a negative bias of -1 to -99. Route 53 expands the size of adjacent regions.
-            :param coordinates: Contains the longitude and latitude for a geographic region.
-            :param local_zone_group: Specifies an AWS Local Zone Group. A local Zone Group is usually the Local Zone code without the ending character. For example, if the Local Zone is ``us-east-1-bue-1a`` the Local Zone Group is ``us-east-1-bue-1`` . You can identify the Local Zones Group for a specific Local Zone by using the `describe-availability-zones <https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-availability-zones.html>`_ CLI command: This command returns: ``"GroupName": "us-west-2-den-1"`` , specifying that the Local Zone ``us-west-2-den-1a`` belongs to the Local Zone Group ``us-west-2-den-1`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-geoproximitylocation.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_route53 as route53
-                
-                geo_proximity_location_property = route53.CfnRecordSet.GeoProximityLocationProperty(
-                    aws_region="awsRegion",
-                    bias=123,
-                    coordinates=route53.CfnRecordSet.CoordinatesProperty(
-                        latitude="latitude",
-                        longitude="longitude"
-                    ),
-                    local_zone_group="localZoneGroup"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__9bbef31bd9d19fea78e067206e8cea17ada33bda9853588d7a99d66d91f15555)
-                check_type(argname="argument aws_region", value=aws_region, expected_type=type_hints["aws_region"])
-                check_type(argname="argument bias", value=bias, expected_type=type_hints["bias"])
-                check_type(argname="argument coordinates", value=coordinates, expected_type=type_hints["coordinates"])
-                check_type(argname="argument local_zone_group", value=local_zone_group, expected_type=type_hints["local_zone_group"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if aws_region is not None:
-                self._values["aws_region"] = aws_region
-            if bias is not None:
-                self._values["bias"] = bias
-            if coordinates is not None:
-                self._values["coordinates"] = coordinates
-            if local_zone_group is not None:
-                self._values["local_zone_group"] = local_zone_group
-
-        @builtins.property
-        def aws_region(self) -> typing.Optional[builtins.str]:
-            '''The AWS Region the resource you are directing DNS traffic to, is in.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-geoproximitylocation.html#cfn-route53-recordset-geoproximitylocation-awsregion
-            '''
-            result = self._values.get("aws_region")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def bias(self) -> typing.Optional[jsii.Number]:
-            '''The bias increases or decreases the size of the geographic region from which Route 53 routes traffic to a resource.
-
-            To use ``Bias`` to change the size of the geographic region, specify the applicable value for the bias:
-
-            - To expand the size of the geographic region from which Route 53 routes traffic to a resource, specify a positive integer from 1 to 99 for the bias. Route 53 shrinks the size of adjacent regions.
-            - To shrink the size of the geographic region from which Route 53 routes traffic to a resource, specify a negative bias of -1 to -99. Route 53 expands the size of adjacent regions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-geoproximitylocation.html#cfn-route53-recordset-geoproximitylocation-bias
-            '''
-            result = self._values.get("bias")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def coordinates(
-            self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CoordinatesProperty"]]:
-            '''Contains the longitude and latitude for a geographic region.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-geoproximitylocation.html#cfn-route53-recordset-geoproximitylocation-coordinates
-            '''
-            result = self._values.get("coordinates")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CoordinatesProperty"]], result)
-
-        @builtins.property
-        def local_zone_group(self) -> typing.Optional[builtins.str]:
-            '''Specifies an AWS Local Zone Group.
-
-            A local Zone Group is usually the Local Zone code without the ending character. For example, if the Local Zone is ``us-east-1-bue-1a`` the Local Zone Group is ``us-east-1-bue-1`` .
-
-            You can identify the Local Zones Group for a specific Local Zone by using the `describe-availability-zones <https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-availability-zones.html>`_ CLI command:
-
-            This command returns: ``"GroupName": "us-west-2-den-1"`` , specifying that the Local Zone ``us-west-2-den-1a`` belongs to the Local Zone Group ``us-west-2-den-1`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-geoproximitylocation.html#cfn-route53-recordset-geoproximitylocation-localzonegroup
-            '''
-            result = self._values.get("local_zone_group")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GeoProximityLocationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -6145,7 +5917,6 @@ class CfnRecordSetGroupProps:
         "comment": "comment",
         "failover": "failover",
         "geo_location": "geoLocation",
-        "geo_proximity_location": "geoProximityLocation",
         "health_check_id": "healthCheckId",
         "hosted_zone_id": "hostedZoneId",
         "hosted_zone_name": "hostedZoneName",
@@ -6168,7 +5939,6 @@ class CfnRecordSetProps:
         comment: typing.Optional[builtins.str] = None,
         failover: typing.Optional[builtins.str] = None,
         geo_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.GeoLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        geo_proximity_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.GeoProximityLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_id: typing.Optional[builtins.str] = None,
         hosted_zone_id: typing.Optional[builtins.str] = None,
         hosted_zone_name: typing.Optional[builtins.str] = None,
@@ -6188,7 +5958,6 @@ class CfnRecordSetProps:
         :param comment: *Optional:* Any comments you want to include about a change batch request.
         :param failover: *Failover resource record sets only:* To configure failover, you add the ``Failover`` element to two resource record sets. For one resource record set, you specify ``PRIMARY`` as the value for ``Failover`` ; for the other resource record set, you specify ``SECONDARY`` . In addition, you include the ``HealthCheckId`` element and specify the health check that you want Amazon Route 53 to perform for each resource record set. Except where noted, the following failover behaviors assume that you have included the ``HealthCheckId`` element in both resource record sets: - When the primary resource record set is healthy, Route 53 responds to DNS queries with the applicable value from the primary resource record set regardless of the health of the secondary resource record set. - When the primary resource record set is unhealthy and the secondary resource record set is healthy, Route 53 responds to DNS queries with the applicable value from the secondary resource record set. - When the secondary resource record set is unhealthy, Route 53 responds to DNS queries with the applicable value from the primary resource record set regardless of the health of the primary resource record set. - If you omit the ``HealthCheckId`` element for the secondary resource record set, and if the primary resource record set is unhealthy, Route 53 always responds to DNS queries with the applicable value from the secondary resource record set. This is true regardless of the health of the associated endpoint. You can't create non-failover resource record sets that have the same values for the ``Name`` and ``Type`` elements as failover resource record sets. For failover alias resource record sets, you must also include the ``EvaluateTargetHealth`` element and set the value to true. For more information about configuring failover for Route 53, see the following topics in the *Amazon Route 53 Developer Guide* : - `Route 53 Health Checks and DNS Failover <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ - `Configuring Failover in a Private Hosted Zone <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-private-hosted-zones.html>`_
         :param geo_location: *Geolocation resource record sets only:* A complex type that lets you control how Amazon Route 53 responds to DNS queries based on the geographic origin of the query. For example, if you want all queries from Africa to be routed to a web server with an IP address of ``192.0.2.111`` , create a resource record set with a ``Type`` of ``A`` and a ``ContinentCode`` of ``AF`` . If you create separate resource record sets for overlapping geographic regions (for example, one resource record set for a continent and one for a country on the same continent), priority goes to the smallest geographic region. This allows you to route most queries for a continent to one resource and to route queries for a country on that continent to a different resource. You can't create two geolocation resource record sets that specify the same geographic location. The value ``*`` in the ``CountryCode`` element matches all geographic locations that aren't specified in other geolocation resource record sets that have the same values for the ``Name`` and ``Type`` elements. .. epigraph:: Geolocation works by mapping IP addresses to locations. However, some IP addresses aren't mapped to geographic locations, so even if you create geolocation resource record sets that cover all seven continents, Route 53 will receive some DNS queries from locations that it can't identify. We recommend that you create a resource record set for which the value of ``CountryCode`` is ``*`` . Two groups of queries are routed to the resource that you specify in this record: queries that come from locations for which you haven't created geolocation resource record sets and queries from IP addresses that aren't mapped to a location. If you don't create a ``*`` resource record set, Route 53 returns a "no answer" response for queries from those locations. You can't create non-geolocation resource record sets that have the same values for the ``Name`` and ``Type`` elements as geolocation resource record sets.
-        :param geo_proximity_location: *GeoproximityLocation resource record sets only:* A complex type that lets you control how Route 53 responds to DNS queries based on the geographic origin of the query and your resources.
         :param health_check_id: If you want Amazon Route 53 to return this resource record set in response to a DNS query only when the status of a health check is healthy, include the ``HealthCheckId`` element and specify the ID of the applicable health check. Route 53 determines whether a resource record set is healthy based on one of the following: - By periodically sending a request to the endpoint that is specified in the health check - By aggregating the status of a specified group of health checks (calculated health checks) - By determining the current state of a CloudWatch alarm (CloudWatch metric health checks) .. epigraph:: Route 53 doesn't check the health of the endpoint that is specified in the resource record set, for example, the endpoint specified by the IP address in the ``Value`` element. When you add a ``HealthCheckId`` element to a resource record set, Route 53 checks the health of the endpoint that you specified in the health check. For more information, see the following topics in the *Amazon Route 53 Developer Guide* : - `How Amazon Route 53 Determines Whether an Endpoint Is Healthy <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-determining-health-of-endpoints.html>`_ - `Route 53 Health Checks and DNS Failover <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html>`_ - `Configuring Failover in a Private Hosted Zone <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-private-hosted-zones.html>`_ *When to Specify HealthCheckId* Specifying a value for ``HealthCheckId`` is useful only when Route 53 is choosing between two or more resource record sets to respond to a DNS query, and you want Route 53 to base the choice in part on the status of a health check. Configuring health checks makes sense only in the following configurations: - *Non-alias resource record sets* : You're checking the health of a group of non-alias resource record sets that have the same routing policy, name, and type (such as multiple weighted records named www.example.com with a type of A) and you specify health check IDs for all the resource record sets. If the health check status for a resource record set is healthy, Route 53 includes the record among the records that it responds to DNS queries with. If the health check status for a resource record set is unhealthy, Route 53 stops responding to DNS queries using the value for that resource record set. If the health check status for all resource record sets in the group is unhealthy, Route 53 considers all resource record sets in the group healthy and responds to DNS queries accordingly. - *Alias resource record sets* : You specify the following settings: - You set ``EvaluateTargetHealth`` to true for an alias resource record set in a group of resource record sets that have the same routing policy, name, and type (such as multiple weighted records named www.example.com with a type of A). - You configure the alias resource record set to route traffic to a non-alias resource record set in the same hosted zone. - You specify a health check ID for the non-alias resource record set. If the health check status is healthy, Route 53 considers the alias resource record set to be healthy and includes the alias record among the records that it responds to DNS queries with. If the health check status is unhealthy, Route 53 stops responding to DNS queries using the alias resource record set. .. epigraph:: The alias resource record set can also route traffic to a *group* of non-alias resource record sets that have the same routing policy, name, and type. In that configuration, associate health checks with all of the resource record sets in the group of non-alias resource record sets. *Geolocation Routing* For geolocation resource record sets, if an endpoint is unhealthy, Route 53 looks for a resource record set for the larger, associated geographic region. For example, suppose you have resource record sets for a state in the United States, for the entire United States, for North America, and a resource record set that has ``*`` for ``CountryCode`` is ``*`` , which applies to all locations. If the endpoint for the state resource record set is unhealthy, Route 53 checks for healthy resource record sets in the following order until it finds a resource record set for which the endpoint is healthy: - The United States - North America - The default resource record set *Specifying the Health Check Endpoint by Domain Name* If your health checks specify the endpoint only by domain name, we recommend that you create a separate health check for each endpoint. For example, create a health check for each ``HTTP`` server that is serving content for ``www.example.com`` . For the value of ``FullyQualifiedDomainName`` , specify the domain name of the server (such as ``us-east-2-www.example.com`` ), not the name of the resource record sets ( ``www.example.com`` ). .. epigraph:: Health check results will be unpredictable if you do the following: - Create a health check that has the same value for ``FullyQualifiedDomainName`` as the name of a resource record set. - Associate that health check with the resource record set.
         :param hosted_zone_id: The ID of the hosted zone that you want to create records in. Specify either ``HostedZoneName`` or ``HostedZoneId`` , but not both. If you have multiple hosted zones with the same domain name, you must specify the hosted zone using ``HostedZoneId`` .
         :param hosted_zone_name: The name of the hosted zone that you want to create records in. You must include a trailing dot (for example, ``www.example.com.`` ) as part of the ``HostedZoneName`` . When you create a stack using an AWS::Route53::RecordSet that specifies ``HostedZoneName`` , AWS CloudFormation attempts to find a hosted zone whose name matches the HostedZoneName. If AWS CloudFormation cannot find a hosted zone with a matching domain name, or if there is more than one hosted zone with the specified domain name, AWS CloudFormation will not create the stack. Specify either ``HostedZoneName`` or ``HostedZoneId`` , but not both. If you have multiple hosted zones with the same domain name, you must specify the hosted zone using ``HostedZoneId`` .
@@ -6231,15 +6000,6 @@ class CfnRecordSetProps:
                     country_code="countryCode",
                     subdivision_code="subdivisionCode"
                 ),
-                geo_proximity_location=route53.CfnRecordSet.GeoProximityLocationProperty(
-                    aws_region="awsRegion",
-                    bias=123,
-                    coordinates=route53.CfnRecordSet.CoordinatesProperty(
-                        latitude="latitude",
-                        longitude="longitude"
-                    ),
-                    local_zone_group="localZoneGroup"
-                ),
                 health_check_id="healthCheckId",
                 hosted_zone_id="hostedZoneId",
                 hosted_zone_name="hostedZoneName",
@@ -6260,7 +6020,6 @@ class CfnRecordSetProps:
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument failover", value=failover, expected_type=type_hints["failover"])
             check_type(argname="argument geo_location", value=geo_location, expected_type=type_hints["geo_location"])
-            check_type(argname="argument geo_proximity_location", value=geo_proximity_location, expected_type=type_hints["geo_proximity_location"])
             check_type(argname="argument health_check_id", value=health_check_id, expected_type=type_hints["health_check_id"])
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument hosted_zone_name", value=hosted_zone_name, expected_type=type_hints["hosted_zone_name"])
@@ -6284,8 +6043,6 @@ class CfnRecordSetProps:
             self._values["failover"] = failover
         if geo_location is not None:
             self._values["geo_location"] = geo_location
-        if geo_proximity_location is not None:
-            self._values["geo_proximity_location"] = geo_proximity_location
         if health_check_id is not None:
             self._values["health_check_id"] = health_check_id
         if hosted_zone_id is not None:
@@ -6455,17 +6212,6 @@ class CfnRecordSetProps:
         '''
         result = self._values.get("geo_location")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoLocationProperty"]], result)
-
-    @builtins.property
-    def geo_proximity_location(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]]:
-        '''*GeoproximityLocation resource record sets only:* A complex type that lets you control how Route 53 responds to DNS queries based on the geographic origin of the query and your resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-geoproximitylocation
-        '''
-        result = self._values.get("geo_proximity_location")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]], result)
 
     @builtins.property
     def health_check_id(self) -> typing.Optional[builtins.str]:
@@ -18418,7 +18164,6 @@ def _typecheckingstub__5260f62d2297374b2126da361d614f7922d306048a751f4287d4f7b25
     comment: typing.Optional[builtins.str] = None,
     failover: typing.Optional[builtins.str] = None,
     geo_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.GeoLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    geo_proximity_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.GeoProximityLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_id: typing.Optional[builtins.str] = None,
     hosted_zone_id: typing.Optional[builtins.str] = None,
     hosted_zone_name: typing.Optional[builtins.str] = None,
@@ -18488,12 +18233,6 @@ def _typecheckingstub__79006fc8c23dbed3ebc1e2c4a59dbaef71eada9146612d1d44ad17bf0
 
 def _typecheckingstub__e7b257b8973ecbc1eff717cef5d9e9a86a7e93521a1f67acf22b2e8461e1b642(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecordSet.GeoLocationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac8d1aee0fc5c4e2eba653391bb8b61826a08b6708db398bae5b22b4e13fcf05(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecordSet.GeoProximityLocationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18569,29 +18308,11 @@ def _typecheckingstub__cc6569566583d30a42a983532b11cef6d6313d0666f46f50d599eabd1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__29683fc8d824969c71955a00cda4d10dde445180eb16e6a17c990ec1252a893a(
-    *,
-    latitude: builtins.str,
-    longitude: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__fc6e59779782a9e8ecceda7a67dfa9c21d257bdac8db0558def7239dd1d167a5(
     *,
     continent_code: typing.Optional[builtins.str] = None,
     country_code: typing.Optional[builtins.str] = None,
     subdivision_code: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9bbef31bd9d19fea78e067206e8cea17ada33bda9853588d7a99d66d91f15555(
-    *,
-    aws_region: typing.Optional[builtins.str] = None,
-    bias: typing.Optional[jsii.Number] = None,
-    coordinates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.CoordinatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    local_zone_group: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18735,7 +18456,6 @@ def _typecheckingstub__07806684fd0bcb683322d42ae67181582216fa4e1371a7133012bf489
     comment: typing.Optional[builtins.str] = None,
     failover: typing.Optional[builtins.str] = None,
     geo_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.GeoLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    geo_proximity_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.GeoProximityLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_id: typing.Optional[builtins.str] = None,
     hosted_zone_id: typing.Optional[builtins.str] = None,
     hosted_zone_name: typing.Optional[builtins.str] = None,

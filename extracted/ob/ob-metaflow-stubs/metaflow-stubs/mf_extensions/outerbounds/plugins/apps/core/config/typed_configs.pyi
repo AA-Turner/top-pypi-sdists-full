@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-28T18:11:58.421622                                                            #
+# Generated on 2026-09-02T23:51:38.111379                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 from typing import TypedDict
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
 
 from .unified_config import CoreConfig as CoreConfig
 
@@ -43,6 +43,8 @@ class DependencyConfigDict(TypedDict, total=False):
     python: typing.Union[str, None]
     pypi: typing.Union[dict, None]
     conda: typing.Union[dict, None]
+    anaconda: typing.Union[dict, None]
+    extra_configs: typing.Union[dict, None]
 
 class PackageConfigDict(TypedDict, total=False):
     src_paths: typing.Union[list, None]

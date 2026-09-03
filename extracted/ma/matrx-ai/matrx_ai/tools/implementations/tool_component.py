@@ -849,6 +849,8 @@ async def toolcomp_get_sample_detail(args: dict[str, Any], ctx: ToolContext) -> 
     )  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
     sample_id = args.get("sample_id", "").strip()
     full_events = args.get("full_events", False)
+    event_offset = max(int(args.get("event_offset", 0)), 0)
+    event_limit = min(max(int(args.get("event_limit", 10)), 1), 10)
 
     if not sample_id:
         return ToolResult(
@@ -869,16 +871,46 @@ async def toolcomp_get_sample_detail(args: dict[str, Any], ctx: ToolContext) -> 
         sample = _row_dict(sample_row)
 
         if full_events:
+            from matrx_ai.tools.output_caps import cap_text
+
+            def _bounded_json(value: Any, *, limit: int) -> Any:
+                serialized = json.dumps(value, default=str, ensure_ascii=False)
+                if len(serialized) <= limit:
+                    return value
+                preview, info = cap_text(serialized, limit=limit)
+                return {
+                    "preview": preview,
+                    "total_chars": info.total_chars,
+                    "shown_chars": info.shown_chars,
+                    "truncated": True,
+                }
+
+            raw_events = sample.get("raw_stream_events")
+            events = raw_events if isinstance(raw_events, list) else []
+            page = events[event_offset : event_offset + event_limit]
             return ToolResult(
                 success=True,
                 output=ToolComponentSample(
                     sample_id=sample_id,
-                    arguments=sample.get("arguments"),
+                    arguments=_bounded_json(sample.get("arguments"), limit=4_000),
                     is_success=sample.get("is_success"),
-                    raw_stream_events=sample.get("raw_stream_events"),
-                    final_payload=sample.get("final_payload"),
-                    admin_comments=sample.get("admin_comments"),
+                    raw_stream_events={
+                        "events": [_bounded_json(event, limit=2_500) for event in page],
+                        "event_offset": event_offset,
+                        "event_limit": event_limit,
+                        "total_events": len(events),
+                        "returned_events": len(page),
+                        "has_more_events": event_offset + len(page) < len(events),
+                        "next_event_offset": (
+                            event_offset + len(page)
+                            if event_offset + len(page) < len(events)
+                            else None
+                        ),
+                    },
+                    final_payload=_bounded_json(sample.get("final_payload"), limit=8_000),
+                    admin_comments=cap_text(sample.get("admin_comments"), limit=2_000)[0],
                 ),
+                output_self_capped=True,
             )
 
         return ToolResult(

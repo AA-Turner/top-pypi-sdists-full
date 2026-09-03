@@ -14,8 +14,9 @@ import typing as t
 
 from pydantic import ConfigDict
 
-from dreadnode.agents.tools import Toolset, tool_method
+from dreadnode.agents.tools import ToolCall, Toolset, tool_method
 from dreadnode.agents.trajectory import Trajectory
+from dreadnode.generators.message import Message
 
 # Cap individual tool returns so a judge can't blow its own context window by
 # calling view_tool_calls() once on a 200-step trajectory. The judge can
@@ -28,6 +29,20 @@ def _truncate(text: str, *, limit: int = _MAX_MESSAGE_CHARS) -> str:
     if len(text) <= limit:
         return text
     return text[:limit] + f"\n…[truncated, {len(text) - limit} chars omitted]"
+
+
+def _format_tool_call(call: ToolCall) -> str:
+    args = call.arguments or ""
+    return f"[tool_call_id={call.id}] tool={call.name} arguments={_truncate(args)}"
+
+
+def _message_with_tool_calls(msg: Message) -> str:
+    parts: list[str] = []
+    if msg.content:
+        parts.append(msg.content)
+    for call in msg.tool_calls or []:
+        parts.append(_format_tool_call(call))
+    return "\n".join(parts)
 
 
 class TrajectoryViewer(Toolset):
@@ -60,23 +75,43 @@ class TrajectoryViewer(Toolset):
         self,
         limit: t.Annotated[
             int,
-            "Maximum number of tool-result messages to return (most recent first). Caps at 50.",
+            "Maximum number of tool invocations to return (most recent first). Caps at 50.",
         ] = 25,
     ) -> list[str]:
-        """Lists content of tool-role (tool-result) messages in the trajectory.
+        """Lists tool invocations and paired tool results in the trajectory.
 
-        Returns the most recent `limit` tool results in reverse chronological
-        order. Useful for seeing what tools the agent actually invoked and
-        what they returned.
+        Returns the most recent `limit` tool invocations in reverse
+        chronological order. Useful for seeing what tools the agent actually
+        invoked, the arguments it passed, and what each call returned.
         """
         capped = max(1, min(limit, _MAX_RETURNED_MESSAGES))
-        tool_msgs = [m for m in self.trajectory.messages if m.role == "tool"]
-        recent = tool_msgs[-capped:]
+        known_call_ids = {
+            call.id for message in self.trajectory.messages for call in message.tool_calls or []
+        }
+        tool_results: dict[str, str] = {
+            m.tool_call_id: m.content or ""
+            for m in self.trajectory.messages
+            if m.role == "tool" and m.tool_call_id
+        }
         out: list[str] = []
-        for msg in reversed(recent):
-            tag = f"[tool_call_id={msg.tool_call_id}]" if msg.tool_call_id else "[tool]"
-            content = msg.content or ""
-            out.append(f"{tag} {_truncate(content)}")
+        for msg in reversed(self.trajectory.messages):
+            if msg.tool_calls:
+                for call in reversed(msg.tool_calls):
+                    result = tool_results.get(call.id)
+                    entry = _format_tool_call(call)
+                    if result is not None:
+                        entry += f"\nresult={_truncate(result)}"
+                    out.append(entry)
+                    if len(out) >= capped:
+                        return out
+            elif msg.role == "tool":
+                tag = f"[tool_call_id={msg.tool_call_id}]" if msg.tool_call_id else "[tool]"
+                if msg.tool_call_id and msg.tool_call_id in known_call_ids:
+                    continue
+                out.append(f"{tag} result={_truncate(msg.content or '')}")
+                if len(out) >= capped:
+                    return out
+
         return out
 
     @tool_method(name="view_assistant_plan_for_tool_call", catch=True)
@@ -99,7 +134,7 @@ class TrajectoryViewer(Toolset):
             for call in msg.tool_calls:
                 if call.id == tool_call_id:
                     content = msg.content or "(no assistant content alongside this tool call)"
-                    return _truncate(content)
+                    return _truncate(f"{content}\n{_format_tool_call(call)}")
         return f"Tool call {tool_call_id!r} not found in trajectory."
 
     @tool_method(name="regular_expression_search", catch=True)
@@ -112,7 +147,7 @@ class TrajectoryViewer(Toolset):
         ],
         limit: t.Annotated[int, "Maximum matches to return (caps at 50)."] = 20,
     ) -> list[str]:
-        """Regex-search message contents across the trajectory.
+        """Regex-search message contents and tool-call arguments.
 
         Use this to locate specific moments without re-reading the whole run:
         a flag string, a command, an error pattern, a domain.
@@ -125,7 +160,7 @@ class TrajectoryViewer(Toolset):
         capped = max(1, min(limit, _MAX_RETURNED_MESSAGES))
         results: list[str] = []
         for msg in self.trajectory.messages:
-            content = msg.content or ""
+            content = _message_with_tool_calls(msg)
             if not content:
                 continue
             if pattern.search(content):

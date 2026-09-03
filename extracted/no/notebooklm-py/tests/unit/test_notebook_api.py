@@ -7,24 +7,21 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from notebooklm._notebook_payloads import (
-    build_create_notebook_params as canonical_build_create_notebook_params,
-)
-from notebooklm._notebook_payloads import (
-    build_get_notebook_params as canonical_build_get_notebook_params,
-)
-from notebooklm._notebooks import (
-    NotebooksAPI,
+from notebooklm._web.notebooks import WebNotebooksAPI
+from notebooklm._web.params.notebooks import (
+    build_copy_notebook_params,
     build_create_notebook_params,
     build_get_notebook_params,
 )
-from notebooklm._source.listing import SourceLister
+from notebooklm._web.sources.listing import SourceLister
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
 from notebooklm.exceptions import (
+    DecodingError,
     NetworkError,
     NotebookLimitError,
     NotebookNotFoundError,
+    RateLimitError,
     RPCError,
     ServerError,
     ValidationError,
@@ -54,9 +51,9 @@ def _make_core(rpc_call: AsyncMock | None = None):
     return make_fake_core(rpc_call=rpc_call if rpc_call is not None else AsyncMock())
 
 
-def _make_api(rpc_call: AsyncMock | None = None) -> NotebooksAPI:
+def _make_api(rpc_call: AsyncMock | None = None) -> WebNotebooksAPI:
     core = _make_core(rpc_call)
-    return NotebooksAPI(core.rpc_executor, sources_api=MagicMock())
+    return WebNotebooksAPI(core.rpc_executor, sources_api=MagicMock())
 
 
 def _source_entry(
@@ -127,6 +124,14 @@ def test_build_create_notebook_params_matches_live_payload() -> None:
     ]
 
 
+def test_build_copy_notebook_params_matches_live_payload() -> None:
+    assert build_copy_notebook_params("nb_source", "Copied Notebook") == [
+        [2, None, None, [1, None, None, None, None, None, None, None, None, None, [1]]],
+        "nb_source",
+        "Copied Notebook",
+    ]
+
+
 def test_build_get_notebook_params_matches_live_payload() -> None:
     # #1549: the read-path tail also migrated to the nested template block.
     # Live-verified forward-compatible (decoded notebook + sources byte-identical
@@ -141,14 +146,9 @@ def test_build_get_notebook_params_matches_live_payload() -> None:
     ]
 
 
-def test_notebook_payload_builders_keep_their_compatibility_import_path() -> None:
-    assert build_create_notebook_params is canonical_build_create_notebook_params
-    assert build_get_notebook_params is canonical_build_get_notebook_params
-
-
-def test_direct_notebooks_api_construction_remains_supported() -> None:
+def test_direct_web_notebooks_api_construction_remains_supported() -> None:
     core = _make_core()
-    api = NotebooksAPI(core.rpc_executor)
+    api = WebNotebooksAPI(core.rpc_executor)
 
     assert hasattr(api, "_sources")
     assert isinstance(api._sources, SourceLister)
@@ -164,7 +164,7 @@ async def test_direct_notebooks_api_get_metadata_uses_phase8_source_lister() -> 
             "nb_123",
         ]
     ]
-    api = NotebooksAPI(core.rpc_executor)
+    api = WebNotebooksAPI(core.rpc_executor)
 
     metadata = await api.get_metadata("nb_123")
 
@@ -178,7 +178,7 @@ async def test_direct_notebooks_api_get_metadata_uses_phase8_source_lister() -> 
 @pytest.mark.asyncio
 async def test_direct_notebooks_api_metadata_lister_uses_late_bound_rpc_executor_call() -> None:
     core = _make_core()
-    api = NotebooksAPI(core.rpc_executor)
+    api = WebNotebooksAPI(core.rpc_executor)
     replacement_rpc = AsyncMock(
         return_value=[
             [
@@ -231,7 +231,7 @@ async def test_get_metadata_uses_injected_source_lister_and_builds_summaries() -
             )
         ]
     )
-    api = NotebooksAPI(core.rpc_executor, sources_api=source_lister)
+    api = WebNotebooksAPI(core.rpc_executor, sources_api=source_lister)
     api.get = AsyncMock(return_value=Notebook(id="nb_123", title="Architecture", sources_count=1))
 
     metadata = await api.get_metadata("nb_123")
@@ -269,7 +269,7 @@ async def test_get_metadata_fetches_notebook_and_sources_concurrently() -> None:
         return [Source(id="src_1", title="Paper", _type_code=3)]  # SourceType.PDF
 
     source_lister.list = AsyncMock(side_effect=list_sources)
-    api = NotebooksAPI(core.rpc_executor, sources_api=source_lister)
+    api = WebNotebooksAPI(core.rpc_executor, sources_api=source_lister)
     api.get = AsyncMock(side_effect=get_notebook)
 
     metadata_task = asyncio.create_task(api.get_metadata("nb_123"))
@@ -291,7 +291,7 @@ async def test_get_metadata_warns_when_notebook_reports_sources_but_listing_is_e
     core = _make_core()
     source_lister = MagicMock()
     source_lister.list = AsyncMock(return_value=[])
-    api = NotebooksAPI(core.rpc_executor, sources_api=source_lister)
+    api = WebNotebooksAPI(core.rpc_executor, sources_api=source_lister)
     api.get = AsyncMock(return_value=Notebook(id="nb_123", title="Sparse", sources_count=2))
 
     with caplog.at_level(logging.WARNING, logger="notebooklm._notebooks"):
@@ -308,7 +308,7 @@ async def test_get_metadata_does_not_warn_when_empty_notebook_listing_is_empty(
     core = _make_core()
     source_lister = MagicMock()
     source_lister.list = AsyncMock(return_value=[])
-    api = NotebooksAPI(core.rpc_executor, sources_api=source_lister)
+    api = WebNotebooksAPI(core.rpc_executor, sources_api=source_lister)
     api.get = AsyncMock(return_value=Notebook(id="nb_123", title="Empty", sources_count=0))
 
     with caplog.at_level(logging.WARNING, logger="notebooklm._notebooks"):
@@ -344,7 +344,7 @@ def test_get_share_url_remains_sync_url_formatter(monkeypatch: pytest.MonkeyPatc
     assert url == "https://notebook.google.com/notebook/nb_123?artifactId=art_456"
 
 
-def _set_account_limit(api: NotebooksAPI, limit: int | None) -> AsyncMock:
+def _set_account_limit(api: WebNotebooksAPI, limit: int | None) -> AsyncMock:
     mock = AsyncMock(return_value=AccountLimits(notebook_limit=limit))
     api._get_account_limits = mock  # type: ignore[method-assign]
     return mock
@@ -722,6 +722,98 @@ class TestCreateNotebookQuotaDetection:
         )
 
 
+class TestCopyNotebook:
+    @pytest.mark.asyncio
+    async def test_copy_uses_live_wire_shape_and_decodes_project(self) -> None:
+        rpc_call = AsyncMock(return_value=["Copied Notebook", [], "nb_copy"])
+        api = _make_api(rpc_call=rpc_call)
+
+        notebook = await api.copy("nb_source", "Copied Notebook")
+
+        assert notebook.id == "nb_copy"
+        assert notebook.title == "Copied Notebook"
+        rpc_call.assert_awaited_once_with(
+            RPCMethod.COPY_NOTEBOOK,
+            build_copy_notebook_params("nb_source", "Copied Notebook"),
+            source_path="/notebook/nb_source",
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("notebook_id", "title", "message"),
+        [("", "Copy", "notebook_id"), ("nb_source", "   ", "title")],
+    )
+    async def test_copy_rejects_empty_identifiers_or_titles(
+        self, notebook_id: str, title: str, message: str
+    ) -> None:
+        api = _make_api()
+
+        with pytest.raises(ValidationError, match=message):
+            await api.copy(notebook_id, title)
+
+        api._rpc.rpc_call.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_copy_fails_closed_when_response_has_no_id(self) -> None:
+        api = _make_api(rpc_call=AsyncMock(return_value=["Copied Notebook", []]))
+
+        with pytest.raises(DecodingError, match="did not contain a notebook id"):
+            await api.copy("nb_source", "Copied Notebook")
+
+    @pytest.mark.asyncio
+    async def test_copy_fails_closed_when_response_reuses_source_id(self) -> None:
+        api = _make_api(rpc_call=AsyncMock(return_value=["Copied Notebook", [], "nb_source"]))
+
+        with pytest.raises(DecodingError, match="reused the source notebook id"):
+            await api.copy("nb_source", "Copied Notebook")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("failure", "expected_rpc_code"),
+        [
+            pytest.param(NetworkError("lost response"), None, id="network-error"),
+            pytest.param(
+                ServerError(
+                    "lost response",
+                    method_id=RPCMethod.COPY_NOTEBOOK.value,
+                    rpc_code=14,
+                ),
+                14,
+                id="server-error",
+            ),
+            pytest.param(
+                RateLimitError(
+                    "ambiguous throttle response",
+                    method_id=RPCMethod.COPY_NOTEBOOK.value,
+                    rpc_code=8,
+                ),
+                8,
+                id="rate-limit-error",
+            ),
+        ],
+    )
+    async def test_copy_marks_lost_response_as_unconfirmed_without_retry(
+        self,
+        failure: NetworkError | RateLimitError | ServerError,
+        expected_rpc_code: int | None,
+    ) -> None:
+        rpc_call = AsyncMock(side_effect=failure)
+        api = _make_api(rpc_call=rpc_call)
+
+        with pytest.raises(RPCError, match="list notebooks.*manually") as caught:
+            await api.copy("nb_source", "Copied Notebook")
+
+        assert getattr(caught.value, "unconfirmed", False) is True
+        assert caught.value.method_id == RPCMethod.COPY_NOTEBOOK.value
+        assert caught.value.rpc_code == expected_rpc_code
+        assert caught.value.__cause__ is failure
+        rpc_call.assert_awaited_once_with(
+            RPCMethod.COPY_NOTEBOOK,
+            build_copy_notebook_params("nb_source", "Copied Notebook"),
+            source_path="/notebook/nb_source",
+        )
+
+
 class TestUpdateNotebook:
     @pytest.mark.asyncio
     async def test_rename_preserves_title_only_wire_shape(self) -> None:
@@ -758,7 +850,11 @@ class TestUpdateNotebook:
             RPCMethod.RENAME_NOTEBOOK,
             ["nb-1", [[None, None, None, [None, None, "🧬"]]]],
         )
-        assert first.kwargs == {"source_path": "/", "allow_null": True}
+        assert first.kwargs == {
+            "source_path": "/",
+            "allow_null": True,
+            "raise_on_null_status": True,
+        }
 
     @pytest.mark.asyncio
     async def test_update_title_and_emoji_in_one_mutation(self) -> None:
@@ -877,7 +973,7 @@ class TestGetNotebookFailsClosed:
 class TestListNotebooksPayloadDispatch:
     """``list()`` wrapped-envelope dispatch — absence soft, malformed raises.
 
-    Mirrors the ``_artifact/listing.py::list_raw`` fail-loud pattern (#1485):
+    Mirrors the ``_web/artifact/listing.py::list_raw`` fail-loud pattern (#1485):
     an empty/``None`` payload and a ``None`` row-list slot are legitimate "no
     notebooks" shapes, while a truthy payload that doesn't match the
     ``[[row, ...]]`` envelope is schema drift — it used to flow garbage rows

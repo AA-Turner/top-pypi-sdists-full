@@ -3,18 +3,37 @@
 import json
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
 
 from agentic_devtools.cli.ci.cooldown import CooldownRecord
+from agentic_devtools.cli.ci.reconciliation.models import CooldownProbe, CooldownState, ProbeStatus, QueueState
 from agentic_devtools.cli.ci.retry import ProviderRateLimitError, RetryableError
 from agentic_devtools.cli.ci.scheduler import EligiblePR
 
 
 class TestAiPrLoopWatchdogCommand:
     """CLI entry point for agdt-ai-pr-loop-watchdog."""
+
+    def test_seeds_cooldown_state_from_latest_throttler_run(self) -> None:
+        from agentic_devtools.cli.ci.watchdog_command import _seed_cooldown_state
+
+        now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
+        state = _seed_cooldown_state(
+            {
+                "id": 123,
+                "status": "completed",
+                "conclusion": "success",
+                "updated_at": "2026-07-27T10:00:00Z",
+            },
+            now,
+        )
+
+        assert state is not None
+        assert state.cooldown_generation_id == "throttler-123"
+        assert state.resume_at == now - timedelta(seconds=30) + timedelta(seconds=60)
 
     def test_dispatches_when_not_throttled_and_eligible(self, capsys) -> None:
         updated_at = "2026-07-27T10:00:00Z"
@@ -25,6 +44,12 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=2),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._load_cooldown_state",
+                return_value=CooldownState("gh", "cred1", "generation-1", now),
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
@@ -44,9 +69,11 @@ class TestAiPrLoopWatchdogCommand:
         payload = json.loads(out.splitlines()[-1])
         assert payload["decision"] == "dispatched"
         assert payload["dispatched"] is True
+        assert payload["due_probe_count"] == 2
         assert payload["eligible_count"] == 1
         assert payload["throttled"] is False
         assert payload["default_branch"] == "main"
+        assert "::notice::ai-pr-loop-watchdog evaluated 2 due probe(s)" in out
         dispatch_call = mock_gh_api.call_args_list[1]
         assert dispatch_call.kwargs["method"] == "POST"
         assert dispatch_call.kwargs["body"] == {"ref": "main"}
@@ -58,6 +85,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=3) as mock_probe_wakeup,
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
             mock_gh_api.side_effect = [
@@ -80,7 +109,9 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["dispatched"] is False
         assert payload["throttled"] is True
         assert payload["throttle_reason"] == "in_progress"
+        assert payload["due_probe_count"] == 3
         assert payload["eligible_count"] is None
+        mock_probe_wakeup.assert_called_once_with(repo="o/r")
 
     def test_skips_when_no_eligible_prs(self, capsys) -> None:
         updated_at = "2026-07-27T10:00:00Z"
@@ -91,6 +122,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
@@ -118,6 +151,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
             mock_provider_cls.return_value.list_eligible_prs.return_value = [EligiblePR(number=555, created_at="")]
@@ -165,6 +200,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
@@ -201,6 +238,7 @@ class TestAiPrLoopWatchdogCommand:
                 "agentic_devtools.cli.ci.watchdog_command.active_cooldown",
                 return_value=("github:GH_TOKEN", CooldownRecord(resume_at=now.timestamp() + 120, source="fallback")),
             ),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0) as mock_probe_wakeup,
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
             from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
@@ -212,6 +250,11 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["cooldown_key"] == "github:GH_TOKEN"
         assert payload["default_branch"] == "main"
         assert payload["elapsed_seconds"] is None
+        assert payload["due_probe_count"] == 0
+        cooldown_state = mock_probe_wakeup.call_args.kwargs["cooldown_state"]
+        assert cooldown_state.provider_identity == "github"
+        assert cooldown_state.credential_identity == "GH_TOKEN"
+        assert cooldown_state.resume_at == datetime.fromtimestamp(now.timestamp() + 120, UTC)
         mock_gh_api.assert_not_called()
         mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
 
@@ -243,6 +286,7 @@ class TestAiPrLoopWatchdogCommand:
                     "",
                 ],
             ) as mock_gh_api,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0) as mock_probe_wakeup,
         ):
             mock_provider_cls.return_value.get_variable.return_value = cooldown_payload
             mock_provider_cls.return_value.list_eligible_prs.return_value = []
@@ -255,7 +299,40 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["decision"] == "rate_limit_paused"
         assert payload["cooldown_key"] == "github:AGDT_PR_APPROVER_PAT"
         assert payload["dispatched"] is False
+        assert payload["due_probe_count"] == 0
+        assert mock_probe_wakeup.call_args.kwargs["cooldown_state"].credential_identity == "AGDT_PR_APPROVER_PAT"
         assert payload["eligible_count"] is None
+        mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
+        mock_gh_api.assert_not_called()
+
+    def test_provider_cooldown_logs_due_probe_failure_and_stays_paused(self, capsys) -> None:
+        now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
+        with (
+            patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r", "--default-branch", "main"]),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command.active_cooldown",
+                return_value=("github:GH_TOKEN", CooldownRecord(resume_at=now.timestamp() + 120, source="fallback")),
+            ),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup",
+                side_effect=RuntimeError("queue unavailable"),
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command.logger") as mock_logger,
+            patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        payload = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert payload["decision"] == "rate_limit_paused"
+        assert payload["due_probe_count"] == 0
+        mock_logger.warning.assert_called_once()
         mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
         mock_gh_api.assert_not_called()
 
@@ -298,7 +375,10 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["cooldown_credential"] == "SPECKIT_PR_TOKEN"
         assert payload["cooldown_reason"] == "rate_limit"
         assert payload["cooldown_source"] == "retry-after"
-        assert "cooldown_active=true" in github_output.read_text(encoding="utf-8")
+        assert github_output.read_text(encoding="utf-8").splitlines() == [
+            "cooldown_active=true",
+            "cooldown_remaining_seconds=120",
+        ]
 
     def test_cooldown_gate_reports_inactive_when_no_cooldown(self, capsys, tmp_path) -> None:
         github_output = tmp_path / "github-output.txt"
@@ -333,6 +413,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
@@ -363,6 +445,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
             mock_provider_cls.return_value.list_eligible_prs.return_value = [EligiblePR(number=901, created_at="")]
@@ -387,6 +471,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
             mock_provider_cls.return_value.list_eligible_prs.return_value = [EligiblePR(number=902, created_at="")]
@@ -411,6 +497,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
             mock_provider_cls.return_value.list_eligible_prs.return_value = [EligiblePR(number=903, created_at="")]
@@ -428,6 +516,112 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["decision"] == "dispatched"
         assert payload["throttle_reason"] == "no_prior_run"
 
+    def test_cooldown_availability_returns_true_when_no_blocking_probes(self) -> None:
+        now = datetime.now(UTC)
+        state = QueueState(
+            repo="o/r",
+            revision=1,
+            items={},
+            records=[],
+            quarantines=[],
+            probes=[
+                CooldownProbe(
+                    probe_id="probe-1",
+                    provider_identity="gh",
+                    credential_identity="COPILOT_GITHUB_TOKEN",
+                    cooldown_generation_id="gen-1",
+                    status=ProbeStatus.SUCCEEDED,
+                    scheduled_at=now - timedelta(minutes=1),
+                )
+            ],
+        )
+
+        class _Store:
+            def load(self) -> QueueState:
+                return state
+
+        with patch("agentic_devtools.cli.ci.watchdog_command.QueueStore", return_value=_Store()):
+            from agentic_devtools.cli.ci.watchdog_command import _cooldown_availability
+
+            available, reason = _cooldown_availability("o/r")
+
+        assert available is True
+        assert reason == "available"
+
+    def test_cooldown_availability_blocks_pending_probe(self) -> None:
+        now = datetime.now(UTC)
+        state = QueueState(
+            repo="o/r",
+            revision=1,
+            items={},
+            records=[],
+            quarantines=[],
+            probes=[
+                CooldownProbe(
+                    probe_id="probe-1",
+                    provider_identity="gh",
+                    credential_identity="COPILOT_GITHUB_TOKEN",
+                    cooldown_generation_id="gen-1",
+                    status=ProbeStatus.PENDING,
+                    scheduled_at=now - timedelta(minutes=1),
+                )
+            ],
+        )
+
+        class _Store:
+            def load(self) -> QueueState:
+                return state
+
+        with patch("agentic_devtools.cli.ci.watchdog_command.QueueStore", return_value=_Store()):
+            from agentic_devtools.cli.ci.watchdog_command import _cooldown_availability
+
+            available, reason = _cooldown_availability("o/r")
+
+        assert available is False
+        assert reason == "cooldown_pending"
+
+    def test_cooldown_availability_ignores_superseded_alertable_generation(self) -> None:
+        now = datetime.now(UTC)
+        state = QueueState(
+            repo="o/r",
+            revision=1,
+            items={},
+            records=[],
+            quarantines=[],
+            probes=[
+                CooldownProbe(
+                    probe_id="probe-old",
+                    provider_identity="gh",
+                    credential_identity="COPILOT_GITHUB_TOKEN",
+                    cooldown_generation_id="generation-1",
+                    status=ProbeStatus.ALERTABLE,
+                    scheduled_at=now - timedelta(minutes=5),
+                    resume_at=now - timedelta(minutes=5),
+                ),
+                CooldownProbe(
+                    probe_id="probe-new",
+                    provider_identity="gh",
+                    credential_identity="COPILOT_GITHUB_TOKEN",
+                    cooldown_generation_id="generation-2",
+                    status=ProbeStatus.SUCCEEDED,
+                    scheduled_at=now - timedelta(minutes=1),
+                    resume_at=now - timedelta(minutes=1),
+                ),
+            ],
+        )
+
+        class _Store:
+            def load(self) -> QueueState:
+                return state
+
+        with patch("agentic_devtools.cli.ci.watchdog_command.QueueStore", return_value=_Store()):
+            from agentic_devtools.cli.ci.watchdog_command import _cooldown_availability
+
+            available, reason = _cooldown_availability("o/r")
+
+        assert available is True
+        assert reason == "available"
+
     def test_exits_one_when_default_branch_missing(self) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
@@ -435,6 +629,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api", return_value=json.dumps({})),
         ):
             from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
@@ -467,6 +663,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
             patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
         ):
@@ -491,6 +689,237 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["throttle_reason"] == "cooldown"
         assert payload["elapsed_seconds"] == 0
         assert payload["eligible_count"] is None
+
+    def test_blocks_dispatch_when_cooldown_not_available(self, capsys) -> None:
+        with (
+            patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=1),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._cooldown_availability",
+                return_value=(False, "cooldown_failed"),
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
+        ):
+            mock_gh_api.side_effect = [
+                json.dumps({"default_branch": "main"}),
+                json.dumps({"workflow_runs": []}),
+            ]
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        payload = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert payload["decision"] == "cooldown_blocked"
+        assert payload["dispatched"] is False
+        assert payload["availability_established"] is False
+        assert payload["availability_reason"] == "cooldown_failed"
+        mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
+
+    def test_blocks_dispatch_when_due_probe_wakeup_raises(self, capsys) -> None:
+        with (
+            patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup",
+                side_effect=RuntimeError("storage unavailable"),
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
+        ):
+            mock_gh_api.side_effect = [
+                json.dumps({"default_branch": "main"}),
+                json.dumps({"workflow_runs": []}),
+            ]
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        payload = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert payload["decision"] == "cooldown_blocked"
+        assert payload["availability_reason"] == "cooldown_state_unknown"
+        mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
+
+    def test_preserves_due_probe_count_when_cooldown_lookup_raises(self, capsys) -> None:
+        with (
+            patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=3),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._cooldown_availability",
+                side_effect=RuntimeError("state decode failed"),
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
+        ):
+            mock_gh_api.side_effect = [
+                json.dumps({"default_branch": "main"}),
+                json.dumps({"workflow_runs": []}),
+            ]
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        payload = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert payload["decision"] == "cooldown_blocked"
+        assert payload["due_probe_count"] == 3
+        assert payload["availability_reason"] == "cooldown_state_unknown"
+        mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
+
+    def test_loads_active_cooldown_state_for_probe_wakeup(self) -> None:
+        from agentic_devtools.cli.ci.reconciliation.queue_store import InMemoryBackingStore, QueueStore
+        from agentic_devtools.cli.ci.watchdog_command import _load_cooldown_state
+
+        scheduled_at = datetime.now(UTC)
+        probe = CooldownProbe(
+            probe_id="probe-1",
+            provider_identity="gh",
+            credential_identity="cred1",
+            cooldown_generation_id="generation-1",
+            status=ProbeStatus.PENDING,
+            scheduled_at=scheduled_at,
+            resume_at=scheduled_at,
+        )
+        store = QueueStore(repo="o/r", backing=InMemoryBackingStore())
+        state = store.load()
+        state.probes.append(
+            CooldownProbe(
+                probe_id="completed-probe",
+                provider_identity="gh",
+                credential_identity="cred1",
+                cooldown_generation_id="generation-0",
+                status=ProbeStatus.SUCCEEDED,
+                scheduled_at=scheduled_at,
+            )
+        )
+        state.probes.append(probe)
+        store.save(state, expected_revision=state.revision)
+        with patch("agentic_devtools.cli.ci.watchdog_command.QueueStore", return_value=store):
+            cooldown = _load_cooldown_state("o/r")
+
+        assert cooldown == CooldownState("gh", "cred1", "generation-1", scheduled_at)
+
+    def test_load_cooldown_state_ignores_superseded_terminal_generation(self) -> None:
+        from agentic_devtools.cli.ci.reconciliation.queue_store import InMemoryBackingStore, QueueStore
+        from agentic_devtools.cli.ci.watchdog_command import _load_cooldown_state
+
+        older = datetime.now(UTC) - timedelta(minutes=10)
+        newer = datetime.now(UTC) - timedelta(minutes=2)
+        store = QueueStore(repo="o/r", backing=InMemoryBackingStore())
+        state = store.load()
+        state.probes.extend(
+            [
+                CooldownProbe(
+                    probe_id="probe-old",
+                    provider_identity="gh",
+                    credential_identity="cred1",
+                    cooldown_generation_id="generation-1",
+                    status=ProbeStatus.ALERTABLE,
+                    scheduled_at=older,
+                    resume_at=older,
+                ),
+                CooldownProbe(
+                    probe_id="probe-new",
+                    provider_identity="gh",
+                    credential_identity="cred1",
+                    cooldown_generation_id="generation-2",
+                    status=ProbeStatus.PENDING,
+                    scheduled_at=newer,
+                    resume_at=newer,
+                ),
+            ]
+        )
+        store.save(state, expected_revision=state.revision)
+
+        with patch("agentic_devtools.cli.ci.watchdog_command.QueueStore", return_value=store):
+            cooldown = _load_cooldown_state("o/r")
+
+        assert cooldown is not None
+        assert cooldown.cooldown_generation_id == "generation-2"
+        assert cooldown.probe_status == ProbeStatus.PENDING
+
+    def test_load_cooldown_state_skips_terminal_candidate_before_returning_active_one(self) -> None:
+        from agentic_devtools.cli.ci.reconciliation.queue_store import InMemoryBackingStore, QueueStore
+        from agentic_devtools.cli.ci.watchdog_command import _load_cooldown_state
+
+        t1 = datetime.now(UTC) - timedelta(minutes=1)
+        t2 = datetime.now(UTC) - timedelta(minutes=3)
+        store = QueueStore(repo="o/r", backing=InMemoryBackingStore())
+        state = store.load()
+        state.probes.extend(
+            [
+                CooldownProbe(
+                    probe_id="probe-cred1-terminal",
+                    provider_identity="gh",
+                    credential_identity="cred1",
+                    cooldown_generation_id="generation-1",
+                    status=ProbeStatus.SUCCEEDED,
+                    scheduled_at=t1,
+                    resume_at=t1,
+                ),
+                CooldownProbe(
+                    probe_id="probe-cred2-active",
+                    provider_identity="gh",
+                    credential_identity="cred2",
+                    cooldown_generation_id="generation-1",
+                    status=ProbeStatus.PENDING,
+                    scheduled_at=t2,
+                    resume_at=t2,
+                ),
+            ]
+        )
+        store.save(state, expected_revision=state.revision)
+
+        with patch("agentic_devtools.cli.ci.watchdog_command.QueueStore", return_value=store):
+            cooldown = _load_cooldown_state("o/r")
+
+        assert cooldown is not None
+        assert cooldown.credential_identity == "cred2"
+        assert cooldown.probe_status == ProbeStatus.PENDING
+
+    def test_latest_probe_generation_candidates_keeps_newest_per_identity(self) -> None:
+        from agentic_devtools.cli.ci.watchdog_command import _latest_probe_generation_candidates
+
+        newer = datetime.now(UTC)
+        older = newer - timedelta(minutes=2)
+        candidates = _latest_probe_generation_candidates(
+            [
+                CooldownProbe(
+                    probe_id="probe-new",
+                    provider_identity="gh",
+                    credential_identity="cred1",
+                    cooldown_generation_id="generation-2",
+                    status=ProbeStatus.PENDING,
+                    scheduled_at=newer,
+                ),
+                CooldownProbe(
+                    probe_id="probe-old",
+                    provider_identity="gh",
+                    credential_identity="cred1",
+                    cooldown_generation_id="generation-1",
+                    status=ProbeStatus.ALERTABLE,
+                    scheduled_at=older,
+                ),
+            ]
+        )
+
+        assert len(candidates) == 1
+        assert candidates[0].probe_id == "probe-new"
+
+    def test_loads_no_cooldown_state_when_queue_has_no_probes(self) -> None:
+        from agentic_devtools.cli.ci.reconciliation.queue_store import InMemoryBackingStore, QueueStore
+        from agentic_devtools.cli.ci.watchdog_command import _load_cooldown_state
+
+        store = QueueStore(repo="o/r", backing=InMemoryBackingStore())
+        with patch("agentic_devtools.cli.ci.watchdog_command.QueueStore", return_value=store):
+            assert _load_cooldown_state("o/r") is None
 
     def test_redispatch_timing_uses_provider_cooldown_and_writes_outputs(self, tmp_path, capsys) -> None:
         now = datetime(2026, 7, 27, 10, 0, 0, tzinfo=UTC)
@@ -1189,6 +1618,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
             patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
             patch("agentic_devtools.cli.ci.watchdog_command._provider_cooldown", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch(
                 "agentic_devtools.cli.ci.watchdog_command._gh_api",
                 return_value=json.dumps(
@@ -1236,6 +1667,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
             patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
             patch("agentic_devtools.cli.ci.watchdog_command._provider_cooldown", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch(
                 "agentic_devtools.cli.ci.watchdog_command._gh_api",
                 return_value=json.dumps(
@@ -1324,6 +1757,8 @@ class TestAiPrLoopWatchdogCommand:
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
             patch(
                 "agentic_devtools.cli.ci.watchdog_command._gh_api",
                 return_value=json.dumps({"default_branch": "main"}),
@@ -1355,3 +1790,95 @@ class TestAiPrLoopWatchdogCommand:
                 ai_pr_loop_watchdog_command()
 
         assert exc_info.value.code == 1
+
+    def test_due_probe_only_mode_skips_scheduler_dispatch_work(self, capsys) -> None:
+        now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "due-probe-only", "--repo", "o/r", "--default-branch", "main"],
+            ),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
+            patch("agentic_devtools.cli.ci.watchdog_command._provider_cooldown", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command._get_latest_throttler_run", return_value=None),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._load_cooldown_state",
+                return_value=CooldownState("gh", "cred1", "generation-1", now),
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=1),
+            patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        payload = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert payload["decision"] == "due_probe_only"
+        assert payload["due_probe_count"] == 1
+        mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
+        mock_gh_api.assert_not_called()
+
+    def test_due_probe_only_mode_seeds_from_active_cooldown(self, capsys) -> None:
+        now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
+        with (
+            patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--mode", "due-probe-only", "--repo", "o/r"]),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
+            patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._provider_cooldown",
+                return_value=("github:GH_TOKEN", CooldownRecord(resume_at=now.timestamp() + 60, source="fallback")),
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=2) as mock_due_probes,
+            patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        payload = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert payload["decision"] == "due_probe_only"
+        assert payload["cooldown_active"] is True
+        assert payload["due_probe_count"] == 2
+        cooldown_state = mock_due_probes.call_args.kwargs["cooldown_state"]
+        assert cooldown_state.credential_identity == "GH_TOKEN"
+        mock_gh_api.assert_not_called()
+        mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
+
+    def test_due_probe_only_mode_handles_zero_due_count_without_notice(self, capsys) -> None:
+        now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "due-probe-only", "--repo", "o/r", "--default-branch", "main"],
+            ),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command._utc_now", return_value=now),
+            patch("agentic_devtools.cli.ci.watchdog_command._provider_cooldown", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command._get_latest_throttler_run", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command._load_cooldown_state", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command._seed_cooldown_state", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._gh_api") as mock_gh_api,
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        out = capsys.readouterr().out
+        payload = json.loads(out.splitlines()[-1])
+        assert payload["decision"] == "due_probe_only"
+        assert payload["due_probe_count"] == 0
+        assert "::notice::ai-pr-loop-watchdog evaluated" not in out
+        mock_gh_api.assert_not_called()

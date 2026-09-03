@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
-
 from typing import List, Union
+
 import pytest
+
 import iso3166
 from iso3166 import countries
 
@@ -77,7 +77,7 @@ def test_data() -> None:
         assert country.alpha3.upper() == country.alpha3
 
         assert len(country.numeric) == 3
-        assert country.numeric == ("%03d" % int(country.numeric))
+        assert country.numeric == f"{int(country.numeric):03d}"
         assert int(country.numeric) > 0
 
         assert len(country.name) > 3

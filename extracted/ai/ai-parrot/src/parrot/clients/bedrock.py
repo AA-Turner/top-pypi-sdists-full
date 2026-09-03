@@ -29,6 +29,7 @@ instead of delegating to a second internal client object, and fixed the
 See ``sdd/specs/bedrock-client-llm.spec.md`` and
 ``sdd/specs/novaclient-amazon-aws.spec.md`` for the full design.
 """
+
 from __future__ import annotations
 
 import json
@@ -50,7 +51,6 @@ from ..models.bedrock_models import translate as translate_bedrock_model
 from ..models.responses import AIMessage, AIMessageFactory, InvokeResult
 from ..models.outputs import StructuredOutputConfig
 from ..tools.manager import ToolFormat
-
 
 # Model families that REJECT sampling parameters (2026 generation). Bedrock
 # answers a request carrying ``temperature``/``topP``/``topK`` for one of these
@@ -81,6 +81,30 @@ def rejects_sampling_params(model_id: str) -> bool:
         the request for this model.
     """
     return any(family in (model_id or "") for family in NO_SAMPLING_MODEL_FAMILIES)
+
+
+def _requires_adaptive_thinking(model_id: str) -> bool:
+    """Return True when *model_id* requires the ``"adaptive"`` thinking shape.
+
+    FEAT-482 Module 3: the same 2026-generation model families that reject
+    legacy sampling parameters (see :func:`rejects_sampling_params`) also
+    reject the legacy extended-thinking shape —
+    ``additionalModelRequestFields.thinking = {"type": "enabled",
+    "budget_tokens": N}`` — returning ``ValidationException`` / HTTP 400.
+    They require ``{"type": "adaptive"}`` instead (confirmed against AWS's
+    Bedrock Converse API documentation for Claude adaptive thinking,
+    2026-08-31). Amazon Nova and older Anthropic families are unaffected
+    and keep the ``budget_tokens`` shape byte-identically.
+
+    Args:
+        model_id: A Bedrock model ID, already translated (it may carry a
+            region prefix, a version suffix, or be a full ARN).
+
+    Returns:
+        ``True`` when the ``"adaptive"`` thinking shape must be used
+        instead of ``budget_tokens`` for this model.
+    """
+    return rejects_sampling_params(model_id)
 
 
 class _StaticBedrockTokenProvider:
@@ -127,6 +151,12 @@ class BedrockConverseBase(AbstractClient):
     §2/§3 Module 1).
     """
 
+    # Converse rejects maxTokens above a model's own ceiling, and several
+    # Bedrock-hosted models cap at 4096 — keep the pre-existing default rather
+    # than the framework's 8192, and let callers raise it per-instance with
+    # ``max_tokens=``.
+    _default_max_tokens: int = 4096
+
     def __init__(
         self,
         aws_id: Optional[str] = None,
@@ -141,7 +171,7 @@ class BedrockConverseBase(AbstractClient):
         aws_secret_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
         aws_bearer_token: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         """Initialise a Bedrock Converse API client.
 
@@ -219,35 +249,16 @@ class BedrockConverseBase(AbstractClient):
         if self._aws_id:
             credentials = AWS_CREDENTIALS.get(self._aws_id) or {}
             if not credentials:
-                credentials = AWS_CREDENTIALS.get('default', {})
-        self._aws_access_key = (
-            aws_access_key
-            or credentials.get('aws_key')
-            or credentials.get('aws_access_key_id')
-        )
+                credentials = AWS_CREDENTIALS.get("default", {})
+        self._aws_access_key = aws_access_key or credentials.get("aws_key") or credentials.get("aws_access_key_id")
         self._aws_secret_key = (
-            aws_secret_key
-            or credentials.get('aws_secret')
-            or credentials.get('aws_secret_access_key')
+            aws_secret_key or credentials.get("aws_secret") or credentials.get("aws_secret_access_key")
         )
-        self._aws_session_token = (
-            aws_session_token
-            or credentials.get('aws_session_token')
-        )
+        self._aws_session_token = aws_session_token or credentials.get("aws_session_token")
         self._aws_bearer_token = None
         if not self._aws_access_key:
-            self._aws_bearer_token = (
-                aws_bearer_token
-                or credentials.get('aws_bearer_token')
-                or AWS_NOVA_API_KEY
-            )
-        self._region = (
-            region
-            or credentials.get('region_name')
-            or BEDROCK_AWS_REGION
-            or AWS_REGION_NAME
-            or "us-east-1"
-        )
+            self._aws_bearer_token = aws_bearer_token or credentials.get("aws_bearer_token") or AWS_NOVA_API_KEY
+        self._region = region or credentials.get("region_name") or BEDROCK_AWS_REGION or AWS_REGION_NAME or "us-east-1"
         self._profile = profile
         self._region_prefix = region_prefix
         self._guardrail_id = guardrail_id
@@ -265,7 +276,7 @@ class BedrockConverseBase(AbstractClient):
         # around here rather than in base.py to stay within this feature's
         # scope; callers can still override via an explicit ``fallback_model=``
         # kwarg, which ``setdefault`` will not clobber.
-        kwargs.setdefault('fallback_model', self._fallback_model)
+        kwargs.setdefault("fallback_model", self._fallback_model)
         super().__init__(**kwargs)
 
     # ------------------------------------------------------------------
@@ -287,10 +298,7 @@ class BedrockConverseBase(AbstractClient):
         import aioboto3
         from botocore.config import Config as BotoConfig
 
-        session = (
-            aioboto3.Session(profile_name=self._profile)
-            if self._profile else aioboto3.Session()
-        )
+        session = aioboto3.Session(profile_name=self._profile) if self._profile else aioboto3.Session()
 
         client_kwargs: Dict[str, Any] = {
             "region_name": self._region,
@@ -327,12 +335,8 @@ class BedrockConverseBase(AbstractClient):
             # 1.35.x and later.
             # ``_session`` is boto3/aioboto3's only handle on the underlying
             # botocore session — there is no public accessor.
-            session._session.register_component(
-                "token_provider", _StaticBedrockTokenProvider(self._aws_bearer_token)
-            )
-            client_kwargs["config"] = client_kwargs["config"].merge(
-                BotoConfig(signature_version="bearer")
-            )
+            session._session.register_component("token_provider", _StaticBedrockTokenProvider(self._aws_bearer_token))
+            client_kwargs["config"] = client_kwargs["config"].merge(BotoConfig(signature_version="bearer"))
             self.logger.debug(
                 "Bedrock auth: using the configured API key (bearer); "
                 "ambient SigV4 credentials, if any, are bypassed."
@@ -402,11 +406,7 @@ class BedrockConverseBase(AbstractClient):
     # Message / tool schema adaptation
     # ------------------------------------------------------------------
 
-    def _prepare_messages(
-        self,
-        prompt: str,
-        files: Optional[List[Union[str, Path]]] = None
-    ) -> List[Dict[str, Any]]:
+    def _prepare_messages(self, prompt: str, files: Optional[List[Union[str, Path]]] = None) -> List[Dict[str, Any]]:
         """Build the initial Bedrock Converse user message.
 
         Overrides :meth:`AbstractClient._prepare_messages` (which produces
@@ -423,8 +423,8 @@ class BedrockConverseBase(AbstractClient):
         """
         if files:
             self.logger.warning(
-                "BedrockConverseClient: file/image attachments are not yet "
-                "supported (%d file(s) ignored).", len(files),
+                "BedrockConverseClient: file/image attachments are not yet " "supported (%d file(s) ignored).",
+                len(files),
             )
         return [{"role": "user", "content": [{"text": prompt}]}]
 
@@ -443,11 +443,13 @@ class BedrockConverseBase(AbstractClient):
         if block_type == "text":
             return {"text": block.get("text", "")}
         if block_type == "tool_use":
-            return {"toolUse": {
-                "toolUseId": block.get("id"),
-                "name": block.get("name"),
-                "input": block.get("input", {}),
-            }}
+            return {
+                "toolUse": {
+                    "toolUseId": block.get("id"),
+                    "name": block.get("name"),
+                    "input": block.get("input", {}),
+                }
+            }
         if block_type == "tool_result":
             result_block: Dict[str, Any] = {
                 "toolUseId": block.get("tool_use_id"),
@@ -520,12 +522,10 @@ class BedrockConverseBase(AbstractClient):
             The ``inferenceConfig`` dict for the Converse payload.
         """
         config: Dict[str, Any] = {
-            "maxTokens": max_tokens if max_tokens is not None else (self.max_tokens or 4096),
+            "maxTokens": self._resolve_max_tokens(max_tokens),
         }
         if not rejects_sampling_params(model_id):
-            config["temperature"] = (
-                temperature if temperature is not None else self.temperature
-            )
+            config["temperature"] = temperature if temperature is not None else self.temperature
         return config
 
     def _prepare_tools(self, filter_names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
@@ -553,7 +553,7 @@ class BedrockConverseBase(AbstractClient):
         processed: set = set()
         for schema in manager_tools:
             clean_schema = schema.copy()
-            clean_schema.pop('_tool_instance', None)
+            clean_schema.pop("_tool_instance", None)
             tool_name = clean_schema.get("toolSpec", {}).get("name")
 
             if filter_names is not None and tool_name not in filter_names:
@@ -629,9 +629,7 @@ class BedrockConverseBase(AbstractClient):
             content=[{"text": {"text": text}}],
         )
         output_blocks = response.get("outputs", [])
-        processed_text = "".join(
-            block.get("text", "") for block in output_blocks if "text" in block
-        )
+        processed_text = "".join(block.get("text", "") for block in output_blocks if "text" in block)
         return processed_text or text
 
     # ------------------------------------------------------------------
@@ -642,7 +640,7 @@ class BedrockConverseBase(AbstractClient):
         self,
         messages: List[Dict[str, Any]],
         model: Optional[str] = None,
-        max_tokens: int = 4096,
+        max_tokens: Optional[int] = None,
         temperature: float = 0.0,
         system_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -660,7 +658,9 @@ class BedrockConverseBase(AbstractClient):
                 [{"type": "text", "text": ...}]}``).
             model: Bedrock model ID (already translated). Falls back to
                 ``self.model`` translated via :meth:`_translate_model`.
-            max_tokens: Maximum completion tokens.
+            max_tokens: Maximum completion tokens. ``None`` (the default)
+                resolves via :meth:`_resolve_max_tokens` — the per-instance
+                ``max_tokens``, then :attr:`_default_max_tokens` (4096).
             temperature: Sampling temperature.
             system_prompt: Optional system prompt string.
 
@@ -668,8 +668,10 @@ class BedrockConverseBase(AbstractClient):
             The decoded Anthropic-native response body (``dict``) — NOT the
             Converse envelope shape.
         """
+        max_tokens = self._resolve_max_tokens(max_tokens)
         await self._ensure_client()
         resolved_model = model or self._translate_model(self.model)
+        max_tokens = self._resolve_max_tokens(max_tokens, resolved_model, for_invoke=True)
 
         body: Dict[str, Any] = {
             "anthropic_version": "bedrock-2023-05-31",
@@ -733,6 +735,13 @@ class BedrockConverseBase(AbstractClient):
                 ``signature``) are preserved verbatim across tool-use
                 rounds and are available on the returned ``AIMessage`` via
                 ``raw_response`` (no dedicated field — see spec §6).
+                FEAT-482 Module 3: on 2026-generation Anthropic models
+                that reject ``budget_tokens`` (Opus 5, Fable 5, Opus
+                4.8/4.7, Sonnet 5, Mythos 5 — see
+                :func:`_requires_adaptive_thinking`), the value is used
+                only as an on/off switch and the request instead carries
+                ``{"type": "adaptive"}``. Amazon Nova and older Anthropic
+                models keep the ``budget_tokens`` shape byte-identically.
             output_schema: Optional raw JSON Schema dict. When provided, a
                 schema-in-system-prompt instruction is injected (Module 5)
                 and the final response text is parsed as JSON into
@@ -768,8 +777,7 @@ class BedrockConverseBase(AbstractClient):
 
         if deep_research or background:
             self.logger.warning(
-                "BedrockConverseClient.ask(): deep_research/background are "
-                "not yet supported; ignoring."
+                "BedrockConverseClient.ask(): deep_research/background are " "not yet supported; ignoring."
             )
         if lazy_loading:
             self.logger.warning(
@@ -796,27 +804,20 @@ class BedrockConverseBase(AbstractClient):
         if output_config:
             schema_instruction = output_config.format_schema_instruction()
             resolved_system_prompt = (
-                f"{resolved_system_prompt}\n\n{schema_instruction}"
-                if resolved_system_prompt else schema_instruction
+                f"{resolved_system_prompt}\n\n{schema_instruction}" if resolved_system_prompt else schema_instruction
             )
         elif output_schema:
             # Module 5: schema-in-system-prompt structured output from a raw
             # JSON Schema dict (no Pydantic/dataclass type available).
-            schema_instruction = (
-                "Respond with valid JSON matching this schema: "
-                f"{json.dumps(output_schema)}"
-            )
+            schema_instruction = "Respond with valid JSON matching this schema: " f"{json.dumps(output_schema)}"
             resolved_system_prompt = (
-                f"{resolved_system_prompt}\n\n{schema_instruction}"
-                if resolved_system_prompt else schema_instruction
+                f"{resolved_system_prompt}\n\n{schema_instruction}" if resolved_system_prompt else schema_instruction
             )
 
         payload: Dict[str, Any] = {
             "modelId": resolved_model,
             "messages": bedrock_messages,
-            "inferenceConfig": self._inference_config(
-                resolved_model, max_tokens, temperature
-            ),
+            "inferenceConfig": self._inference_config(resolved_model, max_tokens, temperature),
         }
         if resolved_system_prompt:
             if prompt_cache:
@@ -829,10 +830,21 @@ class BedrockConverseBase(AbstractClient):
 
         additional_fields: Dict[str, Any] = {}
         if thinking_budget:
-            additional_fields["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": thinking_budget,
-            }
+            if _requires_adaptive_thinking(resolved_model):
+                # FEAT-482 Module 3: modern Anthropic models (Opus 5, Fable
+                # 5, Opus 4.8/4.7, Sonnet 5) 400 on the legacy
+                # ``budget_tokens`` shape and require ``{"type":
+                # "adaptive"}`` instead. Effort is deliberately left at
+                # Bedrock's own default rather than threading a new
+                # ``effort`` parameter through this call — the caller's
+                # ``thinking_budget`` value has no adaptive-shape
+                # equivalent to carry.
+                additional_fields["thinking"] = {"type": "adaptive"}
+            else:
+                additional_fields["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": thinking_budget,
+                }
         if prompt_cache:
             additional_fields["promptCaching"] = {"cachePoint": {"type": "default"}}
         if additional_fields:
@@ -875,7 +887,9 @@ class BedrockConverseBase(AbstractClient):
                 if self._should_use_fallback(payload["modelId"], e):
                     self.logger.warning(
                         "Bedrock model %s capacity error: %s. Retrying with fallback: %s",
-                        payload["modelId"], e, self._fallback_model,
+                        payload["modelId"],
+                        e,
+                        self._fallback_model,
                     )
                     payload["modelId"] = self._translate_model(self._fallback_model)
                     used_fallback = True
@@ -897,23 +911,17 @@ class BedrockConverseBase(AbstractClient):
                     # __add__ shallow-merges extra_usage right-hand-wins, so
                     # capture the pre-add cache counters before they are
                     # overwritten by this round's values (spec §2, U1).
-                    _lc_prev_cache_read = (
-                        _lc_accumulated_usage.extra_usage.get("cacheReadInputTokens", 0) or 0
-                    )
-                    _lc_prev_cache_write = (
-                        _lc_accumulated_usage.extra_usage.get("cacheWriteInputTokens", 0) or 0
-                    )
+                    _lc_prev_cache_read = _lc_accumulated_usage.extra_usage.get("cacheReadInputTokens", 0) or 0
+                    _lc_prev_cache_write = _lc_accumulated_usage.extra_usage.get("cacheWriteInputTokens", 0) or 0
                     _lc_accumulated_usage = _lc_accumulated_usage + _lc_round_usage
                     # Re-sum the two cache counters explicitly so multi-round
                     # totals honour the ask() docstring (spec §2, U1) instead
                     # of reporting only the last round's cache accounting.
-                    _lc_accumulated_usage.extra_usage["cacheReadInputTokens"] = (
-                        _lc_prev_cache_read
-                        + (_lc_round_usage.extra_usage.get("cacheReadInputTokens", 0) or 0)
+                    _lc_accumulated_usage.extra_usage["cacheReadInputTokens"] = _lc_prev_cache_read + (
+                        _lc_round_usage.extra_usage.get("cacheReadInputTokens", 0) or 0
                     )
-                    _lc_accumulated_usage.extra_usage["cacheWriteInputTokens"] = (
-                        _lc_prev_cache_write
-                        + (_lc_round_usage.extra_usage.get("cacheWriteInputTokens", 0) or 0)
+                    _lc_accumulated_usage.extra_usage["cacheWriteInputTokens"] = _lc_prev_cache_write + (
+                        _lc_round_usage.extra_usage.get("cacheWriteInputTokens", 0) or 0
                     )
             else:
                 _lc_round_usage = None
@@ -940,31 +948,34 @@ class BedrockConverseBase(AbstractClient):
                         tool_result = await self._execute_tool(tool_name, tool_input)
                         tc.result = tool_result
                         tc.execution_time = time.time() - start_time
-                        tool_result_blocks.append({
-                            "toolResult": {
-                                "toolUseId": tool_id,
-                                "content": [{"text": str(tool_result)}],
+                        tool_result_blocks.append(
+                            {
+                                "toolResult": {
+                                    "toolUseId": tool_id,
+                                    "content": [{"text": str(tool_result)}],
+                                }
                             }
-                        })
+                        )
                     except Exception as e:
                         from parrot.core.exceptions import HumanInteractionInterrupt
+
                         if isinstance(e, HumanInteractionInterrupt):
                             e.session_id = session_id
-                            e.messages = bedrock_messages + [
-                                {"role": "assistant", "content": content_blocks}
-                            ]
+                            e.messages = bedrock_messages + [{"role": "assistant", "content": content_blocks}]
                             e.tool_call_id = tool_id
                             e.agent_name = resolved_model
                             raise
 
                         tc.error = str(e)
-                        tool_result_blocks.append({
-                            "toolResult": {
-                                "toolUseId": tool_id,
-                                "content": [{"text": str(e)}],
-                                "status": "error",
+                        tool_result_blocks.append(
+                            {
+                                "toolResult": {
+                                    "toolUseId": tool_id,
+                                    "content": [{"text": str(e)}],
+                                    "status": "error",
+                                }
                             }
-                        })
+                        )
 
                     all_tool_calls.append(tc)
                     _lc_round_tool_names.append(tool_name)
@@ -993,17 +1004,22 @@ class BedrockConverseBase(AbstractClient):
                 break
 
         final_output = None
-        assistant_response_text = "".join(
-            block.get("text", "") for block in content_blocks if "text" in block
-        )
+        assistant_response_text = "".join(block.get("text", "") for block in content_blocks if "text" in block)
         if output_config:
             try:
+                # Known-truncated output must not reach a custom parser either.
+                self._raise_if_truncated(result.get("stopReason"), model=resolved_model)
                 if output_config.custom_parser:
                     final_output = await output_config.custom_parser(assistant_response_text)
                 else:
                     final_output = await self._parse_structured_output(
-                        assistant_response_text, output_config
+                        assistant_response_text,
+                        output_config,
+                        finish_reason=result.get("stopReason"),
+                        model=resolved_model,
                     )
+            except InvokeError:
+                raise
             except Exception:
                 final_output = assistant_response_text
         elif output_schema:
@@ -1011,9 +1027,15 @@ class BedrockConverseBase(AbstractClient):
 
         tools_used = [tc.name for tc in all_tool_calls]
         await self._update_conversation_memory(
-            user_id, session_id, conversation_history, bedrock_messages,
-            resolved_system_prompt, turn_id, original_prompt,
-            assistant_response_text, tools_used,
+            user_id,
+            session_id,
+            conversation_history,
+            bedrock_messages,
+            resolved_system_prompt,
+            turn_id,
+            original_prompt,
+            assistant_response_text,
+            tools_used,
         )
 
         ai_message = AIMessageFactory.from_bedrock(
@@ -1028,9 +1050,9 @@ class BedrockConverseBase(AbstractClient):
         )
 
         if used_fallback:
-            ai_message.metadata['used_fallback_model'] = True
-            ai_message.metadata['original_model'] = resolved_model
-            ai_message.metadata['fallback_model'] = self._fallback_model
+            ai_message.metadata["used_fallback_model"] = True
+            ai_message.metadata["original_model"] = resolved_model
+            ai_message.metadata["fallback_model"] = self._fallback_model
 
         # FEAT-404: replace the last-round-only usage with the accumulated
         # multi-round total. For single-round calls (no tool use), the
@@ -1047,8 +1069,8 @@ class BedrockConverseBase(AbstractClient):
             client_name=self.client_name,
             model=resolved_model,
             duration_ms=(time.perf_counter() - _lc_t0) * 1000,
-            input_tokens=getattr(_lc_usage, 'input_tokens', None) if _lc_usage else None,
-            output_tokens=getattr(_lc_usage, 'output_tokens', None) if _lc_usage else None,
+            input_tokens=getattr(_lc_usage, "input_tokens", None) if _lc_usage else None,
+            output_tokens=getattr(_lc_usage, "output_tokens", None) if _lc_usage else None,
             finish_reason=ai_message.stop_reason,
         )
         return ai_message
@@ -1064,36 +1086,41 @@ class BedrockConverseBase(AbstractClient):
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
+        use_tools: bool = True,
         deep_research: bool = False,
         agent_config: Optional[Dict[str, Any]] = None,
         lazy_loading: bool = False,
         thinking_budget: Optional[int] = None,
         guardrail_id: Optional[str] = None,
         guardrail_version: Optional[str] = None,
+        **kwargs,
     ) -> AsyncIterator[Union[str, AIMessage]]:
-        """Stream a Bedrock Converse response.
+        """Stream a Bedrock Converse response with tool-use support.
 
         Yields successive ``str`` chunks (mapped from ``contentBlockDelta``
         events), then a single final :class:`AIMessage` sentinel — the same
         streaming convention followed by every other client
         (:meth:`AnthropicClient.ask_stream`, etc.).
 
+        When the model requests a tool during streaming, the tool is executed
+        between streaming rounds: text from the current round is yielded as
+        it arrives, then the tool executes (a brief pause the caller sees as
+        a gap between chunks), and a new streaming round begins with the
+        tool result injected into the conversation. This mirrors the
+        ``while True`` tool loop in :meth:`ask` and the existing streaming
+        tool support in the Google client.
+
         Args:
+            use_tools: Whether to include tool definitions and run the
+                streaming tool-call loop.  Defaults to ``True``.
             thinking_budget: See :meth:`ask` — enables extended thinking via
-                ``additionalModelRequestFields.thinking`` (Module 5).
+                ``additionalModelRequestFields.thinking`` (Module 5),
+                including the FEAT-482 Module 3 adaptive-shape selection
+                for 2026-generation Anthropic models.
             guardrail_id: Per-call guardrail identifier override. Falls back
                 to the identifier passed to ``__init__``.
             guardrail_version: Per-call guardrail version override. Falls
                 back to the version passed to ``__init__``.
-
-        Note:
-            Tool-use is not resumed mid-stream in this Core implementation —
-            if the model requests a tool during streaming, the tool-use
-            content block is still yielded as text-less, and the final
-            ``AIMessage`` carries ``stop_reason="tool_use"`` with no
-            tool_calls populated. Full streaming tool-use loops are deferred
-            to a future iteration; ``ask()`` should be used when tool-use is
-            required.
         """
         await self._ensure_client()
 
@@ -1102,10 +1129,7 @@ class BedrockConverseBase(AbstractClient):
         original_prompt = prompt
 
         if deep_research:
-            self.logger.warning(
-                "BedrockConverseClient.ask_stream(): deep_research is not "
-                "yet supported; ignoring."
-            )
+            self.logger.warning("BedrockConverseClient.ask_stream(): deep_research is not " "yet supported; ignoring.")
         if lazy_loading:
             self.logger.warning(
                 "BedrockConverseClient.ask_stream(): lazy_loading is not "
@@ -1120,17 +1144,19 @@ class BedrockConverseBase(AbstractClient):
         payload: Dict[str, Any] = {
             "modelId": resolved_model,
             "messages": bedrock_messages,
-            "inferenceConfig": self._inference_config(
-                resolved_model, max_tokens, temperature
-            ),
+            "inferenceConfig": self._inference_config(resolved_model, max_tokens, temperature),
         }
         if resolved_system_prompt:
             payload["system"] = [{"text": resolved_system_prompt}]
 
         if thinking_budget:
-            payload["additionalModelRequestFields"] = {
-                "thinking": {"type": "enabled", "budget_tokens": thinking_budget}
-            }
+            if _requires_adaptive_thinking(resolved_model):
+                # FEAT-482 Module 3: see the identical branch in ask().
+                payload["additionalModelRequestFields"] = {"thinking": {"type": "adaptive"}}
+            else:
+                payload["additionalModelRequestFields"] = {
+                    "thinking": {"type": "enabled", "budget_tokens": thinking_budget}
+                }
 
         resolved_guardrail_id = guardrail_id or self._guardrail_id
         resolved_guardrail_version = guardrail_version or self._guardrail_version
@@ -1144,34 +1170,142 @@ class BedrockConverseBase(AbstractClient):
             for tool in tools:
                 self.register_tool(tool)
 
-        if self.enable_tools:
+        if use_tools and self.enable_tools:
             tool_specs = self._prepare_tools()
             if tool_specs:
                 payload["toolConfig"] = {"tools": tool_specs}
 
+        # ── Streaming tool-call loop ──────────────────────────────────
+        # Mirrors the while-True loop in ask() (line ~870). Each round
+        # streams text chunks to the caller; when the model stops with
+        # stopReason="tool_use", tools are executed between rounds and
+        # the conversation continues.
+        all_tool_calls: List[ToolCall] = []
         accumulated_text = ""
         stop_reason: Optional[str] = None
         usage_dict: Dict[str, Any] = {}
+        _max_tool_rounds = 25  # safety cap, same depth as ask()
 
-        stream = await self._sdk_stream(payload)
-        async for event in stream:
-            delta = event.get("contentBlockDelta", {}).get("delta", {})
-            text_chunk = delta.get("text")
-            if text_chunk:
-                accumulated_text += text_chunk
-                yield text_chunk
-            if "messageStop" in event:
-                stop_reason = event["messageStop"].get("stopReason")
-            if "metadata" in event:
-                usage_dict = event["metadata"].get("usage", {})
+        for _round in range(_max_tool_rounds):
+            # ── Stream one round ──────────────────────────────────────
+            round_text = ""
+            round_content_blocks: List[Dict[str, Any]] = []
+            # Collect tool-use blocks from stream events.
+            _current_tool_block: Optional[Dict[str, str]] = None
+            _tool_use_blocks: List[Dict[str, Any]] = []
 
-        bedrock_messages.append(
-            {"role": "assistant", "content": [{"text": accumulated_text}]}
-        )
+            stream = await self._sdk_stream(payload)
+            async for event in stream:
+                # --- Text chunks: yield immediately ---
+                delta = event.get("contentBlockDelta", {}).get("delta", {})
+                text_chunk = delta.get("text")
+                if text_chunk:
+                    round_text += text_chunk
+                    accumulated_text += text_chunk
+                    yield text_chunk
+
+                # --- Tool-use block collection ---
+                if "contentBlockStart" in event:
+                    start_body = event["contentBlockStart"].get("start", {})
+                    if "toolUse" in start_body:
+                        _current_tool_block = {
+                            "toolUseId": start_body["toolUse"].get("toolUseId", ""),
+                            "name": start_body["toolUse"].get("name", ""),
+                            "input_json": "",
+                        }
+                # Accumulate streamed tool-input JSON fragments.
+                tool_use_delta = delta.get("toolUse")
+                if tool_use_delta and _current_tool_block is not None:
+                    _current_tool_block["input_json"] += tool_use_delta.get("input", "")
+                if "contentBlockStop" in event and _current_tool_block is not None:
+                    _tool_use_blocks.append(_current_tool_block)
+                    _current_tool_block = None
+
+                if "messageStop" in event:
+                    stop_reason = event["messageStop"].get("stopReason")
+                if "metadata" in event:
+                    usage_dict = event["metadata"].get("usage", {})
+
+            # ── Build the assistant content blocks for this round ─────
+            if round_text:
+                round_content_blocks.append({"text": round_text})
+            for tb in _tool_use_blocks:
+                try:
+                    tool_input = json.loads(tb["input_json"]) if tb["input_json"] else {}
+                except (json.JSONDecodeError, TypeError):
+                    tool_input = {}
+                round_content_blocks.append({
+                    "toolUse": {
+                        "toolUseId": tb["toolUseId"],
+                        "name": tb["name"],
+                        "input": tool_input,
+                    }
+                })
+
+            bedrock_messages.append({"role": "assistant", "content": round_content_blocks})
+
+            # ── Tool-use round: execute tools, loop ───────────────────
+            if stop_reason == "tool_use" and _tool_use_blocks:
+                tool_result_blocks: List[Dict[str, Any]] = []
+                for tb in _tool_use_blocks:
+                    try:
+                        tool_input = json.loads(tb["input_json"]) if tb["input_json"] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        tool_input = {}
+                    tc = ToolCall(
+                        id=tb["toolUseId"],
+                        name=tb["name"],
+                        arguments=tool_input,
+                    )
+                    try:
+                        start_time = time.time()
+                        tool_result = await self._execute_tool(tb["name"], tool_input)
+                        tc.result = tool_result
+                        tc.execution_time = time.time() - start_time
+                        tool_result_blocks.append({
+                            "toolResult": {
+                                "toolUseId": tb["toolUseId"],
+                                "content": [{"text": str(tool_result)}],
+                            }
+                        })
+                    except Exception as e:
+                        from parrot.core.exceptions import HumanInteractionInterrupt
+
+                        if isinstance(e, HumanInteractionInterrupt):
+                            e.session_id = session_id
+                            e.messages = bedrock_messages
+                            e.tool_call_id = tb["toolUseId"]
+                            e.agent_name = resolved_model
+                            raise
+                        tc.error = str(e)
+                        tool_result_blocks.append({
+                            "toolResult": {
+                                "toolUseId": tb["toolUseId"],
+                                "content": [{"text": str(e)}],
+                                "status": "error",
+                            }
+                        })
+                    all_tool_calls.append(tc)
+
+                bedrock_messages.append({"role": "user", "content": tool_result_blocks})
+                payload["messages"] = bedrock_messages
+                # Reset for next round — stop_reason will be overwritten.
+                stop_reason = None
+            else:
+                # No tool call (or tools disabled) — done.
+                break
+
+        tools_used = [tc.name for tc in all_tool_calls]
         await self._update_conversation_memory(
-            user_id, session_id, conversation_history, bedrock_messages,
-            resolved_system_prompt, turn_id, original_prompt,
-            accumulated_text, [],
+            user_id,
+            session_id,
+            conversation_history,
+            bedrock_messages,
+            resolved_system_prompt,
+            turn_id,
+            original_prompt,
+            accumulated_text,
+            tools_used,
         )
 
         synthetic_response = {
@@ -1186,14 +1320,10 @@ class BedrockConverseBase(AbstractClient):
             user_id=user_id,
             session_id=session_id,
             turn_id=turn_id,
+            tool_calls=all_tool_calls,
         )
 
-    async def resume(
-        self,
-        session_id: str,
-        user_input: str,
-        state: Dict[str, Any]
-    ) -> AIMessage:
+    async def resume(self, session_id: str, user_input: str, state: Dict[str, Any]) -> AIMessage:
         """Resume a suspended Bedrock tool-use execution.
 
         Args:
@@ -1230,19 +1360,21 @@ class BedrockConverseBase(AbstractClient):
         # first attempt. Same pattern pre-exists in AnthropicClient.resume().
         bedrock_messages: List[Dict[str, Any]] = list(state["messages"])
         tool_call_id = state["tool_call_id"]
-        resolved_model = self._translate_model(
-            state.get("agent_name", self.model or self.default_model)
-        )
+        resolved_model = self._translate_model(state.get("agent_name", self.model or self.default_model))
 
-        bedrock_messages.append({
-            "role": "user",
-            "content": [{
-                "toolResult": {
-                    "toolUseId": tool_call_id,
-                    "content": [{"text": user_input}],
-                }
-            }]
-        })
+        bedrock_messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "toolResult": {
+                            "toolUseId": tool_call_id,
+                            "content": [{"text": user_input}],
+                        }
+                    }
+                ],
+            }
+        )
 
         all_tool_calls: List[ToolCall] = []
         turn_id = str(uuid.uuid4())
@@ -1297,24 +1429,18 @@ class BedrockConverseBase(AbstractClient):
                     # __add__ shallow-merges extra_usage right-hand-wins, so
                     # capture the pre-add cache counters before they are
                     # overwritten by this round's values (spec §2, U1).
-                    _lc_prev_cache_read = (
-                        _lc_accumulated_usage.extra_usage.get("cacheReadInputTokens", 0) or 0
-                    )
-                    _lc_prev_cache_write = (
-                        _lc_accumulated_usage.extra_usage.get("cacheWriteInputTokens", 0) or 0
-                    )
+                    _lc_prev_cache_read = _lc_accumulated_usage.extra_usage.get("cacheReadInputTokens", 0) or 0
+                    _lc_prev_cache_write = _lc_accumulated_usage.extra_usage.get("cacheWriteInputTokens", 0) or 0
                     _lc_accumulated_usage = _lc_accumulated_usage + _lc_round_usage
                     # Re-sum the two cache counters explicitly so multi-round
                     # totals honour the ask() docstring semantics (spec §2,
                     # U1) instead of reporting only the last round's cache
                     # accounting.
-                    _lc_accumulated_usage.extra_usage["cacheReadInputTokens"] = (
-                        _lc_prev_cache_read
-                        + (_lc_round_usage.extra_usage.get("cacheReadInputTokens", 0) or 0)
+                    _lc_accumulated_usage.extra_usage["cacheReadInputTokens"] = _lc_prev_cache_read + (
+                        _lc_round_usage.extra_usage.get("cacheReadInputTokens", 0) or 0
                     )
-                    _lc_accumulated_usage.extra_usage["cacheWriteInputTokens"] = (
-                        _lc_prev_cache_write
-                        + (_lc_round_usage.extra_usage.get("cacheWriteInputTokens", 0) or 0)
+                    _lc_accumulated_usage.extra_usage["cacheWriteInputTokens"] = _lc_prev_cache_write + (
+                        _lc_round_usage.extra_usage.get("cacheWriteInputTokens", 0) or 0
                     )
             else:
                 _lc_round_usage = None
@@ -1341,31 +1467,34 @@ class BedrockConverseBase(AbstractClient):
                         tool_result = await self._execute_tool(tool_name, tool_input)
                         tc.result = tool_result
                         tc.execution_time = time.time() - start_time
-                        tool_result_blocks.append({
-                            "toolResult": {
-                                "toolUseId": tool_id,
-                                "content": [{"text": str(tool_result)}],
+                        tool_result_blocks.append(
+                            {
+                                "toolResult": {
+                                    "toolUseId": tool_id,
+                                    "content": [{"text": str(tool_result)}],
+                                }
                             }
-                        })
+                        )
                     except Exception as e:
                         from parrot.core.exceptions import HumanInteractionInterrupt
+
                         if isinstance(e, HumanInteractionInterrupt):
                             e.session_id = session_id
-                            e.messages = bedrock_messages + [
-                                {"role": "assistant", "content": content_blocks}
-                            ]
+                            e.messages = bedrock_messages + [{"role": "assistant", "content": content_blocks}]
                             e.tool_call_id = tool_id
                             e.agent_name = resolved_model
                             raise
 
                         tc.error = str(e)
-                        tool_result_blocks.append({
-                            "toolResult": {
-                                "toolUseId": tool_id,
-                                "content": [{"text": str(e)}],
-                                "status": "error",
+                        tool_result_blocks.append(
+                            {
+                                "toolResult": {
+                                    "toolUseId": tool_id,
+                                    "content": [{"text": str(e)}],
+                                    "status": "error",
+                                }
                             }
-                        })
+                        )
 
                     all_tool_calls.append(tc)
                     _lc_round_tool_names.append(tool_name)
@@ -1413,8 +1542,8 @@ class BedrockConverseBase(AbstractClient):
             client_name=self.client_name,
             model=resolved_model,
             duration_ms=(time.perf_counter() - _lc_t0) * 1000,
-            input_tokens=getattr(_lc_usage, 'input_tokens', None) if _lc_usage else None,
-            output_tokens=getattr(_lc_usage, 'output_tokens', None) if _lc_usage else None,
+            input_tokens=getattr(_lc_usage, "input_tokens", None) if _lc_usage else None,
+            output_tokens=getattr(_lc_usage, "output_tokens", None) if _lc_usage else None,
             finish_reason=ai_message.stop_reason,
         )
         return ai_message
@@ -1427,7 +1556,7 @@ class BedrockConverseBase(AbstractClient):
         structured_output: Optional[StructuredOutputConfig] = None,
         model: Optional[str] = None,
         system_prompt: Optional[str] = None,
-        max_tokens: int = 4096,
+        max_tokens: Optional[int] = None,
         temperature: float = 0.0,
         use_tools: bool = False,
         tools: Optional[list] = None,
@@ -1445,7 +1574,8 @@ class BedrockConverseBase(AbstractClient):
                 into.
             structured_output: Full :class:`StructuredOutputConfig`; takes
                 precedence over ``output_type``.
-            model: Model override. Defaults to ``_lightweight_model``.
+            model: Model override. Falls back to an explicitly selected
+                ``self.model``, then ``_lightweight_model``.
             system_prompt: System prompt override.
             max_tokens: Maximum completion tokens.
             temperature: Sampling temperature.
@@ -1466,6 +1596,7 @@ class BedrockConverseBase(AbstractClient):
             resolved_prompt = self._resolve_invoke_system_prompt(system_prompt)
             config = self._build_invoke_structured_config(output_type, structured_output)
             resolved_model = self._translate_model(self._resolve_invoke_model(model))
+            max_tokens = self._resolve_max_tokens(max_tokens, resolved_model, for_invoke=True)
 
             if config:
                 resolved_prompt += "\n\n" + config.format_schema_instruction()
@@ -1474,9 +1605,7 @@ class BedrockConverseBase(AbstractClient):
                 "modelId": resolved_model,
                 "messages": [{"role": "user", "content": [{"text": prompt}]}],
                 "system": [{"text": resolved_prompt}],
-                "inferenceConfig": self._inference_config(
-                    resolved_model, max_tokens, temperature
-                ),
+                "inferenceConfig": self._inference_config(resolved_model, max_tokens, temperature),
             }
 
             if use_tools:
@@ -1494,10 +1623,17 @@ class BedrockConverseBase(AbstractClient):
 
             output: Any = raw_text
             if config:
+                # Known-truncated output must not reach a custom parser either.
+                self._raise_if_truncated(self._extract_finish_reason(result), model=resolved_model)
                 if config.custom_parser:
                     output = config.custom_parser(raw_text)
                 else:
-                    output = await self._parse_structured_output(raw_text, config)
+                    output = await self._parse_structured_output(
+                        raw_text,
+                        config,
+                        finish_reason=self._extract_finish_reason(result),
+                        model=resolved_model,
+                    )
 
             usage = CompletionUsage.from_bedrock(result.get("usage", {}))
 
@@ -1527,3 +1663,24 @@ class BedrockConverseClient(BedrockConverseBase):
     # FEAT-181: minimum token count for provider-side prompt caching
     # (Bedrock Anthropic models share Anthropic's 1024-token threshold).
     _min_cache_tokens: int = 1024
+
+    # This client fronts several model families at once, and Bedrock REJECTS an
+    # over-cap max_tokens ("The maximum tokens you requested exceeds the model
+    # limit of N") rather than clamping. The class default is therefore the
+    # smallest cap measured across the families in routine use, and the table
+    # below lifts the individual models that accept more.
+    _default_max_tokens: int = 16384
+
+    # Measured 2026-09-03 in us-east-1 by walking max_tokens up per model until
+    # Converse rejected the request. Keyed by fragment, so one entry matches
+    # both the public name and the geo-prefixed Bedrock id
+    # (claude-opus-5 / us.anthropic.claude-opus-5).
+    _model_max_tokens: Dict[str, int] = {
+        "claude-opus-5": 65536,
+        "claude-sonnet-5": 65536,
+        "gpt-oss-120b": 65536,
+        "claude-haiku-4-5": 32768,
+        "deepseek.r1": 32768,
+        "qwen3-coder-30b": 65536,
+        "qwen3-32b": 16384,
+    }

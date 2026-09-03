@@ -43,6 +43,7 @@ if typing.TYPE_CHECKING:
     from .collab_agent_send_message_response_out import CollabAgentSendMessageResponseOut
     from .collab_token_response import CollabTokenResponse
     from .collab_token_response_access_type import CollabTokenResponseAccessType
+    from .computer_lifecycle_response_out import ComputerLifecycleResponseOut
     from .conversation_asset_info import ConversationAssetInfo
     from .conversation_message import ConversationMessage
     from .conversation_message_content import ConversationMessageContent
@@ -69,6 +70,7 @@ if typing.TYPE_CHECKING:
     from .database_tables_response import DatabaseTablesResponse
     from .default_visibility import DefaultVisibility
     from .delete_data_request import DeleteDataRequest
+    from .delete_ssh_key_response_out import DeleteSshKeyResponseOut
     from .deploy_computer_response_out import DeployComputerResponseOut
     from .dimension_properties import DimensionProperties
     from .drive_agent_response import DriveAgentResponse
@@ -131,7 +133,10 @@ if typing.TYPE_CHECKING:
     from .sheet import Sheet
     from .sheet_operation_response import SheetOperationResponse
     from .sql_agent_response import SqlAgentResponse
+    from .ssh_access_info_out import SshAccessInfoOut
     from .ssh_access_response_out import SshAccessResponseOut
+    from .ssh_key_list_response_out import SshKeyListResponseOut
+    from .ssh_key_out import SshKeyOut
     from .structured_data_extractor_response import StructuredDataExtractorResponse
     from .table_row_data import TableRowData
     from .text_content import TextContent
@@ -198,6 +203,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CollabAgentSendMessageResponseOut": ".collab_agent_send_message_response_out",
     "CollabTokenResponse": ".collab_token_response",
     "CollabTokenResponseAccessType": ".collab_token_response_access_type",
+    "ComputerLifecycleResponseOut": ".computer_lifecycle_response_out",
     "ConversationAssetInfo": ".conversation_asset_info",
     "ConversationMessage": ".conversation_message",
     "ConversationMessageContent": ".conversation_message_content",
@@ -224,6 +230,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DatabaseTablesResponse": ".database_tables_response",
     "DefaultVisibility": ".default_visibility",
     "DeleteDataRequest": ".delete_data_request",
+    "DeleteSshKeyResponseOut": ".delete_ssh_key_response_out",
     "DeployComputerResponseOut": ".deploy_computer_response_out",
     "DimensionProperties": ".dimension_properties",
     "DriveAgentResponse": ".drive_agent_response",
@@ -284,7 +291,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Sheet": ".sheet",
     "SheetOperationResponse": ".sheet_operation_response",
     "SqlAgentResponse": ".sql_agent_response",
+    "SshAccessInfoOut": ".ssh_access_info_out",
     "SshAccessResponseOut": ".ssh_access_response_out",
+    "SshKeyListResponseOut": ".ssh_key_list_response_out",
+    "SshKeyOut": ".ssh_key_out",
     "StructuredDataExtractorResponse": ".structured_data_extractor_response",
     "TableRowData": ".table_row_data",
     "TextContent": ".text_content",
@@ -375,6 +385,7 @@ __all__ = [
     "CollabAgentSendMessageResponseOut",
     "CollabTokenResponse",
     "CollabTokenResponseAccessType",
+    "ComputerLifecycleResponseOut",
     "ConversationAssetInfo",
     "ConversationMessage",
     "ConversationMessageContent",
@@ -401,6 +412,7 @@ __all__ = [
     "DatabaseTablesResponse",
     "DefaultVisibility",
     "DeleteDataRequest",
+    "DeleteSshKeyResponseOut",
     "DeployComputerResponseOut",
     "DimensionProperties",
     "DriveAgentResponse",
@@ -461,7 +473,10 @@ __all__ = [
     "Sheet",
     "SheetOperationResponse",
     "SqlAgentResponse",
+    "SshAccessInfoOut",
     "SshAccessResponseOut",
+    "SshKeyListResponseOut",
+    "SshKeyOut",
     "StructuredDataExtractorResponse",
     "TableRowData",
     "TextContent",

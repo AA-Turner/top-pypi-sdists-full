@@ -1,12 +1,15 @@
+import inspect
 import json
+import math
 import pickle
 from collections.abc import Callable
 from typing import Any, TypeVar
 
+import hypothesis.extra.numpy as npst
 import hypothesis.strategies as st
 import numpy as np
 import pytest
-from hypothesis import note
+from hypothesis import assume, note
 from hypothesis.stateful import (
     initialize,
     invariant,
@@ -28,10 +31,43 @@ from icechunk.testing.models import GroupNode, ModelStore
 from icechunk.testing.trees import absolute, valid_moves
 from icechunk.testing.utils import update_paths_after_move
 from zarr import Array
+from zarr.codecs import ShardingCodec
+from zarr.codecs.bytes import BytesCodec
 from zarr.core.buffer import default_buffer_prototype
 from zarr.testing.stateful import ZarrHierarchyStateMachine, split_prefix_name
+from zarr.testing.strategies import arrays as zarr_arrays
+from zarr.testing.strategies import node_names, orthogonal_indices
 
 PROTOTYPE = default_buffer_prototype()
+
+# zarr >= 3.3 draws the array on the model store and *recreates* it in the store
+# under test, dropping the sharding codec the strategy may have drawn (see
+# `add_array` below). Older zarr builds the same array in both stores, and its
+# `arrays` strategy opens the group with mode="w", which would wipe the model
+# store if we drove it ourselves — so only override against the newer API.
+ZARR_RECREATES_ARRAYS = "open_mode" in inspect.signature(zarr_arrays).parameters
+
+
+def _writes_sharded_oindex() -> bool:
+    """Whether zarr can write an orthogonal selection to a sharded array.
+
+    An integer array on any axis reaches the sharding codec in broadcast
+    (``np.ix_``) form. That codec's partial-encode path reads the selection
+    back as a pointwise one and raises. The probe writes four points inside one
+    shard. A one-point selection still writes, because both shapes then hold
+    one element.
+    """
+    arr = zarr.create_array({}, shape=(4, 4), chunks=(2, 2), shards=(2, 4), dtype="int64")
+    try:
+        arr.oindex[np.array([0, 1]), np.array([2, 3])] = np.zeros((2, 2), dtype="int64")
+    except (ValueError, IndexError):
+        return False
+    return True
+
+
+# Probed rather than pinned to a version, so the override below disappears on
+# its own once zarr releases the fix.
+ZARR_WRITES_SHARDED_OINDEX = _writes_sharded_oindex()
 
 Frequency = TypeVar("Frequency", bound=Callable[..., Any])
 
@@ -51,10 +87,22 @@ def storage_chunk_sizes(arr: "Array[Any]") -> tuple[tuple[int, ...], ...]:
     if hasattr(arr, "write_chunk_sizes"):
         return arr.write_chunk_sizes  # type: ignore[no-any-return]
     cell = arr.shards or arr.chunks
+    # a zero-length dimension holds no chunks, and its cell size may be zero too
     return tuple(
-        tuple(min(c, s - i * c) for i in range(-(-s // c)))
+        tuple(min(c, s - i * c) for i in range(math.ceil(s / c) if s else 0))
         for s, c in zip(arr.shape, cell, strict=True)
     )
+
+
+def is_sharded(arr: "Array[Any]") -> bool:
+    """True when the array stores shards.
+
+    ``Array.shards`` raises on a rectilinear chunk grid. The newer zarr
+    strategies draw those grids, so this reads the codec chain instead.
+    These arrays are always zarr format 3. Format 2 cannot shard.
+    """
+    codecs = getattr(arr.metadata, "codecs", ())
+    return any(isinstance(codec, ShardingCodec) for codec in codecs)
 
 
 # pytestmark = [
@@ -113,6 +161,103 @@ class ModifiedZarrHierarchyStateMachine(ZarrHierarchyStateMachine):
         self.model.spec_version = spec_version
 
         super().init_store()
+
+    if ZARR_RECREATES_ARRAYS:
+
+        @rule(data=st.data(), name=node_names)
+        def add_array(self, data: st.DataObject, name: str) -> None:
+            """Give both stores the same array, sharding codec included.
+
+            zarr's rule draws the array on the model store, where the strategy
+            may give it a sharding codec, and then recreates it in the store
+            under test with ``create_array(chunks=<grid cell>,
+            compressors=None)``, which drops that codec (and the drawn
+            attributes). The two sides then differ where sharding matters:
+            writing a chunk that is entirely fill value elides the object on the
+            unsharded side only, so the store loses a key the model keeps.
+
+            Same fix as zarr-developers/zarr-python#4288, which is on zarr's
+            main but not in a release yet — and CI installs the latest release.
+            Drop this override once that release lands.
+            """
+            if self.all_groups:
+                parent = data.draw(
+                    st.sampled_from(sorted(self.all_groups)), label="Array parent"
+                )
+            else:
+                parent = ""
+            path = f"{parent}/{name}".lstrip("/")
+            assume(self.can_add(path))
+
+            # mypy resolves `zarr_arrays` against the installed zarr, which may
+            # be the older one without `open_mode`. This rule only exists for
+            # the newer API, where that argument stops the strategy from opening
+            # the model store with mode="w" and wiping it.
+            arrays_strategy: Any = zarr_arrays
+            a = data.draw(
+                arrays_strategy(
+                    stores=st.just(self.model),
+                    paths=st.just(parent),
+                    array_names=st.just(name),
+                    zarr_formats=st.just(3),
+                    compressors=st.just(BytesCodec()),
+                    open_mode="a",
+                ),
+                label="generated array",
+            )
+            note(
+                f"Adding array:  path='{path}'  shape={a.shape}  "
+                f"chunks={a.metadata.chunk_grid}"
+            )
+
+            # `from_array` keeps the drawn chunk grid, codecs and dimension
+            # names. `attributes` and `fill_value` are passed explicitly because
+            # zarr up to 3.3.0 silently drops both (fixed by zarr#4288, so this
+            # is a no-op on newer zarr); the data is copied here rather than by
+            # `write_data=True`, whose shard-wise copy still does not support
+            # rectilinear chunk grids.
+            arr = zarr.from_array(
+                self.store,
+                data=a,
+                name=path,
+                attributes=a.attrs.asdict(),
+                fill_value=a.fill_value,
+                write_data=False,
+            )
+            arr[:] = a[:]
+            self.all_arrays.add(path)
+
+    if not ZARR_WRITES_SHARDED_OINDEX:
+
+        @precondition(lambda self: bool(self.all_arrays))
+        @rule(data=st.data())
+        def overwrite_array_orthogonal_indexing(self, data: st.DataObject) -> None:
+            """Copy of zarr's rule with the broken sharded writes skipped.
+
+            An integer array on any axis reaches the sharding codec in
+            broadcast (``np.ix_``) form. That codec's partial-encode path reads
+            the selection back as a pointwise one. The write then raises
+            ``ValueError: shape mismatch`` unless it covers a single point. It
+            fails on the model store, before icechunk sees it. A selection of
+            slices always works, and so does any unsharded target.
+            """
+            array = data.draw(st.sampled_from(sorted(self.all_arrays)))
+            model_array = zarr.open_array(path=array, store=self.model)
+            store_array = zarr.open_array(path=array, store=self.store)
+            indexer, _ = data.draw(orthogonal_indices(shape=model_array.shape))
+            assume(
+                not is_sharded(model_array)
+                or not any(isinstance(dim_sel, np.ndarray) for dim_sel in indexer)
+            )
+            note(f"overwriting array orthogonal {indexer=}")
+            new_data = data.draw(
+                npst.arrays(
+                    shape=model_array.oindex[indexer].shape,  # type: ignore[union-attr]
+                    dtype=model_array.dtype,
+                )
+            )
+            model_array.oindex[indexer] = new_data
+            store_array.oindex[indexer] = new_data
 
     @precondition(
         lambda self: (
@@ -429,6 +574,14 @@ def test_storage_chunk_sizes_granularity() -> None:
     # storage-key grid is the bug storage_chunk_sizes exists to avoid.
     assert sharded.cdata_shape == (2,)
     assert storage_chunk_sizes(plain) == ((30, 30, 30, 10), (40, 40))
+    empty = zarr.create_array(model, name="e", shape=(0,), chunks=(1,), dtype="i1")
+    assert storage_chunk_sizes(empty) == ((),)
+    if Version(zarr.__version__) < Version("3.3.0"):
+        # zarr < 3.3 allows a zero cell size when the dimension is empty
+        cell_zero = zarr.create_array(
+            model, name="z", shape=(0,), chunks=(0,), dtype="i1"
+        )
+        assert storage_chunk_sizes(cell_zero) == ((),)
 
 
 async def test_shift_sharded_model_vs_store() -> None:

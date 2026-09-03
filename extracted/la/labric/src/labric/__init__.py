@@ -16,11 +16,11 @@ if typing.TYPE_CHECKING:
         BatchWriteOptionsMode,
         BatchWriteResponse,
         ColumnInfoSchema,
-        DatasetSchema,
         ErrorSchema,
         LabricUploadFileSchema,
         MlModelTaskType,
         MlProblemType,
+        OffPlatformJobExecutionSchema,
         PredictResponseSchema,
         PredictedAnnotationSchema,
         QualityPreset,
@@ -31,9 +31,7 @@ if typing.TYPE_CHECKING:
         TableSummary,
         ToolsFileContentSchema,
         ToolsFileInfoSchema,
-        ToolsJobExecutionSchema,
         ToolsMlModelDetailSchema,
-        ToolsMlModelSchema,
         ValidationErrorSchema,
         WritePlan,
     )
@@ -49,16 +47,12 @@ if typing.TYPE_CHECKING:
         UnauthorizedError,
         UnprocessableEntityError,
     )
-    from . import agent, tools
+    from . import agent, jobs, models, tools
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
     from .client import AsyncLabric, Labric
     from .environment import LabricEnvironment
-    from .tools import (
-        LabricReadSchemaMode,
-        LabricReadSchemaTargetType,
-        LabricWriteSchemaTargetType,
-        UpdateJobExecutionStatusSchemaStatus,
-    )
+    from .jobs import UpdateJobExecutionStatusSchemaStatus
+    from .tools import LabricReadSchemaMode, LabricReadSchemaTargetType, LabricWriteSchemaTargetType
 _dynamic_imports: typing.Dict[str, str] = {
     "AgentRunEvent": ".types",
     "AgentRunRequest": ".types",
@@ -73,7 +67,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BatchWriteResponse": ".types",
     "ColumnInfoSchema": ".types",
     "ConflictError": ".errors",
-    "DatasetSchema": ".types",
     "DefaultAioHttpClient": "._default_clients",
     "DefaultAsyncHttpxClient": "._default_clients",
     "ErrorSchema": ".types",
@@ -88,6 +81,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MlModelTaskType": ".types",
     "MlProblemType": ".types",
     "NotFoundError": ".errors",
+    "OffPlatformJobExecutionSchema": ".types",
     "PredictResponseSchema": ".types",
     "PredictedAnnotationSchema": ".types",
     "QualityPreset": ".types",
@@ -100,15 +94,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TooManyRequestsError": ".errors",
     "ToolsFileContentSchema": ".types",
     "ToolsFileInfoSchema": ".types",
-    "ToolsJobExecutionSchema": ".types",
     "ToolsMlModelDetailSchema": ".types",
-    "ToolsMlModelSchema": ".types",
     "UnauthorizedError": ".errors",
     "UnprocessableEntityError": ".errors",
-    "UpdateJobExecutionStatusSchemaStatus": ".tools",
+    "UpdateJobExecutionStatusSchemaStatus": ".jobs",
     "ValidationErrorSchema": ".types",
     "WritePlan": ".types",
     "agent": ".agent",
+    "jobs": ".jobs",
+    "models": ".models",
     "tools": ".tools",
 }
 
@@ -148,7 +142,6 @@ __all__ = [
     "BatchWriteResponse",
     "ColumnInfoSchema",
     "ConflictError",
-    "DatasetSchema",
     "DefaultAioHttpClient",
     "DefaultAsyncHttpxClient",
     "ErrorSchema",
@@ -163,6 +156,7 @@ __all__ = [
     "MlModelTaskType",
     "MlProblemType",
     "NotFoundError",
+    "OffPlatformJobExecutionSchema",
     "PredictResponseSchema",
     "PredictedAnnotationSchema",
     "QualityPreset",
@@ -175,14 +169,14 @@ __all__ = [
     "TooManyRequestsError",
     "ToolsFileContentSchema",
     "ToolsFileInfoSchema",
-    "ToolsJobExecutionSchema",
     "ToolsMlModelDetailSchema",
-    "ToolsMlModelSchema",
     "UnauthorizedError",
     "UnprocessableEntityError",
     "UpdateJobExecutionStatusSchemaStatus",
     "ValidationErrorSchema",
     "WritePlan",
     "agent",
+    "jobs",
+    "models",
     "tools",
 ]

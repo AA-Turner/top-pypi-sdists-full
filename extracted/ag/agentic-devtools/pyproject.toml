@@ -34,6 +34,7 @@ dependencies = [
     "typing-extensions>=4.0",
     "atlassian-python-api>=4.0,<5",
     "tomli>=1.1.0; python_version < '3.11'",
+    "cryptography>=42.0.0",
 ]
 
 [project.optional-dependencies]
@@ -169,6 +170,7 @@ agdt-orchestrate-init = "agentic_devtools.cli.runner:run_as_script"
 agdt-orchestrate-step = "agentic_devtools.cli.runner:run_as_script"
 agdt-orchestrate-finalize = "agentic_devtools.cli.runner:run_as_script"
 agdt-audit-trio = "agentic_devtools.cli.runner:run_as_script"
+agdt-orchestrate-hierarchy = "agentic_devtools.cli.runner:run_as_script"
 agdt-get-workflow = "agentic_devtools.cli.runner:run_as_script"
 agdt-clear-workflow = "agentic_devtools.cli.runner:run_as_script"
 agdt-initiate-pull-request-review-workflow = "agentic_devtools.cli.runner:run_as_script"
@@ -247,6 +249,7 @@ version-file = "agentic_devtools/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentic_devtools"]
+exclude = ["agentic_devtools/resources/setup-templates/**"]
 
 [tool.hatch.build.targets.wheel.force-include]
 ".github/agents" = "agentic_devtools/_bundled_skills/agents"

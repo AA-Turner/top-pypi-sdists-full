@@ -546,6 +546,11 @@ class PrivateNIC:
     The zone in which the Private NIC is located.
     """
 
+    ipam_ip_ids: list[str]
+    """
+    The list of IPAM IPs associated with this private NIC.
+    """
+
     creation_date: Optional[datetime] = None
     """
     Private NIC creation date.
@@ -1056,7 +1061,8 @@ class SecurityGroup:
 
     state: SecurityGroupState
     """
-    Security group state.
+    Are applied) when the security group is updated (e.g., rules added, modified, or deleted)
+or when it is attached to or detached from a server's public network interface.
     """
 
     zone: ScwZone
@@ -1233,6 +1239,10 @@ class Task:
 
     href_from: str
     href_result: str
+    """
+    Location of the resulting resource.
+    """
+
     zone: ScwZone
     """
     Zone in which the task is executed.

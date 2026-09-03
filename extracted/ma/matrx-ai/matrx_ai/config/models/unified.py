@@ -63,6 +63,7 @@ class UnifiedConfigModel(BaseModel):
     matrx_model_name: str | None = None
     offering_id: str | None = None  # never populated in 6,485 stored configs
     runtime_offering_id: str | None = None
+    prompt_cache_key: str | None = None
     max_output_tokens: int | None = None
     temperature: float | None = None
     top_p: float | None = None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.12.233
+Version: 1.12.261
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -42,8 +42,8 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus==2.5.56
-Requires-Dist: abxpkg==1.12.110
-Requires-Dist: abx-plugins==1.12.203
+Requires-Dist: abxpkg==1.12.117
+Requires-Dist: abx-plugins==1.12.224
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -161,10 +161,22 @@ Plugins are loaded from the installed [`abx-plugins`](https://pypi.org/project/a
 
 Applications embedding the runtime use the same framework-free interfaces as
 the CLI: `PluginCatalog` for inventory, `PluginConfigResolver` for config,
-`ExecutionPlan` for plugin selection/service setup, `execute_hook()` for a
-single finite hook, and `OutputManifest` for output metadata. These APIs accept
-plain mappings, filesystem paths, environment variables, and CLI arguments;
-they do not depend on Django or an application database.
+the service classes for explicit listener composition, typed events for phase
+dispatch, `execute_hook()` for a single finite hook, and `OutputManifest` for
+output metadata. These APIs accept plain mappings, filesystem paths,
+environment variables, and CLI arguments; they do not depend on Django or an
+application database.
+
+Standalone `download()` attaches both `CrawlService` (plugin crawl hooks) and
+`CrawlLifecycleService` (phase sequencing). Embedders can attach only the
+listener suites whose behavior they want and dispatch the corresponding typed
+events directly.
+
+`parse_input(source_text, catalog, output_dir)` is the framework-free import
+path for pasted text and bookmark/feed exports. It writes
+`staticfile/stdin.txt`, runs only plugins declaring
+`x-accepts-internal-input`, and returns metadata-preserving `Snapshot` facts at
+depth zero. It does not create a crawl, database row, or synthetic URL.
 
 
 <br/>
@@ -501,7 +513,7 @@ This repo includes an `abx-dl` skill for coding agents that need to run the stan
 
 `abx-dl` is built on these components:
 
-- **`abx_dl/plugins.py`** - Plugin discovery from `abx-plugins` or `ABX_PLUGINS_DIR`
+- **`abx_dl/catalog.py`** - Plugin discovery, selection, and config resolution from `abx-plugins` or `ABX_PLUGINS_DIR`
 - **`abx_dl/executor.py`** - Hook execution engine with config propagation
 - **`abx_dl/config.py`** - Environment variable configuration
 - **`abx_dl/cli.py`** - Rich CLI with live progress display

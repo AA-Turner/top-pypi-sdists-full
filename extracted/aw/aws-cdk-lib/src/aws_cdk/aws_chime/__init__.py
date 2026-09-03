@@ -206,25 +206,21 @@ class CfnAppInstance(
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedTimestamp")
-    def attr_created_timestamp(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''The time at which an AppInstance was created.
-
-        In epoch milliseconds.
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time at which an AppInstance was created, as an ISO 8601 timestamp.
 
         :cloudformationAttribute: CreatedTimestamp
         '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCreatedTimestamp"))
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLastUpdatedTimestamp")
-    def attr_last_updated_timestamp(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''The time an AppInstance was last updated.
-
-        In epoch milliseconds.
+    def attr_last_updated_timestamp(self) -> builtins.str:
+        '''The time an AppInstance was last updated, as an ISO 8601 timestamp.
 
         :cloudformationAttribute: LastUpdatedTimestamp
         '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLastUpdatedTimestamp"))
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTimestamp"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -439,25 +435,21 @@ class CfnAppInstanceBot(
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedTimestamp")
-    def attr_created_timestamp(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''The time at which the AppInstanceBot was created.
-
-        In epoch milliseconds.
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time at which the AppInstanceBot was created, as an ISO 8601 timestamp.
 
         :cloudformationAttribute: CreatedTimestamp
         '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCreatedTimestamp"))
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLastUpdatedTimestamp")
-    def attr_last_updated_timestamp(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''The time at which the AppInstanceBot was last updated.
-
-        In epoch milliseconds.
+    def attr_last_updated_timestamp(self) -> builtins.str:
+        '''The time at which the AppInstanceBot was last updated, as an ISO 8601 timestamp.
 
         :cloudformationAttribute: LastUpdatedTimestamp
         '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLastUpdatedTimestamp"))
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTimestamp"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -1519,6 +1511,639 @@ class CfnAppInstanceUserProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IChannelFlowRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnChannelFlow(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_chime.CfnChannelFlow",
+):
+    '''Creates a channel flow in the Amazon Chime SDK Messaging service.
+
+    A channel flow is a container for processors (Lambda functions) that perform actions on chat messages.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channelflow.html
+    :cloudformationResource: AWS::Chime::ChannelFlow
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_chime as chime
+        
+        cfn_channel_flow = chime.CfnChannelFlow(self, "MyCfnChannelFlow",
+            app_instance_arn="appInstanceArn",
+            name="name",
+            processors=[chime.CfnChannelFlow.ProcessorProperty(
+                configuration=chime.CfnChannelFlow.ProcessorConfigurationProperty(
+                    lambda_=chime.CfnChannelFlow.LambdaConfigurationProperty(
+                        invocation_type="invocationType",
+                        resource_arn="resourceArn"
+                    )
+                ),
+                execution_order=123,
+                fallback_action="fallbackAction",
+                name="name"
+            )],
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        app_instance_arn: builtins.str,
+        name: builtins.str,
+        processors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannelFlow.ProcessorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Chime::ChannelFlow``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param app_instance_arn: The ARN of the app instance.
+        :param name: The name of the channel flow.
+        :param processors: Information about the processor Lambda functions.
+        :param tags: The tags for the channel flow.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__553e37c55476a947075ca59056beea348820f4c9d0001731f2dc6df208e46aac)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnChannelFlowProps(
+            app_instance_arn=app_instance_arn,
+            name=name,
+            processors=processors,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForChannelFlow")
+    @builtins.classmethod
+    def arn_for_channel_flow(
+        cls,
+        resource: "_aws_chime_58870695.IChannelFlowRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__215e52bbdaf64af19e7a78a4c16ecf1be25619c25b0f1f560edef98f17fd074f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannelFlow", [resource]))
+
+    @jsii.member(jsii_name="isCfnChannelFlow")
+    @builtins.classmethod
+    def is_cfn_channel_flow(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnChannelFlow.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7cd9c6e628c1ed57d7d45231f8fd40a59294a2cfe8e8086a494a43b0dfbcb348)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannelFlow", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__95d931527d027465cc783a90101afd59c6d28ac9549723ed78d381411c1f152c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c315bd571cdd659263f798212f27154c2c646ef9c193834f07a863a925933999)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAppInstanceId")
+    def attr_app_instance_id(self) -> builtins.str:
+        '''The ID of the app instance, extracted from the channel flow ARN.
+
+        :cloudformationAttribute: AppInstanceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAppInstanceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the channel flow.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrChannelFlowId")
+    def attr_channel_flow_id(self) -> builtins.str:
+        '''The ID of the channel flow, extracted from the channel flow ARN.
+
+        :cloudformationAttribute: ChannelFlowId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrChannelFlowId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time at which the channel flow was created.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTimestamp")
+    def attr_last_updated_timestamp(self) -> builtins.str:
+        '''The time at which the channel flow was last updated.
+
+        :cloudformationAttribute: LastUpdatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelFlowRef")
+    def channel_flow_ref(self) -> "_aws_chime_58870695.ChannelFlowReference":
+        '''A reference to a ChannelFlow resource.'''
+        return typing.cast("_aws_chime_58870695.ChannelFlowReference", jsii.get(self, "channelFlowRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appInstanceArn")
+    def app_instance_arn(self) -> builtins.str:
+        '''The ARN of the app instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "appInstanceArn"))
+
+    @app_instance_arn.setter
+    def app_instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2952f13ac0bef71a3fce903cbe1c25737bd7625917778a93a03dac2015fa2104)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "appInstanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the channel flow.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__411cc8fb86020950b5c9e5844fb80dccb3d2c00b763b9ab9a8f9b5cc719d9451)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="processors")
+    def processors(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.ProcessorProperty"]]]:
+        '''Information about the processor Lambda functions.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.ProcessorProperty"]]], jsii.get(self, "processors"))
+
+    @processors.setter
+    def processors(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.ProcessorProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__87728ae9e5da9fcebfef150b2b1326c7b3106255781f7f53de411ad39a29a508)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "processors", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the channel flow.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56a722312beda48b0dba71e0a7247be1089c7db33dfb3f22b8eb02c0cea9adc2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnChannelFlow.LambdaConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "invocation_type": "invocationType",
+            "resource_arn": "resourceArn",
+        },
+    )
+    class LambdaConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            invocation_type: builtins.str,
+            resource_arn: builtins.str,
+        ) -> None:
+            '''Stores metadata about a Lambda processor.
+
+            :param invocation_type: Controls how the Lambda function is invoked.
+            :param resource_arn: The ARN of the Lambda message processing function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-lambdaconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                lambda_configuration_property = chime.CfnChannelFlow.LambdaConfigurationProperty(
+                    invocation_type="invocationType",
+                    resource_arn="resourceArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__285ed0bc098587d57e9f94632c1cb3c1c76fff652d29fd8997a47c3b2cc1cc09)
+                check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
+                check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "invocation_type": invocation_type,
+                "resource_arn": resource_arn,
+            }
+
+        @builtins.property
+        def invocation_type(self) -> builtins.str:
+            '''Controls how the Lambda function is invoked.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-lambdaconfiguration.html#cfn-chime-channelflow-lambdaconfiguration-invocationtype
+            '''
+            result = self._values.get("invocation_type")
+            assert result is not None, "Required property 'invocation_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def resource_arn(self) -> builtins.str:
+            '''The ARN of the Lambda message processing function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-lambdaconfiguration.html#cfn-chime-channelflow-lambdaconfiguration-resourcearn
+            '''
+            result = self._values.get("resource_arn")
+            assert result is not None, "Required property 'resource_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LambdaConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnChannelFlow.ProcessorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lambda_": "lambda"},
+    )
+    class ProcessorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            lambda_: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannelFlow.LambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''A processor's metadata.
+
+            :param lambda_: Stores metadata about a Lambda processor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-processorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                processor_configuration_property = chime.CfnChannelFlow.ProcessorConfigurationProperty(
+                    lambda_=chime.CfnChannelFlow.LambdaConfigurationProperty(
+                        invocation_type="invocationType",
+                        resource_arn="resourceArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9fdc1fc093fa01b9277bf2dd738d6f6237e1cce994cac73e6f7d4e62ab99ac5c)
+                check_type(argname="argument lambda_", value=lambda_, expected_type=type_hints["lambda_"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "lambda_": lambda_,
+            }
+
+        @builtins.property
+        def lambda_(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.LambdaConfigurationProperty"]:
+            '''Stores metadata about a Lambda processor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-processorconfiguration.html#cfn-chime-channelflow-processorconfiguration-lambda
+            '''
+            result = self._values.get("lambda_")
+            assert result is not None, "Required property 'lambda_' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.LambdaConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProcessorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnChannelFlow.ProcessorProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "configuration": "configuration",
+            "execution_order": "executionOrder",
+            "fallback_action": "fallbackAction",
+            "name": "name",
+        },
+    )
+    class ProcessorProperty:
+        def __init__(
+            self,
+            *,
+            configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannelFlow.ProcessorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            execution_order: jsii.Number,
+            fallback_action: builtins.str,
+            name: builtins.str,
+        ) -> None:
+            '''Information about a processor in a channel flow.
+
+            :param configuration: A processor's metadata.
+            :param execution_order: The sequence in which processors run.
+            :param fallback_action: Determines whether to continue or stop processing when communication with a processor fails.
+            :param name: The name of the processor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-processor.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                processor_property = chime.CfnChannelFlow.ProcessorProperty(
+                    configuration=chime.CfnChannelFlow.ProcessorConfigurationProperty(
+                        lambda_=chime.CfnChannelFlow.LambdaConfigurationProperty(
+                            invocation_type="invocationType",
+                            resource_arn="resourceArn"
+                        )
+                    ),
+                    execution_order=123,
+                    fallback_action="fallbackAction",
+                    name="name"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__be4dcd983ce00e19de1c1ec7124b3517157f895d6121f59f1ca204a7a59f7fc1)
+                check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+                check_type(argname="argument execution_order", value=execution_order, expected_type=type_hints["execution_order"])
+                check_type(argname="argument fallback_action", value=fallback_action, expected_type=type_hints["fallback_action"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "configuration": configuration,
+                "execution_order": execution_order,
+                "fallback_action": fallback_action,
+                "name": name,
+            }
+
+        @builtins.property
+        def configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.ProcessorConfigurationProperty"]:
+            '''A processor's metadata.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-processor.html#cfn-chime-channelflow-processor-configuration
+            '''
+            result = self._values.get("configuration")
+            assert result is not None, "Required property 'configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.ProcessorConfigurationProperty"], result)
+
+        @builtins.property
+        def execution_order(self) -> jsii.Number:
+            '''The sequence in which processors run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-processor.html#cfn-chime-channelflow-processor-executionorder
+            '''
+            result = self._values.get("execution_order")
+            assert result is not None, "Required property 'execution_order' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def fallback_action(self) -> builtins.str:
+            '''Determines whether to continue or stop processing when communication with a processor fails.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-processor.html#cfn-chime-channelflow-processor-fallbackaction
+            '''
+            result = self._values.get("fallback_action")
+            assert result is not None, "Required property 'fallback_action' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the processor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channelflow-processor.html#cfn-chime-channelflow-processor-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProcessorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_chime.CfnChannelFlowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_instance_arn": "appInstanceArn",
+        "name": "name",
+        "processors": "processors",
+        "tags": "tags",
+    },
+)
+class CfnChannelFlowProps:
+    def __init__(
+        self,
+        *,
+        app_instance_arn: builtins.str,
+        name: builtins.str,
+        processors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannelFlow.ProcessorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannelFlow``.
+
+        :param app_instance_arn: The ARN of the app instance.
+        :param name: The name of the channel flow.
+        :param processors: Information about the processor Lambda functions.
+        :param tags: The tags for the channel flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channelflow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_chime as chime
+            
+            cfn_channel_flow_props = chime.CfnChannelFlowProps(
+                app_instance_arn="appInstanceArn",
+                name="name",
+                processors=[chime.CfnChannelFlow.ProcessorProperty(
+                    configuration=chime.CfnChannelFlow.ProcessorConfigurationProperty(
+                        lambda_=chime.CfnChannelFlow.LambdaConfigurationProperty(
+                            invocation_type="invocationType",
+                            resource_arn="resourceArn"
+                        )
+                    ),
+                    execution_order=123,
+                    fallback_action="fallbackAction",
+                    name="name"
+                )],
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__04fab589c36890507658f03e0daf5dda656b997e99d4f0f5d449cfb4324279d2)
+            check_type(argname="argument app_instance_arn", value=app_instance_arn, expected_type=type_hints["app_instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument processors", value=processors, expected_type=type_hints["processors"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_instance_arn": app_instance_arn,
+            "name": name,
+            "processors": processors,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def app_instance_arn(self) -> builtins.str:
+        '''The ARN of the app instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channelflow.html#cfn-chime-channelflow-appinstancearn
+        '''
+        result = self._values.get("app_instance_arn")
+        assert result is not None, "Required property 'app_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the channel flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channelflow.html#cfn-chime-channelflow-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def processors(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.ProcessorProperty"]]]:
+        '''Information about the processor Lambda functions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channelflow.html#cfn-chime-channelflow-processors
+        '''
+        result = self._values.get("processors")
+        assert result is not None, "Required property 'processors' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannelFlow.ProcessorProperty"]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the channel flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channelflow.html#cfn-chime-channelflow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelFlowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAppInstance",
     "CfnAppInstanceBot",
@@ -1526,6 +2151,8 @@ __all__ = [
     "CfnAppInstanceProps",
     "CfnAppInstanceUser",
     "CfnAppInstanceUserProps",
+    "CfnChannelFlow",
+    "CfnChannelFlowProps",
 ]
 
 publication.publish()
@@ -1785,6 +2412,101 @@ def _typecheckingstub__c191e7d70c48f14aeb5305a9541ebc0cb899fc4cc9efe9e64a380ae20
     expiration_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppInstanceUser.ExpirationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metadata: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__553e37c55476a947075ca59056beea348820f4c9d0001731f2dc6df208e46aac(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    app_instance_arn: builtins.str,
+    name: builtins.str,
+    processors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannelFlow.ProcessorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__215e52bbdaf64af19e7a78a4c16ecf1be25619c25b0f1f560edef98f17fd074f(
+    resource: _aws_chime_58870695.IChannelFlowRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7cd9c6e628c1ed57d7d45231f8fd40a59294a2cfe8e8086a494a43b0dfbcb348(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95d931527d027465cc783a90101afd59c6d28ac9549723ed78d381411c1f152c(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c315bd571cdd659263f798212f27154c2c646ef9c193834f07a863a925933999(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2952f13ac0bef71a3fce903cbe1c25737bd7625917778a93a03dac2015fa2104(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__411cc8fb86020950b5c9e5844fb80dccb3d2c00b763b9ab9a8f9b5cc719d9451(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87728ae9e5da9fcebfef150b2b1326c7b3106255781f7f53de411ad39a29a508(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannelFlow.ProcessorProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56a722312beda48b0dba71e0a7247be1089c7db33dfb3f22b8eb02c0cea9adc2(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__285ed0bc098587d57e9f94632c1cb3c1c76fff652d29fd8997a47c3b2cc1cc09(
+    *,
+    invocation_type: builtins.str,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fdc1fc093fa01b9277bf2dd738d6f6237e1cce994cac73e6f7d4e62ab99ac5c(
+    *,
+    lambda_: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannelFlow.LambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be4dcd983ce00e19de1c1ec7124b3517157f895d6121f59f1ca204a7a59f7fc1(
+    *,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannelFlow.ProcessorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution_order: jsii.Number,
+    fallback_action: builtins.str,
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04fab589c36890507658f03e0daf5dda656b997e99d4f0f5d449cfb4324279d2(
+    *,
+    app_instance_arn: builtins.str,
+    name: builtins.str,
+    processors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannelFlow.ProcessorProperty, typing.Dict[builtins.str, typing.Any]]]]],
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

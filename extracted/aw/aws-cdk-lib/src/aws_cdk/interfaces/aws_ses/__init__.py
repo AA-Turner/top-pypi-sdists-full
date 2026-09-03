@@ -43,13 +43,20 @@ else:
     jsii_struct_bases=[],
     name_mapping={
         "configuration_set_event_destination_id": "configurationSetEventDestinationId",
+        "configuration_set_name": "configurationSetName",
     },
 )
 class ConfigurationSetEventDestinationReference:
-    def __init__(self, *, configuration_set_event_destination_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        configuration_set_event_destination_id: builtins.str,
+        configuration_set_name: builtins.str,
+    ) -> None:
         '''A reference to a ConfigurationSetEventDestination resource.
 
         :param configuration_set_event_destination_id: The Id of the ConfigurationSetEventDestination resource.
+        :param configuration_set_name: The ConfigurationSetName of the ConfigurationSetEventDestination resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -60,14 +67,17 @@ class ConfigurationSetEventDestinationReference:
             from aws_cdk.interfaces import aws_ses as interfaces_ses
             
             configuration_set_event_destination_reference = interfaces_ses.ConfigurationSetEventDestinationReference(
-                configuration_set_event_destination_id="configurationSetEventDestinationId"
+                configuration_set_event_destination_id="configurationSetEventDestinationId",
+                configuration_set_name="configurationSetName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__233e229dac98a6018ca0e6d41c128dd532e86367935bcb73cbcaf6d97404701f)
             check_type(argname="argument configuration_set_event_destination_id", value=configuration_set_event_destination_id, expected_type=type_hints["configuration_set_event_destination_id"])
+            check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configuration_set_event_destination_id": configuration_set_event_destination_id,
+            "configuration_set_name": configuration_set_name,
         }
 
     @builtins.property
@@ -75,6 +85,13 @@ class ConfigurationSetEventDestinationReference:
         '''The Id of the ConfigurationSetEventDestination resource.'''
         result = self._values.get("configuration_set_event_destination_id")
         assert result is not None, "Required property 'configuration_set_event_destination_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_set_name(self) -> builtins.str:
+        '''The ConfigurationSetName of the ConfigurationSetEventDestination resource.'''
+        result = self._values.get("configuration_set_name")
+        assert result is not None, "Required property 'configuration_set_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1927,13 +1944,14 @@ class ReceiptFilterReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ses.ReceiptRuleReference",
     jsii_struct_bases=[],
-    name_mapping={"receipt_rule_id": "receiptRuleId"},
+    name_mapping={"rule_name": "ruleName", "rule_set_name": "ruleSetName"},
 )
 class ReceiptRuleReference:
-    def __init__(self, *, receipt_rule_id: builtins.str) -> None:
+    def __init__(self, *, rule_name: builtins.str, rule_set_name: builtins.str) -> None:
         '''A reference to a ReceiptRule resource.
 
-        :param receipt_rule_id: The Id of the ReceiptRule resource.
+        :param rule_name: The RuleName of the ReceiptRule resource.
+        :param rule_set_name: The RuleSetName of the ReceiptRule resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1944,21 +1962,31 @@ class ReceiptRuleReference:
             from aws_cdk.interfaces import aws_ses as interfaces_ses
             
             receipt_rule_reference = interfaces_ses.ReceiptRuleReference(
-                receipt_rule_id="receiptRuleId"
+                rule_name="ruleName",
+                rule_set_name="ruleSetName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__363cf68bbf8c488eefc1ebe3e54c3c412bdcb6eef06d4572cd6a7d1e38ab11d3)
-            check_type(argname="argument receipt_rule_id", value=receipt_rule_id, expected_type=type_hints["receipt_rule_id"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "receipt_rule_id": receipt_rule_id,
+            "rule_name": rule_name,
+            "rule_set_name": rule_set_name,
         }
 
     @builtins.property
-    def receipt_rule_id(self) -> builtins.str:
-        '''The Id of the ReceiptRule resource.'''
-        result = self._values.get("receipt_rule_id")
-        assert result is not None, "Required property 'receipt_rule_id' is missing"
+    def rule_name(self) -> builtins.str:
+        '''The RuleName of the ReceiptRule resource.'''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_set_name(self) -> builtins.str:
+        '''The RuleSetName of the ReceiptRule resource.'''
+        result = self._values.get("rule_set_name")
+        assert result is not None, "Required property 'rule_set_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2230,6 +2258,7 @@ publication.publish()
 def _typecheckingstub__233e229dac98a6018ca0e6d41c128dd532e86367935bcb73cbcaf6d97404701f(
     *,
     configuration_set_event_destination_id: builtins.str,
+    configuration_set_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2349,7 +2378,8 @@ def _typecheckingstub__9d80635f2750aaab778cde9cd85371121e61ffafb06c9be630c4b577c
 
 def _typecheckingstub__363cf68bbf8c488eefc1ebe3e54c3c412bdcb6eef06d4572cd6a7d1e38ab11d3(
     *,
-    receipt_rule_id: builtins.str,
+    rule_name: builtins.str,
+    rule_set_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

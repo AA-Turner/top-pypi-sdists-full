@@ -34,6 +34,32 @@ class TestHooksAdd:
         assert "not a known Claude hook event" in r.out
         assert cs.has_hook("global", "Frobnicate", "z")
 
+    def test_first_add_prints_no_backup_line(self, boost, sandbox):
+        r = boost("hooks", "add", "SessionStart",
+                  "-c", "cmd", "-n", "bmad", "-s", "global")
+        assert "backup:" not in r.out
+
+    def test_second_add_prints_the_settings_snapshot_path(self, boost, sandbox):
+        boost("hooks", "add", "SessionStart",
+             "-c", "cmd-v1", "-n", "bmad", "-s", "global")
+        r = boost("hooks", "add", "SessionStart",
+                 "-c", "cmd-v2", "-n", "bmad", "-s", "global")
+        assert "backup:" in r.out
+        assert "claude-settings-history" in r.out
+
+    def test_corrupt_settings_warns_but_add_still_succeeds(self, boost, sandbox):
+        # A trailing-comma-style corrupt settings.json used to be silently
+        # read as {} and then, on this very write, replaced outright —
+        # dropping any `permissions`/`model` keys it held with no warning.
+        p = cs.settings_path("global")
+        p.parent.mkdir(parents=True)
+        p.write_text('{"permissions": {"allow": ["Bash"]},', encoding="utf-8")
+        r = boost("hooks", "add", "SessionStart",
+                  "-c", "cmd", "-n", "bmad", "-s", "global")
+        assert "invalid JSON" in r.err
+        assert cs.has_hook("global", "SessionStart", "bmad")
+        assert "backup:" in r.out
+
     def test_remove_absent_warns(self, boost, sandbox):
         r = boost("hooks", "remove", "-n", "nope", "-s", "global", expect=1)
         assert "no boost hook named 'nope'" in r.out
@@ -82,3 +108,14 @@ class TestHooksErrors:
     def test_list_empty(self, boost, sandbox):
         r = boost("hooks", "list")
         assert "no boost-managed hooks" in r.out
+
+    def test_timeout_must_be_positive_int(self, boost, sandbox):
+        # --timeout -5 used to write a negative timeout straight into
+        # settings.json; --timeout 0 is no better (Gemini's is milliseconds,
+        # fed to setTimeout — a hook that expires before it runs).
+        r = boost("hooks", "add", "SessionStart", "-c", "x", "-n", "y",
+                  "-s", "global", "--timeout", "-5", expect=2)
+        assert "must be >= 1" in r.err
+        r = boost("hooks", "add", "SessionStart", "-c", "x", "-n", "y",
+                  "-s", "global", "--timeout", "0", expect=2)
+        assert "must be >= 1" in r.err

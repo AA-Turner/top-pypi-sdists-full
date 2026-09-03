@@ -73,8 +73,26 @@ class ListUsersRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
 
 
 @dataclass
-class EndpointPrivateNetworkDetails:
-    private_network_id: str
+class NodePrivateNetworkDetails:
+    node_name: str
+    """
+    Name  of the node.
+    """
+
+    shard: int
+    """
+    The ClickHouse shard to which the node belongs to.
+    """
+
+    replica: int
+    """
+    The ClickHouse replica to which the node belongs to.
+    """
+
+    ip_address: str
+    """
+    Private static IP address of that node.
+    """
 
 
 @dataclass
@@ -89,7 +107,20 @@ class EndpointService:
 
 
 @dataclass
-class EndpointSpecPrivateNetworkDetails:
+class PrivateNetworkDetails:
+    private_network_id: str
+    """
+    UUID of the Private Network.
+    """
+
+    nodes: list[NodePrivateNetworkDetails]
+    """
+    List of nodes belonging to this private network and their details.
+    """
+
+
+@dataclass
+class EndpointSpecPrivateNetworkSummary:
     private_network_id: str
     """
     UUID of the Private Network.
@@ -118,7 +149,12 @@ class Endpoint:
     List of services associated with the endpoint.
     """
 
-    private_network: Optional[EndpointPrivateNetworkDetails] = None
+    region: ScwRegion
+    """
+    Region of the deployment.
+    """
+
+    private_network: Optional[PrivateNetworkDetails] = None
 
     public: Optional[EndpointPublicDetails] = None
 
@@ -127,7 +163,7 @@ class Endpoint:
 class EndpointSpec:
     public: Optional[EndpointSpecPublicDetails] = None
 
-    private_network: Optional[EndpointSpecPrivateNetworkDetails] = None
+    private_network: Optional[EndpointSpecPrivateNetworkSummary] = None
 
 
 @dataclass
@@ -140,6 +176,16 @@ class Database:
     size: int
     """
     Size of the database.
+    """
+
+    deployment_id: str
+    """
+    Identifier of the deployment.
+    """
+
+    region: ScwRegion
+    """
+    Region of the deployment.
     """
 
 
@@ -210,6 +256,11 @@ class Deployment:
     RAM per CPU count for the deployment (in GB).
     """
 
+    move_factor: float
+    """
+    For the `tiered` storage policy, controls when data is moved from the hot volume (Block Storage) to the cold volume (Object Storage). Data is moved once free space on the hot volume drops below this fraction of its capacity. Value between 0 and 1 (default 0.1, i.e. data is moved when the hot volume is 90% full).
+    """
+
     region: ScwRegion
     """
     Region of the deployment.
@@ -274,6 +325,16 @@ class User:
     is_admin: bool
     """
     Indicates if the user is an administrator.
+    """
+
+    deployment_id: str
+    """
+    Identifier of the deployment.
+    """
+
+    region: ScwRegion
+    """
+    Region of the deployment.
     """
 
 
@@ -368,6 +429,11 @@ class CreateDeploymentRequest:
     endpoints: Optional[list[EndpointSpec]] = field(default_factory=list)
     """
     Endpoints to associate with the deployment.
+    """
+
+    move_factor: Optional[float] = 0.0
+    """
+    For the `tiered` storage policy, controls when data is moved from the hot volume (Block Storage) to the cold volume (Object Storage). Data is moved once free space on the hot volume drops below this fraction of its capacity. Value between 0 and 1 (default 0.1, i.e. data is moved when the hot volume is 90% full).
     """
 
 
@@ -746,6 +812,11 @@ class UpdateDeploymentRequest:
     replica_count: Optional[int] = 0
     """
     Number of replicas for the deployment.
+    """
+
+    move_factor: Optional[float] = 0.0
+    """
+    For the `tiered` storage policy, controls when data is moved from the hot volume (Block Storage) to the cold volume (Object Storage). Data is moved once free space on the hot volume drops below this fraction of its capacity. Value between 0 and 1 (default 0.1, i.e. data is moved when the hot volume is 90% full).
     """
 
 

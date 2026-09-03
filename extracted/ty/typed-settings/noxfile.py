@@ -13,8 +13,8 @@ from pathlib import Path
 
 
 try:
-    import tomllib
-except ImportError:
+    import tomllib  # py311
+except ImportError:  # py310
     import tomli as tomllib  # type: ignore[no-redef]
 
 import nox
@@ -23,6 +23,9 @@ import rich.console
 import rich.markdown
 import rich.tree
 from packaging.requirements import Requirement
+
+
+nox.options.default_venv_backend = "uv"
 
 
 PROJECT_DIR = Path(__file__).parent
@@ -318,10 +321,10 @@ def mypy(session: nox.Session) -> None:
 @nox.session(name="sec-check", tags=["lint"])
 def sec_check(session: nox.Session) -> None:
     """
-    Run a security check with pip-audit.
+    Run a security check with uv audit.
     """
     uv_sync(session)
-    session.run("pip-audit")
+    session.run("uv", "--preview-features", "audit", "audit")
 
 
 @nox.session(python=False, tags=["lint"])

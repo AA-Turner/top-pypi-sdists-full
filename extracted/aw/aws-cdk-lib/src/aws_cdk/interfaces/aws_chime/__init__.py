@@ -185,6 +185,55 @@ class AppInstanceUserReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_chime.ChannelFlowReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_flow_arn": "channelFlowArn"},
+)
+class ChannelFlowReference:
+    def __init__(self, *, channel_flow_arn: builtins.str) -> None:
+        '''A reference to a ChannelFlow resource.
+
+        :param channel_flow_arn: The Arn of the ChannelFlow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_chime as interfaces_chime
+            
+            channel_flow_reference = interfaces_chime.ChannelFlowReference(
+                channel_flow_arn="channelFlowArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__61d260a072d1387d8809a2f6808a63d6814fb8a1f1a8f87644726b5cbb1a26a5)
+            check_type(argname="argument channel_flow_arn", value=channel_flow_arn, expected_type=type_hints["channel_flow_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_flow_arn": channel_flow_arn,
+        }
+
+    @builtins.property
+    def channel_flow_arn(self) -> builtins.str:
+        '''The Arn of the ChannelFlow resource.'''
+        result = self._values.get("channel_flow_arn")
+        assert result is not None, "Required property 'channel_flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelFlowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_chime.IAppInstanceBotRef")
 class IAppInstanceBotRef(
     _constructs_77d1e7e8.IConstruct,
@@ -320,13 +369,60 @@ class _IAppInstanceUserRefProxy(
 typing.cast(typing.Any, IAppInstanceUserRef).__jsii_proxy_class__ = lambda : _IAppInstanceUserRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_chime.IChannelFlowRef")
+class IChannelFlowRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ChannelFlow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelFlowRef")
+    def channel_flow_ref(self) -> "ChannelFlowReference":
+        '''(experimental) A reference to a ChannelFlow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelFlowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ChannelFlow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_chime.IChannelFlowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelFlowRef")
+    def channel_flow_ref(self) -> "ChannelFlowReference":
+        '''(experimental) A reference to a ChannelFlow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ChannelFlowReference", jsii.get(self, "channelFlowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelFlowRef).__jsii_proxy_class__ = lambda : _IChannelFlowRefProxy
+
+
 __all__ = [
     "AppInstanceBotReference",
     "AppInstanceReference",
     "AppInstanceUserReference",
+    "ChannelFlowReference",
     "IAppInstanceBotRef",
     "IAppInstanceRef",
     "IAppInstanceUserRef",
+    "IChannelFlowRef",
 ]
 
 publication.publish()
@@ -352,5 +448,12 @@ def _typecheckingstub__0a21d6b54c1a60d27402b1eed938ae67bfee72c94f33036fdd0302106
     """Type checking stubs"""
     pass
 
-for cls in [IAppInstanceBotRef, IAppInstanceRef, IAppInstanceUserRef]:
+def _typecheckingstub__61d260a072d1387d8809a2f6808a63d6814fb8a1f1a8f87644726b5cbb1a26a5(
+    *,
+    channel_flow_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAppInstanceBotRef, IAppInstanceRef, IAppInstanceUserRef, IChannelFlowRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

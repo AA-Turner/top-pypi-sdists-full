@@ -5,17 +5,20 @@ import typing
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .post_payout_method_created_payload_data_quote_instant import PostPayoutMethodCreatedPayloadDataQuoteInstant
+from .post_payout_method_created_payload_data_quote_instant_unavailable_reason import (
+    PostPayoutMethodCreatedPayloadDataQuoteInstantUnavailableReason,
+)
 from .post_payout_method_created_payload_data_quote_standard import PostPayoutMethodCreatedPayloadDataQuoteStandard
 
 
 class PostPayoutMethodCreatedPayloadDataQuote(UniversalBaseModel):
     """
-    Fee and delivery estimate for withdrawing the requested amount through this method. Null unless an amount was provided, or when the estimate is unavailable.
+    Fee and delivery estimate for paying out the requested amount through this method. Null unless an amount was provided, or when the estimate is unavailable.
     """
 
     amount: float = pydantic.Field()
     """
-    The withdrawal amount the quote is for.
+    The payout amount the quote is for.
     """
 
     currency: str = pydantic.Field()
@@ -25,7 +28,7 @@ class PostPayoutMethodCreatedPayloadDataQuote(UniversalBaseModel):
 
     exchange_rate: float = pydantic.Field()
     """
-    Exchange rate from the withdrawal currency to the destination currency.
+    Exchange rate from the payout currency to the destination currency.
     """
 
     instant: typing.Optional[PostPayoutMethodCreatedPayloadDataQuoteInstant] = pydantic.Field(default=None)
@@ -33,14 +36,21 @@ class PostPayoutMethodCreatedPayloadDataQuote(UniversalBaseModel):
     Instant-delivery estimate. Null if the method does not support instant delivery, instant delivery is unavailable for the account, or the amount does not cover the fee.
     """
 
+    instant_unavailable_reason: typing.Optional[PostPayoutMethodCreatedPayloadDataQuoteInstantUnavailableReason] = (
+        pydantic.Field(default=None)
+    )
+    """
+    Why instant delivery is unavailable for this method. `minimum_crypto_sales_not_met` means the account has not reached the total sales required for instant cryptocurrency payouts. `null` when this restriction does not apply.
+    """
+
     max_limit: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Maximum withdrawal amount for this method, in the withdrawal currency.
+    Maximum payout amount for this method, in the payout currency.
     """
 
     min_limit: float = pydantic.Field()
     """
-    Minimum withdrawal amount for this method, in the withdrawal currency.
+    Minimum payout amount for this method, in the payout currency.
     """
 
     standard: typing.Optional[PostPayoutMethodCreatedPayloadDataQuoteStandard] = pydantic.Field(default=None)

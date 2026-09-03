@@ -69,6 +69,7 @@ from plato._generated.models import (
     ArtifactCredential,
     ArtifactCredentials,
     ArtifactInfoResponse,
+    ArtifactMcpConfig,
     CloseSessionResponse,
     CreateCheckpointRequest,
     CreateCheckpointResult,
@@ -83,6 +84,7 @@ from plato._generated.models import (
     ResetJobResult,
     ResetSessionRequest,
     ResetSessionResponse,
+    ResolvedMcpConfig,
     SessionDetailsResponse,
     SessionStateResponse,
     SessionStateResult,
@@ -898,6 +900,25 @@ def describe_credentials(credentials: ArtifactCredentials | None) -> str:
     if credentials.roles:
         parts.append(f"roles={','.join(sorted(credentials.roles))}")
     return " ".join(parts)
+
+
+def describe_mcp_config(mcp: ArtifactMcpConfig | ResolvedMcpConfig | None) -> str:
+    """One-line summary for console output (``enabled=True port=3000 path=/mcp``).
+
+    ``none`` = nothing stored on the artifact; ``inherit`` = a config whose
+    every field is unset — :meth:`SandboxClient._build_checkpoint_request` drops
+    such a config from the request, so the backend inherits the parent
+    artifact's rather than being handed an empty override.
+    """
+    if mcp is None:
+        return "none"
+    # port/path are root models on the stored config, plain scalars on the resolved one
+    parts = [
+        f"{name}={getattr(value, 'root', value)}"
+        for name, value in (("enabled", mcp.enabled), ("port", mcp.port), ("path", mcp.path))
+        if value is not None
+    ]
+    return " ".join(parts) or "inherit"
 
 
 class SandboxClient:
@@ -1788,7 +1809,11 @@ class SandboxClient:
         )
 
     def _build_checkpoint_request(
-        self, mode: str | None, dataset: str | None, target: str | None = None
+        self,
+        mode: str | None,
+        dataset: str | None,
+        target: str | None = None,
+        mcp: ArtifactMcpConfig | None = None,
     ) -> CreateCheckpointRequest:
         """Build the checkpoint payload; config mode packs local plato-config.yml + flows.
 
@@ -1796,11 +1821,23 @@ class SandboxClient:
         ``grist.web.plato.so``); the proxy serves the artifact under it instead
         of the sims.plato.so fallback. Independent of ``mode``; when omitted the
         backend inherits the parent artifact's target.
+
+        ``mcp`` is the artifact-level MCP endpoint config (enabled/port/path),
+        which overrides the simulator's field by field. Also independent of
+        ``mode``; when omitted — or when every one of its fields is unset — it
+        is left off the request and the backend inherits the parent artifact's.
         """
         checkpoint_request = CreateCheckpointRequest()
         if target:
             checkpoint_request.target = target
             self.console.print(f"[dim]Artifact target: {target}[/dim]")
+
+        if mcp is not None:
+            # An all-unset config is not an override: omit it so the backend inherits the
+            # parent artifact's, matching what mcp_config_from_flags returns for no flags.
+            if mcp.model_dump(exclude_none=True):
+                checkpoint_request.mcp_config = mcp
+            self.console.print(f"[dim]Artifact MCP: {describe_mcp_config(mcp)}[/dim]")
 
         if mode == "config":
             if not dataset:
@@ -1857,8 +1894,9 @@ class SandboxClient:
         mode: str,
         dataset: str,
         target: str | None = None,
+        mcp: ArtifactMcpConfig | None = None,
     ) -> AppApiV2SchemasSessionCreateSnapshotResponse:
-        checkpoint_request = self._build_checkpoint_request(mode, dataset, target)
+        checkpoint_request = self._build_checkpoint_request(mode, dataset, target, mcp)
 
         response = sessions_snapshot.sync(
             client=self._http,
@@ -1921,6 +1959,7 @@ class SandboxClient:
         mode: str | None = None,
         dataset: str | None = None,
         target: str | None = None,
+        mcp: ArtifactMcpConfig | None = None,
     ) -> CreateSnapshotResult:
         """Full snapshot (disk + memory) of a single job — the per-job
         analog of the session-level snapshot.
@@ -1932,7 +1971,7 @@ class SandboxClient:
         ``mode="config"`` packs the local plato-config.yml + flows just like
         the session-level snapshot.
         """
-        checkpoint_request = self._build_checkpoint_request(mode, dataset, target)
+        checkpoint_request = self._build_checkpoint_request(mode, dataset, target, mcp)
         snapshot_request = AppApiV2SchemasSessionCreateSnapshotRequest(
             **checkpoint_request.model_dump(exclude_none=True)
         )
@@ -1954,6 +1993,7 @@ class SandboxClient:
         mode: str | None = None,
         dataset: str | None = None,
         target: str | None = None,
+        mcp: ArtifactMcpConfig | None = None,
     ) -> CreateCheckpointResult:
         """Checkpoint a single job (one env in a multi-env session).
 
@@ -1966,7 +2006,7 @@ class SandboxClient:
         response = jobs_checkpoint.sync(
             client=self._http,
             job_id=job_id,
-            body=self._build_checkpoint_request(mode, dataset, target),
+            body=self._build_checkpoint_request(mode, dataset, target, mcp),
             x_api_key=self.api_key,
         )
 

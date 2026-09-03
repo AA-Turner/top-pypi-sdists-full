@@ -17,9 +17,10 @@ Design highlights:
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import cast
+from typing import Literal, cast
 
 from fastmcp import FastMCP
 from fastmcp.server.auth import AuthProvider
@@ -72,6 +73,7 @@ def register_all(mcp: FastMCP) -> None:
         sharing,
         sources,
         sources_drive,
+        sources_playbooks,
         studio,
     )
 
@@ -79,6 +81,7 @@ def register_all(mcp: FastMCP) -> None:
         notebooks,
         sources,
         sources_drive,
+        sources_playbooks,
         chat,
         notes,
         studio,
@@ -99,6 +102,7 @@ def register_all(mcp: FastMCP) -> None:
 def create_server(
     *,
     profile: str | None = None,
+    backend: Literal["web", "android"] | None = None,
     client_factory: ClientFactory | None = None,
     auth: AuthProvider | None = None,
     file_transfer: FileTransferConfig | None = None,
@@ -109,6 +113,8 @@ def create_server(
         profile: Auth profile bound for the whole process. Defaults to the active
             profile when ``None``. Also drives process-wide profile resolution
             for diagnostics such as the ``server_info`` tool.
+        backend: Preferred API backend for the default client factory. An explicit
+            value takes precedence over ``NOTEBOOKLM_BACKEND``.
         client_factory: Test seam — a zero-arg callable returning an async context
             manager that yields a client. Defaults to
             ``NotebookLMClient.from_storage(profile=..., keepalive=600.0)``.
@@ -132,11 +138,20 @@ def create_server(
     def _default_factory() -> AbstractAsyncContextManager[NotebookLMClient]:
         # from_storage returns a dual awaitable/async-context-manager; we use only
         # the async-context-manager protocol.
+        if backend is None:
+            return cast(
+                "AbstractAsyncContextManager[NotebookLMClient]",
+                NotebookLMClient.from_storage(
+                    profile=profile,
+                    keepalive=DEFAULT_SERVER_KEEPALIVE_INTERVAL,
+                ),
+            )
         return cast(
             "AbstractAsyncContextManager[NotebookLMClient]",
             NotebookLMClient.from_storage(
                 profile=profile,
                 keepalive=DEFAULT_SERVER_KEEPALIVE_INTERVAL,
+                backend=backend,
             ),
         )
 
@@ -148,7 +163,17 @@ def create_server(
         set_active_profile(resolve_profile(profile))
         try:
             async with factory() as client:
-                yield AppState(client=client, file_transfer=file_transfer)
+                state = AppState(client=client, file_transfer=file_transfer)
+                state.chat_tasks.set_bound_loop(asyncio.get_running_loop())
+                state.chat_tasks.reset_after_open()
+                try:
+                    yield state
+                finally:
+                    # Cancel any detached chat asks BEFORE the factory context
+                    # closes the client, so no server-owned task ever touches a
+                    # closing client (see ChatTaskRegistry.aclose).
+                    await state.chat_tasks.aclose()
+                    state.chat_tasks.set_bound_loop(None)
         finally:
             set_active_profile(previous_profile)
 

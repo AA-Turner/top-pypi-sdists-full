@@ -22,10 +22,14 @@ from .types import (
     ListRoutingPoliciesRequestOrderBy,
     ListVpnGatewaysRequestOrderBy,
     VpnGatewayStatus,
+    ChangeConnectionPskRequest,
+    ChangeConnectionPskRequestSecret,
+    ChangeConnectionPskResponse,
     Connection,
     ConnectionCipher,
     CreateConnectionRequest,
     CreateConnectionRequestBgpConfig,
+    CreateConnectionRequestSecret,
     CreateConnectionResponse,
     CreateCustomerGatewayRequest,
     CreateRoutingPolicyRequest,
@@ -40,6 +44,7 @@ from .types import (
     ListRoutingPoliciesResponse,
     ListVpnGatewayTypesResponse,
     ListVpnGatewaysResponse,
+    RenewConnectionPskRequest,
     RenewConnectionPskResponse,
     RoutingPolicy,
     SetRoutingPolicyRequest,
@@ -57,6 +62,7 @@ from .marshalling import (
     unmarshal_CustomerGateway,
     unmarshal_RoutingPolicy,
     unmarshal_VpnGateway,
+    unmarshal_ChangeConnectionPskResponse,
     unmarshal_CreateConnectionResponse,
     unmarshal_ListConnectionsResponse,
     unmarshal_ListCustomerGatewaysResponse,
@@ -64,11 +70,13 @@ from .marshalling import (
     unmarshal_ListVpnGatewayTypesResponse,
     unmarshal_ListVpnGatewaysResponse,
     unmarshal_RenewConnectionPskResponse,
+    marshal_ChangeConnectionPskRequest,
     marshal_CreateConnectionRequest,
     marshal_CreateCustomerGatewayRequest,
     marshal_CreateRoutingPolicyRequest,
     marshal_CreateVpnGatewayRequest,
     marshal_DetachRoutingPolicyRequest,
+    marshal_RenewConnectionPskRequest,
     marshal_SetRoutingPolicyRequest,
     marshal_UpdateConnectionRequest,
     marshal_UpdateCustomerGatewayRequest,
@@ -669,14 +677,15 @@ class S2SVpnV1Alpha1API(API):
         name: str,
         is_ipv6: bool,
         initiation_policy: CreateConnectionRequestInitiationPolicy,
-        ikev2_ciphers: list[ConnectionCipher],
-        esp_ciphers: list[ConnectionCipher],
-        enable_route_propagation: bool,
         region: Optional[ScwRegion] = None,
         project_id: Optional[str] = None,
         tags: Optional[list[str]] = None,
+        ikev2_ciphers: list[ConnectionCipher],
+        esp_ciphers: list[ConnectionCipher],
+        enable_route_propagation: bool,
         vpn_gateway_id: str,
         customer_gateway_id: str,
+        secret: Optional[CreateConnectionRequestSecret] = None,
         bgp_config_ipv4: Optional[CreateConnectionRequestBgpConfig] = None,
         bgp_config_ipv6: Optional[CreateConnectionRequestBgpConfig] = None,
     ) -> CreateConnectionResponse:
@@ -685,14 +694,15 @@ class S2SVpnV1Alpha1API(API):
         :param name: Name of the connection.
         :param is_ipv6: Defines IP version of the IPSec Tunnel.
         :param initiation_policy: Who initiates the IPsec tunnel.
-        :param ikev2_ciphers: List of IKE v2 ciphers proposed for the IPsec tunnel.
-        :param esp_ciphers: List of ESP ciphers proposed for the IPsec tunnel.
-        :param enable_route_propagation: Defines whether route propagation is enabled or not.
         :param region: Region to target. If none is passed will use default region from the config.
         :param project_id: ID of the Project to create the connection in.
         :param tags: List of tags to apply to the connection.
+        :param ikev2_ciphers: List of IKE v2 ciphers proposed for the IPsec tunnel.
+        :param esp_ciphers: List of ESP ciphers proposed for the IPsec tunnel.
+        :param enable_route_propagation: Defines whether route propagation is enabled or not.
         :param vpn_gateway_id: ID of the VPN gateway to attach to the connection.
         :param customer_gateway_id: ID of the customer gateway to attach to the connection.
+        :param secret: Specifies the pre-shared key used for the IPsec tunnel.
         :param bgp_config_ipv4: BGP config of IPv4 session, including interco private IPv4 subnet (first IP assigned to the VPN Gateway, second IP to the Customer Gateway) and attached routing policy.
         :param bgp_config_ipv6: BGP config of IPv6 session, including interco private IPv6 subnet (first IP assigned to the VPN Gateway, second IP to the Customer Gateway) and attached routing policy.
         :return: :class:`CreateConnectionResponse <CreateConnectionResponse>`
@@ -724,14 +734,15 @@ class S2SVpnV1Alpha1API(API):
                     name=name,
                     is_ipv6=is_ipv6,
                     initiation_policy=initiation_policy,
-                    ikev2_ciphers=ikev2_ciphers,
-                    esp_ciphers=esp_ciphers,
-                    enable_route_propagation=enable_route_propagation,
                     region=region,
                     project_id=project_id,
                     tags=tags,
+                    ikev2_ciphers=ikev2_ciphers,
+                    esp_ciphers=esp_ciphers,
+                    enable_route_propagation=enable_route_propagation,
                     vpn_gateway_id=vpn_gateway_id,
                     customer_gateway_id=customer_gateway_id,
+                    secret=secret,
                     bgp_config_ipv4=bgp_config_ipv4,
                     bgp_config_ipv6=bgp_config_ipv6,
                 ),
@@ -835,12 +846,14 @@ class S2SVpnV1Alpha1API(API):
         *,
         connection_id: str,
         region: Optional[ScwRegion] = None,
+        generate_revision: Optional[bool] = None,
     ) -> RenewConnectionPskResponse:
         """
         Renew pre-shared key.
         Renew pre-shared key for a given connection.
         :param connection_id: ID of the connection to renew the PSK.
         :param region: Region to target. If none is passed will use default region from the config.
+        :param generate_revision: Generate a new revision or update to the latest existing one.
         :return: :class:`RenewConnectionPskResponse <RenewConnectionPskResponse>`
 
         Usage:
@@ -859,11 +872,63 @@ class S2SVpnV1Alpha1API(API):
         res = self._request(
             "POST",
             f"/s2s-vpn/v1alpha1/regions/{param_region}/connections/{param_connection_id}/renew-psk",
-            body={},
+            body=marshal_RenewConnectionPskRequest(
+                RenewConnectionPskRequest(
+                    connection_id=connection_id,
+                    region=region,
+                    generate_revision=generate_revision,
+                ),
+                self.client,
+            ),
         )
 
         self._throw_on_error(res)
         return unmarshal_RenewConnectionPskResponse(res.json())
+
+    def change_connection_psk(
+        self,
+        *,
+        connection_id: str,
+        secret: ChangeConnectionPskRequestSecret,
+        region: Optional[ScwRegion] = None,
+    ) -> ChangeConnectionPskResponse:
+        """
+        Change pre-shared key.
+        Change pre-shared key for a given connection.
+        :param connection_id: ID of the connection to renew the PSK.
+        :param secret: New PSK Secret of the connection.
+        :param region: Region to target. If none is passed will use default region from the config.
+        :return: :class:`ChangeConnectionPskResponse <ChangeConnectionPskResponse>`
+
+        Usage:
+        ::
+
+            result = api.change_connection_psk(
+                connection_id="example",
+                secret=ChangeConnectionPskRequestSecret(),
+            )
+        """
+
+        param_region = validate_path_param(
+            "region", region or self.client.default_region
+        )
+        param_connection_id = validate_path_param("connection_id", connection_id)
+
+        res = self._request(
+            "POST",
+            f"/s2s-vpn/v1alpha1/regions/{param_region}/connections/{param_connection_id}/change-psk",
+            body=marshal_ChangeConnectionPskRequest(
+                ChangeConnectionPskRequest(
+                    connection_id=connection_id,
+                    secret=secret,
+                    region=region,
+                ),
+                self.client,
+            ),
+        )
+
+        self._throw_on_error(res)
+        return unmarshal_ChangeConnectionPskResponse(res.json())
 
     def set_routing_policy(
         self,

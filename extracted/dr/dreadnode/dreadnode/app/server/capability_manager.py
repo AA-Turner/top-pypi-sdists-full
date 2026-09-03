@@ -25,11 +25,6 @@ if t.TYPE_CHECKING:
     from dreadnode.capabilities.types import AgentDef
 
 
-def _tool_name(tool: t.Any) -> str:
-    """Get the name of a tool object."""
-    return getattr(tool, "name", "")
-
-
 _COMPONENT_KINDS: frozenset[str] = frozenset(t.get_args(ComponentKind))
 _LOGGED_MALFORMED_ENTRIES: set[str] = set()
 
@@ -163,28 +158,15 @@ class CapabilityRegistry:
         return capability_name, capability, agent_def
 
     def all_tools(self) -> list[t.Any]:
-        """All tools from all capabilities + MCP servers, deduped by name."""
-        seen: set[str] = set()
+        """Return every tool with a unique computed wire name."""
+        from dreadnode.capabilities.tool_rules import validate_wire_names
+
         tools: list[t.Any] = []
         for cap in self.capabilities.values():
-            for tool in cap.tools:
-                name = _tool_name(tool)
-                if name and name not in seen:
-                    tools.append(tool)
-                    seen.add(name)
-                elif name in seen:
-                    logger.debug(
-                        "Tool '{}' already registered, skipping duplicate",
-                        name,
-                    )
+            tools.extend(cap.tools)
         if self.mcp_manager:
-            for tool in self.mcp_manager.all_tools():
-                name = _tool_name(tool)
-                if name and name not in seen:
-                    tools.append(tool)
-                    seen.add(name)
-                elif name in seen:
-                    logger.debug("Tool '{}' already registered (MCP), skipping", name)
+            tools.extend(self.mcp_manager.all_tools())
+        validate_wire_names(tools)
         return tools
 
     def all_hooks(self) -> list[t.Any]:

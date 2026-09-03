@@ -180,9 +180,12 @@ pub(crate) mod view;
 mod witness;
 
 pub use error::{CanonicalizationError, OperandMismatch};
-pub use options::{options, CanonicalizeOptions};
+pub use options::{options, CanonicalizeOptions, PreparedDocument};
 pub use schema::{CanonicalSchema, Containment, Satisfiability};
-pub use view::{CanonicalKind, CanonicalView, ContainsView, Distinctness, ObjectViolationView};
+pub use view::{
+    ArrayView, CanonicalKind, CanonicalView, ContainsView, Distinctness, IntegerView, NumberView,
+    ObjectView, ObjectViolationView, StringView, TypedGroupView,
+};
 
 pub(crate) const CANONICAL_REFERENCE_PREFIX: &str = "urn:jsonschema:canonical:";
 

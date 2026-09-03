@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "3.0.44"
+version = "3.0.52"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"
@@ -147,6 +147,7 @@ exclude = [
     ".venv/**",
     ".venv-*/**",
     "dashboard/node_modules/**",
+    "src/codex_plugin_scanner/guard/native_runtime_resident.py",
 ]
 
 [tool.ruff.lint]

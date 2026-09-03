@@ -22,6 +22,7 @@ from .types import (
     PoolStatus,
     PoolVolumeType,
     Runtime,
+    ComponentInfo,
     Version,
     MaintenanceWindow,
     ClusterAutoUpgrade,
@@ -34,8 +35,6 @@ from .types import (
     Pool,
     ACLRule,
     AddClusterACLRulesResponse,
-    ExternalNodeCoreV1Taint,
-    ExternalNode,
     ExternalNodeAuth,
     ListClusterACLRulesResponse,
     ClusterType,
@@ -45,6 +44,8 @@ from .types import (
     ListClustersResponse,
     ListNodesResponse,
     ListPoolsResponse,
+    UserDataSummary,
+    ListUserDataResponse,
     ListVersionsResponse,
     NodeMetadataCoreV1Taint,
     NodeMetadata,
@@ -73,6 +74,23 @@ from .types import (
     UpgradeClusterRequest,
     UpgradePoolRequest,
 )
+
+
+def unmarshal_ComponentInfo(data: Any) -> ComponentInfo:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ComponentInfo' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("version", None)
+    if field is not None:
+        args["version"] = field
+    else:
+        args["version"] = None
+
+    return ComponentInfo(**args)
 
 
 def unmarshal_Version(data: Any) -> Version:
@@ -132,6 +150,16 @@ def unmarshal_Version(data: Any) -> Version:
         args["available_kubelet_args"] = field
     else:
         args["available_kubelet_args"] = {}
+
+    field = data.get("additional_components", None)
+    if field is not None:
+        args["additional_components"] = (
+            {key: unmarshal_ComponentInfo(value) for key, value in field.items()}
+            if field is not None
+            else None
+        )
+    else:
+        args["additional_components"] = {}
 
     field = data.get("deprecated_at", None)
     if field is not None:
@@ -659,13 +687,13 @@ def unmarshal_PoolUpgradePolicy(data: Any) -> PoolUpgradePolicy:
     if field is not None:
         args["max_unavailable"] = field
     else:
-        args["max_unavailable"] = None
+        args["max_unavailable"] = 0
 
     field = data.get("max_surge", None)
     if field is not None:
         args["max_surge"] = field
     else:
-        args["max_surge"] = None
+        args["max_surge"] = 0
 
     return PoolUpgradePolicy(**args)
 
@@ -720,6 +748,18 @@ def unmarshal_Pool(data: Any) -> Pool:
     else:
         args["autoscaling"] = False
 
+    field = data.get("created_at", None)
+    if field is not None:
+        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["created_at"] = None
+
+    field = data.get("updated_at", None)
+    if field is not None:
+        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["updated_at"] = None
+
     field = data.get("size", None)
     if field is not None:
         args["size"] = field
@@ -737,18 +777,6 @@ def unmarshal_Pool(data: Any) -> Pool:
         args["max_size"] = field
     else:
         args["max_size"] = 0
-
-    field = data.get("created_at", None)
-    if field is not None:
-        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
-    else:
-        args["created_at"] = None
-
-    field = data.get("updated_at", None)
-    if field is not None:
-        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
-    else:
-        args["updated_at"] = None
 
     field = data.get("container_runtime", None)
     if field is not None:
@@ -780,6 +808,12 @@ def unmarshal_Pool(data: Any) -> Pool:
     else:
         args["zone"] = None
 
+    field = data.get("root_volume_type", None)
+    if field is not None:
+        args["root_volume_type"] = field
+    else:
+        args["root_volume_type"] = PoolVolumeType.DEFAULT_VOLUME_TYPE
+
     field = data.get("placement_group_id", None)
     if field is not None:
         args["placement_group_id"] = field
@@ -792,11 +826,11 @@ def unmarshal_Pool(data: Any) -> Pool:
     else:
         args["upgrade_policy"] = None
 
-    field = data.get("root_volume_type", None)
+    field = data.get("root_volume_size", None)
     if field is not None:
-        args["root_volume_type"] = field
+        args["root_volume_size"] = field
     else:
-        args["root_volume_type"] = PoolVolumeType.DEFAULT_VOLUME_TYPE
+        args["root_volume_size"] = 0
 
     field = data.get("public_ip_disabled", None)
     if field is not None:
@@ -838,11 +872,23 @@ def unmarshal_Pool(data: Any) -> Pool:
     else:
         args["region"] = None
 
-    field = data.get("root_volume_size", None)
+    field = data.get("private_network_id", None)
     if field is not None:
-        args["root_volume_size"] = field
+        args["private_network_id"] = field
     else:
-        args["root_volume_size"] = 0
+        args["private_network_id"] = None
+
+    field = data.get("error_message", None)
+    if field is not None:
+        args["error_message"] = field
+    else:
+        args["error_message"] = None
+
+    field = data.get("max_termination_grace_period", None)
+    if field is not None:
+        args["max_termination_grace_period"] = field
+    else:
+        args["max_termination_grace_period"] = None
 
     return Pool(**args)
 
@@ -866,6 +912,12 @@ def unmarshal_ACLRule(data: Any) -> ACLRule:
         args["description"] = field
     else:
         args["description"] = None
+
+    field = data.get("region", None)
+    if field is not None:
+        args["region"] = field
+    else:
+        args["region"] = None
 
     field = data.get("ip", None)
     if field is not None:
@@ -899,134 +951,6 @@ def unmarshal_AddClusterACLRulesResponse(data: Any) -> AddClusterACLRulesRespons
         args["rules"] = []
 
     return AddClusterACLRulesResponse(**args)
-
-
-def unmarshal_ExternalNodeCoreV1Taint(data: Any) -> ExternalNodeCoreV1Taint:
-    if not isinstance(data, dict):
-        raise TypeError(
-            "Unmarshalling the type 'ExternalNodeCoreV1Taint' failed as data isn't a dictionary."
-        )
-
-    args: dict[str, Any] = {}
-
-    field = data.get("key", None)
-    if field is not None:
-        args["key"] = field
-    else:
-        args["key"] = None
-
-    field = data.get("value", None)
-    if field is not None:
-        args["value"] = field
-    else:
-        args["value"] = None
-
-    field = data.get("effect", None)
-    if field is not None:
-        args["effect"] = field
-    else:
-        args["effect"] = None
-
-    return ExternalNodeCoreV1Taint(**args)
-
-
-def unmarshal_ExternalNode(data: Any) -> ExternalNode:
-    if not isinstance(data, dict):
-        raise TypeError(
-            "Unmarshalling the type 'ExternalNode' failed as data isn't a dictionary."
-        )
-
-    args: dict[str, Any] = {}
-
-    field = data.get("id", None)
-    if field is not None:
-        args["id"] = field
-    else:
-        args["id"] = None
-
-    field = data.get("name", None)
-    if field is not None:
-        args["name"] = field
-    else:
-        args["name"] = None
-
-    field = data.get("cluster_url", None)
-    if field is not None:
-        args["cluster_url"] = field
-    else:
-        args["cluster_url"] = None
-
-    field = data.get("pool_version", None)
-    if field is not None:
-        args["pool_version"] = field
-    else:
-        args["pool_version"] = None
-
-    field = data.get("cluster_ca", None)
-    if field is not None:
-        args["cluster_ca"] = field
-    else:
-        args["cluster_ca"] = None
-
-    field = data.get("kube_token", None)
-    if field is not None:
-        args["kube_token"] = field
-    else:
-        args["kube_token"] = None
-
-    field = data.get("kubelet_config", None)
-    if field is not None:
-        args["kubelet_config"] = field
-    else:
-        args["kubelet_config"] = None
-
-    field = data.get("external_ip", None)
-    if field is not None:
-        args["external_ip"] = field
-    else:
-        args["external_ip"] = None
-
-    field = data.get("containerd_version", None)
-    if field is not None:
-        args["containerd_version"] = field
-    else:
-        args["containerd_version"] = None
-
-    field = data.get("runc_version", None)
-    if field is not None:
-        args["runc_version"] = field
-    else:
-        args["runc_version"] = None
-
-    field = data.get("cni_plugins_version", None)
-    if field is not None:
-        args["cni_plugins_version"] = field
-    else:
-        args["cni_plugins_version"] = None
-
-    field = data.get("node_labels", None)
-    if field is not None:
-        args["node_labels"] = field
-    else:
-        args["node_labels"] = None
-
-    field = data.get("node_taints", None)
-    if field is not None:
-        args["node_taints"] = (
-            [unmarshal_ExternalNodeCoreV1Taint(v) for v in field]
-            if field is not None
-            else None
-        )
-    else:
-        args["node_taints"] = None
-
-    field = data.get("iam_token", None)
-    if field is not None:
-        args["iam_token"] = field
-    else:
-        args["iam_token"] = None
-
-    return ExternalNode(**args)
 
 
 def unmarshal_ExternalNodeAuth(data: Any) -> ExternalNodeAuth:
@@ -1138,6 +1062,12 @@ def unmarshal_ClusterType(data: Any) -> ClusterType:
         args["max_etcd_size"] = field
     else:
         args["max_etcd_size"] = 0
+
+    field = data.get("region", None)
+    if field is not None:
+        args["region"] = field
+    else:
+        args["region"] = None
 
     field = data.get("commitment_delay", None)
     if field is not None:
@@ -1294,6 +1224,42 @@ def unmarshal_ListPoolsResponse(data: Any) -> ListPoolsResponse:
         args["pools"] = []
 
     return ListPoolsResponse(**args)
+
+
+def unmarshal_UserDataSummary(data: Any) -> UserDataSummary:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'UserDataSummary' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("key", None)
+    if field is not None:
+        args["key"] = field
+    else:
+        args["key"] = None
+
+    return UserDataSummary(**args)
+
+
+def unmarshal_ListUserDataResponse(data: Any) -> ListUserDataResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ListUserDataResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("user_data", None)
+    if field is not None:
+        args["user_data"] = (
+            [unmarshal_UserDataSummary(v) for v in field] if field is not None else None
+        )
+    else:
+        args["user_data"] = []
+
+    return ListUserDataResponse(**args)
 
 
 def unmarshal_ListVersionsResponse(data: Any) -> ListVersionsResponse:
@@ -1747,8 +1713,17 @@ def marshal_CreateClusterRequestPoolConfig(
             marshal_CoreV1Taint(item, defaults) for item in request.startup_taints
         ]
 
+    if request.user_data is not None:
+        output["user_data"] = {key: value for key, value in request.user_data.items()}
+
     if request.security_group_id is not None:
         output["security_group_id"] = request.security_group_id
+
+    if request.private_network_id is not None:
+        output["private_network_id"] = request.private_network_id
+
+    if request.max_termination_grace_period is not None:
+        output["max_termination_grace_period"] = request.max_termination_grace_period
 
     return output
 
@@ -1869,14 +1844,20 @@ def marshal_CreatePoolRequest(
     if request.autoscaling is not None:
         output["autoscaling"] = request.autoscaling
 
-    if request.size is not None:
-        output["size"] = request.size
-
     if request.name is not None:
         output["name"] = request.name
 
     if request.placement_group_id is not None:
         output["placement_group_id"] = request.placement_group_id
+
+    if request.size is not None:
+        output["size"] = request.size
+
+    if request.autohealing is not None:
+        output["autohealing"] = request.autohealing
+
+    if request.public_ip_disabled is not None:
+        output["public_ip_disabled"] = request.public_ip_disabled
 
     if request.min_size is not None:
         output["min_size"] = request.min_size
@@ -1886,12 +1867,6 @@ def marshal_CreatePoolRequest(
 
     if request.container_runtime is not None:
         output["container_runtime"] = request.container_runtime
-
-    if request.autohealing is not None:
-        output["autohealing"] = request.autohealing
-
-    if request.public_ip_disabled is not None:
-        output["public_ip_disabled"] = request.public_ip_disabled
 
     if request.tags is not None:
         output["tags"] = request.tags
@@ -1932,6 +1907,15 @@ def marshal_CreatePoolRequest(
         output["startup_taints"] = [
             marshal_CoreV1Taint(item, defaults) for item in request.startup_taints
         ]
+
+    if request.private_network_id is not None:
+        output["private_network_id"] = request.private_network_id
+
+    if request.user_data is not None:
+        output["user_data"] = {key: value for key, value in request.user_data.items()}
+
+    if request.max_termination_grace_period is not None:
+        output["max_termination_grace_period"] = request.max_termination_grace_period
 
     return output
 
@@ -2191,6 +2175,9 @@ def marshal_UpdatePoolRequest(
 
     if request.security_group_id is not None:
         output["security_group_id"] = request.security_group_id
+
+    if request.max_termination_grace_period is not None:
+        output["max_termination_grace_period"] = request.max_termination_grace_period
 
     return output
 

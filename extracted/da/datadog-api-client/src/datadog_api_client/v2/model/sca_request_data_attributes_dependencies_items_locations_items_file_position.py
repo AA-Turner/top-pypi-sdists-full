@@ -29,12 +29,14 @@ class ScaRequestDataAttributesDependenciesItemsLocationsItemsFilePosition(ModelN
         return {
             "end": (ScaRequestDataAttributesDependenciesItemsLocationsItemsPosition,),
             "file_name": (str,),
+            "role": (str,),
             "start": (ScaRequestDataAttributesDependenciesItemsLocationsItemsPosition,),
         }
 
     attribute_map = {
         "end": "end",
         "file_name": "file_name",
+        "role": "role",
         "start": "start",
     }
 
@@ -42,6 +44,7 @@ class ScaRequestDataAttributesDependenciesItemsLocationsItemsFilePosition(ModelN
         self_,
         end: Union[ScaRequestDataAttributesDependenciesItemsLocationsItemsPosition, UnsetType] = unset,
         file_name: Union[str, UnsetType] = unset,
+        role: Union[str, UnsetType] = unset,
         start: Union[ScaRequestDataAttributesDependenciesItemsLocationsItemsPosition, UnsetType] = unset,
         **kwargs,
     ):
@@ -54,6 +57,9 @@ class ScaRequestDataAttributesDependenciesItemsLocationsItemsFilePosition(ModelN
         :param file_name: The name or path of the file containing this location.
         :type file_name: str, optional
 
+        :param role: The semantic role associated with this file location.
+        :type role: str, optional
+
         :param start: A specific position (line and column) within a source file.
         :type start: ScaRequestDataAttributesDependenciesItemsLocationsItemsPosition, optional
         """
@@ -61,6 +67,8 @@ class ScaRequestDataAttributesDependenciesItemsLocationsItemsFilePosition(ModelN
             kwargs["end"] = end
         if file_name is not unset:
             kwargs["file_name"] = file_name
+        if role is not unset:
+            kwargs["role"] = role
         if start is not unset:
             kwargs["start"] = start
         super().__init__(kwargs)

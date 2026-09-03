@@ -250,6 +250,74 @@ class CapabilityReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_eks.CertificateAuthorityReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate_authority_id": "certificateAuthorityId",
+        "cluster_name": "clusterName",
+    },
+)
+class CertificateAuthorityReference:
+    def __init__(
+        self,
+        *,
+        certificate_authority_id: builtins.str,
+        cluster_name: builtins.str,
+    ) -> None:
+        '''A reference to a CertificateAuthority resource.
+
+        :param certificate_authority_id: The Id of the CertificateAuthority resource.
+        :param cluster_name: The ClusterName of the CertificateAuthority resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_eks as interfaces_eks
+            
+            certificate_authority_reference = interfaces_eks.CertificateAuthorityReference(
+                certificate_authority_id="certificateAuthorityId",
+                cluster_name="clusterName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c164d6c16022b781f3af6e68e3876ea9ac1f34883336eb75c2fc1c0dcf9f399f)
+            check_type(argname="argument certificate_authority_id", value=certificate_authority_id, expected_type=type_hints["certificate_authority_id"])
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_authority_id": certificate_authority_id,
+            "cluster_name": cluster_name,
+        }
+
+    @builtins.property
+    def certificate_authority_id(self) -> builtins.str:
+        '''The Id of the CertificateAuthority resource.'''
+        result = self._values.get("certificate_authority_id")
+        assert result is not None, "Required property 'certificate_authority_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cluster_name(self) -> builtins.str:
+        '''The ClusterName of the CertificateAuthority resource.'''
+        result = self._values.get("cluster_name")
+        assert result is not None, "Required property 'cluster_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CertificateAuthorityReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_eks.ClusterReference",
     jsii_struct_bases=[],
     name_mapping={"cluster_arn": "clusterArn", "cluster_name": "clusterName"},
@@ -528,6 +596,51 @@ class _ICapabilityRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICapabilityRef).__jsii_proxy_class__ = lambda : _ICapabilityRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.ICertificateAuthorityRef")
+class ICertificateAuthorityRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CertificateAuthority.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthorityRef")
+    def certificate_authority_ref(self) -> "CertificateAuthorityReference":
+        '''(experimental) A reference to a CertificateAuthority resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICertificateAuthorityRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CertificateAuthority.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_eks.ICertificateAuthorityRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthorityRef")
+    def certificate_authority_ref(self) -> "CertificateAuthorityReference":
+        '''(experimental) A reference to a CertificateAuthority resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CertificateAuthorityReference", jsii.get(self, "certificateAuthorityRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICertificateAuthorityRef).__jsii_proxy_class__ = lambda : _ICertificateAuthorityRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.IClusterRef")
@@ -967,11 +1080,13 @@ __all__ = [
     "AccessEntryReference",
     "AddonReference",
     "CapabilityReference",
+    "CertificateAuthorityReference",
     "ClusterReference",
     "FargateProfileReference",
     "IAccessEntryRef",
     "IAddonRef",
     "ICapabilityRef",
+    "ICertificateAuthorityRef",
     "IClusterRef",
     "IFargateProfileRef",
     "IIdentityProviderConfigRef",
@@ -1005,6 +1120,14 @@ def _typecheckingstub__8380b0e2d2286804f49005cd1b95a852ea64c317bb9048747945aafc0
 def _typecheckingstub__bc801b63380c6ce04f8c7266654f326fcd069c8bbc7b78140d8b612445f8e92c(
     *,
     capability_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c164d6c16022b781f3af6e68e3876ea9ac1f34883336eb75c2fc1c0dcf9f399f(
+    *,
+    certificate_authority_id: builtins.str,
+    cluster_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1051,5 +1174,5 @@ def _typecheckingstub__d7465fc9c2ed3ddbe51e8bf5142f1243a8335f32f088977ac177d64c2
     """Type checking stubs"""
     pass
 
-for cls in [IAccessEntryRef, IAddonRef, ICapabilityRef, IClusterRef, IFargateProfileRef, IIdentityProviderConfigRef, INodegroupRef, IPodIdentityAssociationRef]:
+for cls in [IAccessEntryRef, IAddonRef, ICapabilityRef, ICertificateAuthorityRef, IClusterRef, IFargateProfileRef, IIdentityProviderConfigRef, INodegroupRef, IPodIdentityAssociationRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

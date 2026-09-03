@@ -11,6 +11,8 @@ This toolkit is the client side: tools are listed at build time and each becomes
 treats a local server exactly like a remote one.
 """
 
+import asyncio
+from os import getenv
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from agno.tools.function import Function, ToolResult
@@ -25,6 +27,13 @@ from xpander_sdk.core.xpander_api_client import APIClient
 TOOL_NAME_PREFIX = "mcp_tool"
 
 DEFAULT_CALL_TIMEOUT = 120
+
+# Budget for listing tools, which is also what starts the server. The workspace bounds one
+# start attempt at its own MCP_STARTUP_TIMEOUT (120s default); this covers that plus proxy
+# overhead, so a hung bridge can never hold the run's tool assembly open indefinitely.
+STARTUP_TIMEOUT = int(getenv("XPANDER_LOCAL_MCP_STARTUP_TIMEOUT", "150"))
+# Client-side slack past the proxy's deadline, so the proxy's own answer normally wins.
+STARTUP_GRACE = 30
 
 # Context objects agno passes alongside the model's arguments.
 _AGNO_CONTEXT_KEYS = ("run_context", "agent", "team")
@@ -67,14 +76,27 @@ class WorkspaceMCPTools(Toolkit):
         """
         if self._initialized:
             return
-        response = await self._bridge(
-            "mcp_list_tools",
-            {
-                "command": self.command,
-                "name": self.server_name,
-                "env_vars": self.env_vars,
-            },
-        )
+        try:
+            response = await asyncio.wait_for(
+                self._bridge(
+                    "mcp_list_tools",
+                    {
+                        "command": self.command,
+                        "name": self.server_name,
+                        "env_vars": self.env_vars,
+                        # rides into the controller proxy so it answers soon after the
+                        # workspace's own startup budget instead of its 600s default
+                        "timeout": STARTUP_TIMEOUT,
+                    },
+                ),
+                timeout=STARTUP_TIMEOUT + STARTUP_GRACE,
+            )
+        except asyncio.TimeoutError:
+            raise TimeoutError(
+                f"'{self.server_name}' did not answer within {STARTUP_TIMEOUT}s - a first "
+                f"run downloads the package before it can serve; it picks up where it got "
+                f"to on the next run."
+            ) from None
         tools = (response.get("tools") if isinstance(response, dict) else None) or []
         for tool in tools:
             name = tool.get("name")

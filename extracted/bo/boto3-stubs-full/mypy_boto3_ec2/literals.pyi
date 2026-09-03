@@ -719,6 +719,7 @@ __all__ = (
     "VpnTunnelProvisioningStatusType",
     "WaiterName",
     "WeekDayType",
+    "ZeroSizePreferenceType",
 )
 
 AcceleratorManufacturerType = Literal["amazon-web-services", "amd", "habana", "nvidia", "xilinx"]
@@ -3778,6 +3779,7 @@ VpnStaticRouteSourceType = Literal["Static"]
 VpnTunnelBandwidthType = Literal["large", "standard"]
 VpnTunnelProvisioningStatusType = Literal["available", "failed", "pending"]
 WeekDayType = Literal["friday", "monday", "saturday", "sunday", "thursday", "tuesday", "wednesday"]
+ZeroSizePreferenceType = Literal["default", "retain"]
 EC2ServiceName = Literal["ec2"]
 ServiceName = Literal[
     "accessanalyzer",

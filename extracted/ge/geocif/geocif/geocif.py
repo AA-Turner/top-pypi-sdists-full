@@ -178,6 +178,14 @@ class Geocif:
         self.median_yield_as_feature = self.parser.getboolean("ML", "median_yield_as_feature")
         self.median_area_as_feature = self.parser.getboolean("ML", "median_area_as_feature")
         self.number_lag_years = self.parser.getint("ML", "lag_years")
+        # CCI window policy (0.4.960): "all" keeps every CCI stage window
+        # (historical behaviour); "current" keeps only the cutoff-month
+        # single-month CCI window per fold — see stages.keep_cci_window for
+        # the measured rationale (many-window CCI overfits and the sparse
+        # Apr/May windows become fillna(0) region proxies).
+        self.cci_windows = self.parser.get(
+            "ML", "cci_windows", fallback="all"
+        ).strip().lower()
         self.cluster_strategy = self.parser.get("ML", "cluster_strategy")
         # Within-year neighbor-yield leakage (0.4.774+). Default OFF.
         # When True, _prepare_train_test_split injects forecast-year rows
@@ -4354,6 +4362,11 @@ class Geocif:
             candidates_seen = 0
             candidates_matched = 0
             sample_attempts = []  # collects up to 5 (_t, tmp_col) pairs for empty-match dump
+            # CCI window policy: resolve this fold's cutoff month once (first
+            # element of the longest reverse-cumulative stage array).
+            _cci_current = getattr(self, "cci_windows", "all") == "current"
+            _cutoff_month = stages.cutoff_month_of(stages_features) if _cci_current else None
+            _cci_dropped = 0
             for stage in stages_features:
                 _stage = "_".join(map(str, stage))
                 _tmp = [f"{col}_{_stage}" for col in self.combined_keys]
@@ -4368,6 +4381,12 @@ class Geocif:
                         len(parts),
                     )
                     cid = "_".join(parts[:_idx])
+
+                    if _cci_current and not stages.keep_cci_window(
+                        cid, stage, _cutoff_month, "current"
+                    ):
+                        _cci_dropped += 1
+                        continue
 
                     try:
                         if self.model_name.startswith("cumulative_"):
@@ -4412,6 +4431,11 @@ class Geocif:
                 f"candidates_matched={candidates_matched}, "
                 f"feature_names={len(self.feature_names)}"
             )
+            if _cci_current and _cci_dropped:
+                self.logger.info(
+                    f"  cci_windows=current: kept cutoff-month (m={_cutoff_month}) "
+                    f"CCI only, dropped {_cci_dropped} other CCI window candidates"
+                )
 
             # Mismatch dump: side-by-side sample of attempted tmp_col vs actual
             # df_train CID columns. Fires only when the loop matched nothing
@@ -5754,6 +5778,53 @@ class Geocif:
                     self.number_median_years, self.target,
                 )
             self.analogous_year_yield_as_feature = True
+
+        # CCI window policy — applied to the FINAL name list so it covers
+        # every branch above, including the correlation-selection-empty
+        # fallback that assigns all CID columns directly and never enters
+        # create_feature_names. That bypass is exactly why the candidate-level
+        # keep_cci_window hook alone produced bit-identical A/B arms on
+        # 2026-09-02 (correlation_plots = False -> 44 fallbacks, 0 filter hits).
+        _cci_policy = getattr(self, "cci_windows", "all")
+        if _cci_policy in ("current", "current_delta", "current_ge") and self.feature_names:
+            # NB: the `stages` PARAMETER of this method shadows the stages
+            # module — import the helpers directly.
+            from .ml.stages import cutoff_month_of as _cutoff_of
+            from .ml.stages import filter_feature_names_cci as _filter_cci
+            from .ml.stages import cci_delta_columns as _delta_cols
+            _cm = _cutoff_of(stages)
+            _before = len(self.feature_names)
+            self.feature_names = _filter_cci(self.feature_names, _cm, _cci_policy)
+
+            if _cci_policy == "current_delta" and _cm is not None:
+                # Decline-aware change features: cutoff-month stat minus the
+                # previous month's same stat. Within-row arithmetic applied to
+                # BOTH frames — leak-free by construction. The CID columns were
+                # fillna(0)-ed upstream (geocif.py _update_column_names), and a
+                # delta against a fabricated 0 would invent a huge swing, so
+                # the delta is NaN'd wherever either month is exactly 0 (a real
+                # in-season condition index is never 0); the per-model NaN
+                # handling downstream imputes those.
+                for new_name, c_cur, c_prev in _delta_cols(
+                    self.df_train.columns, _cm
+                ):
+                    for _df in (self.df_train, self.df_test):
+                        if c_cur in _df.columns and c_prev in _df.columns:
+                            if new_name not in _df.columns:
+                                _d = _df[c_cur] - _df[c_prev]
+                                _d[(_df[c_cur] == 0) | (_df[c_prev] == 0)] = np.nan
+                                _df[new_name] = _d
+                    if (new_name in self.df_train.columns
+                            and new_name not in self.feature_names):
+                        self.feature_names.append(new_name)
+
+            _dropped = _before - len(self.feature_names)
+            if _dropped:
+                self.logger.info(
+                    f"  cci_windows={_cci_policy}: kept cutoff-month (m={_cm}) "
+                    f"CCI (+deltas); net {_dropped} fewer of {_before} feature "
+                    f"names (region_id={region_id}, model={self.model_name})"
+                )
 
         self._warn_if_coords_degenerate()
 

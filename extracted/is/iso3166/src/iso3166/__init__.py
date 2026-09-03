@@ -1,7 +1,14 @@
-# -*- coding: utf-8 -*-
-
 import re
-from typing import Dict, Iterator, NamedTuple, Type, TypeVar, Union, overload
+from typing import (
+    Dict,
+    Iterator,
+    NamedTuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 __all__ = ["countries"]
 
@@ -255,7 +262,7 @@ _records = [
     Country("Mozambique", "MZ", "MOZ", "508", "Mozambique"),
     Country("Myanmar", "MM", "MMR", "104", "Myanmar"),
     Country("Namibia", "NA", "NAM", "516", "Namibia"),
-    Country("Nauru", "NR", "NRU", "520", "Nauru"),
+    Country("Naoero", "NR", "NRU", "520", "Naoero"),
     Country("Nepal", "NP", "NPL", "524", "Nepal"),
     Country("Netherlands", "NL", "NLD", "528", "Netherlands"),
     Country("New Caledonia", "NC", "NCL", "540", "New Caledonia"),
@@ -450,7 +457,7 @@ _records = [
 
 
 def _build_index(idx: int) -> Dict[str, Country]:
-    return dict((r[idx].upper(), r) for r in _records)
+    return {r[idx].upper(): r for r in _records}
 
 
 # Internal country indexes
@@ -475,12 +482,10 @@ class NotFound:
 
 class _CountryLookup:
     @overload
-    def get(self, key: StrOrInt) -> Country:
-        ...
+    def get(self, key: StrOrInt) -> Country: ...
 
     @overload
-    def get(self, key: StrOrInt, default: _D) -> Union[Country, _D]:
-        ...
+    def get(self, key: StrOrInt, default: _D) -> Union[Country, _D]: ...
 
     def get(
         self, key: StrOrInt, default: Union[Type[NotFound], _D] = NotFound
@@ -501,10 +506,10 @@ class _CountryLookup:
             else:
                 r = _by_apolitical_name.get(k, default)
 
-        if r == NotFound:
+        if r is NotFound:
             raise KeyError(key)
 
-        return r
+        return cast(Union[Country, _D], r)
 
     __getitem__ = get
 

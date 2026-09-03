@@ -1881,7 +1881,8 @@ class CfnDomain(
                 automated_snapshot_start_hour=123
             ),
             software_update_options=opensearchservice.CfnDomain.SoftwareUpdateOptionsProperty(
-                auto_software_update_enabled=False
+                auto_software_update_enabled=False,
+                use_latest_service_software_for_blue_green=False
             ),
             tags=[CfnTag(
                 key="key",
@@ -5421,17 +5422,22 @@ class CfnDomain(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.SoftwareUpdateOptionsProperty",
         jsii_struct_bases=[],
-        name_mapping={"auto_software_update_enabled": "autoSoftwareUpdateEnabled"},
+        name_mapping={
+            "auto_software_update_enabled": "autoSoftwareUpdateEnabled",
+            "use_latest_service_software_for_blue_green": "useLatestServiceSoftwareForBlueGreen",
+        },
     )
     class SoftwareUpdateOptionsProperty:
         def __init__(
             self,
             *,
             auto_software_update_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            use_latest_service_software_for_blue_green: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Options for configuring service software updates for a domain.
 
             :param auto_software_update_enabled: Specifies whether automatic service software updates are enabled for the domain.
+            :param use_latest_service_software_for_blue_green: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-softwareupdateoptions.html
             :exampleMetadata: fixture=_generated
@@ -5443,15 +5449,19 @@ class CfnDomain(
                 from aws_cdk import aws_opensearchservice as opensearchservice
                 
                 software_update_options_property = opensearchservice.CfnDomain.SoftwareUpdateOptionsProperty(
-                    auto_software_update_enabled=False
+                    auto_software_update_enabled=False,
+                    use_latest_service_software_for_blue_green=False
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__3f5b07fb34bad0710947f07e46bcb56c9b4dde81217ab11372e2037cc7ecc912)
                 check_type(argname="argument auto_software_update_enabled", value=auto_software_update_enabled, expected_type=type_hints["auto_software_update_enabled"])
+                check_type(argname="argument use_latest_service_software_for_blue_green", value=use_latest_service_software_for_blue_green, expected_type=type_hints["use_latest_service_software_for_blue_green"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if auto_software_update_enabled is not None:
                 self._values["auto_software_update_enabled"] = auto_software_update_enabled
+            if use_latest_service_software_for_blue_green is not None:
+                self._values["use_latest_service_software_for_blue_green"] = use_latest_service_software_for_blue_green
 
         @builtins.property
         def auto_software_update_enabled(
@@ -5462,6 +5472,16 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-softwareupdateoptions.html#cfn-opensearchservice-domain-softwareupdateoptions-autosoftwareupdateenabled
             '''
             result = self._values.get("auto_software_update_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def use_latest_service_software_for_blue_green(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-softwareupdateoptions.html#cfn-opensearchservice-domain-softwareupdateoptions-uselatestservicesoftwareforbluegreen
+            '''
+            result = self._values.get("use_latest_service_software_for_blue_green")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -5953,7 +5973,8 @@ class CfnDomainProps:
                     automated_snapshot_start_hour=123
                 ),
                 software_update_options=opensearchservice.CfnDomain.SoftwareUpdateOptionsProperty(
-                    auto_software_update_enabled=False
+                    auto_software_update_enabled=False,
+                    use_latest_service_software_for_blue_green=False
                 ),
                 tags=[CfnTag(
                     key="key",
@@ -12206,6 +12227,7 @@ def _typecheckingstub__36321f8809b3e46d31ad2079d9c9a47da5cdee345f411bb1e57bf1668
 def _typecheckingstub__3f5b07fb34bad0710947f07e46bcb56c9b4dde81217ab11372e2037cc7ecc912(
     *,
     auto_software_update_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    use_latest_service_software_for_blue_green: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

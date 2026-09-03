@@ -1,6 +1,6 @@
 [project]
 name = "djlint"
-version = "1.44.2"
+version = "1.45.0"
 description = "HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Liquid, Go templates)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -66,14 +66,14 @@ dependencies = [
 [dependency-groups]
 dev = [
   "covdefaults==2.3.0",
-  "mypy==2.3.0",
+  "mypy==2.3.1",
   "pytest==9.1.1",
   "pytest-cov==7.1.0",
   "pytest-github-actions-annotate-failures==0.4.2",
   "pytest-xdist==3.8",
-  "ruff==0.16.1",
+  "ruff==0.16.5",
   "tomli==2.4.1",
-  "types-pyyaml==6.0.12.20260724",
+  "types-pyyaml==6.0.12.20260815",
   "types-regex==2026.7.19.20260720",
   "typing-extensions==4.16.0",
 ]

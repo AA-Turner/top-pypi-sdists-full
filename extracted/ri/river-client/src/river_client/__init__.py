@@ -34,7 +34,7 @@ Example usage:
 # the server, so it must exist on the partially-initialized module. Also the
 # version source for hatch (`[tool.hatch.version]` in pyproject.toml) and
 # the release-tag guard in `.github/workflows/river-client-release.yml`.
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 from river_client.client import (
     Client,

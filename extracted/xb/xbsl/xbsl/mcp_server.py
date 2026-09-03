@@ -19,9 +19,11 @@ from __future__ import annotations
 import argparse
 import difflib
 import inspect
+import os
 import re
 from html import unescape
 from pathlib import Path
+from typing import Any
 
 from xbsl import __version__
 from xbsl import (
@@ -110,6 +112,7 @@ def version_info() -> dict:
 
 def _through_baseline(
     diags: list, files: list[Path], path: str | None, disabled: bool, rules: set[str],
+    asked: list[Path],
 ) -> tuple[list, dict]:
     """The findings the baseline leaves, plus the summary keys describing what it took.
 
@@ -118,7 +121,9 @@ def _through_baseline(
 
     `rules` is what this server actually carries: a plugin older than the one CI runs knows
     fewer rules, and without the set their entries were reported as stale - the two answered
-    differently about one baseline.
+    differently about one baseline. `asked` is what the caller named: the entries of other
+    files are out of this run's reach, and a request for two files used to be answered with
+    the whole baseline called stale.
     """
     if disabled:
         return diags, {}
@@ -126,20 +131,67 @@ def _through_baseline(
     if found is None:
         return diags, {}
     data = baseline_data.load(found)
-    kept, suppressed, unused, stale = baseline_data.apply(diags, data, found.parent, rules)
+    roots = baseline_data.roots_of(asked, found.parent)
+    kept, suppressed, unused, stale = baseline_data.apply(
+        diags, data, found.parent, rules, roots,
+    )
     summary = {
         "baseline": str(found),
         "baselined": suppressed,
         "baseline_unused": unused,
         "baseline_stale": len(stale),
     }
-    not_checked = baseline_data.not_checked_entries(data, rules)
+    not_checked = baseline_data.not_checked_entries(data, rules, roots)
     if not_checked:
+        split = baseline_data.not_checked_split(not_checked)
         summary["baseline_not_checked"] = len(not_checked)
+        summary["baseline_not_checked_rules"] = split["rules"]
+        summary["baseline_not_checked_paths"] = split["paths"]
     return kept, summary
 
 
+# Paths. The server's working directory is where the CLIENT started it, not where the caller
+# works: a session in a git worktree that passed `vendor/app/Main` had its files created in
+# the main checkout, and the answer's relative paths looked right. So every meta_* tool, and
+# lint_paths with them, takes `root` - the caller's project or repository root - resolves
+# relative paths against it (an absolute path stands as it is) and answers with absolute
+# paths plus the root they were counted from, so the two trees can be told apart without a
+# find. Without `root` the server's own working directory serves, as before. The tools whose
+# operand IS a root (project_info, add_form, rename_object ...) take it as their first,
+# required parameter; the tools addressing a file take it as the optional last one.
+
+_ROOT_NOTE = (
+    "root – the caller's project or repository root, an absolute path: relative paths above\n"
+    "resolve against it, and the answer names it as `root` next to absolute file paths.\n"
+    "Without it the server's own working directory serves, which for a session started\n"
+    "elsewhere (a git worktree) is another checkout - so pass it."
+)
+
+
+def _documents_root(fn):
+    """Append the shared note on `root` to a tool description.
+
+    FastMCP reads __doc__ when @mcp.tool() registers the function, so this decorator sits
+    under it; the note is one text for the whole family rather than a copy per tool.
+    """
+    fn.__doc__ = f"{(fn.__doc__ or '').rstrip()}\n\n{_ROOT_NOTE}\n"
+    return fn
+
+
+def _base(root: str | None) -> Path:
+    """The directory relative paths resolve against: the caller's root, else the server's cwd."""
+    return Path(os.path.abspath(root)) if root else Path.cwd()
+
+
+def _under(base: Path, path: str | Path | None) -> Path | None:
+    """`path` against the base; an absolute path stands as it is, an absent one stays absent."""
+    if path is None or path == "":
+        return None
+    return Path(os.path.normpath(os.path.join(base, path)))
+
+
 @mcp.tool()
+@_documents_root
 def lint_paths(
     paths: list[str],
     select: list[str] | None = None,
@@ -147,6 +199,7 @@ def lint_paths(
     enable: list[str] | None = None,
     baseline: str | None = None,
     no_baseline: bool = False,
+    root: str | None = None,
 ) -> dict:
     """Check files/directories on disk.
 
@@ -164,19 +217,31 @@ def lint_paths(
     Returns {diagnostics: [...], summary: {...}}; when a baseline applied, the summary also
     carries `baseline` (the file), `baselined` (findings it suppressed), `baseline_unused`
     and `baseline_stale`, so "clean" here means the same as it does in a terminal and in CI.
-    Entries this server could not judge - their rule is not in its set, an older plugin or a
-    narrower selection - are counted apart as `baseline_not_checked` and are NOT called stale.
+    Entries this server could not judge - their rule is not in its set (an older plugin, a
+    narrower selection) or their file is not among the requested paths - are counted apart
+    as `baseline_not_checked` (split into `_rules` and `_paths`) and are NOT called stale.
+    The summary also names what judged: `engine`, `plugins` (with versions) and `rules`
+    {active, total, plugin} - the first place two environments disagreeing about one tree
+    differ.
     """
-    files, requested = discover_with_context(paths)
+    base = _base(root)
+    asked = [str(_under(base, p)) for p in paths]
+    named = _under(base, baseline)
+    files, requested = discover_with_context(asked)
     chosen = (_as_set(select), _as_set(ignore), _as_set(enable))
     diags = _filter_requested(
         run(files, select=chosen[0], ignore=chosen[1], enable=chosen[2]), requested,
     )
     counted = requested if requested is not None else files
-    carried = {r.id for r in active_rules(*chosen)}
-    diags, extra = _through_baseline(diags, counted, baseline, no_baseline, carried)
+    active = active_rules(*chosen)
+    diags, extra = _through_baseline(
+        diags, counted, str(named) if named else None, no_baseline, {r.id for r in active},
+        [Path(p) for p in asked],
+    )
     payload = report.report(diags, len(counted))
+    payload["summary"].update(environment.provenance(active))
     payload["summary"].update(extra)
+    payload["summary"]["root"] = str(base)
     return payload
 
 
@@ -194,10 +259,13 @@ def lint_source(
     Only per-file rules run (cross-file rules need the whole project).
     """
     src = load_text(filename, content)
-    diags = run_sources(
-        [src], select=_as_set(select), ignore=_as_set(ignore), scopes=("file",)
+    chosen = (_as_set(select), _as_set(ignore))
+    diags = run_sources([src], select=chosen[0], ignore=chosen[1], scopes=("file",))
+    payload = report.report(diags, 1)
+    payload["summary"].update(
+        environment.provenance([r for r in active_rules(*chosen) if r.scope == "file"]),
     )
-    return report.report(diags, 1)
+    return payload
 
 
 def _page_as_text(doc_id: str | None) -> dict:
@@ -380,12 +448,27 @@ def metadata_schema(
 # --- scaffolding (metadata) ------------------------------------------------------------
 #
 # The writing tools apply their changes to disk themselves (unlike the LSP surface, where
-# the editor applies the edits) and return {files, notes, lint}: a file-scope lint of the
-# written files ships in the same response. An operation failure is a structured error
+# the editor applies the edits) and return {root, files, notes, lint}: a file-scope lint of
+# the written files ships in the same response. An operation failure is a structured error
 # field, not an exception: that makes branching easier for an agent.
+#
+def _absolute(payload: dict, base: Path) -> dict:
+    """The answer with every file path absolute and the root they were counted from named."""
+    for entry in payload.get("files", ()):
+        entry["path"] = str(_under(base, entry["path"]))
+    for entry in payload.get("renames", ()):
+        entry["from"] = str(_under(base, entry["from"]))
+        entry["to"] = str(_under(base, entry["to"]))
+    if "deletes" in payload:
+        payload["deletes"] = [str(_under(base, p)) for p in payload["deletes"]]
+    return {"root": str(base), **payload}
 
 
-def _apply_and_lint(result: scaffold.ScaffoldResult) -> dict:
+def _failed(exc: Exception, base: Path) -> dict:
+    return {"error": str(exc), "root": str(base)}
+
+
+def _apply_and_lint(result: scaffold.ScaffoldResult, base: Path) -> dict:
     written = scaffold.apply_result(result)
     sources = [load(Path(p)) for p in written]
     diags = run_sources(sources, scopes=("file",))
@@ -400,14 +483,14 @@ def _apply_and_lint(result: scaffold.ScaffoldResult) -> dict:
         out["renames"] = [
             {"from": str(r.old_path), "to": str(r.new_path)} for r in result.renames
         ]
-    return out
+    return _absolute(out, base)
 
 
-def _meta(op, *args, **kwargs) -> dict:
+def _meta(base: Path, op, *args, **kwargs) -> dict:
     try:
-        return _apply_and_lint(op(*args, **kwargs))
+        return _apply_and_lint(op(*args, **kwargs), base)
     except scaffold.ScaffoldError as exc:
-        return {"error": str(exc)}
+        return _failed(exc, base)
 
 
 @mcp.tool()
@@ -415,6 +498,10 @@ def meta_project_info(root: str, kind: str | None = None, subsystem: str | None 
                       brief: bool = False) -> dict:
     """Map the 1C:Element sources under a root: projects, subsystems, objects by kind.
 
+    root – the caller's project or repository root, an absolute path (a relative one is taken
+    against the server's working directory, which a session started elsewhere does not
+    share); the answer repeats the absolute path read as `root`, and every path in it is
+    absolute.
     kind / subsystem – list only the objects of that kind (`Catalog`) or of that
     subsystem; brief – leave the list out and answer with the counts alone. A real project
     does not fit here whole (the site sources are 105 KB of listing), so ask narrowly: the
@@ -425,10 +512,12 @@ def meta_project_info(root: str, kind: str | None = None, subsystem: str | None 
     meta_add_field accepts per object kind. Use before creating objects to pick the
     directory and to check for name clashes.
     """
+    base = _base(root)
     try:
-        return scaffold.project_info(Path(root), kind=kind, subsystem=subsystem, brief=brief)
+        info = scaffold.project_info(base, kind=kind, subsystem=subsystem, brief=brief)
     except scaffold.ScaffoldError as exc:
-        return {"error": str(exc)}
+        return _failed(exc, base)
+    return {"root": str(base), **info}
 
 
 @mcp.tool()
@@ -448,15 +537,17 @@ def meta_object_info(root: str, name: str | None = None, yaml_path: str | None =
       needs_record_type – whether a movement needs ВидЗаписи (Приход/Расход): only a
       РегистрНакопления of kind Остатки does.
 
+    root – the caller's project or repository root (absolute); a relative yaml_path resolves
+    against it, and the answer names the absolute `root` and `path`.
     Pass either the object name (searched under root; ambiguity is an error) or the
     explicit path to its .yaml.
     """
+    base = _base(root)
     try:
-        return scaffold.object_info(
-            Path(root), name=name, yaml_path=Path(yaml_path) if yaml_path else None
-        )
+        info = scaffold.object_info(base, name=name, yaml_path=_under(base, yaml_path))
     except scaffold.ScaffoldError as exc:
-        return {"error": str(exc)}
+        return _failed(exc, base)
+    return {"root": str(base), **info}
 
 
 @mcp.tool()
@@ -474,16 +565,21 @@ def meta_new_project(
 
     Files land in <root>/<vendor>/<name>/. library=True marks a library project
     (deployable only as an Импорт dependency).
+    root – the caller's repository root, an absolute path (a relative one is taken against
+    the server's working directory, which a session started elsewhere does not share); the
+    answer names it as `root` next to the absolute paths written.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_new_project,
-        Path(root), vendor, name,
+        base, scaffold.op_new_project,
+        base, vendor, name,
         representation=representation, version=version,
         compatibility=compatibility, subsystem=subsystem, library=library,
     )
 
 
 @mcp.tool()
+@_documents_root
 def meta_new_object(
     directory: str,
     kind: str,
@@ -494,6 +590,7 @@ def meta_new_object(
     routes: str | None = None,
     report_spec: dict | None = None,
     presentation: str | None = None,
+    root: str | None = None,
 ) -> dict:
     """Create a configuration object: <Имя>.yaml (+ <Имя>.xbsl for kinds with a module).
 
@@ -513,22 +610,25 @@ def meta_new_object(
     platform shows for a record (a caption written there fails to compile). Pass it:
     without one the very first lint of the new file answers naming/presentation.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_new_object,
-        Path(directory), kind, name,
+        base, scaffold.op_new_object,
+        _under(base, directory), kind, name,
         scope=scope, environment=environment, access=access,
         routes=routes, report=report_spec, presentation=presentation,
     )
 
 
 @mcp.tool()
+@_documents_root
 def meta_add_field(
     yaml_path: str,
     field_kind: str,
     name: str,
-    type: str = "Строка",
+    type: str | None = None,
     tabular: str | None = None,
-    props: dict[str, str] | None = None,
+    props: dict[str, Any] | None = None,
+    root: str | None = None,
 ) -> dict:
     """Add a section item to an object: реквизит, измерение, ресурс, значение (enum),
     параметр, поле (structure), константа, свойство (contract), табличная-часть, операция
@@ -538,48 +638,69 @@ def meta_add_field(
     UUIDs, anchoring and indentation are handled here; duplicates and sections invalid for
     the object's kind are rejected.
 
+    type – the item's type, "Строка" when omitted. A BUILT-IN attribute is added by its
+    name ("Номер" / "Дата" of a document, "Код" / "Наименование" / "Владелец" of a catalog)
+    and is judged by its own metamodel class - the one metadata_schema answers with for that
+    name: no "Ид", a "Тип" only where the class declares one ("Наименование" has none), the
+    class default when omitted ("Номер" - "Строка", "Дата" - "ДатаВремя"), a closed set
+    enforced ("Номер" takes "Строка" or "Число"), and "Владелец" needs the owner's reference
+    type explicitly.
+
     tabular – target tabular-section name when adding a реквизит into it.
 
-    props – the item's other properties as {"Property": "value"}: DefaultValue, Presentation,
+    props – the item's other properties as {"Property": value}: DefaultValue, Presentation,
     MaxLength and whatever else the item's class declares (ask metadata_schema with
-    sections=["<section>"] for the list). Names are checked against that class in either
-    language; Name/Type/Id belong to the parameters above, not here.
-    Values are written as yaml scalars (quoted where a bare one would be ambiguous); a
-    nested block is not a scalar - such a value is refused rather than mangled. To change
-    the properties of an item that already exists use meta_set_field_property.
+    sections=["<section>"] and names=["<name>"] for the list - a built-in "Номер" declares
+    "Длина", "Уникальность" and "Автонумерация" where a regular attribute does not). Names
+    are checked against that class in either language; Name/Type/Id belong to the parameters
+    above, not here. A scalar is written as a yaml scalar (quoted where a bare one would be
+    ambiguous). A nested block is a dict - {"Автонумерация": {"Префикс": "ЗА", "Формат":
+    {"ДлинаПрефикса": 2}}} - or dotted keys ({"Автонумерация.Префикс": "ЗА"}), checked the
+    same way level by level; a list property ("СерииНумерации") is a list of scalars. A
+    block the metamodel describes as opaque ("Представление") is refused with its class
+    named - it still goes into the yaml by hand. To change the properties of an item that
+    already exists use meta_set_field_property.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_add_field, Path(yaml_path), field_kind, name, type_=type, tabular=tabular,
-        props=props,
+        base, scaffold.op_add_field, _under(base, yaml_path), field_kind, name, type_=type,
+        tabular=tabular, props=props,
     )
 
 
 @mcp.tool()
+@_documents_root
 def meta_set_field_property(
     yaml_path: str,
     field_kind: str,
     name: str,
-    props: dict[str, str],
+    props: dict[str, Any],
     tabular: str | None = None,
+    root: str | None = None,
 ) -> dict:
     """Set properties on a section item that already exists (a constant, an attribute, a
     dimension, an enumeration value...): an existing property is replaced in place, a new
     one is appended to the item.
 
     The metadata counterpart of meta_set_component_property, which serves interface
-    components only. Names are checked against the item's metamodel class (both languages
-    accepted, written in the project's own); Name is refused - renaming is meta_rename_object,
-    which updates the references too. A property written as a nested block is refused rather
-    than flattened into a scalar.
+    components only. Names are checked against the item's metamodel class - a built-in
+    "Номер" or "Код" by its own class, as in meta_add_field (both languages accepted, written
+    in the project's own); Name is refused - renaming is meta_rename_object, which updates the
+    references too. Values take the shapes meta_add_field takes: a nested block as a dict or
+    dotted keys replaces whatever stands under that key whole; a scalar over an existing
+    block is refused rather than flattened into it.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_set_field_property,
-        Path(yaml_path), field_kind, name, props, tabular=tabular,
+        base, scaffold.op_set_field_property,
+        _under(base, yaml_path), field_kind, name, props, tabular=tabular,
     )
 
 
 @mcp.tool()
-def meta_add_route(yaml_path: str, routes: str = "", template: str = "", methods: str = "") -> dict:
+@_documents_root
+def meta_add_route(yaml_path: str, routes: str = "", template: str = "", methods: str = "",
+                   root: str | None = None) -> dict:
     """Add routes to an existing HttpСервис: url templates in the yaml plus handler stubs
     in the module. Existing routes are skipped (reported in notes); handler names never
     collide with the ones already declared.
@@ -589,16 +710,18 @@ def meta_add_route(yaml_path: str, routes: str = "", template: str = "", methods
     method to this template" looks like, and an EXISTING template is extended with the
     missing verbs only. The verbs: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.
     """
+    base = _base(root)
     if not routes:
         try:
             routes = scaffold.routes_for(template, [m for m in methods.split(",")])
         except scaffold.ScaffoldError as exc:
-            return {"ok": False, "error": str(exc)}
-    return _meta(scaffold.op_add_route, Path(yaml_path), routes)
+            return {"ok": False, **_failed(exc, base)}
+    return _meta(base, scaffold.op_add_route, _under(base, yaml_path), routes)
 
 
 @mcp.tool()
-def meta_add_localization(yaml_path: str, language: str) -> dict:
+@_documents_root
+def meta_add_localization(yaml_path: str, language: str, root: str | None = None) -> dict:
     """Add a translation file (the Localization section) to a LocalizedStrings element:
     Localization/<Code>/<Name>.yaml next to the element. The file repeats the
     Strings/Templates sections with the default-language values for the translator to
@@ -608,21 +731,28 @@ def meta_add_localization(yaml_path: str, language: str) -> dict:
     language must be declared in LocalizationLanguages of the project descriptor and must
     differ from DefaultLanguage. Candidates come from meta_localization_info.
     """
-    return _meta(scaffold.op_add_localization, Path(yaml_path), language)
+    base = _base(root)
+    return _meta(base, scaffold.op_add_localization, _under(base, yaml_path), language)
 
 
 @mcp.tool()
-def meta_localization_info(yaml_path: str) -> dict:
+@_documents_root
+def meta_localization_info(yaml_path: str, root: str | None = None) -> dict:
     """The localization picture of a LocalizedStrings element: the declared languages, the
     default one, the translations already present and the candidate languages a translation
-    can be added for (folder codes Ru/En with their display names)."""
+    can be added for (folder codes Ru/En with their display names). `file` names the
+    absolute path read."""
+    base = _base(root)
+    path = _under(base, yaml_path)
     try:
-        return scaffold.localization_info(Path(yaml_path))
+        info = scaffold.localization_info(path)
     except (scaffold.ScaffoldError, OSError) as exc:
-        return {"error": str(exc)}
+        return _failed(exc, base)
+    return {"root": str(base), "file": str(path), **info}
 
 
 @mcp.tool()
+@_documents_root
 def meta_add_method(
     module_path: str,
     name: str,
@@ -632,6 +762,7 @@ def meta_add_method(
     after: str = "",
     before: str = "",
     body: str = "",
+    root: str | None = None,
 ) -> dict:
     """Insert a method into an existing .xbsl module without tearing annotation blocks apart.
 
@@ -645,8 +776,9 @@ def meta_add_method(
     method is appended. `annotations` is a whitespace-separated list, `@` optional; `body` is a
     single line put in place of the `// TODO` stub.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_add_method, Path(module_path), name,
+        base, scaffold.op_add_method, _under(base, module_path), name,
         params=params, returns=returns or None, annotations=annotations or None,
         after=after or None, before=before or None, body=body or None,
     )
@@ -664,6 +796,9 @@ def meta_add_form(
 ) -> dict:
     """Generate interface forms for an object and register them in its Интерфейс section.
 
+    root – the caller's project or repository root (absolute): the object is searched under
+    it by name, a relative yaml_path resolves against it, and the answer names it as `root`
+    next to the absolute paths written.
     forms – subset of ["object", "list", "list-cards", "report", "processing"]; default:
     object+list for data objects, report for Report, processing for Processing. The generated
     forms carry real content: input fields per attribute, dynamic-list columns,
@@ -680,10 +815,11 @@ def meta_add_form(
 
     Existing form files are skipped unless overwrite=true.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_add_form,
-        Path(root), name=name,
-        yaml_path=Path(yaml_path) if yaml_path else None,
+        base, scaffold.op_add_form,
+        base, name=name,
+        yaml_path=_under(base, yaml_path),
         forms=forms, overwrite=overwrite,
         card_min_width=card_min_width, card_placeholder=card_placeholder,
     )
@@ -699,6 +835,9 @@ def meta_add_dependency(
 ) -> dict:
     """Attach a library to the project – the Библиотеки section of Проект.yaml.
 
+    root – the caller's project or repository root (absolute): the project descriptor is
+    searched under it, a relative project_yaml resolves against it, and the answer names it
+    as `root` next to the absolute path written.
     version is the library's RELEASE version (digits and dots, e.g. "2.0"), not a build
     version ("1.0-42"): a release is issued in the control panel and that step has no API.
     Different versions of one library within a project are not allowed, so attaching an
@@ -712,10 +851,11 @@ def meta_add_dependency(
     vendor::name::Подсистема[::Пакет]::ИмяТипа; the qualified subsystem name goes into
     Использование of a subsystem and into импорт.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_add_dependency,
-        Path(root), vendor, name, version,
-        project_yaml=Path(project_yaml) if project_yaml else None,
+        base, scaffold.op_add_dependency,
+        base, vendor, name, version,
+        project_yaml=_under(base, project_yaml),
     )
 
 
@@ -730,6 +870,9 @@ def meta_set_access(
 ) -> dict:
     """Set КонтрольДоступа.Разрешения on an object (a precise yaml edit, kind-aware).
 
+    root – the caller's project or repository root (absolute): the object is searched under
+    it by name, a relative yaml_path resolves against it, and the answer names it as `root`
+    next to the absolute path written.
     default – the method for the ПоУмолчанию right (the common case); permissions – methods
     for individual rights, e.g. {"Чтение": "РазрешеноВсем"} (custom rights of a ПравоНаЭлемент
     are written as "ПравоНаX.ИмяПрава"). Methods: РазрешеноВсем, РазрешеноАутентифицированным,
@@ -742,10 +885,11 @@ def meta_set_access(
     РазрешеноАдминистраторам). The computed-permission handlers are business logic and are NOT
     written here – notes remind which ones the object then needs.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_set_access,
-        Path(root), name=name,
-        yaml_path=Path(yaml_path) if yaml_path else None,
+        base, scaffold.op_set_access,
+        base, name=name,
+        yaml_path=_under(base, yaml_path),
         default=default,
         permissions={str(k): str(v) for k, v in permissions.items()} if permissions else None,
         calc_by=calc_by,
@@ -764,6 +908,9 @@ def meta_rename_object(
 ) -> dict:
     """Rename a configuration object and update every reference across the sources.
 
+    root – the caller's project or repository root (absolute): the references are rewritten
+    under it, a relative yaml_path resolves against it, and the answer names it as `root`
+    next to absolute paths.
     Renames the object's files (yaml, modules, its forms `<Имя>Форма*`, the card-list row
     component `СтрокаСписка<Имя>`) and rewrites references: yaml type/table/form keys,
     `=` bindings, .xbsl code (string literals are left intact) and composite form names.
@@ -773,17 +920,18 @@ def meta_rename_object(
     objects share old_name. dry_run=true returns the plan (renames, files, notes) without
     writing anything.
     """
+    base = _base(root)
     try:
         result = scaffold.op_rename_object(
-            Path(root), old_name, new_name,
+            base, old_name, new_name,
             new_presentation=new_presentation, old_presentation=old_presentation,
-            yaml_path=Path(yaml_path) if yaml_path else None,
+            yaml_path=_under(base, yaml_path),
         )
     except scaffold.ScaffoldError as exc:
-        return {"error": str(exc)}
+        return _failed(exc, base)
     if dry_run:
-        return result.as_dict(content=False)
-    return _apply_and_lint(result)
+        return _absolute(result.as_dict(content=False), base)
+    return _apply_and_lint(result, base)
 
 
 @mcp.tool()
@@ -799,38 +947,44 @@ def meta_delete_object(
     Every REMAINING mention of the name across the project is listed by file and line
     (string literals and comments included - a router string, seeding, dictionary keys)
     and deliberately NOT edited: which mention is dead code is the author's call.
-    yaml_path resolves ambiguity between namesakes. Deletion is irreversible, so
-    dry_run defaults to TRUE - the first call returns the plan; repeat with
+    root – the caller's project or repository root (absolute): the object is searched under
+    it, a relative yaml_path resolves against it, and the answer names it as `root` next to
+    absolute paths. yaml_path resolves ambiguity between namesakes. Deletion is irreversible,
+    so dry_run defaults to TRUE - the first call returns the plan; repeat with
     dry_run=false to perform it.
     """
+    base = _base(root)
     try:
         result = scaffold.op_delete_object(
-            Path(root), name, yaml_path=Path(yaml_path) if yaml_path else None,
+            base, name, yaml_path=_under(base, yaml_path),
         )
     except scaffold.ScaffoldError as exc:
-        return {"error": str(exc)}
+        return _failed(exc, base)
     if dry_run:
-        payload = result.as_dict(content=False)
+        payload = _absolute(result.as_dict(content=False), base)
         payload["dry-run"] = True
         return payload
     scaffold.apply_result(result)
-    return result.as_dict(content=False)
+    return _absolute(result.as_dict(content=False), base)
 
 
 @mcp.tool()
+@_documents_root
 def meta_add_subsystem(
     parent_dir: str,
     name: str,
     representation: str | None = None,
     auto_interface: bool = True,
     uses: list[str] | None = None,
+    root: str | None = None,
 ) -> dict:
     """Create a subsystem: a folder with Подсистема.yaml. uses – names of other subsystems
     for the Использование block; representation – the navigation caption.
     """
+    base = _base(root)
     return _meta(
-        scaffold.op_add_subsystem,
-        Path(parent_dir), name,
+        base, scaffold.op_add_subsystem,
+        _under(base, parent_dir), name,
         representation=representation, auto_interface=auto_interface, uses=uses,
     )
 
@@ -847,34 +1001,37 @@ def meta_add_subsystem(
 # (`xbsl form-edit`) and the LSP for now.
 
 
-def _form_write(yaml_path: str, op: str, args: dict) -> dict:
+def _form_write(base: Path, yaml_path: str, op: str, args: dict) -> dict:
     try:
-        outcome = formedits.op_component_edit(Path(yaml_path), op, args)
+        outcome = formedits.op_component_edit(_under(base, yaml_path), op, args)
     except scaffold.ScaffoldError as exc:
-        return {"error": str(exc)}
-    out = _apply_and_lint(outcome.result)
+        return _failed(exc, base)
+    out = _apply_and_lint(outcome.result, base)
     if outcome.node is not None:
         out["node"] = outcome.node
     return out
 
 
 @mcp.tool()
+@_documents_root
 def meta_component_tree(
     yaml_path: str,
     node_id: str = "",
     name: str = "",
     max_depth: int = 0,
     properties: bool = True,
+    root: str | None = None,
 ) -> dict:
     """The node tree of an interface component (ВидЭлемента: КомпонентИнтерфейса).
 
-    Returns {root} - components and slots with ids, types, names, source spans and
+    Returns {root, file} - components and slots with ids, types, names, source spans and
     properties (scalars, =/$ bindings, composite values, При*/После*/Перед* handlers).
     Children live in the slots Содержимое / Страницы / Колонки / Команды / КомандыСтроки /
     Шапка / Подвал; other nested values are properties. Use the node ids with
     meta_add_component / meta_move_component / meta_remove_component / the batch
     meta_move_components / meta_remove_components / meta_set_component_property;
-    ids are positional, so re-read the tree after any edit.
+    ids are positional, so re-read the tree after any edit. `file` is the absolute path of
+    the file read; the base directory is not repeated, since `root` here is the tree.
 
     componentProperties lists the records of the top-level Свойства section (the
     component's own properties: name, type and their spans) - they are not tree nodes.
@@ -894,32 +1051,37 @@ def meta_component_tree(
     componentProperties comes back with the whole form only - it belongs to the
     element, not to a node.
     """
+    base = _base(root)
+    path = _under(base, yaml_path)
     try:
-        form = formedits.load_form(Path(yaml_path))
+        form = formedits.load_form(path)
     except scaffold.ScaffoldError as exc:
-        return {"error": str(exc)}
+        return _failed(exc, base)
     if node_id and name:
-        return {"error": "Укажите либо node_id, либо name – это два способа выбрать один узел"}
+        return {"error": "Укажите либо node_id, либо name – это два способа выбрать один узел",
+                "file": str(path)}
     depth = None if not max_depth or max_depth < 0 else max_depth
     shape = {"max_depth": depth, "properties": bool(properties)}
     if name:
         found = formmodel.find_by_name(form.root, name)
         if not found:
-            return {"error": f"Компонент с именем \"{name}\" в форме не найден"}
-        return {"roots": [formmodel.node_dict(n, **shape) for n in found]}
+            return {"error": f"Компонент с именем \"{name}\" в форме не найден", "file": str(path)}
+        return {"roots": [formmodel.node_dict(n, **shape) for n in found], "file": str(path)}
     if node_id:
         try:
             node = formmodel.get_node(form, node_id)
         except scaffold.ScaffoldError as exc:
-            return {"error": str(exc)}
-        return {"root": formmodel.node_dict(node, **shape)}
+            return {"error": str(exc), "file": str(path)}
+        return {"root": formmodel.node_dict(node, **shape), "file": str(path)}
     return {
         "root": formmodel.node_dict(form.root, **shape),
         "componentProperties": formmodel.component_properties_dicts(form),
+        "file": str(path),
     }
 
 
 @mcp.tool()
+@_documents_root
 def meta_add_component(
     yaml_path: str,
     parent_id: str,
@@ -928,6 +1090,7 @@ def meta_add_component(
     name: str | None = None,
     before: str | None = None,
     after: str | None = None,
+    root: str | None = None,
 ) -> dict:
     """Insert a new component (Тип and/or Имя) into a slot of the parent node.
 
@@ -938,13 +1101,14 @@ def meta_add_component(
     is converted to the "-" list form. The edit touches only the affected lines -
     formatting and comments elsewhere survive.
     """
-    return _form_write(yaml_path, "insert", {
+    return _form_write(_base(root), yaml_path, "insert", {
         "parent": parent_id, "slot": slot, "type": type, "name": name,
         "before": before, "after": after,
     })
 
 
 @mcp.tool()
+@_documents_root
 def meta_insert_fragment(
     yaml_path: str,
     parent_id: str,
@@ -952,6 +1116,7 @@ def meta_insert_fragment(
     fragment: str,
     before: str | None = None,
     after: str | None = None,
+    root: str | None = None,
 ) -> dict:
     """Paste a ready yaml block of ONE component (a copied subtree) into a slot.
 
@@ -962,13 +1127,14 @@ def meta_insert_fragment(
     The block is re-indented to the destination; slot rules match meta_add_component
     (missing slot created, a single-mapping slot converts to the list form).
     """
-    return _form_write(yaml_path, "insert_fragment", {
+    return _form_write(_base(root), yaml_path, "insert_fragment", {
         "parent": parent_id, "slot": slot, "fragment": fragment,
         "before": before, "after": after,
     })
 
 
 @mcp.tool()
+@_documents_root
 def meta_move_component(
     yaml_path: str,
     node_id: str,
@@ -976,6 +1142,7 @@ def meta_move_component(
     slot: str,
     before: str | None = None,
     after: str | None = None,
+    root: str | None = None,
 ) -> dict:
     """Move a node into another (or the same) slot; comments above the node travel along.
 
@@ -984,22 +1151,25 @@ def meta_move_component(
     rules as meta_add_component (missing slot created, singleton slot converted to a
     list). before/after position the node against a sibling in the destination slot.
     """
-    return _form_write(yaml_path, "move", {
+    return _form_write(_base(root), yaml_path, "move", {
         "node": node_id, "new_parent": new_parent_id, "slot": slot,
         "before": before, "after": after,
     })
 
 
 @mcp.tool()
-def meta_remove_component(yaml_path: str, node_id: str) -> dict:
+@_documents_root
+def meta_remove_component(yaml_path: str, node_id: str, root: str | None = None) -> dict:
     """Remove a node (with its attached comments); the last child of a slot removes the
     slot key line as well. The root node (Наследует) cannot be removed.
     """
-    return _form_write(yaml_path, "remove", {"node": node_id})
+    return _form_write(_base(root), yaml_path, "remove", {"node": node_id})
 
 
 @mcp.tool()
-def meta_remove_components(yaml_path: str, node_ids: list[str]) -> dict:
+@_documents_root
+def meta_remove_components(yaml_path: str, node_ids: list[str],
+                           root: str | None = None) -> dict:
     """Remove several nodes in ONE operation (each with its attached comments).
 
     node_ids come from meta_component_tree, in any order; repeated ids and ids nested
@@ -1007,10 +1177,11 @@ def meta_remove_components(yaml_path: str, node_ids: list[str]) -> dict:
     removed whole (the slot key line goes too). The root node (Наследует) cannot be
     removed. One call = one edit pass, instead of re-reading the tree between removals.
     """
-    return _form_write(yaml_path, "remove_nodes", {"nodes": node_ids})
+    return _form_write(_base(root), yaml_path, "remove_nodes", {"nodes": node_ids})
 
 
 @mcp.tool()
+@_documents_root
 def meta_move_components(
     yaml_path: str,
     node_ids: list[str],
@@ -1018,6 +1189,7 @@ def meta_move_components(
     slot: str,
     before: str | None = None,
     after: str | None = None,
+    root: str | None = None,
 ) -> dict:
     """Move several nodes into one slot in ONE operation, keeping their DOCUMENT order.
 
@@ -1029,19 +1201,21 @@ def meta_move_components(
     destination slot and must not name a moved node. The returned node is the FIRST of
     the moved run.
     """
-    return _form_write(yaml_path, "move_nodes", {
+    return _form_write(_base(root), yaml_path, "move_nodes", {
         "nodes": node_ids, "new_parent": new_parent_id, "slot": slot,
         "before": before, "after": after,
     })
 
 
 @mcp.tool()
+@_documents_root
 def meta_set_component_property(
     yaml_path: str,
     node_id: str,
     key: str,
     value: str | None = None,
     value_yaml: str | None = None,
+    root: str | None = None,
 ) -> dict:
     """Set, replace or remove a property of a component node.
 
@@ -1053,19 +1227,22 @@ def meta_set_component_property(
     component tools. A new property lands right after Тип.
     """
     if value is None and value_yaml is None:
-        return _form_write(yaml_path, "reset_property", {"node": node_id, "key": key})
-    return _form_write(yaml_path, "set_property", {
+        return _form_write(_base(root), yaml_path, "reset_property",
+                           {"node": node_id, "key": key})
+    return _form_write(_base(root), yaml_path, "set_property", {
         "node": node_id, "key": key, "value": value, "value_yaml": value_yaml,
     })
 
 
 @mcp.tool()
+@_documents_root
 def meta_add_handler(
     yaml_path: str,
     node_id: str,
     key: str,
     method: str | None = None,
     signature: str | None = None,
+    root: str | None = None,
 ) -> dict:
     """Bind an event property of a component node to a handler method of the paired module.
 
@@ -1081,21 +1258,21 @@ def meta_add_handler(
     node's own Тип (ПолеВвода<Строка> -> СобытиеПриИзменении<Строка>).
 
     Returns files+notes+lint plus: method - the final name; created - the module file
-    was created; methodAdded - a stub was appended.
+    was created; methodAdded - a stub was appended; module - the absolute path of the module.
     """
+    base = _base(root)
     try:
         outcome = formhandlers.op_add_handler(
-            Path(yaml_path), node_id, key, method=method, signature=signature,
+            _under(base, yaml_path), node_id, key, method=method, signature=signature,
         )
     except scaffold.ScaffoldError as exc:
-        return {"error": str(exc)}
-    out = _apply_and_lint(outcome.result)
+        return _failed(exc, base)
+    out = _apply_and_lint(outcome.result, base)
     out["method"] = outcome.plan.method
     out["created"] = outcome.plan.created
     out["methodAdded"] = outcome.plan.method_added
-    out["module"] = str(outcome.module_path)
+    out["module"] = str(_under(base, outcome.module_path))
     return out
-
 
 
 # --- translation dictionary -----------------------------------------------------------------
@@ -1106,13 +1283,20 @@ def meta_add_handler(
 # frequent first, with a place to look at and the platform's own spelling as a hint), what the
 # dictionary already says about a word, and a way to write entries back without touching yaml
 # by hand.
+#
+# A root with no dictionary is refused, not answered with an empty one: passed the repository
+# root instead of the project directory, the tools reported coverage 0.0 and every name of the
+# project as a gap - a report that looked like work. The refusal (load_for_tools) spells where
+# a dictionary is looked for, and every answer names the absolute `dictionary` it read.
 
 
 @mcp.tool()
 def translate_status(root: str) -> dict:
     """Coverage of the project's translation dictionary: how much is done and what is left.
 
-    root – the project directory (the one with the project descriptor).
+    root – the project directory (the one with the project descriptor), next to which - or
+    above which - the xbsl-translation dictionary sits; a root without one is refused with
+    the places looked at, and the answer names the absolute `dictionary` read.
     Returns the totals only - a cheap health check before deciding what to fill.
     Two units live here, so read the names: `missing_tokens`, `missing_phrases`,
     `literals_translated` and `missing_literals` count DISTINCT entries - what a dictionary line
@@ -1157,7 +1341,9 @@ def translate_gaps(
 ) -> dict:
     """What the dictionary does not cover yet, most frequent first.
 
-    root   – the project directory;
+    root   – the project directory (the one with the project descriptor); a root without a
+             dictionary next to or above it is refused with the places looked at, and the
+             answer names the absolute `dictionary` read;
     kind   – 'token' (names), 'phrase' (comment lines), 'literal' (string literals) or 'any';
     filter – a substring of the key;
     limit/offset – the page (limit 0 means all, which can be thousands of rows);
@@ -1184,18 +1370,15 @@ def translate_gaps(
         if (kind in ("any", gap.kind)) and (not needle or needle in gap.key.casefold())
     ]
     page = rows[offset:offset + limit] if limit else rows[offset:]
+    out = {"total": len(rows), "dictionary": str(translate_cli.dictionary_path_for(project))}
     if compact:
-        return {
-            "total": len(rows),
-            "gaps": [{"key": gap.key, "kind": gap.kind, "count": gap.count} for gap in page],
-        }
-    return {
-        "total": len(rows),
-        "gaps": [
-            {**gap.as_dict(), "places": [f"{f}:{ln}" for f, ln in gap.places[:3]]}
-            for gap in page
-        ],
-    }
+        out["gaps"] = [{"key": gap.key, "kind": gap.kind, "count": gap.count} for gap in page]
+        return out
+    out["gaps"] = [
+        {**gap.as_dict(), "places": [f"{f}:{ln}" for f, ln in gap.places[:3]]}
+        for gap in page
+    ]
+    return out
 
 
 @mcp.tool()
@@ -1208,7 +1391,8 @@ def translate_entries(
 ) -> dict:
     """What the dictionary already says - the way to keep a new entry consistent with it.
 
-    root   – the project directory;
+    root   – the project directory (a root without a dictionary next to or above it is
+             refused with the places looked at);
     filter – a substring of the key OR of the value (look up a root before inventing a word);
     kind   – 'token', 'phrase', 'literal' or 'any'.
     Every row names the file and line it lives on, so an entry can be corrected in place.
@@ -1220,8 +1404,6 @@ def translate_entries(
     if error:
         return {"error": error}
     path = translate_cli.dictionary_path_for(project)
-    if path is None:
-        return {"error": i18n.t("translate.entries.no-dictionary")}
     needle = (filter or "").casefold()
     rows = [
         entry for entry in entries_module.read_entries(path)
@@ -1238,7 +1420,8 @@ def translate_set(root: str, edits: list[dict] | None = None, edits_file: str = 
                   target: str = "", comment: str = "") -> dict:
     """Write entries into the dictionary: add new ones, correct existing ones, remove a value.
 
-    root   – the project directory;
+    root   – the project directory (a root without a dictionary next to or above it is
+             refused with the places looked at - the tools never start a dictionary);
     edits_file – a FILE with the batch, and the way to send one of any size: either the
              dictionary's own yaml format (tokens/phrases/literals sections, the same
              quoting as the dictionary files, an empty value removes the entry) or the
@@ -1270,8 +1453,6 @@ def translate_set(root: str, edits: list[dict] | None = None, edits_file: str = 
     if error:
         return {"error": error}
     path = translate_cli.dictionary_path_for(project)
-    if path is None:
-        return {"error": i18n.t("translate.entries.no-dictionary")}
     batch: list[dict] = []
     if edits_file:
         try:

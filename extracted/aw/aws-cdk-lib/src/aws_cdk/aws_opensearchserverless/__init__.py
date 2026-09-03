@@ -1525,7 +1525,7 @@ class CfnCollectionIndex(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollectionIndex",
 ):
-    '''Resource schema for AWS::OpenSearchServerless::CollectionIndex.
+    '''Resource Type definition for AWS::OpenSearchServerless::CollectionIndex.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectionindex.html
     :cloudformationResource: AWS::OpenSearchServerless::CollectionIndex

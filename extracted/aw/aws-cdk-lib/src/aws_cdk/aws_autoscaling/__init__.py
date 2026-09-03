@@ -2838,6 +2838,9 @@ class CfnAutoScalingGroup(
         
                 # the properties below are optional
                 instances_distribution=autoscaling.CfnAutoScalingGroup.InstancesDistributionProperty(
+                    distribution_segments=[autoscaling.CfnAutoScalingGroup.DistributionSegmentProperty(
+                        target_capacity_types=["targetCapacityTypes"]
+                    )],
                     on_demand_allocation_strategy="onDemandAllocationStrategy",
                     on_demand_base_capacity=123,
                     on_demand_percentage_above_base_capacity=123,
@@ -4344,6 +4347,60 @@ class CfnAutoScalingGroup(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_autoscaling.CfnAutoScalingGroup.DistributionSegmentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"target_capacity_types": "targetCapacityTypes"},
+    )
+    class DistributionSegmentProperty:
+        def __init__(
+            self,
+            *,
+            target_capacity_types: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            :param target_capacity_types: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-distributionsegment.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_autoscaling as autoscaling
+                
+                distribution_segment_property = autoscaling.CfnAutoScalingGroup.DistributionSegmentProperty(
+                    target_capacity_types=["targetCapacityTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e3ee505f655de3085948d24f3c6790080ed3d0b936bb7e34700f9bd3c2e02a83)
+                check_type(argname="argument target_capacity_types", value=target_capacity_types, expected_type=type_hints["target_capacity_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "target_capacity_types": target_capacity_types,
+            }
+
+        @builtins.property
+        def target_capacity_types(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-distributionsegment.html#cfn-autoscaling-autoscalinggroup-distributionsegment-targetcapacitytypes
+            '''
+            result = self._values.get("target_capacity_types")
+            assert result is not None, "Required property 'target_capacity_types' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DistributionSegmentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_autoscaling.CfnAutoScalingGroup.InstanceLifecyclePolicyProperty",
         jsii_struct_bases=[],
         name_mapping={"retention_triggers": "retentionTriggers"},
@@ -5093,6 +5150,7 @@ class CfnAutoScalingGroup(
         jsii_type="aws-cdk-lib.aws_autoscaling.CfnAutoScalingGroup.InstancesDistributionProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "distribution_segments": "distributionSegments",
             "on_demand_allocation_strategy": "onDemandAllocationStrategy",
             "on_demand_base_capacity": "onDemandBaseCapacity",
             "on_demand_percentage_above_base_capacity": "onDemandPercentageAboveBaseCapacity",
@@ -5105,6 +5163,7 @@ class CfnAutoScalingGroup(
         def __init__(
             self,
             *,
+            distribution_segments: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.DistributionSegmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             on_demand_allocation_strategy: typing.Optional[builtins.str] = None,
             on_demand_base_capacity: typing.Optional[jsii.Number] = None,
             on_demand_percentage_above_base_capacity: typing.Optional[jsii.Number] = None,
@@ -5118,6 +5177,7 @@ class CfnAutoScalingGroup(
 
             ``InstancesDistribution`` is a property of the `AWS::AutoScaling::AutoScalingGroup MixedInstancesPolicy <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-mixedinstancespolicy.html>`_ property type.
 
+            :param distribution_segments: 
             :param on_demand_allocation_strategy: The allocation strategy to apply to your On-Demand Instances when they are launched. Possible instance types are determined by the launch template overrides that you specify. The following lists the valid values: - **lowest-price** - Uses price to determine which instance types are the highest priority, launching the lowest priced instance types within an Availability Zone first. This is the default value for Auto Scaling groups that specify ``InstanceRequirements`` . - **prioritized** - You set the order of instance types for the launch template overrides from highest to lowest priority (from first to last in the list). Amazon EC2 Auto Scaling launches your highest priority instance types first. If all your On-Demand capacity cannot be fulfilled using your highest priority instance type, then Amazon EC2 Auto Scaling launches the remaining capacity using the second priority instance type, and so on. This is the default value for Auto Scaling groups that don't specify ``InstanceRequirements`` and cannot be used for groups that do.
             :param on_demand_base_capacity: The minimum amount of the Auto Scaling group's capacity that must be fulfilled by On-Demand Instances. This base portion is launched first as your group scales. This number has the same unit of measurement as the group's desired capacity. If you change the default unit of measurement (number of instances) by specifying weighted capacity values in your launch template overrides list, or by changing the default desired capacity type setting of the group, you must specify this number using the same unit of measurement. Default: 0 .. epigraph:: An update to this setting means a gradual replacement of instances to adjust the current On-Demand Instance levels. When replacing instances, Amazon EC2 Auto Scaling launches new instances before terminating the previous ones.
             :param on_demand_percentage_above_base_capacity: Controls the percentages of On-Demand Instances and Spot Instances for your additional capacity beyond ``OnDemandBaseCapacity`` . Expressed as a number (for example, 20 specifies 20% On-Demand Instances, 80% Spot Instances). If set to 100, only On-Demand Instances are used. Default: 100 .. epigraph:: An update to this setting means a gradual replacement of instances to adjust the current On-Demand and Spot Instance levels for your additional capacity higher than the base capacity. When replacing instances, Amazon EC2 Auto Scaling launches new instances before terminating the previous ones.
@@ -5135,6 +5195,9 @@ class CfnAutoScalingGroup(
                 from aws_cdk import aws_autoscaling as autoscaling
                 
                 instances_distribution_property = autoscaling.CfnAutoScalingGroup.InstancesDistributionProperty(
+                    distribution_segments=[autoscaling.CfnAutoScalingGroup.DistributionSegmentProperty(
+                        target_capacity_types=["targetCapacityTypes"]
+                    )],
                     on_demand_allocation_strategy="onDemandAllocationStrategy",
                     on_demand_base_capacity=123,
                     on_demand_percentage_above_base_capacity=123,
@@ -5145,6 +5208,7 @@ class CfnAutoScalingGroup(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__ca530211324712c4b14f117ed8b0d0dc0ab47386d30a812f8497ab80b7bdec40)
+                check_type(argname="argument distribution_segments", value=distribution_segments, expected_type=type_hints["distribution_segments"])
                 check_type(argname="argument on_demand_allocation_strategy", value=on_demand_allocation_strategy, expected_type=type_hints["on_demand_allocation_strategy"])
                 check_type(argname="argument on_demand_base_capacity", value=on_demand_base_capacity, expected_type=type_hints["on_demand_base_capacity"])
                 check_type(argname="argument on_demand_percentage_above_base_capacity", value=on_demand_percentage_above_base_capacity, expected_type=type_hints["on_demand_percentage_above_base_capacity"])
@@ -5152,6 +5216,8 @@ class CfnAutoScalingGroup(
                 check_type(argname="argument spot_instance_pools", value=spot_instance_pools, expected_type=type_hints["spot_instance_pools"])
                 check_type(argname="argument spot_max_price", value=spot_max_price, expected_type=type_hints["spot_max_price"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if distribution_segments is not None:
+                self._values["distribution_segments"] = distribution_segments
             if on_demand_allocation_strategy is not None:
                 self._values["on_demand_allocation_strategy"] = on_demand_allocation_strategy
             if on_demand_base_capacity is not None:
@@ -5164,6 +5230,16 @@ class CfnAutoScalingGroup(
                 self._values["spot_instance_pools"] = spot_instance_pools
             if spot_max_price is not None:
                 self._values["spot_max_price"] = spot_max_price
+
+        @builtins.property
+        def distribution_segments(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.DistributionSegmentProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancesdistribution.html#cfn-autoscaling-autoscalinggroup-instancesdistribution-distributionsegments
+            '''
+            result = self._values.get("distribution_segments")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.DistributionSegmentProperty"]]]], result)
 
         @builtins.property
         def on_demand_allocation_strategy(self) -> typing.Optional[builtins.str]:
@@ -6324,6 +6400,9 @@ class CfnAutoScalingGroup(
                 
                     # the properties below are optional
                     instances_distribution=autoscaling.CfnAutoScalingGroup.InstancesDistributionProperty(
+                        distribution_segments=[autoscaling.CfnAutoScalingGroup.DistributionSegmentProperty(
+                            target_capacity_types=["targetCapacityTypes"]
+                        )],
                         on_demand_allocation_strategy="onDemandAllocationStrategy",
                         on_demand_base_capacity=123,
                         on_demand_percentage_above_base_capacity=123,
@@ -7374,6 +7453,9 @@ class CfnAutoScalingGroupProps:
             
                     # the properties below are optional
                     instances_distribution=autoscaling.CfnAutoScalingGroup.InstancesDistributionProperty(
+                        distribution_segments=[autoscaling.CfnAutoScalingGroup.DistributionSegmentProperty(
+                            target_capacity_types=["targetCapacityTypes"]
+                        )],
                         on_demand_allocation_strategy="onDemandAllocationStrategy",
                         on_demand_base_capacity=123,
                         on_demand_percentage_above_base_capacity=123,
@@ -23432,6 +23514,13 @@ def _typecheckingstub__b278b9a78a0f65790afbe45f65bd99528e1b9698a5e94af246191f9df
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e3ee505f655de3085948d24f3c6790080ed3d0b936bb7e34700f9bd3c2e02a83(
+    *,
+    target_capacity_types: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9d96fe458e80aaf00a4442837403f8e7cf4bb412c4f78c80d10226c0e992fcc6(
     *,
     retention_triggers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.RetentionTriggersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23480,6 +23569,7 @@ def _typecheckingstub__e22358c3d5577020d9106a247f13fb06a2cf3668a83ede597e2b41db7
 
 def _typecheckingstub__ca530211324712c4b14f117ed8b0d0dc0ab47386d30a812f8497ab80b7bdec40(
     *,
+    distribution_segments: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.DistributionSegmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     on_demand_allocation_strategy: typing.Optional[builtins.str] = None,
     on_demand_base_capacity: typing.Optional[jsii.Number] = None,
     on_demand_percentage_above_base_capacity: typing.Optional[jsii.Number] = None,

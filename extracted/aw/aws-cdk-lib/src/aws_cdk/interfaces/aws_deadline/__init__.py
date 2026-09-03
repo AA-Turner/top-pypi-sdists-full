@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_deadline.BudgetReference",
+    jsii_struct_bases=[],
+    name_mapping={"budget_arn": "budgetArn"},
+)
+class BudgetReference:
+    def __init__(self, *, budget_arn: builtins.str) -> None:
+        '''A reference to a Budget resource.
+
+        :param budget_arn: The Arn of the Budget resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_deadline as interfaces_deadline
+            
+            budget_reference = interfaces_deadline.BudgetReference(
+                budget_arn="budgetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__564f28692fe0b1b5679693e6ebbaa902313552aee7bec3d8a45e90bba787954d)
+            check_type(argname="argument budget_arn", value=budget_arn, expected_type=type_hints["budget_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "budget_arn": budget_arn,
+        }
+
+    @builtins.property
+    def budget_arn(self) -> builtins.str:
+        '''The Arn of the Budget resource.'''
+        result = self._values.get("budget_arn")
+        assert result is not None, "Required property 'budget_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BudgetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_deadline.FarmReference",
     jsii_struct_bases=[],
     name_mapping={"farm_arn": "farmArn"},
@@ -134,6 +183,51 @@ class FleetReference:
         return "FleetReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IBudgetRef")
+class IBudgetRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Budget.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetRef")
+    def budget_ref(self) -> "BudgetReference":
+        '''(experimental) A reference to a Budget resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBudgetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Budget.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_deadline.IBudgetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetRef")
+    def budget_ref(self) -> "BudgetReference":
+        '''(experimental) A reference to a Budget resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("BudgetReference", jsii.get(self, "budgetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBudgetRef).__jsii_proxy_class__ = lambda : _IBudgetRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IFarmRef")
@@ -633,6 +727,51 @@ class _IStorageProfileRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IStorageProfileRef).__jsii_proxy_class__ = lambda : _IStorageProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IWorkerRef")
+class IWorkerRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Worker.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workerRef")
+    def worker_ref(self) -> "WorkerReference":
+        '''(experimental) A reference to a Worker resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Worker.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_deadline.IWorkerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workerRef")
+    def worker_ref(self) -> "WorkerReference":
+        '''(experimental) A reference to a Worker resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkerReference", jsii.get(self, "workerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkerRef).__jsii_proxy_class__ = lambda : _IWorkerRefProxy
 
 
 @jsii.data_type(
@@ -1191,9 +1330,60 @@ class StorageProfileReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_deadline.WorkerReference",
+    jsii_struct_bases=[],
+    name_mapping={"worker_arn": "workerArn"},
+)
+class WorkerReference:
+    def __init__(self, *, worker_arn: builtins.str) -> None:
+        '''A reference to a Worker resource.
+
+        :param worker_arn: The Arn of the Worker resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_deadline as interfaces_deadline
+            
+            worker_reference = interfaces_deadline.WorkerReference(
+                worker_arn="workerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1edaff488c93554023d8c4bfe5033f61973ff4b39088c058e0ab87dcc46526a4)
+            check_type(argname="argument worker_arn", value=worker_arn, expected_type=type_hints["worker_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "worker_arn": worker_arn,
+        }
+
+    @builtins.property
+    def worker_arn(self) -> builtins.str:
+        '''The Arn of the Worker resource.'''
+        result = self._values.get("worker_arn")
+        assert result is not None, "Required property 'worker_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
+    "BudgetReference",
     "FarmReference",
     "FleetReference",
+    "IBudgetRef",
     "IFarmRef",
     "IFleetRef",
     "ILicenseEndpointRef",
@@ -1205,6 +1395,7 @@ __all__ = [
     "IQueueLimitAssociationRef",
     "IQueueRef",
     "IStorageProfileRef",
+    "IWorkerRef",
     "LicenseEndpointReference",
     "LimitReference",
     "MeteredProductReference",
@@ -1214,9 +1405,17 @@ __all__ = [
     "QueueLimitAssociationReference",
     "QueueReference",
     "StorageProfileReference",
+    "WorkerReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__564f28692fe0b1b5679693e6ebbaa902313552aee7bec3d8a45e90bba787954d(
+    *,
+    budget_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__df99153da6eb3ca62b0608e3067ea62d99f63d137a1238499434c5a9cfe18c3a(
     *,
@@ -1303,5 +1502,12 @@ def _typecheckingstub__f92720515e6a968365e391848e2b0c280919eebf82cb53130c21a2b13
     """Type checking stubs"""
     pass
 
-for cls in [IFarmRef, IFleetRef, ILicenseEndpointRef, ILimitRef, IMeteredProductRef, IMonitorRef, IQueueEnvironmentRef, IQueueFleetAssociationRef, IQueueLimitAssociationRef, IQueueRef, IStorageProfileRef]:
+def _typecheckingstub__1edaff488c93554023d8c4bfe5033f61973ff4b39088c058e0ab87dcc46526a4(
+    *,
+    worker_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IBudgetRef, IFarmRef, IFleetRef, ILicenseEndpointRef, ILimitRef, IMeteredProductRef, IMonitorRef, IQueueEnvironmentRef, IQueueFleetAssociationRef, IQueueLimitAssociationRef, IQueueRef, IStorageProfileRef, IWorkerRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

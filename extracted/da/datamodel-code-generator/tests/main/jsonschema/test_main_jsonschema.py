@@ -1440,6 +1440,21 @@ def test_main_jsonschema_reserved_field_names(output_file: Path) -> None:
     )
 
 
+def test_main_jsonschema_reserved_field_names_are_output_owned(output_file: Path) -> None:
+    """Keep Pydantic reserved names unchanged for neutral dataclass output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reserved_property.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="reserved_property_dataclass.py",
+        extra_args=["--output-model-type", "dataclasses.dataclass"],
+        force_exec_validation=True,
+        importable_module_name="generated_reserved_property_dataclass",
+        importable_module_attribute="ReservedNames",
+    )
+
+
 def test_main_jsonschema_pydantic_v2_valid_field_names_fast_path(output_file: Path) -> None:
     """Generate ordinary Pydantic v2 field names with the built-in formatter."""
     run_main_and_assert(
@@ -9111,6 +9126,31 @@ def test_main_typed_dict_extra_items(output_file: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(("output_model_type", "expected_name"), BACKEND_GOLDEN_CASES)
+def test_main_additional_properties_output_context(
+    output_file: Path,
+    output_model_type: str,
+    expected_name: str,
+) -> None:
+    """Preserve typed additional-properties output across every backend."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "typed_dict_extra_items.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"output_context/typed_extra_{expected_name}.py",
+        extra_args=[
+            *BACKEND_GOLDEN_TARGET_ARGS,
+            "--formatters",
+            "builtin",
+            "--output-model-type",
+            output_model_type,
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
 @pytest.mark.skipif(
     black.__version__.split(".")[0] == "22",
     reason="Installed black doesn't support Python version 3.10",
@@ -12752,6 +12792,28 @@ def test_main_jsonschema_collapse_root_models_nested_reference(output_file: Path
         input_file_type="jsonschema",
         assert_func=assert_file_content,
         extra_args=["--collapse-root-models"],
+    )
+
+
+def test_main_jsonschema_collapse_root_models_atomic_replace(output_file: Path) -> None:
+    """Keep field and nested root replacements byte-for-byte stable."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "collapse_root_models_atomic_replace.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=["--collapse-root-models", "--disable-timestamp", "--formatters", "builtin"],
+    )
+
+
+def test_main_jsonschema_collapse_root_models_scalar_atomic_replace(output_file: Path) -> None:
+    """Track unshared scalar root replacements without changing generated output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "collapse_root_models_scalar_atomic_replace.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=["--collapse-root-models", "--disable-timestamp", "--formatters", "builtin"],
     )
 
 

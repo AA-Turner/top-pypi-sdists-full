@@ -1380,6 +1380,932 @@ class CfnChannelProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.IFunctionRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnFunction(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction",
+):
+    '''Resource Type definition for AWS::MediaTailor::Function.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html
+    :cloudformationResource: AWS::MediaTailor::Function
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mediatailor as mediatailor
+        
+        cfn_function = mediatailor.CfnFunction(self, "MyCfnFunction",
+            function_id="functionId",
+            function_type="functionType",
+        
+            # the properties below are optional
+            custom_output_configuration=mediatailor.CfnFunction.CustomOutputConfigurationProperty(
+                runtime="runtime",
+        
+                # the properties below are optional
+                output={
+                    "output_key": "output"
+                }
+            ),
+            description="description",
+            http_request_configuration=mediatailor.CfnFunction.HttpRequestConfigurationProperty(
+                method_type="methodType",
+                request_timeout_milliseconds=123,
+                runtime="runtime",
+                url="url",
+        
+                # the properties below are optional
+                body="body",
+                headers={
+                    "headers_key": "headers"
+                },
+                output={
+                    "output_key": "output"
+                }
+            ),
+            sequential_executor_configuration=mediatailor.CfnFunction.SequentialExecutorConfigurationProperty(
+                function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                    function_id="functionId",
+                    run_condition="runCondition"
+                )],
+                runtime="runtime",
+                timeout_milliseconds=123,
+        
+                # the properties below are optional
+                output={
+                    "output_key": "output"
+                }
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        function_id: builtins.str,
+        function_type: builtins.str,
+        custom_output_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        http_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sequential_executor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.SequentialExecutorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MediaTailor::Function``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param function_id: The unique identifier for the function.
+        :param function_type: 
+        :param custom_output_configuration: Configuration for custom output functions.
+        :param description: A description of the function.
+        :param http_request_configuration: Configuration for HTTP request functions.
+        :param sequential_executor_configuration: Configuration for sequential executor functions.
+        :param tags: The tags to assign to the function resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cd96c58f31f24adb3cea08347b5cb88afb7a1644c1d49acf5ea18ef7e858b6b4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnFunctionProps(
+            function_id=function_id,
+            function_type=function_type,
+            custom_output_configuration=custom_output_configuration,
+            description=description,
+            http_request_configuration=http_request_configuration,
+            sequential_executor_configuration=sequential_executor_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForFunction")
+    @builtins.classmethod
+    def arn_for_function(
+        cls,
+        resource: "_aws_mediatailor_60404695.IFunctionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c1622bc3b9fb588270223d9f7e4597e460a8eb30134a5e06d974142e25db0e60)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFunction", [resource]))
+
+    @jsii.member(jsii_name="isCfnFunction")
+    @builtins.classmethod
+    def is_cfn_function(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFunction.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__75251cc24b0becd917928021558ddb9ae78d087dab72897b6c0dd0a109fe49ea)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFunction", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__81d78839ae256142aacfd95c57d31064da1eb11fcf3df6b8c58cab6aef81d452)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0691ea7e84dd9690413b0c03614038e090ff0deec3c43edc0664a06d3031c7ce)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the function.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="functionRef")
+    def function_ref(self) -> "_aws_mediatailor_60404695.FunctionReference":
+        '''A reference to a Function resource.'''
+        return typing.cast("_aws_mediatailor_60404695.FunctionReference", jsii.get(self, "functionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="functionId")
+    def function_id(self) -> builtins.str:
+        '''The unique identifier for the function.'''
+        return typing.cast(builtins.str, jsii.get(self, "functionId"))
+
+    @function_id.setter
+    def function_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e672160af6c70e20c93ee58a3d25e27152153feb541dc68112b2310551674635)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "functionId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="functionType")
+    def function_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "functionType"))
+
+    @function_type.setter
+    def function_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fb28c3052dd431563a7b26a7dce4b50d1c29abc2106f42fa0a5329270452f9c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "functionType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="customOutputConfiguration")
+    def custom_output_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.CustomOutputConfigurationProperty"]]:
+        '''Configuration for custom output functions.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.CustomOutputConfigurationProperty"]], jsii.get(self, "customOutputConfiguration"))
+
+    @custom_output_configuration.setter
+    def custom_output_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.CustomOutputConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d34312157c19e7408ec3ea1cda432a669a0967161e5df7dda4eab223f9a0b044)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customOutputConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the function.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a2219a19201f0a17be79ff6717a47ca2d73b9c0b9ed0432d4890f90b4256b4d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="httpRequestConfiguration")
+    def http_request_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestConfigurationProperty"]]:
+        '''Configuration for HTTP request functions.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestConfigurationProperty"]], jsii.get(self, "httpRequestConfiguration"))
+
+    @http_request_configuration.setter
+    def http_request_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1a807bd0f7ad759c090dcf86e543a221b7023a5c09b76d141eebdf0d9505192e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "httpRequestConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sequentialExecutorConfiguration")
+    def sequential_executor_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.SequentialExecutorConfigurationProperty"]]:
+        '''Configuration for sequential executor functions.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.SequentialExecutorConfigurationProperty"]], jsii.get(self, "sequentialExecutorConfiguration"))
+
+    @sequential_executor_configuration.setter
+    def sequential_executor_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.SequentialExecutorConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__85ad517a9634af2cf1cf7cddd2dd3cecff513a52e7a1bb68e109fc8982897972)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sequentialExecutorConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to assign to the function resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b65b0a9bacbd0f65526afeb7cf1e0c3ca3773c11abb883bbf33a47ef72445de0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.CustomOutputConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"runtime": "runtime", "output": "output"},
+    )
+    class CustomOutputConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            runtime: builtins.str,
+            output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Configuration for custom output functions.
+
+            :param runtime: 
+            :param output: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-customoutputconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                custom_output_configuration_property = mediatailor.CfnFunction.CustomOutputConfigurationProperty(
+                    runtime="runtime",
+                
+                    # the properties below are optional
+                    output={
+                        "output_key": "output"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__61544711aa26c5056e9b4d3cfab7dee3d6eaa0f011cb57fde19c711b08a922de)
+                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+                check_type(argname="argument output", value=output, expected_type=type_hints["output"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "runtime": runtime,
+            }
+            if output is not None:
+                self._values["output"] = output
+
+        @builtins.property
+        def runtime(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-customoutputconfiguration.html#cfn-mediatailor-function-customoutputconfiguration-runtime
+            '''
+            result = self._values.get("runtime")
+            assert result is not None, "Required property 'runtime' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-customoutputconfiguration.html#cfn-mediatailor-function-customoutputconfiguration-output
+            '''
+            result = self._values.get("output")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomOutputConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.FunctionRefProperty",
+        jsii_struct_bases=[],
+        name_mapping={"function_id": "functionId", "run_condition": "runCondition"},
+    )
+    class FunctionRefProperty:
+        def __init__(
+            self,
+            *,
+            function_id: typing.Optional[builtins.str] = None,
+            run_condition: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A reference to a function with an optional run condition.
+
+            :param function_id: The identifier of the function to execute.
+            :param run_condition: A conditional expression that determines whether this function should execute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-functionref.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                function_ref_property = mediatailor.CfnFunction.FunctionRefProperty(
+                    function_id="functionId",
+                    run_condition="runCondition"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5737ad8fdf57086197584ef5d9e43c62428f917f712bc50c4302371649b0c300)
+                check_type(argname="argument function_id", value=function_id, expected_type=type_hints["function_id"])
+                check_type(argname="argument run_condition", value=run_condition, expected_type=type_hints["run_condition"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if function_id is not None:
+                self._values["function_id"] = function_id
+            if run_condition is not None:
+                self._values["run_condition"] = run_condition
+
+        @builtins.property
+        def function_id(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the function to execute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-functionref.html#cfn-mediatailor-function-functionref-functionid
+            '''
+            result = self._values.get("function_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def run_condition(self) -> typing.Optional[builtins.str]:
+            '''A conditional expression that determines whether this function should execute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-functionref.html#cfn-mediatailor-function-functionref-runcondition
+            '''
+            result = self._values.get("run_condition")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FunctionRefProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.HttpRequestConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "method_type": "methodType",
+            "request_timeout_milliseconds": "requestTimeoutMilliseconds",
+            "runtime": "runtime",
+            "url": "url",
+            "body": "body",
+            "headers": "headers",
+            "output": "output",
+        },
+    )
+    class HttpRequestConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            method_type: builtins.str,
+            request_timeout_milliseconds: jsii.Number,
+            runtime: builtins.str,
+            url: builtins.str,
+            body: typing.Optional[builtins.str] = None,
+            headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Configuration for HTTP request functions.
+
+            :param method_type: 
+            :param request_timeout_milliseconds: The timeout in milliseconds for the HTTP request. Maximum value is 2000.
+            :param runtime: 
+            :param url: The URL endpoint for the HTTP request.
+            :param body: The body of the HTTP request.
+            :param headers: 
+            :param output: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                http_request_configuration_property = mediatailor.CfnFunction.HttpRequestConfigurationProperty(
+                    method_type="methodType",
+                    request_timeout_milliseconds=123,
+                    runtime="runtime",
+                    url="url",
+                
+                    # the properties below are optional
+                    body="body",
+                    headers={
+                        "headers_key": "headers"
+                    },
+                    output={
+                        "output_key": "output"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0f6999ed1a463a1d66432cdff27ee1e9591dc5d3ae4707cd971a7668661f38f8)
+                check_type(argname="argument method_type", value=method_type, expected_type=type_hints["method_type"])
+                check_type(argname="argument request_timeout_milliseconds", value=request_timeout_milliseconds, expected_type=type_hints["request_timeout_milliseconds"])
+                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+                check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+                check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
+                check_type(argname="argument output", value=output, expected_type=type_hints["output"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "method_type": method_type,
+                "request_timeout_milliseconds": request_timeout_milliseconds,
+                "runtime": runtime,
+                "url": url,
+            }
+            if body is not None:
+                self._values["body"] = body
+            if headers is not None:
+                self._values["headers"] = headers
+            if output is not None:
+                self._values["output"] = output
+
+        @builtins.property
+        def method_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-methodtype
+            '''
+            result = self._values.get("method_type")
+            assert result is not None, "Required property 'method_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def request_timeout_milliseconds(self) -> jsii.Number:
+            '''The timeout in milliseconds for the HTTP request.
+
+            Maximum value is 2000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-requesttimeoutmilliseconds
+            '''
+            result = self._values.get("request_timeout_milliseconds")
+            assert result is not None, "Required property 'request_timeout_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def runtime(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-runtime
+            '''
+            result = self._values.get("runtime")
+            assert result is not None, "Required property 'runtime' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def url(self) -> builtins.str:
+            '''The URL endpoint for the HTTP request.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-url
+            '''
+            result = self._values.get("url")
+            assert result is not None, "Required property 'url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def body(self) -> typing.Optional[builtins.str]:
+            '''The body of the HTTP request.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-body
+            '''
+            result = self._values.get("body")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def headers(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-headers
+            '''
+            result = self._values.get("headers")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def output(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-output
+            '''
+            result = self._values.get("output")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HttpRequestConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.SequentialExecutorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "function_list": "functionList",
+            "runtime": "runtime",
+            "timeout_milliseconds": "timeoutMilliseconds",
+            "output": "output",
+        },
+    )
+    class SequentialExecutorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            function_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.FunctionRefProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            runtime: builtins.str,
+            timeout_milliseconds: jsii.Number,
+            output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Configuration for sequential executor functions.
+
+            :param function_list: The list of functions to execute sequentially.
+            :param runtime: 
+            :param timeout_milliseconds: The timeout in milliseconds for the entire sequential execution chain.
+            :param output: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                sequential_executor_configuration_property = mediatailor.CfnFunction.SequentialExecutorConfigurationProperty(
+                    function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                        function_id="functionId",
+                        run_condition="runCondition"
+                    )],
+                    runtime="runtime",
+                    timeout_milliseconds=123,
+                
+                    # the properties below are optional
+                    output={
+                        "output_key": "output"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__500d6a7aa0edd3b223d18e64c8c78d74551a1f7285ddd9f7bcf2f3958acdb83d)
+                check_type(argname="argument function_list", value=function_list, expected_type=type_hints["function_list"])
+                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+                check_type(argname="argument timeout_milliseconds", value=timeout_milliseconds, expected_type=type_hints["timeout_milliseconds"])
+                check_type(argname="argument output", value=output, expected_type=type_hints["output"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "function_list": function_list,
+                "runtime": runtime,
+                "timeout_milliseconds": timeout_milliseconds,
+            }
+            if output is not None:
+                self._values["output"] = output
+
+        @builtins.property
+        def function_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.FunctionRefProperty"]]]:
+            '''The list of functions to execute sequentially.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html#cfn-mediatailor-function-sequentialexecutorconfiguration-functionlist
+            '''
+            result = self._values.get("function_list")
+            assert result is not None, "Required property 'function_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.FunctionRefProperty"]]], result)
+
+        @builtins.property
+        def runtime(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html#cfn-mediatailor-function-sequentialexecutorconfiguration-runtime
+            '''
+            result = self._values.get("runtime")
+            assert result is not None, "Required property 'runtime' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def timeout_milliseconds(self) -> jsii.Number:
+            '''The timeout in milliseconds for the entire sequential execution chain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html#cfn-mediatailor-function-sequentialexecutorconfiguration-timeoutmilliseconds
+            '''
+            result = self._values.get("timeout_milliseconds")
+            assert result is not None, "Required property 'timeout_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def output(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html#cfn-mediatailor-function-sequentialexecutorconfiguration-output
+            '''
+            result = self._values.get("output")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SequentialExecutorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunctionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "function_id": "functionId",
+        "function_type": "functionType",
+        "custom_output_configuration": "customOutputConfiguration",
+        "description": "description",
+        "http_request_configuration": "httpRequestConfiguration",
+        "sequential_executor_configuration": "sequentialExecutorConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnFunctionProps:
+    def __init__(
+        self,
+        *,
+        function_id: builtins.str,
+        function_type: builtins.str,
+        custom_output_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        http_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sequential_executor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.SequentialExecutorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFunction``.
+
+        :param function_id: The unique identifier for the function.
+        :param function_type: 
+        :param custom_output_configuration: Configuration for custom output functions.
+        :param description: A description of the function.
+        :param http_request_configuration: Configuration for HTTP request functions.
+        :param sequential_executor_configuration: Configuration for sequential executor functions.
+        :param tags: The tags to assign to the function resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            cfn_function_props = mediatailor.CfnFunctionProps(
+                function_id="functionId",
+                function_type="functionType",
+            
+                # the properties below are optional
+                custom_output_configuration=mediatailor.CfnFunction.CustomOutputConfigurationProperty(
+                    runtime="runtime",
+            
+                    # the properties below are optional
+                    output={
+                        "output_key": "output"
+                    }
+                ),
+                description="description",
+                http_request_configuration=mediatailor.CfnFunction.HttpRequestConfigurationProperty(
+                    method_type="methodType",
+                    request_timeout_milliseconds=123,
+                    runtime="runtime",
+                    url="url",
+            
+                    # the properties below are optional
+                    body="body",
+                    headers={
+                        "headers_key": "headers"
+                    },
+                    output={
+                        "output_key": "output"
+                    }
+                ),
+                sequential_executor_configuration=mediatailor.CfnFunction.SequentialExecutorConfigurationProperty(
+                    function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                        function_id="functionId",
+                        run_condition="runCondition"
+                    )],
+                    runtime="runtime",
+                    timeout_milliseconds=123,
+            
+                    # the properties below are optional
+                    output={
+                        "output_key": "output"
+                    }
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5a7008df40fa116385e225dc9fc11c5a0c3905883fa95cd4742d1f9506eddc5e)
+            check_type(argname="argument function_id", value=function_id, expected_type=type_hints["function_id"])
+            check_type(argname="argument function_type", value=function_type, expected_type=type_hints["function_type"])
+            check_type(argname="argument custom_output_configuration", value=custom_output_configuration, expected_type=type_hints["custom_output_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument http_request_configuration", value=http_request_configuration, expected_type=type_hints["http_request_configuration"])
+            check_type(argname="argument sequential_executor_configuration", value=sequential_executor_configuration, expected_type=type_hints["sequential_executor_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_id": function_id,
+            "function_type": function_type,
+        }
+        if custom_output_configuration is not None:
+            self._values["custom_output_configuration"] = custom_output_configuration
+        if description is not None:
+            self._values["description"] = description
+        if http_request_configuration is not None:
+            self._values["http_request_configuration"] = http_request_configuration
+        if sequential_executor_configuration is not None:
+            self._values["sequential_executor_configuration"] = sequential_executor_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def function_id(self) -> builtins.str:
+        '''The unique identifier for the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-functionid
+        '''
+        result = self._values.get("function_id")
+        assert result is not None, "Required property 'function_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def function_type(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-functiontype
+        '''
+        result = self._values.get("function_type")
+        assert result is not None, "Required property 'function_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def custom_output_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.CustomOutputConfigurationProperty"]]:
+        '''Configuration for custom output functions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-customoutputconfiguration
+        '''
+        result = self._values.get("custom_output_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.CustomOutputConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def http_request_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestConfigurationProperty"]]:
+        '''Configuration for HTTP request functions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-httprequestconfiguration
+        '''
+        result = self._values.get("http_request_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestConfigurationProperty"]], result)
+
+    @builtins.property
+    def sequential_executor_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.SequentialExecutorConfigurationProperty"]]:
+        '''Configuration for sequential executor functions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-sequentialexecutorconfiguration
+        '''
+        result = self._values.get("sequential_executor_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.SequentialExecutorConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to assign to the function resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFunctionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.ILiveSourceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLiveSource(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1846,7 +2772,23 @@ class CfnPlaybackConfiguration(
                         "headers_key": "headers"
                     },
                     http_method="httpMethod"
+                ),
+        
+                # the properties below are optional
+                vast_response=mediatailor.CfnPlaybackConfiguration.VastResponseProperty(
+                    ad_sequencing_mode="adSequencingMode"
                 )
+            ),
+            ads_personalization_concurrency=mediatailor.CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty(
+                enable_vod_vast_parallelization=False,
+                max_concurrent_ads_requests=123
+            ),
+            ads_personalization_timeouts=mediatailor.CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty(
+                ads_request_timeout_milliseconds=123,
+                live_maximum_ads_personalization_time_milliseconds=123,
+                prefetch_ads_request_timeout_milliseconds=123,
+                prefetch_maximum_ads_personalization_time_milliseconds=123,
+                vod_maximum_ads_personalization_time_milliseconds=123
             ),
             avail_suppression=mediatailor.CfnPlaybackConfiguration.AvailSuppressionProperty(
                 fill_policy="fillPolicy",
@@ -1877,6 +2819,11 @@ class CfnPlaybackConfiguration(
             ),
             insertion_mode="insertionMode",
             live_pre_roll_configuration=mediatailor.CfnPlaybackConfiguration.LivePreRollConfigurationProperty(
+                ad_decision_server_configuration=mediatailor.CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty(
+                    vast_response=mediatailor.CfnPlaybackConfiguration.PreRollVastResponseProperty(
+                        ad_sequencing_mode="adSequencingMode"
+                    )
+                ),
                 ad_decision_server_url="adDecisionServerUrl",
                 max_duration_seconds=123
             ),
@@ -1918,6 +2865,8 @@ class CfnPlaybackConfiguration(
         video_content_source_url: builtins.str,
         ad_conditioning_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdConditioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ad_decision_server_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ads_personalization_concurrency: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ads_personalization_timeouts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         avail_suppression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bumper: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cdn_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1943,6 +2892,8 @@ class CfnPlaybackConfiguration(
         :param video_content_source_url: The URL prefix for the parent manifest for the stream, minus the asset ID. The maximum length is 512 characters.
         :param ad_conditioning_configuration: The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
         :param ad_decision_server_configuration: The configuration for the request to the specified Ad Decision Server URL.
+        :param ads_personalization_concurrency: The settings that control how many concurrent requests MediaTailor makes to the ad decision server (ADS).
+        :param ads_personalization_timeouts: The ad decision server (ADS) request timeouts and personalization time budgets for live, VOD, and prefetch workflows.
         :param avail_suppression: The configuration for avail suppression, also known as ad suppression. For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
         :param bumper: The configuration for bumpers. Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
         :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
@@ -1969,6 +2920,8 @@ class CfnPlaybackConfiguration(
             video_content_source_url=video_content_source_url,
             ad_conditioning_configuration=ad_conditioning_configuration,
             ad_decision_server_configuration=ad_decision_server_configuration,
+            ads_personalization_concurrency=ads_personalization_concurrency,
+            ads_personalization_timeouts=ads_personalization_timeouts,
             avail_suppression=avail_suppression,
             bumper=bumper,
             cdn_configuration=cdn_configuration,
@@ -2193,6 +3146,42 @@ class CfnPlaybackConfiguration(
             type_hints = cached_type_hints(_typecheckingstub__22beebeb31ad301089cab0d08fffbf7d70892dcdea0070ebbc8c036efa8475c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "adDecisionServerConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="adsPersonalizationConcurrency")
+    def ads_personalization_concurrency(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty"]]:
+        '''The settings that control how many concurrent requests MediaTailor makes to the ad decision server (ADS).'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty"]], jsii.get(self, "adsPersonalizationConcurrency"))
+
+    @ads_personalization_concurrency.setter
+    def ads_personalization_concurrency(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a729a919a8e3f978c846240e1014b7c0fec80dd63195aa5866c57644d4451e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "adsPersonalizationConcurrency", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="adsPersonalizationTimeouts")
+    def ads_personalization_timeouts(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty"]]:
+        '''The ad decision server (ADS) request timeouts and personalization time budgets for live, VOD, and prefetch workflows.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty"]], jsii.get(self, "adsPersonalizationTimeouts"))
+
+    @ads_personalization_timeouts.setter
+    def ads_personalization_timeouts(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__13ee4b8d1ac254be276c7782458b9e78d24c83f92c6f56af8e12ac5df9cc47fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "adsPersonalizationTimeouts", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="availSuppression")
@@ -2504,17 +3493,19 @@ class CfnPlaybackConfiguration(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"http_request": "httpRequest"},
+        name_mapping={"http_request": "httpRequest", "vast_response": "vastResponse"},
     )
     class AdDecisionServerConfigurationProperty:
         def __init__(
             self,
             *,
             http_request: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.HttpRequestProperty", typing.Dict[builtins.str, typing.Any]]],
+            vast_response: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.VastResponseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for the request to the specified Ad Decision Server URL.
 
             :param http_request: The configuration for the request to the Ad Decision Server URL.
+            :param vast_response: The configuration for how MediaTailor processes the VAST response returned by the Ad Decision Server.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-addecisionserverconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2533,15 +3524,23 @@ class CfnPlaybackConfiguration(
                             "headers_key": "headers"
                         },
                         http_method="httpMethod"
+                    ),
+                
+                    # the properties below are optional
+                    vast_response=mediatailor.CfnPlaybackConfiguration.VastResponseProperty(
+                        ad_sequencing_mode="adSequencingMode"
                     )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__be522b7afa0a40f87526bb5baa285488ee37ade9f2edd720c05a21cdcf1ba383)
                 check_type(argname="argument http_request", value=http_request, expected_type=type_hints["http_request"])
+                check_type(argname="argument vast_response", value=vast_response, expected_type=type_hints["vast_response"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "http_request": http_request,
             }
+            if vast_response is not None:
+                self._values["vast_response"] = vast_response
 
         @builtins.property
         def http_request(
@@ -2554,6 +3553,17 @@ class CfnPlaybackConfiguration(
             result = self._values.get("http_request")
             assert result is not None, "Required property 'http_request' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HttpRequestProperty"], result)
+
+        @builtins.property
+        def vast_response(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.VastResponseProperty"]]:
+            '''The configuration for how MediaTailor processes the VAST response returned by the Ad Decision Server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-addecisionserverconfiguration.html#cfn-mediatailor-playbackconfiguration-addecisionserverconfiguration-vastresponse
+            '''
+            result = self._values.get("vast_response")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.VastResponseProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2699,6 +3709,222 @@ class CfnPlaybackConfiguration(
 
         def __repr__(self) -> str:
             return "AdsInteractionLogProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enable_vod_vast_parallelization": "enableVodVastParallelization",
+            "max_concurrent_ads_requests": "maxConcurrentAdsRequests",
+        },
+    )
+    class AdsPersonalizationConcurrencyProperty:
+        def __init__(
+            self,
+            *,
+            enable_vod_vast_parallelization: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            max_concurrent_ads_requests: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The settings that control how many concurrent requests MediaTailor makes to the ad decision server (ADS).
+
+            :param enable_vod_vast_parallelization: Enables parallel processing of ADS requests in VOD workflows when the ADS returns VAST responses. The default is false.
+            :param max_concurrent_ads_requests: The maximum number of simultaneous requests that MediaTailor makes to the ADS for each manifest request. The default is 1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationconcurrency.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                ads_personalization_concurrency_property = mediatailor.CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty(
+                    enable_vod_vast_parallelization=False,
+                    max_concurrent_ads_requests=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c54804620edf90d6d14b94d837c502afb0350e36766d359c51c934fb9de93d10)
+                check_type(argname="argument enable_vod_vast_parallelization", value=enable_vod_vast_parallelization, expected_type=type_hints["enable_vod_vast_parallelization"])
+                check_type(argname="argument max_concurrent_ads_requests", value=max_concurrent_ads_requests, expected_type=type_hints["max_concurrent_ads_requests"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_vod_vast_parallelization is not None:
+                self._values["enable_vod_vast_parallelization"] = enable_vod_vast_parallelization
+            if max_concurrent_ads_requests is not None:
+                self._values["max_concurrent_ads_requests"] = max_concurrent_ads_requests
+
+        @builtins.property
+        def enable_vod_vast_parallelization(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Enables parallel processing of ADS requests in VOD workflows when the ADS returns VAST responses.
+
+            The default is false.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationconcurrency.html#cfn-mediatailor-playbackconfiguration-adspersonalizationconcurrency-enablevodvastparallelization
+            '''
+            result = self._values.get("enable_vod_vast_parallelization")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def max_concurrent_ads_requests(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of simultaneous requests that MediaTailor makes to the ADS for each manifest request.
+
+            The default is 1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationconcurrency.html#cfn-mediatailor-playbackconfiguration-adspersonalizationconcurrency-maxconcurrentadsrequests
+            '''
+            result = self._values.get("max_concurrent_ads_requests")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdsPersonalizationConcurrencyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ads_request_timeout_milliseconds": "adsRequestTimeoutMilliseconds",
+            "live_maximum_ads_personalization_time_milliseconds": "liveMaximumAdsPersonalizationTimeMilliseconds",
+            "prefetch_ads_request_timeout_milliseconds": "prefetchAdsRequestTimeoutMilliseconds",
+            "prefetch_maximum_ads_personalization_time_milliseconds": "prefetchMaximumAdsPersonalizationTimeMilliseconds",
+            "vod_maximum_ads_personalization_time_milliseconds": "vodMaximumAdsPersonalizationTimeMilliseconds",
+        },
+    )
+    class AdsPersonalizationTimeoutsProperty:
+        def __init__(
+            self,
+            *,
+            ads_request_timeout_milliseconds: typing.Optional[jsii.Number] = None,
+            live_maximum_ads_personalization_time_milliseconds: typing.Optional[jsii.Number] = None,
+            prefetch_ads_request_timeout_milliseconds: typing.Optional[jsii.Number] = None,
+            prefetch_maximum_ads_personalization_time_milliseconds: typing.Optional[jsii.Number] = None,
+            vod_maximum_ads_personalization_time_milliseconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The ad decision server (ADS) request timeouts and personalization time budgets for live, VOD, and prefetch workflows.
+
+            :param ads_request_timeout_milliseconds: The maximum time, in milliseconds, that MediaTailor waits for a single ADS response during live or VOD playback. The default is 3000.
+            :param live_maximum_ads_personalization_time_milliseconds: The maximum total time, in milliseconds, that MediaTailor spends on ADS activity for live manifests. The default is 10000.
+            :param prefetch_ads_request_timeout_milliseconds: The maximum time, in milliseconds, that MediaTailor waits for a single ADS response during prefetch retrieval. If not set, MediaTailor uses the AdsRequestTimeoutMilliseconds value.
+            :param prefetch_maximum_ads_personalization_time_milliseconds: The maximum total time, in milliseconds, that MediaTailor spends on ADS activity during prefetch retrieval.
+            :param vod_maximum_ads_personalization_time_milliseconds: The maximum total time, in milliseconds, that MediaTailor spends on ADS activity for VOD manifests. The default is 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationtimeouts.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                ads_personalization_timeouts_property = mediatailor.CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty(
+                    ads_request_timeout_milliseconds=123,
+                    live_maximum_ads_personalization_time_milliseconds=123,
+                    prefetch_ads_request_timeout_milliseconds=123,
+                    prefetch_maximum_ads_personalization_time_milliseconds=123,
+                    vod_maximum_ads_personalization_time_milliseconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__081de2ae59707e39bdb75d2de6531849e92a0be4913aa6286dd36f4fce70bbee)
+                check_type(argname="argument ads_request_timeout_milliseconds", value=ads_request_timeout_milliseconds, expected_type=type_hints["ads_request_timeout_milliseconds"])
+                check_type(argname="argument live_maximum_ads_personalization_time_milliseconds", value=live_maximum_ads_personalization_time_milliseconds, expected_type=type_hints["live_maximum_ads_personalization_time_milliseconds"])
+                check_type(argname="argument prefetch_ads_request_timeout_milliseconds", value=prefetch_ads_request_timeout_milliseconds, expected_type=type_hints["prefetch_ads_request_timeout_milliseconds"])
+                check_type(argname="argument prefetch_maximum_ads_personalization_time_milliseconds", value=prefetch_maximum_ads_personalization_time_milliseconds, expected_type=type_hints["prefetch_maximum_ads_personalization_time_milliseconds"])
+                check_type(argname="argument vod_maximum_ads_personalization_time_milliseconds", value=vod_maximum_ads_personalization_time_milliseconds, expected_type=type_hints["vod_maximum_ads_personalization_time_milliseconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ads_request_timeout_milliseconds is not None:
+                self._values["ads_request_timeout_milliseconds"] = ads_request_timeout_milliseconds
+            if live_maximum_ads_personalization_time_milliseconds is not None:
+                self._values["live_maximum_ads_personalization_time_milliseconds"] = live_maximum_ads_personalization_time_milliseconds
+            if prefetch_ads_request_timeout_milliseconds is not None:
+                self._values["prefetch_ads_request_timeout_milliseconds"] = prefetch_ads_request_timeout_milliseconds
+            if prefetch_maximum_ads_personalization_time_milliseconds is not None:
+                self._values["prefetch_maximum_ads_personalization_time_milliseconds"] = prefetch_maximum_ads_personalization_time_milliseconds
+            if vod_maximum_ads_personalization_time_milliseconds is not None:
+                self._values["vod_maximum_ads_personalization_time_milliseconds"] = vod_maximum_ads_personalization_time_milliseconds
+
+        @builtins.property
+        def ads_request_timeout_milliseconds(self) -> typing.Optional[jsii.Number]:
+            '''The maximum time, in milliseconds, that MediaTailor waits for a single ADS response during live or VOD playback.
+
+            The default is 3000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationtimeouts.html#cfn-mediatailor-playbackconfiguration-adspersonalizationtimeouts-adsrequesttimeoutmilliseconds
+            '''
+            result = self._values.get("ads_request_timeout_milliseconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def live_maximum_ads_personalization_time_milliseconds(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''The maximum total time, in milliseconds, that MediaTailor spends on ADS activity for live manifests.
+
+            The default is 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationtimeouts.html#cfn-mediatailor-playbackconfiguration-adspersonalizationtimeouts-livemaximumadspersonalizationtimemilliseconds
+            '''
+            result = self._values.get("live_maximum_ads_personalization_time_milliseconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def prefetch_ads_request_timeout_milliseconds(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''The maximum time, in milliseconds, that MediaTailor waits for a single ADS response during prefetch retrieval.
+
+            If not set, MediaTailor uses the AdsRequestTimeoutMilliseconds value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationtimeouts.html#cfn-mediatailor-playbackconfiguration-adspersonalizationtimeouts-prefetchadsrequesttimeoutmilliseconds
+            '''
+            result = self._values.get("prefetch_ads_request_timeout_milliseconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def prefetch_maximum_ads_personalization_time_milliseconds(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''The maximum total time, in milliseconds, that MediaTailor spends on ADS activity during prefetch retrieval.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationtimeouts.html#cfn-mediatailor-playbackconfiguration-adspersonalizationtimeouts-prefetchmaximumadspersonalizationtimemilliseconds
+            '''
+            result = self._values.get("prefetch_maximum_ads_personalization_time_milliseconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def vod_maximum_ads_personalization_time_milliseconds(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''The maximum total time, in milliseconds, that MediaTailor spends on ADS activity for VOD manifests.
+
+            The default is 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationtimeouts.html#cfn-mediatailor-playbackconfiguration-adspersonalizationtimeouts-vodmaximumadspersonalizationtimemilliseconds
+            '''
+            result = self._values.get("vod_maximum_ads_personalization_time_milliseconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdsPersonalizationTimeoutsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3215,6 +4441,7 @@ class CfnPlaybackConfiguration(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.LivePreRollConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "ad_decision_server_configuration": "adDecisionServerConfiguration",
             "ad_decision_server_url": "adDecisionServerUrl",
             "max_duration_seconds": "maxDurationSeconds",
         },
@@ -3223,11 +4450,13 @@ class CfnPlaybackConfiguration(
         def __init__(
             self,
             *,
+            ad_decision_server_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ad_decision_server_url: typing.Optional[builtins.str] = None,
             max_duration_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The configuration for pre-roll ad insertion.
 
+            :param ad_decision_server_configuration: The configuration for the request to the pre-roll Ad Decision Server.
             :param ad_decision_server_url: The URL for the ad decision server (ADS) for pre-roll ads. This includes the specification of static parameters and placeholders for dynamic parameters. AWS Elemental MediaTailor substitutes player-specific and session-specific parameters as needed when calling the ADS. Alternately, for testing, you can provide a static VAST URL. The maximum length is 25,000 characters.
             :param max_duration_seconds: The maximum allowed duration for the pre-roll ad avail. AWS Elemental MediaTailor won't play pre-roll ads to exceed this duration, regardless of the total duration of ads that the ADS returns.
 
@@ -3241,19 +4470,38 @@ class CfnPlaybackConfiguration(
                 from aws_cdk import aws_mediatailor as mediatailor
                 
                 live_pre_roll_configuration_property = mediatailor.CfnPlaybackConfiguration.LivePreRollConfigurationProperty(
+                    ad_decision_server_configuration=mediatailor.CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty(
+                        vast_response=mediatailor.CfnPlaybackConfiguration.PreRollVastResponseProperty(
+                            ad_sequencing_mode="adSequencingMode"
+                        )
+                    ),
                     ad_decision_server_url="adDecisionServerUrl",
                     max_duration_seconds=123
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__be1326ff9046a5c3b87adfaac42a0610149574f9d367d1c04949ccf8a48d1a93)
+                check_type(argname="argument ad_decision_server_configuration", value=ad_decision_server_configuration, expected_type=type_hints["ad_decision_server_configuration"])
                 check_type(argname="argument ad_decision_server_url", value=ad_decision_server_url, expected_type=type_hints["ad_decision_server_url"])
                 check_type(argname="argument max_duration_seconds", value=max_duration_seconds, expected_type=type_hints["max_duration_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ad_decision_server_configuration is not None:
+                self._values["ad_decision_server_configuration"] = ad_decision_server_configuration
             if ad_decision_server_url is not None:
                 self._values["ad_decision_server_url"] = ad_decision_server_url
             if max_duration_seconds is not None:
                 self._values["max_duration_seconds"] = max_duration_seconds
+
+        @builtins.property
+        def ad_decision_server_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty"]]:
+            '''The configuration for the request to the pre-roll Ad Decision Server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-liveprerollconfiguration.html#cfn-mediatailor-playbackconfiguration-liveprerollconfiguration-addecisionserverconfiguration
+            '''
+            result = self._values.get("ad_decision_server_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty"]], result)
 
         @builtins.property
         def ad_decision_server_url(self) -> typing.Optional[builtins.str]:
@@ -3533,6 +4781,175 @@ class CfnPlaybackConfiguration(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"vast_response": "vastResponse"},
+    )
+    class PreRollAdDecisionServerConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            vast_response: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.PreRollVastResponseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for the request to the pre-roll Ad Decision Server.
+
+            :param vast_response: The configuration for how MediaTailor processes the VAST response returned by the pre-roll Ad Decision Server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-prerolladdecisionserverconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                pre_roll_ad_decision_server_configuration_property = mediatailor.CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty(
+                    vast_response=mediatailor.CfnPlaybackConfiguration.PreRollVastResponseProperty(
+                        ad_sequencing_mode="adSequencingMode"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c891247344a5816c5f6036ffe8b027890782702417987f5fe28421b1757a52f5)
+                check_type(argname="argument vast_response", value=vast_response, expected_type=type_hints["vast_response"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if vast_response is not None:
+                self._values["vast_response"] = vast_response
+
+        @builtins.property
+        def vast_response(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.PreRollVastResponseProperty"]]:
+            '''The configuration for how MediaTailor processes the VAST response returned by the pre-roll Ad Decision Server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-prerolladdecisionserverconfiguration.html#cfn-mediatailor-playbackconfiguration-prerolladdecisionserverconfiguration-vastresponse
+            '''
+            result = self._values.get("vast_response")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.PreRollVastResponseProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PreRollAdDecisionServerConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.PreRollVastResponseProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ad_sequencing_mode": "adSequencingMode"},
+    )
+    class PreRollVastResponseProperty:
+        def __init__(
+            self,
+            *,
+            ad_sequencing_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration for how MediaTailor processes the VAST response returned by the pre-roll Ad Decision Server.
+
+            :param ad_sequencing_mode: Determines how MediaTailor sequences ads returned in the pre-roll VAST response.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-prerollvastresponse.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                pre_roll_vast_response_property = mediatailor.CfnPlaybackConfiguration.PreRollVastResponseProperty(
+                    ad_sequencing_mode="adSequencingMode"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__770bca0bb4db614052f95822f0ce3e52f118ce264f511205bda617ca7797829a)
+                check_type(argname="argument ad_sequencing_mode", value=ad_sequencing_mode, expected_type=type_hints["ad_sequencing_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ad_sequencing_mode is not None:
+                self._values["ad_sequencing_mode"] = ad_sequencing_mode
+
+        @builtins.property
+        def ad_sequencing_mode(self) -> typing.Optional[builtins.str]:
+            '''Determines how MediaTailor sequences ads returned in the pre-roll VAST response.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-prerollvastresponse.html#cfn-mediatailor-playbackconfiguration-prerollvastresponse-adsequencingmode
+            '''
+            result = self._values.get("ad_sequencing_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PreRollVastResponseProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.VastResponseProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ad_sequencing_mode": "adSequencingMode"},
+    )
+    class VastResponseProperty:
+        def __init__(
+            self,
+            *,
+            ad_sequencing_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration for how MediaTailor processes the VAST response returned by the Ad Decision Server.
+
+            :param ad_sequencing_mode: Determines how MediaTailor sequences ads returned in the VAST response from the Ad Decision Server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-vastresponse.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                vast_response_property = mediatailor.CfnPlaybackConfiguration.VastResponseProperty(
+                    ad_sequencing_mode="adSequencingMode"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b5eccc314698469708f3b54b63cf366c2cda8be0723d3d1b1140bc18e7ffe980)
+                check_type(argname="argument ad_sequencing_mode", value=ad_sequencing_mode, expected_type=type_hints["ad_sequencing_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ad_sequencing_mode is not None:
+                self._values["ad_sequencing_mode"] = ad_sequencing_mode
+
+        @builtins.property
+        def ad_sequencing_mode(self) -> typing.Optional[builtins.str]:
+            '''Determines how MediaTailor sequences ads returned in the VAST response from the Ad Decision Server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-vastresponse.html#cfn-mediatailor-playbackconfiguration-vastresponse-adsequencingmode
+            '''
+            result = self._values.get("ad_sequencing_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VastResponseProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfigurationProps",
@@ -3543,6 +4960,8 @@ class CfnPlaybackConfiguration(
         "video_content_source_url": "videoContentSourceUrl",
         "ad_conditioning_configuration": "adConditioningConfiguration",
         "ad_decision_server_configuration": "adDecisionServerConfiguration",
+        "ads_personalization_concurrency": "adsPersonalizationConcurrency",
+        "ads_personalization_timeouts": "adsPersonalizationTimeouts",
         "avail_suppression": "availSuppression",
         "bumper": "bumper",
         "cdn_configuration": "cdnConfiguration",
@@ -3569,6 +4988,8 @@ class CfnPlaybackConfigurationProps:
         video_content_source_url: builtins.str,
         ad_conditioning_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdConditioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ad_decision_server_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ads_personalization_concurrency: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ads_personalization_timeouts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         avail_suppression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bumper: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cdn_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3592,6 +5013,8 @@ class CfnPlaybackConfigurationProps:
         :param video_content_source_url: The URL prefix for the parent manifest for the stream, minus the asset ID. The maximum length is 512 characters.
         :param ad_conditioning_configuration: The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
         :param ad_decision_server_configuration: The configuration for the request to the specified Ad Decision Server URL.
+        :param ads_personalization_concurrency: The settings that control how many concurrent requests MediaTailor makes to the ad decision server (ADS).
+        :param ads_personalization_timeouts: The ad decision server (ADS) request timeouts and personalization time budgets for live, VOD, and prefetch workflows.
         :param avail_suppression: The configuration for avail suppression, also known as ad suppression. For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
         :param bumper: The configuration for bumpers. Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
         :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
@@ -3637,7 +5060,23 @@ class CfnPlaybackConfigurationProps:
                             "headers_key": "headers"
                         },
                         http_method="httpMethod"
+                    ),
+            
+                    # the properties below are optional
+                    vast_response=mediatailor.CfnPlaybackConfiguration.VastResponseProperty(
+                        ad_sequencing_mode="adSequencingMode"
                     )
+                ),
+                ads_personalization_concurrency=mediatailor.CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty(
+                    enable_vod_vast_parallelization=False,
+                    max_concurrent_ads_requests=123
+                ),
+                ads_personalization_timeouts=mediatailor.CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty(
+                    ads_request_timeout_milliseconds=123,
+                    live_maximum_ads_personalization_time_milliseconds=123,
+                    prefetch_ads_request_timeout_milliseconds=123,
+                    prefetch_maximum_ads_personalization_time_milliseconds=123,
+                    vod_maximum_ads_personalization_time_milliseconds=123
                 ),
                 avail_suppression=mediatailor.CfnPlaybackConfiguration.AvailSuppressionProperty(
                     fill_policy="fillPolicy",
@@ -3668,6 +5107,11 @@ class CfnPlaybackConfigurationProps:
                 ),
                 insertion_mode="insertionMode",
                 live_pre_roll_configuration=mediatailor.CfnPlaybackConfiguration.LivePreRollConfigurationProperty(
+                    ad_decision_server_configuration=mediatailor.CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty(
+                        vast_response=mediatailor.CfnPlaybackConfiguration.PreRollVastResponseProperty(
+                            ad_sequencing_mode="adSequencingMode"
+                        )
+                    ),
                     ad_decision_server_url="adDecisionServerUrl",
                     max_duration_seconds=123
                 ),
@@ -3705,6 +5149,8 @@ class CfnPlaybackConfigurationProps:
             check_type(argname="argument video_content_source_url", value=video_content_source_url, expected_type=type_hints["video_content_source_url"])
             check_type(argname="argument ad_conditioning_configuration", value=ad_conditioning_configuration, expected_type=type_hints["ad_conditioning_configuration"])
             check_type(argname="argument ad_decision_server_configuration", value=ad_decision_server_configuration, expected_type=type_hints["ad_decision_server_configuration"])
+            check_type(argname="argument ads_personalization_concurrency", value=ads_personalization_concurrency, expected_type=type_hints["ads_personalization_concurrency"])
+            check_type(argname="argument ads_personalization_timeouts", value=ads_personalization_timeouts, expected_type=type_hints["ads_personalization_timeouts"])
             check_type(argname="argument avail_suppression", value=avail_suppression, expected_type=type_hints["avail_suppression"])
             check_type(argname="argument bumper", value=bumper, expected_type=type_hints["bumper"])
             check_type(argname="argument cdn_configuration", value=cdn_configuration, expected_type=type_hints["cdn_configuration"])
@@ -3729,6 +5175,10 @@ class CfnPlaybackConfigurationProps:
             self._values["ad_conditioning_configuration"] = ad_conditioning_configuration
         if ad_decision_server_configuration is not None:
             self._values["ad_decision_server_configuration"] = ad_decision_server_configuration
+        if ads_personalization_concurrency is not None:
+            self._values["ads_personalization_concurrency"] = ads_personalization_concurrency
+        if ads_personalization_timeouts is not None:
+            self._values["ads_personalization_timeouts"] = ads_personalization_timeouts
         if avail_suppression is not None:
             self._values["avail_suppression"] = avail_suppression
         if bumper is not None:
@@ -3815,6 +5265,28 @@ class CfnPlaybackConfigurationProps:
         '''
         result = self._values.get("ad_decision_server_configuration")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]], result)
+
+    @builtins.property
+    def ads_personalization_concurrency(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty"]]:
+        '''The settings that control how many concurrent requests MediaTailor makes to the ad decision server (ADS).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-adspersonalizationconcurrency
+        '''
+        result = self._values.get("ads_personalization_concurrency")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty"]], result)
+
+    @builtins.property
+    def ads_personalization_timeouts(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty"]]:
+        '''The ad decision server (ADS) request timeouts and personalization time budgets for live, VOD, and prefetch workflows.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-adspersonalizationtimeouts
+        '''
+        result = self._values.get("ads_personalization_timeouts")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty"]], result)
 
     @builtins.property
     def avail_suppression(
@@ -3997,6 +5469,1357 @@ class CfnPlaybackConfigurationProps:
 
     def __repr__(self) -> str:
         return "CfnPlaybackConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.IPrefetchScheduleRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnPrefetchSchedule(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule",
+):
+    '''Definition of AWS::MediaTailor::PrefetchSchedule Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html
+    :cloudformationResource: AWS::MediaTailor::PrefetchSchedule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mediatailor as mediatailor
+        
+        cfn_prefetch_schedule = mediatailor.CfnPrefetchSchedule(self, "MyCfnPrefetchSchedule",
+            name="name",
+            playback_configuration_name="playbackConfigurationName",
+        
+            # the properties below are optional
+            consumption=mediatailor.CfnPrefetchSchedule.PrefetchConsumptionProperty(
+                end_time="endTime",
+        
+                # the properties below are optional
+                avail_matching_criteria=[mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty(
+                    dynamic_variable="dynamicVariable",
+                    operator="operator"
+                )],
+                start_time="startTime"
+            ),
+            recurring_prefetch_configuration=mediatailor.CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty(
+                end_time="endTime",
+                recurring_consumption=mediatailor.CfnPrefetchSchedule.RecurringConsumptionProperty(
+                    avail_matching_criteria=[mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty(
+                        dynamic_variable="dynamicVariable",
+                        operator="operator"
+                    )],
+                    retrieved_ad_expiration_seconds=123
+                ),
+                recurring_retrieval=mediatailor.CfnPrefetchSchedule.RecurringRetrievalProperty(
+                    delay_after_avail_end_seconds=123,
+                    dynamic_variables={
+                        "dynamic_variables_key": "dynamicVariables"
+                    },
+                    traffic_shaping_retrieval_window=mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty(
+                        retrieval_window_duration_seconds=123
+                    ),
+                    traffic_shaping_tps_configuration=mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty(
+                        peak_concurrent_users=123,
+                        peak_tps=123
+                    ),
+                    traffic_shaping_type="trafficShapingType"
+                ),
+        
+                # the properties below are optional
+                start_time="startTime"
+            ),
+            retrieval=mediatailor.CfnPrefetchSchedule.PrefetchRetrievalProperty(
+                end_time="endTime",
+        
+                # the properties below are optional
+                dynamic_variables={
+                    "dynamic_variables_key": "dynamicVariables"
+                },
+                start_time="startTime",
+                traffic_shaping_retrieval_window=mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty(
+                    retrieval_window_duration_seconds=123
+                ),
+                traffic_shaping_tps_configuration=mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty(
+                    peak_concurrent_users=123,
+                    peak_tps=123
+                ),
+                traffic_shaping_type="trafficShapingType"
+            ),
+            schedule_type="scheduleType",
+            stream_id="streamId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        playback_configuration_name: builtins.str,
+        consumption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.PrefetchConsumptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        recurring_prefetch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        retrieval: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.PrefetchRetrievalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schedule_type: typing.Optional[builtins.str] = None,
+        stream_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MediaTailor::PrefetchSchedule``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name to assign to the prefetch schedule.
+        :param playback_configuration_name: The name of the playback configuration.
+        :param consumption: 
+        :param recurring_prefetch_configuration: 
+        :param retrieval: 
+        :param schedule_type: The frequency that MediaTailor creates prefetch schedules.
+        :param stream_id: An optional stream identifier that MediaTailor uses to prefetch ads for multiple streams that use the same playback configuration.
+        :param tags: The tags assigned to the prefetch schedule.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cda230bb96c6a9dde0582b55cf131524f9dfc5b99d2f757c2fc0d3232e38bf74)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPrefetchScheduleProps(
+            name=name,
+            playback_configuration_name=playback_configuration_name,
+            consumption=consumption,
+            recurring_prefetch_configuration=recurring_prefetch_configuration,
+            retrieval=retrieval,
+            schedule_type=schedule_type,
+            stream_id=stream_id,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPrefetchSchedule")
+    @builtins.classmethod
+    def arn_for_prefetch_schedule(
+        cls,
+        resource: "_aws_mediatailor_60404695.IPrefetchScheduleRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9494a130ab023cb8f1efc4abac0a1a99f59b2235691c53eb96ba51ecebaa725)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPrefetchSchedule", [resource]))
+
+    @jsii.member(jsii_name="isCfnPrefetchSchedule")
+    @builtins.classmethod
+    def is_cfn_prefetch_schedule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPrefetchSchedule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e7b415e15129c07ef912c53b46ad5b2fef8f90e537665ed39a283b8dbf7e3ba2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrefetchSchedule", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0bff129f6ff7e96dfe9ed305243681d972d3a5078f8e1f8bd03dfc7a6bd77e51)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__50bf6fc42f5a3633ecf526f1a716df7113700d9218eaa290702d12ba126775e8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the prefetch schedule.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="prefetchScheduleRef")
+    def prefetch_schedule_ref(
+        self,
+    ) -> "_aws_mediatailor_60404695.PrefetchScheduleReference":
+        '''A reference to a PrefetchSchedule resource.'''
+        return typing.cast("_aws_mediatailor_60404695.PrefetchScheduleReference", jsii.get(self, "prefetchScheduleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name to assign to the prefetch schedule.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd8fc0fd997068a5a9913c04ff0cfc0f761c7da140916bf37f02b29f5cc7742a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="playbackConfigurationName")
+    def playback_configuration_name(self) -> builtins.str:
+        '''The name of the playback configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "playbackConfigurationName"))
+
+    @playback_configuration_name.setter
+    def playback_configuration_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9dabe2e2008888c9c945448e0d661fbdd8564f685ee56d6a1779e29d4cad4ec4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "playbackConfigurationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="consumption")
+    def consumption(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchConsumptionProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchConsumptionProperty"]], jsii.get(self, "consumption"))
+
+    @consumption.setter
+    def consumption(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchConsumptionProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c2b6374edcf95c8a9b4cce6071faefac50f1526b162dfaf0479417803056905d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "consumption", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recurringPrefetchConfiguration")
+    def recurring_prefetch_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty"]], jsii.get(self, "recurringPrefetchConfiguration"))
+
+    @recurring_prefetch_configuration.setter
+    def recurring_prefetch_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d4dceeb4970cc6d2cadedc0218d4ac6586f2d7683ae6a1b0268ddce2f6705f92)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recurringPrefetchConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="retrieval")
+    def retrieval(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchRetrievalProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchRetrievalProperty"]], jsii.get(self, "retrieval"))
+
+    @retrieval.setter
+    def retrieval(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchRetrievalProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a8b1ee3296f2489c46c64734a0363c25b87a5d06c5571dee7c59e32959a089c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "retrieval", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleType")
+    def schedule_type(self) -> typing.Optional[builtins.str]:
+        '''The frequency that MediaTailor creates prefetch schedules.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scheduleType"))
+
+    @schedule_type.setter
+    def schedule_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98ea4297602a4c698f4a7a596e39444f37df263a76058421ef00d6ab44adc7e3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduleType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamId")
+    def stream_id(self) -> typing.Optional[builtins.str]:
+        '''An optional stream identifier that MediaTailor uses to prefetch ads for multiple streams that use the same playback configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "streamId"))
+
+    @stream_id.setter
+    def stream_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a1d1ce3c2153a851f8bc18f289d2e3c3b7e8626f0492a8b9c5007908df5d1248)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags assigned to the prefetch schedule.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2898d6ee5d6cf5febc03f59aedc49d2edbe5e8595ca50d955206285ca9833352)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"dynamic_variable": "dynamicVariable", "operator": "operator"},
+    )
+    class AvailMatchingCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            dynamic_variable: builtins.str,
+            operator: builtins.str,
+        ) -> None:
+            '''
+            :param dynamic_variable: The dynamic variable(s) that MediaTailor should use as avail matching criteria.
+            :param operator: For the DynamicVariable specified in AvailMatchingCriteria, the Operator that is used for the comparison.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-availmatchingcriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                avail_matching_criteria_property = mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty(
+                    dynamic_variable="dynamicVariable",
+                    operator="operator"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e58a7f144bd17d3319e9ad03250010949871dc8836ac9ac67237335d03084d7c)
+                check_type(argname="argument dynamic_variable", value=dynamic_variable, expected_type=type_hints["dynamic_variable"])
+                check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dynamic_variable": dynamic_variable,
+                "operator": operator,
+            }
+
+        @builtins.property
+        def dynamic_variable(self) -> builtins.str:
+            '''The dynamic variable(s) that MediaTailor should use as avail matching criteria.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-availmatchingcriteria.html#cfn-mediatailor-prefetchschedule-availmatchingcriteria-dynamicvariable
+            '''
+            result = self._values.get("dynamic_variable")
+            assert result is not None, "Required property 'dynamic_variable' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def operator(self) -> builtins.str:
+            '''For the DynamicVariable specified in AvailMatchingCriteria, the Operator that is used for the comparison.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-availmatchingcriteria.html#cfn-mediatailor-prefetchschedule-availmatchingcriteria-operator
+            '''
+            result = self._values.get("operator")
+            assert result is not None, "Required property 'operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AvailMatchingCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule.PrefetchConsumptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "end_time": "endTime",
+            "avail_matching_criteria": "availMatchingCriteria",
+            "start_time": "startTime",
+        },
+    )
+    class PrefetchConsumptionProperty:
+        def __init__(
+            self,
+            *,
+            end_time: builtins.str,
+            avail_matching_criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.AvailMatchingCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            start_time: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param end_time: The time when MediaTailor no longer considers the prefetched ads for use in an ad break, as an ISO 8601 date-time.
+            :param avail_matching_criteria: If you only want MediaTailor to insert prefetched ads into avails that match specific dynamic variables, set the avail matching criteria.
+            :param start_time: The time when prefetched ads are considered for use in an ad break, as an ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchconsumption.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                prefetch_consumption_property = mediatailor.CfnPrefetchSchedule.PrefetchConsumptionProperty(
+                    end_time="endTime",
+                
+                    # the properties below are optional
+                    avail_matching_criteria=[mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty(
+                        dynamic_variable="dynamicVariable",
+                        operator="operator"
+                    )],
+                    start_time="startTime"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__18c177a23efbd7d3f4f9690a9e27fa151a0a90be1132ce2f4efab08eabda9232)
+                check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
+                check_type(argname="argument avail_matching_criteria", value=avail_matching_criteria, expected_type=type_hints["avail_matching_criteria"])
+                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "end_time": end_time,
+            }
+            if avail_matching_criteria is not None:
+                self._values["avail_matching_criteria"] = avail_matching_criteria
+            if start_time is not None:
+                self._values["start_time"] = start_time
+
+        @builtins.property
+        def end_time(self) -> builtins.str:
+            '''The time when MediaTailor no longer considers the prefetched ads for use in an ad break, as an ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchconsumption.html#cfn-mediatailor-prefetchschedule-prefetchconsumption-endtime
+            '''
+            result = self._values.get("end_time")
+            assert result is not None, "Required property 'end_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def avail_matching_criteria(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.AvailMatchingCriteriaProperty"]]]]:
+            '''If you only want MediaTailor to insert prefetched ads into avails that match specific dynamic variables, set the avail matching criteria.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchconsumption.html#cfn-mediatailor-prefetchschedule-prefetchconsumption-availmatchingcriteria
+            '''
+            result = self._values.get("avail_matching_criteria")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.AvailMatchingCriteriaProperty"]]]], result)
+
+        @builtins.property
+        def start_time(self) -> typing.Optional[builtins.str]:
+            '''The time when prefetched ads are considered for use in an ad break, as an ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchconsumption.html#cfn-mediatailor-prefetchschedule-prefetchconsumption-starttime
+            '''
+            result = self._values.get("start_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrefetchConsumptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule.PrefetchRetrievalProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "end_time": "endTime",
+            "dynamic_variables": "dynamicVariables",
+            "start_time": "startTime",
+            "traffic_shaping_retrieval_window": "trafficShapingRetrievalWindow",
+            "traffic_shaping_tps_configuration": "trafficShapingTpsConfiguration",
+            "traffic_shaping_type": "trafficShapingType",
+        },
+    )
+    class PrefetchRetrievalProperty:
+        def __init__(
+            self,
+            *,
+            end_time: builtins.str,
+            dynamic_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            start_time: typing.Optional[builtins.str] = None,
+            traffic_shaping_retrieval_window: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            traffic_shaping_tps_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            traffic_shaping_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param end_time: The time when prefetch retrieval ends for the ad break, as an ISO 8601 date-time.
+            :param dynamic_variables: The dynamic variables to use for substitution during prefetch requests to the ad decision server (ADS).
+            :param start_time: The time when prefetch retrievals can start for this break, as an ISO 8601 date-time.
+            :param traffic_shaping_retrieval_window: 
+            :param traffic_shaping_tps_configuration: 
+            :param traffic_shaping_type: Indicates the type of traffic shaping used to limit the number of requests to the ADS at one time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchretrieval.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                prefetch_retrieval_property = mediatailor.CfnPrefetchSchedule.PrefetchRetrievalProperty(
+                    end_time="endTime",
+                
+                    # the properties below are optional
+                    dynamic_variables={
+                        "dynamic_variables_key": "dynamicVariables"
+                    },
+                    start_time="startTime",
+                    traffic_shaping_retrieval_window=mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty(
+                        retrieval_window_duration_seconds=123
+                    ),
+                    traffic_shaping_tps_configuration=mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty(
+                        peak_concurrent_users=123,
+                        peak_tps=123
+                    ),
+                    traffic_shaping_type="trafficShapingType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__00c2ecb75839a35994f3696a2d7c3d544f3638146358e28982fb7c42826178f3)
+                check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
+                check_type(argname="argument dynamic_variables", value=dynamic_variables, expected_type=type_hints["dynamic_variables"])
+                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+                check_type(argname="argument traffic_shaping_retrieval_window", value=traffic_shaping_retrieval_window, expected_type=type_hints["traffic_shaping_retrieval_window"])
+                check_type(argname="argument traffic_shaping_tps_configuration", value=traffic_shaping_tps_configuration, expected_type=type_hints["traffic_shaping_tps_configuration"])
+                check_type(argname="argument traffic_shaping_type", value=traffic_shaping_type, expected_type=type_hints["traffic_shaping_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "end_time": end_time,
+            }
+            if dynamic_variables is not None:
+                self._values["dynamic_variables"] = dynamic_variables
+            if start_time is not None:
+                self._values["start_time"] = start_time
+            if traffic_shaping_retrieval_window is not None:
+                self._values["traffic_shaping_retrieval_window"] = traffic_shaping_retrieval_window
+            if traffic_shaping_tps_configuration is not None:
+                self._values["traffic_shaping_tps_configuration"] = traffic_shaping_tps_configuration
+            if traffic_shaping_type is not None:
+                self._values["traffic_shaping_type"] = traffic_shaping_type
+
+        @builtins.property
+        def end_time(self) -> builtins.str:
+            '''The time when prefetch retrieval ends for the ad break, as an ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchretrieval.html#cfn-mediatailor-prefetchschedule-prefetchretrieval-endtime
+            '''
+            result = self._values.get("end_time")
+            assert result is not None, "Required property 'end_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def dynamic_variables(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''The dynamic variables to use for substitution during prefetch requests to the ad decision server (ADS).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchretrieval.html#cfn-mediatailor-prefetchschedule-prefetchretrieval-dynamicvariables
+            '''
+            result = self._values.get("dynamic_variables")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def start_time(self) -> typing.Optional[builtins.str]:
+            '''The time when prefetch retrievals can start for this break, as an ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchretrieval.html#cfn-mediatailor-prefetchschedule-prefetchretrieval-starttime
+            '''
+            result = self._values.get("start_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def traffic_shaping_retrieval_window(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchretrieval.html#cfn-mediatailor-prefetchschedule-prefetchretrieval-trafficshapingretrievalwindow
+            '''
+            result = self._values.get("traffic_shaping_retrieval_window")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty"]], result)
+
+        @builtins.property
+        def traffic_shaping_tps_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchretrieval.html#cfn-mediatailor-prefetchschedule-prefetchretrieval-trafficshapingtpsconfiguration
+            '''
+            result = self._values.get("traffic_shaping_tps_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty"]], result)
+
+        @builtins.property
+        def traffic_shaping_type(self) -> typing.Optional[builtins.str]:
+            '''Indicates the type of traffic shaping used to limit the number of requests to the ADS at one time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchretrieval.html#cfn-mediatailor-prefetchschedule-prefetchretrieval-trafficshapingtype
+            '''
+            result = self._values.get("traffic_shaping_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrefetchRetrievalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule.RecurringConsumptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "avail_matching_criteria": "availMatchingCriteria",
+            "retrieved_ad_expiration_seconds": "retrievedAdExpirationSeconds",
+        },
+    )
+    class RecurringConsumptionProperty:
+        def __init__(
+            self,
+            *,
+            avail_matching_criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.AvailMatchingCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            retrieved_ad_expiration_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param avail_matching_criteria: The configuration for the dynamic variables that determine which ad breaks that MediaTailor inserts prefetched ads in.
+            :param retrieved_ad_expiration_seconds: The number of seconds that an ad is available for insertion after it was prefetched.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringconsumption.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                recurring_consumption_property = mediatailor.CfnPrefetchSchedule.RecurringConsumptionProperty(
+                    avail_matching_criteria=[mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty(
+                        dynamic_variable="dynamicVariable",
+                        operator="operator"
+                    )],
+                    retrieved_ad_expiration_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b2a371af0ad0c1d79415ae11b9755cca464c7035c6f622d511446260cef06603)
+                check_type(argname="argument avail_matching_criteria", value=avail_matching_criteria, expected_type=type_hints["avail_matching_criteria"])
+                check_type(argname="argument retrieved_ad_expiration_seconds", value=retrieved_ad_expiration_seconds, expected_type=type_hints["retrieved_ad_expiration_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if avail_matching_criteria is not None:
+                self._values["avail_matching_criteria"] = avail_matching_criteria
+            if retrieved_ad_expiration_seconds is not None:
+                self._values["retrieved_ad_expiration_seconds"] = retrieved_ad_expiration_seconds
+
+        @builtins.property
+        def avail_matching_criteria(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.AvailMatchingCriteriaProperty"]]]]:
+            '''The configuration for the dynamic variables that determine which ad breaks that MediaTailor inserts prefetched ads in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringconsumption.html#cfn-mediatailor-prefetchschedule-recurringconsumption-availmatchingcriteria
+            '''
+            result = self._values.get("avail_matching_criteria")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.AvailMatchingCriteriaProperty"]]]], result)
+
+        @builtins.property
+        def retrieved_ad_expiration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The number of seconds that an ad is available for insertion after it was prefetched.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringconsumption.html#cfn-mediatailor-prefetchschedule-recurringconsumption-retrievedadexpirationseconds
+            '''
+            result = self._values.get("retrieved_ad_expiration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecurringConsumptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "end_time": "endTime",
+            "recurring_consumption": "recurringConsumption",
+            "recurring_retrieval": "recurringRetrieval",
+            "start_time": "startTime",
+        },
+    )
+    class RecurringPrefetchConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            end_time: builtins.str,
+            recurring_consumption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.RecurringConsumptionProperty", typing.Dict[builtins.str, typing.Any]]],
+            recurring_retrieval: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.RecurringRetrievalProperty", typing.Dict[builtins.str, typing.Any]]],
+            start_time: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param end_time: The end time for the window that MediaTailor prefetches and inserts ads in a live event, as an ISO 8601 date-time.
+            :param recurring_consumption: 
+            :param recurring_retrieval: 
+            :param start_time: The start time for the window that MediaTailor prefetches and inserts ads in a live event, as an ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringprefetchconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                recurring_prefetch_configuration_property = mediatailor.CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty(
+                    end_time="endTime",
+                    recurring_consumption=mediatailor.CfnPrefetchSchedule.RecurringConsumptionProperty(
+                        avail_matching_criteria=[mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty(
+                            dynamic_variable="dynamicVariable",
+                            operator="operator"
+                        )],
+                        retrieved_ad_expiration_seconds=123
+                    ),
+                    recurring_retrieval=mediatailor.CfnPrefetchSchedule.RecurringRetrievalProperty(
+                        delay_after_avail_end_seconds=123,
+                        dynamic_variables={
+                            "dynamic_variables_key": "dynamicVariables"
+                        },
+                        traffic_shaping_retrieval_window=mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty(
+                            retrieval_window_duration_seconds=123
+                        ),
+                        traffic_shaping_tps_configuration=mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty(
+                            peak_concurrent_users=123,
+                            peak_tps=123
+                        ),
+                        traffic_shaping_type="trafficShapingType"
+                    ),
+                
+                    # the properties below are optional
+                    start_time="startTime"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__05bd8652a49c8686098c037ea3c9547bb9a1f7c2a92b033cc181e6fdf0428f4d)
+                check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
+                check_type(argname="argument recurring_consumption", value=recurring_consumption, expected_type=type_hints["recurring_consumption"])
+                check_type(argname="argument recurring_retrieval", value=recurring_retrieval, expected_type=type_hints["recurring_retrieval"])
+                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "end_time": end_time,
+                "recurring_consumption": recurring_consumption,
+                "recurring_retrieval": recurring_retrieval,
+            }
+            if start_time is not None:
+                self._values["start_time"] = start_time
+
+        @builtins.property
+        def end_time(self) -> builtins.str:
+            '''The end time for the window that MediaTailor prefetches and inserts ads in a live event, as an ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringprefetchconfiguration.html#cfn-mediatailor-prefetchschedule-recurringprefetchconfiguration-endtime
+            '''
+            result = self._values.get("end_time")
+            assert result is not None, "Required property 'end_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def recurring_consumption(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringConsumptionProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringprefetchconfiguration.html#cfn-mediatailor-prefetchschedule-recurringprefetchconfiguration-recurringconsumption
+            '''
+            result = self._values.get("recurring_consumption")
+            assert result is not None, "Required property 'recurring_consumption' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringConsumptionProperty"], result)
+
+        @builtins.property
+        def recurring_retrieval(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringRetrievalProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringprefetchconfiguration.html#cfn-mediatailor-prefetchschedule-recurringprefetchconfiguration-recurringretrieval
+            '''
+            result = self._values.get("recurring_retrieval")
+            assert result is not None, "Required property 'recurring_retrieval' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringRetrievalProperty"], result)
+
+        @builtins.property
+        def start_time(self) -> typing.Optional[builtins.str]:
+            '''The start time for the window that MediaTailor prefetches and inserts ads in a live event, as an ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringprefetchconfiguration.html#cfn-mediatailor-prefetchschedule-recurringprefetchconfiguration-starttime
+            '''
+            result = self._values.get("start_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecurringPrefetchConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule.RecurringRetrievalProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "delay_after_avail_end_seconds": "delayAfterAvailEndSeconds",
+            "dynamic_variables": "dynamicVariables",
+            "traffic_shaping_retrieval_window": "trafficShapingRetrievalWindow",
+            "traffic_shaping_tps_configuration": "trafficShapingTpsConfiguration",
+            "traffic_shaping_type": "trafficShapingType",
+        },
+    )
+    class RecurringRetrievalProperty:
+        def __init__(
+            self,
+            *,
+            delay_after_avail_end_seconds: typing.Optional[jsii.Number] = None,
+            dynamic_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            traffic_shaping_retrieval_window: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            traffic_shaping_tps_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            traffic_shaping_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param delay_after_avail_end_seconds: The number of seconds that MediaTailor waits after an ad avail before prefetching ads for the next avail.
+            :param dynamic_variables: The dynamic variables to use for substitution during prefetch requests to the ADS.
+            :param traffic_shaping_retrieval_window: 
+            :param traffic_shaping_tps_configuration: 
+            :param traffic_shaping_type: Indicates the type of traffic shaping used to limit the number of requests to the ADS at one time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringretrieval.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                recurring_retrieval_property = mediatailor.CfnPrefetchSchedule.RecurringRetrievalProperty(
+                    delay_after_avail_end_seconds=123,
+                    dynamic_variables={
+                        "dynamic_variables_key": "dynamicVariables"
+                    },
+                    traffic_shaping_retrieval_window=mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty(
+                        retrieval_window_duration_seconds=123
+                    ),
+                    traffic_shaping_tps_configuration=mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty(
+                        peak_concurrent_users=123,
+                        peak_tps=123
+                    ),
+                    traffic_shaping_type="trafficShapingType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__00104803c0902da691a3e7ce3c7070e8259a6ffed7ee23a85b48e3f039e8f0f2)
+                check_type(argname="argument delay_after_avail_end_seconds", value=delay_after_avail_end_seconds, expected_type=type_hints["delay_after_avail_end_seconds"])
+                check_type(argname="argument dynamic_variables", value=dynamic_variables, expected_type=type_hints["dynamic_variables"])
+                check_type(argname="argument traffic_shaping_retrieval_window", value=traffic_shaping_retrieval_window, expected_type=type_hints["traffic_shaping_retrieval_window"])
+                check_type(argname="argument traffic_shaping_tps_configuration", value=traffic_shaping_tps_configuration, expected_type=type_hints["traffic_shaping_tps_configuration"])
+                check_type(argname="argument traffic_shaping_type", value=traffic_shaping_type, expected_type=type_hints["traffic_shaping_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if delay_after_avail_end_seconds is not None:
+                self._values["delay_after_avail_end_seconds"] = delay_after_avail_end_seconds
+            if dynamic_variables is not None:
+                self._values["dynamic_variables"] = dynamic_variables
+            if traffic_shaping_retrieval_window is not None:
+                self._values["traffic_shaping_retrieval_window"] = traffic_shaping_retrieval_window
+            if traffic_shaping_tps_configuration is not None:
+                self._values["traffic_shaping_tps_configuration"] = traffic_shaping_tps_configuration
+            if traffic_shaping_type is not None:
+                self._values["traffic_shaping_type"] = traffic_shaping_type
+
+        @builtins.property
+        def delay_after_avail_end_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The number of seconds that MediaTailor waits after an ad avail before prefetching ads for the next avail.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringretrieval.html#cfn-mediatailor-prefetchschedule-recurringretrieval-delayafteravailendseconds
+            '''
+            result = self._values.get("delay_after_avail_end_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def dynamic_variables(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''The dynamic variables to use for substitution during prefetch requests to the ADS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringretrieval.html#cfn-mediatailor-prefetchschedule-recurringretrieval-dynamicvariables
+            '''
+            result = self._values.get("dynamic_variables")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def traffic_shaping_retrieval_window(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringretrieval.html#cfn-mediatailor-prefetchschedule-recurringretrieval-trafficshapingretrievalwindow
+            '''
+            result = self._values.get("traffic_shaping_retrieval_window")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty"]], result)
+
+        @builtins.property
+        def traffic_shaping_tps_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringretrieval.html#cfn-mediatailor-prefetchschedule-recurringretrieval-trafficshapingtpsconfiguration
+            '''
+            result = self._values.get("traffic_shaping_tps_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty"]], result)
+
+        @builtins.property
+        def traffic_shaping_type(self) -> typing.Optional[builtins.str]:
+            '''Indicates the type of traffic shaping used to limit the number of requests to the ADS at one time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringretrieval.html#cfn-mediatailor-prefetchschedule-recurringretrieval-trafficshapingtype
+            '''
+            result = self._values.get("traffic_shaping_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecurringRetrievalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "retrieval_window_duration_seconds": "retrievalWindowDurationSeconds",
+        },
+    )
+    class TrafficShapingRetrievalWindowProperty:
+        def __init__(
+            self,
+            *,
+            retrieval_window_duration_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param retrieval_window_duration_seconds: The amount of time, in seconds, that MediaTailor spreads prefetch requests to the ADS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-trafficshapingretrievalwindow.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                traffic_shaping_retrieval_window_property = mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty(
+                    retrieval_window_duration_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__72ad8a6953ae3d4cd6c48d9ff13d2d032668dfad2a83cd1e697b0fa6669d7b40)
+                check_type(argname="argument retrieval_window_duration_seconds", value=retrieval_window_duration_seconds, expected_type=type_hints["retrieval_window_duration_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if retrieval_window_duration_seconds is not None:
+                self._values["retrieval_window_duration_seconds"] = retrieval_window_duration_seconds
+
+        @builtins.property
+        def retrieval_window_duration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The amount of time, in seconds, that MediaTailor spreads prefetch requests to the ADS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-trafficshapingretrievalwindow.html#cfn-mediatailor-prefetchschedule-trafficshapingretrievalwindow-retrievalwindowdurationseconds
+            '''
+            result = self._values.get("retrieval_window_duration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrafficShapingRetrievalWindowProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "peak_concurrent_users": "peakConcurrentUsers",
+            "peak_tps": "peakTps",
+        },
+    )
+    class TrafficShapingTpsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            peak_concurrent_users: typing.Optional[jsii.Number] = None,
+            peak_tps: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param peak_concurrent_users: The expected peak number of concurrent viewers for your content.
+            :param peak_tps: The maximum number of transactions per second (TPS) that your ad decision server (ADS) can handle.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-trafficshapingtpsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                traffic_shaping_tps_configuration_property = mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty(
+                    peak_concurrent_users=123,
+                    peak_tps=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__75d12d072deb9d1c155a01a6845b704c9e65ffe9d4675dab270978f29c3881b5)
+                check_type(argname="argument peak_concurrent_users", value=peak_concurrent_users, expected_type=type_hints["peak_concurrent_users"])
+                check_type(argname="argument peak_tps", value=peak_tps, expected_type=type_hints["peak_tps"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if peak_concurrent_users is not None:
+                self._values["peak_concurrent_users"] = peak_concurrent_users
+            if peak_tps is not None:
+                self._values["peak_tps"] = peak_tps
+
+        @builtins.property
+        def peak_concurrent_users(self) -> typing.Optional[jsii.Number]:
+            '''The expected peak number of concurrent viewers for your content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-trafficshapingtpsconfiguration.html#cfn-mediatailor-prefetchschedule-trafficshapingtpsconfiguration-peakconcurrentusers
+            '''
+            result = self._values.get("peak_concurrent_users")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def peak_tps(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of transactions per second (TPS) that your ad decision server (ADS) can handle.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-trafficshapingtpsconfiguration.html#cfn-mediatailor-prefetchschedule-trafficshapingtpsconfiguration-peaktps
+            '''
+            result = self._values.get("peak_tps")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrafficShapingTpsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnPrefetchScheduleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "playback_configuration_name": "playbackConfigurationName",
+        "consumption": "consumption",
+        "recurring_prefetch_configuration": "recurringPrefetchConfiguration",
+        "retrieval": "retrieval",
+        "schedule_type": "scheduleType",
+        "stream_id": "streamId",
+        "tags": "tags",
+    },
+)
+class CfnPrefetchScheduleProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        playback_configuration_name: builtins.str,
+        consumption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.PrefetchConsumptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        recurring_prefetch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        retrieval: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrefetchSchedule.PrefetchRetrievalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schedule_type: typing.Optional[builtins.str] = None,
+        stream_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPrefetchSchedule``.
+
+        :param name: The name to assign to the prefetch schedule.
+        :param playback_configuration_name: The name of the playback configuration.
+        :param consumption: 
+        :param recurring_prefetch_configuration: 
+        :param retrieval: 
+        :param schedule_type: The frequency that MediaTailor creates prefetch schedules.
+        :param stream_id: An optional stream identifier that MediaTailor uses to prefetch ads for multiple streams that use the same playback configuration.
+        :param tags: The tags assigned to the prefetch schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            cfn_prefetch_schedule_props = mediatailor.CfnPrefetchScheduleProps(
+                name="name",
+                playback_configuration_name="playbackConfigurationName",
+            
+                # the properties below are optional
+                consumption=mediatailor.CfnPrefetchSchedule.PrefetchConsumptionProperty(
+                    end_time="endTime",
+            
+                    # the properties below are optional
+                    avail_matching_criteria=[mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty(
+                        dynamic_variable="dynamicVariable",
+                        operator="operator"
+                    )],
+                    start_time="startTime"
+                ),
+                recurring_prefetch_configuration=mediatailor.CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty(
+                    end_time="endTime",
+                    recurring_consumption=mediatailor.CfnPrefetchSchedule.RecurringConsumptionProperty(
+                        avail_matching_criteria=[mediatailor.CfnPrefetchSchedule.AvailMatchingCriteriaProperty(
+                            dynamic_variable="dynamicVariable",
+                            operator="operator"
+                        )],
+                        retrieved_ad_expiration_seconds=123
+                    ),
+                    recurring_retrieval=mediatailor.CfnPrefetchSchedule.RecurringRetrievalProperty(
+                        delay_after_avail_end_seconds=123,
+                        dynamic_variables={
+                            "dynamic_variables_key": "dynamicVariables"
+                        },
+                        traffic_shaping_retrieval_window=mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty(
+                            retrieval_window_duration_seconds=123
+                        ),
+                        traffic_shaping_tps_configuration=mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty(
+                            peak_concurrent_users=123,
+                            peak_tps=123
+                        ),
+                        traffic_shaping_type="trafficShapingType"
+                    ),
+            
+                    # the properties below are optional
+                    start_time="startTime"
+                ),
+                retrieval=mediatailor.CfnPrefetchSchedule.PrefetchRetrievalProperty(
+                    end_time="endTime",
+            
+                    # the properties below are optional
+                    dynamic_variables={
+                        "dynamic_variables_key": "dynamicVariables"
+                    },
+                    start_time="startTime",
+                    traffic_shaping_retrieval_window=mediatailor.CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty(
+                        retrieval_window_duration_seconds=123
+                    ),
+                    traffic_shaping_tps_configuration=mediatailor.CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty(
+                        peak_concurrent_users=123,
+                        peak_tps=123
+                    ),
+                    traffic_shaping_type="trafficShapingType"
+                ),
+                schedule_type="scheduleType",
+                stream_id="streamId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51933737a0a3bf5f476a73e634bbeb2dfebf67ef8c85c29f58466fd17df23d63)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument playback_configuration_name", value=playback_configuration_name, expected_type=type_hints["playback_configuration_name"])
+            check_type(argname="argument consumption", value=consumption, expected_type=type_hints["consumption"])
+            check_type(argname="argument recurring_prefetch_configuration", value=recurring_prefetch_configuration, expected_type=type_hints["recurring_prefetch_configuration"])
+            check_type(argname="argument retrieval", value=retrieval, expected_type=type_hints["retrieval"])
+            check_type(argname="argument schedule_type", value=schedule_type, expected_type=type_hints["schedule_type"])
+            check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "playback_configuration_name": playback_configuration_name,
+        }
+        if consumption is not None:
+            self._values["consumption"] = consumption
+        if recurring_prefetch_configuration is not None:
+            self._values["recurring_prefetch_configuration"] = recurring_prefetch_configuration
+        if retrieval is not None:
+            self._values["retrieval"] = retrieval
+        if schedule_type is not None:
+            self._values["schedule_type"] = schedule_type
+        if stream_id is not None:
+            self._values["stream_id"] = stream_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name to assign to the prefetch schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html#cfn-mediatailor-prefetchschedule-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def playback_configuration_name(self) -> builtins.str:
+        '''The name of the playback configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html#cfn-mediatailor-prefetchschedule-playbackconfigurationname
+        '''
+        result = self._values.get("playback_configuration_name")
+        assert result is not None, "Required property 'playback_configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def consumption(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchConsumptionProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html#cfn-mediatailor-prefetchschedule-consumption
+        '''
+        result = self._values.get("consumption")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchConsumptionProperty"]], result)
+
+    @builtins.property
+    def recurring_prefetch_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html#cfn-mediatailor-prefetchschedule-recurringprefetchconfiguration
+        '''
+        result = self._values.get("recurring_prefetch_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty"]], result)
+
+    @builtins.property
+    def retrieval(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchRetrievalProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html#cfn-mediatailor-prefetchschedule-retrieval
+        '''
+        result = self._values.get("retrieval")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrefetchSchedule.PrefetchRetrievalProperty"]], result)
+
+    @builtins.property
+    def schedule_type(self) -> typing.Optional[builtins.str]:
+        '''The frequency that MediaTailor creates prefetch schedules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html#cfn-mediatailor-prefetchschedule-scheduletype
+        '''
+        result = self._values.get("schedule_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def stream_id(self) -> typing.Optional[builtins.str]:
+        '''An optional stream identifier that MediaTailor uses to prefetch ads for multiple streams that use the same playback configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html#cfn-mediatailor-prefetchschedule-streamid
+        '''
+        result = self._values.get("stream_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags assigned to the prefetch schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html#cfn-mediatailor-prefetchschedule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPrefetchScheduleProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5242,10 +8065,14 @@ __all__ = [
     "CfnChannelPolicy",
     "CfnChannelPolicyProps",
     "CfnChannelProps",
+    "CfnFunction",
+    "CfnFunctionProps",
     "CfnLiveSource",
     "CfnLiveSourceProps",
     "CfnPlaybackConfiguration",
     "CfnPlaybackConfigurationProps",
+    "CfnPrefetchSchedule",
+    "CfnPrefetchScheduleProps",
     "CfnSourceLocation",
     "CfnSourceLocationProps",
     "CfnVodSource",
@@ -5478,6 +8305,139 @@ def _typecheckingstub__34f9c53dfc17c104058553b2c51bffbfeea7885ab9628618cedcaf863
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cd96c58f31f24adb3cea08347b5cb88afb7a1644c1d49acf5ea18ef7e858b6b4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    function_id: builtins.str,
+    function_type: builtins.str,
+    custom_output_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    http_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sequential_executor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.SequentialExecutorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1622bc3b9fb588270223d9f7e4597e460a8eb30134a5e06d974142e25db0e60(
+    resource: _aws_mediatailor_60404695.IFunctionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75251cc24b0becd917928021558ddb9ae78d087dab72897b6c0dd0a109fe49ea(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81d78839ae256142aacfd95c57d31064da1eb11fcf3df6b8c58cab6aef81d452(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0691ea7e84dd9690413b0c03614038e090ff0deec3c43edc0664a06d3031c7ce(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e672160af6c70e20c93ee58a3d25e27152153feb541dc68112b2310551674635(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb28c3052dd431563a7b26a7dce4b50d1c29abc2106f42fa0a5329270452f9c9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d34312157c19e7408ec3ea1cda432a669a0967161e5df7dda4eab223f9a0b044(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.CustomOutputConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2219a19201f0a17be79ff6717a47ca2d73b9c0b9ed0432d4890f90b4256b4d3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a807bd0f7ad759c090dcf86e543a221b7023a5c09b76d141eebdf0d9505192e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.HttpRequestConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85ad517a9634af2cf1cf7cddd2dd3cecff513a52e7a1bb68e109fc8982897972(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.SequentialExecutorConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b65b0a9bacbd0f65526afeb7cf1e0c3ca3773c11abb883bbf33a47ef72445de0(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61544711aa26c5056e9b4d3cfab7dee3d6eaa0f011cb57fde19c711b08a922de(
+    *,
+    runtime: builtins.str,
+    output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5737ad8fdf57086197584ef5d9e43c62428f917f712bc50c4302371649b0c300(
+    *,
+    function_id: typing.Optional[builtins.str] = None,
+    run_condition: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f6999ed1a463a1d66432cdff27ee1e9591dc5d3ae4707cd971a7668661f38f8(
+    *,
+    method_type: builtins.str,
+    request_timeout_milliseconds: jsii.Number,
+    runtime: builtins.str,
+    url: builtins.str,
+    body: typing.Optional[builtins.str] = None,
+    headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__500d6a7aa0edd3b223d18e64c8c78d74551a1f7285ddd9f7bcf2f3958acdb83d(
+    *,
+    function_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.FunctionRefProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    runtime: builtins.str,
+    timeout_milliseconds: jsii.Number,
+    output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a7008df40fa116385e225dc9fc11c5a0c3905883fa95cd4742d1f9506eddc5e(
+    *,
+    function_id: builtins.str,
+    function_type: builtins.str,
+    custom_output_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    http_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sequential_executor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.SequentialExecutorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__caad9e925cf2074f54088c0241999fdbc5c194736555867b7765527f3cac0b4a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5566,6 +8526,8 @@ def _typecheckingstub__3dcfb97a898a80ee6a7b069e26028183e8a797f0c48fdbd4fe6ecb8ad
     video_content_source_url: builtins.str,
     ad_conditioning_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ad_decision_server_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ads_personalization_concurrency: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ads_personalization_timeouts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     avail_suppression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bumper: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cdn_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5635,6 +8597,18 @@ def _typecheckingstub__bb81abb7826e9e9444261d39e06ed23acbaea73a559203da5ca788273
 
 def _typecheckingstub__22beebeb31ad301089cab0d08fffbf7d70892dcdea0070ebbc8c036efa8475c2(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a729a919a8e3f978c846240e1014b7c0fec80dd63195aa5866c57644d4451e2(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13ee4b8d1ac254be276c7782458b9e78d24c83f92c6f56af8e12ac5df9cc47fb(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5739,6 +8713,7 @@ def _typecheckingstub__86f7802737ba8294b0aa8d203c7f9bc7ff38b98bf17f1f9066c772b20
 def _typecheckingstub__be522b7afa0a40f87526bb5baa285488ee37ade9f2edd720c05a21cdcf1ba383(
     *,
     http_request: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.HttpRequestProperty, typing.Dict[builtins.str, typing.Any]]],
+    vast_response: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.VastResponseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5754,6 +8729,25 @@ def _typecheckingstub__325f2da032e4a3f14a765ea1c946c8707bfd649b7df813a9bf9d270b2
     *,
     exclude_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     publish_opt_in_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c54804620edf90d6d14b94d837c502afb0350e36766d359c51c934fb9de93d10(
+    *,
+    enable_vod_vast_parallelization: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    max_concurrent_ads_requests: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__081de2ae59707e39bdb75d2de6531849e92a0be4913aa6286dd36f4fce70bbee(
+    *,
+    ads_request_timeout_milliseconds: typing.Optional[jsii.Number] = None,
+    live_maximum_ads_personalization_time_milliseconds: typing.Optional[jsii.Number] = None,
+    prefetch_ads_request_timeout_milliseconds: typing.Optional[jsii.Number] = None,
+    prefetch_maximum_ads_personalization_time_milliseconds: typing.Optional[jsii.Number] = None,
+    vod_maximum_ads_personalization_time_milliseconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5811,6 +8805,7 @@ def _typecheckingstub__7a1a27fdd711151047a9a372fb7f330c24afc446e3e97dd914e66a4a4
 
 def _typecheckingstub__be1326ff9046a5c3b87adfaac42a0610149574f9d367d1c04949ccf8a48d1a93(
     *,
+    ad_decision_server_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.PreRollAdDecisionServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ad_decision_server_url: typing.Optional[builtins.str] = None,
     max_duration_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -5841,6 +8836,27 @@ def _typecheckingstub__877d8a60ce1cb5812848b2604b2ff4a34e5662596f05cca7a6a335a5f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c891247344a5816c5f6036ffe8b027890782702417987f5fe28421b1757a52f5(
+    *,
+    vast_response: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.PreRollVastResponseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__770bca0bb4db614052f95822f0ce3e52f118ce264f511205bda617ca7797829a(
+    *,
+    ad_sequencing_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5eccc314698469708f3b54b63cf366c2cda8be0723d3d1b1140bc18e7ffe980(
+    *,
+    ad_sequencing_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c011539346f8(
     *,
     ad_decision_server_url: builtins.str,
@@ -5848,6 +8864,8 @@ def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c0115
     video_content_source_url: builtins.str,
     ad_conditioning_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ad_decision_server_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ads_personalization_concurrency: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ads_personalization_timeouts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     avail_suppression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bumper: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cdn_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5863,6 +8881,181 @@ def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c0115
     slate_ad_url: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     transcode_profile_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cda230bb96c6a9dde0582b55cf131524f9dfc5b99d2f757c2fc0d3232e38bf74(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    playback_configuration_name: builtins.str,
+    consumption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.PrefetchConsumptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    recurring_prefetch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retrieval: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.PrefetchRetrievalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schedule_type: typing.Optional[builtins.str] = None,
+    stream_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9494a130ab023cb8f1efc4abac0a1a99f59b2235691c53eb96ba51ecebaa725(
+    resource: _aws_mediatailor_60404695.IPrefetchScheduleRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7b415e15129c07ef912c53b46ad5b2fef8f90e537665ed39a283b8dbf7e3ba2(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bff129f6ff7e96dfe9ed305243681d972d3a5078f8e1f8bd03dfc7a6bd77e51(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50bf6fc42f5a3633ecf526f1a716df7113700d9218eaa290702d12ba126775e8(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd8fc0fd997068a5a9913c04ff0cfc0f761c7da140916bf37f02b29f5cc7742a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9dabe2e2008888c9c945448e0d661fbdd8564f685ee56d6a1779e29d4cad4ec4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2b6374edcf95c8a9b4cce6071faefac50f1526b162dfaf0479417803056905d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPrefetchSchedule.PrefetchConsumptionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4dceeb4970cc6d2cadedc0218d4ac6586f2d7683ae6a1b0268ddce2f6705f92(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8b1ee3296f2489c46c64734a0363c25b87a5d06c5571dee7c59e32959a089c5(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPrefetchSchedule.PrefetchRetrievalProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98ea4297602a4c698f4a7a596e39444f37df263a76058421ef00d6ab44adc7e3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1d1ce3c2153a851f8bc18f289d2e3c3b7e8626f0492a8b9c5007908df5d1248(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2898d6ee5d6cf5febc03f59aedc49d2edbe5e8595ca50d955206285ca9833352(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e58a7f144bd17d3319e9ad03250010949871dc8836ac9ac67237335d03084d7c(
+    *,
+    dynamic_variable: builtins.str,
+    operator: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18c177a23efbd7d3f4f9690a9e27fa151a0a90be1132ce2f4efab08eabda9232(
+    *,
+    end_time: builtins.str,
+    avail_matching_criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.AvailMatchingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    start_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00c2ecb75839a35994f3696a2d7c3d544f3638146358e28982fb7c42826178f3(
+    *,
+    end_time: builtins.str,
+    dynamic_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    start_time: typing.Optional[builtins.str] = None,
+    traffic_shaping_retrieval_window: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    traffic_shaping_tps_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    traffic_shaping_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2a371af0ad0c1d79415ae11b9755cca464c7035c6f622d511446260cef06603(
+    *,
+    avail_matching_criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.AvailMatchingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    retrieved_ad_expiration_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05bd8652a49c8686098c037ea3c9547bb9a1f7c2a92b033cc181e6fdf0428f4d(
+    *,
+    end_time: builtins.str,
+    recurring_consumption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.RecurringConsumptionProperty, typing.Dict[builtins.str, typing.Any]]],
+    recurring_retrieval: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.RecurringRetrievalProperty, typing.Dict[builtins.str, typing.Any]]],
+    start_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00104803c0902da691a3e7ce3c7070e8259a6ffed7ee23a85b48e3f039e8f0f2(
+    *,
+    delay_after_avail_end_seconds: typing.Optional[jsii.Number] = None,
+    dynamic_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    traffic_shaping_retrieval_window: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.TrafficShapingRetrievalWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    traffic_shaping_tps_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.TrafficShapingTpsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    traffic_shaping_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72ad8a6953ae3d4cd6c48d9ff13d2d032668dfad2a83cd1e697b0fa6669d7b40(
+    *,
+    retrieval_window_duration_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75d12d072deb9d1c155a01a6845b704c9e65ffe9d4675dab270978f29c3881b5(
+    *,
+    peak_concurrent_users: typing.Optional[jsii.Number] = None,
+    peak_tps: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51933737a0a3bf5f476a73e634bbeb2dfebf67ef8c85c29f58466fd17df23d63(
+    *,
+    name: builtins.str,
+    playback_configuration_name: builtins.str,
+    consumption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.PrefetchConsumptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    recurring_prefetch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.RecurringPrefetchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retrieval: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrefetchSchedule.PrefetchRetrievalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schedule_type: typing.Optional[builtins.str] = None,
+    stream_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1166,14 +1166,13 @@ class ImageBuilderReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_appstream.StackFleetAssociationReference",
     jsii_struct_bases=[],
-    name_mapping={"fleet_name": "fleetName", "stack_name": "stackName"},
+    name_mapping={"stack_fleet_association_id": "stackFleetAssociationId"},
 )
 class StackFleetAssociationReference:
-    def __init__(self, *, fleet_name: builtins.str, stack_name: builtins.str) -> None:
+    def __init__(self, *, stack_fleet_association_id: builtins.str) -> None:
         '''A reference to a StackFleetAssociation resource.
 
-        :param fleet_name: The FleetName of the StackFleetAssociation resource.
-        :param stack_name: The StackName of the StackFleetAssociation resource.
+        :param stack_fleet_association_id: The Id of the StackFleetAssociation resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1184,31 +1183,21 @@ class StackFleetAssociationReference:
             from aws_cdk.interfaces import aws_appstream as interfaces_appstream
             
             stack_fleet_association_reference = interfaces_appstream.StackFleetAssociationReference(
-                fleet_name="fleetName",
-                stack_name="stackName"
+                stack_fleet_association_id="stackFleetAssociationId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__75af852a1fd8c23c7edb9bd59224cb6cbb18155271a51d4cad9dbd81f024f528)
-            check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
-            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+            check_type(argname="argument stack_fleet_association_id", value=stack_fleet_association_id, expected_type=type_hints["stack_fleet_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "fleet_name": fleet_name,
-            "stack_name": stack_name,
+            "stack_fleet_association_id": stack_fleet_association_id,
         }
 
     @builtins.property
-    def fleet_name(self) -> builtins.str:
-        '''The FleetName of the StackFleetAssociation resource.'''
-        result = self._values.get("fleet_name")
-        assert result is not None, "Required property 'fleet_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_name(self) -> builtins.str:
-        '''The StackName of the StackFleetAssociation resource.'''
-        result = self._values.get("stack_name")
-        assert result is not None, "Required property 'stack_name' is missing"
+    def stack_fleet_association_id(self) -> builtins.str:
+        '''The Id of the StackFleetAssociation resource.'''
+        result = self._values.get("stack_fleet_association_id")
+        assert result is not None, "Required property 'stack_fleet_association_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1535,8 +1524,7 @@ def _typecheckingstub__efd8c28dc257befffc80371dd057b43178b4a6070998fd325b2917af4
 
 def _typecheckingstub__75af852a1fd8c23c7edb9bd59224cb6cbb18155271a51d4cad9dbd81f024f528(
     *,
-    fleet_name: builtins.str,
-    stack_name: builtins.str,
+    stack_fleet_association_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

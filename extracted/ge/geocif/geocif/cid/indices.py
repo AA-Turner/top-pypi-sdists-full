@@ -1792,6 +1792,8 @@ class CIDs:
                 eo_vars.append("ENSO")
             if "cci" in df_group.columns:
                 eo_vars.append("CCI")
+            if "cci_ge" in df_group.columns:
+                eo_vars.append("CCIGE")
             # NOTE: static per-region variables (aridity, soil_*) are NOT
             # emitted as staged CID rows — they carry no time dimension, so
             # per-stage rows would only duplicate one constant. They reach
@@ -1947,6 +1949,8 @@ class CIDs:
             dict_eo = di.dict_enso
         elif var == "CCI":
             dict_eo = di.dict_cci
+        elif var == "CCIGE":
+            dict_eo = di.dict_ccige
         else:
             return pd.DataFrame()  # unknown var
 
@@ -1966,6 +1970,8 @@ class CIDs:
             # Map index name to actual column in df_time_period
             if iname.startswith("AEF_"):
                 col_name = iname.lower()  # AEF_1 → aef_1
+            elif iname.endswith("_CCIGE"):
+                col_name = "cci_ge"  # %Good+Excellent share (farmdoc metric)
             elif iname.endswith("_CCI"):
                 col_name = "cci"  # MEAN_CCI/MAX_CCI/MIN_CCI -> merged 'cci' column
             elif iname in di.fldas_col_map:

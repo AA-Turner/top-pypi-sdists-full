@@ -775,6 +775,12 @@ class TestPlain:
         output.heading("Section")
         assert capsys.readouterr().out == "==> Section\n"
 
+    def test_heading_stream_routes_off_stdout(self, capsys):
+        output.heading("Section", stream=sys.stderr)
+        cap = capsys.readouterr()
+        assert cap.out == ""
+        assert cap.err == "==> Section\n"
+
     def test_verdict_healthy_plain(self, capsys):
         output.verdict(True, "healthy")
         assert capsys.readouterr().out == "  ● healthy\n"
@@ -907,6 +913,12 @@ class TestTable:
         output.table([(1, 22.5)])
         assert capsys.readouterr().out == "1  22.5\n"
 
+    def test_stream_routes_headers_and_rows_off_stdout(self, capsys):
+        output.table([("x", "1")], headers=["NAME", "N"], stream=sys.stderr)
+        cap = capsys.readouterr()
+        assert cap.out == ""
+        assert cap.err == "NAME  N\nx     1\n"
+
 
 class TestRpad:
     def test_pads_left_to_visible_width(self):
@@ -944,6 +956,16 @@ class TestNumericCol:
     def test_numeric_measured_ignoring_color(self, monkeypatch):
         monkeypatch.setenv("CLICOLOR_FORCE", "1")
         assert output._numeric_col([output.aurora("5", "green"), "10"]) is True
+
+    def test_dash_placeholder_ignored_like_blank(self):
+        # `boost impact`'s COMMITS SINCE column: some rows have a real count,
+        # others show "—" for "no data" — the placeholder must not knock the
+        # whole column back to left-aligned text.
+        assert output._numeric_col(["1", "—", "300"]) is True
+
+    def test_all_dash_placeholder_is_not_numeric(self):
+        # nothing to right-align when every row is the placeholder.
+        assert output._numeric_col(["—", "—"]) is False
 
 
 class TestClipVisible:
@@ -1004,6 +1026,18 @@ class TestTableWidthAware:
             "NAME     N\n"
             "alpha    5\n"
             "b      100\n")
+
+    def test_dash_placeholder_row_stays_right_aligned(self, capsys, monkeypatch):
+        monkeypatch.setattr(output, "term_width", lambda: 80)
+        output.table([("alpha", "5"), ("b", "—"), ("cc", "100")],
+                     headers=("NAME", "N"))
+        # a placeholder row keeps the count column right-aligned instead of
+        # dragging the whole column back to left-justified text.
+        assert capsys.readouterr().out == (
+            "NAME     N\n"
+            "alpha    5\n"
+            "b        —\n"
+            "cc     100\n")
 
     def test_overflow_shrinks_text_not_numeric(self, capsys, monkeypatch):
         monkeypatch.setattr(output, "term_width", lambda: 24)

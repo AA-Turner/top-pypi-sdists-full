@@ -1290,7 +1290,7 @@ class CfnCanary(
 
     Example::
 
-        from aws_cdk import CfnTag
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_synthetics as synthetics
@@ -1338,7 +1338,32 @@ class CfnCanary(
             delete_lambda_resources_on_canary_deletion=False,
             dry_run_and_update=False,
             failure_retention_period=123,
+            kms_key_arn="kmsKeyArn",
             provisioned_resource_cleanup="provisionedResourceCleanup",
+            replicas=[synthetics.CfnCanary.ReplicaProperty(
+                location="location",
+        
+                # the properties below are optional
+                canary_state="canaryState",
+                kms_key_arn="kmsKeyArn",
+                last_modified=123,
+                replication_status=synthetics.CfnCanary.ReplicaReplicationStatusProperty(
+                    state="state"
+                ),
+                resources_to_replicate_tags=["resourcesToReplicateTags"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_config=synthetics.CfnCanary.VPCConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"],
+        
+                    # the properties below are optional
+                    ipv6_allowed_for_dual_stack=False,
+                    vpc_id="vpcId"
+                )
+            )],
             resources_to_replicate_tags=["resourcesToReplicateTags"],
             run_config=synthetics.CfnCanary.RunConfigProperty(
                 active_tracing=False,
@@ -1406,7 +1431,9 @@ class CfnCanary(
         delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         dry_run_and_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         failure_retention_period: typing.Optional[jsii.Number] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
+        replicas: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.ReplicaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         run_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -1431,7 +1458,9 @@ class CfnCanary(
         :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
         :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
+        :param kms_key_arn: KMS key ARN for encrypting the canary's Lambda function environment variables at rest. If omitted, Lambda uses an AWS-managed key.
         :param provisioned_resource_cleanup: Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted. If it is ``AUTOMATIC`` , the Lambda functions and layers will be deleted when the canary is deleted. If the value of this parameter is ``OFF`` , then the value of the ``DeleteLambda`` parameter of the `DeleteCanary <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_DeleteCanary.html>`_ operation determines whether the Lambda functions and layers will be deleted.
+        :param replicas: List of replica locations for multi-location canary execution.
         :param resources_to_replicate_tags: To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` . If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
         :param run_config: A structure that contains input information for a canary run. If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
         :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
@@ -1457,7 +1486,9 @@ class CfnCanary(
             delete_lambda_resources_on_canary_deletion=delete_lambda_resources_on_canary_deletion,
             dry_run_and_update=dry_run_and_update,
             failure_retention_period=failure_retention_period,
+            kms_key_arn=kms_key_arn,
             provisioned_resource_cleanup=provisioned_resource_cleanup,
+            replicas=replicas,
             resources_to_replicate_tags=resources_to_replicate_tags,
             run_config=run_config,
             start_canary_after_creation=start_canary_after_creation,
@@ -1777,6 +1808,19 @@ class CfnCanary(
         jsii.set(self, "failureRetentionPeriod", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''KMS key ARN for encrypting the canary's Lambda function environment variables at rest.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__04631a9f0e2021a499f30f72ffa11c84d18702f0dc79d69dc901b3746afe36f2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="provisionedResourceCleanup")
     def provisioned_resource_cleanup(self) -> typing.Optional[builtins.str]:
         '''Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted.'''
@@ -1791,6 +1835,24 @@ class CfnCanary(
             type_hints = cached_type_hints(_typecheckingstub__96109df9d60c71521163998336c5f5484d9c206feb0e627cbb2db11c169128bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisionedResourceCleanup", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replicas")
+    def replicas(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ReplicaProperty"]]]]:
+        '''List of replica locations for multi-location canary execution.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ReplicaProperty"]]]], jsii.get(self, "replicas"))
+
+    @replicas.setter
+    def replicas(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ReplicaProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f4349880a69be5b8c367f4cec1292801e20cb670d42c87183394d425f76ab86d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicas", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="resourcesToReplicateTags")
@@ -2391,6 +2453,247 @@ class CfnCanary(
 
         def __repr__(self) -> str:
             return "DependencyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.ReplicaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "location": "location",
+            "canary_state": "canaryState",
+            "kms_key_arn": "kmsKeyArn",
+            "last_modified": "lastModified",
+            "replication_status": "replicationStatus",
+            "resources_to_replicate_tags": "resourcesToReplicateTags",
+            "tags": "tags",
+            "vpc_config": "vpcConfig",
+        },
+    )
+    class ReplicaProperty:
+        def __init__(
+            self,
+            *,
+            location: builtins.str,
+            canary_state: typing.Optional[builtins.str] = None,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+            last_modified: typing.Optional[jsii.Number] = None,
+            replication_status: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.ReplicaReplicationStatusProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration and status for a replica location in a multi-location canary.
+
+            :param location: AWS region for the replica (e.g., us-east-1).
+            :param canary_state: State of the replica canary (CREATING, READY, RUNNING, etc.).
+            :param kms_key_arn: ARN of the KMS key used to encrypt the replica canary's Lambda function environment variables.
+            :param last_modified: Last modified timestamp of the replica.
+            :param replication_status: Replication status details.
+            :param resources_to_replicate_tags: Resources to replicate tags to for this replica (e.g., lambda-function).
+            :param tags: Tags to apply to this replica canary and optionally its Lambda function.
+            :param vpc_config: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                from aws_cdk import CfnTag
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                replica_property = synthetics.CfnCanary.ReplicaProperty(
+                    location="location",
+                
+                    # the properties below are optional
+                    canary_state="canaryState",
+                    kms_key_arn="kmsKeyArn",
+                    last_modified=123,
+                    replication_status=synthetics.CfnCanary.ReplicaReplicationStatusProperty(
+                        state="state"
+                    ),
+                    resources_to_replicate_tags=["resourcesToReplicateTags"],
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    vpc_config=synthetics.CfnCanary.VPCConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"],
+                
+                        # the properties below are optional
+                        ipv6_allowed_for_dual_stack=False,
+                        vpc_id="vpcId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__674d00a405ad5b128a9c2e4e6b5bf318624dc1813eba5dbd329122870341f139)
+                check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+                check_type(argname="argument canary_state", value=canary_state, expected_type=type_hints["canary_state"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+                check_type(argname="argument last_modified", value=last_modified, expected_type=type_hints["last_modified"])
+                check_type(argname="argument replication_status", value=replication_status, expected_type=type_hints["replication_status"])
+                check_type(argname="argument resources_to_replicate_tags", value=resources_to_replicate_tags, expected_type=type_hints["resources_to_replicate_tags"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+                check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "location": location,
+            }
+            if canary_state is not None:
+                self._values["canary_state"] = canary_state
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+            if last_modified is not None:
+                self._values["last_modified"] = last_modified
+            if replication_status is not None:
+                self._values["replication_status"] = replication_status
+            if resources_to_replicate_tags is not None:
+                self._values["resources_to_replicate_tags"] = resources_to_replicate_tags
+            if tags is not None:
+                self._values["tags"] = tags
+            if vpc_config is not None:
+                self._values["vpc_config"] = vpc_config
+
+        @builtins.property
+        def location(self) -> builtins.str:
+            '''AWS region for the replica (e.g., us-east-1).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html#cfn-synthetics-canary-replica-location
+            '''
+            result = self._values.get("location")
+            assert result is not None, "Required property 'location' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def canary_state(self) -> typing.Optional[builtins.str]:
+            '''State of the replica canary (CREATING, READY, RUNNING, etc.).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html#cfn-synthetics-canary-replica-canarystate
+            '''
+            result = self._values.get("canary_state")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''ARN of the KMS key used to encrypt the replica canary's Lambda function environment variables.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html#cfn-synthetics-canary-replica-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def last_modified(self) -> typing.Optional[jsii.Number]:
+            '''Last modified timestamp of the replica.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html#cfn-synthetics-canary-replica-lastmodified
+            '''
+            result = self._values.get("last_modified")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def replication_status(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ReplicaReplicationStatusProperty"]]:
+            '''Replication status details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html#cfn-synthetics-canary-replica-replicationstatus
+            '''
+            result = self._values.get("replication_status")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ReplicaReplicationStatusProperty"]], result)
+
+        @builtins.property
+        def resources_to_replicate_tags(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''Resources to replicate tags to for this replica (e.g., lambda-function).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html#cfn-synthetics-canary-replica-resourcestoreplicatetags
+            '''
+            result = self._values.get("resources_to_replicate_tags")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+            '''Tags to apply to this replica canary and optionally its Lambda function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html#cfn-synthetics-canary-replica-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+        @builtins.property
+        def vpc_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VPCConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replica.html#cfn-synthetics-canary-replica-vpcconfig
+            '''
+            result = self._values.get("vpc_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VPCConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.ReplicaReplicationStatusProperty",
+        jsii_struct_bases=[],
+        name_mapping={"state": "state"},
+    )
+    class ReplicaReplicationStatusProperty:
+        def __init__(self, *, state: typing.Optional[builtins.str] = None) -> None:
+            '''Replication status details.
+
+            :param state: Replication state: InProgress, InSync, or Inconsistent.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replicareplicationstatus.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                replica_replication_status_property = synthetics.CfnCanary.ReplicaReplicationStatusProperty(
+                    state="state"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d9e572338e359bb806b69e6fc006882bcc7c8a9f5e5cec26d9cc196f2f1179be)
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if state is not None:
+                self._values["state"] = state
+
+        @builtins.property
+        def state(self) -> typing.Optional[builtins.str]:
+            '''Replication state: InProgress, InSync, or Inconsistent.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-replicareplicationstatus.html#cfn-synthetics-canary-replicareplicationstatus-state
+            '''
+            result = self._values.get("state")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicaReplicationStatusProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3014,7 +3317,9 @@ class CfnCanary(
         "delete_lambda_resources_on_canary_deletion": "deleteLambdaResourcesOnCanaryDeletion",
         "dry_run_and_update": "dryRunAndUpdate",
         "failure_retention_period": "failureRetentionPeriod",
+        "kms_key_arn": "kmsKeyArn",
         "provisioned_resource_cleanup": "provisionedResourceCleanup",
+        "replicas": "replicas",
         "resources_to_replicate_tags": "resourcesToReplicateTags",
         "run_config": "runConfig",
         "start_canary_after_creation": "startCanaryAfterCreation",
@@ -3040,7 +3345,9 @@ class CfnCanaryProps:
         delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         dry_run_and_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         failure_retention_period: typing.Optional[jsii.Number] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
+        replicas: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.ReplicaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         run_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -3063,7 +3370,9 @@ class CfnCanaryProps:
         :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
         :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
+        :param kms_key_arn: KMS key ARN for encrypting the canary's Lambda function environment variables at rest. If omitted, Lambda uses an AWS-managed key.
         :param provisioned_resource_cleanup: Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted. If it is ``AUTOMATIC`` , the Lambda functions and layers will be deleted when the canary is deleted. If the value of this parameter is ``OFF`` , then the value of the ``DeleteLambda`` parameter of the `DeleteCanary <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_DeleteCanary.html>`_ operation determines whether the Lambda functions and layers will be deleted.
+        :param replicas: List of replica locations for multi-location canary execution.
         :param resources_to_replicate_tags: To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` . If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
         :param run_config: A structure that contains input information for a canary run. If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
         :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
@@ -3078,7 +3387,7 @@ class CfnCanaryProps:
 
         Example::
 
-            from aws_cdk import CfnTag
+            from aws_cdk import CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_synthetics as synthetics
@@ -3126,7 +3435,32 @@ class CfnCanaryProps:
                 delete_lambda_resources_on_canary_deletion=False,
                 dry_run_and_update=False,
                 failure_retention_period=123,
+                kms_key_arn="kmsKeyArn",
                 provisioned_resource_cleanup="provisionedResourceCleanup",
+                replicas=[synthetics.CfnCanary.ReplicaProperty(
+                    location="location",
+            
+                    # the properties below are optional
+                    canary_state="canaryState",
+                    kms_key_arn="kmsKeyArn",
+                    last_modified=123,
+                    replication_status=synthetics.CfnCanary.ReplicaReplicationStatusProperty(
+                        state="state"
+                    ),
+                    resources_to_replicate_tags=["resourcesToReplicateTags"],
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    vpc_config=synthetics.CfnCanary.VPCConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"],
+            
+                        # the properties below are optional
+                        ipv6_allowed_for_dual_stack=False,
+                        vpc_id="vpcId"
+                    )
+                )],
                 resources_to_replicate_tags=["resourcesToReplicateTags"],
                 run_config=synthetics.CfnCanary.RunConfigProperty(
                     active_tracing=False,
@@ -3190,7 +3524,9 @@ class CfnCanaryProps:
             check_type(argname="argument delete_lambda_resources_on_canary_deletion", value=delete_lambda_resources_on_canary_deletion, expected_type=type_hints["delete_lambda_resources_on_canary_deletion"])
             check_type(argname="argument dry_run_and_update", value=dry_run_and_update, expected_type=type_hints["dry_run_and_update"])
             check_type(argname="argument failure_retention_period", value=failure_retention_period, expected_type=type_hints["failure_retention_period"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument provisioned_resource_cleanup", value=provisioned_resource_cleanup, expected_type=type_hints["provisioned_resource_cleanup"])
+            check_type(argname="argument replicas", value=replicas, expected_type=type_hints["replicas"])
             check_type(argname="argument resources_to_replicate_tags", value=resources_to_replicate_tags, expected_type=type_hints["resources_to_replicate_tags"])
             check_type(argname="argument run_config", value=run_config, expected_type=type_hints["run_config"])
             check_type(argname="argument start_canary_after_creation", value=start_canary_after_creation, expected_type=type_hints["start_canary_after_creation"])
@@ -3217,8 +3553,12 @@ class CfnCanaryProps:
             self._values["dry_run_and_update"] = dry_run_and_update
         if failure_retention_period is not None:
             self._values["failure_retention_period"] = failure_retention_period
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
         if provisioned_resource_cleanup is not None:
             self._values["provisioned_resource_cleanup"] = provisioned_resource_cleanup
+        if replicas is not None:
+            self._values["replicas"] = replicas
         if resources_to_replicate_tags is not None:
             self._values["resources_to_replicate_tags"] = resources_to_replicate_tags
         if run_config is not None:
@@ -3396,6 +3736,17 @@ class CfnCanaryProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''KMS key ARN for encrypting the canary's Lambda function environment variables at rest.
+
+        If omitted, Lambda uses an AWS-managed key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def provisioned_resource_cleanup(self) -> typing.Optional[builtins.str]:
         '''Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted.
 
@@ -3407,6 +3758,17 @@ class CfnCanaryProps:
         '''
         result = self._values.get("provisioned_resource_cleanup")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def replicas(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ReplicaProperty"]]]]:
+        '''List of replica locations for multi-location canary execution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-replicas
+        '''
+        result = self._values.get("replicas")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ReplicaProperty"]]]], result)
 
     @builtins.property
     def resources_to_replicate_tags(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6186,7 +6548,9 @@ def _typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2
     delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     failure_retention_period: typing.Optional[jsii.Number] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
+    replicas: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.ReplicaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     run_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
@@ -6297,8 +6661,20 @@ def _typecheckingstub__02a7e43f45419c4cb8e909f309f8848d4ced91d17b01d14e5ea0b8cec
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__04631a9f0e2021a499f30f72ffa11c84d18702f0dc79d69dc901b3746afe36f2(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__96109df9d60c71521163998336c5f5484d9c206feb0e627cbb2db11c169128bd(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4349880a69be5b8c367f4cec1292801e20cb670d42c87183394d425f76ab86d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.ReplicaProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6395,6 +6771,27 @@ def _typecheckingstub__02338e317b0b84f714774aabea98599cd96fe9cff23790733ad426e75
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__674d00a405ad5b128a9c2e4e6b5bf318624dc1813eba5dbd329122870341f139(
+    *,
+    location: builtins.str,
+    canary_state: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    last_modified: typing.Optional[jsii.Number] = None,
+    replication_status: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.ReplicaReplicationStatusProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9e572338e359bb806b69e6fc006882bcc7c8a9f5e5cec26d9cc196f2f1179be(
+    *,
+    state: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e7a2c989ca2c701e49af0e8032c8c49bb52546c68c9e6359df8e7a9f2c4cf9a1(
     *,
     max_retries: jsii.Number,
@@ -6462,7 +6859,9 @@ def _typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1
     delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     failure_retention_period: typing.Optional[jsii.Number] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
+    replicas: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.ReplicaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     run_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,

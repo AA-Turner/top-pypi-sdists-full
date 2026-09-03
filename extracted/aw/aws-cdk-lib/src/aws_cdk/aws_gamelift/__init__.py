@@ -1226,12 +1226,12 @@ class CfnContainerFleet(
             per_instance_container_group_definition_name="perInstanceContainerGroupDefinitionName",
             player_gateway_mode="playerGatewayMode",
             scaling_policies=[gamelift.CfnContainerFleet.ScalingPolicyProperty(
-                metric_name="metricName",
                 name="name",
         
                 # the properties below are optional
                 comparison_operator="comparisonOperator",
                 evaluation_periods=123,
+                metric_name="metricName",
                 policy_type="policyType",
                 scaling_adjustment=123,
                 scaling_adjustment_type="scalingAdjustmentType",
@@ -2654,10 +2654,10 @@ class CfnContainerFleet(
         jsii_type="aws-cdk-lib.aws_gamelift.CfnContainerFleet.ScalingPolicyProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "metric_name": "metricName",
             "name": "name",
             "comparison_operator": "comparisonOperator",
             "evaluation_periods": "evaluationPeriods",
+            "metric_name": "metricName",
             "policy_type": "policyType",
             "scaling_adjustment": "scalingAdjustment",
             "scaling_adjustment_type": "scalingAdjustmentType",
@@ -2669,10 +2669,10 @@ class CfnContainerFleet(
         def __init__(
             self,
             *,
-            metric_name: builtins.str,
             name: builtins.str,
             comparison_operator: typing.Optional[builtins.str] = None,
             evaluation_periods: typing.Optional[jsii.Number] = None,
+            metric_name: typing.Optional[builtins.str] = None,
             policy_type: typing.Optional[builtins.str] = None,
             scaling_adjustment: typing.Optional[jsii.Number] = None,
             scaling_adjustment_type: typing.Optional[builtins.str] = None,
@@ -2683,10 +2683,10 @@ class CfnContainerFleet(
 
             Scaling policies are uniquely identified by the combination of name and fleet ID.
 
-            :param metric_name: Name of the Amazon GameLift Servers-defined metric that is used to trigger a scaling adjustment. For detailed descriptions of fleet metrics, see `Monitor Amazon GameLift Servers with Amazon CloudWatch <https://docs.aws.amazon.com/gamelift/latest/developerguide/monitoring-cloudwatch.html>`_ . - *ActivatingGameSessions* -- Game sessions in the process of being created. - *ActiveGameSessions* -- Game sessions that are currently running. - *ActiveInstances* -- Fleet instances that are currently running at least one game session. - *AvailableGameSessions* -- Additional game sessions that fleet could host simultaneously, given current capacity. - *AvailablePlayerSessions* -- Empty player slots in currently active game sessions. This includes game sessions that are not currently accepting players. Reserved player slots are not included. - *CurrentPlayerSessions* -- Player slots in active game sessions that are being used by a player or are reserved for a player. - *IdleInstances* -- Active instances that are currently hosting zero game sessions. - *PercentAvailableGameSessions* -- Unused percentage of the total number of game sessions that a fleet could host simultaneously, given current capacity. Use this metric for a target-based scaling policy. - *PercentIdleInstances* -- Percentage of the total number of active instances that are hosting zero game sessions. - *QueueDepth* -- Pending game session placement requests, in any queue, where the current fleet is the top-priority destination. - *WaitTime* -- Current wait time for pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
             :param name: A descriptive label that is associated with a fleet's scaling policy. Policy names do not need to be unique.
             :param comparison_operator: Comparison operator to use when measuring a metric against the threshold value.
             :param evaluation_periods: Length of time (in minutes) the metric must be at or beyond the threshold before a scaling event is triggered.
+            :param metric_name: Name of the Amazon GameLift Servers-defined metric that is used to trigger a scaling adjustment. For detailed descriptions of fleet metrics, see `Monitor Amazon GameLift Servers with Amazon CloudWatch <https://docs.aws.amazon.com/gamelift/latest/developerguide/monitoring-cloudwatch.html>`_ . - *ActivatingGameSessions* -- Game sessions in the process of being created. - *ActiveGameSessions* -- Game sessions that are currently running. - *ActiveInstances* -- Fleet instances that are currently running at least one game session. - *AvailableGameSessions* -- Additional game sessions that fleet could host simultaneously, given current capacity. - *AvailablePlayerSessions* -- Empty player slots in currently active game sessions. This includes game sessions that are not currently accepting players. Reserved player slots are not included. - *CurrentPlayerSessions* -- Player slots in active game sessions that are being used by a player or are reserved for a player. - *IdleInstances* -- Active instances that are currently hosting zero game sessions. - *PercentAvailableGameSessions* -- Unused percentage of the total number of game sessions that a fleet could host simultaneously, given current capacity. Use this metric for a target-based scaling policy. - *PercentIdleInstances* -- Percentage of the total number of active instances that are hosting zero game sessions. - *QueueDepth* -- Pending game session placement requests, in any queue, where the current fleet is the top-priority destination. - *WaitTime* -- Current wait time for pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
             :param policy_type: The type of scaling policy to create. For a target-based policy, set the parameter *MetricName* to 'PercentAvailableGameSessions' and specify a *TargetConfiguration* . For a rule-based policy set the following parameters: *MetricName* , *ComparisonOperator* , *Threshold* , *EvaluationPeriods* , *ScalingAdjustmentType* , and *ScalingAdjustment* .
             :param scaling_adjustment: Amount of adjustment to make, based on the scaling adjustment type.
             :param scaling_adjustment_type: The type of adjustment to make to a fleet's instance count. - *ChangeInCapacity* -- add (or subtract) the scaling adjustment value from the current instance count. Positive values scale up while negative values scale down. - *ExactCapacity* -- set the instance count to the scaling adjustment value. - *PercentChangeInCapacity* -- increase or reduce the current instance count by the scaling adjustment, read as a percentage. Positive values scale up while negative values scale down.
@@ -2703,12 +2703,12 @@ class CfnContainerFleet(
                 from aws_cdk import aws_gamelift as gamelift
                 
                 scaling_policy_property = gamelift.CfnContainerFleet.ScalingPolicyProperty(
-                    metric_name="metricName",
                     name="name",
                 
                     # the properties below are optional
                     comparison_operator="comparisonOperator",
                     evaluation_periods=123,
+                    metric_name="metricName",
                     policy_type="policyType",
                     scaling_adjustment=123,
                     scaling_adjustment_type="scalingAdjustmentType",
@@ -2720,23 +2720,24 @@ class CfnContainerFleet(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__77733d66802ae69be5c6e0b5788b2caf6cc2db612ef32cb9e718cc475df0b111)
-                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
                 check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument policy_type", value=policy_type, expected_type=type_hints["policy_type"])
                 check_type(argname="argument scaling_adjustment", value=scaling_adjustment, expected_type=type_hints["scaling_adjustment"])
                 check_type(argname="argument scaling_adjustment_type", value=scaling_adjustment_type, expected_type=type_hints["scaling_adjustment_type"])
                 check_type(argname="argument target_configuration", value=target_configuration, expected_type=type_hints["target_configuration"])
                 check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
-                "metric_name": metric_name,
                 "name": name,
             }
             if comparison_operator is not None:
                 self._values["comparison_operator"] = comparison_operator
             if evaluation_periods is not None:
                 self._values["evaluation_periods"] = evaluation_periods
+            if metric_name is not None:
+                self._values["metric_name"] = metric_name
             if policy_type is not None:
                 self._values["policy_type"] = policy_type
             if scaling_adjustment is not None:
@@ -2747,30 +2748,6 @@ class CfnContainerFleet(
                 self._values["target_configuration"] = target_configuration
             if threshold is not None:
                 self._values["threshold"] = threshold
-
-        @builtins.property
-        def metric_name(self) -> builtins.str:
-            '''Name of the Amazon GameLift Servers-defined metric that is used to trigger a scaling adjustment.
-
-            For detailed descriptions of fleet metrics, see `Monitor Amazon GameLift Servers with Amazon CloudWatch <https://docs.aws.amazon.com/gamelift/latest/developerguide/monitoring-cloudwatch.html>`_ .
-
-            - *ActivatingGameSessions* -- Game sessions in the process of being created.
-            - *ActiveGameSessions* -- Game sessions that are currently running.
-            - *ActiveInstances* -- Fleet instances that are currently running at least one game session.
-            - *AvailableGameSessions* -- Additional game sessions that fleet could host simultaneously, given current capacity.
-            - *AvailablePlayerSessions* -- Empty player slots in currently active game sessions. This includes game sessions that are not currently accepting players. Reserved player slots are not included.
-            - *CurrentPlayerSessions* -- Player slots in active game sessions that are being used by a player or are reserved for a player.
-            - *IdleInstances* -- Active instances that are currently hosting zero game sessions.
-            - *PercentAvailableGameSessions* -- Unused percentage of the total number of game sessions that a fleet could host simultaneously, given current capacity. Use this metric for a target-based scaling policy.
-            - *PercentIdleInstances* -- Percentage of the total number of active instances that are hosting zero game sessions.
-            - *QueueDepth* -- Pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
-            - *WaitTime* -- Current wait time for pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-scalingpolicy.html#cfn-gamelift-containerfleet-scalingpolicy-metricname
-            '''
-            result = self._values.get("metric_name")
-            assert result is not None, "Required property 'metric_name' is missing"
-            return typing.cast(builtins.str, result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -2801,6 +2778,29 @@ class CfnContainerFleet(
             '''
             result = self._values.get("evaluation_periods")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def metric_name(self) -> typing.Optional[builtins.str]:
+            '''Name of the Amazon GameLift Servers-defined metric that is used to trigger a scaling adjustment.
+
+            For detailed descriptions of fleet metrics, see `Monitor Amazon GameLift Servers with Amazon CloudWatch <https://docs.aws.amazon.com/gamelift/latest/developerguide/monitoring-cloudwatch.html>`_ .
+
+            - *ActivatingGameSessions* -- Game sessions in the process of being created.
+            - *ActiveGameSessions* -- Game sessions that are currently running.
+            - *ActiveInstances* -- Fleet instances that are currently running at least one game session.
+            - *AvailableGameSessions* -- Additional game sessions that fleet could host simultaneously, given current capacity.
+            - *AvailablePlayerSessions* -- Empty player slots in currently active game sessions. This includes game sessions that are not currently accepting players. Reserved player slots are not included.
+            - *CurrentPlayerSessions* -- Player slots in active game sessions that are being used by a player or are reserved for a player.
+            - *IdleInstances* -- Active instances that are currently hosting zero game sessions.
+            - *PercentAvailableGameSessions* -- Unused percentage of the total number of game sessions that a fleet could host simultaneously, given current capacity. Use this metric for a target-based scaling policy.
+            - *PercentIdleInstances* -- Percentage of the total number of active instances that are hosting zero game sessions.
+            - *QueueDepth* -- Pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
+            - *WaitTime* -- Current wait time for pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-scalingpolicy.html#cfn-gamelift-containerfleet-scalingpolicy-metricname
+            '''
+            result = self._values.get("metric_name")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def policy_type(self) -> typing.Optional[builtins.str]:
@@ -3059,12 +3059,12 @@ class CfnContainerFleetProps:
                 per_instance_container_group_definition_name="perInstanceContainerGroupDefinitionName",
                 player_gateway_mode="playerGatewayMode",
                 scaling_policies=[gamelift.CfnContainerFleet.ScalingPolicyProperty(
-                    metric_name="metricName",
                     name="name",
             
                     # the properties below are optional
                     comparison_operator="comparisonOperator",
                     evaluation_periods=123,
+                    metric_name="metricName",
                     policy_type="policyType",
                     scaling_adjustment=123,
                     scaling_adjustment_type="scalingAdjustmentType",
@@ -5353,13 +5353,13 @@ class CfnFleet(
                 )]
             ),
             scaling_policies=[gamelift.CfnFleet.ScalingPolicyProperty(
-                metric_name="metricName",
                 name="name",
         
                 # the properties below are optional
                 comparison_operator="comparisonOperator",
                 evaluation_periods=123,
                 location="location",
+                metric_name="metricName",
                 policy_type="policyType",
                 scaling_adjustment=123,
                 scaling_adjustment_type="scalingAdjustmentType",
@@ -6896,11 +6896,11 @@ class CfnFleet(
         jsii_type="aws-cdk-lib.aws_gamelift.CfnFleet.ScalingPolicyProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "metric_name": "metricName",
             "name": "name",
             "comparison_operator": "comparisonOperator",
             "evaluation_periods": "evaluationPeriods",
             "location": "location",
+            "metric_name": "metricName",
             "policy_type": "policyType",
             "scaling_adjustment": "scalingAdjustment",
             "scaling_adjustment_type": "scalingAdjustmentType",
@@ -6914,11 +6914,11 @@ class CfnFleet(
         def __init__(
             self,
             *,
-            metric_name: builtins.str,
             name: builtins.str,
             comparison_operator: typing.Optional[builtins.str] = None,
             evaluation_periods: typing.Optional[jsii.Number] = None,
             location: typing.Optional[builtins.str] = None,
+            metric_name: typing.Optional[builtins.str] = None,
             policy_type: typing.Optional[builtins.str] = None,
             scaling_adjustment: typing.Optional[jsii.Number] = None,
             scaling_adjustment_type: typing.Optional[builtins.str] = None,
@@ -6931,11 +6931,11 @@ class CfnFleet(
 
             Scaling policies are uniquely identified by the combination of name and fleet ID.
 
-            :param metric_name: Name of the Amazon GameLift Servers-defined metric that is used to trigger a scaling adjustment. For detailed descriptions of fleet metrics, see `Monitor Amazon GameLift Servers with Amazon CloudWatch <https://docs.aws.amazon.com/gamelift/latest/developerguide/monitoring-cloudwatch.html>`_ . - *ActivatingGameSessions* -- Game sessions in the process of being created. - *ActiveGameSessions* -- Game sessions that are currently running. - *ActiveInstances* -- Fleet instances that are currently running at least one game session. - *AvailableGameSessions* -- Additional game sessions that fleet could host simultaneously, given current capacity. - *AvailablePlayerSessions* -- Empty player slots in currently active game sessions. This includes game sessions that are not currently accepting players. Reserved player slots are not included. - *CurrentPlayerSessions* -- Player slots in active game sessions that are being used by a player or are reserved for a player. - *IdleInstances* -- Active instances that are currently hosting zero game sessions. - *PercentAvailableGameSessions* -- Unused percentage of the total number of game sessions that a fleet could host simultaneously, given current capacity. Use this metric for a target-based scaling policy. - *PercentIdleInstances* -- Percentage of the total number of active instances that are hosting zero game sessions. - *QueueDepth* -- Pending game session placement requests, in any queue, where the current fleet is the top-priority destination. - *WaitTime* -- Current wait time for pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
             :param name: A descriptive label that is associated with a fleet's scaling policy. Policy names do not need to be unique.
             :param comparison_operator: Comparison operator to use when measuring a metric against the threshold value.
             :param evaluation_periods: Length of time (in minutes) the metric must be at or beyond the threshold before a scaling event is triggered.
             :param location: The fleet location.
+            :param metric_name: Name of the Amazon GameLift Servers-defined metric that is used to trigger a scaling adjustment. For detailed descriptions of fleet metrics, see `Monitor Amazon GameLift Servers with Amazon CloudWatch <https://docs.aws.amazon.com/gamelift/latest/developerguide/monitoring-cloudwatch.html>`_ . - *ActivatingGameSessions* -- Game sessions in the process of being created. - *ActiveGameSessions* -- Game sessions that are currently running. - *ActiveInstances* -- Fleet instances that are currently running at least one game session. - *AvailableGameSessions* -- Additional game sessions that fleet could host simultaneously, given current capacity. - *AvailablePlayerSessions* -- Empty player slots in currently active game sessions. This includes game sessions that are not currently accepting players. Reserved player slots are not included. - *CurrentPlayerSessions* -- Player slots in active game sessions that are being used by a player or are reserved for a player. - *IdleInstances* -- Active instances that are currently hosting zero game sessions. - *PercentAvailableGameSessions* -- Unused percentage of the total number of game sessions that a fleet could host simultaneously, given current capacity. Use this metric for a target-based scaling policy. - *PercentIdleInstances* -- Percentage of the total number of active instances that are hosting zero game sessions. - *QueueDepth* -- Pending game session placement requests, in any queue, where the current fleet is the top-priority destination. - *WaitTime* -- Current wait time for pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
             :param policy_type: The type of scaling policy to create. For a target-based policy, set the parameter *MetricName* to 'PercentAvailableGameSessions' and specify a *TargetConfiguration* . For a rule-based policy set the following parameters: *MetricName* , *ComparisonOperator* , *Threshold* , *EvaluationPeriods* , *ScalingAdjustmentType* , and *ScalingAdjustment* .
             :param scaling_adjustment: Amount of adjustment to make, based on the scaling adjustment type.
             :param scaling_adjustment_type: The type of adjustment to make to a fleet's instance count. - *ChangeInCapacity* -- add (or subtract) the scaling adjustment value from the current instance count. Positive values scale up while negative values scale down. - *ExactCapacity* -- set the instance count to the scaling adjustment value. - *PercentChangeInCapacity* -- increase or reduce the current instance count by the scaling adjustment, read as a percentage. Positive values scale up while negative values scale down.
@@ -6954,13 +6954,13 @@ class CfnFleet(
                 from aws_cdk import aws_gamelift as gamelift
                 
                 scaling_policy_property = gamelift.CfnFleet.ScalingPolicyProperty(
-                    metric_name="metricName",
                     name="name",
                 
                     # the properties below are optional
                     comparison_operator="comparisonOperator",
                     evaluation_periods=123,
                     location="location",
+                    metric_name="metricName",
                     policy_type="policyType",
                     scaling_adjustment=123,
                     scaling_adjustment_type="scalingAdjustmentType",
@@ -6974,11 +6974,11 @@ class CfnFleet(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__e8690870b8fddf2f2747a9a00d8f1a693d624b5f4f72283ed427b04667f02bd8)
-                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
                 check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
                 check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument policy_type", value=policy_type, expected_type=type_hints["policy_type"])
                 check_type(argname="argument scaling_adjustment", value=scaling_adjustment, expected_type=type_hints["scaling_adjustment"])
                 check_type(argname="argument scaling_adjustment_type", value=scaling_adjustment_type, expected_type=type_hints["scaling_adjustment_type"])
@@ -6987,7 +6987,6 @@ class CfnFleet(
                 check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
                 check_type(argname="argument update_status", value=update_status, expected_type=type_hints["update_status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
-                "metric_name": metric_name,
                 "name": name,
             }
             if comparison_operator is not None:
@@ -6996,6 +6995,8 @@ class CfnFleet(
                 self._values["evaluation_periods"] = evaluation_periods
             if location is not None:
                 self._values["location"] = location
+            if metric_name is not None:
+                self._values["metric_name"] = metric_name
             if policy_type is not None:
                 self._values["policy_type"] = policy_type
             if scaling_adjustment is not None:
@@ -7010,30 +7011,6 @@ class CfnFleet(
                 self._values["threshold"] = threshold
             if update_status is not None:
                 self._values["update_status"] = update_status
-
-        @builtins.property
-        def metric_name(self) -> builtins.str:
-            '''Name of the Amazon GameLift Servers-defined metric that is used to trigger a scaling adjustment.
-
-            For detailed descriptions of fleet metrics, see `Monitor Amazon GameLift Servers with Amazon CloudWatch <https://docs.aws.amazon.com/gamelift/latest/developerguide/monitoring-cloudwatch.html>`_ .
-
-            - *ActivatingGameSessions* -- Game sessions in the process of being created.
-            - *ActiveGameSessions* -- Game sessions that are currently running.
-            - *ActiveInstances* -- Fleet instances that are currently running at least one game session.
-            - *AvailableGameSessions* -- Additional game sessions that fleet could host simultaneously, given current capacity.
-            - *AvailablePlayerSessions* -- Empty player slots in currently active game sessions. This includes game sessions that are not currently accepting players. Reserved player slots are not included.
-            - *CurrentPlayerSessions* -- Player slots in active game sessions that are being used by a player or are reserved for a player.
-            - *IdleInstances* -- Active instances that are currently hosting zero game sessions.
-            - *PercentAvailableGameSessions* -- Unused percentage of the total number of game sessions that a fleet could host simultaneously, given current capacity. Use this metric for a target-based scaling policy.
-            - *PercentIdleInstances* -- Percentage of the total number of active instances that are hosting zero game sessions.
-            - *QueueDepth* -- Pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
-            - *WaitTime* -- Current wait time for pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-scalingpolicy.html#cfn-gamelift-fleet-scalingpolicy-metricname
-            '''
-            result = self._values.get("metric_name")
-            assert result is not None, "Required property 'metric_name' is missing"
-            return typing.cast(builtins.str, result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -7072,6 +7049,29 @@ class CfnFleet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-scalingpolicy.html#cfn-gamelift-fleet-scalingpolicy-location
             '''
             result = self._values.get("location")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def metric_name(self) -> typing.Optional[builtins.str]:
+            '''Name of the Amazon GameLift Servers-defined metric that is used to trigger a scaling adjustment.
+
+            For detailed descriptions of fleet metrics, see `Monitor Amazon GameLift Servers with Amazon CloudWatch <https://docs.aws.amazon.com/gamelift/latest/developerguide/monitoring-cloudwatch.html>`_ .
+
+            - *ActivatingGameSessions* -- Game sessions in the process of being created.
+            - *ActiveGameSessions* -- Game sessions that are currently running.
+            - *ActiveInstances* -- Fleet instances that are currently running at least one game session.
+            - *AvailableGameSessions* -- Additional game sessions that fleet could host simultaneously, given current capacity.
+            - *AvailablePlayerSessions* -- Empty player slots in currently active game sessions. This includes game sessions that are not currently accepting players. Reserved player slots are not included.
+            - *CurrentPlayerSessions* -- Player slots in active game sessions that are being used by a player or are reserved for a player.
+            - *IdleInstances* -- Active instances that are currently hosting zero game sessions.
+            - *PercentAvailableGameSessions* -- Unused percentage of the total number of game sessions that a fleet could host simultaneously, given current capacity. Use this metric for a target-based scaling policy.
+            - *PercentIdleInstances* -- Percentage of the total number of active instances that are hosting zero game sessions.
+            - *QueueDepth* -- Pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
+            - *WaitTime* -- Current wait time for pending game session placement requests, in any queue, where the current fleet is the top-priority destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-scalingpolicy.html#cfn-gamelift-fleet-scalingpolicy-metricname
+            '''
+            result = self._values.get("metric_name")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -7517,13 +7517,13 @@ class CfnFleetProps:
                     )]
                 ),
                 scaling_policies=[gamelift.CfnFleet.ScalingPolicyProperty(
-                    metric_name="metricName",
                     name="name",
             
                     # the properties below are optional
                     comparison_operator="comparisonOperator",
                     evaluation_periods=123,
                     location="location",
+                    metric_name="metricName",
                     policy_type="policyType",
                     scaling_adjustment=123,
                     scaling_adjustment_type="scalingAdjustmentType",
@@ -12571,10 +12571,10 @@ def _typecheckingstub__31fbc4661855b913c7837c0bf6c1858e987a8792a4a86a0e22ce4d58e
 
 def _typecheckingstub__77733d66802ae69be5c6e0b5788b2caf6cc2db612ef32cb9e718cc475df0b111(
     *,
-    metric_name: builtins.str,
     name: builtins.str,
     comparison_operator: typing.Optional[builtins.str] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
+    metric_name: typing.Optional[builtins.str] = None,
     policy_type: typing.Optional[builtins.str] = None,
     scaling_adjustment: typing.Optional[jsii.Number] = None,
     scaling_adjustment_type: typing.Optional[builtins.str] = None,
@@ -13160,11 +13160,11 @@ def _typecheckingstub__ae990fc53511e6175c77d897f3a8a6bc35be77827bfc0f1be6b1f8d79
 
 def _typecheckingstub__e8690870b8fddf2f2747a9a00d8f1a693d624b5f4f72283ed427b04667f02bd8(
     *,
-    metric_name: builtins.str,
     name: builtins.str,
     comparison_operator: typing.Optional[builtins.str] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     location: typing.Optional[builtins.str] = None,
+    metric_name: typing.Optional[builtins.str] = None,
     policy_type: typing.Optional[builtins.str] = None,
     scaling_adjustment: typing.Optional[jsii.Number] = None,
     scaling_adjustment_type: typing.Optional[builtins.str] = None,

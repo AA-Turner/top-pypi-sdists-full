@@ -227,6 +227,55 @@ class CertificateReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lightsail.ContactMethodReference",
+    jsii_struct_bases=[],
+    name_mapping={"contact_method_arn": "contactMethodArn"},
+)
+class ContactMethodReference:
+    def __init__(self, *, contact_method_arn: builtins.str) -> None:
+        '''A reference to a ContactMethod resource.
+
+        :param contact_method_arn: The Arn of the ContactMethod resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lightsail as interfaces_lightsail
+            
+            contact_method_reference = interfaces_lightsail.ContactMethodReference(
+                contact_method_arn="contactMethodArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1676d63d970a275f619f7ed931ba1529d7ba1f8774e3022a610b6fc75d041ee2)
+            check_type(argname="argument contact_method_arn", value=contact_method_arn, expected_type=type_hints["contact_method_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_method_arn": contact_method_arn,
+        }
+
+    @builtins.property
+    def contact_method_arn(self) -> builtins.str:
+        '''The Arn of the ContactMethod resource.'''
+        result = self._values.get("contact_method_arn")
+        assert result is not None, "Required property 'contact_method_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContactMethodReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lightsail.ContainerReference",
     jsii_struct_bases=[],
     name_mapping={"container_arn": "containerArn", "service_name": "serviceName"},
@@ -816,6 +865,51 @@ class _ICertificateRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICertificateRef).__jsii_proxy_class__ = lambda : _ICertificateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IContactMethodRef")
+class IContactMethodRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactMethod.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contactMethodRef")
+    def contact_method_ref(self) -> "ContactMethodReference":
+        '''(experimental) A reference to a ContactMethod resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContactMethodRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactMethod.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lightsail.IContactMethodRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contactMethodRef")
+    def contact_method_ref(self) -> "ContactMethodReference":
+        '''(experimental) A reference to a ContactMethod resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ContactMethodReference", jsii.get(self, "contactMethodRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContactMethodRef).__jsii_proxy_class__ = lambda : _IContactMethodRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IContainerRef")
@@ -1715,6 +1809,7 @@ __all__ = [
     "AlarmReference",
     "BucketReference",
     "CertificateReference",
+    "ContactMethodReference",
     "ContainerReference",
     "DatabaseReference",
     "DatabaseSnapshotReference",
@@ -1725,6 +1820,7 @@ __all__ = [
     "IAlarmRef",
     "IBucketRef",
     "ICertificateRef",
+    "IContactMethodRef",
     "IContainerRef",
     "IDatabaseRef",
     "IDatabaseSnapshotRef",
@@ -1766,6 +1862,13 @@ def _typecheckingstub__85079d2811b5a242a5ac3874f382d167649d814db74404924e6c368a4
     *,
     certificate_arn: builtins.str,
     certificate_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1676d63d970a275f619f7ed931ba1529d7ba1f8774e3022a610b6fc75d041ee2(
+    *,
+    contact_method_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1867,5 +1970,5 @@ def _typecheckingstub__1f2476e04990a2a193f7c9e6433f145827b121d8f492aee4e2e21896a
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmRef, IBucketRef, ICertificateRef, IContainerRef, IDatabaseRef, IDatabaseSnapshotRef, IDiskRef, IDiskSnapshotRef, IDistributionRef, IDomainRef, IInstanceRef, IInstanceSnapshotRef, ILoadBalancerRef, ILoadBalancerTlsCertificateRef, IStaticIpRef]:
+for cls in [IAlarmRef, IBucketRef, ICertificateRef, IContactMethodRef, IContainerRef, IDatabaseRef, IDatabaseSnapshotRef, IDiskRef, IDiskSnapshotRef, IDistributionRef, IDomainRef, IInstanceRef, IInstanceSnapshotRef, ILoadBalancerRef, ILoadBalancerTlsCertificateRef, IStaticIpRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

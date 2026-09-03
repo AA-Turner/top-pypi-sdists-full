@@ -6,17 +6,11 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .types import (
-        LabricReadSchemaMode,
-        LabricReadSchemaTargetType,
-        LabricWriteSchemaTargetType,
-        UpdateJobExecutionStatusSchemaStatus,
-    )
+    from .types import LabricReadSchemaMode, LabricReadSchemaTargetType, LabricWriteSchemaTargetType
 _dynamic_imports: typing.Dict[str, str] = {
     "LabricReadSchemaMode": ".types",
     "LabricReadSchemaTargetType": ".types",
     "LabricWriteSchemaTargetType": ".types",
-    "UpdateJobExecutionStatusSchemaStatus": ".types",
 }
 
 
@@ -41,9 +35,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = [
-    "LabricReadSchemaMode",
-    "LabricReadSchemaTargetType",
-    "LabricWriteSchemaTargetType",
-    "UpdateJobExecutionStatusSchemaStatus",
-]
+__all__ = ["LabricReadSchemaMode", "LabricReadSchemaTargetType", "LabricWriteSchemaTargetType"]

@@ -188,13 +188,13 @@ class DataProviderReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_dms.EndpointReference",
     jsii_struct_bases=[],
-    name_mapping={"endpoint_id": "endpointId"},
+    name_mapping={"endpoint_arn": "endpointArn"},
 )
 class EndpointReference:
-    def __init__(self, *, endpoint_id: builtins.str) -> None:
+    def __init__(self, *, endpoint_arn: builtins.str) -> None:
         '''A reference to a Endpoint resource.
 
-        :param endpoint_id: The Id of the Endpoint resource.
+        :param endpoint_arn: The EndpointArn of the Endpoint resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -205,21 +205,21 @@ class EndpointReference:
             from aws_cdk.interfaces import aws_dms as interfaces_dms
             
             endpoint_reference = interfaces_dms.EndpointReference(
-                endpoint_id="endpointId"
+                endpoint_arn="endpointArn"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bacd7fb4a98e49b4d9cba342b46e91b7d78d2478a75083429d89359bedf9c098)
-            check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
+            check_type(argname="argument endpoint_arn", value=endpoint_arn, expected_type=type_hints["endpoint_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "endpoint_id": endpoint_id,
+            "endpoint_arn": endpoint_arn,
         }
 
     @builtins.property
-    def endpoint_id(self) -> builtins.str:
-        '''The Id of the Endpoint resource.'''
-        result = self._values.get("endpoint_id")
-        assert result is not None, "Required property 'endpoint_id' is missing"
+    def endpoint_arn(self) -> builtins.str:
+        '''The EndpointArn of the Endpoint resource.'''
+        result = self._values.get("endpoint_arn")
+        assert result is not None, "Required property 'endpoint_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -977,13 +977,15 @@ class ReplicationInstanceReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_dms.ReplicationSubnetGroupReference",
     jsii_struct_bases=[],
-    name_mapping={"replication_subnet_group_id": "replicationSubnetGroupId"},
+    name_mapping={
+        "replication_subnet_group_identifier": "replicationSubnetGroupIdentifier",
+    },
 )
 class ReplicationSubnetGroupReference:
-    def __init__(self, *, replication_subnet_group_id: builtins.str) -> None:
+    def __init__(self, *, replication_subnet_group_identifier: builtins.str) -> None:
         '''A reference to a ReplicationSubnetGroup resource.
 
-        :param replication_subnet_group_id: The Id of the ReplicationSubnetGroup resource.
+        :param replication_subnet_group_identifier: The ReplicationSubnetGroupIdentifier of the ReplicationSubnetGroup resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -994,21 +996,21 @@ class ReplicationSubnetGroupReference:
             from aws_cdk.interfaces import aws_dms as interfaces_dms
             
             replication_subnet_group_reference = interfaces_dms.ReplicationSubnetGroupReference(
-                replication_subnet_group_id="replicationSubnetGroupId"
+                replication_subnet_group_identifier="replicationSubnetGroupIdentifier"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dc5d133dd09a422b7b86d14f260b9aff35300fe810630d9349a741a5ec07733d)
-            check_type(argname="argument replication_subnet_group_id", value=replication_subnet_group_id, expected_type=type_hints["replication_subnet_group_id"])
+            check_type(argname="argument replication_subnet_group_identifier", value=replication_subnet_group_identifier, expected_type=type_hints["replication_subnet_group_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "replication_subnet_group_id": replication_subnet_group_id,
+            "replication_subnet_group_identifier": replication_subnet_group_identifier,
         }
 
     @builtins.property
-    def replication_subnet_group_id(self) -> builtins.str:
-        '''The Id of the ReplicationSubnetGroup resource.'''
-        result = self._values.get("replication_subnet_group_id")
-        assert result is not None, "Required property 'replication_subnet_group_id' is missing"
+    def replication_subnet_group_identifier(self) -> builtins.str:
+        '''The ReplicationSubnetGroupIdentifier of the ReplicationSubnetGroup resource.'''
+        result = self._values.get("replication_subnet_group_identifier")
+        assert result is not None, "Required property 'replication_subnet_group_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1026,12 +1028,21 @@ class ReplicationSubnetGroupReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_dms.ReplicationTaskReference",
     jsii_struct_bases=[],
-    name_mapping={"replication_task_id": "replicationTaskId"},
+    name_mapping={
+        "replication_task_arn": "replicationTaskArn",
+        "replication_task_id": "replicationTaskId",
+    },
 )
 class ReplicationTaskReference:
-    def __init__(self, *, replication_task_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        replication_task_arn: builtins.str,
+        replication_task_id: builtins.str,
+    ) -> None:
         '''A reference to a ReplicationTask resource.
 
+        :param replication_task_arn: The ARN of the ReplicationTask resource.
         :param replication_task_id: The Id of the ReplicationTask resource.
 
         :exampleMetadata: fixture=_generated
@@ -1043,15 +1054,25 @@ class ReplicationTaskReference:
             from aws_cdk.interfaces import aws_dms as interfaces_dms
             
             replication_task_reference = interfaces_dms.ReplicationTaskReference(
+                replication_task_arn="replicationTaskArn",
                 replication_task_id="replicationTaskId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__058318f539698ef8b693c781ecb998f9619364d8e8b86a247f3ed3aa44bd537b)
+            check_type(argname="argument replication_task_arn", value=replication_task_arn, expected_type=type_hints["replication_task_arn"])
             check_type(argname="argument replication_task_id", value=replication_task_id, expected_type=type_hints["replication_task_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "replication_task_arn": replication_task_arn,
             "replication_task_id": replication_task_id,
         }
+
+    @builtins.property
+    def replication_task_arn(self) -> builtins.str:
+        '''The ARN of the ReplicationTask resource.'''
+        result = self._values.get("replication_task_arn")
+        assert result is not None, "Required property 'replication_task_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def replication_task_id(self) -> builtins.str:
@@ -1122,7 +1143,7 @@ def _typecheckingstub__538ed4e8d5aaca3877a044998ac0a9f566f87cf7e0155ab9c32b465fb
 
 def _typecheckingstub__bacd7fb4a98e49b4d9cba342b46e91b7d78d2478a75083429d89359bedf9c098(
     *,
-    endpoint_id: builtins.str,
+    endpoint_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1164,13 +1185,14 @@ def _typecheckingstub__b41cdc31c0ea172c3879c0deb65a6a9b70b9f824f53d77389b4c9d272
 
 def _typecheckingstub__dc5d133dd09a422b7b86d14f260b9aff35300fe810630d9349a741a5ec07733d(
     *,
-    replication_subnet_group_id: builtins.str,
+    replication_subnet_group_identifier: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__058318f539698ef8b693c781ecb998f9619364d8e8b86a247f3ed3aa44bd537b(
     *,
+    replication_task_arn: builtins.str,
     replication_task_id: builtins.str,
 ) -> None:
     """Type checking stubs"""

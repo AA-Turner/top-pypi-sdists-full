@@ -6667,6 +6667,341 @@ class CfnScheduledActionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.ISnapshotScheduleRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSnapshotSchedule(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnSnapshotSchedule",
+):
+    '''Creates a snapshot schedule that lets you set up automatic snapshots of your Amazon Redshift cluster at regular intervals.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotschedule.html
+    :cloudformationResource: AWS::Redshift::SnapshotSchedule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_snapshot_schedule = redshift.CfnSnapshotSchedule(self, "MyCfnSnapshotSchedule",
+            schedule_definitions=["scheduleDefinitions"],
+            schedule_identifier="scheduleIdentifier",
+        
+            # the properties below are optional
+            schedule_description="scheduleDescription",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        schedule_definitions: typing.Sequence[builtins.str],
+        schedule_identifier: builtins.str,
+        schedule_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::SnapshotSchedule``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param schedule_definitions: The definition of the snapshot schedule. The definition is made up of schedule expressions, for example "cron(30 12 *)" or "rate(12 hours)".
+        :param schedule_identifier: A unique identifier for the snapshot schedule. Only alphanumeric characters are allowed.
+        :param schedule_description: The description of the snapshot schedule.
+        :param tags: An optional set of tags for the snapshot schedule.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3f9992c9772e9a10940472d8fece07b62b17ec976d154d3cb33506722159c3a1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSnapshotScheduleProps(
+            schedule_definitions=schedule_definitions,
+            schedule_identifier=schedule_identifier,
+            schedule_description=schedule_description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSnapshotSchedule")
+    @builtins.classmethod
+    def arn_for_snapshot_schedule(
+        cls,
+        resource: "_aws_redshift_9ff5fd22.ISnapshotScheduleRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36dee17fe5230b8eca22a50b1be06856c178f90347e3b6625c97fe294de5c0fb)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSnapshotSchedule", [resource]))
+
+    @jsii.member(jsii_name="isCfnSnapshotSchedule")
+    @builtins.classmethod
+    def is_cfn_snapshot_schedule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSnapshotSchedule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9d2fcda1ed3a97edbce214f3c394a2926e444f6eb270d1a5ada2ce5d17a1895c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSnapshotSchedule", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fbb28301a39b8d9b99b7cb2029e4fa6a47f19535f4394f67cf0b313c65943646)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5895e9a0a3d25489350d921415deeef099fd24da14d517d721254b3f0994a732)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the snapshot schedule.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociatedClusterCount")
+    def attr_associated_cluster_count(self) -> jsii.Number:
+        '''The number of clusters associated with the schedule.
+
+        :cloudformationAttribute: AssociatedClusterCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrAssociatedClusterCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotScheduleRef")
+    def snapshot_schedule_ref(
+        self,
+    ) -> "_aws_redshift_9ff5fd22.SnapshotScheduleReference":
+        '''A reference to a SnapshotSchedule resource.'''
+        return typing.cast("_aws_redshift_9ff5fd22.SnapshotScheduleReference", jsii.get(self, "snapshotScheduleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleDefinitions")
+    def schedule_definitions(self) -> typing.List[builtins.str]:
+        '''The definition of the snapshot schedule.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "scheduleDefinitions"))
+
+    @schedule_definitions.setter
+    def schedule_definitions(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__77f0d1dfe6b9215802f64dfa3cc9682a0d15eb5a608a2f1a56e07e7f2908f8c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduleDefinitions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleIdentifier")
+    def schedule_identifier(self) -> builtins.str:
+        '''A unique identifier for the snapshot schedule.'''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleIdentifier"))
+
+    @schedule_identifier.setter
+    def schedule_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__50030e3c3c247cc53d57dd4cea07e18651f8f5cfc5bd1ad831d380ce0b028318)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduleIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleDescription")
+    def schedule_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the snapshot schedule.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scheduleDescription"))
+
+    @schedule_description.setter
+    def schedule_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7a718e008fad5fd35fb597cab4b84358225a36a6516a118f023bb7921556125a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduleDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An optional set of tags for the snapshot schedule.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd295f1df816ddc7ea47dacfb51f52f7ee905fed509cfd03773692cfc0b82f20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnSnapshotScheduleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "schedule_definitions": "scheduleDefinitions",
+        "schedule_identifier": "scheduleIdentifier",
+        "schedule_description": "scheduleDescription",
+        "tags": "tags",
+    },
+)
+class CfnSnapshotScheduleProps:
+    def __init__(
+        self,
+        *,
+        schedule_definitions: typing.Sequence[builtins.str],
+        schedule_identifier: builtins.str,
+        schedule_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSnapshotSchedule``.
+
+        :param schedule_definitions: The definition of the snapshot schedule. The definition is made up of schedule expressions, for example "cron(30 12 *)" or "rate(12 hours)".
+        :param schedule_identifier: A unique identifier for the snapshot schedule. Only alphanumeric characters are allowed.
+        :param schedule_description: The description of the snapshot schedule.
+        :param tags: An optional set of tags for the snapshot schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotschedule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_snapshot_schedule_props = redshift.CfnSnapshotScheduleProps(
+                schedule_definitions=["scheduleDefinitions"],
+                schedule_identifier="scheduleIdentifier",
+            
+                # the properties below are optional
+                schedule_description="scheduleDescription",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0c4321cbdf13d74cf5cadd786e33384d3aa7335d0347b0006cc14744ea1d7994)
+            check_type(argname="argument schedule_definitions", value=schedule_definitions, expected_type=type_hints["schedule_definitions"])
+            check_type(argname="argument schedule_identifier", value=schedule_identifier, expected_type=type_hints["schedule_identifier"])
+            check_type(argname="argument schedule_description", value=schedule_description, expected_type=type_hints["schedule_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "schedule_definitions": schedule_definitions,
+            "schedule_identifier": schedule_identifier,
+        }
+        if schedule_description is not None:
+            self._values["schedule_description"] = schedule_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def schedule_definitions(self) -> typing.List[builtins.str]:
+        '''The definition of the snapshot schedule.
+
+        The definition is made up of schedule expressions, for example "cron(30 12 *)" or "rate(12 hours)".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotschedule.html#cfn-redshift-snapshotschedule-scheduledefinitions
+        '''
+        result = self._values.get("schedule_definitions")
+        assert result is not None, "Required property 'schedule_definitions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def schedule_identifier(self) -> builtins.str:
+        '''A unique identifier for the snapshot schedule.
+
+        Only alphanumeric characters are allowed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotschedule.html#cfn-redshift-snapshotschedule-scheduleidentifier
+        '''
+        result = self._values.get("schedule_identifier")
+        assert result is not None, "Required property 'schedule_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the snapshot schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotschedule.html#cfn-redshift-snapshotschedule-scheduledescription
+        '''
+        result = self._values.get("schedule_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An optional set of tags for the snapshot schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotschedule.html#cfn-redshift-snapshotschedule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSnapshotScheduleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnCluster",
     "CfnClusterParameterGroup",
@@ -6688,6 +7023,8 @@ __all__ = [
     "CfnIntegrationProps",
     "CfnScheduledAction",
     "CfnScheduledActionProps",
+    "CfnSnapshotSchedule",
+    "CfnSnapshotScheduleProps",
 ]
 
 publication.publish()
@@ -7891,6 +8228,76 @@ def _typecheckingstub__4b8f33670db3a11840dd3dde7157d6c714dfbdf357d1a2d7ffab1191d
     scheduled_action_description: typing.Optional[builtins.str] = None,
     start_time: typing.Optional[builtins.str] = None,
     target_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScheduledAction.ScheduledActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f9992c9772e9a10940472d8fece07b62b17ec976d154d3cb33506722159c3a1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    schedule_definitions: typing.Sequence[builtins.str],
+    schedule_identifier: builtins.str,
+    schedule_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36dee17fe5230b8eca22a50b1be06856c178f90347e3b6625c97fe294de5c0fb(
+    resource: _aws_redshift_9ff5fd22.ISnapshotScheduleRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d2fcda1ed3a97edbce214f3c394a2926e444f6eb270d1a5ada2ce5d17a1895c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbb28301a39b8d9b99b7cb2029e4fa6a47f19535f4394f67cf0b313c65943646(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5895e9a0a3d25489350d921415deeef099fd24da14d517d721254b3f0994a732(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77f0d1dfe6b9215802f64dfa3cc9682a0d15eb5a608a2f1a56e07e7f2908f8c0(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50030e3c3c247cc53d57dd4cea07e18651f8f5cfc5bd1ad831d380ce0b028318(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a718e008fad5fd35fb597cab4b84358225a36a6516a118f023bb7921556125a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd295f1df816ddc7ea47dacfb51f52f7ee905fed509cfd03773692cfc0b82f20(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c4321cbdf13d74cf5cadd786e33384d3aa7335d0347b0006cc14744ea1d7994(
+    *,
+    schedule_definitions: typing.Sequence[builtins.str],
+    schedule_identifier: builtins.str,
+    schedule_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

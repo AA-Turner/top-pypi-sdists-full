@@ -177,6 +177,10 @@ class UnifiedConfig:
     # TokenUsage.offering_route="sibling_fallback" + the RerouteNote trail.
     runtime_offering_id: str | None = None
 
+    # Transient OpenAI Responses cache-routing key, derived per provider loop.
+    # It is deliberately omitted from ``to_storage_dict``.
+    prompt_cache_key: str | None = None
+
     @property
     def routing_offering_id(self) -> str | None:
         """The offering pin dispatch actually uses: runtime fallback pin first,

@@ -620,6 +620,10 @@ class LanguageDetectionOptions(BaseModel):
         None,
         description="The language detection model to use.",
     )
+    localization: Optional[List[str]] = Field(
+        None,
+        description='Locale codes (e.g. ["en_au"]) to render detected English in a regional spelling variant. Supported values are "en_au" and "en_uk"; at most one locale per language.',
+    )
 
 
 class CodeSwitchingLanguage(BaseModel):
@@ -809,6 +813,12 @@ class SpeakerOptions(BaseModel):
     use_two_stage_clustering: Optional[bool] = Field(
         None,
         description="Enable or disable two-stage clustering for speaker diarization",
+    )
+    short_file_diarization_method: Optional[
+        Literal["deliberate", "balanced", "conservative", "aggressive"]
+    ] = Field(
+        None,
+        description="Diarization method for short files. Options: deliberate (default), balanced, conservative, aggressive",
     )
     long_file_diarization_method: Optional[Literal["standard", "experimental"]] = Field(
         None,
@@ -1001,7 +1011,12 @@ class RawTranscriptionConfig(BaseModel):
     domain: Optional[str] = None
     "The domain to use for the transcription (e.g. 'medical-v1')."
 
-    model_config = ConfigDict(extra="allow")
+    if pydantic_v2:
+        model_config = ConfigDict(extra="allow")
+    else:
+
+        class Config:
+            extra = "allow"
 
 
 class TranscriptionConfig:
@@ -1957,6 +1972,7 @@ class TranscriptionConfig:
         expected_languages: Optional[List[str]] = None,
         fallback_language: Optional[str] = None,
         on_low_language_confidence: Optional[str] = None,
+        localization: Optional[List[str]] = None,
     ) -> Self:
         """
         Enable Automatic Language Detection with optional configuration.
@@ -1967,6 +1983,7 @@ class TranscriptionConfig:
             expected_languages: A list of languages that the audio could be expected to be.
             fallback_language: The language to fallback to if detection fails.
             on_low_language_confidence: Controls behavior when language confidence is below threshold. Either "error" (default) or "fallback".
+            localization: Locale codes (e.g. ["en_au"]) to render detected English in a regional spelling variant. Supported values are "en_au" and "en_uk".
         """
 
         if not enable:
@@ -1980,12 +1997,18 @@ class TranscriptionConfig:
             confidence_threshold
         )
 
-        if expected_languages or fallback_language or on_low_language_confidence:
+        if (
+            expected_languages
+            or fallback_language
+            or on_low_language_confidence
+            or localization
+        ):
             self._raw_transcription_config.language_detection_options = (
                 LanguageDetectionOptions(
                     expected_languages=expected_languages,
                     fallback_language=fallback_language,
                     on_low_language_confidence=on_low_language_confidence,
+                    localization=localization,
                 )
             )
 
@@ -2587,7 +2610,12 @@ class ListTranscriptParameters(BaseModel):
     ] = None
     "Get only throttled transcripts, overrides the status filter"
 
-    model_config = ConfigDict(use_enum_values=True)
+    if pydantic_v2:
+        model_config = ConfigDict(use_enum_values=True)
+    else:
+
+        class Config:
+            use_enum_values = True
 
 
 class PageDetails(BaseModel):

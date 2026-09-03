@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_rds.ClusterSnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"db_cluster_snapshot_arn": "dbClusterSnapshotArn"},
+)
+class ClusterSnapshotReference:
+    def __init__(self, *, db_cluster_snapshot_arn: builtins.str) -> None:
+        '''A reference to a ClusterSnapshot resource.
+
+        :param db_cluster_snapshot_arn: The DBClusterSnapshotArn of the ClusterSnapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_rds as interfaces_rds
+            
+            cluster_snapshot_reference = interfaces_rds.ClusterSnapshotReference(
+                db_cluster_snapshot_arn="dbClusterSnapshotArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__06afaaac1cbc9211c2ab34a1250d807fae1595567599a31f56c78c8600aefa32)
+            check_type(argname="argument db_cluster_snapshot_arn", value=db_cluster_snapshot_arn, expected_type=type_hints["db_cluster_snapshot_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_cluster_snapshot_arn": db_cluster_snapshot_arn,
+        }
+
+    @builtins.property
+    def db_cluster_snapshot_arn(self) -> builtins.str:
+        '''The DBClusterSnapshotArn of the ClusterSnapshot resource.'''
+        result = self._values.get("db_cluster_snapshot_arn")
+        assert result is not None, "Required property 'db_cluster_snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ClusterSnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_rds.CustomDBEngineVersionReference",
     jsii_struct_bases=[],
     name_mapping={"engine": "engine", "engine_version": "engineVersion"},
@@ -286,12 +335,21 @@ class DBInstanceReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_rds.DBParameterGroupReference",
     jsii_struct_bases=[],
-    name_mapping={"db_parameter_group_name": "dbParameterGroupName"},
+    name_mapping={
+        "db_parameter_group_arn": "dbParameterGroupArn",
+        "db_parameter_group_name": "dbParameterGroupName",
+    },
 )
 class DBParameterGroupReference:
-    def __init__(self, *, db_parameter_group_name: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        db_parameter_group_arn: builtins.str,
+        db_parameter_group_name: builtins.str,
+    ) -> None:
         '''A reference to a DBParameterGroup resource.
 
+        :param db_parameter_group_arn: The ARN of the DBParameterGroup resource.
         :param db_parameter_group_name: The DBParameterGroupName of the DBParameterGroup resource.
 
         :exampleMetadata: fixture=_generated
@@ -303,15 +361,25 @@ class DBParameterGroupReference:
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
             d_b_parameter_group_reference = interfaces_rds.DBParameterGroupReference(
+                db_parameter_group_arn="dbParameterGroupArn",
                 db_parameter_group_name="dbParameterGroupName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a554bb088b971739df533e28d085e09e9eabc0cc0432e620aec60795527d2bb0)
+            check_type(argname="argument db_parameter_group_arn", value=db_parameter_group_arn, expected_type=type_hints["db_parameter_group_arn"])
             check_type(argname="argument db_parameter_group_name", value=db_parameter_group_name, expected_type=type_hints["db_parameter_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_parameter_group_arn": db_parameter_group_arn,
             "db_parameter_group_name": db_parameter_group_name,
         }
+
+    @builtins.property
+    def db_parameter_group_arn(self) -> builtins.str:
+        '''The ARN of the DBParameterGroup resource.'''
+        result = self._values.get("db_parameter_group_arn")
+        assert result is not None, "Required property 'db_parameter_group_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def db_parameter_group_name(self) -> builtins.str:
@@ -662,6 +730,55 @@ class DBShardGroupReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_rds.DBSnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"db_snapshot_arn": "dbSnapshotArn"},
+)
+class DBSnapshotReference:
+    def __init__(self, *, db_snapshot_arn: builtins.str) -> None:
+        '''A reference to a DBSnapshot resource.
+
+        :param db_snapshot_arn: The DBSnapshotArn of the DBSnapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_rds as interfaces_rds
+            
+            d_b_snapshot_reference = interfaces_rds.DBSnapshotReference(
+                db_snapshot_arn="dbSnapshotArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__985591032dffbebfd858d2c477b4798aa2afd863295770e4b0386adf933f5810)
+            check_type(argname="argument db_snapshot_arn", value=db_snapshot_arn, expected_type=type_hints["db_snapshot_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_snapshot_arn": db_snapshot_arn,
+        }
+
+    @builtins.property
+    def db_snapshot_arn(self) -> builtins.str:
+        '''The DBSnapshotArn of the DBSnapshot resource.'''
+        result = self._values.get("db_snapshot_arn")
+        assert result is not None, "Required property 'db_snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DBSnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_rds.DBSubnetGroupReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -825,6 +942,51 @@ class GlobalClusterReference:
         return "GlobalClusterReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rds.IClusterSnapshotRef")
+class IClusterSnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ClusterSnapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSnapshotRef")
+    def cluster_snapshot_ref(self) -> "ClusterSnapshotReference":
+        '''(experimental) A reference to a ClusterSnapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IClusterSnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ClusterSnapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_rds.IClusterSnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSnapshotRef")
+    def cluster_snapshot_ref(self) -> "ClusterSnapshotReference":
+        '''(experimental) A reference to a ClusterSnapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ClusterSnapshotReference", jsii.get(self, "clusterSnapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IClusterSnapshotRef).__jsii_proxy_class__ = lambda : _IClusterSnapshotRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rds.ICustomDBEngineVersionRef")
@@ -1322,6 +1484,51 @@ class _IDBShardGroupRefProxy(
 typing.cast(typing.Any, IDBShardGroupRef).__jsii_proxy_class__ = lambda : _IDBShardGroupRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rds.IDBSnapshotRef")
+class IDBSnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBSnapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSnapshotRef")
+    def db_snapshot_ref(self) -> "DBSnapshotReference":
+        '''(experimental) A reference to a DBSnapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDBSnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBSnapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_rds.IDBSnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSnapshotRef")
+    def db_snapshot_ref(self) -> "DBSnapshotReference":
+        '''(experimental) A reference to a DBSnapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DBSnapshotReference", jsii.get(self, "dbSnapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDBSnapshotRef).__jsii_proxy_class__ = lambda : _IDBSnapshotRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rds.IDBSubnetGroupRef")
 class IDBSubnetGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1646,6 +1853,7 @@ class OptionGroupReference:
 
 
 __all__ = [
+    "ClusterSnapshotReference",
     "CustomDBEngineVersionReference",
     "DBClusterParameterGroupReference",
     "DBClusterReference",
@@ -1657,9 +1865,11 @@ __all__ = [
     "DBSecurityGroupIngressReference",
     "DBSecurityGroupReference",
     "DBShardGroupReference",
+    "DBSnapshotReference",
     "DBSubnetGroupReference",
     "EventSubscriptionReference",
     "GlobalClusterReference",
+    "IClusterSnapshotRef",
     "ICustomDBEngineVersionRef",
     "IDBClusterParameterGroupRef",
     "IDBClusterRef",
@@ -1671,6 +1881,7 @@ __all__ = [
     "IDBSecurityGroupIngressRef",
     "IDBSecurityGroupRef",
     "IDBShardGroupRef",
+    "IDBSnapshotRef",
     "IDBSubnetGroupRef",
     "IEventSubscriptionRef",
     "IGlobalClusterRef",
@@ -1681,6 +1892,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__06afaaac1cbc9211c2ab34a1250d807fae1595567599a31f56c78c8600aefa32(
+    *,
+    db_cluster_snapshot_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__d7bfade17c85355120dd78174c103b342d9dc394e0d82f07c3b0783661051259(
     *,
@@ -1715,6 +1933,7 @@ def _typecheckingstub__4a016ffb60db252672a7b690c1ff8bdd0440fbe200a30b69f6386fd98
 
 def _typecheckingstub__a554bb088b971739df533e28d085e09e9eabc0cc0432e620aec60795527d2bb0(
     *,
+    db_parameter_group_arn: builtins.str,
     db_parameter_group_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1764,6 +1983,13 @@ def _typecheckingstub__91d929c8e4d92f83b9c6cc71e3e5564785a42844226119589dcd306e9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__985591032dffbebfd858d2c477b4798aa2afd863295770e4b0386adf933f5810(
+    *,
+    db_snapshot_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5c64adbab12e5b7d86608b91a80802222b0c76775becee65732d46fa582990ae(
     *,
     db_subnet_group_arn: builtins.str,
@@ -1800,5 +2026,5 @@ def _typecheckingstub__e07097ee5cec4d621b125e688e72d708a650095ae041c832d8307f3a2
     """Type checking stubs"""
     pass
 
-for cls in [ICustomDBEngineVersionRef, IDBClusterParameterGroupRef, IDBClusterRef, IDBInstanceRef, IDBParameterGroupRef, IDBProxyEndpointRef, IDBProxyRef, IDBProxyTargetGroupRef, IDBSecurityGroupIngressRef, IDBSecurityGroupRef, IDBShardGroupRef, IDBSubnetGroupRef, IEventSubscriptionRef, IGlobalClusterRef, IIntegrationRef, IOptionGroupRef]:
+for cls in [IClusterSnapshotRef, ICustomDBEngineVersionRef, IDBClusterParameterGroupRef, IDBClusterRef, IDBInstanceRef, IDBParameterGroupRef, IDBProxyEndpointRef, IDBProxyRef, IDBProxyTargetGroupRef, IDBSecurityGroupIngressRef, IDBSecurityGroupRef, IDBShardGroupRef, IDBSnapshotRef, IDBSubnetGroupRef, IEventSubscriptionRef, IGlobalClusterRef, IIntegrationRef, IOptionGroupRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

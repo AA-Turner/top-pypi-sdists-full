@@ -12,7 +12,7 @@ from archinfo.types import RegisterOffset
 from claripy import FSORT_DOUBLE, FSORT_FLOAT
 
 from angr import ailment
-from angr.calling_conventions import SimRegArg, SimTypeBottom, default_cc
+from angr.calling_conventions import SimRegArg, SimTypeBottom, default_cc_for_project
 from angr.code_location import CodeLocation, ExternalCodeLocation
 from angr.engines.light import SpOffset
 from angr.engines.light.engine import SimEngineNostmtAIL
@@ -311,11 +311,7 @@ class SimEngineRDAIL(
 
         if cc is None:
             # fall back to the default calling convention
-            cc_cls = default_cc(
-                self.project.arch.name,
-                platform=self.project.simos.name if self.project.simos is not None else None,
-                default=None,
-            )
+            cc_cls = default_cc_for_project(self.project, default=None)
             if cc_cls is None:
                 l.warning("Unknown default calling convention for architecture %s.", self.project.arch.name)
                 cc = None
@@ -1186,9 +1182,12 @@ class SimEngineRDAIL(
         return self._top(expr.bits)  # TODO
 
     def _handle_expr_DirtyExpression(self, expr) -> MultiValues[claripy.ast.BV | claripy.ast.FP]:
-        if isinstance(expr.dirty_expr, ailment.expression.VEXCCallExpression):
-            for operand in expr.dirty_expr.operands:
-                self._expr(operand)
+        for operand in expr.operands:
+            self._expr(operand)
+        if expr.guard is not None:
+            self._expr(expr.guard)
+        if expr.maddr is not None:
+            self._expr(expr.maddr)
 
         return MultiValues(self.state.top(expr.bits))
 

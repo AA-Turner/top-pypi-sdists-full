@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Optional
 
 from scaleway_core.bridge import (
+    Money,
     Region as ScwRegion,
     Zone as ScwZone,
 )
@@ -71,9 +72,32 @@ class Attachment:
     The type of the attached resource.
     """
 
+    region: ScwRegion
+    """
+    The region where the attachment is located.
+    """
+
     zone: Optional[ScwZone] = None
     """
     The zone where the resource is located.
+    """
+
+
+@dataclass
+class FileSystemType:
+    name: str
+    """
+    Filesystem type name.
+    """
+
+    filesystem_price_gb_per_hour: Optional[Money] = None
+    """
+    Price of the filesystem billed in GB/hour.
+    """
+
+    snapshot_price_gb_per_hour: Optional[Money] = None
+    """
+    Price of the snapshot billed in GB/hour.
     """
 
 
@@ -128,6 +152,11 @@ class FileSystem:
     Region where the filesystem is located.
     """
 
+    filesystem_type_id: str
+    """
+    UUID of the filesystem type.
+    """
+
     created_at: Optional[datetime] = None
     """
     Creation date of the filesystem.
@@ -152,7 +181,7 @@ class CreateFileSystemRequest:
 
     size: int
     """
-    Must be compliant with the minimum (100 GB) and maximum (10 TB) allowed size.
+    Must be compliant with the minimum (25 GB) and maximum (50 TB) allowed size.
     """
 
     region: Optional[ScwRegion] = None
@@ -163,6 +192,11 @@ class CreateFileSystemRequest:
     project_id: Optional[str] = None
     """
     UUID of the project the filesystem belongs to.
+    """
+
+    type_: Optional[str] = None
+    """
+    Type of the filesystem.
     """
 
     tags: Optional[list[str]] = field(default_factory=list)
@@ -267,6 +301,41 @@ class ListAttachmentsResponse:
 
 
 @dataclass
+class ListFileSystemTypesRequest:
+    """
+    Request to list filesystem types with pagination options.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+    page: Optional[int] = 0
+    """
+    Page number (starts at 1).
+    """
+
+    page_size: Optional[int] = 0
+    """
+    Number of entries per page (default: 50, max: 100).
+    """
+
+
+@dataclass
+class ListFileSystemTypesResponse:
+    filesystem_types: list[FileSystemType]
+    """
+    Returns paginated list of filesystem-types.
+    """
+
+    total_count: int
+    """
+    Total number of file system types.
+    """
+
+
+@dataclass
 class ListFileSystemsRequest:
     """
     Request to list filesystems with filtering and pagination options.
@@ -307,6 +376,11 @@ class ListFileSystemsRequest:
     name: Optional[str] = None
     """
     Filter the returned filesystems by their names.
+    """
+
+    filesystem_type: Optional[str] = None
+    """
+    Type of the filesystem.
     """
 
     tags: Optional[list[str]] = field(default_factory=list)
@@ -360,8 +434,8 @@ class UpdateFileSystemRequest:
 
     size: Optional[int] = 0
     """
-    Size in bytes, with a granularity of 100 GB (10^11 bytes).
-Must be compliant with the minimum (100 GB) and maximum (10 TB) allowed size.
+    Size in bytes, with a granularity in GB (10^9 bytes).
+Must be compliant with the minimum (25 GB) and maximum (50 TB) allowed size.
     """
 
     tags: Optional[list[str]] = field(default_factory=list)

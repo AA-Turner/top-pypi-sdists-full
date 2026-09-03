@@ -9,7 +9,10 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
+import time
+import uuid
 from pathlib import Path
 
 from agentic_devtools.cli.git.branch_naming import build_branch_name, normalize_issue_key, sanitize_branch_description
@@ -64,6 +67,30 @@ def _error(message: str) -> int:
     """Print a CLI-friendly error message and return a non-zero status."""
     print(message)
     return 1
+
+
+def _find_spec_dir(repo_root: Path, issue_id: str) -> Path | None:
+    """Find the spec directory for *issue_id*, trying multiple layouts.
+
+    Tries, in order:
+    1. ``specs/<issue_id>`` — exact flat match.
+    2. ``specs/<issue_id>-*`` — flat path with a slug suffix (standalone layout).
+    3. ``specs/**/<issue_id>`` — nested hierarchical layout.
+
+    Returns the first matching directory, or ``None`` when no spec directory
+    exists for the issue.
+    """
+    specs_root = repo_root / "specs"
+    direct = specs_root / issue_id
+    if direct.is_dir():
+        return direct
+    for candidate in sorted(specs_root.glob(f"{issue_id}-*")):
+        if candidate.is_dir():
+            return candidate
+    for candidate in sorted(specs_root.glob(f"*/**/{issue_id}")):
+        if candidate.is_dir():
+            return candidate
+    return None
 
 
 def _record_approval_payload_digest(context: dict[str, object]) -> int:
@@ -770,6 +797,305 @@ def audit_trio_cmd() -> None:
     print("Deterministic validation of prompt/artifact gates and review invariants passed.")
 
 
+def orchestrate_hierarchy_cmd() -> int:
+    """Runs one multi-agent hierarchy orchestration pass for the active issue.
+
+    Discovers the assigned issue's available hierarchy from provider-verified
+    relationships, generates the runtime hierarchy input file for this run,
+    composes the smallest valid team of scope agents (FR-001 through
+    FR-004), and records the discovery outcome as the first FR-012 NDJSON
+    trace event for the run.
+
+    Provider-produced relationships are read exclusively from the validated
+    epic-tree artifact. If no provider-verified hierarchy is available for
+    the assigned issue—either because the artifact is absent or because the
+    issue is not present in it—the command records ``hierarchy_unavailable``
+    and terminates. Non-standalone hierarchy assignments remain preparatory
+    only until runtime agent dispatch and hierarchical review are
+    implemented; the command fails rather than fabricating those lifecycle
+    events.
+    """
+    from agentic_devtools.hierarchy.models import HierarchyLevel
+    from agentic_devtools.orchestration.hierarchy import (
+        AssignmentOutcome,
+        MasterKeyUnavailableError,
+        ProtectedStorage,
+        ProviderIssueRelationship,
+        TraceEvent,
+        TraceEventType,
+        append_event,
+        classify_candidate_list,
+        classify_subtask_files,
+        compose_assignment,
+        provision_subtask_agents,
+        record_degradation,
+        record_no_edit_reduced_scope,
+        resolve_authorized_principals,
+        resolve_master_key,
+        run_discovery,
+        trace_path_for,
+    )
+    from agentic_devtools.orchestration.hierarchy.aggregation import (
+        append_degradation_started,
+        append_retention_record,
+        append_trace_completeness_started,
+        cleanup_expired_retention,
+    )
+    from agentic_devtools.orchestration.hierarchy.context import retention_metadata
+    from agentic_devtools.orchestration.hierarchy.workflow import WorkflowCompletion, complete_workflow
+
+    issue_id = _get_required_issue_id("orchestrating hierarchy")
+    if issue_id is None:
+        return 1
+
+    state_dir = get_state_dir()
+    run_id = f"{issue_id}-{uuid.uuid4().hex[:12]}"
+    trace_path = trace_path_for(state_dir, run_id)
+    trace_history_path = state_dir / "orchestration" / "hierarchy" / "trace-history.ndjson"
+    degradation_history_path = state_dir / "orchestration" / "hierarchy" / "degradation-history.ndjson"
+    retention_registry_path = state_dir / "orchestration" / "hierarchy" / "retention-registry.ndjson"
+    default_secret_file = Path.home() / ".agdt" / "hierarchy-master-key"
+    try:
+        master_key = resolve_master_key(secret_file=default_secret_file)
+    except MasterKeyUnavailableError:
+        return _error(
+            "Error: hierarchy master key is not configured. Set AGDT_HIERARCHY_MASTER_KEY, "
+            "configure keyring service 'agentic-devtools' key 'hierarchy-master-key', "
+            f"or write the key to {default_secret_file}. Use a high-entropy secret (at least 32 random bytes)."
+        )
+    try:
+        caller_principals = resolve_authorized_principals()
+    except ValueError as exc:
+        return _error(f"Error: hierarchy storage authorization is invalid: {exc}")
+    try:
+        trace_storage = ProtectedStorage(
+            trace_path,
+            master_key=master_key,
+            authorized_principals=caller_principals,
+        )
+    except ValueError as exc:
+        return _error(
+            f"Error: hierarchy master key is invalid: {exc}. Use a high-entropy secret of at least 32 random bytes."
+        )
+    cleanup_expired_retention(retention_registry_path, master_key=master_key, authorized_principals=caller_principals)
+    retention_meta = retention_metadata()
+    append_retention_record(
+        retention_registry_path,
+        run_id=run_id,
+        trace_path=str(trace_path),
+        expires_at=retention_meta.expires_at,
+    )
+    append_trace_completeness_started(trace_history_path, run_id=run_id)
+    started = time.monotonic()
+
+    relationships: dict[str, ProviderIssueRelationship] = {}
+    epic_tree_path = _get_scratch_dir() / "epic-tree.json"
+    if epic_tree_path.is_file():
+        try:
+            tree = load_epic_tree(epic_tree_path, config_path=get_repo_root())
+            relationships[tree.epic.ref] = ProviderIssueRelationship(issue_key=tree.epic.ref, level=HierarchyLevel.EPIC)
+            for feature in tree.epic.features:
+                relationships[feature.ref] = ProviderIssueRelationship(
+                    issue_key=feature.ref, parent_key=tree.epic.ref, level=HierarchyLevel.FEATURE
+                )
+                for subtask in feature.subtasks:
+                    relationships[subtask.ref] = ProviderIssueRelationship(
+                        issue_key=subtask.ref, parent_key=feature.ref, level=HierarchyLevel.TASK
+                    )
+        except (EpicTreeLoadError, json.JSONDecodeError) as exc:
+            append_event(
+                trace_path,
+                TraceEvent(
+                    event_type=TraceEventType.HIERARCHY_DISCOVERY,
+                    agent_scope="orchestrator",
+                    event_detail={
+                        "outcome": "failed",
+                        "levels_found": [],
+                        "error": f"hierarchy_input_load_failed: {exc}",
+                    },
+                ),
+                protected_storage=trace_storage,
+            )
+            complete_workflow(
+                trace_path,
+                WorkflowCompletion(
+                    outcome="failed",
+                    agents_completed=(),
+                    agents_skipped=(),
+                    final_disposition="hierarchy_input_load_failed",
+                ),
+                protected_storage=trace_storage,
+                trace_history_path=trace_history_path,
+                degradation_history_path=degradation_history_path,
+                run_id=run_id,
+                eligible_for_degradation_slo=False,
+                elapsed_seconds=time.monotonic() - started,
+            )
+            return _error(f"Error: hierarchy input could not be loaded: {exc}")
+    if issue_id not in relationships:
+        _hierarchy_unavailable_reason = (
+            f"hierarchy_unavailable: issue {issue_id!r} is absent from provider-verified epic-tree"
+            if epic_tree_path.is_file()
+            else f"hierarchy_unavailable: no provider-verified hierarchy artifact found at {epic_tree_path}"
+        )
+        append_event(
+            trace_path,
+            TraceEvent(
+                event_type=TraceEventType.HIERARCHY_DISCOVERY,
+                agent_scope="orchestrator",
+                event_detail={
+                    "outcome": "failed",
+                    "levels_found": [],
+                    "error": _hierarchy_unavailable_reason,
+                },
+            ),
+            protected_storage=trace_storage,
+        )
+        complete_workflow(
+            trace_path,
+            WorkflowCompletion(
+                outcome="failed",
+                agents_completed=(),
+                agents_skipped=(),
+                final_disposition="hierarchy_unavailable",
+            ),
+            protected_storage=trace_storage,
+            trace_history_path=trace_history_path,
+            degradation_history_path=degradation_history_path,
+            run_id=run_id,
+            eligible_for_degradation_slo=False,
+            elapsed_seconds=time.monotonic() - started,
+        )
+        return _error(f"Error: provider-verified hierarchy relationship data is unavailable for issue {issue_id!r}")
+
+    spec_dir = _find_spec_dir(get_repo_root() or Path.cwd(), issue_id)
+    result = run_discovery(
+        issue_id,
+        relationships,
+        state_dir=state_dir,
+        run_id=run_id,
+        spec_dir=spec_dir,
+    )
+    eligible_for_degradation_slo = result.outcome == "partial"
+
+    tasks_md_content: str | None = (
+        (spec_dir / "tasks.md").read_text(encoding="utf-8")
+        if spec_dir is not None and (spec_dir / "tasks.md").is_file()
+        else None
+    )
+    # A task identifier is usable only when the task line explicitly names the
+    # assigned issue. Never grant the first task in a multi-task plan by default.
+    _task_id_match = (
+        next(
+            (
+                match
+                for match in re.finditer(r"^- \[[ Xx]\] (T\d+)\b.*$", tasks_md_content, re.MULTILINE)
+                if re.search(rf"\b{re.escape(issue_id)}\b", match.group(0))
+            ),
+            None,
+        )
+        if tasks_md_content
+        else None
+    )
+    classification = (
+        classify_subtask_files(
+            tasks_md_content=tasks_md_content,
+            task_id=_task_id_match.group(1),
+        )
+        if _task_id_match
+        else classify_candidate_list(())
+    )
+    eligible_for_degradation_slo = result.outcome == "partial" or classification.is_discovery_only
+    append_degradation_started(degradation_history_path, run_id=run_id, eligible=eligible_for_degradation_slo)
+
+    discovery_event = TraceEvent(
+        event_type=TraceEventType.HIERARCHY_DISCOVERY,
+        agent_scope="orchestrator",
+        event_detail={
+            "outcome": result.outcome,
+            "levels_found": result.chain.levels_found if result.chain is not None else [],
+            "error": result.error,
+        },
+    )
+    append_event(trace_path, discovery_event, protected_storage=trace_storage)
+
+    if result.chain is None:
+        complete_workflow(
+            trace_path,
+            WorkflowCompletion(
+                outcome="failed",
+                agents_completed=(),
+                agents_skipped=(),
+                final_disposition="hierarchy_discovery_failed",
+            ),
+            protected_storage=trace_storage,
+            trace_history_path=trace_history_path,
+            degradation_history_path=degradation_history_path,
+            run_id=run_id,
+            eligible_for_degradation_slo=eligible_for_degradation_slo,
+            elapsed_seconds=time.monotonic() - started,
+        )
+        return _error(f"Error: hierarchy discovery failed for issue {issue_id!r}: {result.error}")
+
+    subtask_agents = provision_subtask_agents(issue_id, classification)
+    if classification.is_discovery_only:
+        record_no_edit_reduced_scope(
+            trace_path,
+            agent_id=subtask_agents[0].agent_id,
+            protected_storage=trace_storage,
+        )
+    assignment = compose_assignment(result.chain, subtask_agents=subtask_agents)
+    if assignment.degradation is not None:
+        record_degradation(
+            trace_path,
+            reason=assignment.degradation.reason,
+            missing_level=assignment.degradation.missing_level,
+            resulting_topology=assignment.degradation.resulting_topology,
+            protected_storage=trace_storage,
+        )
+    if assignment.outcome != AssignmentOutcome.STANDALONE:
+        complete_workflow(
+            trace_path,
+            WorkflowCompletion(
+                outcome="failed",
+                agents_completed=("orchestrator",),
+                agents_skipped=tuple(agent.agent_id for agent in assignment.all_agents),
+                final_disposition="hierarchy_dispatch_not_implemented",
+            ),
+            protected_storage=trace_storage,
+            trace_history_path=trace_history_path,
+            degradation_history_path=degradation_history_path,
+            run_id=run_id,
+            eligible_for_degradation_slo=eligible_for_degradation_slo,
+            elapsed_seconds=time.monotonic() - started,
+        )
+        return _error(
+            "Error: hierarchy assignment was prepared, but runtime hierarchy-agent dispatch "
+            "and review are not yet implemented."
+        )
+
+    complete_workflow(
+        trace_path,
+        WorkflowCompletion(
+            outcome="partial" if classification.is_discovery_only else "success",
+            agents_completed=("orchestrator",),
+            agents_skipped=(),
+            final_disposition="reduced_scope_success" if classification.is_discovery_only else "standalone_scaffolding",
+        ),
+        protected_storage=trace_storage,
+        trace_history_path=trace_history_path,
+        degradation_history_path=degradation_history_path,
+        run_id=run_id,
+        eligible_for_degradation_slo=eligible_for_degradation_slo,
+        elapsed_seconds=time.monotonic() - started,
+    )
+    print(
+        f"Hierarchy orchestration for issue {issue_id!r}: outcome={assignment.outcome}, "
+        f"run_id={run_id}, trace={trace_path}"
+    )
+    return 0
+
+
 # --- Async Wrappers ---
 
 
@@ -809,13 +1135,24 @@ def audit_trio_async() -> None:
     )
 
 
+def orchestrate_hierarchy_async() -> None:
+    """Async wrapper for orchestrate_hierarchy_cmd."""
+    run_function_in_background(
+        "agentic_devtools.cli.workflows.orchestrator_commands",
+        "orchestrate_hierarchy_cmd",
+        command_display_name="agdt-orchestrate-hierarchy",
+    )
+
+
 __all__ = [
     "orchestrate_init_cmd",
     "orchestrate_step_cmd",
     "orchestrate_finalize_cmd",
     "audit_trio_cmd",
+    "orchestrate_hierarchy_cmd",
     "orchestrate_init_async",
     "orchestrate_step_async",
     "orchestrate_finalize_async",
     "audit_trio_async",
+    "orchestrate_hierarchy_async",
 ]

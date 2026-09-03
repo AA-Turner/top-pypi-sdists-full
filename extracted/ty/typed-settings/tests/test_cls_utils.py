@@ -75,29 +75,27 @@ class TestNestedOptions:
     def test_valid_mappings(self, cls: type) -> None:
         """
         "dict", "typing.Mapping" and "collections.abc.Mapping" are equivalent mapping
-        types for "CollectionChildOptions".
+        types for "NestedOptions".
         """
         nested_mapping = cls_utils.nested_options(Mapping[str, cls])  # type: ignore[valid-type]
         nested_typing_mapping = cls_utils.nested_options(typing.Mapping[str, cls])  # type: ignore[valid-type]
         nested_dict = cls_utils.nested_options(dict[str, cls])  # type: ignore[valid-type]
 
         assert nested_mapping == nested_dict == nested_typing_mapping
-        assert isinstance(nested_mapping, types.CollectionChildOptions)
-        assert nested_mapping.collection == "mapping"
+        assert isinstance(nested_mapping, cls_utils.NestedMapping)
 
     @pytest.mark.parametrize("cls", [AttrsCls, DataclassCls, PydanticCls])
     def test_valid_sequences(self, cls: type) -> None:
         """
         "list", "tuple[T, ...]" and "collections.abc.Sequence" are equivalent sequence
-        types for "CollectionChildOptions".
+        types for "NestedOptions".
         """
         nested_list = cls_utils.nested_options(list[cls])  # type: ignore[valid-type]
         nested_sequence = cls_utils.nested_options(Sequence[cls])  # type: ignore[valid-type]
         nested_tuple = cls_utils.nested_options(tuple[cls, ...])  # type: ignore[valid-type]
 
         assert nested_list == nested_sequence == nested_tuple
-        assert isinstance(nested_list, types.CollectionChildOptions)
-        assert nested_list.collection == "sequence"
+        assert isinstance(nested_list, cls_utils.NestedSequence)
 
     @pytest.mark.parametrize(
         "cls",
@@ -127,7 +125,8 @@ def test_deep_options_typerror() -> None:
     class C:
         x: int = 0
 
-    pytest.raises(TypeError, cls_utils.deep_options, C)
+    with pytest.raises(TypeError):
+        cls_utils.deep_options(C)
 
 
 @pytest.mark.parametrize("kind", ["attrs", "dataclasses", "pydantic"])
@@ -218,7 +217,8 @@ class TestGroupOptions:
         class C:
             x: int = 0
 
-        pytest.raises(TypeError, cls_utils.group_options, [])
+        with pytest.raises(TypeError):
+            cls_utils.group_options(C, ())
 
     def test_only_scalars(self) -> None:
         """
@@ -592,9 +592,9 @@ class TestAttrs:
             "e": Parent,
         }
 
-    def test_collection_child_options(self) -> None:
+    def test_nested_options(self) -> None:
         """
-        OptionInfo has a "collection_child_options" attribute.
+        OptionInfo has a "nested_options" attribute.
         """
 
         @attrs.define
@@ -602,8 +602,8 @@ class TestAttrs:
             a: dict[str, AttrsCls]
 
         result = cls_utils.Attrs.iter_fields(Nested)
-        assert result[0].collection_child_options is not None
-        assert result[0].collection_child_options.collection == "mapping"
+        assert result[0].nested_options is not None
+        assert isinstance(result[0].nested_options, cls_utils.NestedMapping)
 
 
 class TestDataclasses:
@@ -817,9 +817,9 @@ class TestDataclasses:
             "d": Parent,
         }
 
-    def test_collection_child_options(self) -> None:
+    def test_nested_options(self) -> None:
         """
-        OptionInfo has a "collection_child_options" attribute.
+        OptionInfo has a "nested_options" attribute.
         """
 
         @dataclasses.dataclass
@@ -827,8 +827,8 @@ class TestDataclasses:
             a: dict[str, AttrsCls]
 
         result = cls_utils.Dataclasses.iter_fields(Nested)
-        assert result[0].collection_child_options is not None
-        assert result[0].collection_child_options.collection == "mapping"
+        assert result[0].nested_options is not None
+        assert isinstance(result[0].nested_options, cls_utils.NestedMapping)
 
 
 class TestPydantic:
@@ -1038,17 +1038,17 @@ class TestPydantic:
             "e": Parent,
         }
 
-    def test_collection_child_options(self) -> None:
+    def test_nested_options(self) -> None:
         """
-        OptionInfo has a "collection_child_options" attribute.
+        OptionInfo has a "nested_options" attribute.
         """
 
         class Nested(pydantic.BaseModel):
             a: dict[str, PydanticCls]
 
         result = cls_utils.Pydantic.iter_fields(Nested)
-        assert result[0].collection_child_options is not None
-        assert result[0].collection_child_options.collection == "mapping"
+        assert result[0].nested_options is not None
+        assert isinstance(result[0].nested_options, cls_utils.NestedMapping)
 
 
 class TestAttrDocstrings:
@@ -1166,7 +1166,7 @@ class TestAttrDocstrings:
         result = cls_utils._get_attr_docs(C)
         assert result == {"a": "aw yeah", "b": "aw yeah"}
 
-    def test_assign_no_name(self):
+    def test_assign_no_name(self) -> None:
         dct = {}
 
         class C:

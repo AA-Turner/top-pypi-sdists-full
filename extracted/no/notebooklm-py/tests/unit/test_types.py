@@ -162,6 +162,7 @@ _PUBLIC_MOVABLE_CLASSES = [
     "NotebookDescription",
     "NotebookMetadata",
     "ReportSuggestion",
+    "RelevantChunk",
     "RpcTelemetryEvent",
     "SharedUser",
     "ShareStatus",
@@ -330,7 +331,7 @@ def _notebook_meta(*, user_role=1, has_sharing=False):
     """Build a ``data[5]`` metadata block in the live 16-slot shape.
 
     Copied from a real ``LIST_NOTEBOOKS`` response (see
-    ``tests/cassettes/notebooks_list.yaml``): slot 0 is ``userRole``, slot 1 is
+    ``tests/cassettes/web/notebooks_list.yaml``): slot 0 is ``userRole``, slot 1 is
     the "has any sharing" flag, slot 5 is the last-modified instant, slot 8 the
     creation instant and slot 12 ``isPublic``.
     """
@@ -355,6 +356,12 @@ def _notebook_meta(*, user_role=1, has_sharing=False):
 
 
 class TestNotebook:
+    @pytest.mark.parametrize("data", [True, 1, 1.2])
+    def test_truthy_non_list_preserves_type_error(self, data: object) -> None:
+        """The decoder extraction must preserve malformed top-level behavior."""
+        with pytest.raises(TypeError):
+            Notebook.from_api_response(data)  # type: ignore[arg-type]
+
     def test_from_api_response_basic(self):
         """Test parsing basic notebook data."""
         data = ["My Notebook", [], "nb_123", "📓"]
@@ -570,7 +577,7 @@ class TestNotebook:
             # Collaborator with edit rights (proto WRITER).
             (2, True, SharePermission.EDITOR, False),
             # Collaborator with read-only rights (proto READER). Observed live
-            # in tests/cassettes/notebooks_list.yaml ("Jane Austen").
+            # in tests/cassettes/web/notebooks_list.yaml ("Jane Austen").
             (3, True, SharePermission.VIEWER, False),
         ],
     )
@@ -1062,7 +1069,8 @@ class TestSource:
             (10, SourceType.MEDIA),
             (11, SourceType.DOCX),
             (13, SourceType.IMAGE),
-            (14, SourceType.GOOGLE_SPREADSHEET),
+            (7, SourceType.GOOGLE_SPREADSHEET),
+            (14, SourceType.GOOGLE_DRIVE),
             (16, SourceType.CSV),
             (17, SourceType.EPUB),
         ],
@@ -1188,7 +1196,7 @@ class TestSource:
         identical ``Source`` instances from the same entry — the two parsers
         are now a single source of truth (issue #1205, part 1/5).
         """
-        from notebooklm._row_adapters.sources import SourceRow
+        from notebooklm._web.rows.sources import SourceRow
         from notebooklm.rpc import RPCMethod
         from notebooklm.rpc.types import SourceStatus
 
@@ -1236,7 +1244,7 @@ class TestSource:
 
     def test_pdf_url_title_derives_on_both_funnels(self):
         """The fallback fires identically on the add and list construction paths."""
-        from notebooklm._row_adapters.sources import SourceRow
+        from notebooklm._web.rows.sources import SourceRow
         from notebooklm.rpc import RPCMethod
 
         url = "https://example.com/reports/Q3%20Report.pdf"
@@ -1353,7 +1361,7 @@ class TestSource:
         without forwarding it the row defaults to ``GET_NOTEBOOK`` and any
         ``safe_index`` drift log is mis-tagged.
         """
-        from notebooklm._row_adapters.sources import SourceRow
+        from notebooklm._web.rows.sources import SourceRow
         from notebooklm.rpc import RPCMethod
 
         captured: dict[str, str | None] = {}
@@ -1373,7 +1381,7 @@ class TestSource:
         """Without an explicit ``method_id`` the row falls back to the
         historical ``GET_NOTEBOOK`` default — preserving prior behavior for
         callers that do not pass it (issue #1242 backward-compat)."""
-        from notebooklm._row_adapters.sources import SourceRow
+        from notebooklm._web.rows.sources import SourceRow
         from notebooklm.rpc import RPCMethod
 
         entry = [["src_default"], "Default", [None, 5, [1704067200, 0]]]
@@ -1390,7 +1398,7 @@ class TestSource:
         call site; force it to drift so we can assert the tagged method id
         flows from ``from_api_response``'s ``method_id`` argument.
         """
-        from notebooklm._row_adapters import sources as _row_adapters_sources
+        from notebooklm._web.rows import sources as web_rows_sources
         from notebooklm.exceptions import UnknownRPCMethodError
         from notebooklm.rpc import RPCMethod
 
@@ -1402,11 +1410,11 @@ class TestSource:
                 source=source,
             )
 
-        monkeypatch.setattr(_row_adapters_sources, "safe_index", _drift)
+        monkeypatch.setattr(web_rows_sources, "safe_index", _drift)
 
         # metadata[2] is a non-empty list so created_at_raw reaches safe_index.
         entry = [["src_drift"], "Drift", [None, 5, [1704067200, 0]]]
-        row = _row_adapters_sources.SourceRow.from_unknown_shape(
+        row = web_rows_sources.SourceRow.from_unknown_shape(
             [entry], method_id=RPCMethod.ADD_SOURCE.value
         )
         with pytest.raises(UnknownRPCMethodError) as exc_info:

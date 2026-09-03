@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-import notebooklm._cookie_persistence as persistence_module
 import notebooklm._runtime.lifecycle as lifecycle_module
+import notebooklm._web.transport.cookie_persistence as persistence_module
 from notebooklm import client as client_module
 from notebooklm._auth.cookie_merge import RecoveryObservation
 from notebooklm._auth.cookie_types import Cookie, CookieJar
@@ -25,7 +25,7 @@ from notebooklm._auth.profile_store import (
 )
 from notebooklm._auth.storage import CookieSaveResult, snapshot_cookie_jar
 from notebooklm._auth.tokens import FileLoadedAuth, InlineLoadedAuth
-from notebooklm._cookie_persistence import CookiePersistence
+from notebooklm._web.transport.cookie_persistence import CookiePersistence
 from notebooklm.auth import AuthTokens
 from tests._helpers.client_factory import build_client_shell_for_tests
 
@@ -436,13 +436,13 @@ def test_runtime_factory_keeps_raw_auth_store_and_resolved_lifecycle_target(
     auth = _auth(raw)
     client = build_client_shell_for_tests(auth, keepalive_storage_path=explicit)
     persistence = client._collaborators.cookie_persistence
-    lifecycle = client._collaborators.lifecycle
+    web_transport = client._collaborators.web_transport
 
     assert persistence._default_store is not None
     assert persistence._default_store.path == raw
     assert persistence._legacy.auth is None
-    assert lifecycle._cookie_persistence_path == explicit
-    assert lifecycle._auth is auth
+    assert web_transport._cookie_persistence_path == explicit
+    assert web_transport._auth is auth
 
 
 @pytest.mark.asyncio
@@ -467,10 +467,10 @@ async def test_lifecycle_default_canonical_and_explicit_saver_routes(
     auth = _auth(path)
     default_client = build_client_shell_for_tests(auth)
     persistence = default_client._collaborators.cookie_persistence
-    lifecycle = default_client._collaborators.lifecycle
+    web_transport = default_client._collaborators.web_transport
     canonical = AsyncMock()
     monkeypatch.setattr(persistence, "_save_canonical", canonical)
-    await lifecycle.save_cookies(persistence, _live())
+    await web_transport.save_cookies(_live())
     canonical.assert_awaited_once()
 
     custom_calls: list[tuple[httpx.Cookies, set[tuple[str, str, str, str | None]]]] = []
@@ -484,10 +484,7 @@ async def test_lifecycle_default_canonical_and_explicit_saver_routes(
     custom_client = build_client_shell_for_tests(_auth(path), cookie_saver=custom)
     custom_input = legacy_jar("custom")
     custom_expected = rows(custom_input)
-    await custom_client._collaborators.lifecycle.save_cookies(
-        custom_client._collaborators.cookie_persistence,
-        custom_input,
-    )
+    await custom_client._collaborators.web_transport.save_cookies(custom_input)
     assert len(custom_calls) == 1
     assert custom_calls[0][0] is not custom_input
     assert custom_calls[0][1] == custom_expected

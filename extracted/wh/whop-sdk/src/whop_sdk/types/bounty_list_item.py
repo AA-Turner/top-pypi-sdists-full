@@ -9,6 +9,7 @@ from .bounty_list_item_accepted_deliverable_types_item import BountyListItemAcce
 from .bounty_list_item_business_goal_type import BountyListItemBusinessGoalType
 from .bounty_list_item_scheduled_frequency import BountyListItemScheduledFrequency
 from .bounty_list_item_status import BountyListItemStatus
+from .storefront_account import StorefrontAccount
 from .user_summary import UserSummary
 
 
@@ -100,9 +101,19 @@ class BountyListItem(UniversalBaseModel):
     Gross bounty-pool amount allocated per accepted submission, in whole currency units.
     """
 
+    hosting_account: typing.Optional[StorefrontAccount] = pydantic.Field(default=None)
+    """
+    Account hosting the bounty's forum — the one whose `route` and `experience_id` address its discussion thread, and where its submissions dashboard lives. `null` for a platform-wide bounty with no host. May differ from `funding_account`.
+    """
+
     id: str = pydantic.Field()
     """
     Bounty ID, prefixed `bnty_`.
+    """
+
+    min_total_verified_duration_seconds: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Total verified footage a submission must accumulate before it can be submitted, in seconds. Always a whole number of hours. Present only on `data_capture` bounties — it is what `net_reward_amount` pays for, so rate displays divide by it. `null` for every other goal type.
     """
 
     net_reward_amount: float = pydantic.Field()

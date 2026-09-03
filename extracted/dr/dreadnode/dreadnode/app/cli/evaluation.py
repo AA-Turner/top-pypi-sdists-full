@@ -29,10 +29,12 @@ from dreadnode.app.cli.shared import (
     confirm_destructive,
     console,
     merge_env_model_overrides,
+    parse_egress_targets,
     parse_env_model_overrides,
     print_link,
 )
 from dreadnode.app.model_catalog import resolve_model
+from dreadnode.packaging.egress import merge_targets as merge_egress_targets
 
 cli = cyclopts.App(
     name="evaluation",
@@ -724,6 +726,23 @@ def create(
             negative_iterable=(),
         ),
     ] = None,
+    egress: t.Annotated[
+        list[str] | None,
+        cyclopts.Parameter(
+            name="--egress",
+            help=(
+                "Additional outbound destination for this run's sandboxes "
+                "(e.g. --egress staging.example.com, --egress '*.internal.corp', "
+                "--egress 10.20.0.0/16; repeatable). Targets union with the "
+                "task's own egress.allow and are checked against the "
+                "deployment's egress floor identically, so they grant no reach "
+                "a task declaration could not. Supplying any target makes this "
+                "run a declaration, restricting it to what is named plus the "
+                "platform destinations the platform derives."
+            ),
+            negative_iterable=(),
+        ),
+    ] = None,
     wait: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     poll_interval_sec: t.Annotated[
         float,
@@ -775,6 +794,12 @@ def create(
             applies as a wall-clock bound.
         cleanup_policy: Sandbox cleanup policy.
         judge_model: Override the judge model for all tasks in this evaluation.
+        egress: Additional outbound destination for this run's sandboxes, as an
+            FQDN, a '*.suffix' wildcard, an IP, or a CIDR (repeatable). Unions
+            with the task's own `egress.allow` and is checked against the
+            deployment's egress floor identically. Supplying any target makes
+            this run a declaration, restricting it to what is named plus the
+            platform destinations the platform derives.
         wait: Block until the evaluation reaches a terminal state.
         poll_interval_sec: Seconds between status polls when --wait is set.
         timeout_sec: Maximum seconds to wait before timing out.
@@ -817,6 +842,17 @@ def create(
     merged_env_models = merge_env_model_overrides(request.get("model_overrides"), parsed_env_models)
     if merged_env_models is not None:
         request["model_overrides"] = merged_env_models
+
+    # TSK-EGR-007: --egress adds to any egress_overrides block from --file
+    # rather than replacing it, the same way --env-model merges per role.
+    # Both sides are validated here so a bad target is named before the round
+    # trip, whichever of the two the author wrote it in.
+    merged_egress = merge_egress_targets(
+        parse_egress_targets(request.get("egress_overrides"), where="egress_overrides"),
+        parse_egress_targets(egress),
+    )
+    if merged_egress is not None:
+        request["egress_overrides"] = merged_egress
 
     if not request.get("name"):
         raise ValueError(
@@ -1494,10 +1530,12 @@ def retry(
     as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
     platform: PlatformScopeArgs = PlatformScopeArgs(),
 ) -> None:
-    """Retry failed and errored samples in an evaluation.
+    """Retry failed samples in an evaluation.
 
-    Resets samples that ended in failed, timed_out, or infra_error
-    back to queued so they are picked up by workers again.
+    Resets samples that ended in failed, timed_out, cancelled, or infra_error
+    back to queued so they are picked up by workers again. Samples whose judge
+    errored are not requeued: rerunning the agent would produce a different
+    trajectory.
 
     Args:
         evaluation_id: The evaluation ID.

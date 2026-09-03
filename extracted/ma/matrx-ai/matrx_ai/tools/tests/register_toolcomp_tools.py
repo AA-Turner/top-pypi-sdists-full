@@ -277,6 +277,19 @@ TOOLS = [
                 "description": "If true, return the complete raw_stream_events array. Warning: can be very large.",
                 "default": False,
             },
+            "event_offset": {
+                "type": "integer",
+                "description": "Zero-based raw event offset for full_events mode.",
+                "default": 0,
+                "minimum": 0,
+            },
+            "event_limit": {
+                "type": "integer",
+                "description": "Raw events per page for full_events mode (maximum 10).",
+                "default": 10,
+                "minimum": 1,
+                "maximum": 10,
+            },
         },
         "output_schema": {
             "type": "object",
@@ -679,7 +692,11 @@ async def register_all() -> None:
 
     for tool in TOOLS:
         existing = (
-            await client.schema("tool").table("definition").select("id, name").eq("name", tool["name"]).execute()
+            await client.schema("tool")
+            .table("definition")
+            .select("id, name")
+            .eq("name", tool["name"])
+            .execute()
         )
         if existing.data:
             print(f"  [SKIP]   {tool['name']} — already registered (id={existing.data[0]['id']})")

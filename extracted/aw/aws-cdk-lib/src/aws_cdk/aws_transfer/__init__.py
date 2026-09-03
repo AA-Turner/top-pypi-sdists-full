@@ -2655,6 +2655,364 @@ class CfnConnectorProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_transfer_db5b20f2.IHostKeyRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnHostKey(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_transfer.CfnHostKey",
+):
+    '''Resource type definition for AWS::Transfer::HostKey.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html
+    :cloudformationResource: AWS::Transfer::HostKey
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_transfer as transfer
+        
+        cfn_host_key = transfer.CfnHostKey(self, "MyCfnHostKey",
+            server_id="serverId",
+        
+            # the properties below are optional
+            description="description",
+            host_key_body="hostKeyBody",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        server_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        host_key_body: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Transfer::HostKey``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param server_id: The identifier of the server that contains the host key.
+        :param description: The text description for this host key.
+        :param host_key_body: The private key portion of an SSH key pair. Transfer Family accepts RSA, ECDSA, and ED25519 keys.
+        :param tags: Key-value pairs that can be used to group and search for host keys.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e8c40cb000ec1669a89ac6f627539375983e177d19601aa7dc6b72024a44e808)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnHostKeyProps(
+            server_id=server_id,
+            description=description,
+            host_key_body=host_key_body,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForHostKey")
+    @builtins.classmethod
+    def arn_for_host_key(
+        cls,
+        resource: "_aws_transfer_db5b20f2.IHostKeyRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__17b8f81d3db95c2e37029bfb2a3a9f3abad643fa4688f5bb63dacc2779895367)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForHostKey", [resource]))
+
+    @jsii.member(jsii_name="isCfnHostKey")
+    @builtins.classmethod
+    def is_cfn_host_key(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnHostKey.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d970f251de6905456e24610aa4c4a41b3ce412e3e41425ab508ee037103219c7)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnHostKey", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__27600190546116bc6d3909e597a5061ae2dffa08b08f44579bb84656c2fcc6bf)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__18e43ee87d9ca0f646cd15d3e9698b713a95daeb5dce31b7019e4f6da1a5990d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The unique Amazon Resource Name (ARN) for the host key.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDateImported")
+    def attr_date_imported(self) -> builtins.str:
+        '''The date on which the host key was added to the server.
+
+        :cloudformationAttribute: DateImported
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDateImported"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrHostKeyFingerprint")
+    def attr_host_key_fingerprint(self) -> builtins.str:
+        '''The public key fingerprint, which is a short sequence of bytes used to identify the longer public key.
+
+        :cloudformationAttribute: HostKeyFingerprint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrHostKeyFingerprint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrHostKeyId")
+    def attr_host_key_id(self) -> builtins.str:
+        '''A unique identifier for the host key.
+
+        :cloudformationAttribute: HostKeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrHostKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The encryption algorithm that is used for the host key.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostKeyRef")
+    def host_key_ref(self) -> "_aws_transfer_db5b20f2.HostKeyReference":
+        '''A reference to a HostKey resource.'''
+        return typing.cast("_aws_transfer_db5b20f2.HostKeyReference", jsii.get(self, "hostKeyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serverId")
+    def server_id(self) -> builtins.str:
+        '''The identifier of the server that contains the host key.'''
+        return typing.cast(builtins.str, jsii.get(self, "serverId"))
+
+    @server_id.setter
+    def server_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4546e7aba17c21c1082cd732e43bb6d9e0829966bc8734f0aa37967317c88e3d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serverId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The text description for this host key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f17dd27d4e18a4e63d478f168226e5531c9a1b2e77d0a895e569f78a8856f8a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hostKeyBody")
+    def host_key_body(self) -> typing.Optional[builtins.str]:
+        '''The private key portion of an SSH key pair.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hostKeyBody"))
+
+    @host_key_body.setter
+    def host_key_body(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c9747da967f9a273e4c0e11514747ca02033991eefc7596354a5ec42c59f6cec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hostKeyBody", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Key-value pairs that can be used to group and search for host keys.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0c92aeca3e4225b036676ac654229ebe34a6b5b6a040e8caa12986d5ac5e5b7c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnHostKeyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "server_id": "serverId",
+        "description": "description",
+        "host_key_body": "hostKeyBody",
+        "tags": "tags",
+    },
+)
+class CfnHostKeyProps:
+    def __init__(
+        self,
+        *,
+        server_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        host_key_body: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHostKey``.
+
+        :param server_id: The identifier of the server that contains the host key.
+        :param description: The text description for this host key.
+        :param host_key_body: The private key portion of an SSH key pair. Transfer Family accepts RSA, ECDSA, and ED25519 keys.
+        :param tags: Key-value pairs that can be used to group and search for host keys.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            cfn_host_key_props = transfer.CfnHostKeyProps(
+                server_id="serverId",
+            
+                # the properties below are optional
+                description="description",
+                host_key_body="hostKeyBody",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__89032b7f45bd36f24d1c21701bf012f9af0b4dc69618b3c88f06de0a78a5a89c)
+            check_type(argname="argument server_id", value=server_id, expected_type=type_hints["server_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument host_key_body", value=host_key_body, expected_type=type_hints["host_key_body"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "server_id": server_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if host_key_body is not None:
+            self._values["host_key_body"] = host_key_body
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def server_id(self) -> builtins.str:
+        '''The identifier of the server that contains the host key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html#cfn-transfer-hostkey-serverid
+        '''
+        result = self._values.get("server_id")
+        assert result is not None, "Required property 'server_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The text description for this host key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html#cfn-transfer-hostkey-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def host_key_body(self) -> typing.Optional[builtins.str]:
+        '''The private key portion of an SSH key pair.
+
+        Transfer Family accepts RSA, ECDSA, and ED25519 keys.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html#cfn-transfer-hostkey-hostkeybody
+        '''
+        result = self._values.get("host_key_body")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Key-value pairs that can be used to group and search for host keys.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html#cfn-transfer-hostkey-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHostKeyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_transfer_db5b20f2.IProfileRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnProfile(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8041,6 +8399,8 @@ __all__ = [
     "CfnCertificateProps",
     "CfnConnector",
     "CfnConnectorProps",
+    "CfnHostKey",
+    "CfnHostKeyProps",
     "CfnProfile",
     "CfnProfileProps",
     "CfnServer",
@@ -8489,6 +8849,76 @@ def _typecheckingstub__7675f9dcded8f51977cf70f499821100319fe5d62996cb917457f772c
     sftp_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.SftpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8c40cb000ec1669a89ac6f627539375983e177d19601aa7dc6b72024a44e808(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    server_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    host_key_body: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17b8f81d3db95c2e37029bfb2a3a9f3abad643fa4688f5bb63dacc2779895367(
+    resource: _aws_transfer_db5b20f2.IHostKeyRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d970f251de6905456e24610aa4c4a41b3ce412e3e41425ab508ee037103219c7(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27600190546116bc6d3909e597a5061ae2dffa08b08f44579bb84656c2fcc6bf(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18e43ee87d9ca0f646cd15d3e9698b713a95daeb5dce31b7019e4f6da1a5990d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4546e7aba17c21c1082cd732e43bb6d9e0829966bc8734f0aa37967317c88e3d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f17dd27d4e18a4e63d478f168226e5531c9a1b2e77d0a895e569f78a8856f8a3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9747da967f9a273e4c0e11514747ca02033991eefc7596354a5ec42c59f6cec(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c92aeca3e4225b036676ac654229ebe34a6b5b6a040e8caa12986d5ac5e5b7c(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89032b7f45bd36f24d1c21701bf012f9af0b4dc69618b3c88f06de0a78a5a89c(
+    *,
+    server_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    host_key_body: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

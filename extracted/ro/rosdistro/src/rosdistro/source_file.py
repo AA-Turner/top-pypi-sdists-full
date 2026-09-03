@@ -46,7 +46,9 @@ class SourceFile(object):
         assert data['type'] == SourceFile._type, "Expected file type is '%s', not '%s'" % (SourceFile._type, data['type'])
 
         assert 'version' in data, "Source file for '%s' lacks required version information" % self.name
-        assert int(data['version']) == 1, "Unable to handle '%s' format version '%d', please update rosdistro (e.g. on Ubuntu/Debian use: sudo apt-get update && sudo apt-get install --only-upgrade python-rosdistro)" % (SourceFile._type, int(data['version']))
+        if int(data['version']) != 1:
+            from . import FormatVersionError
+            raise FormatVersionError(SourceFile._type, data['version'], [1], self.name)
         self.version = int(data['version'])
 
         self.repositories = {}

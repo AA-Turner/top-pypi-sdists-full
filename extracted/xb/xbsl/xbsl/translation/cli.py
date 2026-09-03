@@ -123,8 +123,10 @@ MESSAGES = {
         "en": "the project directory does not exist: {path}",
     },
     "translate.no-dictionary": {
-        "ru": "словарь не найден – ни флага --dictionary, ни каталога xbsl-translation рядом с проектом; перевод считается пустым словарём",
-        "en": "no dictionary found - neither --dictionary nor an xbsl-translation directory near the project; translating with an empty dictionary",
+        "ru": "перевод считается пустым словарём: непереведённый остаток пишет --missing,"
+              " путь к словарю называет --dictionary",
+        "en": "translating with an empty dictionary: --missing writes the untranslated remainder"
+              " as a stub, --dictionary names a path",
     },
     "translate.dictionary-error": {
         "ru": "словарь не загрузился: {error}",
@@ -173,6 +175,22 @@ MESSAGES = {
     "translate.coverage-header": {
         "ru": "покрытие по объектам (только неполные):",
         "en": "coverage by object (incomplete only):",
+    },
+    "translate.verdict-ready": {
+        "ru": "ГОТОВО",
+        "en": "READY",
+    },
+    "translate.verdict-not-ready": {
+        "ru": "НЕ ГОТОВО: токенов {tokens}, фраз {phrases}{tail}",
+        "en": "NOT READY: tokens {tokens}, phrases {phrases}{tail}",
+    },
+    "translate.verdict-platform": {
+        "ru": "; пробелов данных платформы {platform}",
+        "en": "; platform data gaps {platform}",
+    },
+    "translate.verdict-problems": {
+        "ru": "; проблем {problems}",
+        "en": "; problems {problems}",
     },
     "translate.entries-header": {
         "ru": "записей словаря: {shown} из {total}",
@@ -291,7 +309,7 @@ def cli_main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        loaded = _load_dictionary(args.dictionary, root, dictionary_module)
+        loaded, found = _load_dictionary(args.dictionary, root, dictionary_module)
     except dictionary_module.DictionaryError as exc:
         print(i18n.t("translate.dictionary-error", error=exc), file=sys.stderr)
         return 2
@@ -312,6 +330,12 @@ def cli_main(argv: list[str] | None = None) -> int:
     if args.suggest:
         return _suggest(args, root, loaded)
 
+    # The report runs without a dictionary - its untranslated remainder IS the first stub
+    # (--missing) - but says so where the search looked: the table modes above refuse instead.
+    if found is None:
+        print(dictionary_module.missing_message(root), file=sys.stderr)
+        print(i18n.t("translate.no-dictionary"), file=sys.stderr)
+
     report = project_module.translate_project(
         root, loaded,
         Path(args.out) if args.out else None,
@@ -328,21 +352,54 @@ def cli_main(argv: list[str] | None = None) -> int:
         )
 
     if args.format == "json":
-        print(json.dumps(_as_json(report, args), ensure_ascii=False, indent=1))
+        print(json.dumps(_as_json(report, args, found), ensure_ascii=False, indent=1))
     else:
         _print_text(report, args, missing_tokens, missing_phrases, missing_literals)
 
-    totals = report.totals()
-    # A platform gap fails the gate as an untranslated name does, and for the same reason: the
-    # name stays Cyrillic in the translated tree, so the build refuses it. It is named apart in
-    # the report because the CURE is different - not a dictionary entry, which the compiler
-    # would refuse, but the platform data.
-    if args.strict and (totals["missing"] or totals["platform_gaps"] or report.problems):
+    if args.strict and not _ready(report):
         return 1
     return 0
 
 
+def _ready(report) -> bool:
+    """Whether the translated tree would build: nothing left in Cyrillic, no problems.
+
+    One answer for the exit code of `--strict` and the verdict line of the report, so the two
+    cannot drift apart. A platform gap fails the gate as an untranslated name does, and for
+    the same reason: the name stays Cyrillic in the translated tree, so the build refuses it.
+    It is named apart in the report because the CURE is different - not a dictionary entry,
+    which the compiler would refuse, but the platform data.
+    """
+    totals = report.totals()
+    return not (totals["missing"] or totals["platform_gaps"] or report.problems)
+
+
+def _verdict(report) -> str:
+    """The LAST line of the text report: READY, or NOT READY with what stands in the way.
+
+    The report used to end the same way with zero gaps and with hundreds - the coverage, then
+    the incomplete objects - and a log read from its tail passed a tree with hundreds of
+    Russian names as done. The counts are the distinct tokens and phrases of the summary line,
+    so the verdict and the summary speak of the same things.
+    """
+    if _ready(report):
+        return i18n.t("translate.verdict-ready")
+    totals = report.totals()
+    tail = ""
+    if totals["platform_gaps"]:
+        tail += i18n.t("translate.verdict-platform", platform=totals["platform_gaps"])
+    if report.problems:
+        tail += i18n.t("translate.verdict-problems", problems=len(report.problems))
+    return i18n.t(
+        "translate.verdict-not-ready",
+        tokens=totals["missing_tokens"], phrases=totals["missing_phrases"], tail=tail,
+    )
+
+
 def _load_dictionary(paths, root, dictionary_module):
+    """(dictionary, its path): the --dictionary files merged, else the one discovered next to
+    the root; (an empty dictionary, None) when there is none - the caller decides whether that
+    is a refusal or a warning."""
     if paths:
         merged = None
         for raw in paths:
@@ -354,17 +411,28 @@ def _load_dictionary(paths, root, dictionary_module):
                     merged.tokens.setdefault(key, value)
                 for key, value in one.phrases.items():
                     merged.phrases.setdefault(key, value)
-        return merged
+        return merged, Path(paths[0])
     found = dictionary_module.discover(root)
     if found is None:
-        print(i18n.t("translate.no-dictionary"), file=sys.stderr)
-        return dictionary_module.Dictionary()
-    return dictionary_module.load(found)
+        return dictionary_module.Dictionary(), None
+    return dictionary_module.load(found), found
 
 
-def _as_json(report, args) -> dict:
+def _no_dictionary(root: Path) -> int:
+    """The refusal of a table mode: it reads or writes the dictionary, so without one there is
+    nothing to answer - and the message says where one is looked for, since the usual cause is
+    a root one level too high."""
+    from xbsl.translation import dictionary as dictionary_module
+
+    print(dictionary_module.missing_message(root), file=sys.stderr)
+    return 2
+
+
+def _as_json(report, args, dictionary: Path | None) -> dict:
     out = {
+        "dictionary": str(dictionary) if dictionary else None,
         "totals": report.totals(),
+        "ready": _ready(report),
         "problems": report.problems,
         "missing_tokens": report.merged_missing_tokens(),
         "missing_phrases": report.merged_missing_phrases(),
@@ -441,6 +509,8 @@ def _print_text(report, args, missing_tokens, missing_phrases, missing_literals)
         ))
     if args.out:
         print(i18n.t("translate.written", count=report.written, out=args.out))
+    # Last on purpose - whatever else the report prints, the tail of the log is the verdict.
+    print(_verdict(report))
 
 
 # --- the table modes ---------------------------------------------------------------------
@@ -508,8 +578,7 @@ def _render_gaps(page: list, total: int) -> None:
 def _list_entries(args, root: Path, loaded) -> int:
     path = _dictionary_path(args, root)
     if path is None:
-        print(i18n.t("translate.entries.no-dictionary"), file=sys.stderr)
-        return 2
+        return _no_dictionary(root)
     rows = _entry_rows(args, path)
     total = len(rows)
     page = _page(rows, args)
@@ -523,11 +592,16 @@ def _list_entries(args, root: Path, loaded) -> int:
 def _list_gaps(args, root: Path, loaded) -> int:
     from xbsl.translation import entries as entries_module
 
+    # Without a dictionary every name of the project is a gap - a list that looks like a
+    # worklist and is not one. The refusal names where a dictionary is looked for instead.
+    path = _dictionary_path(args, root)
+    if path is None:
+        return _no_dictionary(root)
     rows = _gap_rows(args, entries_module.gaps_of_project(root, loaded))
     total = len(rows)
     page = _page(rows, args)
     payload = {
-        "dictionary": str(_dictionary_path(args, root) or ""), "total": total,
+        "dictionary": str(path), "total": total,
         "gaps": [gap.as_dict() for gap in page],
     }
     return _emit(args, payload, page, lambda _rows: _render_gaps(page, total))
@@ -544,8 +618,7 @@ def _list_table(args, root: Path, loaded) -> int:
 
     path = _dictionary_path(args, root)
     if path is None:
-        print(i18n.t("translate.entries.no-dictionary"), file=sys.stderr)
-        return 2
+        return _no_dictionary(root)
     report = project_module.translate_project(
         root, loaded, None, swap_localization=not args.no_localization_swap,
     )
@@ -574,8 +647,7 @@ def _apply_edits(args, root: Path, loaded) -> int:
 
     path = _dictionary_path(args, root)
     if path is None:
-        print(i18n.t("translate.entries.no-dictionary"), file=sys.stderr)
-        return 2
+        return _no_dictionary(root)
     try:
         edits = entries_module.read_edits_file(Path(args.set_file))
     except (OSError, ValueError) as exc:
@@ -644,8 +716,7 @@ def _suggest(args, root: Path, loaded) -> int:
 
     path = _dictionary_path(args, root)
     if path is None:
-        print(i18n.t("translate.entries.no-dictionary"), file=sys.stderr)
-        return 2
+        return _no_dictionary(root)
 
     gaps = entries_module.gaps_of_project(root, loaded)
     # The accepted tokens serve two purposes below: exact substitution for literals, and the
@@ -741,19 +812,23 @@ def dictionary_path_for(root: Path) -> Path | None:
 
 
 def load_for_tools(root: str) -> tuple[Path, object, str]:
-    """(project path, loaded dictionary, error) - what MCP and LSP need before answering.
+    """(project path, loaded dictionary, error) - what the MCP tools need before answering.
 
-    An empty error means the pair is usable; a project with no dictionary still answers, with
-    an empty one, so a caller can ask "what is missing" before the first entry exists.
+    An empty error means the pair is usable. A project with no dictionary is REFUSED rather
+    than answered with an empty one: with the repository root passed instead of the project
+    directory the tools reported coverage 0.0 and every name of the project as a gap - a report
+    that looked like work. The error spells where a dictionary is looked for; the path is made
+    absolute so the answer names the tree the server actually read, not one relative to a
+    working directory the caller does not share.
     """
     from xbsl.translation import dictionary as dictionary_module
 
-    project = Path(root)
+    project = Path(os.path.abspath(root))
     if not project.is_dir():
         return project, None, i18n.t("translate.no-root", path=project)
     found = dictionary_path_for(project)
     if found is None:
-        return project, dictionary_module.Dictionary(), ""
+        return project, None, dictionary_module.missing_message(project)
     try:
         return project, dictionary_module.load(found), ""
     except dictionary_module.DictionaryError as exc:

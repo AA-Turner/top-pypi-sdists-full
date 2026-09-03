@@ -43,21 +43,21 @@ __all__ = ['defaults', 'null', 'num_methods', 'rnum_methods', 'inum_methods', 'a
            'true', 'NullType', 'tonull', 'get_class', 'mk_class', 'wrap_class', 'ignore_exceptions', 'exec_local',
            'risinstance', 'ver2tuple', 'Inf', 'in_', 'ret_true', 'ret_false', 'stop', 'gen', 'chunked', 'otherwise',
            'custom_dir', 'adict', 'AttrDict', 'AttrDictDefault', 'NS', 'get_annotations_ex', 'eval_type', 'type_hints',
-           'annotations', 'anno_ret', 'signature_ex', 'union2tuple', 'argnames', 'with_cast', 'store_attr', 'attrdict',
-           'properties', 'id_words', 'to_camel', 'to_pascal', 'to_kebab', 'to_snake', 'camel2words', 'camel2snake',
-           'snake2camel', 'humanize', 'class2attr', 'getcallable', 'getattrs', 'hasattrs', 'setattrs', 'try_attrs',
-           'DepProp', 'GetAttrBase', 'GetAttr', 'delegate_attr', 'ShowPrint', 'Int', 'Str', 'Float', 'partition',
-           'partition_dict', 'flatten', 'concat', 'strcat', 'detuplify', 'replicate', 'setify', 'merge', 'range_of',
-           'groupby', 'last_index', 'filter_dict', 'filter_keys', 'filter_values', 'cycle', 'zip_cycle', 'sorted_ex',
-           'not_', 'argwhere', 'filter_ex', 'renumerate', 'first', 'last', 'only', 'nested_attr', 'nested_setdefault',
-           'nested_callable', 'nested_idx', 'set_nested_idx', 'val2idx', 'uniqueify', 'loop_first_last', 'loop_first',
-           'loop_last', 'first_match', 'last_match', 'joins', 'fastuple', 'bind', 'mapt', 'map_ex', 'compose', 'maps',
-           'partialler', 'instantiate', 'using_attr', 'negate', 'fail_clean', 'dstar', 'copy_func', 'patch_to', 'patch',
-           'extend_enum', 'compile_re', 'ImportEnum', 'StrEnum', 'str_enum', 'ValEnum', 'Stateful', 'NotStr',
-           'PrettyString', 'even_mults', 'num_cpus', 'add_props', 'str2bool', 'str2int', 'str2float', 'str2list',
-           'str2date', 'str2dt', 'to_bool', 'to_int', 'to_float', 'to_list', 'to_date', 'typed', 'exec_new',
-           'exec_import', 'kindsort', 'sig_with_params', 'fdelegates', 'xdumps', 'revive_dates', 'lt', 'gt', 'le', 'ge',
-           'eq', 'ne', 'add', 'sub', 'mul', 'truediv', 'is_', 'is_not', 'mod']
+           'annotations', 'anno_ret', 'signature_ex', 'union2tuple', 'argnames', 'with_cast', 'store_attr', 'init_args',
+           'attrdict', 'properties', 'id_words', 'to_camel', 'to_pascal', 'to_kebab', 'to_snake', 'camel2words',
+           'camel2snake', 'snake2camel', 'humanize', 'class2attr', 'getcallable', 'getattrs', 'hasattrs', 'setattrs',
+           'try_attrs', 'DepProp', 'GetAttrBase', 'GetAttr', 'delegate_attr', 'ShowPrint', 'Int', 'Str', 'Float',
+           'partition', 'partition_dict', 'flatten', 'concat', 'strcat', 'detuplify', 'replicate', 'setify', 'merge',
+           'range_of', 'groupby', 'last_index', 'filter_dict', 'filter_keys', 'filter_values', 'cycle', 'zip_cycle',
+           'sorted_ex', 'not_', 'argwhere', 'filter_ex', 'renumerate', 'first', 'last', 'only', 'nested_attr',
+           'nested_setdefault', 'nested_callable', 'nested_idx', 'set_nested_idx', 'val2idx', 'uniqueify',
+           'loop_first_last', 'loop_first', 'loop_last', 'first_match', 'last_match', 'joins', 'fastuple', 'bind',
+           'mapt', 'map_ex', 'compose', 'maps', 'partialler', 'instantiate', 'using_attr', 'negate', 'fail_clean',
+           'dstar', 'copy_func', 'patch_to', 'patch', 'extend_enum', 'compile_re', 'ImportEnum', 'StrEnum', 'str_enum',
+           'ValEnum', 'Stateful', 'NotStr', 'PrettyString', 'even_mults', 'num_cpus', 'add_props', 'str2bool',
+           'str2int', 'str2float', 'str2list', 'str2date', 'str2dt', 'to_bool', 'to_int', 'to_float', 'to_list',
+           'to_date', 'typed', 'exec_new', 'exec_import', 'kindsort', 'sig_with_params', 'fdelegates', 'xdumps',
+           'revive_dates', 'lt', 'gt', 'le', 'ge', 'eq', 'ne', 'add', 'sub', 'mul', 'truediv', 'is_', 'is_not', 'mod']
 
 # %% ../nbs/01_basics.ipynb #0e91ed82
 from .imports import *
@@ -175,8 +175,7 @@ def get_class(nm, *fld_names, sup=None, doc=None, funcs=None, anno=None, **flds)
         for k,v in kwargs.items(): setattr(self,k,v)
 
     attrs['_fields'] = [*fld_names,*flds.keys()]
-    def _eq(self,b):
-        return all([getattr(self,k)==getattr(b,k) for k in self._fields])
+    def _eq(self,b): return all([getattr(self,k)==getattr(b,k) for k in self._fields])
 
     if not sup: attrs['__repr__'] = basic_repr(attrs['_fields'])
     attrs['__init__'] = _init
@@ -216,8 +215,7 @@ def exec_local(code, var_name):
 
 # %% ../nbs/01_basics.ipynb #20506f20
 def _risinstance(types, obj):
-    if any(isinstance(t,str) for t in types):
-        return any(t.__name__ in types for t in type(obj).__mro__)
+    if any(isinstance(t,str) for t in types): return any(t.__name__ in types for t in type(obj).__mro__)
     return isinstance(obj, types)
 
 def risinstance(types, obj=None):
@@ -227,8 +225,7 @@ def risinstance(types, obj=None):
     return _risinstance(types, obj)
 
 # %% ../nbs/01_basics.ipynb #62ef5af9
-def ver2tuple(v:str)->tuple:
-    return tuple(int(o or 0) for o in re.search(r'(\d+)(?:\.(\d+))?(?:\.(\d+))?', v).groups())
+def ver2tuple(v:str)->tuple: return tuple(int(o or 0) for o in re.search(r'(\d+)(?:\.(\d+))?(?:\.(\d+))?', v).groups())
 
 # %% ../nbs/01_basics.ipynb #b25890ec
 class _InfMeta(type):
@@ -403,9 +400,8 @@ def eval_type(t, glb, loc):
     return t
 
 # %% ../nbs/01_basics.ipynb #7e8c9e8a
-_allowed_types = (types.FunctionType, types.BuiltinFunctionType, types.MethodType, 
-                  types.ModuleType, types.WrapperDescriptorType, types.MethodWrapperType,
-                  types.MethodDescriptorType)
+_allowed_types = (types.FunctionType, types.BuiltinFunctionType, types.MethodType, types.ModuleType, types.WrapperDescriptorType,
+    types.MethodWrapperType, types.MethodDescriptorType)
 
 def _eval_type(t, glb, loc):
     res = eval_type(t, glb, loc)
@@ -455,8 +451,7 @@ def signature_ex(obj, eval_str:bool=False):
 
 # %% ../nbs/01_basics.ipynb #6d55bfb5
 def union2tuple(t):
-    if (getattr(t, '__origin__', None) is Union
-        or (UnionType and isinstance(t, UnionType))): return t.__args__
+    if (getattr(t, '__origin__', None) is Union or (UnionType and isinstance(t, UnionType))): return t.__args__
     return t
 
 # %% ../nbs/01_basics.ipynb #c14e9987
@@ -485,21 +480,18 @@ def with_cast(f):
 
 # %% ../nbs/01_basics.ipynb #5cd34c5e
 def _store_attr(self, anno, **attrs):
-    stored = getattr(self, '__stored_args__', None)
     for n,v in attrs.items():
         if n in anno: v = anno[n](v)
         setattr(self, n, v)
-        if stored is not None: stored[n] = v
+
 
 # %% ../nbs/01_basics.ipynb #59d6f1be
-def store_attr(names=None, self=None, but='', cast=False, store_args=None, **attrs):
+def store_attr(names=None, self=None, but='', cast=False, **attrs):
     "Store params named in comma-separated `names` from calling context into attrs in `self`"
     fr = sys._getframe(1)
     args = argnames(fr, True)
     if self: args = ('self', *args)
     else: self = fr.f_locals[args[0]]
-    if store_args is None: store_args = not hasattr(self,'__slots__')
-    if store_args and not hasattr(self, '__stored_args__'): self.__stored_args__ = {}
     anno = annotations(self) if cast else {}
     if names and isinstance(names,str): names = re.split(', *', names)
     ns = names if names is not None else getattr(self, '__slots__', args[1:])
@@ -508,6 +500,12 @@ def store_attr(names=None, self=None, but='', cast=False, store_args=None, **att
     if isinstance(but,str): but = re.split(', *', but)
     attrs = {k:v for k,v in attrs.items() if k not in but}
     return _store_attr(self, anno, **attrs)
+
+# %% ../nbs/01_basics.ipynb #50b2c270
+def init_args(o):
+    "The `__init__` parameters of `o` that it holds as attributes, with their current values"
+    ps = inspect.signature(type(o).__init__).parameters
+    return {p:getattr(o,p) for p in ps if hasattr(o,p)}
 
 # %% ../nbs/01_basics.ipynb #2648105d
 def attrdict(o, *ks, default=None):
@@ -864,8 +862,7 @@ def nested_attr(o, attr, default=None):
         for a in attr.split("."): 
             if hasattr(o,a): o = getattr(o, a)
             else: o = o[a]
-    except (AttributeError, KeyError,IndexError, TypeError, ValueError):
-        return default
+    except (AttributeError, KeyError,IndexError, TypeError, ValueError): return default
     return o
 
 # %% ../nbs/01_basics.ipynb #340ed8c8
@@ -1045,9 +1042,7 @@ def mapt(func, *iterables):
 # %% ../nbs/01_basics.ipynb #b01eba34
 def map_ex(iterable, f, *args, gen=False, **kwargs):
     "Like `map`, but use `bind`, and supports `str` and indexing"
-    g = (bind(f,*args,**kwargs) if callable(f)
-         else f.format if isinstance(f,str)
-         else f.__getitem__)
+    g = (bind(f, *args, **kwargs) if callable(f) else f.format if isinstance(f, str) else f.__getitem__)
     res = map(g, iterable)
     if gen: return res
     return list(res)
@@ -1104,8 +1099,7 @@ def negate(f):
 # %% ../nbs/01_basics.ipynb #24c5ee83
 def fail_clean(*excs):
     "Re-raise `excs` (default: `Exception`) without internal traceback frames"
-    if excs and not (isinstance(excs[0],type) and issubclass(excs[0],BaseException)):
-        return fail_clean()(excs[0])
+    if excs and not (isinstance(excs[0],type) and issubclass(excs[0],BaseException)): return fail_clean()(excs[0])
     excs = excs or (Exception,)
     def _deco(f):
         @wraps(f)
@@ -1289,9 +1283,7 @@ class Stateful:
         self._init_state()
         super().__init__(*args,**kwargs) # required for mixin usage
 
-    def __getstate__(self):
-        return {k:v for k,v in self.__dict__.items()
-                if k not in self._stateattrs+('_state',)}
+    def __getstate__(self): return {k: v for k, v in self.__dict__.items() if k not in self._stateattrs + ('_state',)}
 
     def __setstate__(self, state):
         self.__dict__.update(state)
@@ -1473,7 +1465,7 @@ def fdelegates(to):
         sig = signature(f)
         sigd = dict(sig.parameters)
         new_params = {k:v.replace(kind=Parameter.KEYWORD_ONLY) for k,v in signature(to).parameters.items()
-                      if v.default != Parameter.empty and k not in sigd}
+            if v.default != Parameter.empty and k not in sigd}
         f.__signature__ = sig_with_params(sig, remove=['kwargs'], **new_params)
         return f
     return _f

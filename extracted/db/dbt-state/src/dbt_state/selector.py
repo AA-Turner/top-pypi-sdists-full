@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing as t
 from collections import defaultdict, deque
+from itertools import islice
 from pathlib import Path
 
 from dbt.graph import UniqueId
@@ -14,6 +15,7 @@ try:
 except ImportError:
     # dbt 1.7
     from dbt.exceptions import DbtRuntimeError
+
 
 from query_cache_common.models.services import selector_service_models
 
@@ -41,6 +43,23 @@ _SELECTOR_CRITERIA_MAP: t.Dict[str, selector_service_models.SelectorCriteria] = 
     "modified.macros": selector_service_models.SelectorCriteria.MACROS,
     "modified.contract": selector_service_models.SelectorCriteria.CONTRACT,
 }
+
+_MAX_BATCH_SIZE = 10000
+
+
+def _batched(iterable: t.Iterable[t.Any], batch_size: int) -> t.Iterator[t.List[t.Any]]:
+    """Batch an iterable into chunks of specified size.
+
+    Args:
+        iterable: The iterable to batch.
+        batch_size: Maximum size of each batch.
+
+    Yields:
+        Lists of items, each with at most batch_size elements.
+    """
+    iterator = iter(iterable)
+    while batch := list(islice(iterator, batch_size)):
+        yield batch
 
 
 class GitSelectorMethod(SelectorMethod):
@@ -201,42 +220,60 @@ class StateSelector(StateSelectorMethod):
 
         target_name = run_cache_config.defer_to
 
-        nodes = []
-        for unique_id, node in self.all_nodes(included_nodes):
-            if not isinstance(node, MODEL_OR_SNAPSHOT_OR_TEST_OR_SEED_NODE):
-                continue
-
-            calculator = create_node_hash_calculator(node, self.manifest, runtime_config)
-
-            node_hash = calculator.calculate_node_hash()
-            node_contract_hash = (
-                calculator.node_contract_hash
-                if isinstance(calculator, ModelNodeHashCalculator)
-                else None
-            )
-            node_data = selector_service_models.DbtNodeData(
-                node_unique_id=unique_id,
-                node_hash=node_hash,
-                node_body_hash=calculator.node_body_hash,
-                node_configs_hash=calculator.node_configs_hash,
-                node_persisted_descriptions_hash=calculator.node_persisted_docs_hash,
-                node_macros_hash=calculator.node_macros_hash,
-                node_contract_hash=node_contract_hash,
-                node_database_representation=(
-                    f"{node.database}.{node.schema}.{node.alias}"
-                    if node.database and node.schema and node.alias
-                    else None
-                ),
-            )
-            nodes.append(node_data)
-
-        request = selector_service_models.SelectorRequest(
-            target=target_name,
-            project_id=dbt_project_id,  # ty:ignore[invalid-argument-type]
-            nodes=nodes,
-            selector_criteria=selector_criteria,
+        requests = self._create_request_batches(
+            included_nodes, target_name, dbt_project_id, runtime_config, selector_criteria
         )
-        response = query_cache_client.get_selection(request=request)
 
-        for unique_id in response.node_unique_ids:
-            yield UniqueId(unique_id)
+        for request in requests:
+            response = query_cache_client.get_selection(request=request)
+            for unique_id in response.node_unique_ids:
+                yield UniqueId(unique_id)
+
+    def _create_request_batches(
+        self,
+        included_nodes: set[UniqueId],
+        target_name: str,
+        dbt_project_id: t.Optional[str],
+        runtime_config: RuntimeConfig,
+        selector_criteria: selector_service_models.SelectorCriteria,
+    ) -> t.List[selector_service_models.SelectorRequest]:
+
+        def generate_node_data() -> t.Iterator[selector_service_models.DbtNodeData]:
+            for unique_id, node in self.all_nodes(included_nodes):
+                if not isinstance(node, MODEL_OR_SNAPSHOT_OR_TEST_OR_SEED_NODE):
+                    continue
+
+                calculator = create_node_hash_calculator(node, self.manifest, runtime_config)
+                node_hash = calculator.calculate_node_hash()
+                node_contract_hash = (
+                    calculator.node_contract_hash
+                    if isinstance(calculator, ModelNodeHashCalculator)
+                    else None
+                )
+
+                yield selector_service_models.DbtNodeData(
+                    node_unique_id=unique_id,
+                    node_hash=node_hash,
+                    node_body_hash=calculator.node_body_hash,
+                    node_configs_hash=calculator.node_configs_hash,
+                    node_persisted_descriptions_hash=calculator.node_persisted_docs_hash,
+                    node_macros_hash=calculator.node_macros_hash,
+                    node_contract_hash=node_contract_hash,
+                    node_database_representation=(
+                        f"{node.database}.{node.schema}.{node.alias}"
+                        if node.database and node.schema and node.alias
+                        else None
+                    ),
+                )
+
+        requests = []
+        for batch in _batched(generate_node_data(), _MAX_BATCH_SIZE):
+            request = selector_service_models.SelectorRequest(
+                target=target_name,
+                project_id=dbt_project_id,  # ty:ignore[invalid-argument-type]
+                nodes=batch,
+                selector_criteria=selector_criteria,
+            )
+            requests.append(request)
+
+        return requests

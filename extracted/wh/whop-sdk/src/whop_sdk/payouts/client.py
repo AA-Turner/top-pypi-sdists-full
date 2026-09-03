@@ -9,8 +9,11 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawPayoutsClient, RawPayoutsClient
-from .types.create_payouts_request_body import CreatePayoutsRequestBody
+from .types.cancel_payouts_response import CancelPayoutsResponse
+from .types.create_payouts_request_speed import CreatePayoutsRequestSpeed
 from .types.create_payouts_response import CreatePayoutsResponse
+from .types.create_quote_payouts_request_speed import CreateQuotePayoutsRequestSpeed
+from .types.create_quote_payouts_response import CreateQuotePayoutsResponse
 from .types.list_payouts_request_source import ListPayoutsRequestSource
 from .types.list_payouts_request_status import ListPayoutsRequestStatus
 from .types.list_payouts_response import ListPayoutsResponse
@@ -106,14 +109,14 @@ class PayoutsClient:
         Returns
         -------
         SyncPager[ListPayoutsResponseDataItem, ListPayoutsResponse]
-            payouts filtered by source, payout method, and created window
+            payouts listed
 
         Examples
         --------
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -141,14 +144,62 @@ class PayoutsClient:
         )
 
     def create(
-        self, *, request: CreatePayoutsRequestBody, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        amount: float,
+        payout_method_id: str,
+        account_id: typing.Optional[str] = OMIT,
+        acknowledge_bank_warning: typing.Optional[bool] = OMIT,
+        currency: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        notes: typing.Optional[str] = OMIT,
+        platform_covers_fees: typing.Optional[bool] = OMIT,
+        quote_token: typing.Optional[str] = OMIT,
+        speed: typing.Optional[CreatePayoutsRequestSpeed] = OMIT,
+        statement_descriptor: typing.Optional[str] = OMIT,
+        user_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> CreatePayoutsResponse:
         """
         Sends money from an account or user balance to a saved payout method for that owner.
 
         Parameters
         ----------
-        request : CreatePayoutsRequestBody
+        amount : float
+            The amount to pay out in the specified currency.
+
+        payout_method_id : str
+            The saved payout method to deliver to (a potk_ identifier).
+
+        account_id : typing.Optional[str]
+            Account to pay out from, prefixed `biz_`. Provide exactly one of `account_id` or `user_id`.
+
+        acknowledge_bank_warning : typing.Optional[bool]
+            Set to `true` to continue when the destination bank could not confirm the payout method account holder's name, or `false` to have the payout refused in that case so the account holder can correct the name or link their bank first. Omitting the field skips the warning gate — a client that cannot show the warning keeps its pre-gate behavior.
+
+        currency : typing.Optional[str]
+            The currency to pay out. Balances are held per currency and the payout draws only from the balance in this currency, so match the currency the funds arrived in — for example `cad` for an account funded by CAD transfers. When omitted, uses `usd` if that balance can cover a withdrawal, otherwise the account's only other funded currency.
+
+        metadata : typing.Optional[typing.Dict[str, str]]
+            Key-value data to attach to the payout, echoed on every read and in webhook payloads. At most 50 keys, key names up to 40 characters, string values up to 500 characters. Never store secrets or regulated personal data here — webhook bodies are retained for delivery inspection.
+
+        notes : typing.Optional[str]
+            Free-form notes to attach to the payout, with a maximum of 255 characters. Omit or pass `null` for no notes.
+
+        platform_covers_fees : typing.Optional[bool]
+            Whether the parent platform covers the payout fee instead of the account being paid out. Omit to use the platform's configured fee coverage policy; pass `false` to opt out of it. `true` is only accepted for accounts that belong to a platform, and requires the platform's policy to cover this payout method's category or a caller authorized to manage the platform's child account fees.
+
+        quote_token : typing.Optional[str]
+            The server-signed quote_token returned by POST /payouts/quotes. Required when the ledger account's payout_quote_required is true; a payout without it is refused with the invalid_payout_quote error type. When provided, Whop will not commit a provider payout below the destination amount the quote showed.
+
+        speed : typing.Optional[CreatePayoutsRequestSpeed]
+            How fast the funds should arrive. `instant` is only accepted when the account and payout method are eligible; otherwise the payout is rejected.
+
+        statement_descriptor : typing.Optional[str]
+            Text that appears on the recipient's bank statement. Must be 5-22 alphanumeric characters (A-Z, a-z, 0-9). Without a `quote_token`, omit or pass `null` to use the default descriptor. With a `quote_token`, set this value when creating the quote; the payout request may omit it but cannot add or change it.
+
+        user_id : typing.Optional[str]
+            User to pay out from, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -163,15 +214,107 @@ class PayoutsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.payouts.create(
-            request={"key": "value"},
+            amount=50.0,
+            payout_method_id="potk_xxxxxxxxxxxxxx",
         )
         """
-        _response = self._raw_client.create(request=request, request_options=request_options)
+        _response = self._raw_client.create(
+            amount=amount,
+            payout_method_id=payout_method_id,
+            account_id=account_id,
+            acknowledge_bank_warning=acknowledge_bank_warning,
+            currency=currency,
+            metadata=metadata,
+            notes=notes,
+            platform_covers_fees=platform_covers_fees,
+            quote_token=quote_token,
+            speed=speed,
+            statement_descriptor=statement_descriptor,
+            user_id=user_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def create_quote(
+        self,
+        *,
+        amount: float,
+        payout_method_id: str,
+        account_id: typing.Optional[str] = OMIT,
+        currency: typing.Optional[str] = OMIT,
+        platform_covers_fees: typing.Optional[bool] = OMIT,
+        speed: typing.Optional[CreateQuotePayoutsRequestSpeed] = OMIT,
+        statement_descriptor: typing.Optional[str] = OMIT,
+        user_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateQuotePayoutsResponse:
+        """
+        Creates a short-lived, provider-backed quote for a payout. No funds move until the returned quote_token is submitted to POST /payouts. An Idempotency-Key header is required.
+
+        Parameters
+        ----------
+        amount : float
+            The amount to pay out in the specified currency.
+
+        payout_method_id : str
+            The saved payout method to quote (a potk_ identifier).
+
+        account_id : typing.Optional[str]
+            Account to pay out from, prefixed `biz_`. Provide exactly one of `account_id` or `user_id`.
+
+        currency : typing.Optional[str]
+            The currency to pay out. When omitted, uses `usd` if that balance can cover a withdrawal, otherwise the account's only other funded currency.
+
+        platform_covers_fees : typing.Optional[bool]
+            Whether the parent platform covers the payout fee instead of the account being paid out.
+
+        speed : typing.Optional[CreateQuotePayoutsRequestSpeed]
+            How fast the funds should arrive.
+
+        statement_descriptor : typing.Optional[str]
+            Text that appears on the recipient's bank statement. Must be 5-22 alphanumeric characters (A-Z, a-z, 0-9). Omit or pass `null` to use the default descriptor.
+
+        user_id : typing.Optional[str]
+            User to pay out from, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateQuotePayoutsResponse
+            payout quote created
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-02-2",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.payouts.create_quote(
+            amount=6762.41,
+            payout_method_id="potk_xxxxxxxxxxxxxx",
+        )
+        """
+        _response = self._raw_client.create_quote(
+            amount=amount,
+            payout_method_id=payout_method_id,
+            account_id=account_id,
+            currency=currency,
+            platform_covers_fees=platform_covers_fees,
+            speed=speed,
+            statement_descriptor=statement_descriptor,
+            user_id=user_id,
+            request_options=request_options,
+        )
         return _response.data
 
     def retrieve(
@@ -202,14 +345,14 @@ class PayoutsClient:
         Returns
         -------
         RetrievePayoutsResponse
-            payout found for a user
+            payout found
 
         Examples
         --------
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -220,6 +363,52 @@ class PayoutsClient:
         _response = self._raw_client.retrieve(
             id, account_id=account_id, user_id=user_id, request_options=request_options
         )
+        return _response.data
+
+    def cancel(
+        self,
+        id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CancelPayoutsResponse:
+        """
+        Cancels a payout that is still in review and returns the funds, fees included, to the balance. A payout can be canceled while its status is `in_review`. A `requested` payout is still being prepared (its funds may be converting) and answers 409 until it reaches review; from `processing` on, the money is on its way and the answer is 409 with error type `not_cancelable`. Canceling a payout that is already canceled succeeds and returns it unchanged.
+
+        Parameters
+        ----------
+        id : str
+            Payout ID, prefixed `wdrl_`, or the `cofr_` payout request ID returned by `POST /payouts` — both cancel the same payout.
+
+        account_id : typing.Optional[str]
+            Owning account ID, prefixed `biz_`. Provide exactly one of `account_id` or `user_id`.
+
+        user_id : typing.Optional[str]
+            Owning user ID, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CancelPayoutsResponse
+            payout canceled and funds returned
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-02-2",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.payouts.cancel(
+            id="id",
+        )
+        """
+        _response = self._raw_client.cancel(id, account_id=account_id, user_id=user_id, request_options=request_options)
         return _response.data
 
     @property
@@ -321,7 +510,7 @@ class AsyncPayoutsClient:
         Returns
         -------
         AsyncPager[ListPayoutsResponseDataItem, ListPayoutsResponse]
-            payouts filtered by source, payout method, and created window
+            payouts listed
 
         Examples
         --------
@@ -330,7 +519,7 @@ class AsyncPayoutsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -365,14 +554,62 @@ class AsyncPayoutsClient:
         )
 
     async def create(
-        self, *, request: CreatePayoutsRequestBody, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        amount: float,
+        payout_method_id: str,
+        account_id: typing.Optional[str] = OMIT,
+        acknowledge_bank_warning: typing.Optional[bool] = OMIT,
+        currency: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        notes: typing.Optional[str] = OMIT,
+        platform_covers_fees: typing.Optional[bool] = OMIT,
+        quote_token: typing.Optional[str] = OMIT,
+        speed: typing.Optional[CreatePayoutsRequestSpeed] = OMIT,
+        statement_descriptor: typing.Optional[str] = OMIT,
+        user_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> CreatePayoutsResponse:
         """
         Sends money from an account or user balance to a saved payout method for that owner.
 
         Parameters
         ----------
-        request : CreatePayoutsRequestBody
+        amount : float
+            The amount to pay out in the specified currency.
+
+        payout_method_id : str
+            The saved payout method to deliver to (a potk_ identifier).
+
+        account_id : typing.Optional[str]
+            Account to pay out from, prefixed `biz_`. Provide exactly one of `account_id` or `user_id`.
+
+        acknowledge_bank_warning : typing.Optional[bool]
+            Set to `true` to continue when the destination bank could not confirm the payout method account holder's name, or `false` to have the payout refused in that case so the account holder can correct the name or link their bank first. Omitting the field skips the warning gate — a client that cannot show the warning keeps its pre-gate behavior.
+
+        currency : typing.Optional[str]
+            The currency to pay out. Balances are held per currency and the payout draws only from the balance in this currency, so match the currency the funds arrived in — for example `cad` for an account funded by CAD transfers. When omitted, uses `usd` if that balance can cover a withdrawal, otherwise the account's only other funded currency.
+
+        metadata : typing.Optional[typing.Dict[str, str]]
+            Key-value data to attach to the payout, echoed on every read and in webhook payloads. At most 50 keys, key names up to 40 characters, string values up to 500 characters. Never store secrets or regulated personal data here — webhook bodies are retained for delivery inspection.
+
+        notes : typing.Optional[str]
+            Free-form notes to attach to the payout, with a maximum of 255 characters. Omit or pass `null` for no notes.
+
+        platform_covers_fees : typing.Optional[bool]
+            Whether the parent platform covers the payout fee instead of the account being paid out. Omit to use the platform's configured fee coverage policy; pass `false` to opt out of it. `true` is only accepted for accounts that belong to a platform, and requires the platform's policy to cover this payout method's category or a caller authorized to manage the platform's child account fees.
+
+        quote_token : typing.Optional[str]
+            The server-signed quote_token returned by POST /payouts/quotes. Required when the ledger account's payout_quote_required is true; a payout without it is refused with the invalid_payout_quote error type. When provided, Whop will not commit a provider payout below the destination amount the quote showed.
+
+        speed : typing.Optional[CreatePayoutsRequestSpeed]
+            How fast the funds should arrive. `instant` is only accepted when the account and payout method are eligible; otherwise the payout is rejected.
+
+        statement_descriptor : typing.Optional[str]
+            Text that appears on the recipient's bank statement. Must be 5-22 alphanumeric characters (A-Z, a-z, 0-9). Without a `quote_token`, omit or pass `null` to use the default descriptor. With a `quote_token`, set this value when creating the quote; the payout request may omit it but cannot add or change it.
+
+        user_id : typing.Optional[str]
+            User to pay out from, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -389,7 +626,7 @@ class AsyncPayoutsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -397,13 +634,113 @@ class AsyncPayoutsClient:
 
         async def main() -> None:
             await client.payouts.create(
-                request={"key": "value"},
+                amount=50.0,
+                payout_method_id="potk_xxxxxxxxxxxxxx",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create(request=request, request_options=request_options)
+        _response = await self._raw_client.create(
+            amount=amount,
+            payout_method_id=payout_method_id,
+            account_id=account_id,
+            acknowledge_bank_warning=acknowledge_bank_warning,
+            currency=currency,
+            metadata=metadata,
+            notes=notes,
+            platform_covers_fees=platform_covers_fees,
+            quote_token=quote_token,
+            speed=speed,
+            statement_descriptor=statement_descriptor,
+            user_id=user_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def create_quote(
+        self,
+        *,
+        amount: float,
+        payout_method_id: str,
+        account_id: typing.Optional[str] = OMIT,
+        currency: typing.Optional[str] = OMIT,
+        platform_covers_fees: typing.Optional[bool] = OMIT,
+        speed: typing.Optional[CreateQuotePayoutsRequestSpeed] = OMIT,
+        statement_descriptor: typing.Optional[str] = OMIT,
+        user_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateQuotePayoutsResponse:
+        """
+        Creates a short-lived, provider-backed quote for a payout. No funds move until the returned quote_token is submitted to POST /payouts. An Idempotency-Key header is required.
+
+        Parameters
+        ----------
+        amount : float
+            The amount to pay out in the specified currency.
+
+        payout_method_id : str
+            The saved payout method to quote (a potk_ identifier).
+
+        account_id : typing.Optional[str]
+            Account to pay out from, prefixed `biz_`. Provide exactly one of `account_id` or `user_id`.
+
+        currency : typing.Optional[str]
+            The currency to pay out. When omitted, uses `usd` if that balance can cover a withdrawal, otherwise the account's only other funded currency.
+
+        platform_covers_fees : typing.Optional[bool]
+            Whether the parent platform covers the payout fee instead of the account being paid out.
+
+        speed : typing.Optional[CreateQuotePayoutsRequestSpeed]
+            How fast the funds should arrive.
+
+        statement_descriptor : typing.Optional[str]
+            Text that appears on the recipient's bank statement. Must be 5-22 alphanumeric characters (A-Z, a-z, 0-9). Omit or pass `null` to use the default descriptor.
+
+        user_id : typing.Optional[str]
+            User to pay out from, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateQuotePayoutsResponse
+            payout quote created
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-02-2",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.payouts.create_quote(
+                amount=6762.41,
+                payout_method_id="potk_xxxxxxxxxxxxxx",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_quote(
+            amount=amount,
+            payout_method_id=payout_method_id,
+            account_id=account_id,
+            currency=currency,
+            platform_covers_fees=platform_covers_fees,
+            speed=speed,
+            statement_descriptor=statement_descriptor,
+            user_id=user_id,
+            request_options=request_options,
+        )
         return _response.data
 
     async def retrieve(
@@ -434,7 +771,7 @@ class AsyncPayoutsClient:
         Returns
         -------
         RetrievePayoutsResponse
-            payout found for a user
+            payout found
 
         Examples
         --------
@@ -443,7 +780,7 @@ class AsyncPayoutsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -458,6 +795,62 @@ class AsyncPayoutsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.retrieve(
+            id, account_id=account_id, user_id=user_id, request_options=request_options
+        )
+        return _response.data
+
+    async def cancel(
+        self,
+        id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CancelPayoutsResponse:
+        """
+        Cancels a payout that is still in review and returns the funds, fees included, to the balance. A payout can be canceled while its status is `in_review`. A `requested` payout is still being prepared (its funds may be converting) and answers 409 until it reaches review; from `processing` on, the money is on its way and the answer is 409 with error type `not_cancelable`. Canceling a payout that is already canceled succeeds and returns it unchanged.
+
+        Parameters
+        ----------
+        id : str
+            Payout ID, prefixed `wdrl_`, or the `cofr_` payout request ID returned by `POST /payouts` — both cancel the same payout.
+
+        account_id : typing.Optional[str]
+            Owning account ID, prefixed `biz_`. Provide exactly one of `account_id` or `user_id`.
+
+        user_id : typing.Optional[str]
+            Owning user ID, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CancelPayoutsResponse
+            payout canceled and funds returned
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-02-2",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.payouts.cancel(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.cancel(
             id, account_id=account_id, user_id=user_id, request_options=request_options
         )
         return _response.data

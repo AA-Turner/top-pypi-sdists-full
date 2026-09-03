@@ -65,22 +65,7 @@ class Client(OpenApiClient):
             'cn-zhengzhou-nebula-1': 'adb.aliyuncs.com',
             'eu-west-1-oxs': 'adb.ap-northeast-1.aliyuncs.com',
             'me-east-1': 'adb.ap-northeast-1.aliyuncs.com',
-            'rus-west-1-pop': 'adb.ap-northeast-1.aliyuncs.com',
-            'cn-chengdu': 'adb.cn-chengdu.aliyuncs.com',
-            'cn-wulanchabu': 'adb.cn-wulanchabu.aliyuncs.com',
-            'cn-zhangjiakou': 'adb.cn-zhangjiakou.aliyuncs.com',
-            'ap-northeast-2': 'adb.ap-northeast-2.aliyuncs.com',
-            'ap-northeast-1': 'adb.ap-northeast-1.aliyuncs.com',
-            'cn-guangzhou': 'adb.cn-guangzhou.aliyuncs.com',
-            'ap-southeast-3': 'adb.ap-southeast-3.aliyuncs.com',
-            'cn-huhehaote': 'adb.cn-huhehaote.aliyuncs.com',
-            'ap-southeast-5': 'adb.ap-southeast-5.aliyuncs.com',
-            'ap-southeast-6': 'adb.ap-southeast-6.aliyuncs.com',
-            'ap-southeast-7': 'adb.ap-southeast-7.aliyuncs.com',
-            'eu-west-1': 'adb.eu-west-1.aliyuncs.com',
-            'eu-central-1': 'adb.eu-central-1.aliyuncs.com',
-            'na-south-1': 'adb.na-south-1.aliyuncs.com',
-            'me-central-1': 'adb.me-central-1.aliyuncs.com'
+            'rus-west-1-pop': 'adb.ap-northeast-1.aliyuncs.com'
         }
         self.check_config(config)
         self._endpoint = self.get_endpoint('adb', self._region_id, self._endpoint_rule, self._network, self._suffix, self._endpoint_map, self._endpoint)
@@ -116,6 +101,8 @@ class Client(OpenApiClient):
             query['FileType'] = request.file_type
         if not DaraCore.is_null(request.is_dir):
             query['IsDir'] = request.is_dir
+        if not DaraCore.is_null(request.priority):
+            query['Priority'] = request.priority
         if not DaraCore.is_null(request.tags):
             query['Tags'] = request.tags
         if not DaraCore.is_null(request.upload_user):
@@ -154,6 +141,8 @@ class Client(OpenApiClient):
             query['FileType'] = request.file_type
         if not DaraCore.is_null(request.is_dir):
             query['IsDir'] = request.is_dir
+        if not DaraCore.is_null(request.priority):
+            query['Priority'] = request.priority
         if not DaraCore.is_null(request.tags):
             query['Tags'] = request.tags
         if not DaraCore.is_null(request.upload_user):

@@ -106,6 +106,15 @@ class CfnWorkflow(
             role_arn="roleArn",
         
             # the properties below are optional
+            code=mwaaserverless.CfnWorkflow.CodeProperty(
+                s3_location=mwaaserverless.CfnWorkflow.CodeS3LocationProperty(
+                    bucket="bucket",
+                    object_key="objectKey",
+        
+                    # the properties below are optional
+                    version_id="versionId"
+                )
+            ),
             description="description",
             encryption_configuration=mwaaserverless.CfnWorkflow.EncryptionConfigurationProperty(
                 type="type",
@@ -135,6 +144,7 @@ class CfnWorkflow(
         *,
         definition_s3_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
+        code: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -149,6 +159,7 @@ class CfnWorkflow(
         :param id: Construct identifier for this resource (unique in its scope).
         :param definition_s3_location: 
         :param role_arn: 
+        :param code: The location of code artifacts in Amazon S3 for the workflow. Modeled as a single-member container so it stays extensible to future artifact types (e.g. OCI images).
         :param description: 
         :param encryption_configuration: 
         :param logging_configuration: 
@@ -164,6 +175,7 @@ class CfnWorkflow(
         props = CfnWorkflowProps(
             definition_s3_location=definition_s3_location,
             role_arn=role_arn,
+            code=code,
             description=description,
             encryption_configuration=encryption_configuration,
             logging_configuration=logging_configuration,
@@ -230,6 +242,14 @@ class CfnWorkflow(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCodeSnapshottedAt")
+    def attr_code_snapshotted_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CodeSnapshottedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCodeSnapshottedAt"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
@@ -329,6 +349,24 @@ class CfnWorkflow(
             type_hints = cached_type_hints(_typecheckingstub__f38d2888a3ed8ca88fab9cf362f64be8b28ae698d973d6eb717ffc7d26ea95d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="code")
+    def code(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.CodeProperty"]]:
+        '''The location of code artifacts in Amazon S3 for the workflow.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.CodeProperty"]], jsii.get(self, "code"))
+
+    @code.setter
+    def code(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.CodeProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6aa668ffb7ac62307b59775bdf21aa65d1c85618adec74af4bc2a8bb19c62388)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -432,6 +470,158 @@ class CfnWorkflow(
             type_hints = cached_type_hints(_typecheckingstub__557aba21ad8506797a84212d0251edcf4b4a6f696028d7d683d648a27326f66c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "triggerMode", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mwaaserverless.CfnWorkflow.CodeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_location": "s3Location"},
+    )
+    class CodeProperty:
+        def __init__(
+            self,
+            *,
+            s3_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.CodeS3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The location of code artifacts in Amazon S3 for the workflow.
+
+            Modeled as a single-member container so it stays extensible to future artifact types (e.g. OCI images).
+
+            :param s3_location: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaaserverless-workflow-code.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mwaaserverless as mwaaserverless
+                
+                code_property = mwaaserverless.CfnWorkflow.CodeProperty(
+                    s3_location=mwaaserverless.CfnWorkflow.CodeS3LocationProperty(
+                        bucket="bucket",
+                        object_key="objectKey",
+                
+                        # the properties below are optional
+                        version_id="versionId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f4ec38afe6c0f3b3c12bf47ff99bdd75edc220874c268162d4ece7c8c67b18cd)
+                check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if s3_location is not None:
+                self._values["s3_location"] = s3_location
+
+        @builtins.property
+        def s3_location(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.CodeS3LocationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaaserverless-workflow-code.html#cfn-mwaaserverless-workflow-code-s3location
+            '''
+            result = self._values.get("s3_location")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.CodeS3LocationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mwaaserverless.CfnWorkflow.CodeS3LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket": "bucket",
+            "object_key": "objectKey",
+            "version_id": "versionId",
+        },
+    )
+    class CodeS3LocationProperty:
+        def __init__(
+            self,
+            *,
+            bucket: builtins.str,
+            object_key: builtins.str,
+            version_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param bucket: 
+            :param object_key: 
+            :param version_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaaserverless-workflow-codes3location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mwaaserverless as mwaaserverless
+                
+                code_s3_location_property = mwaaserverless.CfnWorkflow.CodeS3LocationProperty(
+                    bucket="bucket",
+                    object_key="objectKey",
+                
+                    # the properties below are optional
+                    version_id="versionId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bee73abdc44b951c137242e7d5a61e299a6ba92b6471874ad0dcdffa261b1d3b)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
+                check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket": bucket,
+                "object_key": object_key,
+            }
+            if version_id is not None:
+                self._values["version_id"] = version_id
+
+        @builtins.property
+        def bucket(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaaserverless-workflow-codes3location.html#cfn-mwaaserverless-workflow-codes3location-bucket
+            '''
+            result = self._values.get("bucket")
+            assert result is not None, "Required property 'bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def object_key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaaserverless-workflow-codes3location.html#cfn-mwaaserverless-workflow-codes3location-objectkey
+            '''
+            result = self._values.get("object_key")
+            assert result is not None, "Required property 'object_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def version_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaaserverless-workflow-codes3location.html#cfn-mwaaserverless-workflow-codes3location-versionid
+            '''
+            result = self._values.get("version_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeS3LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mwaaserverless.CfnWorkflow.EncryptionConfigurationProperty",
@@ -771,6 +961,7 @@ class CfnWorkflow(
     name_mapping={
         "definition_s3_location": "definitionS3Location",
         "role_arn": "roleArn",
+        "code": "code",
         "description": "description",
         "encryption_configuration": "encryptionConfiguration",
         "logging_configuration": "loggingConfiguration",
@@ -786,6 +977,7 @@ class CfnWorkflowProps:
         *,
         definition_s3_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
+        code: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -798,6 +990,7 @@ class CfnWorkflowProps:
 
         :param definition_s3_location: 
         :param role_arn: 
+        :param code: The location of code artifacts in Amazon S3 for the workflow. Modeled as a single-member container so it stays extensible to future artifact types (e.g. OCI images).
         :param description: 
         :param encryption_configuration: 
         :param logging_configuration: 
@@ -826,6 +1019,15 @@ class CfnWorkflowProps:
                 role_arn="roleArn",
             
                 # the properties below are optional
+                code=mwaaserverless.CfnWorkflow.CodeProperty(
+                    s3_location=mwaaserverless.CfnWorkflow.CodeS3LocationProperty(
+                        bucket="bucket",
+                        object_key="objectKey",
+            
+                        # the properties below are optional
+                        version_id="versionId"
+                    )
+                ),
                 description="description",
                 encryption_configuration=mwaaserverless.CfnWorkflow.EncryptionConfigurationProperty(
                     type="type",
@@ -851,6 +1053,7 @@ class CfnWorkflowProps:
             type_hints = cached_type_hints(_typecheckingstub__36755512823c440877f151e4568051c22a8df773ab4409c547b6f6b7d91f5cdb)
             check_type(argname="argument definition_s3_location", value=definition_s3_location, expected_type=type_hints["definition_s3_location"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
@@ -862,6 +1065,8 @@ class CfnWorkflowProps:
             "definition_s3_location": definition_s3_location,
             "role_arn": role_arn,
         }
+        if code is not None:
+            self._values["code"] = code
         if description is not None:
             self._values["description"] = description
         if encryption_configuration is not None:
@@ -896,6 +1101,19 @@ class CfnWorkflowProps:
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def code(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.CodeProperty"]]:
+        '''The location of code artifacts in Amazon S3 for the workflow.
+
+        Modeled as a single-member container so it stays extensible to future artifact types (e.g. OCI images).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaaserverless-workflow.html#cfn-mwaaserverless-workflow-code
+        '''
+        result = self._values.get("code")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.CodeProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -985,6 +1203,7 @@ def _typecheckingstub__7e2bce4e70d0388a15f4045d87762a0a9bbddefe5c4cc8c92886c1b78
     *,
     definition_s3_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
+    code: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1032,6 +1251,12 @@ def _typecheckingstub__f38d2888a3ed8ca88fab9cf362f64be8b28ae698d973d6eb717ffc7d2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6aa668ffb7ac62307b59775bdf21aa65d1c85618adec74af4bc2a8bb19c62388(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.CodeProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3c0e967a0d20001fac7826a1236cef88937fe92efa3aea43c4aee0668b77ace4(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -1070,6 +1295,22 @@ def _typecheckingstub__ba570a00bba6210a762247c25ee50e6fe4f1c5b260184321978c4e852
 
 def _typecheckingstub__557aba21ad8506797a84212d0251edcf4b4a6f696028d7d683d648a27326f66c(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4ec38afe6c0f3b3c12bf47ff99bdd75edc220874c268162d4ece7c8c67b18cd(
+    *,
+    s3_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.CodeS3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bee73abdc44b951c137242e7d5a61e299a6ba92b6471874ad0dcdffa261b1d3b(
+    *,
+    bucket: builtins.str,
+    object_key: builtins.str,
+    version_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1117,6 +1358,7 @@ def _typecheckingstub__36755512823c440877f151e4568051c22a8df773ab4409c547b6f6b7d
     *,
     definition_s3_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
+    code: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1 import quota_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_quota__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nmsentry_protos/billing/v1/services/contract_budget_enforcer/v1/endpoint_calculate_contract_budget_quotas.proto\x12=sentry_protos.billing.v1.services.contract_budget_enforcer.v1\x1a+sentry_protos/billing/v1/quota_config.proto\";\n$CalculateContractBudgetQuotasRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\"^\n%CalculateContractBudgetQuotasResponse\x12\x35\n\x06quotas\x18\x01 \x03(\x0b\x32%.sentry_protos.billing.v1.QuotaConfigb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nmsentry_protos/billing/v1/services/contract_budget_enforcer/v1/endpoint_calculate_contract_budget_quotas.proto\x12=sentry_protos.billing.v1.services.contract_budget_enforcer.v1\x1a+sentry_protos/billing/v1/quota_config.proto\"O\n$CalculateContractBudgetQuotasRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12\x12\n\nproject_id\x18\x02 \x01(\x04\"^\n%CalculateContractBudgetQuotasResponse\x12\x35\n\x06quotas\x18\x01 \x03(\x0b\x32%.sentry_protos.billing.v1.QuotaConfigb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,7 +33,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CALCULATECONTRACTBUDGETQUOTASREQUEST']._serialized_start=221
-  _globals['_CALCULATECONTRACTBUDGETQUOTASREQUEST']._serialized_end=280
-  _globals['_CALCULATECONTRACTBUDGETQUOTASRESPONSE']._serialized_start=282
-  _globals['_CALCULATECONTRACTBUDGETQUOTASRESPONSE']._serialized_end=376
+  _globals['_CALCULATECONTRACTBUDGETQUOTASREQUEST']._serialized_end=300
+  _globals['_CALCULATECONTRACTBUDGETQUOTASRESPONSE']._serialized_start=302
+  _globals['_CALCULATECONTRACTBUDGETQUOTASRESPONSE']._serialized_end=396
 # @@protoc_insertion_point(module_scope)

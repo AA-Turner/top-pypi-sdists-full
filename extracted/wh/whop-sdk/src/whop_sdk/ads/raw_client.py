@@ -22,6 +22,7 @@ from .types.create_ads_request_call_to_action import CreateAdsRequestCallToActio
 from .types.create_ads_request_creatives_item import CreateAdsRequestCreativesItem
 from .types.create_ads_request_lead_form import CreateAdsRequestLeadForm
 from .types.create_ads_request_messaging_config import CreateAdsRequestMessagingConfig
+from .types.create_ads_request_music import CreateAdsRequestMusic
 from .types.create_ads_request_post_source import CreateAdsRequestPostSource
 from .types.create_ads_request_social_accounts_item import CreateAdsRequestSocialAccountsItem
 from .types.delete_ads_response import DeleteAdsResponse
@@ -36,6 +37,7 @@ from .types.update_ads_request_call_to_action import UpdateAdsRequestCallToActio
 from .types.update_ads_request_creatives_item import UpdateAdsRequestCreativesItem
 from .types.update_ads_request_lead_form import UpdateAdsRequestLeadForm
 from .types.update_ads_request_messaging_config import UpdateAdsRequestMessagingConfig
+from .types.update_ads_request_music import UpdateAdsRequestMusic
 from .types.update_ads_request_post_source import UpdateAdsRequestPostSource
 from .types.update_ads_request_social_accounts_item import UpdateAdsRequestSocialAccountsItem
 from pydantic import ValidationError
@@ -245,12 +247,13 @@ class RawAdsClient:
         call_to_action: typing.Optional[CreateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[str]] = OMIT,
+        existing_post_id: typing.Optional[str] = OMIT,
         headlines: typing.Optional[typing.Sequence[str]] = OMIT,
         lead_form: typing.Optional[CreateAdsRequestLeadForm] = OMIT,
         lead_form_id: typing.Optional[str] = OMIT,
         messaging_config: typing.Optional[CreateAdsRequestMessagingConfig] = OMIT,
         multi_advertiser_ads: typing.Optional[bool] = OMIT,
-        post_id: typing.Optional[str] = OMIT,
+        music: typing.Optional[CreateAdsRequestMusic] = OMIT,
         post_source: typing.Optional[CreateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[str]] = OMIT,
         social_accounts: typing.Optional[typing.Sequence[CreateAdsRequestSocialAccountsItem]] = OMIT,
@@ -274,10 +277,13 @@ class RawAdsClient:
             The call-to-action button shown on the ad.
 
         creatives : typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]]
-            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Two or more entries with no format become a carousel (2-10 attachments), in order, sharing the ad's copy.
+            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Entries with no format become a carousel's ordered cards, sharing the ad's copy — 2-10 of them on Meta, while TikTok runs even a single image as a one-card carousel.
 
         descriptions : typing.Optional[typing.Sequence[str]]
             The description variants shown on the ad.
+
+        existing_post_id : typing.Optional[str]
+            Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
 
         headlines : typing.Optional[typing.Sequence[str]]
             The headline variants shown on the ad.
@@ -294,11 +300,11 @@ class RawAdsClient:
         multi_advertiser_ads : typing.Optional[bool]
             Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
 
-        post_id : typing.Optional[str]
-            Promote an existing post instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
+        music : typing.Optional[CreateAdsRequestMusic]
+            The looping track a TikTok carousel ad plays — an MP3 you uploaded, no larger than 10MB. Required for TikTok carousels (image creatives); TikTok-only.
 
         post_source : typing.Optional[CreateAdsRequestPostSource]
-            Identifies the network that owns `post_id`. The source is inferred from the ID shape when omitted.
+            Identifies the network that owns `existing_post_id`. The source is inferred from the ID shape when omitted.
 
         primary_texts : typing.Optional[typing.Sequence[str]]
             The primary text variants shown in the ad body.
@@ -313,7 +319,7 @@ class RawAdsClient:
             The URL the ad links to. Query parameters are merged into url_parameters, so the stored URL is always bare.
 
         url_parameters : typing.Optional[typing.Dict[str, typing.Any]]
-            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them (utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid).
+            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -334,6 +340,7 @@ class RawAdsClient:
                     object_=creatives, annotation=typing.Sequence[CreateAdsRequestCreativesItem], direction="write"
                 ),
                 "descriptions": descriptions,
+                "existing_post_id": existing_post_id,
                 "headlines": headlines,
                 "lead_form": convert_and_respect_annotation_metadata(
                     object_=lead_form, annotation=CreateAdsRequestLeadForm, direction="write"
@@ -343,7 +350,9 @@ class RawAdsClient:
                     object_=messaging_config, annotation=CreateAdsRequestMessagingConfig, direction="write"
                 ),
                 "multi_advertiser_ads": multi_advertiser_ads,
-                "post_id": post_id,
+                "music": convert_and_respect_annotation_metadata(
+                    object_=music, annotation=typing.Optional[CreateAdsRequestMusic], direction="write"
+                ),
                 "post_source": post_source,
                 "primary_texts": primary_texts,
                 "social_accounts": convert_and_respect_annotation_metadata(
@@ -553,12 +562,13 @@ class RawAdsClient:
         call_to_action: typing.Optional[UpdateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[str]] = OMIT,
+        existing_post_id: typing.Optional[str] = OMIT,
         headlines: typing.Optional[typing.Sequence[str]] = OMIT,
         lead_form: typing.Optional[UpdateAdsRequestLeadForm] = OMIT,
         lead_form_id: typing.Optional[str] = OMIT,
         messaging_config: typing.Optional[UpdateAdsRequestMessagingConfig] = OMIT,
         multi_advertiser_ads: typing.Optional[bool] = OMIT,
-        post_id: typing.Optional[str] = OMIT,
+        music: typing.Optional[UpdateAdsRequestMusic] = OMIT,
         post_source: typing.Optional[UpdateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[str]] = OMIT,
         social_accounts: typing.Optional[typing.Sequence[UpdateAdsRequestSocialAccountsItem]] = OMIT,
@@ -579,10 +589,13 @@ class RawAdsClient:
             The call-to-action button shown on the ad.
 
         creatives : typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]]
-            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Replaces a live ad's creative on the platform. Two or more entries with no format replace it with a carousel (2-10 attachments), in order, sharing the ad's copy.
+            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Replaces a live ad's creative on the platform. Entries with no format replace it with a carousel's ordered cards — 2-10 of them on Meta, while TikTok runs even a single image as a one-card carousel.
 
         descriptions : typing.Optional[typing.Sequence[str]]
             The description variants shown on the ad.
+
+        existing_post_id : typing.Optional[str]
+            Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
 
         headlines : typing.Optional[typing.Sequence[str]]
             The headline variants shown on the ad.
@@ -599,11 +612,11 @@ class RawAdsClient:
         multi_advertiser_ads : typing.Optional[bool]
             Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
 
-        post_id : typing.Optional[str]
-            Promote an existing post instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
+        music : typing.Optional[UpdateAdsRequestMusic]
+            The looping track a TikTok carousel ad plays — an MP3 you uploaded, no larger than 10MB. Omitted leaves the ad's music untouched. Null removes it before launch; a submitted carousel takes a replacement track instead. TikTok-only.
 
         post_source : typing.Optional[UpdateAdsRequestPostSource]
-            Identifies the network that owns `post_id`. The source is inferred from the ID shape when omitted.
+            Identifies the network that owns `existing_post_id`. The source is inferred from the ID shape when omitted.
 
         primary_texts : typing.Optional[typing.Sequence[str]]
             The primary text variants shown in the ad body.
@@ -618,7 +631,7 @@ class RawAdsClient:
             The URL the ad links to. Query parameters are merged into url_parameters, so the stored URL is always bare.
 
         url_parameters : typing.Optional[typing.Dict[str, typing.Any]]
-            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them (utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid).
+            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -637,6 +650,7 @@ class RawAdsClient:
                     object_=creatives, annotation=typing.Sequence[UpdateAdsRequestCreativesItem], direction="write"
                 ),
                 "descriptions": descriptions,
+                "existing_post_id": existing_post_id,
                 "headlines": headlines,
                 "lead_form": convert_and_respect_annotation_metadata(
                     object_=lead_form, annotation=UpdateAdsRequestLeadForm, direction="write"
@@ -646,7 +660,9 @@ class RawAdsClient:
                     object_=messaging_config, annotation=UpdateAdsRequestMessagingConfig, direction="write"
                 ),
                 "multi_advertiser_ads": multi_advertiser_ads,
-                "post_id": post_id,
+                "music": convert_and_respect_annotation_metadata(
+                    object_=music, annotation=typing.Optional[UpdateAdsRequestMusic], direction="write"
+                ),
                 "post_source": post_source,
                 "primary_texts": primary_texts,
                 "social_accounts": convert_and_respect_annotation_metadata(
@@ -1092,12 +1108,13 @@ class AsyncRawAdsClient:
         call_to_action: typing.Optional[CreateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[str]] = OMIT,
+        existing_post_id: typing.Optional[str] = OMIT,
         headlines: typing.Optional[typing.Sequence[str]] = OMIT,
         lead_form: typing.Optional[CreateAdsRequestLeadForm] = OMIT,
         lead_form_id: typing.Optional[str] = OMIT,
         messaging_config: typing.Optional[CreateAdsRequestMessagingConfig] = OMIT,
         multi_advertiser_ads: typing.Optional[bool] = OMIT,
-        post_id: typing.Optional[str] = OMIT,
+        music: typing.Optional[CreateAdsRequestMusic] = OMIT,
         post_source: typing.Optional[CreateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[str]] = OMIT,
         social_accounts: typing.Optional[typing.Sequence[CreateAdsRequestSocialAccountsItem]] = OMIT,
@@ -1121,10 +1138,13 @@ class AsyncRawAdsClient:
             The call-to-action button shown on the ad.
 
         creatives : typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]]
-            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Two or more entries with no format become a carousel (2-10 attachments), in order, sharing the ad's copy.
+            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Entries with no format become a carousel's ordered cards, sharing the ad's copy — 2-10 of them on Meta, while TikTok runs even a single image as a one-card carousel.
 
         descriptions : typing.Optional[typing.Sequence[str]]
             The description variants shown on the ad.
+
+        existing_post_id : typing.Optional[str]
+            Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
 
         headlines : typing.Optional[typing.Sequence[str]]
             The headline variants shown on the ad.
@@ -1141,11 +1161,11 @@ class AsyncRawAdsClient:
         multi_advertiser_ads : typing.Optional[bool]
             Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
 
-        post_id : typing.Optional[str]
-            Promote an existing post instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
+        music : typing.Optional[CreateAdsRequestMusic]
+            The looping track a TikTok carousel ad plays — an MP3 you uploaded, no larger than 10MB. Required for TikTok carousels (image creatives); TikTok-only.
 
         post_source : typing.Optional[CreateAdsRequestPostSource]
-            Identifies the network that owns `post_id`. The source is inferred from the ID shape when omitted.
+            Identifies the network that owns `existing_post_id`. The source is inferred from the ID shape when omitted.
 
         primary_texts : typing.Optional[typing.Sequence[str]]
             The primary text variants shown in the ad body.
@@ -1160,7 +1180,7 @@ class AsyncRawAdsClient:
             The URL the ad links to. Query parameters are merged into url_parameters, so the stored URL is always bare.
 
         url_parameters : typing.Optional[typing.Dict[str, typing.Any]]
-            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them (utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid).
+            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1181,6 +1201,7 @@ class AsyncRawAdsClient:
                     object_=creatives, annotation=typing.Sequence[CreateAdsRequestCreativesItem], direction="write"
                 ),
                 "descriptions": descriptions,
+                "existing_post_id": existing_post_id,
                 "headlines": headlines,
                 "lead_form": convert_and_respect_annotation_metadata(
                     object_=lead_form, annotation=CreateAdsRequestLeadForm, direction="write"
@@ -1190,7 +1211,9 @@ class AsyncRawAdsClient:
                     object_=messaging_config, annotation=CreateAdsRequestMessagingConfig, direction="write"
                 ),
                 "multi_advertiser_ads": multi_advertiser_ads,
-                "post_id": post_id,
+                "music": convert_and_respect_annotation_metadata(
+                    object_=music, annotation=typing.Optional[CreateAdsRequestMusic], direction="write"
+                ),
                 "post_source": post_source,
                 "primary_texts": primary_texts,
                 "social_accounts": convert_and_respect_annotation_metadata(
@@ -1400,12 +1423,13 @@ class AsyncRawAdsClient:
         call_to_action: typing.Optional[UpdateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[str]] = OMIT,
+        existing_post_id: typing.Optional[str] = OMIT,
         headlines: typing.Optional[typing.Sequence[str]] = OMIT,
         lead_form: typing.Optional[UpdateAdsRequestLeadForm] = OMIT,
         lead_form_id: typing.Optional[str] = OMIT,
         messaging_config: typing.Optional[UpdateAdsRequestMessagingConfig] = OMIT,
         multi_advertiser_ads: typing.Optional[bool] = OMIT,
-        post_id: typing.Optional[str] = OMIT,
+        music: typing.Optional[UpdateAdsRequestMusic] = OMIT,
         post_source: typing.Optional[UpdateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[str]] = OMIT,
         social_accounts: typing.Optional[typing.Sequence[UpdateAdsRequestSocialAccountsItem]] = OMIT,
@@ -1426,10 +1450,13 @@ class AsyncRawAdsClient:
             The call-to-action button shown on the ad.
 
         creatives : typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]]
-            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Replaces a live ad's creative on the platform. Two or more entries with no format replace it with a carousel (2-10 attachments), in order, sharing the ad's copy.
+            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Replaces a live ad's creative on the platform. Entries with no format replace it with a carousel's ordered cards — 2-10 of them on Meta, while TikTok runs even a single image as a one-card carousel.
 
         descriptions : typing.Optional[typing.Sequence[str]]
             The description variants shown on the ad.
+
+        existing_post_id : typing.Optional[str]
+            Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
 
         headlines : typing.Optional[typing.Sequence[str]]
             The headline variants shown on the ad.
@@ -1446,11 +1473,11 @@ class AsyncRawAdsClient:
         multi_advertiser_ads : typing.Optional[bool]
             Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
 
-        post_id : typing.Optional[str]
-            Promote an existing post instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
+        music : typing.Optional[UpdateAdsRequestMusic]
+            The looping track a TikTok carousel ad plays — an MP3 you uploaded, no larger than 10MB. Omitted leaves the ad's music untouched. Null removes it before launch; a submitted carousel takes a replacement track instead. TikTok-only.
 
         post_source : typing.Optional[UpdateAdsRequestPostSource]
-            Identifies the network that owns `post_id`. The source is inferred from the ID shape when omitted.
+            Identifies the network that owns `existing_post_id`. The source is inferred from the ID shape when omitted.
 
         primary_texts : typing.Optional[typing.Sequence[str]]
             The primary text variants shown in the ad body.
@@ -1465,7 +1492,7 @@ class AsyncRawAdsClient:
             The URL the ad links to. Query parameters are merged into url_parameters, so the stored URL is always bare.
 
         url_parameters : typing.Optional[typing.Dict[str, typing.Any]]
-            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them (utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid).
+            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1484,6 +1511,7 @@ class AsyncRawAdsClient:
                     object_=creatives, annotation=typing.Sequence[UpdateAdsRequestCreativesItem], direction="write"
                 ),
                 "descriptions": descriptions,
+                "existing_post_id": existing_post_id,
                 "headlines": headlines,
                 "lead_form": convert_and_respect_annotation_metadata(
                     object_=lead_form, annotation=UpdateAdsRequestLeadForm, direction="write"
@@ -1493,7 +1521,9 @@ class AsyncRawAdsClient:
                     object_=messaging_config, annotation=UpdateAdsRequestMessagingConfig, direction="write"
                 ),
                 "multi_advertiser_ads": multi_advertiser_ads,
-                "post_id": post_id,
+                "music": convert_and_respect_annotation_metadata(
+                    object_=music, annotation=typing.Optional[UpdateAdsRequestMusic], direction="write"
+                ),
                 "post_source": post_source,
                 "primary_texts": primary_texts,
                 "social_accounts": convert_and_respect_annotation_metadata(

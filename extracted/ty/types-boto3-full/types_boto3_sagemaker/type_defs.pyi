@@ -10024,6 +10024,7 @@ class OnlineStoreConfigTypeDef(TypedDict):
 
 class OnlineStoreConfigUpdateTypeDef(TypedDict):
     TtlDuration: NotRequired[TtlDurationTypeDef]
+    StorageType: NotRequired[StorageTypeType]
 
 class OptimizationJobModelSourceS3TypeDef(TypedDict):
     S3Uri: NotRequired[str]

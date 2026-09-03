@@ -67,12 +67,13 @@ class SearchdbV1Alpha1API(API):
         self,
         *,
         name: str,
-        node_amount: int,
         node_type: str,
         version: str,
         region: Optional[ScwRegion] = None,
         project_id: Optional[str] = None,
         tags: Optional[list[str]] = None,
+        node_amount: Optional[int] = None,
+        node_count: Optional[int] = None,
         user_name: Optional[str] = None,
         password: Optional[str] = None,
         volume: Optional[Volume] = None,
@@ -81,12 +82,13 @@ class SearchdbV1Alpha1API(API):
         """
         Create a new Cloud Essentials for OpenSearch deployment.
         :param name: Name of the deployment.
-        :param node_amount: Number of nodes.
         :param node_type: Node type.
         :param version: The Opensearch version to use.
         :param region: Region to target. If none is passed will use default region from the config.
         :param project_id: Project ID in which to create the deployment.
         :param tags: Tags.
+        :param node_amount: DEPRECATED: Use node_count instead. Number of nodes.
+        :param node_count: Number of nodes.
         :param user_name: Username for the deployment user.
         :param password: Password for the deployment user.
         :param volume: Volume.
@@ -98,7 +100,6 @@ class SearchdbV1Alpha1API(API):
 
             result = api.create_deployment(
                 name="example",
-                node_amount=1,
                 node_type="example",
                 version="example",
             )
@@ -114,12 +115,13 @@ class SearchdbV1Alpha1API(API):
             body=marshal_CreateDeploymentRequest(
                 CreateDeploymentRequest(
                     name=name,
-                    node_amount=node_amount,
                     node_type=node_type,
                     version=version,
                     region=region,
                     project_id=project_id,
                     tags=tags,
+                    node_amount=node_amount,
+                    node_count=node_count,
                     user_name=user_name,
                     password=password,
                     volume=volume,
@@ -184,16 +186,19 @@ class SearchdbV1Alpha1API(API):
         deployment_id: str,
         region: Optional[ScwRegion] = None,
         node_amount: Optional[int] = None,
+        node_count: Optional[int] = None,
         volume_size_bytes: Optional[int] = None,
     ) -> Deployment:
         """
         Upgrade a Cloud Essentials for OpenSearch deployment.
         :param deployment_id: UUID of the Deployment to upgrade.
         :param region: Region to target. If none is passed will use default region from the config.
-        :param node_amount: Amount of node upgrade target.
-        One-Of ('upgrade_target'): at most one of 'node_amount', 'volume_size_bytes' could be set.
+        :param node_amount: DEPRECATED: Use node_count instead. Amount of node upgrade target.
+        One-Of ('upgrade_target'): at most one of 'node_amount', 'node_count', 'volume_size_bytes' could be set.
+        :param node_count: The target number of nodes for the upgrade.
+        One-Of ('upgrade_target'): at most one of 'node_amount', 'node_count', 'volume_size_bytes' could be set.
         :param volume_size_bytes: Volume size upgrade target.
-        One-Of ('upgrade_target'): at most one of 'node_amount', 'volume_size_bytes' could be set.
+        One-Of ('upgrade_target'): at most one of 'node_amount', 'node_count', 'volume_size_bytes' could be set.
         :return: :class:`Deployment <Deployment>`
 
         Usage:
@@ -217,6 +222,7 @@ class SearchdbV1Alpha1API(API):
                     deployment_id=deployment_id,
                     region=region,
                     node_amount=node_amount,
+                    node_count=node_count,
                     volume_size_bytes=volume_size_bytes,
                 ),
                 self.client,
@@ -339,7 +345,6 @@ class SearchdbV1Alpha1API(API):
         page_size: Optional[int] = None,
         tags: Optional[list[str]] = None,
         name: Optional[str] = None,
-        version: Optional[str] = None,
     ) -> ListDeploymentsResponse:
         """
         Retrieve a list of Cloud Essentials for OpenSearch deployments.
@@ -351,7 +356,6 @@ class SearchdbV1Alpha1API(API):
         :param page_size: Number of deployments to return.
         :param tags: Filter by tag, only deployments with one or more matching tags will be returned.
         :param name: Deployment name to filter for.
-        :param version: Engine version to filter for.
         :return: :class:`ListDeploymentsResponse <ListDeploymentsResponse>`
 
         Usage:
@@ -376,7 +380,6 @@ class SearchdbV1Alpha1API(API):
                 "page_size": page_size or self.client.default_page_size,
                 "project_id": project_id or self.client.default_project_id,
                 "tags": tags,
-                "version": version,
             },
         )
 
@@ -394,7 +397,6 @@ class SearchdbV1Alpha1API(API):
         page_size: Optional[int] = None,
         tags: Optional[list[str]] = None,
         name: Optional[str] = None,
-        version: Optional[str] = None,
     ) -> list[Deployment]:
         """
         Retrieve a list of Cloud Essentials for OpenSearch deployments.
@@ -406,7 +408,6 @@ class SearchdbV1Alpha1API(API):
         :param page_size: Number of deployments to return.
         :param tags: Filter by tag, only deployments with one or more matching tags will be returned.
         :param name: Deployment name to filter for.
-        :param version: Engine version to filter for.
         :return: :class:`list[Deployment] <list[Deployment]>`
 
         Usage:
@@ -428,7 +429,6 @@ class SearchdbV1Alpha1API(API):
                 "page_size": page_size,
                 "tags": tags,
                 "name": name,
-                "version": version,
             },
         )
 
@@ -877,7 +877,7 @@ class SearchdbV1Alpha1API(API):
 
         self._throw_on_error(res)
 
-    def get_deployment_certificate_authority(
+    def download_deployment_certificate_authority(
         self,
         *,
         deployment_id: str,
@@ -891,7 +891,7 @@ class SearchdbV1Alpha1API(API):
         Usage:
         ::
 
-            result = api.get_deployment_certificate_authority(
+            result = api.download_deployment_certificate_authority(
                 deployment_id="example",
             )
         """

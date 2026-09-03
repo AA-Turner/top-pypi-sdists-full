@@ -11,9 +11,10 @@ from scaleway_core.utils import (
 )
 from .types import (
     DeploymentStatus,
-    EndpointPrivateNetworkDetails,
+    NodePrivateNetworkDetails,
     EndpointPublicDetails,
     EndpointService,
+    PrivateNetworkDetails,
     Endpoint,
     Database,
     Deployment,
@@ -26,7 +27,7 @@ from .types import (
     Version,
     ListVersionsResponse,
     CreateDatabaseRequest,
-    EndpointSpecPrivateNetworkDetails,
+    EndpointSpecPrivateNetworkSummary,
     EndpointSpecPublicDetails,
     EndpointSpec,
     CreateDeploymentRequest,
@@ -37,21 +38,39 @@ from .types import (
 )
 
 
-def unmarshal_EndpointPrivateNetworkDetails(data: Any) -> EndpointPrivateNetworkDetails:
+def unmarshal_NodePrivateNetworkDetails(data: Any) -> NodePrivateNetworkDetails:
     if not isinstance(data, dict):
         raise TypeError(
-            "Unmarshalling the type 'EndpointPrivateNetworkDetails' failed as data isn't a dictionary."
+            "Unmarshalling the type 'NodePrivateNetworkDetails' failed as data isn't a dictionary."
         )
 
     args: dict[str, Any] = {}
 
-    field = data.get("private_network_id", None)
+    field = data.get("node_name", None)
     if field is not None:
-        args["private_network_id"] = field
+        args["node_name"] = field
     else:
-        args["private_network_id"] = None
+        args["node_name"] = None
 
-    return EndpointPrivateNetworkDetails(**args)
+    field = data.get("shard", None)
+    if field is not None:
+        args["shard"] = field
+    else:
+        args["shard"] = 0
+
+    field = data.get("replica", None)
+    if field is not None:
+        args["replica"] = field
+    else:
+        args["replica"] = 0
+
+    field = data.get("ip_address", None)
+    if field is not None:
+        args["ip_address"] = field
+    else:
+        args["ip_address"] = None
+
+    return NodePrivateNetworkDetails(**args)
 
 
 def unmarshal_EndpointPublicDetails(data: Any) -> EndpointPublicDetails:
@@ -88,6 +107,33 @@ def unmarshal_EndpointService(data: Any) -> EndpointService:
     return EndpointService(**args)
 
 
+def unmarshal_PrivateNetworkDetails(data: Any) -> PrivateNetworkDetails:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'PrivateNetworkDetails' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("private_network_id", None)
+    if field is not None:
+        args["private_network_id"] = field
+    else:
+        args["private_network_id"] = None
+
+    field = data.get("nodes", None)
+    if field is not None:
+        args["nodes"] = (
+            [unmarshal_NodePrivateNetworkDetails(v) for v in field]
+            if field is not None
+            else None
+        )
+    else:
+        args["nodes"] = []
+
+    return PrivateNetworkDetails(**args)
+
+
 def unmarshal_Endpoint(data: Any) -> Endpoint:
     if not isinstance(data, dict):
         raise TypeError(
@@ -116,9 +162,15 @@ def unmarshal_Endpoint(data: Any) -> Endpoint:
     else:
         args["services"] = []
 
+    field = data.get("region", None)
+    if field is not None:
+        args["region"] = field
+    else:
+        args["region"] = None
+
     field = data.get("private_network", None)
     if field is not None:
-        args["private_network"] = unmarshal_EndpointPrivateNetworkDetails(field)
+        args["private_network"] = unmarshal_PrivateNetworkDetails(field)
     else:
         args["private_network"] = None
 
@@ -150,6 +202,18 @@ def unmarshal_Database(data: Any) -> Database:
         args["size"] = field
     else:
         args["size"] = 0
+
+    field = data.get("deployment_id", None)
+    if field is not None:
+        args["deployment_id"] = field
+    else:
+        args["deployment_id"] = None
+
+    field = data.get("region", None)
+    if field is not None:
+        args["region"] = field
+    else:
+        args["region"] = None
 
     return Database(**args)
 
@@ -254,6 +318,12 @@ def unmarshal_Deployment(data: Any) -> Deployment:
     else:
         args["ram_per_cpu"] = 0
 
+    field = data.get("move_factor", None)
+    if field is not None:
+        args["move_factor"] = field
+    else:
+        args["move_factor"] = 0.0
+
     field = data.get("region", None)
     if field is not None:
         args["region"] = field
@@ -282,6 +352,18 @@ def unmarshal_User(data: Any) -> User:
         args["is_admin"] = field
     else:
         args["is_admin"] = False
+
+    field = data.get("deployment_id", None)
+    if field is not None:
+        args["deployment_id"] = field
+    else:
+        args["deployment_id"] = None
+
+    field = data.get("region", None)
+    if field is not None:
+        args["region"] = field
+    else:
+        args["region"] = None
 
     return User(**args)
 
@@ -501,8 +583,8 @@ def marshal_CreateDatabaseRequest(
     return output
 
 
-def marshal_EndpointSpecPrivateNetworkDetails(
-    request: EndpointSpecPrivateNetworkDetails,
+def marshal_EndpointSpecPrivateNetworkSummary(
+    request: EndpointSpecPrivateNetworkSummary,
     defaults: ProfileDefaults,
 ) -> dict[str, Any]:
     output: dict[str, Any] = {}
@@ -538,7 +620,7 @@ def marshal_EndpointSpec(
                 OneOfPossibility(
                     param="private_network",
                     value=request.private_network,
-                    marshal_func=marshal_EndpointSpecPrivateNetworkDetails,
+                    marshal_func=marshal_EndpointSpecPrivateNetworkSummary,
                 ),
             ]
         ),
@@ -568,16 +650,16 @@ def marshal_CreateDeploymentRequest(
     if request.cpu_min is not None:
         output["cpu_min"] = request.cpu_min
 
+    if request.project_id is not None:
+        output["project_id"] = request.project_id
+    else:
+        output["project_id"] = defaults.default_project_id
+
     if request.cpu_max is not None:
         output["cpu_max"] = request.cpu_max
 
     if request.ram_per_cpu is not None:
         output["ram_per_cpu"] = request.ram_per_cpu
-
-    if request.project_id is not None:
-        output["project_id"] = request.project_id
-    else:
-        output["project_id"] = defaults.default_project_id
 
     if request.tags is not None:
         output["tags"] = request.tags
@@ -589,6 +671,9 @@ def marshal_CreateDeploymentRequest(
         output["endpoints"] = [
             marshal_EndpointSpec(item, defaults) for item in request.endpoints
         ]
+
+    if request.move_factor is not None:
+        output["move_factor"] = request.move_factor
 
     return output
 
@@ -646,6 +731,9 @@ def marshal_UpdateDeploymentRequest(
 
     if request.replica_count is not None:
         output["replica_count"] = request.replica_count
+
+    if request.move_factor is not None:
+        output["move_factor"] = request.move_factor
 
     return output
 

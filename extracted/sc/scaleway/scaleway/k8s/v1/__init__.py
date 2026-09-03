@@ -21,6 +21,7 @@ from .types import Runtime
 from .types import MaintenanceWindow
 from .types import CoreV1Taint
 from .types import CreateClusterRequestPoolConfigUpgradePolicy
+from .types import ComponentInfo
 from .types import ClusterAutoUpgrade
 from .types import ClusterAutoscalerConfig
 from .types import ClusterOpenIDConnectConfig
@@ -32,12 +33,12 @@ from .types import CreateClusterRequestAutoscalerConfig
 from .types import CreateClusterRequestOpenIDConnectConfig
 from .types import CreateClusterRequestPoolConfig
 from .types import CreatePoolRequestUpgradePolicy
-from .types import ExternalNodeCoreV1Taint
 from .types import ClusterType
 from .types import Version
 from .types import Cluster
 from .types import Node
 from .types import Pool
+from .types import UserDataSummary
 from .types import NodeMetadataCoreV1Taint
 from .types import UpdateClusterRequestAutoUpgrade
 from .types import UpdateClusterRequestAutoscalerConfig
@@ -47,19 +48,18 @@ from .types import AddClusterACLRulesRequest
 from .types import AddClusterACLRulesResponse
 from .types import AuthExternalNodeRequest
 from .types import CreateClusterRequest
-from .types import CreateExternalNodeRequest
 from .types import CreatePoolRequest
 from .types import DeleteACLRuleRequest
 from .types import DeleteClusterRequest
 from .types import DeleteNodeRequest
 from .types import DeletePoolRequest
-from .types import ExternalNode
 from .types import ExternalNodeAuth
 from .types import GetClusterKubeConfigRequest
 from .types import GetClusterRequest
 from .types import GetNodeMetadataRequest
 from .types import GetNodeRequest
 from .types import GetPoolRequest
+from .types import GetUserDataRequest
 from .types import GetVersionRequest
 from .types import ListClusterACLRulesRequest
 from .types import ListClusterACLRulesResponse
@@ -75,6 +75,8 @@ from .types import ListNodesRequest
 from .types import ListNodesResponse
 from .types import ListPoolsRequest
 from .types import ListPoolsResponse
+from .types import ListUserDataRequest
+from .types import ListUserDataResponse
 from .types import ListVersionsRequest
 from .types import ListVersionsResponse
 from .types import NodeMetadata
@@ -115,6 +117,7 @@ __all__ = [
     "MaintenanceWindow",
     "CoreV1Taint",
     "CreateClusterRequestPoolConfigUpgradePolicy",
+    "ComponentInfo",
     "ClusterAutoUpgrade",
     "ClusterAutoscalerConfig",
     "ClusterOpenIDConnectConfig",
@@ -126,12 +129,12 @@ __all__ = [
     "CreateClusterRequestOpenIDConnectConfig",
     "CreateClusterRequestPoolConfig",
     "CreatePoolRequestUpgradePolicy",
-    "ExternalNodeCoreV1Taint",
     "ClusterType",
     "Version",
     "Cluster",
     "Node",
     "Pool",
+    "UserDataSummary",
     "NodeMetadataCoreV1Taint",
     "UpdateClusterRequestAutoUpgrade",
     "UpdateClusterRequestAutoscalerConfig",
@@ -141,19 +144,18 @@ __all__ = [
     "AddClusterACLRulesResponse",
     "AuthExternalNodeRequest",
     "CreateClusterRequest",
-    "CreateExternalNodeRequest",
     "CreatePoolRequest",
     "DeleteACLRuleRequest",
     "DeleteClusterRequest",
     "DeleteNodeRequest",
     "DeletePoolRequest",
-    "ExternalNode",
     "ExternalNodeAuth",
     "GetClusterKubeConfigRequest",
     "GetClusterRequest",
     "GetNodeMetadataRequest",
     "GetNodeRequest",
     "GetPoolRequest",
+    "GetUserDataRequest",
     "GetVersionRequest",
     "ListClusterACLRulesRequest",
     "ListClusterACLRulesResponse",
@@ -169,6 +171,8 @@ __all__ = [
     "ListNodesResponse",
     "ListPoolsRequest",
     "ListPoolsResponse",
+    "ListUserDataRequest",
+    "ListUserDataResponse",
     "ListVersionsRequest",
     "ListVersionsResponse",
     "NodeMetadata",

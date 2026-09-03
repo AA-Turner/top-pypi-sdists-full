@@ -139,6 +139,13 @@ def test_prompt_skill_reconciliation_omits_zero_reclassification_clause() -> Non
             "residue",
         ),
         (
+            ".github/agents/agdt.resolve-thread.agent.md",
+            "skill",
+            "git-and-pr",
+            "agdt-resolve-thread",
+            "residue",
+        ),
+        (
             ".github/prompts/agdt.squash-commits.prompt.md",
             "skill",
             "git-and-pr",

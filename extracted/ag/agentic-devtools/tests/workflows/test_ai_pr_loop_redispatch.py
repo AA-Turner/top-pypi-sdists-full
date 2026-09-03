@@ -1,5 +1,8 @@
 """Tests for ai-pr-loop-redispatch.yml workflow structure."""
 
+import os
+import subprocess
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import yaml
@@ -47,9 +50,10 @@ class TestAiPrLoopRedispatch:
         check_step = content[
             content.index("- name: Check stop conditions") : content.index("- name: Wait until safe to dispatch")
         ]
-        assert "GH_TOKEN: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}" in check_step
-        assert "FALLBACK_GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in check_step
-        assert "falling back to SPECKIT_PR_TOKEN for stop-condition checks" in check_step
+        assert "REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}" in check_step
+        assert "SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in check_step
+        assert "GITHUB_TOKEN: ${{ github.token }}" in check_step
+        assert "select_pr_read_token" in check_step
 
     def test_uses_speckit_pr_token(self) -> None:
         content = AI_PR_LOOP_REDISPATCH.read_text(encoding="utf-8")
@@ -121,3 +125,184 @@ class TestAiPrLoopRedispatch:
         parsed = yaml.safe_load(AI_PR_LOOP_REDISPATCH.read_text(encoding="utf-8"))
         step_ids = [step.get("id", "") for step in parsed["jobs"]["smart-redispatch"]["steps"]]
         assert "cooldown-gate" not in step_ids
+
+    def test_falls_back_after_preferred_token_authorization_failure(self, tmp_path: Path) -> None:
+        """An authorization-rejected writer token is replaced by a capable fallback."""
+        result, calls, output = _run_check_script(
+            tmp_path,
+            {
+                "writer": "auth",
+                "speckit": "auth",
+                "ambient": "success",
+            },
+        )
+
+        assert result.returncode == 0
+        assert calls == [
+            ("api", "writer-token-value"),
+            ("api", "speckit-token-value"),
+            ("api", "ambient-token-value"),
+            ("pr", "ambient-token-value"),
+            ("pr", "ambient-token-value"),
+        ]
+        assert output == "should_dispatch=true\n"
+
+    def test_fails_closed_when_all_tokens_are_authorization_rejected(self, tmp_path: Path) -> None:
+        """All rejected credentials stop the loop without enabling dispatch."""
+        result, calls, output = _run_check_script(
+            tmp_path,
+            {
+                "writer": "auth",
+                "speckit": "auth",
+                "ambient": "auth",
+            },
+        )
+
+        assert result.returncode == 0
+        assert calls == [
+            ("api", "writer-token-value"),
+            ("api", "speckit-token-value"),
+            ("api", "ambient-token-value"),
+        ]
+        assert output == "should_dispatch=false\n"
+        diagnostic = result.stdout + result.stderr
+        assert "Pull requests: read" in diagnostic
+        assert "writer-token-value" not in diagnostic
+        assert "speckit-token-value" not in diagnostic
+        assert "ambient-token-value" not in diagnostic
+
+    def test_reuses_capable_preferred_token_for_both_inventory_queries(self, tmp_path: Path) -> None:
+        """A capable preferred token is reused for open and merged inventory."""
+        result, calls, output = _run_check_script(
+            tmp_path,
+            {
+                "writer": "success",
+                "speckit": "success",
+                "ambient": "success",
+            },
+        )
+
+        assert result.returncode == 0
+        assert calls == [
+            ("api", "writer-token-value"),
+            ("pr", "writer-token-value"),
+            ("pr", "writer-token-value"),
+        ]
+        assert output == "should_dispatch=true\n"
+
+    def test_fails_closed_on_non_authorization_probe_failure(self, tmp_path: Path) -> None:
+        """A non-authorization probe failure is not hidden by trying another token."""
+        result, calls, output = _run_check_script(
+            tmp_path,
+            {
+                "writer": "error",
+                "speckit": "success",
+                "ambient": "success",
+            },
+        )
+
+        assert result.returncode == 0
+        assert calls == [("api", "writer-token-value")]
+        assert output == "should_dispatch=false\n"
+        assert "inventory probe failed" in result.stdout
+
+    def test_fails_closed_on_malformed_probe_response(self, tmp_path: Path) -> None:
+        """A successful but malformed probe response cannot enable redispatch."""
+        result, calls, output = _run_check_script(
+            tmp_path,
+            {
+                "writer": "malformed",
+                "speckit": "success",
+                "ambient": "success",
+            },
+        )
+
+        assert result.returncode == 0
+        assert calls == [("api", "writer-token-value")]
+        assert output == "should_dispatch=false\n"
+        assert "malformed response" in result.stdout
+
+
+def _run_check_script(
+    tmp_path: Path,
+    token_behaviors: dict[str, str],
+) -> tuple[subprocess.CompletedProcess[str], list[tuple[str, str]], str]:
+    """Execute the workflow check step against a deterministic fake gh command."""
+    parsed = yaml.safe_load(AI_PR_LOOP_REDISPATCH.read_text(encoding="utf-8"))
+    check_step = next(step for step in parsed["jobs"]["smart-redispatch"]["steps"] if step.get("id") == "check")
+    script = check_step["run"].replace("${{ github.event.repository.default_branch }}", "main")
+    recent_merge = (datetime.now(UTC) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fake_gh = tmp_path / "gh"
+    fake_gh.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s %s\\n' "$1" "${GH_TOKEN}" >> "$GH_CALL_LOG"
+if [[ "$1" == "api" ]]; then
+  case "${GH_TOKEN}" in
+    writer-token-value) behavior="WRITER_BEHAVIOR" ;;
+    speckit-token-value) behavior="SPECKIT_BEHAVIOR" ;;
+    ambient-token-value) behavior="AMBIENT_BEHAVIOR" ;;
+    *) behavior="error" ;;
+  esac
+  case "$behavior" in
+    auth)
+      printf 'HTTP/2.0 403 Forbidden\\n' >&2
+      printf 'GraphQL: Resource not accessible by personal access token (repository.pullRequests)\\n' >&2
+      exit 1
+      ;;
+    error)
+      printf 'network retry delayed 403 seconds\\n' >&2
+      exit 1
+      ;;
+    malformed)
+      printf 'not-json\\n'
+      ;;
+    success)
+      printf '[]\\n'
+      ;;
+  esac
+elif [[ "$*" == *"--state open"* ]]; then
+  printf '[{"labels":[],"number":1,"isCrossRepository":false}]\\n'
+elif [[ "$*" == *"--state merged"* ]]; then
+  merged_json='[{"mergedAt":"RECENT_MERGE"}]'
+  if [[ "$*" == *"--jq"* ]]; then
+    printf '%s\\n' "$merged_json" | jq -r '.[0].mergedAt // empty'
+  else
+    printf '%s\\n' "$merged_json"
+  fi
+fi
+""".replace("RECENT_MERGE", recent_merge)
+        .replace("WRITER_BEHAVIOR", token_behaviors["writer"])
+        .replace("SPECKIT_BEHAVIOR", token_behaviors["speckit"])
+        .replace("AMBIENT_BEHAVIOR", token_behaviors["ambient"]),
+        encoding="utf-8",
+    )
+    fake_gh.chmod(0o755)
+    output_path = tmp_path / "github-output"
+    call_log = tmp_path / "gh-calls"
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+        "GITHUB_OUTPUT": str(output_path),
+        "GITHUB_REPOSITORY": "owner/repo",
+        "GH_CALL_LOG": str(call_log),
+        "REPO_VARIABLE_WRITER_PAT": "writer-token-value",
+        "SPECKIT_PR_TOKEN": "speckit-token-value",
+        "GITHUB_TOKEN": "ambient-token-value",
+    }
+    result = subprocess.run(
+        ["bash", "-c", script],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    calls: list[tuple[str, str]] = []
+    if call_log.exists():
+        for line in call_log.read_text(encoding="utf-8").splitlines():
+            parts = line.split(" ", 1)
+            assert len(parts) == 2
+            calls.append((parts[0], parts[1]))
+    output = output_path.read_text(encoding="utf-8") if output_path.exists() else ""
+    return result, calls, output

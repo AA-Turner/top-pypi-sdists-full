@@ -48,7 +48,7 @@ include = ["pygel3d*"]
 [tool.cibuildwheel]
 # ctypes library: one py3-none-<platform> wheel, tested on each CPython.
 build = ["cp311-*", "cp312-*", "cp313-*", "cp314-*"]
-skip = ["pp*", "cp3??t-*", "*-win32", "*-win_arm64", "*_i686", "*musllinux*"]
+skip = ["cp3??t-*", "*-win32", "*-win_arm64", "*_i686", "*musllinux*"]
 build-verbosity = 1
 test-command = "python {project}/tools/cibw_smoke.py"
 

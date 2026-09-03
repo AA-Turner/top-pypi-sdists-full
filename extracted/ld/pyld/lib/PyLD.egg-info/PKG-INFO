@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyLD
-Version: 3.2.0
+Version: 3.3.0
 Summary: Python implementation of the JSON-LD API
 Home-page: https://github.com/digitalbazaar/pyld
 Author: Digital Bazaar
@@ -30,6 +30,9 @@ Provides-Extra: cachetools
 Requires-Dist: cachetools; extra == "cachetools"
 Provides-Extra: frozendict
 Requires-Dist: frozendict; extra == "frozendict"
+Provides-Extra: cli
+Requires-Dist: typer>=0.27; extra == "cli"
+Requires-Dist: requests-cache>=1.3; extra == "cli"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -103,12 +106,30 @@ Defining a dependency on pyld will not pull in
 [Document Loader](#document-loader) then either depend on the desired external library directly
 or define the requirement as `PyLD[requests]` or `PyLD[aiohttp]`.
 
+## Command line
+
+Install the optional CLI extra to get a JSON-LD 1.1 `pyld` console script:
+
+```bash
+pip install "PyLD[cli]"
+pyld expand document.jsonld
+pyld compact document.jsonld context.jsonld
+pyld frame document.jsonld frame.jsonld
+pyld to-rdf document.jsonld
+pyld from-rdf document.nq
+```
+
+The CLI also provides `get`, `flatten`, and HTTP cache management. See the
+[CLI documentation](https://digitalbazaar.github.io/pyld/cli/) for all commands,
+options, and stdin support.
+
 ## Usage
 
 Here are some quick examples to get started:
 
 ```python
 from pyld import jsonld
+from pyld.identifier_issuer import IdentifierIssuer
 import json
 
 doc = {
@@ -170,6 +191,13 @@ normalized = jsonld.normalize(
     doc, {'algorithm': 'URDNA2015', 'format': 'application/n-quads'})
 # normalized is a string that is a canonical representation of the document
 # that can be used for hashing, comparison, etc.
+
+# convert a document to RDF with a custom blank node issuer
+issuer = IdentifierIssuer('_:doc')
+rdf = jsonld.to_rdf(
+    doc,
+    {'identifierIssuer': issuer, 'format': 'application/n-quads'})
+# flatten() and frame() accept the same identifierIssuer option
 ```
 
 ## Features & conformance

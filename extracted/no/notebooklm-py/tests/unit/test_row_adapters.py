@@ -1,4 +1,4 @@
-"""Tests for row-adapter behavior across the ``notebooklm._row_adapters`` package.
+"""Tests for row-adapter behavior across the ``notebooklm._web.rows`` package.
 
 The adapters centralise position knowledge for the ``LIST_ARTIFACTS``,
 ``GET_NOTES_AND_MIND_MAPS``, and source row shapes so consumers
@@ -8,10 +8,10 @@ The adapters centralise position knowledge for the ``LIST_ARTIFACTS``,
 ``NotebooksAPI.get_source_ids``) read named properties instead of
 open-coding ``data[2]`` / ``data[4]`` / ``data[15]`` / ``row[1][1]`` /
 ``row[1][4]`` / ``data[0][0]`` / ``metadata[4]``. See
-``docs/architecture.md``'s ``_row_adapters/`` module map for the motivation and
-``src/notebooklm/_row_adapters/artifacts.py``,
-``src/notebooklm/_row_adapters/notes.py``, and
-``src/notebooklm/_row_adapters/sources.py`` for the position contracts.
+``docs/architecture.md``'s ``_web/rows/`` module map for the motivation and
+``src/notebooklm/_web/rows/artifacts.py``,
+``src/notebooklm/_web/rows/notes.py``, and
+``src/notebooklm/_web/rows/sources.py`` for the position contracts.
 
 These tests cover three layers per adapter:
 
@@ -32,19 +32,19 @@ import json
 
 import pytest
 
-from notebooklm._artifact.payloads import (
+from notebooklm._types.common import _datetime_from_timestamp
+from notebooklm._web.params.artifacts import (
     build_flashcards_artifact_params,
     build_quiz_artifact_params,
 )
-from notebooklm._row_adapters.artifacts import ArtifactRow, QuizOptionPair, ReportSuggestionRow
-from notebooklm._row_adapters.notes import NoteRow
-from notebooklm._row_adapters.sources import (
+from notebooklm._web.rows.artifacts import ArtifactRow, QuizOptionPair, ReportSuggestionRow
+from notebooklm._web.rows.notes import NoteRow
+from notebooklm._web.rows.sources import (
     SourceRow,
     SourceRowShape,
     _warned_status_codes,
     interpret_source_freshness,
 )
-from notebooklm._types.common import _datetime_from_timestamp
 from notebooklm.exceptions import DecodingError, UnknownRPCMethodError
 from notebooklm.rpc.types import (
     ArtifactStatus,
@@ -97,7 +97,7 @@ class TestPositionContract:
 
         ``AppArtifact.generationOptions`` is tag 2, and inside it ``appType``
         is 1, ``flashcardsGenerationOptions`` 7 and ``quizGenerationOptions``
-        8 — each ``tag - 1`` here, asserted against ``docs/mobile/schema.proto``
+        8 — each ``tag - 1`` here, asserted against ``docs/android/schema.proto``
         in ``tests/_guardrails/test_wire_contract.py``.
         """
         assert (
@@ -499,7 +499,7 @@ class TestOptionPairRoundTrip:
 
     This is the encode↔decode loop #2116 lacked. It is only meaningful because
     the decode positions are pinned independently of the encode positions —
-    against ``docs/mobile/schema.proto`` in
+    against ``docs/android/schema.proto`` in
     ``tests/_guardrails/test_wire_contract.py`` and against a live capture in
     ``TestQuizOptionEcho`` — so this cannot pass by two mistakes agreeing.
 
@@ -943,7 +943,7 @@ class TestNoteRowPositionContract:
     These pin tests fail loudly if anyone edits a position constant.
     When that happens, the failing diff IS the audit trail for the
     Google-side wire reshape. See
-    ``src/notebooklm/_row_adapters/notes.py:NoteRow`` for the shape contract.
+    ``src/notebooklm/_web/rows/notes.py:NoteRow`` for the shape contract.
     """
 
     def test_id_position_is_0(self) -> None:
@@ -1802,7 +1802,7 @@ class TestSourceRowId:
         """``[None, True, [None]]`` — drive inner element is ``None``.
 
         Both :attr:`id` and :attr:`has_id` must return falsy values so
-        :class:`notebooklm._source.listing.SourceLister` skips the row
+        :class:`notebooklm._web.sources.listing.SourceLister` skips the row
         (matching legacy ``_extract_source_id`` which returned ``None``
         from ``raw_id[2][0] is None``).
         """

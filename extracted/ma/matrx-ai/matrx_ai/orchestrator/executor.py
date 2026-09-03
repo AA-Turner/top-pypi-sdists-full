@@ -3643,6 +3643,12 @@ async def _execute_until_complete_inner(
                 # are materialized we also drop the captured wire payload so cx_request_snapshot
                 # never stores the description.
                 from matrx_ai.config.picklist_runtime import build_wire_config
+                from matrx_ai.providers.cache_guard import provider_prompt_cache_key
+
+                current_request.config.prompt_cache_key = provider_prompt_cache_key(
+                    current_request.conversation_id,
+                    current_request.request_id,
+                )
 
                 _wire_config = build_wire_config(current_request.config)
                 _orig_config = current_request.config

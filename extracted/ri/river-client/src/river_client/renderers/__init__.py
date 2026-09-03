@@ -57,7 +57,7 @@ from river_client.renderers.deepseek import (
     parse_deepseek_content_blocks,
     strip_deepseek_thinking_from_text,
 )
-from river_client.renderers.glm53 import Glm53FlashRenderer
+from river_client.renderers.glm53 import Glm53FlashRenderer, parse_glm53_content_blocks
 from river_client.renderers.kimi import (
     KimiRenderer,
     kimi_image_token_count,
@@ -257,7 +257,15 @@ def get_renderer(
         )
 
     if _is_glm53_flash(name_lower):
-        return Glm53FlashRenderer(tokenizer)
+        return Glm53FlashRenderer(
+            tokenizer,
+            thinking=True if thinking is None else thinking,
+            strip_thinking_from_history=(
+                False
+                if strip_thinking_from_history is None
+                else strip_thinking_from_history
+            ),
+        )
 
     if _is_kimi(name_lower):
         return KimiRenderer(
@@ -326,6 +334,7 @@ __all__ = [
     "Qwen35VLRenderer",
     "dsml_tools_block",
     "parse_deepseek_content_blocks",
+    "parse_glm53_content_blocks",
     "parse_kimi_k2_content_blocks",
     "strip_deepseek_thinking_from_text",
     # Factory

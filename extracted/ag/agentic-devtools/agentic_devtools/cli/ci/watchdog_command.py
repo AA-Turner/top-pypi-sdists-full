@@ -9,7 +9,7 @@ import os
 import shutil
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import ceil
 from typing import Any
 from urllib.parse import quote
@@ -21,8 +21,11 @@ from agentic_devtools.cli.ci.cooldown import (
     format_resume_at,
     persist_cooldown,
 )
+from agentic_devtools.cli.ci.due_probe_wakeup import run_due_probe_wakeup
 from agentic_devtools.cli.ci.github_provider import GitHubActionsProvider, _gh_api
 from agentic_devtools.cli.ci.logging_config import setup_logging
+from agentic_devtools.cli.ci.reconciliation.models import CooldownProbe, CooldownState, ProbeStatus
+from agentic_devtools.cli.ci.reconciliation.queue_store import QueueStore, QueueStoreError
 from agentic_devtools.cli.ci.retry import ProviderRateLimitError, RetryableError
 from agentic_devtools.cli.github.repo_resolution import resolve_github_repo
 
@@ -106,6 +109,20 @@ def _provider_cooldown(
     )
 
 
+def _cooldown_state_from_record(key: str, record: CooldownRecord) -> CooldownState:
+    """Convert a shared cooldown record into persisted due-probe state."""
+    provider_identity, _, credential_identity = key.partition(":")
+    return CooldownState(
+        provider_identity=provider_identity or "github",
+        credential_identity=credential_identity or "GH_TOKEN",
+        cooldown_generation_id=(
+            f"{provider_identity or 'github'}:{credential_identity or 'GH_TOKEN'}:{int(record.resume_at)}"
+        ),
+        resume_at=datetime.fromtimestamp(record.resume_at, UTC),
+        reason=record.reason,
+    )
+
+
 def _cooldown_gate_output(
     paused: tuple[str, CooldownRecord] | None,
     now_utc: datetime,
@@ -168,6 +185,75 @@ def _build_throttle_state(latest_run: dict[str, Any] | None, now_utc: datetime) 
     if elapsed_seconds < COOLDOWN_SECONDS:
         return True, "cooldown", elapsed_seconds
     return False, "not_throttled", elapsed_seconds
+
+
+def _cooldown_availability(repo: str) -> tuple[bool, str]:
+    """Return whether persisted cooldown probes establish provider availability."""
+    state = QueueStore(repo=repo).load()
+    for probe in _latest_probe_generation_candidates(state.probes):
+        if probe.status in {ProbeStatus.PENDING, ProbeStatus.IN_PROGRESS, ProbeStatus.FAILED, ProbeStatus.ALERTABLE}:
+            return False, f"cooldown_{probe.status.value}"
+    return True, "available"
+
+
+def _load_cooldown_state(repo: str) -> CooldownState | None:
+    """Load the shared cooldown contract represented by the persisted probe."""
+    try:
+        state = QueueStore(repo=repo).load()
+    except (QueueStoreError, RuntimeError) as exc:
+        logger.warning("Cooldown state unavailable while preparing probe wake-up: %s", exc)
+        return None
+    candidates = _latest_probe_generation_candidates(state.probes)
+    for probe in sorted(
+        candidates,
+        key=lambda item: (item.resume_at or item.next_probe_at or item.scheduled_at, item.cooldown_generation_id),
+        reverse=True,
+    ):
+        if probe.status in {ProbeStatus.PENDING, ProbeStatus.IN_PROGRESS, ProbeStatus.FAILED, ProbeStatus.ALERTABLE}:
+            return CooldownState(
+                provider_identity=probe.provider_identity,
+                credential_identity=probe.credential_identity,
+                cooldown_generation_id=probe.cooldown_generation_id,
+                resume_at=probe.resume_at or probe.scheduled_at,
+                probe_status=probe.status,
+                retry_count=probe.retry_count,
+                next_probe_at=probe.next_probe_at,
+                reason=probe.alert_reason,
+            )
+    return None
+
+
+def _latest_probe_generation_candidates(probes: list[CooldownProbe]) -> list[CooldownProbe]:
+    latest: dict[tuple[str, str], CooldownProbe] = {}
+    for probe in probes:
+        key = (probe.provider_identity, probe.credential_identity)
+        current = latest.get(key)
+        if current is None:
+            latest[key] = probe
+            continue
+        current_time = current.resume_at or current.next_probe_at or current.scheduled_at
+        probe_time = probe.resume_at or probe.next_probe_at or probe.scheduled_at
+        if (probe_time, probe.cooldown_generation_id) >= (current_time, current.cooldown_generation_id):
+            latest[key] = probe
+    return list(latest.values())
+
+
+def _seed_cooldown_state(latest_run: dict[str, Any] | None, now_utc: datetime) -> CooldownState | None:
+    """Create the initial shared cooldown record from the latest throttler run."""
+    throttled, reason, _ = _build_throttle_state(latest_run, now_utc)
+    if not throttled or reason != "cooldown" or latest_run is None:
+        return None
+    updated_at = _parse_timestamp(str(latest_run.get("updated_at", "")))
+    run_id = latest_run.get("id")
+    if updated_at is None or not isinstance(run_id, int) or isinstance(run_id, bool):
+        return None
+    return CooldownState(
+        provider_identity="github_actions",
+        credential_identity=os.environ.get("AGDT_COOLDOWN_CREDENTIAL_IDENTITY", "GH_TOKEN"),
+        cooldown_generation_id=f"throttler-{run_id}",
+        resume_at=updated_at + timedelta(seconds=COOLDOWN_SECONDS),
+        reason="throttler_cooldown",
+    )
 
 
 def _build_redispatch_timing_output(
@@ -319,6 +405,50 @@ def _run_redispatch_wait(
     print(json.dumps(output))
 
 
+def _run_due_probe_only(
+    provider: GitHubActionsProvider,
+    repo: str,
+    *,
+    default_branch_hint: str | None,
+    now_utc: datetime,
+) -> dict[str, Any]:
+    """Evaluate only persisted due probes and skip scheduler dispatch work."""
+    paused = _provider_cooldown(provider, now_utc)
+    if paused is not None:
+        key, record = paused
+        due_probe_count = run_due_probe_wakeup(
+            repo=repo,
+            cooldown_state=_cooldown_state_from_record(key, record),
+        )
+        return {
+            "repo": repo,
+            "default_branch": default_branch_hint,
+            "decision": "due_probe_only",
+            "due_probe_count": due_probe_count,
+            "cooldown_active": True,
+            "cooldown_key": key,
+            "cooldown_source": record.source,
+            "cooldown_resume_at": format_resume_at(record.resume_at),
+            "cooldown_remaining_seconds": max(0, int(record.resume_at - now_utc.timestamp())),
+        }
+    default_branch = default_branch_hint or _get_default_branch(repo)
+    latest_run = _get_latest_throttler_run(repo, default_branch)
+    cooldown_state = _load_cooldown_state(repo)
+    if cooldown_state is None:
+        cooldown_state = _seed_cooldown_state(latest_run, now_utc)
+    if cooldown_state is None:
+        due_probe_count = run_due_probe_wakeup(repo=repo)
+    else:
+        due_probe_count = run_due_probe_wakeup(repo=repo, cooldown_state=cooldown_state)
+    return {
+        "repo": repo,
+        "default_branch": default_branch,
+        "decision": "due_probe_only",
+        "due_probe_count": due_probe_count,
+        "cooldown_active": False,
+    }
+
+
 def ai_pr_loop_watchdog_command() -> None:
     """CLI entry point for agdt-ai-pr-loop-watchdog."""
     setup_logging()
@@ -326,7 +456,14 @@ def ai_pr_loop_watchdog_command() -> None:
     parser = argparse.ArgumentParser(description="Restart ai-pr-loop throttler when eligible PRs exist")
     parser.add_argument(
         "--mode",
-        choices=("watchdog", "cooldown-gate", "redispatch-timing", "redispatch-recheck", "redispatch-wait"),
+        choices=(
+            "watchdog",
+            "due-probe-only",
+            "cooldown-gate",
+            "redispatch-timing",
+            "redispatch-recheck",
+            "redispatch-wait",
+        ),
         default="watchdog",
         help="Command mode: normal watchdog dispatch or redispatch cooldown evaluation.",
     )
@@ -389,11 +526,29 @@ def ai_pr_loop_watchdog_command() -> None:
             _write_github_output({"should_dispatch": bool(output["should_dispatch"])})
             print(json.dumps(output))
             return
+        if args.mode == "due-probe-only":
+            output = _run_due_probe_only(
+                provider,
+                repo,
+                default_branch_hint=args.default_branch,
+                now_utc=_utc_now(),
+            )
+            if output["due_probe_count"] > 0:
+                print(f"::notice::ai-pr-loop-watchdog evaluated {output['due_probe_count']} due probe(s)")
+            print(json.dumps(output))
+            return
 
         now_utc = _utc_now()
         paused = _provider_cooldown(provider, now_utc)
         if paused is not None:
             key, record = paused
+            due_probe_count = 0
+            try:
+                due_probe_count = run_due_probe_wakeup(
+                    repo=repo, cooldown_state=_cooldown_state_from_record(key, record)
+                )
+            except (QueueStoreError, RuntimeError) as exc:
+                logger.warning("Due-probe wake-up unavailable during active cooldown; continuing: %s", exc)
             remaining = max(0, int(record.resume_at - now_utc.timestamp()))
             print(
                 f"::notice::ai-pr-loop-watchdog provider cooldown active "
@@ -409,6 +564,7 @@ def ai_pr_loop_watchdog_command() -> None:
                         "throttled": False,
                         "throttle_reason": "provider_cooldown",
                         "elapsed_seconds": None,
+                        "due_probe_count": due_probe_count,
                         "eligible_count": None,
                         "dispatched": False,
                         "cooldown_key": key,
@@ -422,7 +578,48 @@ def ai_pr_loop_watchdog_command() -> None:
 
         default_branch = args.default_branch or _get_default_branch(repo)
         latest_run = _get_latest_throttler_run(repo, default_branch)
+
+        due_probe_count = 0
+        availability_established = False
+        availability_reason = "cooldown_state_unknown"
+        try:
+            cooldown_state = _load_cooldown_state(repo)
+            if cooldown_state is None:
+                cooldown_state = _seed_cooldown_state(latest_run, now_utc)
+            if cooldown_state is None:
+                due_probe_count = run_due_probe_wakeup(repo=repo)
+            else:
+                due_probe_count = run_due_probe_wakeup(repo=repo, cooldown_state=cooldown_state)
+        except (QueueStoreError, RuntimeError) as exc:
+            logger.warning("Due-probe wake-up unavailable; continuing: %s", exc)
+        else:
+            try:
+                availability_established, availability_reason = _cooldown_availability(repo)
+            except (QueueStoreError, RuntimeError) as exc:
+                logger.warning("Cooldown availability state unavailable; continuing: %s", exc)
+        if not availability_established:
+            print(f"::notice::ai-pr-loop-watchdog dispatch blocked ({availability_reason})")
+            print(
+                json.dumps(
+                    {
+                        "repo": repo,
+                        "decision": "cooldown_blocked",
+                        "throttled": False,
+                        "throttle_reason": "cooldown_state_unknown",
+                        "elapsed_seconds": None,
+                        "due_probe_count": due_probe_count,
+                        "eligible_count": None,
+                        "dispatched": False,
+                        "availability_established": False,
+                        "availability_reason": availability_reason,
+                    }
+                )
+            )
+            return
+
         throttled, throttle_reason, elapsed_seconds = _build_throttle_state(latest_run, now_utc)
+        if due_probe_count > 0:
+            print(f"::notice::ai-pr-loop-watchdog evaluated {due_probe_count} due probe(s)")
 
         if throttled:
             print(f"::notice::ai-pr-loop-watchdog throttled ({throttle_reason})")
@@ -433,8 +630,11 @@ def ai_pr_loop_watchdog_command() -> None:
                 "throttled": True,
                 "throttle_reason": throttle_reason,
                 "elapsed_seconds": elapsed_seconds,
+                "due_probe_count": due_probe_count,
                 "eligible_count": None,
                 "dispatched": False,
+                "availability_established": availability_established,
+                "availability_reason": availability_reason,
             }
             print(json.dumps(output))
             return
@@ -450,8 +650,11 @@ def ai_pr_loop_watchdog_command() -> None:
                 "throttled": False,
                 "throttle_reason": throttle_reason,
                 "elapsed_seconds": elapsed_seconds,
+                "due_probe_count": due_probe_count,
                 "eligible_count": 0,
                 "dispatched": False,
+                "availability_established": availability_established,
+                "availability_reason": availability_reason,
             }
             print(json.dumps(output))
             return
@@ -465,8 +668,11 @@ def ai_pr_loop_watchdog_command() -> None:
             "throttled": False,
             "throttle_reason": throttle_reason,
             "elapsed_seconds": elapsed_seconds,
+            "due_probe_count": due_probe_count,
             "eligible_count": eligible_count,
             "dispatched": True,
+            "availability_established": availability_established,
+            "availability_reason": availability_reason,
         }
         print(json.dumps(output))
     except RetryableError as exc:
@@ -516,6 +722,7 @@ def ai_pr_loop_watchdog_command() -> None:
                     "cooldown_source": source,
                     "cooldown_resume_at": resume_at,
                     "cooldown_remaining_seconds": remaining,
+                    "due_probe_count": 0,
                 }
             )
         )
@@ -557,6 +764,7 @@ def ai_pr_loop_watchdog_command() -> None:
                     "cooldown_source": source,
                     "cooldown_resume_at": resume_at,
                     "cooldown_remaining_seconds": remaining,
+                    "due_probe_count": 0,
                 }
             )
         )

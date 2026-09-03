@@ -41,13 +41,13 @@ else:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_apigatewayv2.ApiGatewayManagedOverridesReference",
     jsii_struct_bases=[],
-    name_mapping={"api_gateway_managed_overrides_id": "apiGatewayManagedOverridesId"},
+    name_mapping={"api_id": "apiId"},
 )
 class ApiGatewayManagedOverridesReference:
-    def __init__(self, *, api_gateway_managed_overrides_id: builtins.str) -> None:
+    def __init__(self, *, api_id: builtins.str) -> None:
         '''A reference to a ApiGatewayManagedOverrides resource.
 
-        :param api_gateway_managed_overrides_id: The Id of the ApiGatewayManagedOverrides resource.
+        :param api_id: The ApiId of the ApiGatewayManagedOverrides resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -58,21 +58,21 @@ class ApiGatewayManagedOverridesReference:
             from aws_cdk.interfaces import aws_apigatewayv2 as interfaces_apigatewayv2
             
             api_gateway_managed_overrides_reference = interfaces_apigatewayv2.ApiGatewayManagedOverridesReference(
-                api_gateway_managed_overrides_id="apiGatewayManagedOverridesId"
+                api_id="apiId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a533b68d10ff8dc8d4bd6c48b560a6ddf51af3e13d11233b0e2728f05085cc1d)
-            check_type(argname="argument api_gateway_managed_overrides_id", value=api_gateway_managed_overrides_id, expected_type=type_hints["api_gateway_managed_overrides_id"])
+            check_type(argname="argument api_id", value=api_id, expected_type=type_hints["api_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "api_gateway_managed_overrides_id": api_gateway_managed_overrides_id,
+            "api_id": api_id,
         }
 
     @builtins.property
-    def api_gateway_managed_overrides_id(self) -> builtins.str:
-        '''The Id of the ApiGatewayManagedOverrides resource.'''
-        result = self._values.get("api_gateway_managed_overrides_id")
-        assert result is not None, "Required property 'api_gateway_managed_overrides_id' is missing"
+    def api_id(self) -> builtins.str:
+        '''The ApiId of the ApiGatewayManagedOverrides resource.'''
+        result = self._values.get("api_id")
+        assert result is not None, "Required property 'api_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -799,6 +799,51 @@ class _IModelRefProxy(
 typing.cast(typing.Any, IModelRef).__jsii_proxy_class__ = lambda : _IModelRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_apigatewayv2.IPortalProductRef")
+class IPortalProductRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PortalProduct.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="portalProductRef")
+    def portal_product_ref(self) -> "PortalProductReference":
+        '''(experimental) A reference to a PortalProduct resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPortalProductRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PortalProduct.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_apigatewayv2.IPortalProductRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="portalProductRef")
+    def portal_product_ref(self) -> "PortalProductReference":
+        '''(experimental) A reference to a PortalProduct resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PortalProductReference", jsii.get(self, "portalProductRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPortalProductRef).__jsii_proxy_class__ = lambda : _IPortalProductRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_apigatewayv2.IRouteRef")
 class IRouteRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1226,6 +1271,55 @@ class ModelReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_apigatewayv2.PortalProductReference",
+    jsii_struct_bases=[],
+    name_mapping={"portal_product_arn": "portalProductArn"},
+)
+class PortalProductReference:
+    def __init__(self, *, portal_product_arn: builtins.str) -> None:
+        '''A reference to a PortalProduct resource.
+
+        :param portal_product_arn: The PortalProductArn of the PortalProduct resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_apigatewayv2 as interfaces_apigatewayv2
+            
+            portal_product_reference = interfaces_apigatewayv2.PortalProductReference(
+                portal_product_arn="portalProductArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a2ec94e9d0366c1434f931bd425d4b15dc116359c598336c02352f8e1d5152bd)
+            check_type(argname="argument portal_product_arn", value=portal_product_arn, expected_type=type_hints["portal_product_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portal_product_arn": portal_product_arn,
+        }
+
+    @builtins.property
+    def portal_product_arn(self) -> builtins.str:
+        '''The PortalProductArn of the PortalProduct resource.'''
+        result = self._values.get("portal_product_arn")
+        assert result is not None, "Required property 'portal_product_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PortalProductReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_apigatewayv2.RouteReference",
     jsii_struct_bases=[],
     name_mapping={"api_id": "apiId", "route_id": "routeId"},
@@ -1540,6 +1634,7 @@ __all__ = [
     "IIntegrationRef",
     "IIntegrationResponseRef",
     "IModelRef",
+    "IPortalProductRef",
     "IRouteRef",
     "IRouteResponseRef",
     "IRoutingRuleRef",
@@ -1548,6 +1643,7 @@ __all__ = [
     "IntegrationReference",
     "IntegrationResponseReference",
     "ModelReference",
+    "PortalProductReference",
     "RouteReference",
     "RouteResponseReference",
     "RoutingRuleReference",
@@ -1559,7 +1655,7 @@ publication.publish()
 
 def _typecheckingstub__a533b68d10ff8dc8d4bd6c48b560a6ddf51af3e13d11233b0e2728f05085cc1d(
     *,
-    api_gateway_managed_overrides_id: builtins.str,
+    api_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1628,6 +1724,13 @@ def _typecheckingstub__312b6260e192c317d46825f46d64f3fa208bd5849a27e6a8f9f5147ba
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a2ec94e9d0366c1434f931bd425d4b15dc116359c598336c02352f8e1d5152bd(
+    *,
+    portal_product_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__00a6d488d61a830320ed07c930904f816e9ebc91c1c792f6ef75af4feda8979f(
     *,
     api_id: builtins.str,
@@ -1667,5 +1770,5 @@ def _typecheckingstub__b83e841c31043c01aed344fbe7a443be81265bcb06f5ed800112fffe3
     """Type checking stubs"""
     pass
 
-for cls in [IApiGatewayManagedOverridesRef, IApiMappingRef, IApiRef, IAuthorizerRef, IDeploymentRef, IDomainNameRef, IIntegrationRef, IIntegrationResponseRef, IModelRef, IRouteRef, IRouteResponseRef, IRoutingRuleRef, IStageRef, IVpcLinkRef]:
+for cls in [IApiGatewayManagedOverridesRef, IApiMappingRef, IApiRef, IAuthorizerRef, IDeploymentRef, IDomainNameRef, IIntegrationRef, IIntegrationResponseRef, IModelRef, IPortalProductRef, IRouteRef, IRouteResponseRef, IRoutingRuleRef, IStageRef, IVpcLinkRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

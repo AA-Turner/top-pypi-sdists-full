@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: numdifftools
-Version: 0.11.0
+Version: 0.11.1
 Summary: Solves automatic numerical differentiation problems in one or more variables.
 Keywords: numerical differentiation,derivatives,optimization,finite differences,calculus
 Author: Per A. Brodtkorb

@@ -2,7 +2,7 @@
 # If you have any remark or suggestion do not hesitate to open an issue.
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -76,6 +76,15 @@ class InvoiceType(str, Enum, metaclass=StrEnumMeta):
     UNKNOWN_TYPE = "unknown_type"
     PERIODIC = "periodic"
     PURCHASE = "purchase"
+    CREDIT_NOTE = "credit_note"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class ListChargesRequestOrderBy(str, Enum, metaclass=StrEnumMeta):
+    START_DATE_ASC = "start_date_asc"
+    START_DATE_DESC = "start_date_desc"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -160,6 +169,69 @@ class DiscountFilter:
 
 
 @dataclass
+class Charge:
+    organization_id: str
+    """
+    ID of the charged organization.
+    """
+
+    organization_name: str
+    """
+    Name of the charged organization.
+    """
+
+    project_id: str
+    """
+    ID of the charged project.
+    """
+
+    project_name: str
+    """
+    Name of the charged project.
+    """
+
+    sku: str
+    """
+    ID of the SKU the charge is priced with.
+    """
+
+    invoice_id: str
+    """
+    ID of the invoice including the charge.
+    """
+
+    resource_id: str
+    """
+    ID of the resource that incurs the charge.
+    """
+
+    resource_name: Optional[str] = None
+    """
+    Optional display name assigned to the resource that incurs the charge.
+    """
+
+    price: Optional[Money] = None
+    """
+    Price of the charge.
+    """
+
+    start_date: Optional[datetime] = None
+    """
+    Start date of the charge.
+    """
+
+    end_date: Optional[datetime] = None
+    """
+    End date of the charge, included.
+    """
+
+    updated_at: Optional[datetime] = None
+    """
+    Date the charge was last updated.
+    """
+
+
+@dataclass
 class ListConsumptionsResponseConsumption:
     product_name: str
     """
@@ -199,6 +271,16 @@ class ListConsumptionsResponseConsumption:
     consumer_id: str
     """
     Organization ID of the consumer for this consumption.
+    """
+
+    project_name: str
+    """
+    Project name of the consumpiton.
+    """
+
+    organization_name: str
+    """
+    Organization name of the consumer for this consumption.
     """
 
     value: Optional[Money] = None
@@ -403,7 +485,7 @@ class ExportInvoicesRequest:
 
     invoice_type: Optional[InvoiceType] = InvoiceType.UNKNOWN_TYPE
     """
-    Invoice type. It can either be `periodic` or `purchase`.
+    Invoice type. It can either be `periodic`, `purchase` or `credit_note`.
     """
 
     page: Optional[int] = 0
@@ -432,10 +514,88 @@ class ExportInvoicesRequest:
 
 
 @dataclass
+class FinOpsApiListChargesRequest:
+    order_by: Optional[ListChargesRequestOrderBy] = (
+        ListChargesRequestOrderBy.START_DATE_ASC
+    )
+    """
+    Sort order of charges in the response.
+    """
+
+    page_token: Optional[str] = None
+    """
+    Token returned by previous call to list next paginated charges, omitted for first page.
+    """
+
+    page_size: Optional[int] = 0
+    """
+    Number of charges to return per page.
+    """
+
+    start_date_after: Optional[datetime] = None
+    """
+    Minimum start date of charges to filter for, defaults to the start of the billing period.
+    """
+
+    end_date_before: Optional[datetime] = None
+    """
+    Maximum end date of charges to filter for, defaults to the end of the billing period.
+    """
+
+    invoice_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    Invoice IDs to filter for, only charges from these invoices will be returned.
+    """
+
+    organization_id: Optional[str] = None
+    """
+    Organization ID to filter for, only charges for this organization will be returned.
+    """
+
+    project_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    Project IDs to filter for, only charges for these projects will be returned.
+    """
+
+    resource_ids: Optional[list[str]] = field(default_factory=list)
+    """
+    Resource IDs to filter for, only charges for these resources will be returned.
+    """
+
+    resource_names: Optional[list[str]] = field(default_factory=list)
+    """
+    Resource display names to filter for, only charges for these resources will be returned.
+    """
+
+    skus: Optional[list[str]] = field(default_factory=list)
+    """
+    SKU IDs to filter for, only charges for these SKUs will be returned.
+    """
+
+    clamp_to_time_range: Optional[bool] = False
+    """
+    Clamp charges to the requested time range.
+    """
+
+
+@dataclass
 class GetInvoiceRequest:
     invoice_id: str
     """
     Invoice ID.
+    """
+
+
+@dataclass
+class ListChargesResponse:
+    charges: list[Charge]
+    """
+    Paginated matching charges.
+    """
+
+    next_page_token: Optional[str] = None
+    """
+    Page token to use with following call to keep listing charges if there are more.
     """
 
 
@@ -553,7 +713,7 @@ class ListInvoicesRequest:
 
     invoice_type: Optional[InvoiceType] = InvoiceType.UNKNOWN_TYPE
     """
-    Invoice type. It can either be `periodic` or `purchase`.
+    Invoice type. It can either be `periodic`, `purchase` or `credit_note`.
     """
 
     page: Optional[int] = 0

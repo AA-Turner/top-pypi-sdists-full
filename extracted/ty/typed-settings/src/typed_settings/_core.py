@@ -425,11 +425,13 @@ def convert(merged_settings: MergedSettings, state: SettingsState[ST]) -> ST:
         msg = f"No value set for required option {option_info.path!r}"
         errors.append(InvalidValueError(msg))
 
-    try:
-        settings = state.converter.structure(settings_dict, state.settings_class)
-    except Exception as e:
-        msg = f"Could not convert loaded settings: {e!r}"
-        errors.append(InvalidValueError(msg).with_traceback(e.__traceback__))
+    if not errors:
+        try:
+            settings = state.converter.structure(settings_dict, state.settings_class)
+        except Exception as e:
+            repr_e = _format_structure_error(e)
+            msg = f"Could not convert loaded settings: {repr_e}"
+            errors.append(InvalidValueError(msg).with_traceback(e.__traceback__))
 
     if errors:
         msg = (
@@ -439,6 +441,26 @@ def convert(merged_settings: MergedSettings, state: SettingsState[ST]) -> ST:
         raise InvalidSettingsError(msg, errors)
 
     return settings
+
+
+def _format_structure_error(exc: Exception) -> str:
+    repr_e = repr(exc)
+    try:
+        import cattrs.errors
+    except ImportError:  # pragma: no cover
+        pass
+    else:
+        if isinstance(exc, cattrs.errors.ClassValidationError):  # pragma: no cover
+            with_note, no_note = exc.group_exceptions()
+            subs = "\n".join(
+                [
+                    *(f"- {type(e[0]).__name__}: {e[0]} ({e[1]})" for e in with_note),
+                    *(f"- {type(e).__name__}: {e}" for e in no_note),
+                ]
+            )
+            repr_e = f"\n{subs}"
+
+    return repr_e
 
 
 def convert_value(

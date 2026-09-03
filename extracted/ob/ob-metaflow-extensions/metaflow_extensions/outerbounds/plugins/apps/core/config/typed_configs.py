@@ -65,6 +65,8 @@ class DependencyConfigDict(TypedDict, total=False):
     python: Optional[str]
     pypi: Optional[dict]
     conda: Optional[dict]
+    anaconda: Optional[dict]
+    extra_configs: Optional[dict]
 
 
 class PackageConfigDict(TypedDict, total=False):

@@ -1,5 +1,6 @@
 """Integration tests for generalized orchestration workflow."""
 
+from pathlib import Path
 from shutil import copytree as real_copytree
 from unittest.mock import MagicMock, patch
 
@@ -8,9 +9,12 @@ from agentic_devtools.cli.workflows.orchestrator_commands import (
     _compute_payload_digest,
     audit_trio_cmd,
     orchestrate_finalize_cmd,
+    orchestrate_hierarchy_cmd,
     orchestrate_init_cmd,
     orchestrate_step_cmd,
 )
+from agentic_devtools.orchestration.hierarchy import ProtectedStorage, derive_caller_identity
+from agentic_devtools.orchestration.hierarchy.trace import read_events
 
 
 def _make_run_result(returncode: int = 0, stdout: str = "", stderr: str = "") -> MagicMock:
@@ -19,6 +23,78 @@ def _make_run_result(returncode: int = 0, stdout: str = "", stderr: str = "") ->
     m.stdout = stdout
     m.stderr = stderr
     return m
+
+
+@patch("agentic_devtools.orchestration.hierarchy.resolve_master_key", return_value=b"x" * 32)
+@patch(
+    "agentic_devtools.orchestration.hierarchy.resolve_authorized_principals",
+    return_value=frozenset({derive_caller_identity()}),
+)
+@patch("agentic_devtools.cli.workflows.orchestrator_commands.run_safe")
+@patch("agentic_devtools.cli.workflows.orchestrator_commands.get_repo_root")
+@patch("agentic_devtools.cli.workflows.orchestrator_commands._get_scratch_dir")
+@patch("agentic_devtools.cli.workflows.orchestrator_commands.get_state_dir")
+@patch("agentic_devtools.cli.workflows.orchestrator_commands._get_required_issue_id")
+def test_epic_tree_orchestration_runs_full_topology(
+    mock_issue_id,
+    mock_state_dir,
+    mock_scratch_dir,
+    mock_get_repo_root,
+    mock_run_safe,
+    _mock_authorized_principals,
+    _mock_master_key,
+    tmp_path: Path,
+) -> None:
+    """A validated epic tree stops before synthetic lifecycle events when dispatch is unavailable."""
+    mock_issue_id.return_value = "subtask-author-schema"
+    mock_state_dir.return_value = tmp_path / "state"
+    mock_get_repo_root.return_value = tmp_path
+    scratch_dir = tmp_path / "scratch"
+    scratch_dir.mkdir()
+    mock_scratch_dir.return_value = scratch_dir
+
+    def _run_safe_side_effect(args, **kwargs):  # type: ignore[no-untyped-def]
+        if len(args) >= 3 and args[0] == "git" and args[-2:] == ["rev-parse", "HEAD"]:
+            return _make_run_result(returncode=0, stdout="deadbeef\n")
+        return _make_run_result(returncode=0, stdout="")
+
+    mock_run_safe.side_effect = _run_safe_side_effect
+    fixture = Path(__file__).parents[1] / "fixtures" / "epic-tree" / "valid-epic.json"
+    (scratch_dir / "epic-tree.json").write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+    subtask_spec_dir = tmp_path / "specs" / "subtask-author-schema"
+    subtask_spec_dir.mkdir(parents=True)
+    (subtask_spec_dir / "tasks.md").write_text(
+        "- [ ] T001 subtask-author-schema: `agentic_devtools/schema.py`\n",
+        encoding="utf-8",
+    )
+    feature_spec_dir = tmp_path / "specs" / "feature-schema-validation"
+    feature_spec_dir.mkdir(parents=True)
+    (feature_spec_dir / "spec.md").write_text("# Feature Spec\n", encoding="utf-8")
+    (feature_spec_dir / "plan.md").write_text("# Feature Plan\n", encoding="utf-8")
+    (feature_spec_dir / "tasks.md").write_text("# Feature Tasks\n", encoding="utf-8")
+    (feature_spec_dir / "research.md").write_text("# Feature Research\n", encoding="utf-8")
+    (feature_spec_dir / "generated").mkdir()
+    (feature_spec_dir / "generated" / "analysis-report.md").write_text("# Analysis\n", encoding="utf-8")
+    epic_spec_dir = tmp_path / "specs" / "epic-standardize-creation"
+    epic_spec_dir.mkdir(parents=True)
+    (epic_spec_dir / "spec.md").write_text("# Epic Spec\n", encoding="utf-8")
+    (epic_spec_dir / "plan.md").write_text("# Epic Plan\n", encoding="utf-8")
+
+    assert orchestrate_hierarchy_cmd() == 1
+    trace_path = next((mock_state_dir.return_value / "orchestration" / "hierarchy").rglob("trace.ndjson"))
+    storage = ProtectedStorage(
+        trace_path,
+        master_key=b"x" * 32,
+        authorized_principals=frozenset({derive_caller_identity()}),
+    )
+    events = read_events(trace_path, protected_storage=storage)
+    event_types = [event["event_type"] for event in events]
+    assert "agent_created" not in event_types
+    assert "context_injected" not in event_types
+    assert "handoff" not in event_types
+    assert "review_decision" not in event_types
+    assert event_types[-1] == "workflow_completed"
+    assert events[-1]["event_detail"]["final_disposition"] == "hierarchy_dispatch_not_implemented"
 
 
 @patch("agentic_devtools.cli.workflows.orchestrator_commands.get_value")

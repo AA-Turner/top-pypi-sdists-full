@@ -875,6 +875,55 @@ class FlowLogReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.FpgaImageReference",
+    jsii_struct_bases=[],
+    name_mapping={"fpga_image_arn": "fpgaImageArn"},
+)
+class FpgaImageReference:
+    def __init__(self, *, fpga_image_arn: builtins.str) -> None:
+        '''A reference to a FpgaImage resource.
+
+        :param fpga_image_arn: The Arn of the FpgaImage resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            fpga_image_reference = interfaces_ec2.FpgaImageReference(
+                fpga_image_arn="fpgaImageArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3be10dc2a003741b0a515779cc07c2985a50de69d6b3731954dc6c34d242924d)
+            check_type(argname="argument fpga_image_arn", value=fpga_image_arn, expected_type=type_hints["fpga_image_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "fpga_image_arn": fpga_image_arn,
+        }
+
+    @builtins.property
+    def fpga_image_arn(self) -> builtins.str:
+        '''The Arn of the FpgaImage resource.'''
+        result = self._values.get("fpga_image_arn")
+        assert result is not None, "Required property 'fpga_image_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FpgaImageReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.GatewayRouteTableAssociationReference",
     jsii_struct_bases=[],
     name_mapping={"gateway_id": "gatewayId"},
@@ -1716,6 +1765,51 @@ class _IFlowLogRefProxy(
 typing.cast(typing.Any, IFlowLogRef).__jsii_proxy_class__ = lambda : _IFlowLogRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IFpgaImageRef")
+class IFpgaImageRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FpgaImage.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="fpgaImageRef")
+    def fpga_image_ref(self) -> "FpgaImageReference":
+        '''(experimental) A reference to a FpgaImage resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFpgaImageRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FpgaImage.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.IFpgaImageRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="fpgaImageRef")
+    def fpga_image_ref(self) -> "FpgaImageReference":
+        '''(experimental) A reference to a FpgaImage resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FpgaImageReference", jsii.get(self, "fpgaImageRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFpgaImageRef).__jsii_proxy_class__ = lambda : _IFpgaImageRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.IGatewayRouteTableAssociationRef"
 )
@@ -2413,6 +2507,57 @@ class _IIpPoolRouteTableAssociationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IIpPoolRouteTableAssociationRef).__jsii_proxy_class__ = lambda : _IIpPoolRouteTableAssociationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIpamExternalResourceVerificationTokenRef"
+)
+class IIpamExternalResourceVerificationTokenRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a IpamExternalResourceVerificationToken.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ipamExternalResourceVerificationTokenRef")
+    def ipam_external_resource_verification_token_ref(
+        self,
+    ) -> "IpamExternalResourceVerificationTokenReference":
+        '''(experimental) A reference to a IpamExternalResourceVerificationToken resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIpamExternalResourceVerificationTokenRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IpamExternalResourceVerificationToken.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.IIpamExternalResourceVerificationTokenRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ipamExternalResourceVerificationTokenRef")
+    def ipam_external_resource_verification_token_ref(
+        self,
+    ) -> "IpamExternalResourceVerificationTokenReference":
+        '''(experimental) A reference to a IpamExternalResourceVerificationToken resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IpamExternalResourceVerificationTokenReference", jsii.get(self, "ipamExternalResourceVerificationTokenRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIpamExternalResourceVerificationTokenRef).__jsii_proxy_class__ = lambda : _IIpamExternalResourceVerificationTokenRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IKeyPairRef")
@@ -5578,6 +5723,57 @@ typing.cast(typing.Any, ITransitGatewayPolicyTableAssociationRef).__jsii_proxy_c
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITransitGatewayPolicyTableEntryRef"
+)
+class ITransitGatewayPolicyTableEntryRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TransitGatewayPolicyTableEntry.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="transitGatewayPolicyTableEntryRef")
+    def transit_gateway_policy_table_entry_ref(
+        self,
+    ) -> "TransitGatewayPolicyTableEntryReference":
+        '''(experimental) A reference to a TransitGatewayPolicyTableEntry resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITransitGatewayPolicyTableEntryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TransitGatewayPolicyTableEntry.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.ITransitGatewayPolicyTableEntryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="transitGatewayPolicyTableEntryRef")
+    def transit_gateway_policy_table_entry_ref(
+        self,
+    ) -> "TransitGatewayPolicyTableEntryReference":
+        '''(experimental) A reference to a TransitGatewayPolicyTableEntry resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TransitGatewayPolicyTableEntryReference", jsii.get(self, "transitGatewayPolicyTableEntryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITransitGatewayPolicyTableEntryRef).__jsii_proxy_class__ = lambda : _ITransitGatewayPolicyTableEntryRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITransitGatewayPolicyTableRef"
 )
 class ITransitGatewayPolicyTableRef(
@@ -7198,6 +7394,61 @@ class IpPoolRouteTableAssociationReference:
 
     def __repr__(self) -> str:
         return "IpPoolRouteTableAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.IpamExternalResourceVerificationTokenReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ipam_external_resource_verification_token_arn": "ipamExternalResourceVerificationTokenArn",
+    },
+)
+class IpamExternalResourceVerificationTokenReference:
+    def __init__(
+        self,
+        *,
+        ipam_external_resource_verification_token_arn: builtins.str,
+    ) -> None:
+        '''A reference to a IpamExternalResourceVerificationToken resource.
+
+        :param ipam_external_resource_verification_token_arn: The IpamExternalResourceVerificationTokenArn of the IpamExternalResourceVerificationToken resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            ipam_external_resource_verification_token_reference = interfaces_ec2.IpamExternalResourceVerificationTokenReference(
+                ipam_external_resource_verification_token_arn="ipamExternalResourceVerificationTokenArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80e6e8abfd7a60a64fefc82f27dc0e27a58005cbc5db66914e1548cdbe3625f3)
+            check_type(argname="argument ipam_external_resource_verification_token_arn", value=ipam_external_resource_verification_token_arn, expected_type=type_hints["ipam_external_resource_verification_token_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ipam_external_resource_verification_token_arn": ipam_external_resource_verification_token_arn,
+        }
+
+    @builtins.property
+    def ipam_external_resource_verification_token_arn(self) -> builtins.str:
+        '''The IpamExternalResourceVerificationTokenArn of the IpamExternalResourceVerificationToken resource.'''
+        result = self._values.get("ipam_external_resource_verification_token_arn")
+        assert result is not None, "Required property 'ipam_external_resource_verification_token_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IpamExternalResourceVerificationTokenReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -10333,6 +10584,74 @@ class TransitGatewayPolicyTableAssociationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.TransitGatewayPolicyTableEntryReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "policy_rule_number": "policyRuleNumber",
+        "transit_gateway_policy_table_id": "transitGatewayPolicyTableId",
+    },
+)
+class TransitGatewayPolicyTableEntryReference:
+    def __init__(
+        self,
+        *,
+        policy_rule_number: builtins.str,
+        transit_gateway_policy_table_id: builtins.str,
+    ) -> None:
+        '''A reference to a TransitGatewayPolicyTableEntry resource.
+
+        :param policy_rule_number: The PolicyRuleNumber of the TransitGatewayPolicyTableEntry resource.
+        :param transit_gateway_policy_table_id: The TransitGatewayPolicyTableId of the TransitGatewayPolicyTableEntry resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            transit_gateway_policy_table_entry_reference = interfaces_ec2.TransitGatewayPolicyTableEntryReference(
+                policy_rule_number="policyRuleNumber",
+                transit_gateway_policy_table_id="transitGatewayPolicyTableId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__558dd2b47e22f70168196820ab68ecc3ca751dc414d100180df12572c6881782)
+            check_type(argname="argument policy_rule_number", value=policy_rule_number, expected_type=type_hints["policy_rule_number"])
+            check_type(argname="argument transit_gateway_policy_table_id", value=transit_gateway_policy_table_id, expected_type=type_hints["transit_gateway_policy_table_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_rule_number": policy_rule_number,
+            "transit_gateway_policy_table_id": transit_gateway_policy_table_id,
+        }
+
+    @builtins.property
+    def policy_rule_number(self) -> builtins.str:
+        '''The PolicyRuleNumber of the TransitGatewayPolicyTableEntry resource.'''
+        result = self._values.get("policy_rule_number")
+        assert result is not None, "Required property 'policy_rule_number' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def transit_gateway_policy_table_id(self) -> builtins.str:
+        '''The TransitGatewayPolicyTableId of the TransitGatewayPolicyTableEntry resource.'''
+        result = self._values.get("transit_gateway_policy_table_id")
+        assert result is not None, "Required property 'transit_gateway_policy_table_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TransitGatewayPolicyTableEntryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.TransitGatewayPolicyTableReference",
     jsii_struct_bases=[],
     name_mapping={"transit_gateway_policy_table_id": "transitGatewayPolicyTableId"},
@@ -11992,6 +12311,7 @@ __all__ = [
     "EgressOnlyInternetGatewayReference",
     "EnclaveCertificateIamRoleAssociationReference",
     "FlowLogReference",
+    "FpgaImageReference",
     "GatewayRouteTableAssociationReference",
     "HostReference",
     "ICapacityManagerDataExportRef",
@@ -12010,6 +12330,7 @@ __all__ = [
     "IEgressOnlyInternetGatewayRef",
     "IEnclaveCertificateIamRoleAssociationRef",
     "IFlowLogRef",
+    "IFpgaImageRef",
     "IGatewayRouteTableAssociationRef",
     "IHostRef",
     "IIPAMAllocationRef",
@@ -12025,6 +12346,7 @@ __all__ = [
     "IInstanceRef",
     "IInternetGatewayRef",
     "IIpPoolRouteTableAssociationRef",
+    "IIpamExternalResourceVerificationTokenRef",
     "IKeyPairRef",
     "ILaunchTemplateRef",
     "ILocalGatewayRouteRef",
@@ -12088,6 +12410,7 @@ __all__ = [
     "ITransitGatewayMulticastGroupSourceRef",
     "ITransitGatewayPeeringAttachmentRef",
     "ITransitGatewayPolicyTableAssociationRef",
+    "ITransitGatewayPolicyTableEntryRef",
     "ITransitGatewayPolicyTableRef",
     "ITransitGatewayRef",
     "ITransitGatewayRouteRef",
@@ -12122,6 +12445,7 @@ __all__ = [
     "InstanceReference",
     "InternetGatewayReference",
     "IpPoolRouteTableAssociationReference",
+    "IpamExternalResourceVerificationTokenReference",
     "KeyPairReference",
     "LaunchTemplateReference",
     "LocalGatewayRouteReference",
@@ -12176,6 +12500,7 @@ __all__ = [
     "TransitGatewayMulticastGroupSourceReference",
     "TransitGatewayPeeringAttachmentReference",
     "TransitGatewayPolicyTableAssociationReference",
+    "TransitGatewayPolicyTableEntryReference",
     "TransitGatewayPolicyTableReference",
     "TransitGatewayReference",
     "TransitGatewayRouteReference",
@@ -12325,6 +12650,13 @@ def _typecheckingstub__0c7f7816dd23c5966fe0b62e931bf88b8f149b9f474737f0550657e96
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3be10dc2a003741b0a515779cc07c2985a50de69d6b3731954dc6c34d242924d(
+    *,
+    fpga_image_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__73d71f159bc2caf82458bd401787c04be0e393554b0767a258a4c1f03a7254ee(
     *,
     gateway_id: builtins.str,
@@ -12437,6 +12769,13 @@ def _typecheckingstub__44bb15a882c5a2c056f5f6ae2f3ea1217cad905768d2e54391ba3718f
 def _typecheckingstub__71fccb9d8f2781c81145acb20d4e9edac01046a309260fa70dfd46e9491669a0(
     *,
     association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80e6e8abfd7a60a64fefc82f27dc0e27a58005cbc5db66914e1548cdbe3625f3(
+    *,
+    ipam_external_resource_verification_token_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12846,6 +13185,14 @@ def _typecheckingstub__e0ad60458b04e024a74deaefab47c52ebb64b54464506c84432a6d083
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__558dd2b47e22f70168196820ab68ecc3ca751dc414d100180df12572c6881782(
+    *,
+    policy_rule_number: builtins.str,
+    transit_gateway_policy_table_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f8a76a1dd1701488d15b43e17b43d5180d2f54364c71ef858c95c925fcbe3c6b(
     *,
     transit_gateway_policy_table_id: builtins.str,
@@ -13066,5 +13413,5 @@ def _typecheckingstub__5bdce5af9d1e135e7564b00f4d9b2945ac4e23e3d35d3e993e24d29db
     """Type checking stubs"""
     pass
 
-for cls in [ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IInstanceConnectEndpointRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayPolicyTableAssociationRef, ITransitGatewayPolicyTableRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
+for cls in [ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IFpgaImageRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IInstanceConnectEndpointRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IIpamExternalResourceVerificationTokenRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayPolicyTableAssociationRef, ITransitGatewayPolicyTableEntryRef, ITransitGatewayPolicyTableRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

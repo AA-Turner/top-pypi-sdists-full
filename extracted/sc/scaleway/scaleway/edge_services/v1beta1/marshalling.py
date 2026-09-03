@@ -19,6 +19,7 @@ from .types import (
     PurgeRequestStatus,
     RuleHttpMatchMethodFilter,
     RuleHttpMatchPathFilterPathFilterType,
+    StageStatus,
     WafStageMode,
     ScalewayLb,
     ScalewayLbBackendConfig,
@@ -36,6 +37,7 @@ from .types import (
     WafStage,
     PipelineStages,
     PurgeRequest,
+    VPCEndpoint,
     RuleHttpMatchHostFilter,
     RuleHttpMatchPathFilter,
     RuleHttpMatch,
@@ -61,8 +63,10 @@ from .types import (
     ListRouteRulesResponse,
     ListRouteStagesResponse,
     ListTLSStagesResponse,
+    ListVPCEndpointsResponse,
     ListWafStagesResponse,
     Plan,
+    SetPipelineVPCEndpointsResponse,
     SetRouteRulesResponse,
     SetRouteRulesRequestRouteRule,
     AddRouteRulesRequest,
@@ -77,12 +81,14 @@ from .types import (
     CreatePurgeRequestRequest,
     CreateRouteStageRequest,
     CreateTLSStageRequest,
+    CreateVPCEndpointRequest,
     CreateWafStageRequest,
     SelectPlanRequest,
     SetHeadStageRequestAddNewHeadStage,
     SetHeadStageRequestRemoveHeadStage,
     SetHeadStageRequestSwapHeadStage,
     SetHeadStageRequest,
+    SetPipelineVPCEndpointsRequest,
     SetRouteRulesRequest,
     UpdateBackendStageRequest,
     UpdateCacheStageRequest,
@@ -138,6 +144,12 @@ def unmarshal_ScalewayLb(data: Any) -> ScalewayLb:
         args["has_websocket"] = field
     else:
         args["has_websocket"] = False
+
+    field = data.get("private_network_id", None)
+    if field is not None:
+        args["private_network_id"] = field
+    else:
+        args["private_network_id"] = None
 
     return ScalewayLb(**args)
 
@@ -260,6 +272,12 @@ def unmarshal_BackendStage(data: Any) -> BackendStage:
     else:
         args["pipeline_id"] = None
 
+    field = data.get("status", None)
+    if field is not None:
+        args["status"] = field
+    else:
+        args["status"] = StageStatus.UNKNOWN_STATUS
+
     field = data.get("created_at", None)
     if field is not None:
         args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
@@ -329,6 +347,12 @@ def unmarshal_CacheStage(data: Any) -> CacheStage:
     else:
         args["include_cookies"] = False
 
+    field = data.get("status", None)
+    if field is not None:
+        args["status"] = field
+    else:
+        args["status"] = StageStatus.UNKNOWN_STATUS
+
     field = data.get("fallback_ttl", None)
     if field is not None:
         args["fallback_ttl"] = field
@@ -347,17 +371,17 @@ def unmarshal_CacheStage(data: Any) -> CacheStage:
     else:
         args["updated_at"] = None
 
-    field = data.get("backend_stage_id", None)
-    if field is not None:
-        args["backend_stage_id"] = field
-    else:
-        args["backend_stage_id"] = None
-
     field = data.get("waf_stage_id", None)
     if field is not None:
         args["waf_stage_id"] = field
     else:
         args["waf_stage_id"] = None
+
+    field = data.get("backend_stage_id", None)
+    if field is not None:
+        args["backend_stage_id"] = field
+    else:
+        args["backend_stage_id"] = None
 
     field = data.get("route_stage_id", None)
     if field is not None:
@@ -388,6 +412,12 @@ def unmarshal_DNSStage(data: Any) -> DNSStage:
     else:
         args["default_fqdn"] = None
 
+    field = data.get("default_private_fqdn", None)
+    if field is not None:
+        args["default_private_fqdn"] = field
+    else:
+        args["default_private_fqdn"] = None
+
     field = data.get("fqdns", None)
     if field is not None:
         args["fqdns"] = field
@@ -406,11 +436,23 @@ def unmarshal_DNSStage(data: Any) -> DNSStage:
     else:
         args["pipeline_id"] = None
 
+    field = data.get("status", None)
+    if field is not None:
+        args["status"] = field
+    else:
+        args["status"] = StageStatus.UNKNOWN_STATUS
+
     field = data.get("wildcard_domain", None)
     if field is not None:
         args["wildcard_domain"] = field
     else:
         args["wildcard_domain"] = False
+
+    field = data.get("full_private", None)
+    if field is not None:
+        args["full_private"] = field
+    else:
+        args["full_private"] = False
 
     field = data.get("created_at", None)
     if field is not None:
@@ -538,6 +580,12 @@ def unmarshal_Pipeline(data: Any) -> Pipeline:
     else:
         args["organization_id"] = None
 
+    field = data.get("vpc_endpoint_ids", None)
+    if field is not None:
+        args["vpc_endpoint_ids"] = field
+    else:
+        args["vpc_endpoint_ids"] = []
+
     field = data.get("created_at", None)
     if field is not None:
         args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
@@ -572,6 +620,12 @@ def unmarshal_RouteStage(data: Any) -> RouteStage:
         args["pipeline_id"] = field
     else:
         args["pipeline_id"] = None
+
+    field = data.get("status", None)
+    if field is not None:
+        args["status"] = field
+    else:
+        args["status"] = StageStatus.UNKNOWN_STATUS
 
     field = data.get("waf_stage_id", None)
     if field is not None:
@@ -657,6 +711,12 @@ def unmarshal_TLSStage(data: Any) -> TLSStage:
     else:
         args["pipeline_id"] = None
 
+    field = data.get("status", None)
+    if field is not None:
+        args["status"] = field
+    else:
+        args["status"] = StageStatus.UNKNOWN_STATUS
+
     field = data.get("certificate_expires_at", None)
     if field is not None:
         args["certificate_expires_at"] = (
@@ -735,6 +795,12 @@ def unmarshal_WafStage(data: Any) -> WafStage:
         args["paranoia_level"] = field
     else:
         args["paranoia_level"] = 0
+
+    field = data.get("status", None)
+    if field is not None:
+        args["status"] = field
+    else:
+        args["status"] = StageStatus.UNKNOWN_STATUS
 
     field = data.get("created_at", None)
     if field is not None:
@@ -873,6 +939,53 @@ def unmarshal_PurgeRequest(data: Any) -> PurgeRequest:
         args["updated_at"] = None
 
     return PurgeRequest(**args)
+
+
+def unmarshal_VPCEndpoint(data: Any) -> VPCEndpoint:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'VPCEndpoint' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("id", None)
+    if field is not None:
+        args["id"] = field
+    else:
+        args["id"] = None
+
+    field = data.get("project_id", None)
+    if field is not None:
+        args["project_id"] = field
+    else:
+        args["project_id"] = None
+
+    field = data.get("region", None)
+    if field is not None:
+        args["region"] = field
+    else:
+        args["region"] = None
+
+    field = data.get("private_network_id", None)
+    if field is not None:
+        args["private_network_id"] = field
+    else:
+        args["private_network_id"] = None
+
+    field = data.get("created_at", None)
+    if field is not None:
+        args["created_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["created_at"] = None
+
+    field = data.get("updated_at", None)
+    if field is not None:
+        args["updated_at"] = parser.isoparse(field) if isinstance(field, str) else field
+    else:
+        args["updated_at"] = None
+
+    return VPCEndpoint(**args)
 
 
 def unmarshal_RuleHttpMatchHostFilter(data: Any) -> RuleHttpMatchHostFilter:
@@ -1560,6 +1673,31 @@ def unmarshal_ListTLSStagesResponse(data: Any) -> ListTLSStagesResponse:
     return ListTLSStagesResponse(**args)
 
 
+def unmarshal_ListVPCEndpointsResponse(data: Any) -> ListVPCEndpointsResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'ListVPCEndpointsResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("vpc_endpoints", None)
+    if field is not None:
+        args["vpc_endpoints"] = (
+            [unmarshal_VPCEndpoint(v) for v in field] if field is not None else None
+        )
+    else:
+        args["vpc_endpoints"] = []
+
+    field = data.get("total_count", None)
+    if field is not None:
+        args["total_count"] = field
+    else:
+        args["total_count"] = 0
+
+    return ListVPCEndpointsResponse(**args)
+
+
 def unmarshal_ListWafStagesResponse(data: Any) -> ListWafStagesResponse:
     if not isinstance(data, dict):
         raise TypeError(
@@ -1600,6 +1738,39 @@ def unmarshal_Plan(data: Any) -> Plan:
         args["plan_name"] = None
 
     return Plan(**args)
+
+
+def unmarshal_SetPipelineVPCEndpointsResponse(
+    data: Any,
+) -> SetPipelineVPCEndpointsResponse:
+    if not isinstance(data, dict):
+        raise TypeError(
+            "Unmarshalling the type 'SetPipelineVPCEndpointsResponse' failed as data isn't a dictionary."
+        )
+
+    args: dict[str, Any] = {}
+
+    field = data.get("pipeline_id", None)
+    if field is not None:
+        args["pipeline_id"] = field
+    else:
+        args["pipeline_id"] = None
+
+    field = data.get("vpc_endpoints", None)
+    if field is not None:
+        args["vpc_endpoints"] = (
+            [unmarshal_VPCEndpoint(v) for v in field] if field is not None else None
+        )
+    else:
+        args["vpc_endpoints"] = []
+
+    field = data.get("total_count", None)
+    if field is not None:
+        args["total_count"] = field
+    else:
+        args["total_count"] = 0
+
+    return SetPipelineVPCEndpointsResponse(**args)
 
 
 def unmarshal_SetRouteRulesResponse(data: Any) -> SetRouteRulesResponse:
@@ -1783,6 +1954,9 @@ def marshal_ScalewayLb(
 
     if request.has_websocket is not None:
         output["has_websocket"] = request.has_websocket
+
+    if request.private_network_id is not None:
+        output["private_network_id"] = request.private_network_id
 
     return output
 
@@ -2007,6 +2181,9 @@ def marshal_CreateDNSStageRequest(
     if request.wildcard_domain is not None:
         output["wildcard_domain"] = request.wildcard_domain
 
+    if request.full_private is not None:
+        output["full_private"] = request.full_private
+
     return output
 
 
@@ -2133,6 +2310,28 @@ def marshal_CreateTLSStageRequest(
     return output
 
 
+def marshal_CreateVPCEndpointRequest(
+    request: CreateVPCEndpointRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.private_network_id is not None:
+        output["private_network_id"] = request.private_network_id
+
+    if request.project_id is not None:
+        output["project_id"] = request.project_id
+    else:
+        output["project_id"] = defaults.default_project_id
+
+    if request.region is not None:
+        output["region"] = request.region
+    else:
+        output["region"] = defaults.default_region
+
+    return output
+
+
 def marshal_CreateWafStageRequest(
     request: CreateWafStageRequest,
     defaults: ProfileDefaults,
@@ -2241,6 +2440,18 @@ def marshal_SetHeadStageRequest(
             ]
         ),
     )
+
+    return output
+
+
+def marshal_SetPipelineVPCEndpointsRequest(
+    request: SetPipelineVPCEndpointsRequest,
+    defaults: ProfileDefaults,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+
+    if request.vpc_endpoint_ids is not None:
+        output["vpc_endpoint_ids"] = request.vpc_endpoint_ids
 
     return output
 
@@ -2362,6 +2573,9 @@ def marshal_UpdateDNSStageRequest(
 
     if request.wildcard_domain is not None:
         output["wildcard_domain"] = request.wildcard_domain
+
+    if request.full_private is not None:
+        output["full_private"] = request.full_private
 
     return output
 

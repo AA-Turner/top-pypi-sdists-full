@@ -4,7 +4,12 @@ import subprocess
 from datetime import date
 from pathlib import Path
 
-_PROVIDER_PATH = Path("agentic_devtools/ai_providers/copilot.py")
+_ENDPOINT_OWNER_PATHS = frozenset(
+    {
+        "agentic_devtools/ai_providers/copilot.py",
+        "agentic_devtools/ai_providers/agent_tasks_payload.py",
+    }
+)
 # These are the three intentionally retained legacy consumers; each expires with the migration
 # window rather than being silently exempted from the boundary.
 _LEGACY_ALLOWLIST = {
@@ -275,7 +280,7 @@ def test_only_copilot_provider_owns_agent_tasks_endpoint() -> None:
         relative_path = Path(relative)
         if relative_path.suffix not in _SOURCE_EXTENSIONS or _EXCLUDED_SOURCE_PARTS.intersection(relative_path.parts):
             continue
-        if relative == _PROVIDER_PATH.as_posix() or relative in _LEGACY_ALLOWLIST:
+        if relative in _ENDPOINT_OWNER_PATHS or relative in _LEGACY_ALLOWLIST:
             continue
         path = root / relative
         text = path.read_text(encoding="utf-8")

@@ -10,9 +10,15 @@ from typing import TYPE_CHECKING
 import regex as re
 
 from djlint.const import HTML_TAG_NAMES, HTML_VOID_ELEMENTS
+from djlint.formatter.attributes import normalize_attributes, sort_attributes
 from djlint.formatter.class_attributes import encode_attribute_newlines
 from djlint.formatter.tokenizer import tokenize_tags
-from djlint.helpers import RE_FLAGS_ISX, child_of_unformatted_block
+from djlint.helpers import (
+    RE_FLAGS_IS,
+    RE_FLAGS_ISX,
+    child_of_unformatted_block,
+    mask_raw_text_bodies,
+)
 
 if TYPE_CHECKING:
     from typing import Final
@@ -27,8 +33,68 @@ _TEMPLATE_COMMENT_BLOCK_PATTERN: Final = re.compile(
 )
 
 
-def _blank_match(match: re.Match[str]) -> str:
+_TEMPLATE_COMMENT_PROFILES: Final = frozenset((
+    "all",
+    "askama",
+    "django",
+    "jinja",
+    "nunjucks",
+    "tera",
+))
+
+
+_LOOSE_ATTRIBUTE_SPACING_PATTERN: Final = re.compile(
+    r"\"[^\"]*\"|'[^']*'|\{\{.*?\}\}|\{%.*?%\}|\{\#.*?\#\}|[ \t]+=[ \t]*|=[ \t]+"
+    r"|[ \t]{2,}",
+    RE_FLAGS_IS,
+    cache_pattern=False,
+)
+
+
+def _tighten_spacing(match: re.Match[str]) -> str:
+    text = match.group()
+    if not text.strip():
+        return " "
+    return "=" if text.strip() == "=" else text
+
+
+def _normalize_spacing(attributes: str, config: Config) -> str:
+    """Drop the slack around "=" and between the attributes of a tag.
+
+    Rebuilding the attributes drops it, so a tag measured with the
+    slack is spread and then measures short enough to be put back on
+    one line, spreading again on the next run. A tag that stays as
+    written keeps its spacing: quoted values and template tags are
+    matched first, so their own whitespace is left alone either way.
+    """
+    if len(attributes.strip()) < config.max_attribute_length:
+        return attributes
+    return _LOOSE_ATTRIBUTE_SPACING_PATTERN.sub(_tighten_spacing, attributes)
+
+
+def _same_length_blank(match: re.Match[str]) -> str:
     return " " * len(match.group())
+
+
+def _tokenizer_source(html: str, config: Config) -> str:
+    """Blank out what the tag tokenizer should not read as markup.
+
+    A raw text element holds text: the "<" of `var s = "<div>"` inside a
+    `<script>` opens no tag, and rewriting it would change what the page
+    shows. Template comments are skipped for the same reason. Each is
+    replaced by a blank of the same length, so a token's offsets still
+    index the original html.
+    """
+    html = mask_raw_text_bodies(html)
+
+    if config.profile not in _TEMPLATE_COMMENT_PROFILES:
+        return html
+
+    if "{#" in html:
+        html = config.unformatted_blocks_pattern.sub(_same_length_blank, html)
+    if "comment" in html:
+        html = _TEMPLATE_COMMENT_BLOCK_PATTERN.sub(_same_length_blank, html)
+    return html
 
 
 def compress_html(html: str, config: Config) -> str:
@@ -43,14 +109,11 @@ def compress_html(html: str, config: Config) -> str:
         return tag
 
     def _clean_tag(token: TagToken) -> str:
-        """Flatten multiline attributes back to one line.
+        """Flatten multiline attributes back to one line and quote values.
 
-        Skip when attribute is ignored.
-        Attribute name can be in group one or group 2.
-        for now, skipping if they are anywhere
-
-        tags starting ignored blocks can have their attributes formatted,
-        for example <textarea class="..." id="..."> can be formatted.
+        A tag opening an ignored block still has its own attributes
+        formatted, so `<textarea class="..." id="...">` is tidied while its
+        contents are left alone.
         """
         if child_of_unformatted_block(config, html, token):
             return html[token.start : token.end]
@@ -59,15 +122,19 @@ def compress_html(html: str, config: Config) -> str:
         tag = _fix_case(token.name)
 
         raw_attributes = html[token.name_end : token.attributes_end]
+        attributes = ""
         if raw_attributes:
-            raw_attributes = encode_attribute_newlines(raw_attributes, config)
-
-        attributes = (
-            (" " if raw_attributes[0].isspace() else "")
-            + " ".join(x.strip() for x in raw_attributes.strip().splitlines())
-            if raw_attributes
-            else ""
-        )
+            leading = " " if raw_attributes[0].isspace() else ""
+            flattened = " ".join(
+                x.strip()
+                for x in encode_attribute_newlines(raw_attributes, config)
+                .strip()
+                .splitlines()
+            )
+            normalized = normalize_attributes(config, flattened)
+            attributes = leading + _normalize_spacing(
+                sort_attributes(config, normalized), config
+            )
         if config.close_void_tags and tag.lower() in HTML_VOID_ELEMENTS:
             close_bracket = " />"
         else:
@@ -77,25 +144,7 @@ def compress_html(html: str, config: Config) -> str:
 
     output: list[str] = []
     previous_end = 0
-    # Keep offsets while hiding template comments from the HTML tokenizer.
-    token_source = html
-    if config.profile in {
-        "all",
-        "django",
-        "jinja",
-        "askama",
-        "tera",
-        "nunjucks",
-    }:
-        if "{#" in html:
-            token_source = config.unformatted_blocks_pattern.sub(
-                _blank_match, token_source
-            )
-        if "comment" in html:
-            token_source = _TEMPLATE_COMMENT_BLOCK_PATTERN.sub(
-                _blank_match, token_source
-            )
-    for token in tokenize_tags(token_source):
+    for token in tokenize_tags(_tokenizer_source(html, config)):
         output.extend((html[previous_end : token.start], _clean_tag(token)))
         previous_end = token.end
     output.append(html[previous_end:])

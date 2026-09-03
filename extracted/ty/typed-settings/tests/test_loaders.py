@@ -26,9 +26,11 @@ from typed_settings.loaders import (
     FileFormat,
     FileLoader,
     InstanceLoader,
+    JsonFormat,
     OnePasswordLoader,
     PythonFormat,
     TomlFormat,
+    YamlFormat,
     clean_settings,
     tomllib,
 )
@@ -151,8 +153,8 @@ class TestCleanSettings:
             clean_settings(s, deep_options(Parent), "t")
 
         assert str(exc_info.value) == (
-            "Invalid options found in t: sub_dict (needs to be mapping), sub_list "
-            "(needs to be sequence)"
+            "Invalid options found in t: sub_dict (needs to be a mapping), sub_list "
+            "(needs to be a sequence)"
         )
 
     def test_clean_settings_dict_values(self) -> None:
@@ -267,13 +269,8 @@ class TestPythonFormat:
         """
         "ConfigFileNotFoundError" is raised when a file does not exist.
         """
-        pytest.raises(
-            ConfigFileNotFoundError,
-            PythonFormat(""),
-            Path("x"),
-            deep_options(Settings),
-            Settings,
-        )
+        with pytest.raises(ConfigFileNotFoundError):
+            PythonFormat("")(Path("x"), Settings, deep_options(Settings))
 
     def test_file_invalid(self, tmp_path: Path) -> None:
         """
@@ -281,13 +278,128 @@ class TestPythonFormat:
         """
         config_file = tmp_path.joinpath("settings.py")
         config_file.write_text("3x = 'spam")
-        pytest.raises(
-            ConfigFileLoadError,
-            PythonFormat(""),
-            config_file,
-            deep_options(Settings),
-            Settings,
+        with pytest.raises(ConfigFileLoadError):
+            PythonFormat("")(config_file, Settings, deep_options(Settings))
+
+
+class TestJsonFormat:
+    """Tests for JsonFormat."""
+
+    @pytest.fixture(params=[True, False], autouse=True)
+    def use_orjson(
+        self, request: pytest.FixtureRequest, unimport: Callable[[str], None]
+    ) -> bool:
+        """
+        Use orjson or json for testing.  Return "True" if orjson is used.
+        """
+        if request.param is False:
+            unimport("orjson")
+        return request.param
+
+    @pytest.mark.parametrize(
+        "fmt, data",
+        [
+            (
+                JsonFormat("example"),
+                """\
+                {
+                  "example": {
+                    "url": "spam",
+                    "host": {"port":42}
+                  }
+                }
+                """,
+            ),
+        ],
+    )
+    def test_load_json(self, fmt: FileFormat, data: str, tmp_path: Path) -> None:
+        """
+        We can load settings from a JSON file.
+        """
+        config_file = tmp_path.joinpath("settings.json")
+        config_file.write_text(textwrap.dedent(data))
+        result = fmt(config_file, Settings, deep_options(Settings))
+        assert result == {
+            "url": "spam",
+            "host": {"port": 42},
+        }
+
+    def test_load_from_nested(self, tmp_path: Path) -> None:
+        """
+        We can load settings from a nested section (e.g., "tool.example").
+        """
+        config_file = tmp_path.joinpath("settings.json")
+        config_file.write_text('{"tool":{"example":{"a":"spam","sub":{"b":"eggs"}}}}')
+        result = JsonFormat("tool.example")(
+            config_file, Settings, deep_options(Settings)
         )
+        assert result == {
+            "a": "spam",
+            "sub": {"b": "eggs"},
+        }
+
+    def test_load_no_section(self, tmp_path: Path) -> None:
+        """
+        If the sections is ``None``, the "top level" settings are loaded.
+        """
+        config_file = tmp_path.joinpath("settings.json")
+        config_file.write_text('{"a":"spam","example":{"b":"eggs"}}')
+        result = JsonFormat(None)(config_file, Settings, deep_options(Settings))
+        assert result == {
+            "a": "spam",
+            "example": {
+                "b": "eggs",
+            },
+        }
+
+    @pytest.mark.parametrize("section", ["example", "tool.example"])
+    def test_section_not_found(self, section: str, tmp_path: Path) -> None:
+        """
+        An empty dict is returned when the config file does not contain the
+        desired section.
+        """
+        config_file = tmp_path.joinpath("settings.json")
+        config_file.write_text('{"tool":{"a":"spam"}}')
+        result = JsonFormat(section)(config_file, Settings, deep_options(Settings))
+        assert result == {}
+
+    def test_file_not_found(self) -> None:
+        """
+        "ConfigFileNotFoundError" is raised when a file does not exist.
+        """
+        with pytest.raises(ConfigFileNotFoundError):
+            JsonFormat("")(Path("x"), Settings, deep_options(Settings))
+
+    def test_file_not_allowed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        "ConfigFileLoadError" is raised when a file cannot be accessed.
+        """
+
+        def read_bytes(self: Path) -> bytes:
+            raise PermissionError()
+
+        monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+        config_file = tmp_path.joinpath("settings.json")
+        config_file.write_text(
+            """[tool]
+            a = "spam"
+        """
+        )
+
+        with pytest.raises(ConfigFileLoadError):
+            JsonFormat("")(config_file, Settings, deep_options(Settings))
+
+    def test_file_invalid(self, tmp_path: Path) -> None:
+        """
+        "ConfigFileLoadError" is raised when a file contains invalid JSON.
+        """
+        config_file = tmp_path.joinpath("settings.json")
+        config_file.write_text("spam")
+        with pytest.raises(ConfigFileLoadError):
+            JsonFormat("")(config_file, Settings, deep_options(Settings))
 
 
 class TestTomlFormat:
@@ -384,13 +496,8 @@ class TestTomlFormat:
         """
         "ConfigFileNotFoundError" is raised when a file does not exist.
         """
-        pytest.raises(
-            ConfigFileNotFoundError,
-            TomlFormat(""),
-            Path("x"),
-            deep_options(Settings),
-            Settings,
-        )
+        with pytest.raises(ConfigFileNotFoundError):
+            TomlFormat("")(Path("x"), Settings, deep_options(Settings))
 
     def test_file_not_allowed(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -411,13 +518,8 @@ class TestTomlFormat:
         """
         )
 
-        pytest.raises(
-            ConfigFileLoadError,
-            TomlFormat(""),
-            config_file,
-            deep_options(Settings),
-            Settings,
-        )
+        with pytest.raises(ConfigFileLoadError):
+            TomlFormat("")(config_file, Settings, deep_options(Settings))
 
     def test_file_invalid(self, tmp_path: Path) -> None:
         """
@@ -425,13 +527,122 @@ class TestTomlFormat:
         """
         config_file = tmp_path.joinpath("settings.toml")
         config_file.write_text("spam")
-        pytest.raises(
-            ConfigFileLoadError,
-            TomlFormat(""),
-            config_file,
-            deep_options(Settings),
-            Settings,
+        with pytest.raises(ConfigFileLoadError):
+            TomlFormat("")(config_file, Settings, deep_options(Settings))
+
+
+class TestYamlFormat:
+    """Tests for YamlFormat."""
+
+    def test_pyyaml_not_installed(self, unimport: Callable[[str], None]) -> None:
+        """
+        A ModuleNotFoundError is raised if pyyaml is not installed.
+        """
+        unimport("yaml")
+        with pytest.raises(ModuleNotFoundError, match="not installed"):
+            YamlFormat(section="")
+
+    @pytest.mark.parametrize(
+        "fmt, data",
+        [
+            (
+                YamlFormat("example"),
+                """\
+                example:
+                  url: "spam"
+                  host:
+                    port: 42
+                """,
+            ),
+        ],
+    )
+    def test_load_yaml(self, fmt: FileFormat, data: str, tmp_path: Path) -> None:
+        """
+        We can load settings from a yaml file.
+        """
+        config_file = tmp_path.joinpath("settings.yaml")
+        config_file.write_text(textwrap.dedent(data))
+        result = fmt(config_file, Settings, deep_options(Settings))
+        assert result == {
+            "url": "spam",
+            "host": {"port": 42},
+        }
+
+    def test_load_from_nested(self, tmp_path: Path) -> None:
+        """
+        We can load settings from a nested section (e.g., "tool.example").
+        """
+        config_file = tmp_path.joinpath("settings.yaml")
+        config_file.write_text('{"tool":{"example":{"a":"spam","sub":{"b":"eggs"}}}}')
+        result = YamlFormat("tool.example")(
+            config_file, Settings, deep_options(Settings)
         )
+        assert result == {
+            "a": "spam",
+            "sub": {"b": "eggs"},
+        }
+
+    def test_load_no_section(self, tmp_path: Path) -> None:
+        """
+        If the sections is ``None``, the "top level" settings are loaded.
+        """
+        config_file = tmp_path.joinpath("settings.yaml")
+        config_file.write_text('{"a":"spam","example":{"b":"eggs"}}')
+        result = YamlFormat(None)(config_file, Settings, deep_options(Settings))
+        assert result == {
+            "a": "spam",
+            "example": {
+                "b": "eggs",
+            },
+        }
+
+    @pytest.mark.parametrize("section", ["example", "tool.example"])
+    def test_section_not_found(self, section: str, tmp_path: Path) -> None:
+        """
+        An empty dict is returned when the config file does not contain the
+        desired section.
+        """
+        config_file = tmp_path.joinpath("settings.yaml")
+        config_file.write_text('{"tool":{"a":"spam"}}')
+        result = YamlFormat(section)(config_file, Settings, deep_options(Settings))
+        assert result == {}
+
+    def test_file_not_found(self) -> None:
+        """
+        "ConfigFileNotFoundError" is raised when a file does not exist.
+        """
+        with pytest.raises(ConfigFileNotFoundError):
+            YamlFormat("")(Path("x"), Settings, deep_options(Settings))
+
+    def test_file_not_allowed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        "ConfigFileLoadError" is raised when a file cannot be accessed.
+        """
+        config_file = tmp_path.joinpath("settings.yaml")
+        config_file.write_text(
+            """[tool]
+            a = "spam"
+        """
+        )
+
+        def open(self: Path, *_args: object, **_kw: object) -> bytes:
+            raise PermissionError()
+
+        monkeypatch.setattr(Path, "open", open)
+
+        with pytest.raises(ConfigFileLoadError):
+            YamlFormat("")(config_file, Settings, deep_options(Settings))
+
+    def test_file_invalid(self, tmp_path: Path) -> None:
+        """
+        "ConfigFileLoadError" is raised when a file contains invalid yaml.
+        """
+        config_file = tmp_path.joinpath("settings.yaml")
+        config_file.write_text("{spam")
+        with pytest.raises(ConfigFileLoadError):
+            YamlFormat("")(config_file, Settings, deep_options(Settings))
 
 
 class TestFileLoader:
@@ -546,7 +757,8 @@ class TestFileLoader:
         An error is raised if a file has an unknown extension.
         """
         loader = FileLoader({"*.toml": TomlFormat("t")}, [])
-        pytest.raises(UnknownFormatError, loader._load_file, Path("f.py"), [], type)
+        with pytest.raises(UnknownFormatError):
+            loader._load_file(Path("f.py"), type, ())
 
     def test_load(self, tmp_path: Path) -> None:
         """
@@ -616,7 +828,8 @@ class TestFileLoader:
 
         loader = FileLoader({"*": TomlFormat("test")}, files, "TEST_SETTINGS")
         if is_mandatory and not exists:
-            pytest.raises(FileNotFoundError, loader, Settings, [])
+            with pytest.raises(FileNotFoundError):
+                loader(Settings, ())
         else:
             loader(Settings, ())
 
@@ -713,7 +926,7 @@ class TestDotEnvLoader:
 
     def test_dotenv_not_installed(self, unimport: Callable[[str], None]) -> None:
         """
-        An error is raised if Jinja is not installed.
+        An error is raised if "dotenv" is not installed.
         """
         unimport("dotenv")
         with pytest.raises(ModuleNotFoundError, match="not installed"):
@@ -757,7 +970,8 @@ class TestInstanceLoader:
 
         inst = SettingsNoDc(Host("spam", 42), "eggs", 23)
         loader = InstanceLoader(inst)
-        pytest.raises(ValueError, loader, Settings, deep_options(Settings))
+        with pytest.raises(ValueError):
+            loader(Settings, deep_options(Settings))
 
 
 class TestOnePasswordLoader:

@@ -283,6 +283,16 @@ class TestCIPlatformProvider:
         provider = _ConcreteProvider()
         assert provider.get_commit_author_login("abc123") == ""
 
+    def test_list_relevant_pull_requests_default_raises_not_implemented(self) -> None:
+        provider = _ConcreteProvider()
+        with pytest.raises(NotImplementedError, match="does not implement list_relevant_pull_requests"):
+            provider.list_relevant_pull_requests()
+
+    def test_get_pr_copilot_attribution_default_raises_not_implemented(self) -> None:
+        provider = _ConcreteProvider()
+        with pytest.raises(NotImplementedError, match="does not implement get_pr_copilot_attribution"):
+            provider.get_pr_copilot_attribution(1)
+
     def test_get_approver_login_default_returns_empty(self) -> None:
         """Base class get_approver_login returns empty string (best-effort default)."""
         provider = _ConcreteProvider()

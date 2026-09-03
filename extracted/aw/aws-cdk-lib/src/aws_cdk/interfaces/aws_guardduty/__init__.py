@@ -39,6 +39,87 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_guardduty.CustomDetectionRuleAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "association_id": "associationId",
+        "custom_detection_rule_association_arn": "customDetectionRuleAssociationArn",
+        "rule_id": "ruleId",
+    },
+)
+class CustomDetectionRuleAssociationReference:
+    def __init__(
+        self,
+        *,
+        association_id: builtins.str,
+        custom_detection_rule_association_arn: builtins.str,
+        rule_id: builtins.str,
+    ) -> None:
+        '''A reference to a CustomDetectionRuleAssociation resource.
+
+        :param association_id: The AssociationId of the CustomDetectionRuleAssociation resource.
+        :param custom_detection_rule_association_arn: The ARN of the CustomDetectionRuleAssociation resource.
+        :param rule_id: The RuleId of the CustomDetectionRuleAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_guardduty as interfaces_guardduty
+            
+            custom_detection_rule_association_reference = interfaces_guardduty.CustomDetectionRuleAssociationReference(
+                association_id="associationId",
+                custom_detection_rule_association_arn="customDetectionRuleAssociationArn",
+                rule_id="ruleId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__84eb4c7ad2ec9232f1dc376ad774bab4d65e147ca6e45dc3cc2ad41cfa95673e)
+            check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
+            check_type(argname="argument custom_detection_rule_association_arn", value=custom_detection_rule_association_arn, expected_type=type_hints["custom_detection_rule_association_arn"])
+            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "association_id": association_id,
+            "custom_detection_rule_association_arn": custom_detection_rule_association_arn,
+            "rule_id": rule_id,
+        }
+
+    @builtins.property
+    def association_id(self) -> builtins.str:
+        '''The AssociationId of the CustomDetectionRuleAssociation resource.'''
+        result = self._values.get("association_id")
+        assert result is not None, "Required property 'association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def custom_detection_rule_association_arn(self) -> builtins.str:
+        '''The ARN of the CustomDetectionRuleAssociation resource.'''
+        result = self._values.get("custom_detection_rule_association_arn")
+        assert result is not None, "Required property 'custom_detection_rule_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_id(self) -> builtins.str:
+        '''The RuleId of the CustomDetectionRuleAssociation resource.'''
+        result = self._values.get("rule_id")
+        assert result is not None, "Required property 'rule_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomDetectionRuleAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_guardduty.DetectorReference",
     jsii_struct_bases=[],
     name_mapping={"detector_id": "detectorId"},
@@ -145,6 +226,57 @@ class FilterReference:
         return "FilterReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_guardduty.ICustomDetectionRuleAssociationRef"
+)
+class ICustomDetectionRuleAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CustomDetectionRuleAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="customDetectionRuleAssociationRef")
+    def custom_detection_rule_association_ref(
+        self,
+    ) -> "CustomDetectionRuleAssociationReference":
+        '''(experimental) A reference to a CustomDetectionRuleAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICustomDetectionRuleAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CustomDetectionRuleAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_guardduty.ICustomDetectionRuleAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="customDetectionRuleAssociationRef")
+    def custom_detection_rule_association_ref(
+        self,
+    ) -> "CustomDetectionRuleAssociationReference":
+        '''(experimental) A reference to a CustomDetectionRuleAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CustomDetectionRuleAssociationReference", jsii.get(self, "customDetectionRuleAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICustomDetectionRuleAssociationRef).__jsii_proxy_class__ = lambda : _ICustomDetectionRuleAssociationRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_guardduty.IDetectorRef")
@@ -1122,8 +1254,10 @@ class TrustedEntitySetReference:
 
 
 __all__ = [
+    "CustomDetectionRuleAssociationReference",
     "DetectorReference",
     "FilterReference",
+    "ICustomDetectionRuleAssociationRef",
     "IDetectorRef",
     "IFilterRef",
     "IIPSetRef",
@@ -1145,6 +1279,15 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__84eb4c7ad2ec9232f1dc376ad774bab4d65e147ca6e45dc3cc2ad41cfa95673e(
+    *,
+    association_id: builtins.str,
+    custom_detection_rule_association_arn: builtins.str,
+    rule_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__a6848940a92fe8e3f1b7d2a28726632a221ce0a619e2c64e5df120828856586d(
     *,
@@ -1225,5 +1368,5 @@ def _typecheckingstub__092bff2af5d8810173beb35221a3505f0dcd23bb88ae6dc1a71baf99b
     """Type checking stubs"""
     pass
 
-for cls in [IDetectorRef, IFilterRef, IIPSetRef, IMalwareProtectionPlanRef, IMasterRef, IMemberRef, IPublishingDestinationRef, IThreatEntitySetRef, IThreatIntelSetRef, ITrustedEntitySetRef]:
+for cls in [ICustomDetectionRuleAssociationRef, IDetectorRef, IFilterRef, IIPSetRef, IMalwareProtectionPlanRef, IMasterRef, IMemberRef, IPublishingDestinationRef, IThreatEntitySetRef, IThreatIntelSetRef, ITrustedEntitySetRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

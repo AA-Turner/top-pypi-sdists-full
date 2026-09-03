@@ -40,8 +40,6 @@ class CNI(str, Enum, metaclass=StrEnumMeta):
     UNKNOWN_CNI = "unknown_cni"
     CILIUM = "cilium"
     CALICO = "calico"
-    WEAVE = "weave"
-    FLANNEL = "flannel"
     KILO = "kilo"
     NONE = "none"
     CILIUM_NATIVE = "cilium_native"
@@ -198,9 +196,7 @@ class PoolVolumeType(str, Enum, metaclass=StrEnumMeta):
 
 class Runtime(str, Enum, metaclass=StrEnumMeta):
     UNKNOWN_RUNTIME = "unknown_runtime"
-    DOCKER = "docker"
     CONTAINERD = "containerd"
-    CRIO = "crio"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -245,13 +241,18 @@ class CoreV1Taint:
 class CreateClusterRequestPoolConfigUpgradePolicy:
     max_unavailable: Optional[int] = 0
     """
-    The maximum number of nodes that can be not ready at the same time.
+    The maximum number of nodes that can be `upgrading` at the same time.
     """
 
     max_surge: Optional[int] = 0
     """
-    The maximum number of nodes to be created during the upgrade.
+    The maximum number of nodes to be created during the upgrade, e.g. the pool will scale up to reach `size`+`max_surge` before downscaling to `size` after node upgrades.
     """
+
+
+@dataclass
+class ComponentInfo:
+    version: str
 
 
 @dataclass
@@ -371,7 +372,14 @@ class ClusterOpenIDConnectConfig:
 @dataclass
 class PoolUpgradePolicy:
     max_unavailable: int
+    """
+    The maximum number of nodes that can be `upgrading` at the same time.
+    """
+
     max_surge: int
+    """
+    The maximum number of nodes to be created during the upgrade, e.g. the pool will scale up to reach `size`+`max_surge` before downscaling to `size` after node upgrades.
+    """
 
 
 @dataclass
@@ -396,6 +404,11 @@ class ACLRule:
     description: str
     """
     Description of the ACL.
+    """
+
+    region: ScwRegion
+    """
+    Region of the ACL rule.
     """
 
     ip: Optional[str] = None
@@ -592,6 +605,11 @@ class CreateClusterRequestPoolConfig:
     Kubernetes taints applied at node creation but not reconciled afterwards.
     """
 
+    user_data: dict[str, str]
+    """
+    User data applied and reconciled with the pool.
+    """
+
     placement_group_id: Optional[str] = None
     """
     Placement group ID in which all the nodes of the pool will be created, placement groups are limited to 20 instances.
@@ -609,7 +627,7 @@ class CreateClusterRequestPoolConfig:
 
     upgrade_policy: Optional[CreateClusterRequestPoolConfigUpgradePolicy] = None
     """
-    Pool upgrade policy.
+    Defines how node provisioning should behave during pool version upgrade.
     """
 
     root_volume_size: Optional[int] = 0
@@ -622,18 +640,28 @@ class CreateClusterRequestPoolConfig:
     Security group ID in which all the nodes of the pool will be created. If unset, the pool will use default Kapsule security group in current zone.
     """
 
+    private_network_id: Optional[str] = None
+    """
+    Private network where the nodes are attached. Should be member of the same VPC as the API Server.
+    """
+
+    max_termination_grace_period: Optional[str] = None
+    """
+    Maximum amount of time before the API forces the drain and deletion of a `deleting` node. It overrides pods `PodDisruptionBudget` and `terminationGracePeriodSeconds`. Defaults to 15 minutes, up to 1 hour.
+    """
+
 
 @dataclass
 class CreatePoolRequestUpgradePolicy:
-    max_unavailable: Optional[int] = None
-    max_surge: Optional[int] = None
+    max_unavailable: Optional[int] = 0
+    """
+    The maximum number of nodes that can be `upgrading` at the same time.
+    """
 
-
-@dataclass
-class ExternalNodeCoreV1Taint:
-    key: str
-    value: str
-    effect: str
+    max_surge: Optional[int] = 0
+    """
+    The maximum number of nodes to be created during the upgrade, e.g. the pool will scale up to reach `size`+`max_surge` before downscaling to `size` after node upgrades.
+    """
 
 
 @dataclass
@@ -683,6 +711,11 @@ class ClusterType:
     Maximum amount of data that can be stored in etcd for the offer.
     """
 
+    region: ScwRegion
+    """
+    The region of the cluster type.
+    """
+
     commitment_delay: Optional[str] = None
     """
     Time period during which you can no longer switch to a lower offer.
@@ -729,6 +762,11 @@ class Version:
     available_kubelet_args: dict[str, str]
     """
     Supported kubelet arguments for this version.
+    """
+
+    additional_components: dict[str, ComponentInfo]
+    """
+    Map containing every sub-component version shipped with this Kapsule version.
     """
 
     deprecated_at: Optional[datetime] = None
@@ -1095,12 +1133,35 @@ class Pool:
 
     upgrade_policy: Optional[PoolUpgradePolicy] = None
     """
-    Pool upgrade policy.
+    Defines how node provisioning should behave during pool version upgrade.
     """
 
     root_volume_size: Optional[int] = 0
     """
     System volume disk size.
+    """
+
+    private_network_id: Optional[str] = None
+    """
+    Private network where the nodes are attached. Should be member of the same VPC as the API Server.
+    """
+
+    error_message: Optional[str] = None
+    """
+    Details of the error, if any occurred when managing the pool.
+    """
+
+    max_termination_grace_period: Optional[str] = None
+    """
+    Maximum amount of time before the API forces the drain and deletion of a `deleting` node. It overrides pods `PodDisruptionBudget` and `terminationGracePeriodSeconds`. Defaults to 15 minutes, up to 1 hour.
+    """
+
+
+@dataclass
+class UserDataSummary:
+    key: str
+    """
+    Key name of a given user data.
     """
 
 
@@ -1227,8 +1288,15 @@ class UpdateClusterRequestOpenIDConnectConfig:
 
 @dataclass
 class UpdatePoolRequestUpgradePolicy:
-    max_unavailable: Optional[int] = None
-    max_surge: Optional[int] = None
+    max_unavailable: Optional[int] = 0
+    """
+    New maximum number of nodes that can be `upgrading` at the same time.
+    """
+
+    max_surge: Optional[int] = 0
+    """
+    New maximum number of nodes to be created during the upgrade.
+    """
 
 
 @dataclass
@@ -1368,15 +1436,6 @@ class CreateClusterRequest:
 
 
 @dataclass
-class CreateExternalNodeRequest:
-    pool_id: str
-    region: Optional[ScwRegion] = None
-    """
-    Region to target. If none is passed will use default region from the config.
-    """
-
-
-@dataclass
 class CreatePoolRequest:
     cluster_id: str
     """
@@ -1450,7 +1509,7 @@ class CreatePoolRequest:
 
     upgrade_policy: Optional[CreatePoolRequestUpgradePolicy] = None
     """
-    Pool upgrade policy.
+    Defines how node provisioning should behave during pool version upgrade.
     """
 
     zone: Optional[ScwZone] = None
@@ -1489,6 +1548,21 @@ class CreatePoolRequest:
     startup_taints: Optional[list[CoreV1Taint]] = field(default_factory=list)
     """
     Kubernetes taints applied at node creation but not reconciled afterwards.
+    """
+
+    private_network_id: Optional[str] = None
+    """
+    Private network where the nodes are attached. Should be member of the same VPC as the API Server.
+    """
+
+    user_data: Optional[dict[str, str]] = field(default_factory=dict)
+    """
+    User data applied and reconciled with the pool.
+    """
+
+    max_termination_grace_period: Optional[str] = None
+    """
+    Maximum amount of time before the API forces the drain and deletion of a `deleting` node. It overrides pods `PodDisruptionBudget` and `terminationGracePeriodSeconds`. Defaults to 15 minutes, up to 1 hour.
     """
 
 
@@ -1535,11 +1609,6 @@ class DeleteNodeRequest:
     Skip draining node from its workload (Note: this parameter is currently inactive).
     """
 
-    replace: bool
-    """
-    Add a new node after the deletion of this node.
-    """
-
     region: Optional[ScwRegion] = None
     """
     Region to target. If none is passed will use default region from the config.
@@ -1557,24 +1626,6 @@ class DeletePoolRequest:
     """
     Region to target. If none is passed will use default region from the config.
     """
-
-
-@dataclass
-class ExternalNode:
-    id: str
-    name: str
-    cluster_url: str
-    pool_version: str
-    cluster_ca: str
-    kube_token: str
-    kubelet_config: str
-    external_ip: str
-    containerd_version: str
-    runc_version: str
-    cni_plugins_version: str
-    node_labels: dict[str, str]
-    node_taints: list[ExternalNodeCoreV1Taint]
-    iam_token: str
 
 
 @dataclass
@@ -1640,6 +1691,24 @@ class GetPoolRequest:
     pool_id: str
     """
     ID of the requested pool.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+
+@dataclass
+class GetUserDataRequest:
+    pool_id: str
+    """
+    Pool the user data are associated to.
+    """
+
+    key: str
+    """
+    User data key to retrieved.
     """
 
     region: Optional[ScwRegion] = None
@@ -1829,6 +1898,11 @@ class ListClustersRequest:
     Private Network ID to filter on, only clusters within this Private Network will be returned.
     """
 
+    version: Optional[str] = None
+    """
+    Version to filter on, only cluster matching this prefix version will be returned.
+    """
+
 
 @dataclass
 class ListClustersResponse:
@@ -1947,6 +2021,27 @@ class ListPoolsResponse:
     pools: list[Pool]
     """
     Paginated returned pools.
+    """
+
+
+@dataclass
+class ListUserDataRequest:
+    pool_id: str
+    """
+    Pool the user data are associated to.
+    """
+
+    region: Optional[ScwRegion] = None
+    """
+    Region to target. If none is passed will use default region from the config.
+    """
+
+
+@dataclass
+class ListUserDataResponse:
+    user_data: list[UserDataSummary]
+    """
+    User data information.
     """
 
 
@@ -2232,6 +2327,11 @@ class UpdatePoolRequest:
     security_group_id: Optional[str] = None
     """
     Security group ID in which all the nodes of the pool will be moved.
+    """
+
+    max_termination_grace_period: Optional[str] = None
+    """
+    New maximum amount of time before the API forces the drain and deletion of a `deleting` node.
     """
 
 

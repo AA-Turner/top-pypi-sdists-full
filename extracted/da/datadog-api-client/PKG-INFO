@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datadog-api-client
-Version: 2.59.0
+Version: 2.60.0
 Summary: Collection of all Datadog Public endpoints
 Home-page: https://github.com/DataDog/datadog-api-client-python
 Author: Datadog, Inc.
@@ -14,10 +14,10 @@ Platform: any
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE-3rdparty.csv
@@ -54,7 +54,7 @@ This repository contains a Python API client for the [Datadog API](https://docs.
 
 ## Requirements
 
-Building and using the API client library requires [Python 3.8+](https://www.python.org/downloads/).
+Building and using the API client library requires [Python 3.10+](https://www.python.org/downloads/).
 
 ## Installation
 

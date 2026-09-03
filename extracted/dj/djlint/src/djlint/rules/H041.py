@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING
 import regex as re
 
 from djlint.const import HTML_VOID_ELEMENTS
-from djlint.formatter.tokenizer import tokenize_tags
 from djlint.helpers import (
     RE_FLAGS_IS,
     inside_ignored_linter_block,
     inside_ignored_rule,
     inside_template_block,
     overlaps_ignored_block,
+    tokenize_markup,
 )
 from djlint.lint import get_line
 
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 _BLOCK_PATTERN: Final = re.compile(
-    r"{%-?\s*(?P<closing>end)?block(?!trans)\b(?:(?!%}).)*?-?%}",
+    r"{%[-+]?\s*(?P<closing>end)?block(?!trans)\b(?:(?!%}).)*?[-+]?%}",
     RE_FLAGS_IS,
     cache_pattern=False,
 )
@@ -37,7 +37,12 @@ _BLOCK_PATTERN: Final = re.compile(
 def _block_paths(
     config: Config, html: str
 ) -> tuple[tuple[int, ...], tuple[tuple[int, ...], ...]]:
-    """Map document offsets to the stack of {% block %} tags around them."""
+    """Map document offsets to the stack of {% block %} tags around them.
+
+    A block tag inside `{# #}`, `{% comment %}`, `{% verbatim %}` or
+    `{% raw %}` never executes, so it opens nothing; this matches the
+    token filtering the rule itself applies.
+    """
     boundaries = [0]
     paths: list[tuple[int, ...]] = [()]
     stack: list[int] = []
@@ -47,8 +52,6 @@ def _block_paths(
         if overlaps_ignored_block(
             config, html, match
         ) or inside_ignored_linter_block(config, html, match):
-            # block tags inside {# #}/{% comment %}/{% verbatim %}/{% raw %}
-            # never execute, matching the token filtering below
             continue
         if match.group("closing"):
             if stack:
@@ -73,8 +76,8 @@ def run(
 ) -> tuple[LintError, ...]:
     """Check for html tags closed in a different template block."""
     boundaries, paths = _block_paths(config, html)
-    if len(boundaries) == 1:
-        # no {% block %} tags in the file
+    file_has_no_block_tags = len(boundaries) == 1
+    if file_has_no_block_tags:
         return ()
 
     def path_at(pos: int) -> tuple[int, ...]:
@@ -83,7 +86,7 @@ def run(
     errors: list[LintError] = []
     open_tags: list[tuple[str, tuple[int, ...]]] = []
 
-    for token in tokenize_tags(html):
+    for token in tokenize_markup(html):
         tag_name = token.name.lower()
         if (
             token.declaration

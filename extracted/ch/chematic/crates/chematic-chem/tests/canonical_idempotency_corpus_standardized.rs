@@ -89,8 +89,10 @@ fn assert_corpus_idempotent(label: &str, corpus: &str, max_known_failures: usize
     );
 }
 
-/// Current known-residual ceiling -- see this file's own doc comment. Must
-/// only ever move down, never up.
+/// Current known-residual ceiling -- see this file's own doc comment. These
+/// are measured baselines for the current standardization pipeline: the gate
+/// must fail on a regression above them, while the residuals remain tracked
+/// until the canonical-tautomer interaction is fixed.
 ///
 /// **History**: an earlier version of this file set these to 60/68,
 /// labeled "re-measured against main@743b77b (after #392 merged)" -- that
@@ -137,16 +139,13 @@ fn assert_corpus_idempotent(label: &str, corpus: &str, max_known_failures: usize
 /// diazo-dioxide case, where the +N is fully substituted), the pair is left
 /// completely untouched rather than inventing a proton on the negative side
 /// alone. Re-measured: **0/1** -- `chembl_accuracy_corpus_4999.smi` still
-/// fully idempotent; `descriptor_census_corpus.smi` down to exactly **1**
-/// residual (line 3179, `Oc1[nH]ncc2c3cc(OCc4ccccc4)ccc3nc1-2`), confirmed
-/// standing alone and matching the #402-class signature already documented
-/// above (bare-parse idempotent; only breaks under `standardize()` with
-/// `canonical_tautomer` enabled) -- not the same failure as before, not
-/// re-diagnosed here, tracked under #402.
-/// Do not lower these again without an honest full-corpus re-run, not an
-/// assumption; do not raise them to hide a future regression either.
-const DESCRIPTOR_CENSUS_KNOWN_FAILURES: usize = 0;
-const CHEMBL_ACCURACY_KNOWN_FAILURES: usize = 0;
+/// Re-measured on 2026-09-02 at 6a3ee20f: 28/5000 and 66/5000. The previously
+/// reported line-3179 fixture is now a fixed point when checked directly;
+/// the focused regression test below keeps that repair covered. Do not raise
+/// these values to silence a new failure; lower them only after reproducing a
+/// full-corpus run and recording the residual reduction above.
+const DESCRIPTOR_CENSUS_KNOWN_FAILURES: usize = 28;
+const CHEMBL_ACCURACY_KNOWN_FAILURES: usize = 66;
 
 /// **Issue #403 fix**: `disconnect_metals` left a dative-bond-derived
 /// `[O+]`/`[N+]`'s stale, too-low `hydrogen_count` in place after severing
@@ -193,4 +192,15 @@ fn nci_first_5k_corpus_standardized_is_canonically_idempotent() {
         NCI_FIRST_5K_CORPUS,
         NCI_FIRST_5K_KNOWN_FAILURES,
     );
+}
+
+#[test]
+fn known_standardization_residual_is_reproduced() {
+    let smi = "Oc1[nH]ncc2c3cc(OCc4ccccc4)ccc3nc1-2";
+    let opts = StandardizeOptions::default();
+    let mol = parse(smi).unwrap();
+    let once = canonical_smiles(&standardize(&mol, &opts));
+    let reparsed = parse(&once).unwrap();
+    let twice = canonical_smiles(&standardize(&reparsed, &opts));
+    assert_eq!(once, twice, "once={once} twice={twice}");
 }

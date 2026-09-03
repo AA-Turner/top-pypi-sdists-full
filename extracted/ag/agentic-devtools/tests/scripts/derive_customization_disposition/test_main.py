@@ -20,7 +20,7 @@ def test_verify_partition_passes_against_the_published_table() -> None:
 
 
 def test_verify_authored_passes_before_anything_is_authored() -> None:
-    """Nothing authored yet means nothing unexpected, so the mode succeeds."""
+    """The authored customization set matches its published disposition map."""
     assert derive.main(["--verify-authored"]) == 0
 
 

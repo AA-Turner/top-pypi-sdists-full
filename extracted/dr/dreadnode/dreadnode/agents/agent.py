@@ -710,6 +710,8 @@ class Agent(Executor[AgentEvent, Trajectory]):
         self, tool_call: "ToolCall", step_count: int
     ) -> t.AsyncGenerator[AgentEvent, None]:
         """Process a single tool call with its own span."""
+        tool = next((t for t in self.all_tools if t.wire_name == tool_call.name), None)
+        redact_telemetry = tool is not None and tool.source == "command"
         with dreadnode.task_span(
             f"tool:{tool_call.name}",
             type="tool",
@@ -721,12 +723,11 @@ class Agent(Executor[AgentEvent, Trajectory]):
                 agent_name=self.name,
                 status="running",
                 tool_call=tool_call,
+                redact_telemetry=redact_telemetry,
             )
             start_event.emit(t_span)
             async for event in self._dispatch(start_event):
                 yield event
-
-            tool = next((t for t in self.all_tools if t.wire_name == tool_call.name), None)
 
             if tool is None:
                 error_msg = f"Tool '{tool_call.name}' not found."
@@ -791,6 +792,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
                     error_type=tool_error_type,
                     cost_usd=tool_cost_usd,
                     policy_decision=start_event.policy_decision,
+                    redact_telemetry=redact_telemetry,
                 )
                 async for event in self._dispatch(end_event):
                     yield event

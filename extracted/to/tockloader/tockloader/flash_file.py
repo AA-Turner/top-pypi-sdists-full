@@ -35,9 +35,9 @@ class FlashFile(BoardInterface):
 
         # Boards should limit the file size to match their flash. However, we
         # don't want users to accidentally create gigantic files using the
-        # `--flash-file` flag, so we set a cap at 128 MB. If a future Tock board
+        # `--flash-file` flag, so we set a cap at 1 GB. If a future Tock board
         # needs more than that...well we can revisit this then.
-        self.max_size = 0x8000000
+        self.max_size = 0x40000000
 
         # Flash files almost certainly do not have bootloaders with an attribute
         # table. They could, but we don't really need to query the parameters
@@ -73,11 +73,17 @@ class FlashFile(BoardInterface):
             board = self.KNOWN_BOARDS[self.board]
             flash_file_opts = board["flash_file"] if "flash_file" in board else {}
 
-            if "flash_address" in flash_file_opts:
+            if (
+                not hasattr(self, "flash_address")
+                and "flash_address" in flash_file_opts
+            ):
                 self.flash_address = flash_file_opts["flash_address"]
-            if "max_size" in flash_file_opts:
+            if not hasattr(self, "max_size") and "max_size" in flash_file_opts:
                 self.max_size = flash_file_opts["max_size"]
-            if "flush_command" in flash_file_opts:
+            if (
+                not hasattr(self, "flush_command")
+                and "flush_command" in flash_file_opts
+            ):
                 self.flush_command = flash_file_opts["flush_command"]
 
         # Log the most important, finalized settings to the user
@@ -114,7 +120,7 @@ class FlashFile(BoardInterface):
         return address - flash_address
 
     def get_flash_address(self):
-        if self.flash_address:
+        if hasattr(self, "flash_address") and self.flash_address is not None:
             return self.flash_address
         return None
 
@@ -139,10 +145,15 @@ class FlashFile(BoardInterface):
         # should respect the end of our virtual flash, if one is defined.
         address = self.translate_address(address)
 
+        if address < 0:
+            return bytes([])
+
         # Cap the read size to respect the `max_size` setting.
         read_len = max(min(self.max_size - address, length), 0)
         if not read_len == length:
             logging.warning("Truncating read due to maximum flash-file size limits")
+
+        logging.debug(f"Reading flash-file range seek:{address} len:{read_len}")
 
         self.file_handle.seek(address)
         return self.file_handle.read(read_len)
@@ -205,9 +216,9 @@ def set_local_board(
     local_board = {"board": board, "filepath": filepath}
     if arch:
         local_board["arch"] = arch
-    if app_address:
+    if app_address is not None:
         local_board["app_address"] = app_address
-    if flash_address:
+    if flash_address is not None:
         local_board["flash_address"] = flash_address
     if flush_command:
         local_board["flush_command"] = flush_command

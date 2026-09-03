@@ -4249,6 +4249,712 @@ class CfnAppProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IArtifactRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnArtifact(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnArtifact",
+):
+    '''Resource type definition for AWS::SageMaker::Artifact.
+
+    An artifact is a lineage tracking entity that represents a URI addressable object or data, such as an S3 URI of a dataset or the ECR registry path of an image.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-artifact.html
+    :cloudformationResource: AWS::SageMaker::Artifact
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sagemaker as sagemaker
+        
+        cfn_artifact = sagemaker.CfnArtifact(self, "MyCfnArtifact",
+            artifact_type="artifactType",
+            source=sagemaker.CfnArtifact.ArtifactSourceProperty(
+                source_uri="sourceUri",
+        
+                # the properties below are optional
+                source_types=[sagemaker.CfnArtifact.ArtifactSourceTypeProperty(
+                    source_id_type="sourceIdType",
+                    value="value"
+                )]
+            ),
+        
+            # the properties below are optional
+            artifact_name="artifactName",
+            metadata_properties=sagemaker.CfnArtifact.MetadataPropertiesProperty(
+                commit_id="commitId",
+                generated_by="generatedBy",
+                project_id="projectId",
+                repository="repository"
+            ),
+            properties={
+                "properties_key": "properties"
+            },
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        artifact_type: builtins.str,
+        source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnArtifact.ArtifactSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        artifact_name: typing.Optional[builtins.str] = None,
+        metadata_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnArtifact.MetadataPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SageMaker::Artifact``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param artifact_type: The artifact type.
+        :param source: 
+        :param artifact_name: The name of the artifact. Must be unique to your account in an AWS Region.
+        :param metadata_properties: 
+        :param properties: A list of properties to add to the artifact.
+        :param tags: A list of tags to apply to the artifact.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3d4c5b7926b8d23db2c698ab19339f791a2452fbcc57e62bb71cc53280f92032)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnArtifactProps(
+            artifact_type=artifact_type,
+            source=source,
+            artifact_name=artifact_name,
+            metadata_properties=metadata_properties,
+            properties=properties,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForArtifact")
+    @builtins.classmethod
+    def arn_for_artifact(
+        cls,
+        resource: "_aws_sagemaker_2f7a2e3e.IArtifactRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d0d782f89de321bef5bd6a57ba9f282bf85fca0098c184e24b3d8b9caa462356)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForArtifact", [resource]))
+
+    @jsii.member(jsii_name="isCfnArtifact")
+    @builtins.classmethod
+    def is_cfn_artifact(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnArtifact.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1472326ac2e37b4b757935c2bb374f81758f9accc5d70102e39f64a28d1543e3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnArtifact", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__64d83274da623b42168a91fed7203a47f653f0af01b931598ca0c9e65cc44721)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6b276e860df39064ef8b9d463d2acd11d8f8fbfaea14c2c8c0814673cdd4db1e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactRef")
+    def artifact_ref(self) -> "_aws_sagemaker_2f7a2e3e.ArtifactReference":
+        '''A reference to a Artifact resource.'''
+        return typing.cast("_aws_sagemaker_2f7a2e3e.ArtifactReference", jsii.get(self, "artifactRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the artifact.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''When the artifact was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''When the artifact was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactType")
+    def artifact_type(self) -> builtins.str:
+        '''The artifact type.'''
+        return typing.cast(builtins.str, jsii.get(self, "artifactType"))
+
+    @artifact_type.setter
+    def artifact_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__455e2a85b80afdef271a809f4cecd9ab727ef3a355f6708e08217a9e765350a6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="source")
+    def source(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.ArtifactSourceProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.ArtifactSourceProperty"], jsii.get(self, "source"))
+
+    @source.setter
+    def source(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.ArtifactSourceProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ee55e99487acaf674156034886d992164c65af54e2305dc97a5144dba41ce6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactName")
+    def artifact_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the artifact.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "artifactName"))
+
+    @artifact_name.setter
+    def artifact_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d6b2aa078b3ecbe6ba3cf51aca037c6b8398557fa578d141567c3ccfd7c01db0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metadataProperties")
+    def metadata_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.MetadataPropertiesProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.MetadataPropertiesProperty"]], jsii.get(self, "metadataProperties"))
+
+    @metadata_properties.setter
+    def metadata_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.MetadataPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__18e3365f0ce72f6428a999fdde9283fb5b2add8870441f1873112c672b95f7b4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metadataProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="properties")
+    def properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A list of properties to add to the artifact.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "properties"))
+
+    @properties.setter
+    def properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6f4746d010ec143aa6af6839aee356854842e53965e558eef1afc360a5b417c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to apply to the artifact.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__17addb09ae9f57ede909a07551196511eed87dbdc17ec2680dc3b27c8cd9d8de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnArtifact.ArtifactSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_uri": "sourceUri", "source_types": "sourceTypes"},
+    )
+    class ArtifactSourceProperty:
+        def __init__(
+            self,
+            *,
+            source_uri: builtins.str,
+            source_types: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnArtifact.ArtifactSourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param source_uri: The URI of the source.
+            :param source_types: A list of source types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-artifactsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                artifact_source_property = sagemaker.CfnArtifact.ArtifactSourceProperty(
+                    source_uri="sourceUri",
+                
+                    # the properties below are optional
+                    source_types=[sagemaker.CfnArtifact.ArtifactSourceTypeProperty(
+                        source_id_type="sourceIdType",
+                        value="value"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3b42d0fe154a1309df43066ab405a367a6702265867dfbe27629dcb290fd9fd3)
+                check_type(argname="argument source_uri", value=source_uri, expected_type=type_hints["source_uri"])
+                check_type(argname="argument source_types", value=source_types, expected_type=type_hints["source_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_uri": source_uri,
+            }
+            if source_types is not None:
+                self._values["source_types"] = source_types
+
+        @builtins.property
+        def source_uri(self) -> builtins.str:
+            '''The URI of the source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-artifactsource.html#cfn-sagemaker-artifact-artifactsource-sourceuri
+            '''
+            result = self._values.get("source_uri")
+            assert result is not None, "Required property 'source_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_types(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.ArtifactSourceTypeProperty"]]]]:
+            '''A list of source types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-artifactsource.html#cfn-sagemaker-artifact-artifactsource-sourcetypes
+            '''
+            result = self._values.get("source_types")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.ArtifactSourceTypeProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ArtifactSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnArtifact.ArtifactSourceTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_id_type": "sourceIdType", "value": "value"},
+    )
+    class ArtifactSourceTypeProperty:
+        def __init__(
+            self,
+            *,
+            source_id_type: builtins.str,
+            value: builtins.str,
+        ) -> None:
+            '''
+            :param source_id_type: The type of ID.
+            :param value: The ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-artifactsourcetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                artifact_source_type_property = sagemaker.CfnArtifact.ArtifactSourceTypeProperty(
+                    source_id_type="sourceIdType",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3e1cc4aa419ad303c2974f21945a40c229523bb9e3e84a38601073da3d06ba4f)
+                check_type(argname="argument source_id_type", value=source_id_type, expected_type=type_hints["source_id_type"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_id_type": source_id_type,
+                "value": value,
+            }
+
+        @builtins.property
+        def source_id_type(self) -> builtins.str:
+            '''The type of ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-artifactsourcetype.html#cfn-sagemaker-artifact-artifactsourcetype-sourceidtype
+            '''
+            result = self._values.get("source_id_type")
+            assert result is not None, "Required property 'source_id_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-artifactsourcetype.html#cfn-sagemaker-artifact-artifactsourcetype-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ArtifactSourceTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnArtifact.MetadataPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "commit_id": "commitId",
+            "generated_by": "generatedBy",
+            "project_id": "projectId",
+            "repository": "repository",
+        },
+    )
+    class MetadataPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            commit_id: typing.Optional[builtins.str] = None,
+            generated_by: typing.Optional[builtins.str] = None,
+            project_id: typing.Optional[builtins.str] = None,
+            repository: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param commit_id: The commit ID.
+            :param generated_by: The entity this entity was generated by.
+            :param project_id: The project ID.
+            :param repository: The repository.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-metadataproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                metadata_properties_property = sagemaker.CfnArtifact.MetadataPropertiesProperty(
+                    commit_id="commitId",
+                    generated_by="generatedBy",
+                    project_id="projectId",
+                    repository="repository"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e786ab76e3dcdfbb3c711abbc5661dc0f7b1f687623a3969e6bd13c81533f5e9)
+                check_type(argname="argument commit_id", value=commit_id, expected_type=type_hints["commit_id"])
+                check_type(argname="argument generated_by", value=generated_by, expected_type=type_hints["generated_by"])
+                check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
+                check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if commit_id is not None:
+                self._values["commit_id"] = commit_id
+            if generated_by is not None:
+                self._values["generated_by"] = generated_by
+            if project_id is not None:
+                self._values["project_id"] = project_id
+            if repository is not None:
+                self._values["repository"] = repository
+
+        @builtins.property
+        def commit_id(self) -> typing.Optional[builtins.str]:
+            '''The commit ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-metadataproperties.html#cfn-sagemaker-artifact-metadataproperties-commitid
+            '''
+            result = self._values.get("commit_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def generated_by(self) -> typing.Optional[builtins.str]:
+            '''The entity this entity was generated by.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-metadataproperties.html#cfn-sagemaker-artifact-metadataproperties-generatedby
+            '''
+            result = self._values.get("generated_by")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def project_id(self) -> typing.Optional[builtins.str]:
+            '''The project ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-metadataproperties.html#cfn-sagemaker-artifact-metadataproperties-projectid
+            '''
+            result = self._values.get("project_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def repository(self) -> typing.Optional[builtins.str]:
+            '''The repository.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-artifact-metadataproperties.html#cfn-sagemaker-artifact-metadataproperties-repository
+            '''
+            result = self._values.get("repository")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetadataPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnArtifactProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "artifact_type": "artifactType",
+        "source": "source",
+        "artifact_name": "artifactName",
+        "metadata_properties": "metadataProperties",
+        "properties": "properties",
+        "tags": "tags",
+    },
+)
+class CfnArtifactProps:
+    def __init__(
+        self,
+        *,
+        artifact_type: builtins.str,
+        source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnArtifact.ArtifactSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        artifact_name: typing.Optional[builtins.str] = None,
+        metadata_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnArtifact.MetadataPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnArtifact``.
+
+        :param artifact_type: The artifact type.
+        :param source: 
+        :param artifact_name: The name of the artifact. Must be unique to your account in an AWS Region.
+        :param metadata_properties: 
+        :param properties: A list of properties to add to the artifact.
+        :param tags: A list of tags to apply to the artifact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-artifact.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sagemaker as sagemaker
+            
+            cfn_artifact_props = sagemaker.CfnArtifactProps(
+                artifact_type="artifactType",
+                source=sagemaker.CfnArtifact.ArtifactSourceProperty(
+                    source_uri="sourceUri",
+            
+                    # the properties below are optional
+                    source_types=[sagemaker.CfnArtifact.ArtifactSourceTypeProperty(
+                        source_id_type="sourceIdType",
+                        value="value"
+                    )]
+                ),
+            
+                # the properties below are optional
+                artifact_name="artifactName",
+                metadata_properties=sagemaker.CfnArtifact.MetadataPropertiesProperty(
+                    commit_id="commitId",
+                    generated_by="generatedBy",
+                    project_id="projectId",
+                    repository="repository"
+                ),
+                properties={
+                    "properties_key": "properties"
+                },
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__94806791f6b9023b8bef59a40d37dc12fd76c86b0ca48bbed3b60d97de8deb42)
+            check_type(argname="argument artifact_type", value=artifact_type, expected_type=type_hints["artifact_type"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument artifact_name", value=artifact_name, expected_type=type_hints["artifact_name"])
+            check_type(argname="argument metadata_properties", value=metadata_properties, expected_type=type_hints["metadata_properties"])
+            check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "artifact_type": artifact_type,
+            "source": source,
+        }
+        if artifact_name is not None:
+            self._values["artifact_name"] = artifact_name
+        if metadata_properties is not None:
+            self._values["metadata_properties"] = metadata_properties
+        if properties is not None:
+            self._values["properties"] = properties
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def artifact_type(self) -> builtins.str:
+        '''The artifact type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-artifact.html#cfn-sagemaker-artifact-artifacttype
+        '''
+        result = self._values.get("artifact_type")
+        assert result is not None, "Required property 'artifact_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.ArtifactSourceProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-artifact.html#cfn-sagemaker-artifact-source
+        '''
+        result = self._values.get("source")
+        assert result is not None, "Required property 'source' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.ArtifactSourceProperty"], result)
+
+    @builtins.property
+    def artifact_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the artifact.
+
+        Must be unique to your account in an AWS Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-artifact.html#cfn-sagemaker-artifact-artifactname
+        '''
+        result = self._values.get("artifact_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metadata_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.MetadataPropertiesProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-artifact.html#cfn-sagemaker-artifact-metadataproperties
+        '''
+        result = self._values.get("metadata_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnArtifact.MetadataPropertiesProperty"]], result)
+
+    @builtins.property
+    def properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A list of properties to add to the artifact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-artifact.html#cfn-sagemaker-artifact-properties
+        '''
+        result = self._values.get("properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to apply to the artifact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-artifact.html#cfn-sagemaker-artifact-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnArtifactProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IClusterRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCluster(
     _aws_cdk_0cae9daa.CfnResource,
@@ -18170,11 +18876,17 @@ class CfnEndpointConfig(
                     ml_reservation_arn="mlReservationArn"
                 ),
                 container_startup_health_check_timeout_in_seconds=123,
+                core_dump_config=sagemaker.CfnEndpointConfig.CoreDumpConfigProperty(
+                    destination_s3_uri="destinationS3Uri",
+        
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId"
+                ),
                 enable_ssm_access=False,
                 inference_ami_version="inferenceAmiVersion",
                 initial_instance_count=123,
                 initial_variant_weight=123,
-                instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolProperty(
                     instance_type="instanceType",
                     priority=123,
         
@@ -18185,11 +18897,22 @@ class CfnEndpointConfig(
                 managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                     max_instance_count=123,
                     min_instance_count=123,
+                    scale_in_policy=sagemaker.CfnEndpointConfig.ScaleInPolicyProperty(
+                        strategy="strategy",
+        
+                        # the properties below are optional
+                        cooldown_in_minutes=123,
+                        maximum_step_size=123
+                    ),
                     status="status"
                 ),
                 model_data_download_timeout_in_seconds=123,
                 model_name="modelName",
                 routing_config=sagemaker.CfnEndpointConfig.RoutingConfigProperty(
+                    prefix_aware_routing_config=sagemaker.CfnEndpointConfig.PrefixAwareRoutingConfigProperty(
+                        concurrency_threshold=123,
+                        prefix_length=123
+                    ),
                     routing_strategy="routingStrategy"
                 ),
                 serverless_config=sagemaker.CfnEndpointConfig.ServerlessConfigProperty(
@@ -18276,6 +18999,11 @@ class CfnEndpointConfig(
                 )
             ),
             kms_key_id="kmsKeyId",
+            metrics_config=sagemaker.CfnEndpointConfig.MetricsConfigProperty(
+                enable_detailed_observability=False,
+                enable_enhanced_metrics=False,
+                metric_publish_frequency_in_seconds=123
+            ),
             shadow_production_variants=[sagemaker.CfnEndpointConfig.ProductionVariantProperty(
                 variant_name="variantName",
         
@@ -18286,11 +19014,17 @@ class CfnEndpointConfig(
                     ml_reservation_arn="mlReservationArn"
                 ),
                 container_startup_health_check_timeout_in_seconds=123,
+                core_dump_config=sagemaker.CfnEndpointConfig.CoreDumpConfigProperty(
+                    destination_s3_uri="destinationS3Uri",
+        
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId"
+                ),
                 enable_ssm_access=False,
                 inference_ami_version="inferenceAmiVersion",
                 initial_instance_count=123,
                 initial_variant_weight=123,
-                instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolProperty(
                     instance_type="instanceType",
                     priority=123,
         
@@ -18301,11 +19035,22 @@ class CfnEndpointConfig(
                 managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                     max_instance_count=123,
                     min_instance_count=123,
+                    scale_in_policy=sagemaker.CfnEndpointConfig.ScaleInPolicyProperty(
+                        strategy="strategy",
+        
+                        # the properties below are optional
+                        cooldown_in_minutes=123,
+                        maximum_step_size=123
+                    ),
                     status="status"
                 ),
                 model_data_download_timeout_in_seconds=123,
                 model_name="modelName",
                 routing_config=sagemaker.CfnEndpointConfig.RoutingConfigProperty(
+                    prefix_aware_routing_config=sagemaker.CfnEndpointConfig.PrefixAwareRoutingConfigProperty(
+                        concurrency_threshold=123,
+                        prefix_length=123
+                    ),
                     routing_strategy="routingStrategy"
                 ),
                 serverless_config=sagemaker.CfnEndpointConfig.ServerlessConfigProperty(
@@ -18342,6 +19087,7 @@ class CfnEndpointConfig(
         execution_role_arn: typing.Optional[builtins.str] = None,
         explainer_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.ExplainerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.MetricsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         shadow_production_variants: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.ProductionVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18353,14 +19099,15 @@ class CfnEndpointConfig(
         :param production_variants: A list of ``ProductionVariant`` objects, one for each model that you want to host at this endpoint.
         :param async_inference_config: Specifies configuration for how an endpoint performs asynchronous inference.
         :param data_capture_config: Specifies how to capture endpoint data for model monitor. The data capture configuration applies to all production variants hosted at the endpoint.
-        :param enable_network_isolation: 
+        :param enable_network_isolation: Sets whether all model containers deployed to the endpoint are isolated. If they are, no inbound or outbound network calls can be made to or from the model containers.
         :param endpoint_config_name: The name of the endpoint configuration.
-        :param execution_role_arn: 
+        :param execution_role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform actions on your behalf.
         :param explainer_config: A parameter to activate explainers.
         :param kms_key_id: The Amazon Resource Name (ARN) of an AWS Key Management Service key that Amazon SageMaker uses to encrypt data on the storage volume attached to the ML compute instance that hosts the endpoint. - Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab`` - Key ARN: ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` - Alias name: ``alias/ExampleAlias`` - Alias name ARN: ``arn:aws:kms:us-west-2:111122223333:alias/ExampleAlias`` The KMS key policy must grant permission to the IAM role that you specify in your ``CreateEndpoint`` , ``UpdateEndpoint`` requests. For more information, refer to the AWS Key Management Service section `Using Key Policies in AWS KMS <https://docs.aws.amazon.com//kms/latest/developerguide/key-policies.html>`_ .. epigraph:: Certain Nitro-based instances include local storage, dependent on the instance type. Local storage volumes are encrypted using a hardware module on the instance. You can't request a ``KmsKeyId`` when using an instance type with local storage. If any of the models that you specify in the ``ProductionVariants`` parameter use nitro-based instances with local storage, do not specify a value for the ``KmsKeyId`` parameter. If you specify a value for ``KmsKeyId`` when using any nitro-based instances with local storage, the call to ``CreateEndpointConfig`` fails. For a list of instance types that support local instance storage, see `Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html#instance-store-volumes>`_ . For more information about local instance storage encryption, see `SSD Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ssd-instance-store.html>`_ .
+        :param metrics_config: Specifies the metrics that the endpoint publishes to Amazon CloudWatch, the frequency of publication, and whether to enable enhanced or detailed observability metrics.
         :param shadow_production_variants: Array of ``ProductionVariant`` objects. There is one for each model that you want to host at this endpoint in shadow mode with production traffic replicated from the model specified on ``ProductionVariants`` . If you use this field, you can only specify one variant for ``ProductionVariants`` and one variant for ``ShadowProductionVariants`` .
         :param tags: A list of key-value pairs to apply to this resource. For more information, see `Resource Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ and `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html#allocation-what>`_ .
-        :param vpc_config: 
+        :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5ec3761393d0c2344de58784b3017f7e1498d65c80ca0e29094c617103903e4)
@@ -18375,6 +19122,7 @@ class CfnEndpointConfig(
             execution_role_arn=execution_role_arn,
             explainer_config=explainer_config,
             kms_key_id=kms_key_id,
+            metrics_config=metrics_config,
             shadow_production_variants=shadow_production_variants,
             tags=tags,
             vpc_config=vpc_config,
@@ -18437,6 +19185,15 @@ class CfnEndpointConfig(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointConfigArn")
+    def attr_endpoint_config_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the endpoint configuration.
+
+        :cloudformationAttribute: EndpointConfigArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointConfigArn"))
 
     @builtins.property
     @jsii.member(jsii_name="attrEndpointConfigName")
@@ -18536,6 +19293,7 @@ class CfnEndpointConfig(
     def enable_network_isolation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Sets whether all model containers deployed to the endpoint are isolated.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableNetworkIsolation"))
 
     @enable_network_isolation.setter
@@ -18564,6 +19322,7 @@ class CfnEndpointConfig(
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
     def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform actions on your behalf.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionRoleArn"))
 
     @execution_role_arn.setter
@@ -18605,6 +19364,24 @@ class CfnEndpointConfig(
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="metricsConfig")
+    def metrics_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.MetricsConfigProperty"]]:
+        '''Specifies the metrics that the endpoint publishes to Amazon CloudWatch, the frequency of publication, and whether to enable enhanced or detailed observability metrics.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.MetricsConfigProperty"]], jsii.get(self, "metricsConfig"))
+
+    @metrics_config.setter
+    def metrics_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.MetricsConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__723791b0b63cd4e377161453b4bdcc3643e7cd62178473a472a91273c2e4eaa2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricsConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="shadowProductionVariants")
     def shadow_production_variants(
         self,
@@ -18643,6 +19420,7 @@ class CfnEndpointConfig(
     def vpc_config(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.VpcConfigProperty"]]:
+        '''Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to.'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.VpcConfigProperty"]], jsii.get(self, "vpcConfig"))
 
     @vpc_config.setter
@@ -19032,9 +19810,10 @@ class CfnEndpointConfig(
             capacity_reservation_preference: typing.Optional[builtins.str] = None,
             ml_reservation_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param capacity_reservation_preference: 
-            :param ml_reservation_arn: 
+            '''Settings for the capacity reservation for the compute instances that SageMaker AI reserves for an endpoint.
+
+            :param capacity_reservation_preference: Options that you can choose for the capacity reservation.
+            :param ml_reservation_arn: The Amazon Resource Name (ARN) that uniquely identifies the ML capacity reservation that SageMaker AI applies when it deploys the endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-capacityreservationconfig.html
             :exampleMetadata: fixture=_generated
@@ -19062,7 +19841,8 @@ class CfnEndpointConfig(
 
         @builtins.property
         def capacity_reservation_preference(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Options that you can choose for the capacity reservation.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-capacityreservationconfig.html#cfn-sagemaker-endpointconfig-capacityreservationconfig-capacityreservationpreference
             '''
             result = self._values.get("capacity_reservation_preference")
@@ -19070,7 +19850,8 @@ class CfnEndpointConfig(
 
         @builtins.property
         def ml_reservation_arn(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) that uniquely identifies the ML capacity reservation that SageMaker AI applies when it deploys the endpoint.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-capacityreservationconfig.html#cfn-sagemaker-endpointconfig-capacityreservationconfig-mlreservationarn
             '''
             result = self._values.get("ml_reservation_arn")
@@ -19909,6 +20690,84 @@ class CfnEndpointConfig(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.CoreDumpConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_s3_uri": "destinationS3Uri",
+            "kms_key_id": "kmsKeyId",
+        },
+    )
+    class CoreDumpConfigProperty:
+        def __init__(
+            self,
+            *,
+            destination_s3_uri: builtins.str,
+            kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies where SageMaker writes core dumps from the model container when the process crashes, and how it encrypts them.
+
+            :param destination_s3_uri: The Amazon S3 bucket to send the core dump to.
+            :param kms_key_id: The AWS Key Management Service (AWS KMS) key that SageMaker uses to encrypt the core dump data at rest using Amazon S3 server-side encryption. If you use a KMS key ID or an alias of your KMS key, the SageMaker execution role must include permissions to call kms:Encrypt.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-coredumpconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                core_dump_config_property = sagemaker.CfnEndpointConfig.CoreDumpConfigProperty(
+                    destination_s3_uri="destinationS3Uri",
+                
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5628cda77e3c06ac2a105ce376069380b22370f2b52476a0451652fb1a6ad2d6)
+                check_type(argname="argument destination_s3_uri", value=destination_s3_uri, expected_type=type_hints["destination_s3_uri"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_s3_uri": destination_s3_uri,
+            }
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+
+        @builtins.property
+        def destination_s3_uri(self) -> builtins.str:
+            '''The Amazon S3 bucket to send the core dump to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-coredumpconfig.html#cfn-sagemaker-endpointconfig-coredumpconfig-destinations3uri
+            '''
+            result = self._values.get("destination_s3_uri")
+            assert result is not None, "Required property 'destination_s3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The AWS Key Management Service (AWS KMS) key that SageMaker uses to encrypt the core dump data at rest using Amazon S3 server-side encryption.
+
+            If you use a KMS key ID or an alias of your KMS key, the SageMaker execution role must include permissions to call kms:Encrypt.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-coredumpconfig.html#cfn-sagemaker-endpointconfig-coredumpconfig-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CoreDumpConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.DataCaptureConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -20152,7 +21011,7 @@ class CfnEndpointConfig(
             )
 
     @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.InstancePoolsProperty",
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.InstancePoolProperty",
         jsii_struct_bases=[],
         name_mapping={
             "instance_type": "instanceType",
@@ -20160,7 +21019,7 @@ class CfnEndpointConfig(
             "model_name_override": "modelNameOverride",
         },
     )
-    class InstancePoolsProperty:
+    class InstancePoolProperty:
         def __init__(
             self,
             *,
@@ -20168,12 +21027,15 @@ class CfnEndpointConfig(
             priority: jsii.Number,
             model_name_override: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param instance_type: 
-            :param priority: 
-            :param model_name_override: 
+            '''Specifies an instance type and its priority for a heterogeneous endpoint.
 
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepools.html
+            Use instance pools to configure a production variant with multiple instance types, enabling the endpoint to provision instances across different types based on priority.
+
+            :param instance_type: The ML compute instance type for the instance pool.
+            :param priority: The priority for the instance pool. SageMaker attempts to provision instances in order of priority, starting with the lowest value. If instances for a higher-priority pool are unavailable, SageMaker attempts to provision from the next pool. Valid values: 1 to 5, where 1 is the highest priority.
+            :param model_name_override: The name of a SageMaker model to use for this instance pool instead of the model specified for the production variant. Use this to deploy a different model optimized for the instance type in this pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepool.html
             :exampleMetadata: fixture=_generated
 
             Example::
@@ -20182,7 +21044,7 @@ class CfnEndpointConfig(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sagemaker as sagemaker
                 
-                instance_pools_property = sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                instance_pool_property = sagemaker.CfnEndpointConfig.InstancePoolProperty(
                     instance_type="instanceType",
                     priority=123,
                 
@@ -20191,7 +21053,7 @@ class CfnEndpointConfig(
                 )
             '''
             if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__45e19fe76343914e43c1a490a6036a8da6b791d3d6a862e72ecf819ed65ba1df)
+                type_hints = cached_type_hints(_typecheckingstub__4d6ba56ed8c0a08861b6d04e189aae74603a0e7c038420d7ab3b242da7df1df0)
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
                 check_type(argname="argument model_name_override", value=model_name_override, expected_type=type_hints["model_name_override"])
@@ -20204,8 +21066,9 @@ class CfnEndpointConfig(
 
         @builtins.property
         def instance_type(self) -> builtins.str:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepools.html#cfn-sagemaker-endpointconfig-instancepools-instancetype
+            '''The ML compute instance type for the instance pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepool.html#cfn-sagemaker-endpointconfig-instancepool-instancetype
             '''
             result = self._values.get("instance_type")
             assert result is not None, "Required property 'instance_type' is missing"
@@ -20213,8 +21076,11 @@ class CfnEndpointConfig(
 
         @builtins.property
         def priority(self) -> jsii.Number:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepools.html#cfn-sagemaker-endpointconfig-instancepools-priority
+            '''The priority for the instance pool.
+
+            SageMaker attempts to provision instances in order of priority, starting with the lowest value. If instances for a higher-priority pool are unavailable, SageMaker attempts to provision from the next pool. Valid values: 1 to 5, where 1 is the highest priority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepool.html#cfn-sagemaker-endpointconfig-instancepool-priority
             '''
             result = self._values.get("priority")
             assert result is not None, "Required property 'priority' is missing"
@@ -20222,8 +21088,11 @@ class CfnEndpointConfig(
 
         @builtins.property
         def model_name_override(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepools.html#cfn-sagemaker-endpointconfig-instancepools-modelnameoverride
+            '''The name of a SageMaker model to use for this instance pool instead of the model specified for the production variant.
+
+            Use this to deploy a different model optimized for the instance type in this pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepool.html#cfn-sagemaker-endpointconfig-instancepool-modelnameoverride
             '''
             result = self._values.get("model_name_override")
             return typing.cast(typing.Optional[builtins.str], result)
@@ -20235,7 +21104,7 @@ class CfnEndpointConfig(
             return not (rhs == self)
 
         def __repr__(self) -> str:
-            return "InstancePoolsProperty(%s)" % ", ".join(
+            return "InstancePoolProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -20245,6 +21114,7 @@ class CfnEndpointConfig(
         name_mapping={
             "max_instance_count": "maxInstanceCount",
             "min_instance_count": "minInstanceCount",
+            "scale_in_policy": "scaleInPolicy",
             "status": "status",
         },
     )
@@ -20254,12 +21124,15 @@ class CfnEndpointConfig(
             *,
             max_instance_count: typing.Optional[jsii.Number] = None,
             min_instance_count: typing.Optional[jsii.Number] = None,
+            scale_in_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.ScaleInPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             status: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param max_instance_count: 
-            :param min_instance_count: 
-            :param status: 
+            '''Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
+
+            :param max_instance_count: The maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
+            :param min_instance_count: The minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
+            :param scale_in_policy: Specifies how the endpoint releases instances when managed instance scaling scales in.
+            :param status: Indicates whether managed instance scaling is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-managedinstancescaling.html
             :exampleMetadata: fixture=_generated
@@ -20273,6 +21146,13 @@ class CfnEndpointConfig(
                 managed_instance_scaling_property = sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                     max_instance_count=123,
                     min_instance_count=123,
+                    scale_in_policy=sagemaker.CfnEndpointConfig.ScaleInPolicyProperty(
+                        strategy="strategy",
+                
+                        # the properties below are optional
+                        cooldown_in_minutes=123,
+                        maximum_step_size=123
+                    ),
                     status="status"
                 )
             '''
@@ -20280,18 +21160,22 @@ class CfnEndpointConfig(
                 type_hints = cached_type_hints(_typecheckingstub__46cb311c857cc447bc44e0db8728dd4118d07da4d442a846a68ff8c75a4c5e62)
                 check_type(argname="argument max_instance_count", value=max_instance_count, expected_type=type_hints["max_instance_count"])
                 check_type(argname="argument min_instance_count", value=min_instance_count, expected_type=type_hints["min_instance_count"])
+                check_type(argname="argument scale_in_policy", value=scale_in_policy, expected_type=type_hints["scale_in_policy"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if max_instance_count is not None:
                 self._values["max_instance_count"] = max_instance_count
             if min_instance_count is not None:
                 self._values["min_instance_count"] = min_instance_count
+            if scale_in_policy is not None:
+                self._values["scale_in_policy"] = scale_in_policy
             if status is not None:
                 self._values["status"] = status
 
         @builtins.property
         def max_instance_count(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-managedinstancescaling.html#cfn-sagemaker-endpointconfig-managedinstancescaling-maxinstancecount
             '''
             result = self._values.get("max_instance_count")
@@ -20299,15 +21183,28 @@ class CfnEndpointConfig(
 
         @builtins.property
         def min_instance_count(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-managedinstancescaling.html#cfn-sagemaker-endpointconfig-managedinstancescaling-mininstancecount
             '''
             result = self._values.get("min_instance_count")
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
-        def status(self) -> typing.Optional[builtins.str]:
+        def scale_in_policy(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.ScaleInPolicyProperty"]]:
+            '''Specifies how the endpoint releases instances when managed instance scaling scales in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-managedinstancescaling.html#cfn-sagemaker-endpointconfig-managedinstancescaling-scaleinpolicy
             '''
+            result = self._values.get("scale_in_policy")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.ScaleInPolicyProperty"]], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether managed instance scaling is enabled.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-managedinstancescaling.html#cfn-sagemaker-endpointconfig-managedinstancescaling-status
             '''
             result = self._values.get("status")
@@ -20325,6 +21222,184 @@ class CfnEndpointConfig(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.MetricsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enable_detailed_observability": "enableDetailedObservability",
+            "enable_enhanced_metrics": "enableEnhancedMetrics",
+            "metric_publish_frequency_in_seconds": "metricPublishFrequencyInSeconds",
+        },
+    )
+    class MetricsConfigProperty:
+        def __init__(
+            self,
+            *,
+            enable_detailed_observability: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_enhanced_metrics: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            metric_publish_frequency_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Specifies the metrics that the endpoint publishes to Amazon CloudWatch, the frequency of publication, and whether to enable enhanced or detailed observability metrics.
+
+            :param enable_detailed_observability: Specifies whether to enable detailed observability for the endpoint. When set to true, the endpoint publishes container-level inference metrics, per-GPU metrics, per-instance host metrics, and inference component placement metrics.
+            :param enable_enhanced_metrics: Specifies whether to enable enhanced metrics for the endpoint. Enhanced metrics provide utilization and invocation data at instance and container granularity.
+            :param metric_publish_frequency_in_seconds: The interval, in seconds, at which the endpoint publishes metrics to Amazon CloudWatch. Valid values are 10, 30, 60, 120, 180, 240, and 300. The default is 60.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-metricsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                metrics_config_property = sagemaker.CfnEndpointConfig.MetricsConfigProperty(
+                    enable_detailed_observability=False,
+                    enable_enhanced_metrics=False,
+                    metric_publish_frequency_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a1a8afce1265c6711ca2bd8d68ee291556bcb1116e4a679c0a3329777707346e)
+                check_type(argname="argument enable_detailed_observability", value=enable_detailed_observability, expected_type=type_hints["enable_detailed_observability"])
+                check_type(argname="argument enable_enhanced_metrics", value=enable_enhanced_metrics, expected_type=type_hints["enable_enhanced_metrics"])
+                check_type(argname="argument metric_publish_frequency_in_seconds", value=metric_publish_frequency_in_seconds, expected_type=type_hints["metric_publish_frequency_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_detailed_observability is not None:
+                self._values["enable_detailed_observability"] = enable_detailed_observability
+            if enable_enhanced_metrics is not None:
+                self._values["enable_enhanced_metrics"] = enable_enhanced_metrics
+            if metric_publish_frequency_in_seconds is not None:
+                self._values["metric_publish_frequency_in_seconds"] = metric_publish_frequency_in_seconds
+
+        @builtins.property
+        def enable_detailed_observability(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether to enable detailed observability for the endpoint.
+
+            When set to true, the endpoint publishes container-level inference metrics, per-GPU metrics, per-instance host metrics, and inference component placement metrics.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-metricsconfig.html#cfn-sagemaker-endpointconfig-metricsconfig-enabledetailedobservability
+            '''
+            result = self._values.get("enable_detailed_observability")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def enable_enhanced_metrics(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether to enable enhanced metrics for the endpoint.
+
+            Enhanced metrics provide utilization and invocation data at instance and container granularity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-metricsconfig.html#cfn-sagemaker-endpointconfig-metricsconfig-enableenhancedmetrics
+            '''
+            result = self._values.get("enable_enhanced_metrics")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def metric_publish_frequency_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The interval, in seconds, at which the endpoint publishes metrics to Amazon CloudWatch.
+
+            Valid values are 10, 30, 60, 120, 180, 240, and 300. The default is 60.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-metricsconfig.html#cfn-sagemaker-endpointconfig-metricsconfig-metricpublishfrequencyinseconds
+            '''
+            result = self._values.get("metric_publish_frequency_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricsConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.PrefixAwareRoutingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "concurrency_threshold": "concurrencyThreshold",
+            "prefix_length": "prefixLength",
+        },
+    )
+    class PrefixAwareRoutingConfigProperty:
+        def __init__(
+            self,
+            *,
+            concurrency_threshold: typing.Optional[jsii.Number] = None,
+            prefix_length: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The configuration for prefix-aware routing on a SageMaker real-time inference endpoint.
+
+            Specify PrefixLength and ConcurrencyThreshold to control routing behavior.
+
+            :param concurrency_threshold: The maximum number of in-flight requests on the target instance before the endpoint routes to another instance. Required when RoutingStrategy is PREFIX_AWARE. Valid values are 1 to 1024.
+            :param prefix_length: The maximum length of the prefix used for routing decisions. Required when RoutingStrategy is PREFIX_AWARE. Valid values are 1024 to 65536.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-prefixawareroutingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                prefix_aware_routing_config_property = sagemaker.CfnEndpointConfig.PrefixAwareRoutingConfigProperty(
+                    concurrency_threshold=123,
+                    prefix_length=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0c40ea21425db9425ed7aed53b0f36151441b712327e968318c86bee8421ee67)
+                check_type(argname="argument concurrency_threshold", value=concurrency_threshold, expected_type=type_hints["concurrency_threshold"])
+                check_type(argname="argument prefix_length", value=prefix_length, expected_type=type_hints["prefix_length"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if concurrency_threshold is not None:
+                self._values["concurrency_threshold"] = concurrency_threshold
+            if prefix_length is not None:
+                self._values["prefix_length"] = prefix_length
+
+        @builtins.property
+        def concurrency_threshold(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of in-flight requests on the target instance before the endpoint routes to another instance.
+
+            Required when RoutingStrategy is PREFIX_AWARE. Valid values are 1 to 1024.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-prefixawareroutingconfig.html#cfn-sagemaker-endpointconfig-prefixawareroutingconfig-concurrencythreshold
+            '''
+            result = self._values.get("concurrency_threshold")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def prefix_length(self) -> typing.Optional[jsii.Number]:
+            '''The maximum length of the prefix used for routing decisions.
+
+            Required when RoutingStrategy is PREFIX_AWARE. Valid values are 1024 to 65536.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-prefixawareroutingconfig.html#cfn-sagemaker-endpointconfig-prefixawareroutingconfig-prefixlength
+            '''
+            result = self._values.get("prefix_length")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrefixAwareRoutingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.ProductionVariantProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -20332,6 +21407,7 @@ class CfnEndpointConfig(
             "accelerator_type": "acceleratorType",
             "capacity_reservation_config": "capacityReservationConfig",
             "container_startup_health_check_timeout_in_seconds": "containerStartupHealthCheckTimeoutInSeconds",
+            "core_dump_config": "coreDumpConfig",
             "enable_ssm_access": "enableSsmAccess",
             "inference_ami_version": "inferenceAmiVersion",
             "initial_instance_count": "initialInstanceCount",
@@ -20355,11 +21431,12 @@ class CfnEndpointConfig(
             accelerator_type: typing.Optional[builtins.str] = None,
             capacity_reservation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.CapacityReservationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             container_startup_health_check_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+            core_dump_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.CoreDumpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             enable_ssm_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             inference_ami_version: typing.Optional[builtins.str] = None,
             initial_instance_count: typing.Optional[jsii.Number] = None,
             initial_variant_weight: typing.Optional[jsii.Number] = None,
-            instance_pools: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.InstancePoolsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            instance_pools: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.InstancePoolProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             instance_type: typing.Optional[builtins.str] = None,
             managed_instance_scaling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.ManagedInstanceScalingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             model_data_download_timeout_in_seconds: typing.Optional[jsii.Number] = None,
@@ -20375,20 +21452,21 @@ class CfnEndpointConfig(
 
             :param variant_name: The name of the production variant.
             :param accelerator_type: The size of the Elastic Inference (EI) instance to use for the production variant. EI instances provide on-demand GPU computing for inference. For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ . For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ .
-            :param capacity_reservation_config: 
+            :param capacity_reservation_config: Settings for the capacity reservation for the compute instances that SageMaker AI reserves for an endpoint.
             :param container_startup_health_check_timeout_in_seconds: The timeout value, in seconds, for your inference container to pass health check by SageMaker Hosting. For more information about health check, see `How Your Container Should Respond to Health Check (Ping) Requests <https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests>`_ .
+            :param core_dump_config: Specifies where SageMaker writes core dumps from the model container when the process crashes, and how it encrypts them.
             :param enable_ssm_access: You can use this parameter to turn on native AWS Systems Manager (SSM) access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind an endpoint. You can turn on or turn off SSM access for a production variant behind an existing endpoint by creating a new endpoint configuration and calling ``UpdateEndpoint`` .
-            :param inference_ami_version: 
+            :param inference_ami_version: Specifies an option from a collection of preconfigured Amazon Machine Image (AMI) images. Each image is configured by AWS with a set of software and driver versions. AWS optimizes these configurations for different machine learning workloads. By selecting an AMI version, you can ensure that your inference environment is compatible with specific software requirements, such as CUDA driver versions, Linux kernel versions, or AWS Neuron driver versions
             :param initial_instance_count: Number of instances to launch initially.
             :param initial_variant_weight: Determines initial traffic distribution among all of the models that you specify in the endpoint configuration. The traffic to a production variant is determined by the ratio of the ``VariantWeight`` to the sum of all ``VariantWeight`` values across all ProductionVariants. If unspecified, it defaults to 1.0.
-            :param instance_pools: 
+            :param instance_pools: A list of instance pools for the production variant. Each instance pool specifies an instance type and its priority for provisioning. Use instance pools to configure heterogeneous endpoints that deploy models across multiple instance types.
             :param instance_type: The ML compute instance type.
-            :param managed_instance_scaling: 
+            :param managed_instance_scaling: Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
             :param model_data_download_timeout_in_seconds: The timeout value, in seconds, to download and extract the model that you want to host from Amazon S3 to the individual inference instance associated with this production variant.
             :param model_name: The name of the model that you want to host. This is the name that you specified when creating the model.
-            :param routing_config: 
+            :param routing_config: Settings that control how the endpoint routes incoming traffic to the instances that the endpoint hosts.
             :param serverless_config: The serverless configuration for an endpoint. Specifies a serverless endpoint configuration instead of an instance-based endpoint configuration.
-            :param variant_instance_provision_timeout_in_seconds: 
+            :param variant_instance_provision_timeout_in_seconds: The timeout value, in seconds, for provisioning instances for the production variant. When SageMaker encounters an insufficient capacity error while provisioning instances, it retries with the next instance pool (if configured) or waits until the timeout expires. This timeout applies only to capacity provisioning and does not include the time for model download or container startup.
             :param volume_size_in_gb: The size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Currently only Amazon EBS gp2 storage volumes are supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html
@@ -20410,11 +21488,17 @@ class CfnEndpointConfig(
                         ml_reservation_arn="mlReservationArn"
                     ),
                     container_startup_health_check_timeout_in_seconds=123,
+                    core_dump_config=sagemaker.CfnEndpointConfig.CoreDumpConfigProperty(
+                        destination_s3_uri="destinationS3Uri",
+                
+                        # the properties below are optional
+                        kms_key_id="kmsKeyId"
+                    ),
                     enable_ssm_access=False,
                     inference_ami_version="inferenceAmiVersion",
                     initial_instance_count=123,
                     initial_variant_weight=123,
-                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolProperty(
                         instance_type="instanceType",
                         priority=123,
                 
@@ -20425,11 +21509,22 @@ class CfnEndpointConfig(
                     managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                         max_instance_count=123,
                         min_instance_count=123,
+                        scale_in_policy=sagemaker.CfnEndpointConfig.ScaleInPolicyProperty(
+                            strategy="strategy",
+                
+                            # the properties below are optional
+                            cooldown_in_minutes=123,
+                            maximum_step_size=123
+                        ),
                         status="status"
                     ),
                     model_data_download_timeout_in_seconds=123,
                     model_name="modelName",
                     routing_config=sagemaker.CfnEndpointConfig.RoutingConfigProperty(
+                        prefix_aware_routing_config=sagemaker.CfnEndpointConfig.PrefixAwareRoutingConfigProperty(
+                            concurrency_threshold=123,
+                            prefix_length=123
+                        ),
                         routing_strategy="routingStrategy"
                     ),
                     serverless_config=sagemaker.CfnEndpointConfig.ServerlessConfigProperty(
@@ -20449,6 +21544,7 @@ class CfnEndpointConfig(
                 check_type(argname="argument accelerator_type", value=accelerator_type, expected_type=type_hints["accelerator_type"])
                 check_type(argname="argument capacity_reservation_config", value=capacity_reservation_config, expected_type=type_hints["capacity_reservation_config"])
                 check_type(argname="argument container_startup_health_check_timeout_in_seconds", value=container_startup_health_check_timeout_in_seconds, expected_type=type_hints["container_startup_health_check_timeout_in_seconds"])
+                check_type(argname="argument core_dump_config", value=core_dump_config, expected_type=type_hints["core_dump_config"])
                 check_type(argname="argument enable_ssm_access", value=enable_ssm_access, expected_type=type_hints["enable_ssm_access"])
                 check_type(argname="argument inference_ami_version", value=inference_ami_version, expected_type=type_hints["inference_ami_version"])
                 check_type(argname="argument initial_instance_count", value=initial_instance_count, expected_type=type_hints["initial_instance_count"])
@@ -20471,6 +21567,8 @@ class CfnEndpointConfig(
                 self._values["capacity_reservation_config"] = capacity_reservation_config
             if container_startup_health_check_timeout_in_seconds is not None:
                 self._values["container_startup_health_check_timeout_in_seconds"] = container_startup_health_check_timeout_in_seconds
+            if core_dump_config is not None:
+                self._values["core_dump_config"] = core_dump_config
             if enable_ssm_access is not None:
                 self._values["enable_ssm_access"] = enable_ssm_access
             if inference_ami_version is not None:
@@ -20523,7 +21621,8 @@ class CfnEndpointConfig(
         def capacity_reservation_config(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.CapacityReservationConfigProperty"]]:
-            '''
+            '''Settings for the capacity reservation for the compute instances that SageMaker AI reserves for an endpoint.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-capacityreservationconfig
             '''
             result = self._values.get("capacity_reservation_config")
@@ -20543,6 +21642,17 @@ class CfnEndpointConfig(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
+        def core_dump_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.CoreDumpConfigProperty"]]:
+            '''Specifies where SageMaker writes core dumps from the model container when the process crashes, and how it encrypts them.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-coredumpconfig
+            '''
+            result = self._values.get("core_dump_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.CoreDumpConfigProperty"]], result)
+
+        @builtins.property
         def enable_ssm_access(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
@@ -20557,7 +21667,10 @@ class CfnEndpointConfig(
 
         @builtins.property
         def inference_ami_version(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies an option from a collection of preconfigured Amazon Machine Image (AMI) images.
+
+            Each image is configured by AWS with a set of software and driver versions. AWS optimizes these configurations for different machine learning workloads. By selecting an AMI version, you can ensure that your inference environment is compatible with specific software requirements, such as CUDA driver versions, Linux kernel versions, or AWS Neuron driver versions
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-inferenceamiversion
             '''
             result = self._values.get("inference_ami_version")
@@ -20586,12 +21699,15 @@ class CfnEndpointConfig(
         @builtins.property
         def instance_pools(
             self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.InstancePoolsProperty"]]]]:
-            '''
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.InstancePoolProperty"]]]]:
+            '''A list of instance pools for the production variant.
+
+            Each instance pool specifies an instance type and its priority for provisioning. Use instance pools to configure heterogeneous endpoints that deploy models across multiple instance types.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-instancepools
             '''
             result = self._values.get("instance_pools")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.InstancePoolsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.InstancePoolProperty"]]]], result)
 
         @builtins.property
         def instance_type(self) -> typing.Optional[builtins.str]:
@@ -20606,7 +21722,8 @@ class CfnEndpointConfig(
         def managed_instance_scaling(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.ManagedInstanceScalingProperty"]]:
-            '''
+            '''Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-managedinstancescaling
             '''
             result = self._values.get("managed_instance_scaling")
@@ -20638,7 +21755,8 @@ class CfnEndpointConfig(
         def routing_config(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.RoutingConfigProperty"]]:
-            '''
+            '''Settings that control how the endpoint routes incoming traffic to the instances that the endpoint hosts.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-routingconfig
             '''
             result = self._values.get("routing_config")
@@ -20661,7 +21779,10 @@ class CfnEndpointConfig(
         def variant_instance_provision_timeout_in_seconds(
             self,
         ) -> typing.Optional[jsii.Number]:
-            '''
+            '''The timeout value, in seconds, for provisioning instances for the production variant.
+
+            When SageMaker encounters an insufficient capacity error while provisioning instances, it retries with the next instance pool (if configured) or waits until the timeout expires. This timeout applies only to capacity provisioning and does not include the time for model download or container startup.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-variantinstanceprovisiontimeoutinseconds
             '''
             result = self._values.get("variant_instance_provision_timeout_in_seconds")
@@ -20692,16 +21813,22 @@ class CfnEndpointConfig(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.RoutingConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"routing_strategy": "routingStrategy"},
+        name_mapping={
+            "prefix_aware_routing_config": "prefixAwareRoutingConfig",
+            "routing_strategy": "routingStrategy",
+        },
     )
     class RoutingConfigProperty:
         def __init__(
             self,
             *,
+            prefix_aware_routing_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.PrefixAwareRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             routing_strategy: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param routing_strategy: 
+            '''Settings that control how the endpoint routes incoming traffic to the instances that the endpoint hosts.
+
+            :param prefix_aware_routing_config: The configuration for prefix-aware routing on a SageMaker real-time inference endpoint. Specify PrefixLength and ConcurrencyThreshold to control routing behavior.
+            :param routing_strategy: Sets how the endpoint routes incoming traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-routingconfig.html
             :exampleMetadata: fixture=_generated
@@ -20713,19 +21840,40 @@ class CfnEndpointConfig(
                 from aws_cdk import aws_sagemaker as sagemaker
                 
                 routing_config_property = sagemaker.CfnEndpointConfig.RoutingConfigProperty(
+                    prefix_aware_routing_config=sagemaker.CfnEndpointConfig.PrefixAwareRoutingConfigProperty(
+                        concurrency_threshold=123,
+                        prefix_length=123
+                    ),
                     routing_strategy="routingStrategy"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__41a70a45b46693d52cb9cc5fc85772297ca38491c9ce53c7e06d6304a7c4f1e0)
+                check_type(argname="argument prefix_aware_routing_config", value=prefix_aware_routing_config, expected_type=type_hints["prefix_aware_routing_config"])
                 check_type(argname="argument routing_strategy", value=routing_strategy, expected_type=type_hints["routing_strategy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if prefix_aware_routing_config is not None:
+                self._values["prefix_aware_routing_config"] = prefix_aware_routing_config
             if routing_strategy is not None:
                 self._values["routing_strategy"] = routing_strategy
 
         @builtins.property
-        def routing_strategy(self) -> typing.Optional[builtins.str]:
+        def prefix_aware_routing_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.PrefixAwareRoutingConfigProperty"]]:
+            '''The configuration for prefix-aware routing on a SageMaker real-time inference endpoint.
+
+            Specify PrefixLength and ConcurrencyThreshold to control routing behavior.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-routingconfig.html#cfn-sagemaker-endpointconfig-routingconfig-prefixawareroutingconfig
             '''
+            result = self._values.get("prefix_aware_routing_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.PrefixAwareRoutingConfigProperty"]], result)
+
+        @builtins.property
+        def routing_strategy(self) -> typing.Optional[builtins.str]:
+            '''Sets how the endpoint routes incoming traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-routingconfig.html#cfn-sagemaker-endpointconfig-routingconfig-routingstrategy
             '''
             result = self._values.get("routing_strategy")
@@ -20739,6 +21887,104 @@ class CfnEndpointConfig(
 
         def __repr__(self) -> str:
             return "RoutingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.ScaleInPolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "strategy": "strategy",
+            "cooldown_in_minutes": "cooldownInMinutes",
+            "maximum_step_size": "maximumStepSize",
+        },
+    )
+    class ScaleInPolicyProperty:
+        def __init__(
+            self,
+            *,
+            strategy: builtins.str,
+            cooldown_in_minutes: typing.Optional[jsii.Number] = None,
+            maximum_step_size: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Specifies how the endpoint releases instances when managed instance scaling scales in.
+
+            :param strategy: The strategy for scaling in instances. IDLE_RELEASE releases instances that have no hosted inference component copies. CONSOLIDATION consolidates inference component copies onto fewer instances to release more instances.
+            :param cooldown_in_minutes: The cooldown period, in minutes, after the last endpoint operation before the endpoint evaluates consolidation scale-in opportunities. Valid values are 5 to 1440. The default is 20.
+            :param maximum_step_size: The maximum number of instances that the endpoint can terminate at a time during a consolidation scale-in operation. Valid values are 1 to 100. The default is 1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-scaleinpolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                scale_in_policy_property = sagemaker.CfnEndpointConfig.ScaleInPolicyProperty(
+                    strategy="strategy",
+                
+                    # the properties below are optional
+                    cooldown_in_minutes=123,
+                    maximum_step_size=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__719c8d5ef8282a07bb81e0778e46e5dc200d51108d091f7870523907e8bb35f3)
+                check_type(argname="argument strategy", value=strategy, expected_type=type_hints["strategy"])
+                check_type(argname="argument cooldown_in_minutes", value=cooldown_in_minutes, expected_type=type_hints["cooldown_in_minutes"])
+                check_type(argname="argument maximum_step_size", value=maximum_step_size, expected_type=type_hints["maximum_step_size"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "strategy": strategy,
+            }
+            if cooldown_in_minutes is not None:
+                self._values["cooldown_in_minutes"] = cooldown_in_minutes
+            if maximum_step_size is not None:
+                self._values["maximum_step_size"] = maximum_step_size
+
+        @builtins.property
+        def strategy(self) -> builtins.str:
+            '''The strategy for scaling in instances.
+
+            IDLE_RELEASE releases instances that have no hosted inference component copies. CONSOLIDATION consolidates inference component copies onto fewer instances to release more instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-scaleinpolicy.html#cfn-sagemaker-endpointconfig-scaleinpolicy-strategy
+            '''
+            result = self._values.get("strategy")
+            assert result is not None, "Required property 'strategy' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def cooldown_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''The cooldown period, in minutes, after the last endpoint operation before the endpoint evaluates consolidation scale-in opportunities.
+
+            Valid values are 5 to 1440. The default is 20.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-scaleinpolicy.html#cfn-sagemaker-endpointconfig-scaleinpolicy-cooldowninminutes
+            '''
+            result = self._values.get("cooldown_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def maximum_step_size(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of instances that the endpoint can terminate at a time during a consolidation scale-in operation.
+
+            Valid values are 1 to 100. The default is 1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-scaleinpolicy.html#cfn-sagemaker-endpointconfig-scaleinpolicy-maximumstepsize
+            '''
+            result = self._values.get("maximum_step_size")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScaleInPolicyProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -20853,9 +22099,12 @@ class CfnEndpointConfig(
             security_group_ids: typing.Sequence[builtins.str],
             subnets: typing.Sequence[builtins.str],
         ) -> None:
-            '''
-            :param security_group_ids: 
-            :param subnets: 
+            '''Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to.
+
+            You can control access to and from your resources by configuring a VPC.
+
+            :param security_group_ids: The VPC security group IDs, in the form sg-xxxxxxxx. Specify the security groups for the VPC that is specified in the Subnets field.
+            :param subnets: The ID of the subnets in the VPC to which you want to connect your training job or model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-vpcconfig.html
             :exampleMetadata: fixture=_generated
@@ -20882,7 +22131,10 @@ class CfnEndpointConfig(
 
         @builtins.property
         def security_group_ids(self) -> typing.List[builtins.str]:
-            '''
+            '''The VPC security group IDs, in the form sg-xxxxxxxx.
+
+            Specify the security groups for the VPC that is specified in the Subnets field.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-vpcconfig.html#cfn-sagemaker-endpointconfig-vpcconfig-securitygroupids
             '''
             result = self._values.get("security_group_ids")
@@ -20891,7 +22143,8 @@ class CfnEndpointConfig(
 
         @builtins.property
         def subnets(self) -> typing.List[builtins.str]:
-            '''
+            '''The ID of the subnets in the VPC to which you want to connect your training job or model.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-vpcconfig.html#cfn-sagemaker-endpointconfig-vpcconfig-subnets
             '''
             result = self._values.get("subnets")
@@ -20922,6 +22175,7 @@ class CfnEndpointConfig(
         "execution_role_arn": "executionRoleArn",
         "explainer_config": "explainerConfig",
         "kms_key_id": "kmsKeyId",
+        "metrics_config": "metricsConfig",
         "shadow_production_variants": "shadowProductionVariants",
         "tags": "tags",
         "vpc_config": "vpcConfig",
@@ -20939,6 +22193,7 @@ class CfnEndpointConfigProps:
         execution_role_arn: typing.Optional[builtins.str] = None,
         explainer_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.ExplainerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.MetricsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         shadow_production_variants: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.ProductionVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointConfig.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20948,14 +22203,15 @@ class CfnEndpointConfigProps:
         :param production_variants: A list of ``ProductionVariant`` objects, one for each model that you want to host at this endpoint.
         :param async_inference_config: Specifies configuration for how an endpoint performs asynchronous inference.
         :param data_capture_config: Specifies how to capture endpoint data for model monitor. The data capture configuration applies to all production variants hosted at the endpoint.
-        :param enable_network_isolation: 
+        :param enable_network_isolation: Sets whether all model containers deployed to the endpoint are isolated. If they are, no inbound or outbound network calls can be made to or from the model containers.
         :param endpoint_config_name: The name of the endpoint configuration.
-        :param execution_role_arn: 
+        :param execution_role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform actions on your behalf.
         :param explainer_config: A parameter to activate explainers.
         :param kms_key_id: The Amazon Resource Name (ARN) of an AWS Key Management Service key that Amazon SageMaker uses to encrypt data on the storage volume attached to the ML compute instance that hosts the endpoint. - Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab`` - Key ARN: ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` - Alias name: ``alias/ExampleAlias`` - Alias name ARN: ``arn:aws:kms:us-west-2:111122223333:alias/ExampleAlias`` The KMS key policy must grant permission to the IAM role that you specify in your ``CreateEndpoint`` , ``UpdateEndpoint`` requests. For more information, refer to the AWS Key Management Service section `Using Key Policies in AWS KMS <https://docs.aws.amazon.com//kms/latest/developerguide/key-policies.html>`_ .. epigraph:: Certain Nitro-based instances include local storage, dependent on the instance type. Local storage volumes are encrypted using a hardware module on the instance. You can't request a ``KmsKeyId`` when using an instance type with local storage. If any of the models that you specify in the ``ProductionVariants`` parameter use nitro-based instances with local storage, do not specify a value for the ``KmsKeyId`` parameter. If you specify a value for ``KmsKeyId`` when using any nitro-based instances with local storage, the call to ``CreateEndpointConfig`` fails. For a list of instance types that support local instance storage, see `Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html#instance-store-volumes>`_ . For more information about local instance storage encryption, see `SSD Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ssd-instance-store.html>`_ .
+        :param metrics_config: Specifies the metrics that the endpoint publishes to Amazon CloudWatch, the frequency of publication, and whether to enable enhanced or detailed observability metrics.
         :param shadow_production_variants: Array of ``ProductionVariant`` objects. There is one for each model that you want to host at this endpoint in shadow mode with production traffic replicated from the model specified on ``ProductionVariants`` . If you use this field, you can only specify one variant for ``ProductionVariants`` and one variant for ``ShadowProductionVariants`` .
         :param tags: A list of key-value pairs to apply to this resource. For more information, see `Resource Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ and `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html#allocation-what>`_ .
-        :param vpc_config: 
+        :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-endpointconfig.html
         :exampleMetadata: fixture=_generated
@@ -20978,11 +22234,17 @@ class CfnEndpointConfigProps:
                         ml_reservation_arn="mlReservationArn"
                     ),
                     container_startup_health_check_timeout_in_seconds=123,
+                    core_dump_config=sagemaker.CfnEndpointConfig.CoreDumpConfigProperty(
+                        destination_s3_uri="destinationS3Uri",
+            
+                        # the properties below are optional
+                        kms_key_id="kmsKeyId"
+                    ),
                     enable_ssm_access=False,
                     inference_ami_version="inferenceAmiVersion",
                     initial_instance_count=123,
                     initial_variant_weight=123,
-                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolProperty(
                         instance_type="instanceType",
                         priority=123,
             
@@ -20993,11 +22255,22 @@ class CfnEndpointConfigProps:
                     managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                         max_instance_count=123,
                         min_instance_count=123,
+                        scale_in_policy=sagemaker.CfnEndpointConfig.ScaleInPolicyProperty(
+                            strategy="strategy",
+            
+                            # the properties below are optional
+                            cooldown_in_minutes=123,
+                            maximum_step_size=123
+                        ),
                         status="status"
                     ),
                     model_data_download_timeout_in_seconds=123,
                     model_name="modelName",
                     routing_config=sagemaker.CfnEndpointConfig.RoutingConfigProperty(
+                        prefix_aware_routing_config=sagemaker.CfnEndpointConfig.PrefixAwareRoutingConfigProperty(
+                            concurrency_threshold=123,
+                            prefix_length=123
+                        ),
                         routing_strategy="routingStrategy"
                     ),
                     serverless_config=sagemaker.CfnEndpointConfig.ServerlessConfigProperty(
@@ -21084,6 +22357,11 @@ class CfnEndpointConfigProps:
                     )
                 ),
                 kms_key_id="kmsKeyId",
+                metrics_config=sagemaker.CfnEndpointConfig.MetricsConfigProperty(
+                    enable_detailed_observability=False,
+                    enable_enhanced_metrics=False,
+                    metric_publish_frequency_in_seconds=123
+                ),
                 shadow_production_variants=[sagemaker.CfnEndpointConfig.ProductionVariantProperty(
                     variant_name="variantName",
             
@@ -21094,11 +22372,17 @@ class CfnEndpointConfigProps:
                         ml_reservation_arn="mlReservationArn"
                     ),
                     container_startup_health_check_timeout_in_seconds=123,
+                    core_dump_config=sagemaker.CfnEndpointConfig.CoreDumpConfigProperty(
+                        destination_s3_uri="destinationS3Uri",
+            
+                        # the properties below are optional
+                        kms_key_id="kmsKeyId"
+                    ),
                     enable_ssm_access=False,
                     inference_ami_version="inferenceAmiVersion",
                     initial_instance_count=123,
                     initial_variant_weight=123,
-                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolProperty(
                         instance_type="instanceType",
                         priority=123,
             
@@ -21109,11 +22393,22 @@ class CfnEndpointConfigProps:
                     managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                         max_instance_count=123,
                         min_instance_count=123,
+                        scale_in_policy=sagemaker.CfnEndpointConfig.ScaleInPolicyProperty(
+                            strategy="strategy",
+            
+                            # the properties below are optional
+                            cooldown_in_minutes=123,
+                            maximum_step_size=123
+                        ),
                         status="status"
                     ),
                     model_data_download_timeout_in_seconds=123,
                     model_name="modelName",
                     routing_config=sagemaker.CfnEndpointConfig.RoutingConfigProperty(
+                        prefix_aware_routing_config=sagemaker.CfnEndpointConfig.PrefixAwareRoutingConfigProperty(
+                            concurrency_threshold=123,
+                            prefix_length=123
+                        ),
                         routing_strategy="routingStrategy"
                     ),
                     serverless_config=sagemaker.CfnEndpointConfig.ServerlessConfigProperty(
@@ -21146,6 +22441,7 @@ class CfnEndpointConfigProps:
             check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
             check_type(argname="argument explainer_config", value=explainer_config, expected_type=type_hints["explainer_config"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument shadow_production_variants", value=shadow_production_variants, expected_type=type_hints["shadow_production_variants"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
@@ -21166,6 +22462,8 @@ class CfnEndpointConfigProps:
             self._values["explainer_config"] = explainer_config
         if kms_key_id is not None:
             self._values["kms_key_id"] = kms_key_id
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if shadow_production_variants is not None:
             self._values["shadow_production_variants"] = shadow_production_variants
         if tags is not None:
@@ -21213,7 +22511,10 @@ class CfnEndpointConfigProps:
     def enable_network_isolation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-        '''
+        '''Sets whether all model containers deployed to the endpoint are isolated.
+
+        If they are, no inbound or outbound network calls can be made to or from the model containers.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-endpointconfig.html#cfn-sagemaker-endpointconfig-enablenetworkisolation
         '''
         result = self._values.get("enable_network_isolation")
@@ -21230,7 +22531,8 @@ class CfnEndpointConfigProps:
 
     @builtins.property
     def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform actions on your behalf.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-endpointconfig.html#cfn-sagemaker-endpointconfig-executionrolearn
         '''
         result = self._values.get("execution_role_arn")
@@ -21271,6 +22573,17 @@ class CfnEndpointConfigProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def metrics_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.MetricsConfigProperty"]]:
+        '''Specifies the metrics that the endpoint publishes to Amazon CloudWatch, the frequency of publication, and whether to enable enhanced or detailed observability metrics.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-endpointconfig.html#cfn-sagemaker-endpointconfig-metricsconfig
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.MetricsConfigProperty"]], result)
+
+    @builtins.property
     def shadow_production_variants(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.ProductionVariantProperty"]]]]:
@@ -21298,7 +22611,10 @@ class CfnEndpointConfigProps:
     def vpc_config(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointConfig.VpcConfigProperty"]]:
-        '''
+        '''Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to.
+
+        You can control access to and from your resources by configuring a VPC.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-endpointconfig.html#cfn-sagemaker-endpointconfig-vpcconfig
         '''
         result = self._values.get("vpc_config")
@@ -21948,7 +23264,7 @@ class CfnExperimentTrialComponent(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sagemaker.CfnExperimentTrialComponent",
 ):
-    '''Resource type definition for AWS SageMaker Experiment Trial Component.
+    '''Resource Type definition for AWS::SageMaker::ExperimentTrialComponent.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html
     :cloudformationResource: AWS::SageMaker::ExperimentTrialComponent
@@ -22001,13 +23317,13 @@ class CfnExperimentTrialComponent(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param trial_component_name: The name of the trial component. The name must be unique in your AWS account and is not case-sensitive.
-        :param display_name: The name of the component as displayed. The name doesn't need to be unique. If DisplayName isn't specified, TrialComponentName is displayed.
-        :param end_time: When the component ended.
-        :param metadata_properties: Metadata properties of the tracking entity, trial, or trial component.
-        :param start_time: When the component started.
-        :param status: The status of the trial component.
-        :param tags: A list of tags to associate with the component.
+        :param trial_component_name: 
+        :param display_name: 
+        :param end_time: 
+        :param metadata_properties: 
+        :param start_time: 
+        :param status: 
+        :param tags: 
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2e69e2184b0fcfe0869034101b20b4a875a6d64ae92e698cb157a7fbb333b509)
@@ -22084,8 +23400,7 @@ class CfnExperimentTrialComponent(
     @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the trial component.
-
+        '''
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
@@ -22093,17 +23408,23 @@ class CfnExperimentTrialComponent(
     @builtins.property
     @jsii.member(jsii_name="attrCreationTime")
     def attr_creation_time(self) -> builtins.str:
-        '''When the component was created.
-
+        '''
         :cloudformationAttribute: CreationTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrLastModifiedTime")
     def attr_last_modified_time(self) -> builtins.str:
-        '''When the component was last modified.
-
+        '''
         :cloudformationAttribute: LastModifiedTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
@@ -22111,8 +23432,7 @@ class CfnExperimentTrialComponent(
     @builtins.property
     @jsii.member(jsii_name="attrLineageGroupArn")
     def attr_lineage_group_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the lineage group.
-
+        '''
         :cloudformationAttribute: LineageGroupArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLineageGroupArn"))
@@ -22144,7 +23464,6 @@ class CfnExperimentTrialComponent(
     @builtins.property
     @jsii.member(jsii_name="trialComponentName")
     def trial_component_name(self) -> builtins.str:
-        '''The name of the trial component.'''
         return typing.cast(builtins.str, jsii.get(self, "trialComponentName"))
 
     @trial_component_name.setter
@@ -22157,7 +23476,6 @@ class CfnExperimentTrialComponent(
     @builtins.property
     @jsii.member(jsii_name="displayName")
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the component as displayed.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
 
     @display_name.setter
@@ -22170,7 +23488,6 @@ class CfnExperimentTrialComponent(
     @builtins.property
     @jsii.member(jsii_name="endTime")
     def end_time(self) -> typing.Optional[builtins.str]:
-        '''When the component ended.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "endTime"))
 
     @end_time.setter
@@ -22185,7 +23502,6 @@ class CfnExperimentTrialComponent(
     def metadata_properties(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentTrialComponent.MetadataPropertiesProperty"]]:
-        '''Metadata properties of the tracking entity, trial, or trial component.'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentTrialComponent.MetadataPropertiesProperty"]], jsii.get(self, "metadataProperties"))
 
     @metadata_properties.setter
@@ -22201,7 +23517,6 @@ class CfnExperimentTrialComponent(
     @builtins.property
     @jsii.member(jsii_name="startTime")
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''When the component started.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "startTime"))
 
     @start_time.setter
@@ -22216,7 +23531,6 @@ class CfnExperimentTrialComponent(
     def status(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentTrialComponent.StatusProperty"]]:
-        '''The status of the trial component.'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentTrialComponent.StatusProperty"]], jsii.get(self, "status"))
 
     @status.setter
@@ -22234,7 +23548,6 @@ class CfnExperimentTrialComponent(
     def tags(
         self,
     ) -> typing.Optional[typing.List["CfnExperimentTrialComponent.TagsItemsProperty"]]:
-        '''A list of tags to associate with the component.'''
         return typing.cast(typing.Optional[typing.List["CfnExperimentTrialComponent.TagsItemsProperty"]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -22266,12 +23579,11 @@ class CfnExperimentTrialComponent(
             project_id: typing.Optional[builtins.str] = None,
             repository: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Metadata properties of the tracking entity, trial, or trial component.
-
-            :param commit_id: The commit ID.
-            :param generated_by: The entity this entity was generated by.
-            :param project_id: The project ID.
-            :param repository: The repository.
+            '''
+            :param commit_id: 
+            :param generated_by: 
+            :param project_id: 
+            :param repository: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-metadataproperties.html
             :exampleMetadata: fixture=_generated
@@ -22307,8 +23619,7 @@ class CfnExperimentTrialComponent(
 
         @builtins.property
         def commit_id(self) -> typing.Optional[builtins.str]:
-            '''The commit ID.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-metadataproperties.html#cfn-sagemaker-experimenttrialcomponent-metadataproperties-commitid
             '''
             result = self._values.get("commit_id")
@@ -22316,8 +23627,7 @@ class CfnExperimentTrialComponent(
 
         @builtins.property
         def generated_by(self) -> typing.Optional[builtins.str]:
-            '''The entity this entity was generated by.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-metadataproperties.html#cfn-sagemaker-experimenttrialcomponent-metadataproperties-generatedby
             '''
             result = self._values.get("generated_by")
@@ -22325,8 +23635,7 @@ class CfnExperimentTrialComponent(
 
         @builtins.property
         def project_id(self) -> typing.Optional[builtins.str]:
-            '''The project ID.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-metadataproperties.html#cfn-sagemaker-experimenttrialcomponent-metadataproperties-projectid
             '''
             result = self._values.get("project_id")
@@ -22334,8 +23643,7 @@ class CfnExperimentTrialComponent(
 
         @builtins.property
         def repository(self) -> typing.Optional[builtins.str]:
-            '''The repository.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-metadataproperties.html#cfn-sagemaker-experimenttrialcomponent-metadataproperties-repository
             '''
             result = self._values.get("repository")
@@ -22364,10 +23672,9 @@ class CfnExperimentTrialComponent(
             message: typing.Optional[builtins.str] = None,
             primary_status: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The status of the trial component.
-
-            :param message: If the component failed, a message describing why.
-            :param primary_status: The status of the trial component.
+            '''
+            :param message: 
+            :param primary_status: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-status.html
             :exampleMetadata: fixture=_generated
@@ -22395,8 +23702,7 @@ class CfnExperimentTrialComponent(
 
         @builtins.property
         def message(self) -> typing.Optional[builtins.str]:
-            '''If the component failed, a message describing why.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-status.html#cfn-sagemaker-experimenttrialcomponent-status-message
             '''
             result = self._values.get("message")
@@ -22404,8 +23710,7 @@ class CfnExperimentTrialComponent(
 
         @builtins.property
         def primary_status(self) -> typing.Optional[builtins.str]:
-            '''The status of the trial component.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-status.html#cfn-sagemaker-experimenttrialcomponent-status-primarystatus
             '''
             result = self._values.get("primary_status")
@@ -22430,8 +23735,8 @@ class CfnExperimentTrialComponent(
     class TagsItemsProperty:
         def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
             '''
-            :param key: The tag key.
-            :param value: The tag value.
+            :param key: 
+            :param value: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-tagsitems.html
             :exampleMetadata: fixture=_generated
@@ -22458,8 +23763,7 @@ class CfnExperimentTrialComponent(
 
         @builtins.property
         def key(self) -> builtins.str:
-            '''The tag key.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-tagsitems.html#cfn-sagemaker-experimenttrialcomponent-tagsitems-key
             '''
             result = self._values.get("key")
@@ -22468,8 +23772,7 @@ class CfnExperimentTrialComponent(
 
         @builtins.property
         def value(self) -> builtins.str:
-            '''The tag value.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-experimenttrialcomponent-tagsitems.html#cfn-sagemaker-experimenttrialcomponent-tagsitems-value
             '''
             result = self._values.get("value")
@@ -22515,13 +23818,13 @@ class CfnExperimentTrialComponentProps:
     ) -> None:
         '''Properties for defining a ``CfnExperimentTrialComponent``.
 
-        :param trial_component_name: The name of the trial component. The name must be unique in your AWS account and is not case-sensitive.
-        :param display_name: The name of the component as displayed. The name doesn't need to be unique. If DisplayName isn't specified, TrialComponentName is displayed.
-        :param end_time: When the component ended.
-        :param metadata_properties: Metadata properties of the tracking entity, trial, or trial component.
-        :param start_time: When the component started.
-        :param status: The status of the trial component.
-        :param tags: A list of tags to associate with the component.
+        :param trial_component_name: 
+        :param display_name: 
+        :param end_time: 
+        :param metadata_properties: 
+        :param start_time: 
+        :param status: 
+        :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html
         :exampleMetadata: fixture=_generated
@@ -22582,10 +23885,7 @@ class CfnExperimentTrialComponentProps:
 
     @builtins.property
     def trial_component_name(self) -> builtins.str:
-        '''The name of the trial component.
-
-        The name must be unique in your AWS account and is not case-sensitive.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html#cfn-sagemaker-experimenttrialcomponent-trialcomponentname
         '''
         result = self._values.get("trial_component_name")
@@ -22594,10 +23894,7 @@ class CfnExperimentTrialComponentProps:
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the component as displayed.
-
-        The name doesn't need to be unique. If DisplayName isn't specified, TrialComponentName is displayed.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html#cfn-sagemaker-experimenttrialcomponent-displayname
         '''
         result = self._values.get("display_name")
@@ -22605,8 +23902,7 @@ class CfnExperimentTrialComponentProps:
 
     @builtins.property
     def end_time(self) -> typing.Optional[builtins.str]:
-        '''When the component ended.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html#cfn-sagemaker-experimenttrialcomponent-endtime
         '''
         result = self._values.get("end_time")
@@ -22616,8 +23912,7 @@ class CfnExperimentTrialComponentProps:
     def metadata_properties(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentTrialComponent.MetadataPropertiesProperty"]]:
-        '''Metadata properties of the tracking entity, trial, or trial component.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html#cfn-sagemaker-experimenttrialcomponent-metadataproperties
         '''
         result = self._values.get("metadata_properties")
@@ -22625,8 +23920,7 @@ class CfnExperimentTrialComponentProps:
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''When the component started.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html#cfn-sagemaker-experimenttrialcomponent-starttime
         '''
         result = self._values.get("start_time")
@@ -22636,8 +23930,7 @@ class CfnExperimentTrialComponentProps:
     def status(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentTrialComponent.StatusProperty"]]:
-        '''The status of the trial component.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html#cfn-sagemaker-experimenttrialcomponent-status
         '''
         result = self._values.get("status")
@@ -22647,8 +23940,7 @@ class CfnExperimentTrialComponentProps:
     def tags(
         self,
     ) -> typing.Optional[typing.List["CfnExperimentTrialComponent.TagsItemsProperty"]]:
-        '''A list of tags to associate with the component.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-experimenttrialcomponent.html#cfn-sagemaker-experimenttrialcomponent-tags
         '''
         result = self._values.get("tags")
@@ -24509,6 +25801,363 @@ class CfnHubProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IHumanTaskUiRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnHumanTaskUi(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnHumanTaskUi",
+):
+    '''Resource Type definition for AWS::SageMaker::HumanTaskUi.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-humantaskui.html
+    :cloudformationResource: AWS::SageMaker::HumanTaskUi
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sagemaker as sagemaker
+        
+        cfn_human_task_ui = sagemaker.CfnHumanTaskUi(self, "MyCfnHumanTaskUi",
+            human_task_ui_name="humanTaskUiName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            ui_template=sagemaker.CfnHumanTaskUi.UiTemplateProperty(
+                content="content"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        human_task_ui_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ui_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHumanTaskUi.UiTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SageMaker::HumanTaskUi``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param human_task_ui_name: The name of the human task user interface.
+        :param tags: An array of key-value pairs that contain metadata to help you categorize and organize a human review workflow user interface.
+        :param ui_template: The Liquid template for the worker user interface.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8e44e53d556920a38cf52b5ef803c8cb587eea5938ebdbb04f7a3db9b42a8823)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnHumanTaskUiProps(
+            human_task_ui_name=human_task_ui_name, tags=tags, ui_template=ui_template
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForHumanTaskUi")
+    @builtins.classmethod
+    def arn_for_human_task_ui(
+        cls,
+        resource: "_aws_sagemaker_2f7a2e3e.IHumanTaskUiRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80858ecdf328468b15d1a2069dfd6bf20a2d23a79cd83bbf303e16d915fa783e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForHumanTaskUi", [resource]))
+
+    @jsii.member(jsii_name="isCfnHumanTaskUi")
+    @builtins.classmethod
+    def is_cfn_human_task_ui(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnHumanTaskUi.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__037303faa26ccaaee676f5febecb0927baa2d2ec9e7feab76f2a1d5dbf782bc4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnHumanTaskUi", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3e03cd32dc9c0358042a145fe5b235bad3ee3d9c65cb9a86308f1faa75eaaf46)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4cfe2e5d5f4eb766c0c0e85e0ec9fb124d45fed388393df39af1459744719cae)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The timestamp when the human task user interface was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrHumanTaskUiArn")
+    def attr_human_task_ui_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the human task user interface.
+
+        :cloudformationAttribute: HumanTaskUiArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrHumanTaskUiArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="humanTaskUiRef")
+    def human_task_ui_ref(self) -> "_aws_sagemaker_2f7a2e3e.HumanTaskUiReference":
+        '''A reference to a HumanTaskUi resource.'''
+        return typing.cast("_aws_sagemaker_2f7a2e3e.HumanTaskUiReference", jsii.get(self, "humanTaskUiRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="humanTaskUiName")
+    def human_task_ui_name(self) -> builtins.str:
+        '''The name of the human task user interface.'''
+        return typing.cast(builtins.str, jsii.get(self, "humanTaskUiName"))
+
+    @human_task_ui_name.setter
+    def human_task_ui_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d08db1f4c9cc3821513cc284e4d57c16454700a0158ff2b23eed13922c01e737)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "humanTaskUiName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs that contain metadata to help you categorize and organize a human review workflow user interface.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f4864736692ed75c9c9d6cd2c03a3ca9b25e2130fb1bd2825992fa51f8237875)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="uiTemplate")
+    def ui_template(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHumanTaskUi.UiTemplateProperty"]]:
+        '''The Liquid template for the worker user interface.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHumanTaskUi.UiTemplateProperty"]], jsii.get(self, "uiTemplate"))
+
+    @ui_template.setter
+    def ui_template(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHumanTaskUi.UiTemplateProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__92a5f63773320fbdb0ad63a7413cad142301a6e364823dbf4a4f429d4a350b0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "uiTemplate", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnHumanTaskUi.UiTemplateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"content": "content"},
+    )
+    class UiTemplateProperty:
+        def __init__(self, *, content: builtins.str) -> None:
+            '''The Liquid template for the worker user interface.
+
+            :param content: The content of the Liquid template for the worker user interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-humantaskui-uitemplate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                ui_template_property = sagemaker.CfnHumanTaskUi.UiTemplateProperty(
+                    content="content"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5ecc40f7f59256b4b6d1fe59f5491d842947c46aa20259f2c8295b26d1ac5476)
+                check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "content": content,
+            }
+
+        @builtins.property
+        def content(self) -> builtins.str:
+            '''The content of the Liquid template for the worker user interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-humantaskui-uitemplate.html#cfn-sagemaker-humantaskui-uitemplate-content
+            '''
+            result = self._values.get("content")
+            assert result is not None, "Required property 'content' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UiTemplateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnHumanTaskUiProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "human_task_ui_name": "humanTaskUiName",
+        "tags": "tags",
+        "ui_template": "uiTemplate",
+    },
+)
+class CfnHumanTaskUiProps:
+    def __init__(
+        self,
+        *,
+        human_task_ui_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ui_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHumanTaskUi.UiTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHumanTaskUi``.
+
+        :param human_task_ui_name: The name of the human task user interface.
+        :param tags: An array of key-value pairs that contain metadata to help you categorize and organize a human review workflow user interface.
+        :param ui_template: The Liquid template for the worker user interface.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-humantaskui.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sagemaker as sagemaker
+            
+            cfn_human_task_ui_props = sagemaker.CfnHumanTaskUiProps(
+                human_task_ui_name="humanTaskUiName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                ui_template=sagemaker.CfnHumanTaskUi.UiTemplateProperty(
+                    content="content"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fddcee7d8ead3650e78e1097bd0d9720da1d12434e10acb1ce2f483e81f71944)
+            check_type(argname="argument human_task_ui_name", value=human_task_ui_name, expected_type=type_hints["human_task_ui_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument ui_template", value=ui_template, expected_type=type_hints["ui_template"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "human_task_ui_name": human_task_ui_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+        if ui_template is not None:
+            self._values["ui_template"] = ui_template
+
+    @builtins.property
+    def human_task_ui_name(self) -> builtins.str:
+        '''The name of the human task user interface.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-humantaskui.html#cfn-sagemaker-humantaskui-humantaskuiname
+        '''
+        result = self._values.get("human_task_ui_name")
+        assert result is not None, "Required property 'human_task_ui_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs that contain metadata to help you categorize and organize a human review workflow user interface.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-humantaskui.html#cfn-sagemaker-humantaskui-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def ui_template(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHumanTaskUi.UiTemplateProperty"]]:
+        '''The Liquid template for the worker user interface.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-humantaskui.html#cfn-sagemaker-humantaskui-uitemplate
+        '''
+        result = self._values.get("ui_template")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHumanTaskUi.UiTemplateProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHumanTaskUiProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IImageRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnImage(
     _aws_cdk_0cae9daa.CfnResource,
@@ -25496,32 +27145,6 @@ class CfnInferenceComponent(
         
         cfn_inference_component = sagemaker.CfnInferenceComponent(self, "MyCfnInferenceComponent",
             endpoint_name="endpointName",
-            specification=sagemaker.CfnInferenceComponent.InferenceComponentSpecificationProperty(
-                base_inference_component_name="baseInferenceComponentName",
-                compute_resource_requirements=sagemaker.CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty(
-                    max_memory_required_in_mb=123,
-                    min_memory_required_in_mb=123,
-                    number_of_accelerator_devices_required=123,
-                    number_of_cpu_cores_required=123
-                ),
-                container=sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationProperty(
-                    artifact_url="artifactUrl",
-                    deployed_image=sagemaker.CfnInferenceComponent.DeployedImageProperty(
-                        resolution_time="resolutionTime",
-                        resolved_image="resolvedImage",
-                        specified_image="specifiedImage"
-                    ),
-                    environment={
-                        "environment_key": "environment"
-                    },
-                    image="image"
-                ),
-                model_name="modelName",
-                startup_parameters=sagemaker.CfnInferenceComponent.InferenceComponentStartupParametersProperty(
-                    container_startup_health_check_timeout_in_seconds=123,
-                    model_data_download_timeout_in_seconds=123
-                )
-            ),
         
             # the properties below are optional
             deployment_config=sagemaker.CfnInferenceComponent.InferenceComponentDeploymentConfigProperty(
@@ -25548,8 +27171,107 @@ class CfnInferenceComponent(
             runtime_config=sagemaker.CfnInferenceComponent.InferenceComponentRuntimeConfigProperty(
                 copy_count=123,
                 current_copy_count=123,
-                desired_copy_count=123
+                desired_copy_count=123,
+                placement_status=[sagemaker.CfnInferenceComponent.InferenceComponentPlacementStatusProperty(
+                    current_copy_count=123,
+                    instance_type="instanceType"
+                )]
             ),
+            specification=sagemaker.CfnInferenceComponent.InferenceComponentSpecificationProperty(
+                base_inference_component_name="baseInferenceComponentName",
+                compute_resource_requirements=sagemaker.CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty(
+                    max_memory_required_in_mb=123,
+                    min_memory_required_in_mb=123,
+                    number_of_accelerator_devices_required=123,
+                    number_of_cpu_cores_required=123
+                ),
+                container=sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationProperty(
+                    artifact_url="artifactUrl",
+                    container_metrics_config=sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                        metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                            metrics_endpoint_path="metricsEndpointPath",
+        
+                            # the properties below are optional
+                            metric_publish_frequency_in_seconds=123
+                        )]
+                    ),
+                    deployed_image=sagemaker.CfnInferenceComponent.DeployedImageProperty(
+                        resolution_time="resolutionTime",
+                        resolved_image="resolvedImage",
+                        specified_image="specifiedImage"
+                    ),
+                    environment={
+                        "environment_key": "environment"
+                    },
+                    image="image"
+                ),
+                current_data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                    enable_caching=False
+                ),
+                data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                    enable_caching=False
+                ),
+                model_name="modelName",
+                scheduling_config=sagemaker.CfnInferenceComponent.InferenceComponentSchedulingConfigProperty(
+                    availability_zone_balance=sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty(
+                        enforcement_mode="enforcementMode",
+        
+                        # the properties below are optional
+                        max_imbalance=123
+                    ),
+                    placement_strategy="placementStrategy"
+                ),
+                startup_parameters=sagemaker.CfnInferenceComponent.InferenceComponentStartupParametersProperty(
+                    container_startup_health_check_timeout_in_seconds=123,
+                    model_data_download_timeout_in_seconds=123
+                )
+            ),
+            specifications=[sagemaker.CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty(
+                instance_type="instanceType",
+        
+                # the properties below are optional
+                compute_resource_requirements=sagemaker.CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty(
+                    max_memory_required_in_mb=123,
+                    min_memory_required_in_mb=123,
+                    number_of_accelerator_devices_required=123,
+                    number_of_cpu_cores_required=123
+                ),
+                container=sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty(
+                    artifact_url="artifactUrl",
+                    container_metrics_config=sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                        metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                            metrics_endpoint_path="metricsEndpointPath",
+        
+                            # the properties below are optional
+                            metric_publish_frequency_in_seconds=123
+                        )]
+                    ),
+                    environment={
+                        "environment_key": "environment"
+                    },
+                    image="image"
+                ),
+                current_data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                    enable_caching=False
+                ),
+                data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                    enable_caching=False
+                ),
+                model_name="modelName",
+                scheduling_config=sagemaker.CfnInferenceComponent.InferenceComponentSchedulingConfigProperty(
+                    availability_zone_balance=sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty(
+                        enforcement_mode="enforcementMode",
+        
+                        # the properties below are optional
+                        max_imbalance=123
+                    ),
+                    placement_strategy="placementStrategy"
+                ),
+                startup_parameters=sagemaker.CfnInferenceComponent.InferenceComponentStartupParametersProperty(
+                    container_startup_health_check_timeout_in_seconds=123,
+                    model_data_download_timeout_in_seconds=123
+                )
+            )],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -25564,11 +27286,12 @@ class CfnInferenceComponent(
         id: builtins.str,
         *,
         endpoint_name: builtins.str,
-        specification: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
         deployment_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentDeploymentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         endpoint_arn: typing.Optional[builtins.str] = None,
         inference_component_name: typing.Optional[builtins.str] = None,
         runtime_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentRuntimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         variant_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -25577,11 +27300,12 @@ class CfnInferenceComponent(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param endpoint_name: The name of the endpoint that hosts the inference component.
-        :param specification: The specification for the inference component.
         :param deployment_config: The deployment configuration for an endpoint, which contains the desired deployment strategy and rollback configurations.
         :param endpoint_arn: The Amazon Resource Name (ARN) of the endpoint that hosts the inference component.
         :param inference_component_name: The name of the inference component.
         :param runtime_config: The runtime config for the inference component.
+        :param specification: The specification for the inference component, for an endpoint with a single instance type. Specify exactly one of Specification or Specifications. InstanceType is not accepted here; use Specifications for per instance type configuration.
+        :param specifications: A list of specification objects for the inference component, one per instance type. The service requires at least two entries; use the singular Specification for a single instance type.
         :param tags: An array of tags to apply to the resource.
         :param variant_name: The name of the production variant that hosts the inference component.
         '''
@@ -25591,11 +27315,12 @@ class CfnInferenceComponent(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInferenceComponentProps(
             endpoint_name=endpoint_name,
-            specification=specification,
             deployment_config=deployment_config,
             endpoint_arn=endpoint_arn,
             inference_component_name=inference_component_name,
             runtime_config=runtime_config,
+            specification=specification,
+            specifications=specifications,
             tags=tags,
             variant_name=variant_name,
         )
@@ -25722,6 +27447,15 @@ class CfnInferenceComponent(
         return typing.cast(jsii.Number, jsii.get(self, "attrRuntimeConfigDesiredCopyCount"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrRuntimeConfigPlacementStatus")
+    def attr_runtime_config_placement_status(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The placement status of the inference component across instance types.
+
+        :cloudformationAttribute: RuntimeConfig.PlacementStatus
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRuntimeConfigPlacementStatus"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrSpecificationContainerDeployedImage")
     def attr_specification_container_deployed_image(
         self,
@@ -25730,6 +27464,17 @@ class CfnInferenceComponent(
         :cloudformationAttribute: Specification.Container.DeployedImage
         '''
         return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrSpecificationContainerDeployedImage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSpecificationCurrentDataCacheConfig")
+    def attr_specification_current_data_cache_config(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Settings that affect how the inference component caches data.
+
+        :cloudformationAttribute: Specification.CurrentDataCacheConfig
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrSpecificationCurrentDataCacheConfig"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -25767,24 +27512,6 @@ class CfnInferenceComponent(
             type_hints = cached_type_hints(_typecheckingstub__b5da5a7b9146494fb112ee7d607f46334dc3051d93d50b77735f62bdd6ca326a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpointName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="specification")
-    def specification(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"]:
-        '''The specification for the inference component.'''
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"], jsii.get(self, "specification"))
-
-    @specification.setter
-    def specification(
-        self,
-        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__0adfcd5be0b7e042e0a87c6ccfbe4b53fc4803e5b7da8ad8951b7875f1bc187d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "specification", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="deploymentConfig")
@@ -25847,6 +27574,42 @@ class CfnInferenceComponent(
             type_hints = cached_type_hints(_typecheckingstub__4e7c351a25e5bcfa57adb1a6effe98407a73bd29e017ee9e9dea5d09a2106d9c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runtimeConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="specification")
+    def specification(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"]]:
+        '''The specification for the inference component, for an endpoint with a single instance type.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"]], jsii.get(self, "specification"))
+
+    @specification.setter
+    def specification(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0adfcd5be0b7e042e0a87c6ccfbe4b53fc4803e5b7da8ad8951b7875f1bc187d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "specification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="specifications")
+    def specifications(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty"]]]]:
+        '''A list of specification objects for the inference component, one per instance type.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty"]]]], jsii.get(self, "specifications"))
+
+    @specifications.setter
+    def specifications(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ba96f1f28ff58975a277c9d3378a4e328f02441d1db95d6fa26aa2c14043d81)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "specifications", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -25988,6 +27751,68 @@ class CfnInferenceComponent(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metrics_endpoints": "metricsEndpoints"},
+    )
+    class ContainerMetricsConfigProperty:
+        def __init__(
+            self,
+            *,
+            metrics_endpoints: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.MetricsEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The configuration for container metrics scraping.
+
+            :param metrics_endpoints: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-containermetricsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                container_metrics_config_property = sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                    metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                        metrics_endpoint_path="metricsEndpointPath",
+                
+                        # the properties below are optional
+                        metric_publish_frequency_in_seconds=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__95dbc759c2c99220695066a1aea602d6b44cd3f7ba986854ef6c94d6c6d8a094)
+                check_type(argname="argument metrics_endpoints", value=metrics_endpoints, expected_type=type_hints["metrics_endpoints"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metrics_endpoints": metrics_endpoints,
+            }
+
+        @builtins.property
+        def metrics_endpoints(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.MetricsEndpointProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-containermetricsconfig.html#cfn-sagemaker-inferencecomponent-containermetricsconfig-metricsendpoints
+            '''
+            result = self._values.get("metrics_endpoints")
+            assert result is not None, "Required property 'metrics_endpoints' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.MetricsEndpointProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContainerMetricsConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.DeployedImageProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -26075,6 +27900,81 @@ class CfnInferenceComponent(
 
         def __repr__(self) -> str:
             return "DeployedImageProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enforcement_mode": "enforcementMode",
+            "max_imbalance": "maxImbalance",
+        },
+    )
+    class InferenceComponentAvailabilityZoneBalanceProperty:
+        def __init__(
+            self,
+            *,
+            enforcement_mode: builtins.str,
+            max_imbalance: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configuration for balancing inference component copies across Availability Zones.
+
+            :param enforcement_mode: 
+            :param max_imbalance: The maximum allowed difference in the number of inference component copies between any two Availability Zones.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentavailabilityzonebalance.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                inference_component_availability_zone_balance_property = sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty(
+                    enforcement_mode="enforcementMode",
+                
+                    # the properties below are optional
+                    max_imbalance=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__048c6e4e847102af4565a6c339307a8c9e7718c33da122f08a68713755324207)
+                check_type(argname="argument enforcement_mode", value=enforcement_mode, expected_type=type_hints["enforcement_mode"])
+                check_type(argname="argument max_imbalance", value=max_imbalance, expected_type=type_hints["max_imbalance"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enforcement_mode": enforcement_mode,
+            }
+            if max_imbalance is not None:
+                self._values["max_imbalance"] = max_imbalance
+
+        @builtins.property
+        def enforcement_mode(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentavailabilityzonebalance.html#cfn-sagemaker-inferencecomponent-inferencecomponentavailabilityzonebalance-enforcementmode
+            '''
+            result = self._values.get("enforcement_mode")
+            assert result is not None, "Required property 'enforcement_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def max_imbalance(self) -> typing.Optional[jsii.Number]:
+            '''The maximum allowed difference in the number of inference component copies between any two Availability Zones.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentavailabilityzonebalance.html#cfn-sagemaker-inferencecomponent-inferencecomponentavailabilityzonebalance-maximbalance
+            '''
+            result = self._values.get("max_imbalance")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InferenceComponentAvailabilityZoneBalanceProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -26266,10 +28166,130 @@ class CfnInferenceComponent(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "artifact_url": "artifactUrl",
+            "container_metrics_config": "containerMetricsConfig",
+            "environment": "environment",
+            "image": "image",
+        },
+    )
+    class InferenceComponentContainerSpecificationForInstanceTypeProperty:
+        def __init__(
+            self,
+            *,
+            artifact_url: typing.Optional[builtins.str] = None,
+            container_metrics_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.ContainerMetricsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            image: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Container specification for one Specifications entry.
+
+            Distinct from InferenceComponentContainerSpecification: DescribeInferenceComponent returns no per-entry DeployedImage (VERIFIED in us-west-2), so DeployedImage is intentionally omitted here and this definition can never be aggregated into a plural READ response. The singular InferenceComponentContainerSpecification keeps DeployedImage - the service DOES return it there.
+
+            :param artifact_url: 
+            :param container_metrics_config: The configuration for container metrics scraping.
+            :param environment: Environment variables to specify on the container.
+            :param image: The image to use for the container that will be materialized for the inference component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                inference_component_container_specification_for_instance_type_property = sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty(
+                    artifact_url="artifactUrl",
+                    container_metrics_config=sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                        metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                            metrics_endpoint_path="metricsEndpointPath",
+                
+                            # the properties below are optional
+                            metric_publish_frequency_in_seconds=123
+                        )]
+                    ),
+                    environment={
+                        "environment_key": "environment"
+                    },
+                    image="image"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7ee42f1f15d134de011d0cab70b41e2deaacf8701d0a822f7bb4794dbb51c0d2)
+                check_type(argname="argument artifact_url", value=artifact_url, expected_type=type_hints["artifact_url"])
+                check_type(argname="argument container_metrics_config", value=container_metrics_config, expected_type=type_hints["container_metrics_config"])
+                check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+                check_type(argname="argument image", value=image, expected_type=type_hints["image"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if artifact_url is not None:
+                self._values["artifact_url"] = artifact_url
+            if container_metrics_config is not None:
+                self._values["container_metrics_config"] = container_metrics_config
+            if environment is not None:
+                self._values["environment"] = environment
+            if image is not None:
+                self._values["image"] = image
+
+        @builtins.property
+        def artifact_url(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype-artifacturl
+            '''
+            result = self._values.get("artifact_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def container_metrics_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.ContainerMetricsConfigProperty"]]:
+            '''The configuration for container metrics scraping.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype-containermetricsconfig
+            '''
+            result = self._values.get("container_metrics_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.ContainerMetricsConfigProperty"]], result)
+
+        @builtins.property
+        def environment(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Environment variables to specify on the container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype-environment
+            '''
+            result = self._values.get("environment")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def image(self) -> typing.Optional[builtins.str]:
+            '''The image to use for the container that will be materialized for the inference component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentcontainerspecificationforinstancetype-image
+            '''
+            result = self._values.get("image")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InferenceComponentContainerSpecificationForInstanceTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "artifact_url": "artifactUrl",
+            "container_metrics_config": "containerMetricsConfig",
             "deployed_image": "deployedImage",
             "environment": "environment",
             "image": "image",
@@ -26280,6 +28300,7 @@ class CfnInferenceComponent(
             self,
             *,
             artifact_url: typing.Optional[builtins.str] = None,
+            container_metrics_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.ContainerMetricsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             deployed_image: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.DeployedImageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             image: typing.Optional[builtins.str] = None,
@@ -26287,6 +28308,7 @@ class CfnInferenceComponent(
             '''Defines a container that provides the runtime environment for a model that you deploy with an inference component.
 
             :param artifact_url: The Amazon S3 path where the model artifacts, which result from model training, are stored. This path must point to a single gzip compressed tar archive (.tar.gz suffix).
+            :param container_metrics_config: The configuration for container metrics scraping.
             :param deployed_image: 
             :param environment: The environment variables to set in the Docker container. Each key and value in the Environment string-to-string map can have length of up to 1024. We support up to 16 entries in the map.
             :param image: The Amazon Elastic Container Registry (Amazon ECR) path where the Docker image for the model is stored.
@@ -26302,6 +28324,14 @@ class CfnInferenceComponent(
                 
                 inference_component_container_specification_property = sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationProperty(
                     artifact_url="artifactUrl",
+                    container_metrics_config=sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                        metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                            metrics_endpoint_path="metricsEndpointPath",
+                
+                            # the properties below are optional
+                            metric_publish_frequency_in_seconds=123
+                        )]
+                    ),
                     deployed_image=sagemaker.CfnInferenceComponent.DeployedImageProperty(
                         resolution_time="resolutionTime",
                         resolved_image="resolvedImage",
@@ -26316,12 +28346,15 @@ class CfnInferenceComponent(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__f5aed592935acb4ecc3dffe218101a8b9053d16d99e4a24219409fd2bd906fec)
                 check_type(argname="argument artifact_url", value=artifact_url, expected_type=type_hints["artifact_url"])
+                check_type(argname="argument container_metrics_config", value=container_metrics_config, expected_type=type_hints["container_metrics_config"])
                 check_type(argname="argument deployed_image", value=deployed_image, expected_type=type_hints["deployed_image"])
                 check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
                 check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if artifact_url is not None:
                 self._values["artifact_url"] = artifact_url
+            if container_metrics_config is not None:
+                self._values["container_metrics_config"] = container_metrics_config
             if deployed_image is not None:
                 self._values["deployed_image"] = deployed_image
             if environment is not None:
@@ -26339,6 +28372,17 @@ class CfnInferenceComponent(
             '''
             result = self._values.get("artifact_url")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def container_metrics_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.ContainerMetricsConfigProperty"]]:
+            '''The configuration for container metrics scraping.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentcontainerspecification.html#cfn-sagemaker-inferencecomponent-inferencecomponentcontainerspecification-containermetricsconfig
+            '''
+            result = self._values.get("container_metrics_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.ContainerMetricsConfigProperty"]], result)
 
         @builtins.property
         def deployed_image(
@@ -26380,6 +28424,64 @@ class CfnInferenceComponent(
 
         def __repr__(self) -> str:
             return "InferenceComponentContainerSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enable_caching": "enableCaching"},
+    )
+    class InferenceComponentDataCacheConfigProperty:
+        def __init__(
+            self,
+            *,
+            enable_caching: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''Settings that affect how the inference component caches data.
+
+            :param enable_caching: Whether the endpoint caches the model artifacts and container image on each instance it provisions for the inference component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentdatacacheconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                inference_component_data_cache_config_property = sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                    enable_caching=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__97ff5fe53a11dd7ff0a771f23b3e3f2d86719029e7e8647afeb6c3adc9c9b518)
+                check_type(argname="argument enable_caching", value=enable_caching, expected_type=type_hints["enable_caching"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enable_caching": enable_caching,
+            }
+
+        @builtins.property
+        def enable_caching(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether the endpoint caches the model artifacts and container image on each instance it provisions for the inference component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentdatacacheconfig.html#cfn-sagemaker-inferencecomponent-inferencecomponentdatacacheconfig-enablecaching
+            '''
+            result = self._values.get("enable_caching")
+            assert result is not None, "Required property 'enable_caching' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InferenceComponentDataCacheConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -26473,6 +28575,80 @@ class CfnInferenceComponent(
 
         def __repr__(self) -> str:
             return "InferenceComponentDeploymentConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.InferenceComponentPlacementStatusProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "current_copy_count": "currentCopyCount",
+            "instance_type": "instanceType",
+        },
+    )
+    class InferenceComponentPlacementStatusProperty:
+        def __init__(
+            self,
+            *,
+            current_copy_count: jsii.Number,
+            instance_type: builtins.str,
+        ) -> None:
+            '''The number of inference component copies currently placed on instances of a given type.
+
+            :param current_copy_count: The number of copies for the inference component.
+            :param instance_type: An ML compute instance type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentplacementstatus.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                inference_component_placement_status_property = sagemaker.CfnInferenceComponent.InferenceComponentPlacementStatusProperty(
+                    current_copy_count=123,
+                    instance_type="instanceType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__847e8f58947706d3481edecf55c090242e631764c16ce9dc98ad2fac6fe7b8e9)
+                check_type(argname="argument current_copy_count", value=current_copy_count, expected_type=type_hints["current_copy_count"])
+                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "current_copy_count": current_copy_count,
+                "instance_type": instance_type,
+            }
+
+        @builtins.property
+        def current_copy_count(self) -> jsii.Number:
+            '''The number of copies for the inference component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentplacementstatus.html#cfn-sagemaker-inferencecomponent-inferencecomponentplacementstatus-currentcopycount
+            '''
+            result = self._values.get("current_copy_count")
+            assert result is not None, "Required property 'current_copy_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def instance_type(self) -> builtins.str:
+            '''An ML compute instance type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentplacementstatus.html#cfn-sagemaker-inferencecomponent-inferencecomponentplacementstatus-instancetype
+            '''
+            result = self._values.get("instance_type")
+            assert result is not None, "Required property 'instance_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InferenceComponentPlacementStatusProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -26604,6 +28780,7 @@ class CfnInferenceComponent(
             "copy_count": "copyCount",
             "current_copy_count": "currentCopyCount",
             "desired_copy_count": "desiredCopyCount",
+            "placement_status": "placementStatus",
         },
     )
     class InferenceComponentRuntimeConfigProperty:
@@ -26613,12 +28790,14 @@ class CfnInferenceComponent(
             copy_count: typing.Optional[jsii.Number] = None,
             current_copy_count: typing.Optional[jsii.Number] = None,
             desired_copy_count: typing.Optional[jsii.Number] = None,
+            placement_status: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentPlacementStatusProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Runtime settings for a model that is deployed with an inference component.
 
             :param copy_count: The number of runtime copies of the model container to deploy with the inference component. Each copy can serve inference requests.
             :param current_copy_count: The number of runtime copies of the model container that are currently deployed.
             :param desired_copy_count: The number of runtime copies of the model container that you requested to deploy with the inference component.
+            :param placement_status: The placement status of the inference component across instance types.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentruntimeconfig.html
             :exampleMetadata: fixture=_generated
@@ -26632,7 +28811,11 @@ class CfnInferenceComponent(
                 inference_component_runtime_config_property = sagemaker.CfnInferenceComponent.InferenceComponentRuntimeConfigProperty(
                     copy_count=123,
                     current_copy_count=123,
-                    desired_copy_count=123
+                    desired_copy_count=123,
+                    placement_status=[sagemaker.CfnInferenceComponent.InferenceComponentPlacementStatusProperty(
+                        current_copy_count=123,
+                        instance_type="instanceType"
+                    )]
                 )
             '''
             if __debug__:
@@ -26640,6 +28823,7 @@ class CfnInferenceComponent(
                 check_type(argname="argument copy_count", value=copy_count, expected_type=type_hints["copy_count"])
                 check_type(argname="argument current_copy_count", value=current_copy_count, expected_type=type_hints["current_copy_count"])
                 check_type(argname="argument desired_copy_count", value=desired_copy_count, expected_type=type_hints["desired_copy_count"])
+                check_type(argname="argument placement_status", value=placement_status, expected_type=type_hints["placement_status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if copy_count is not None:
                 self._values["copy_count"] = copy_count
@@ -26647,6 +28831,8 @@ class CfnInferenceComponent(
                 self._values["current_copy_count"] = current_copy_count
             if desired_copy_count is not None:
                 self._values["desired_copy_count"] = desired_copy_count
+            if placement_status is not None:
+                self._values["placement_status"] = placement_status
 
         @builtins.property
         def copy_count(self) -> typing.Optional[jsii.Number]:
@@ -26677,6 +28863,17 @@ class CfnInferenceComponent(
             result = self._values.get("desired_copy_count")
             return typing.cast(typing.Optional[jsii.Number], result)
 
+        @builtins.property
+        def placement_status(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentPlacementStatusProperty"]]]]:
+            '''The placement status of the inference component across instance types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentruntimeconfig.html#cfn-sagemaker-inferencecomponent-inferencecomponentruntimeconfig-placementstatus
+            '''
+            result = self._values.get("placement_status")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentPlacementStatusProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -26689,13 +28886,316 @@ class CfnInferenceComponent(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.InferenceComponentSchedulingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "availability_zone_balance": "availabilityZoneBalance",
+            "placement_strategy": "placementStrategy",
+        },
+    )
+    class InferenceComponentSchedulingConfigProperty:
+        def __init__(
+            self,
+            *,
+            availability_zone_balance: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty", typing.Dict[builtins.str, typing.Any]]],
+            placement_strategy: builtins.str,
+        ) -> None:
+            '''The scheduling configuration that determines how inference component copies are placed across available instances.
+
+            :param availability_zone_balance: Configuration for balancing inference component copies across Availability Zones.
+            :param placement_strategy: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentschedulingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                inference_component_scheduling_config_property = sagemaker.CfnInferenceComponent.InferenceComponentSchedulingConfigProperty(
+                    availability_zone_balance=sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty(
+                        enforcement_mode="enforcementMode",
+                
+                        # the properties below are optional
+                        max_imbalance=123
+                    ),
+                    placement_strategy="placementStrategy"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__db7e4ef3a90f8e1fd6cbf141deb64a8fda217f74d3ad0da1ec9a5c36ae1613fe)
+                check_type(argname="argument availability_zone_balance", value=availability_zone_balance, expected_type=type_hints["availability_zone_balance"])
+                check_type(argname="argument placement_strategy", value=placement_strategy, expected_type=type_hints["placement_strategy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "availability_zone_balance": availability_zone_balance,
+                "placement_strategy": placement_strategy,
+            }
+
+        @builtins.property
+        def availability_zone_balance(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty"]:
+            '''Configuration for balancing inference component copies across Availability Zones.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentschedulingconfig.html#cfn-sagemaker-inferencecomponent-inferencecomponentschedulingconfig-availabilityzonebalance
+            '''
+            result = self._values.get("availability_zone_balance")
+            assert result is not None, "Required property 'availability_zone_balance' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty"], result)
+
+        @builtins.property
+        def placement_strategy(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentschedulingconfig.html#cfn-sagemaker-inferencecomponent-inferencecomponentschedulingconfig-placementstrategy
+            '''
+            result = self._values.get("placement_strategy")
+            assert result is not None, "Required property 'placement_strategy' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InferenceComponentSchedulingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "instance_type": "instanceType",
+            "compute_resource_requirements": "computeResourceRequirements",
+            "container": "container",
+            "current_data_cache_config": "currentDataCacheConfig",
+            "data_cache_config": "dataCacheConfig",
+            "model_name": "modelName",
+            "scheduling_config": "schedulingConfig",
+            "startup_parameters": "startupParameters",
+        },
+    )
+    class InferenceComponentSpecificationForInstanceTypeProperty:
+        def __init__(
+            self,
+            *,
+            instance_type: builtins.str,
+            compute_resource_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            current_data_cache_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentDataCacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_cache_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentDataCacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            model_name: typing.Optional[builtins.str] = None,
+            scheduling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentSchedulingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            startup_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentStartupParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A specification for one instance type, for use in Specifications.
+
+            InstanceType is required here, and is not accepted on the singular Specification. BaseInferenceComponentName is not accepted here either: adapter inference components are supported only on the singular Specification.
+
+            :param instance_type: An ML compute instance type.
+            :param compute_resource_requirements: 
+            :param container: Container specification for one Specifications entry. Distinct from InferenceComponentContainerSpecification: DescribeInferenceComponent returns no per-entry DeployedImage (VERIFIED in us-west-2), so DeployedImage is intentionally omitted here and this definition can never be aggregated into a plural READ response. The singular InferenceComponentContainerSpecification keeps DeployedImage - the service DOES return it there.
+            :param current_data_cache_config: Settings that affect how the inference component caches data.
+            :param data_cache_config: Settings that affect how the inference component caches data.
+            :param model_name: The name of the model to use with the inference component.
+            :param scheduling_config: The scheduling configuration that determines how inference component copies are placed across available instances.
+            :param startup_parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                inference_component_specification_for_instance_type_property = sagemaker.CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty(
+                    instance_type="instanceType",
+                
+                    # the properties below are optional
+                    compute_resource_requirements=sagemaker.CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty(
+                        max_memory_required_in_mb=123,
+                        min_memory_required_in_mb=123,
+                        number_of_accelerator_devices_required=123,
+                        number_of_cpu_cores_required=123
+                    ),
+                    container=sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty(
+                        artifact_url="artifactUrl",
+                        container_metrics_config=sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                            metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                                metrics_endpoint_path="metricsEndpointPath",
+                
+                                # the properties below are optional
+                                metric_publish_frequency_in_seconds=123
+                            )]
+                        ),
+                        environment={
+                            "environment_key": "environment"
+                        },
+                        image="image"
+                    ),
+                    current_data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                        enable_caching=False
+                    ),
+                    data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                        enable_caching=False
+                    ),
+                    model_name="modelName",
+                    scheduling_config=sagemaker.CfnInferenceComponent.InferenceComponentSchedulingConfigProperty(
+                        availability_zone_balance=sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty(
+                            enforcement_mode="enforcementMode",
+                
+                            # the properties below are optional
+                            max_imbalance=123
+                        ),
+                        placement_strategy="placementStrategy"
+                    ),
+                    startup_parameters=sagemaker.CfnInferenceComponent.InferenceComponentStartupParametersProperty(
+                        container_startup_health_check_timeout_in_seconds=123,
+                        model_data_download_timeout_in_seconds=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c44a0dfefb49f0bca2f657c8fd88c6c87d4c180ae24be230f683afd767e893f4)
+                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+                check_type(argname="argument compute_resource_requirements", value=compute_resource_requirements, expected_type=type_hints["compute_resource_requirements"])
+                check_type(argname="argument container", value=container, expected_type=type_hints["container"])
+                check_type(argname="argument current_data_cache_config", value=current_data_cache_config, expected_type=type_hints["current_data_cache_config"])
+                check_type(argname="argument data_cache_config", value=data_cache_config, expected_type=type_hints["data_cache_config"])
+                check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
+                check_type(argname="argument scheduling_config", value=scheduling_config, expected_type=type_hints["scheduling_config"])
+                check_type(argname="argument startup_parameters", value=startup_parameters, expected_type=type_hints["startup_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "instance_type": instance_type,
+            }
+            if compute_resource_requirements is not None:
+                self._values["compute_resource_requirements"] = compute_resource_requirements
+            if container is not None:
+                self._values["container"] = container
+            if current_data_cache_config is not None:
+                self._values["current_data_cache_config"] = current_data_cache_config
+            if data_cache_config is not None:
+                self._values["data_cache_config"] = data_cache_config
+            if model_name is not None:
+                self._values["model_name"] = model_name
+            if scheduling_config is not None:
+                self._values["scheduling_config"] = scheduling_config
+            if startup_parameters is not None:
+                self._values["startup_parameters"] = startup_parameters
+
+        @builtins.property
+        def instance_type(self) -> builtins.str:
+            '''An ML compute instance type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype-instancetype
+            '''
+            result = self._values.get("instance_type")
+            assert result is not None, "Required property 'instance_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def compute_resource_requirements(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype-computeresourcerequirements
+            '''
+            result = self._values.get("compute_resource_requirements")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty"]], result)
+
+        @builtins.property
+        def container(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty"]]:
+            '''Container specification for one Specifications entry.
+
+            Distinct from InferenceComponentContainerSpecification: DescribeInferenceComponent returns no per-entry DeployedImage (VERIFIED in us-west-2), so DeployedImage is intentionally omitted here and this definition can never be aggregated into a plural READ response. The singular InferenceComponentContainerSpecification keeps DeployedImage - the service DOES return it there.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype-container
+            '''
+            result = self._values.get("container")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty"]], result)
+
+        @builtins.property
+        def current_data_cache_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentDataCacheConfigProperty"]]:
+            '''Settings that affect how the inference component caches data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype-currentdatacacheconfig
+            '''
+            result = self._values.get("current_data_cache_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentDataCacheConfigProperty"]], result)
+
+        @builtins.property
+        def data_cache_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentDataCacheConfigProperty"]]:
+            '''Settings that affect how the inference component caches data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype-datacacheconfig
+            '''
+            result = self._values.get("data_cache_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentDataCacheConfigProperty"]], result)
+
+        @builtins.property
+        def model_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the model to use with the inference component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype-modelname
+            '''
+            result = self._values.get("model_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scheduling_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSchedulingConfigProperty"]]:
+            '''The scheduling configuration that determines how inference component copies are placed across available instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype-schedulingconfig
+            '''
+            result = self._values.get("scheduling_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSchedulingConfigProperty"]], result)
+
+        @builtins.property
+        def startup_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentStartupParametersProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecificationforinstancetype-startupparameters
+            '''
+            result = self._values.get("startup_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentStartupParametersProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InferenceComponentSpecificationForInstanceTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.InferenceComponentSpecificationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "base_inference_component_name": "baseInferenceComponentName",
             "compute_resource_requirements": "computeResourceRequirements",
             "container": "container",
+            "current_data_cache_config": "currentDataCacheConfig",
+            "data_cache_config": "dataCacheConfig",
             "model_name": "modelName",
+            "scheduling_config": "schedulingConfig",
             "startup_parameters": "startupParameters",
         },
     )
@@ -26706,7 +29206,10 @@ class CfnInferenceComponent(
             base_inference_component_name: typing.Optional[builtins.str] = None,
             compute_resource_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             container: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentContainerSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            current_data_cache_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentDataCacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_cache_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentDataCacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             model_name: typing.Optional[builtins.str] = None,
+            scheduling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentSchedulingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             startup_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentStartupParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Details about the resources to deploy with this inference component, including the model, container, and compute resources.
@@ -26714,7 +29217,10 @@ class CfnInferenceComponent(
             :param base_inference_component_name: The name of an existing inference component that is to contain the inference component that you're creating with your request. Specify this parameter only if your request is meant to create an adapter inference component. An adapter inference component contains the path to an adapter model. The purpose of the adapter model is to tailor the inference output of a base foundation model, which is hosted by the base inference component. The adapter inference component uses the compute resources that you assigned to the base inference component. When you create an adapter inference component, use the ``Container`` parameter to specify the location of the adapter artifacts. In the parameter value, use the ``ArtifactUrl`` parameter of the ``InferenceComponentContainerSpecification`` data type. Before you can create an adapter inference component, you must have an existing inference component that contains the foundation model that you want to adapt.
             :param compute_resource_requirements: The compute resources allocated to run the model, plus any adapter models, that you assign to the inference component. Omit this parameter if your request is meant to create an adapter inference component. An adapter inference component is loaded by a base inference component, and it uses the compute resources of the base inference component.
             :param container: Defines a container that provides the runtime environment for a model that you deploy with an inference component.
+            :param current_data_cache_config: Settings that affect how the inference component caches data.
+            :param data_cache_config: Settings that affect how the inference component caches data.
             :param model_name: The name of an existing SageMaker AI model object in your account that you want to deploy with the inference component.
+            :param scheduling_config: The scheduling configuration that determines how inference component copies are placed across available instances.
             :param startup_parameters: Settings that take effect while the model container starts up.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecification.html
@@ -26736,6 +29242,14 @@ class CfnInferenceComponent(
                     ),
                     container=sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationProperty(
                         artifact_url="artifactUrl",
+                        container_metrics_config=sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                            metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                                metrics_endpoint_path="metricsEndpointPath",
+                
+                                # the properties below are optional
+                                metric_publish_frequency_in_seconds=123
+                            )]
+                        ),
                         deployed_image=sagemaker.CfnInferenceComponent.DeployedImageProperty(
                             resolution_time="resolutionTime",
                             resolved_image="resolvedImage",
@@ -26746,7 +29260,22 @@ class CfnInferenceComponent(
                         },
                         image="image"
                     ),
+                    current_data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                        enable_caching=False
+                    ),
+                    data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                        enable_caching=False
+                    ),
                     model_name="modelName",
+                    scheduling_config=sagemaker.CfnInferenceComponent.InferenceComponentSchedulingConfigProperty(
+                        availability_zone_balance=sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty(
+                            enforcement_mode="enforcementMode",
+                
+                            # the properties below are optional
+                            max_imbalance=123
+                        ),
+                        placement_strategy="placementStrategy"
+                    ),
                     startup_parameters=sagemaker.CfnInferenceComponent.InferenceComponentStartupParametersProperty(
                         container_startup_health_check_timeout_in_seconds=123,
                         model_data_download_timeout_in_seconds=123
@@ -26758,7 +29287,10 @@ class CfnInferenceComponent(
                 check_type(argname="argument base_inference_component_name", value=base_inference_component_name, expected_type=type_hints["base_inference_component_name"])
                 check_type(argname="argument compute_resource_requirements", value=compute_resource_requirements, expected_type=type_hints["compute_resource_requirements"])
                 check_type(argname="argument container", value=container, expected_type=type_hints["container"])
+                check_type(argname="argument current_data_cache_config", value=current_data_cache_config, expected_type=type_hints["current_data_cache_config"])
+                check_type(argname="argument data_cache_config", value=data_cache_config, expected_type=type_hints["data_cache_config"])
                 check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
+                check_type(argname="argument scheduling_config", value=scheduling_config, expected_type=type_hints["scheduling_config"])
                 check_type(argname="argument startup_parameters", value=startup_parameters, expected_type=type_hints["startup_parameters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if base_inference_component_name is not None:
@@ -26767,8 +29299,14 @@ class CfnInferenceComponent(
                 self._values["compute_resource_requirements"] = compute_resource_requirements
             if container is not None:
                 self._values["container"] = container
+            if current_data_cache_config is not None:
+                self._values["current_data_cache_config"] = current_data_cache_config
+            if data_cache_config is not None:
+                self._values["data_cache_config"] = data_cache_config
             if model_name is not None:
                 self._values["model_name"] = model_name
+            if scheduling_config is not None:
+                self._values["scheduling_config"] = scheduling_config
             if startup_parameters is not None:
                 self._values["startup_parameters"] = startup_parameters
 
@@ -26812,6 +29350,28 @@ class CfnInferenceComponent(
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentContainerSpecificationProperty"]], result)
 
         @builtins.property
+        def current_data_cache_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentDataCacheConfigProperty"]]:
+            '''Settings that affect how the inference component caches data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecification.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecification-currentdatacacheconfig
+            '''
+            result = self._values.get("current_data_cache_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentDataCacheConfigProperty"]], result)
+
+        @builtins.property
+        def data_cache_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentDataCacheConfigProperty"]]:
+            '''Settings that affect how the inference component caches data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecification.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecification-datacacheconfig
+            '''
+            result = self._values.get("data_cache_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentDataCacheConfigProperty"]], result)
+
+        @builtins.property
         def model_name(self) -> typing.Optional[builtins.str]:
             '''The name of an existing SageMaker AI model object in your account that you want to deploy with the inference component.
 
@@ -26819,6 +29379,17 @@ class CfnInferenceComponent(
             '''
             result = self._values.get("model_name")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scheduling_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSchedulingConfigProperty"]]:
+            '''The scheduling configuration that determines how inference component copies are placed across available instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentspecification.html#cfn-sagemaker-inferencecomponent-inferencecomponentspecification-schedulingconfig
+            '''
+            result = self._values.get("scheduling_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSchedulingConfigProperty"]], result)
 
         @builtins.property
         def startup_parameters(
@@ -26921,17 +29492,96 @@ class CfnInferenceComponent(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponent.MetricsEndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "metrics_endpoint_path": "metricsEndpointPath",
+            "metric_publish_frequency_in_seconds": "metricPublishFrequencyInSeconds",
+        },
+    )
+    class MetricsEndpointProperty:
+        def __init__(
+            self,
+            *,
+            metrics_endpoint_path: builtins.str,
+            metric_publish_frequency_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''A metrics endpoint exposed by the container.
+
+            :param metrics_endpoint_path: The path to the Prometheus formatted metrics endpoint exposed by the container.
+            :param metric_publish_frequency_in_seconds: The interval, in seconds, at which container metrics scraped from the endpoint are published to Amazon CloudWatch. Valid values per the SageMaker API Reference are 10, 30, 60, 120, 180, 240 and 300; the service validates the value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-metricsendpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                metrics_endpoint_property = sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                    metrics_endpoint_path="metricsEndpointPath",
+                
+                    # the properties below are optional
+                    metric_publish_frequency_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__03d58a78ecf31403386cf7c7d8eec49b9363d1fc4b77db7de6360b06e66dea15)
+                check_type(argname="argument metrics_endpoint_path", value=metrics_endpoint_path, expected_type=type_hints["metrics_endpoint_path"])
+                check_type(argname="argument metric_publish_frequency_in_seconds", value=metric_publish_frequency_in_seconds, expected_type=type_hints["metric_publish_frequency_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metrics_endpoint_path": metrics_endpoint_path,
+            }
+            if metric_publish_frequency_in_seconds is not None:
+                self._values["metric_publish_frequency_in_seconds"] = metric_publish_frequency_in_seconds
+
+        @builtins.property
+        def metrics_endpoint_path(self) -> builtins.str:
+            '''The path to the Prometheus formatted metrics endpoint exposed by the container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-metricsendpoint.html#cfn-sagemaker-inferencecomponent-metricsendpoint-metricsendpointpath
+            '''
+            result = self._values.get("metrics_endpoint_path")
+            assert result is not None, "Required property 'metrics_endpoint_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def metric_publish_frequency_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The interval, in seconds, at which container metrics scraped from the endpoint are published to Amazon CloudWatch.
+
+            Valid values per the SageMaker API Reference are 10, 30, 60, 120, 180, 240 and 300; the service validates the value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-metricsendpoint.html#cfn-sagemaker-inferencecomponent-metricsendpoint-metricpublishfrequencyinseconds
+            '''
+            result = self._values.get("metric_publish_frequency_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricsEndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_sagemaker.CfnInferenceComponentProps",
     jsii_struct_bases=[],
     name_mapping={
         "endpoint_name": "endpointName",
-        "specification": "specification",
         "deployment_config": "deploymentConfig",
         "endpoint_arn": "endpointArn",
         "inference_component_name": "inferenceComponentName",
         "runtime_config": "runtimeConfig",
+        "specification": "specification",
+        "specifications": "specifications",
         "tags": "tags",
         "variant_name": "variantName",
     },
@@ -26941,22 +29591,24 @@ class CfnInferenceComponentProps:
         self,
         *,
         endpoint_name: builtins.str,
-        specification: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
         deployment_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentDeploymentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         endpoint_arn: typing.Optional[builtins.str] = None,
         inference_component_name: typing.Optional[builtins.str] = None,
         runtime_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentRuntimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         variant_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnInferenceComponent``.
 
         :param endpoint_name: The name of the endpoint that hosts the inference component.
-        :param specification: The specification for the inference component.
         :param deployment_config: The deployment configuration for an endpoint, which contains the desired deployment strategy and rollback configurations.
         :param endpoint_arn: The Amazon Resource Name (ARN) of the endpoint that hosts the inference component.
         :param inference_component_name: The name of the inference component.
         :param runtime_config: The runtime config for the inference component.
+        :param specification: The specification for the inference component, for an endpoint with a single instance type. Specify exactly one of Specification or Specifications. InstanceType is not accepted here; use Specifications for per instance type configuration.
+        :param specifications: A list of specification objects for the inference component, one per instance type. The service requires at least two entries; use the singular Specification for a single instance type.
         :param tags: An array of tags to apply to the resource.
         :param variant_name: The name of the production variant that hosts the inference component.
 
@@ -26972,32 +29624,6 @@ class CfnInferenceComponentProps:
             
             cfn_inference_component_props = sagemaker.CfnInferenceComponentProps(
                 endpoint_name="endpointName",
-                specification=sagemaker.CfnInferenceComponent.InferenceComponentSpecificationProperty(
-                    base_inference_component_name="baseInferenceComponentName",
-                    compute_resource_requirements=sagemaker.CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty(
-                        max_memory_required_in_mb=123,
-                        min_memory_required_in_mb=123,
-                        number_of_accelerator_devices_required=123,
-                        number_of_cpu_cores_required=123
-                    ),
-                    container=sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationProperty(
-                        artifact_url="artifactUrl",
-                        deployed_image=sagemaker.CfnInferenceComponent.DeployedImageProperty(
-                            resolution_time="resolutionTime",
-                            resolved_image="resolvedImage",
-                            specified_image="specifiedImage"
-                        ),
-                        environment={
-                            "environment_key": "environment"
-                        },
-                        image="image"
-                    ),
-                    model_name="modelName",
-                    startup_parameters=sagemaker.CfnInferenceComponent.InferenceComponentStartupParametersProperty(
-                        container_startup_health_check_timeout_in_seconds=123,
-                        model_data_download_timeout_in_seconds=123
-                    )
-                ),
             
                 # the properties below are optional
                 deployment_config=sagemaker.CfnInferenceComponent.InferenceComponentDeploymentConfigProperty(
@@ -27024,8 +29650,107 @@ class CfnInferenceComponentProps:
                 runtime_config=sagemaker.CfnInferenceComponent.InferenceComponentRuntimeConfigProperty(
                     copy_count=123,
                     current_copy_count=123,
-                    desired_copy_count=123
+                    desired_copy_count=123,
+                    placement_status=[sagemaker.CfnInferenceComponent.InferenceComponentPlacementStatusProperty(
+                        current_copy_count=123,
+                        instance_type="instanceType"
+                    )]
                 ),
+                specification=sagemaker.CfnInferenceComponent.InferenceComponentSpecificationProperty(
+                    base_inference_component_name="baseInferenceComponentName",
+                    compute_resource_requirements=sagemaker.CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty(
+                        max_memory_required_in_mb=123,
+                        min_memory_required_in_mb=123,
+                        number_of_accelerator_devices_required=123,
+                        number_of_cpu_cores_required=123
+                    ),
+                    container=sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationProperty(
+                        artifact_url="artifactUrl",
+                        container_metrics_config=sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                            metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                                metrics_endpoint_path="metricsEndpointPath",
+            
+                                # the properties below are optional
+                                metric_publish_frequency_in_seconds=123
+                            )]
+                        ),
+                        deployed_image=sagemaker.CfnInferenceComponent.DeployedImageProperty(
+                            resolution_time="resolutionTime",
+                            resolved_image="resolvedImage",
+                            specified_image="specifiedImage"
+                        ),
+                        environment={
+                            "environment_key": "environment"
+                        },
+                        image="image"
+                    ),
+                    current_data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                        enable_caching=False
+                    ),
+                    data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                        enable_caching=False
+                    ),
+                    model_name="modelName",
+                    scheduling_config=sagemaker.CfnInferenceComponent.InferenceComponentSchedulingConfigProperty(
+                        availability_zone_balance=sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty(
+                            enforcement_mode="enforcementMode",
+            
+                            # the properties below are optional
+                            max_imbalance=123
+                        ),
+                        placement_strategy="placementStrategy"
+                    ),
+                    startup_parameters=sagemaker.CfnInferenceComponent.InferenceComponentStartupParametersProperty(
+                        container_startup_health_check_timeout_in_seconds=123,
+                        model_data_download_timeout_in_seconds=123
+                    )
+                ),
+                specifications=[sagemaker.CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty(
+                    instance_type="instanceType",
+            
+                    # the properties below are optional
+                    compute_resource_requirements=sagemaker.CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty(
+                        max_memory_required_in_mb=123,
+                        min_memory_required_in_mb=123,
+                        number_of_accelerator_devices_required=123,
+                        number_of_cpu_cores_required=123
+                    ),
+                    container=sagemaker.CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty(
+                        artifact_url="artifactUrl",
+                        container_metrics_config=sagemaker.CfnInferenceComponent.ContainerMetricsConfigProperty(
+                            metrics_endpoints=[sagemaker.CfnInferenceComponent.MetricsEndpointProperty(
+                                metrics_endpoint_path="metricsEndpointPath",
+            
+                                # the properties below are optional
+                                metric_publish_frequency_in_seconds=123
+                            )]
+                        ),
+                        environment={
+                            "environment_key": "environment"
+                        },
+                        image="image"
+                    ),
+                    current_data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                        enable_caching=False
+                    ),
+                    data_cache_config=sagemaker.CfnInferenceComponent.InferenceComponentDataCacheConfigProperty(
+                        enable_caching=False
+                    ),
+                    model_name="modelName",
+                    scheduling_config=sagemaker.CfnInferenceComponent.InferenceComponentSchedulingConfigProperty(
+                        availability_zone_balance=sagemaker.CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty(
+                            enforcement_mode="enforcementMode",
+            
+                            # the properties below are optional
+                            max_imbalance=123
+                        ),
+                        placement_strategy="placementStrategy"
+                    ),
+                    startup_parameters=sagemaker.CfnInferenceComponent.InferenceComponentStartupParametersProperty(
+                        container_startup_health_check_timeout_in_seconds=123,
+                        model_data_download_timeout_in_seconds=123
+                    )
+                )],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -27036,16 +29761,16 @@ class CfnInferenceComponentProps:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3926edf39d044760bb8195e9466dfa81ab70056fcc1e3a9053c6c3d90bcaaafa)
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
-            check_type(argname="argument specification", value=specification, expected_type=type_hints["specification"])
             check_type(argname="argument deployment_config", value=deployment_config, expected_type=type_hints["deployment_config"])
             check_type(argname="argument endpoint_arn", value=endpoint_arn, expected_type=type_hints["endpoint_arn"])
             check_type(argname="argument inference_component_name", value=inference_component_name, expected_type=type_hints["inference_component_name"])
             check_type(argname="argument runtime_config", value=runtime_config, expected_type=type_hints["runtime_config"])
+            check_type(argname="argument specification", value=specification, expected_type=type_hints["specification"])
+            check_type(argname="argument specifications", value=specifications, expected_type=type_hints["specifications"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument variant_name", value=variant_name, expected_type=type_hints["variant_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "endpoint_name": endpoint_name,
-            "specification": specification,
         }
         if deployment_config is not None:
             self._values["deployment_config"] = deployment_config
@@ -27055,6 +29780,10 @@ class CfnInferenceComponentProps:
             self._values["inference_component_name"] = inference_component_name
         if runtime_config is not None:
             self._values["runtime_config"] = runtime_config
+        if specification is not None:
+            self._values["specification"] = specification
+        if specifications is not None:
+            self._values["specifications"] = specifications
         if tags is not None:
             self._values["tags"] = tags
         if variant_name is not None:
@@ -27069,18 +29798,6 @@ class CfnInferenceComponentProps:
         result = self._values.get("endpoint_name")
         assert result is not None, "Required property 'endpoint_name' is missing"
         return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def specification(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"]:
-        '''The specification for the inference component.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-inferencecomponent.html#cfn-sagemaker-inferencecomponent-specification
-        '''
-        result = self._values.get("specification")
-        assert result is not None, "Required property 'specification' is missing"
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"], result)
 
     @builtins.property
     def deployment_config(
@@ -27121,6 +29838,32 @@ class CfnInferenceComponentProps:
         '''
         result = self._values.get("runtime_config")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentRuntimeConfigProperty"]], result)
+
+    @builtins.property
+    def specification(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"]]:
+        '''The specification for the inference component, for an endpoint with a single instance type.
+
+        Specify exactly one of Specification or Specifications. InstanceType is not accepted here; use Specifications for per instance type configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-inferencecomponent.html#cfn-sagemaker-inferencecomponent-specification
+        '''
+        result = self._values.get("specification")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationProperty"]], result)
+
+    @builtins.property
+    def specifications(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty"]]]]:
+        '''A list of specification objects for the inference component, one per instance type.
+
+        The service requires at least two entries; use the singular Specification for a single instance type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-inferencecomponent.html#cfn-sagemaker-inferencecomponent-specifications
+        '''
+        result = self._values.get("specifications")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -36703,464 +39446,6 @@ class CfnModelCard(
             return "UserContextProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
-
-
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IModelCardExportJobRef)
-class CfnModelCardExportJob(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_sagemaker.CfnModelCardExportJob",
-):
-    '''Definition of AWS::SageMaker::ModelCardExportJob Resource Type.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-modelcardexportjob.html
-    :cloudformationResource: AWS::SageMaker::ModelCardExportJob
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_sagemaker as sagemaker
-        
-        cfn_model_card_export_job = sagemaker.CfnModelCardExportJob(self, "MyCfnModelCardExportJob",
-            model_card_export_job_name="modelCardExportJobName",
-            model_card_name="modelCardName",
-            output_config=sagemaker.CfnModelCardExportJob.ModelCardExportOutputConfigProperty(
-                s3_output_path="s3OutputPath"
-            ),
-        
-            # the properties below are optional
-            model_card_version=123
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        model_card_export_job_name: builtins.str,
-        model_card_name: builtins.str,
-        output_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnModelCardExportJob.ModelCardExportOutputConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        model_card_version: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Create a new ``AWS::SageMaker::ModelCardExportJob``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param model_card_export_job_name: The name of the model card export job.
-        :param model_card_name: The name or Amazon Resource Name (ARN) of the model card to export.
-        :param output_config: Configure the export output details for an Amazon SageMaker Model Card.
-        :param model_card_version: The version of the model card to export. If a version is not provided, then the latest version of the model card is exported.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__37aa7a409bbce4e8cb9ef7f42c3758be5c57ea8c3a3b6c62fb2c7d25aecadaa2)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnModelCardExportJobProps(
-            model_card_export_job_name=model_card_export_job_name,
-            model_card_name=model_card_name,
-            output_config=output_config,
-            model_card_version=model_card_version,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForModelCardExportJob")
-    @builtins.classmethod
-    def arn_for_model_card_export_job(
-        cls,
-        resource: "_aws_sagemaker_2f7a2e3e.IModelCardExportJobRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5909b1d6f9f3115152776073102f95514f0db9f19f5dc3e9cc91ff33636c7f43)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForModelCardExportJob", [resource]))
-
-    @jsii.member(jsii_name="isCfnModelCardExportJob")
-    @builtins.classmethod
-    def is_cfn_model_card_export_job(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnModelCardExportJob.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e4429995818a08f86c282639c22e57018c0ce264bad9c7a84bdb15aede932120)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnModelCardExportJob", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5591547d87ea2068ffdc3626e9fe562f3f9a4dbf53a803510cc8aa6dc04500d1)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__1f6283b989876666dad519a99385fb0f8e0f8e53f7ed03cae9598829159fd0d0)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreatedAt")
-    def attr_created_at(self) -> builtins.str:
-        '''The date and time that the model card export job was created.
-
-        :cloudformationAttribute: CreatedAt
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrExportArtifacts")
-    def attr_export_artifacts(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''The artifacts of the model card export job.
-
-        :cloudformationAttribute: ExportArtifacts
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrExportArtifacts"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLastModifiedAt")
-    def attr_last_modified_at(self) -> builtins.str:
-        '''The date and time that the model card export job was last modified.
-
-        :cloudformationAttribute: LastModifiedAt
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedAt"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrModelCardExportJobArn")
-    def attr_model_card_export_job_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the model card export job.
-
-        :cloudformationAttribute: ModelCardExportJobArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrModelCardExportJobArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''The completion status of the model card export job.
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="modelCardExportJobRef")
-    def model_card_export_job_ref(
-        self,
-    ) -> "_aws_sagemaker_2f7a2e3e.ModelCardExportJobReference":
-        '''A reference to a ModelCardExportJob resource.'''
-        return typing.cast("_aws_sagemaker_2f7a2e3e.ModelCardExportJobReference", jsii.get(self, "modelCardExportJobRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="modelCardExportJobName")
-    def model_card_export_job_name(self) -> builtins.str:
-        '''The name of the model card export job.'''
-        return typing.cast(builtins.str, jsii.get(self, "modelCardExportJobName"))
-
-    @model_card_export_job_name.setter
-    def model_card_export_job_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__55f89bca34620e5c3d256c8dff347e69391669b7d58c16fed2ba19fc2bd81903)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelCardExportJobName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="modelCardName")
-    def model_card_name(self) -> builtins.str:
-        '''The name or Amazon Resource Name (ARN) of the model card to export.'''
-        return typing.cast(builtins.str, jsii.get(self, "modelCardName"))
-
-    @model_card_name.setter
-    def model_card_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__4ca06ec2f9876a565b2c3014b0e32c800fd7fa19dc939746803d542720919c9e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelCardName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="outputConfig")
-    def output_config(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelCardExportJob.ModelCardExportOutputConfigProperty"]:
-        '''Configure the export output details for an Amazon SageMaker Model Card.'''
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelCardExportJob.ModelCardExportOutputConfigProperty"], jsii.get(self, "outputConfig"))
-
-    @output_config.setter
-    def output_config(
-        self,
-        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelCardExportJob.ModelCardExportOutputConfigProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e989b94682f428ccc59fbbe9ac44f871511d8ae879035075d7f12c4ef011dbd0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="modelCardVersion")
-    def model_card_version(self) -> typing.Optional[jsii.Number]:
-        '''The version of the model card to export.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "modelCardVersion"))
-
-    @model_card_version.setter
-    def model_card_version(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__191073344bf7b74ed404d016e3799d1525d4d0e88dab4f81455c8d95f7f16f4d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelCardVersion", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnModelCardExportJob.ModelCardExportArtifactsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"s3_export_artifacts": "s3ExportArtifacts"},
-    )
-    class ModelCardExportArtifactsProperty:
-        def __init__(self, *, s3_export_artifacts: builtins.str) -> None:
-            '''The artifacts of the model card export job.
-
-            :param s3_export_artifacts: The Amazon S3 URI of the exported model artifacts.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelcardexportjob-modelcardexportartifacts.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                model_card_export_artifacts_property = sagemaker.CfnModelCardExportJob.ModelCardExportArtifactsProperty(
-                    s3_export_artifacts="s3ExportArtifacts"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__d73d75a45a30d913e58e120c50446be666d9e8a91e3e071acde378d266a5b2ef)
-                check_type(argname="argument s3_export_artifacts", value=s3_export_artifacts, expected_type=type_hints["s3_export_artifacts"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "s3_export_artifacts": s3_export_artifacts,
-            }
-
-        @builtins.property
-        def s3_export_artifacts(self) -> builtins.str:
-            '''The Amazon S3 URI of the exported model artifacts.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelcardexportjob-modelcardexportartifacts.html#cfn-sagemaker-modelcardexportjob-modelcardexportartifacts-s3exportartifacts
-            '''
-            result = self._values.get("s3_export_artifacts")
-            assert result is not None, "Required property 's3_export_artifacts' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ModelCardExportArtifactsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnModelCardExportJob.ModelCardExportOutputConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"s3_output_path": "s3OutputPath"},
-    )
-    class ModelCardExportOutputConfigProperty:
-        def __init__(self, *, s3_output_path: builtins.str) -> None:
-            '''Configure the export output details for an Amazon SageMaker Model Card.
-
-            :param s3_output_path: The Amazon S3 output path to export your model card PDF.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelcardexportjob-modelcardexportoutputconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                model_card_export_output_config_property = sagemaker.CfnModelCardExportJob.ModelCardExportOutputConfigProperty(
-                    s3_output_path="s3OutputPath"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__7c3c022ec09151d9ff9338ff5a542e45445bb9f055d4250e468319a17735ffe8)
-                check_type(argname="argument s3_output_path", value=s3_output_path, expected_type=type_hints["s3_output_path"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "s3_output_path": s3_output_path,
-            }
-
-        @builtins.property
-        def s3_output_path(self) -> builtins.str:
-            '''The Amazon S3 output path to export your model card PDF.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelcardexportjob-modelcardexportoutputconfig.html#cfn-sagemaker-modelcardexportjob-modelcardexportoutputconfig-s3outputpath
-            '''
-            result = self._values.get("s3_output_path")
-            assert result is not None, "Required property 's3_output_path' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ModelCardExportOutputConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sagemaker.CfnModelCardExportJobProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "model_card_export_job_name": "modelCardExportJobName",
-        "model_card_name": "modelCardName",
-        "output_config": "outputConfig",
-        "model_card_version": "modelCardVersion",
-    },
-)
-class CfnModelCardExportJobProps:
-    def __init__(
-        self,
-        *,
-        model_card_export_job_name: builtins.str,
-        model_card_name: builtins.str,
-        output_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnModelCardExportJob.ModelCardExportOutputConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        model_card_version: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnModelCardExportJob``.
-
-        :param model_card_export_job_name: The name of the model card export job.
-        :param model_card_name: The name or Amazon Resource Name (ARN) of the model card to export.
-        :param output_config: Configure the export output details for an Amazon SageMaker Model Card.
-        :param model_card_version: The version of the model card to export. If a version is not provided, then the latest version of the model card is exported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-modelcardexportjob.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sagemaker as sagemaker
-            
-            cfn_model_card_export_job_props = sagemaker.CfnModelCardExportJobProps(
-                model_card_export_job_name="modelCardExportJobName",
-                model_card_name="modelCardName",
-                output_config=sagemaker.CfnModelCardExportJob.ModelCardExportOutputConfigProperty(
-                    s3_output_path="s3OutputPath"
-                ),
-            
-                # the properties below are optional
-                model_card_version=123
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__f1ce60683ccb30c2f24bb833955e5126d63d86f4c53200de85f0919e92830f3f)
-            check_type(argname="argument model_card_export_job_name", value=model_card_export_job_name, expected_type=type_hints["model_card_export_job_name"])
-            check_type(argname="argument model_card_name", value=model_card_name, expected_type=type_hints["model_card_name"])
-            check_type(argname="argument output_config", value=output_config, expected_type=type_hints["output_config"])
-            check_type(argname="argument model_card_version", value=model_card_version, expected_type=type_hints["model_card_version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "model_card_export_job_name": model_card_export_job_name,
-            "model_card_name": model_card_name,
-            "output_config": output_config,
-        }
-        if model_card_version is not None:
-            self._values["model_card_version"] = model_card_version
-
-    @builtins.property
-    def model_card_export_job_name(self) -> builtins.str:
-        '''The name of the model card export job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-modelcardexportjob.html#cfn-sagemaker-modelcardexportjob-modelcardexportjobname
-        '''
-        result = self._values.get("model_card_export_job_name")
-        assert result is not None, "Required property 'model_card_export_job_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def model_card_name(self) -> builtins.str:
-        '''The name or Amazon Resource Name (ARN) of the model card to export.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-modelcardexportjob.html#cfn-sagemaker-modelcardexportjob-modelcardname
-        '''
-        result = self._values.get("model_card_name")
-        assert result is not None, "Required property 'model_card_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def output_config(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelCardExportJob.ModelCardExportOutputConfigProperty"]:
-        '''Configure the export output details for an Amazon SageMaker Model Card.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-modelcardexportjob.html#cfn-sagemaker-modelcardexportjob-outputconfig
-        '''
-        result = self._values.get("output_config")
-        assert result is not None, "Required property 'output_config' is missing"
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelCardExportJob.ModelCardExportOutputConfigProperty"], result)
-
-    @builtins.property
-    def model_card_version(self) -> typing.Optional[jsii.Number]:
-        '''The version of the model card to export.
-
-        If a version is not provided, then the latest version of the model card is exported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-modelcardexportjob.html#cfn-sagemaker-modelcardexportjob-modelcardversion
-        '''
-        result = self._values.get("model_card_version")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnModelCardExportJobProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.data_type(
@@ -51285,461 +53570,6 @@ class CfnMonitoringSchedule(
             )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IMonitoringScheduleAlertRef)
-class CfnMonitoringScheduleAlert(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_sagemaker.CfnMonitoringScheduleAlert",
-):
-    '''Resource type definition for AWS::SageMaker::MonitoringScheduleAlert.
-
-    A monitoring alert associated with a SageMaker monitoring schedule.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-monitoringschedulealert.html
-    :cloudformationResource: AWS::SageMaker::MonitoringScheduleAlert
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_sagemaker as sagemaker
-        
-        cfn_monitoring_schedule_alert = sagemaker.CfnMonitoringScheduleAlert(self, "MyCfnMonitoringScheduleAlert",
-            datapoints_to_alert=123,
-            evaluation_period=123,
-            monitoring_alert_name="monitoringAlertName",
-            monitoring_schedule_name="monitoringScheduleName"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        datapoints_to_alert: jsii.Number,
-        evaluation_period: jsii.Number,
-        monitoring_alert_name: builtins.str,
-        monitoring_schedule_name: builtins.str,
-    ) -> None:
-        '''Create a new ``AWS::SageMaker::MonitoringScheduleAlert``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param datapoints_to_alert: Within EvaluationPeriod, how many execution failures will raise an alert.
-        :param evaluation_period: The number of most recent monitoring executions to consider when evaluating alert status.
-        :param monitoring_alert_name: The name of the monitoring alert.
-        :param monitoring_schedule_name: The name of the monitoring schedule.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__69c0052ca80de506967c2c043112e2761577e5ec64ebc59888cc7f5a929a8036)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnMonitoringScheduleAlertProps(
-            datapoints_to_alert=datapoints_to_alert,
-            evaluation_period=evaluation_period,
-            monitoring_alert_name=monitoring_alert_name,
-            monitoring_schedule_name=monitoring_schedule_name,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForMonitoringScheduleAlert")
-    @builtins.classmethod
-    def arn_for_monitoring_schedule_alert(
-        cls,
-        resource: "_aws_sagemaker_2f7a2e3e.IMonitoringScheduleAlertRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__303103da5e7057a4be38fdd46afedf88f88a584a8536d7c2d18800a119942bf9)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMonitoringScheduleAlert", [resource]))
-
-    @jsii.member(jsii_name="isCfnMonitoringScheduleAlert")
-    @builtins.classmethod
-    def is_cfn_monitoring_schedule_alert(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnMonitoringScheduleAlert.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9be01ee14a87a87ea8cf188023dc5fb2cf7037a2c60e7ae3e392959e9f9b0d86)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMonitoringScheduleAlert", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__29e27b4f1da677cbf50d93a4322ba69bcc5970aa40d6fc7377751fb756e9ebda)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e441106b0a986fa8d53b18811b9cb3894732c727f594fe44791176c94c65e13c)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrActions")
-    def attr_actions(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''A list of alert actions taken in response to an alert going into InAlert status.
-
-        :cloudformationAttribute: Actions
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrActions"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAlertStatus")
-    def attr_alert_status(self) -> builtins.str:
-        '''The current status of the alert.
-
-        :cloudformationAttribute: AlertStatus
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAlertStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the monitoring schedule alert.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationTime")
-    def attr_creation_time(self) -> builtins.str:
-        '''A timestamp that indicates when the alert was created.
-
-        :cloudformationAttribute: CreationTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLastModifiedTime")
-    def attr_last_modified_time(self) -> builtins.str:
-        '''A timestamp that indicates when the alert was last updated.
-
-        :cloudformationAttribute: LastModifiedTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="monitoringScheduleAlertRef")
-    def monitoring_schedule_alert_ref(
-        self,
-    ) -> "_aws_sagemaker_2f7a2e3e.MonitoringScheduleAlertReference":
-        '''A reference to a MonitoringScheduleAlert resource.'''
-        return typing.cast("_aws_sagemaker_2f7a2e3e.MonitoringScheduleAlertReference", jsii.get(self, "monitoringScheduleAlertRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="datapointsToAlert")
-    def datapoints_to_alert(self) -> jsii.Number:
-        '''Within EvaluationPeriod, how many execution failures will raise an alert.'''
-        return typing.cast(jsii.Number, jsii.get(self, "datapointsToAlert"))
-
-    @datapoints_to_alert.setter
-    def datapoints_to_alert(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__b020e92e8adb339aceab6c30c5e2d1e80636a97de6e9d3cbab8e0fdd0b8e320e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "datapointsToAlert", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="evaluationPeriod")
-    def evaluation_period(self) -> jsii.Number:
-        '''The number of most recent monitoring executions to consider when evaluating alert status.'''
-        return typing.cast(jsii.Number, jsii.get(self, "evaluationPeriod"))
-
-    @evaluation_period.setter
-    def evaluation_period(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__2342094b769e0fff9430fc32898b61caf940a746c68a04f691ddab2fa3353701)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="monitoringAlertName")
-    def monitoring_alert_name(self) -> builtins.str:
-        '''The name of the monitoring alert.'''
-        return typing.cast(builtins.str, jsii.get(self, "monitoringAlertName"))
-
-    @monitoring_alert_name.setter
-    def monitoring_alert_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__f0b31ed0cb9bd4e8e0c53e2679437434f7e0d760fe3b96f4a28f125347145916)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitoringAlertName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="monitoringScheduleName")
-    def monitoring_schedule_name(self) -> builtins.str:
-        '''The name of the monitoring schedule.'''
-        return typing.cast(builtins.str, jsii.get(self, "monitoringScheduleName"))
-
-    @monitoring_schedule_name.setter
-    def monitoring_schedule_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__fb7b333a8917dcd1f84ca2100bf686db6c6f1a5d373fbe73383beb877257f58f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitoringScheduleName", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnMonitoringScheduleAlert.ModelDashboardIndicatorActionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled"},
-    )
-    class ModelDashboardIndicatorActionProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
-        ) -> None:
-            '''An alert action taken to light up an icon on the Amazon SageMaker Model Dashboard when an alert goes into InAlert status.
-
-            :param enabled: Indicates whether the alert action is turned on.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedulealert-modeldashboardindicatoraction.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                model_dashboard_indicator_action_property = sagemaker.CfnMonitoringScheduleAlert.ModelDashboardIndicatorActionProperty(
-                    enabled=False
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__05aad09c8656fbfbf2cf5d17a9fff2ef2b0f800b4d721d413b3288e42968fa56)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if enabled is not None:
-                self._values["enabled"] = enabled
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''Indicates whether the alert action is turned on.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedulealert-modeldashboardindicatoraction.html#cfn-sagemaker-monitoringschedulealert-modeldashboardindicatoraction-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ModelDashboardIndicatorActionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnMonitoringScheduleAlert.MonitoringAlertActionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"model_dashboard_indicator": "modelDashboardIndicator"},
-    )
-    class MonitoringAlertActionsProperty:
-        def __init__(
-            self,
-            *,
-            model_dashboard_indicator: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMonitoringScheduleAlert.ModelDashboardIndicatorActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''A list of alert actions taken in response to an alert going into InAlert status.
-
-            :param model_dashboard_indicator: An alert action taken to light up an icon on the Amazon SageMaker Model Dashboard when an alert goes into InAlert status.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedulealert-monitoringalertactions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                monitoring_alert_actions_property = sagemaker.CfnMonitoringScheduleAlert.MonitoringAlertActionsProperty(
-                    model_dashboard_indicator=sagemaker.CfnMonitoringScheduleAlert.ModelDashboardIndicatorActionProperty(
-                        enabled=False
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__e5e662d99a9fcea973ae1b2b22387efacb26a02a86f568a05ba40aa3375e73b9)
-                check_type(argname="argument model_dashboard_indicator", value=model_dashboard_indicator, expected_type=type_hints["model_dashboard_indicator"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if model_dashboard_indicator is not None:
-                self._values["model_dashboard_indicator"] = model_dashboard_indicator
-
-        @builtins.property
-        def model_dashboard_indicator(
-            self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMonitoringScheduleAlert.ModelDashboardIndicatorActionProperty"]]:
-            '''An alert action taken to light up an icon on the Amazon SageMaker Model Dashboard when an alert goes into InAlert status.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedulealert-monitoringalertactions.html#cfn-sagemaker-monitoringschedulealert-monitoringalertactions-modeldashboardindicator
-            '''
-            result = self._values.get("model_dashboard_indicator")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMonitoringScheduleAlert.ModelDashboardIndicatorActionProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MonitoringAlertActionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sagemaker.CfnMonitoringScheduleAlertProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "datapoints_to_alert": "datapointsToAlert",
-        "evaluation_period": "evaluationPeriod",
-        "monitoring_alert_name": "monitoringAlertName",
-        "monitoring_schedule_name": "monitoringScheduleName",
-    },
-)
-class CfnMonitoringScheduleAlertProps:
-    def __init__(
-        self,
-        *,
-        datapoints_to_alert: jsii.Number,
-        evaluation_period: jsii.Number,
-        monitoring_alert_name: builtins.str,
-        monitoring_schedule_name: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnMonitoringScheduleAlert``.
-
-        :param datapoints_to_alert: Within EvaluationPeriod, how many execution failures will raise an alert.
-        :param evaluation_period: The number of most recent monitoring executions to consider when evaluating alert status.
-        :param monitoring_alert_name: The name of the monitoring alert.
-        :param monitoring_schedule_name: The name of the monitoring schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-monitoringschedulealert.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sagemaker as sagemaker
-            
-            cfn_monitoring_schedule_alert_props = sagemaker.CfnMonitoringScheduleAlertProps(
-                datapoints_to_alert=123,
-                evaluation_period=123,
-                monitoring_alert_name="monitoringAlertName",
-                monitoring_schedule_name="monitoringScheduleName"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__831dc1d4260fdbe1761001da6c63e1da1ccbf3da5a458dc1c2343402fcc089ec)
-            check_type(argname="argument datapoints_to_alert", value=datapoints_to_alert, expected_type=type_hints["datapoints_to_alert"])
-            check_type(argname="argument evaluation_period", value=evaluation_period, expected_type=type_hints["evaluation_period"])
-            check_type(argname="argument monitoring_alert_name", value=monitoring_alert_name, expected_type=type_hints["monitoring_alert_name"])
-            check_type(argname="argument monitoring_schedule_name", value=monitoring_schedule_name, expected_type=type_hints["monitoring_schedule_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "datapoints_to_alert": datapoints_to_alert,
-            "evaluation_period": evaluation_period,
-            "monitoring_alert_name": monitoring_alert_name,
-            "monitoring_schedule_name": monitoring_schedule_name,
-        }
-
-    @builtins.property
-    def datapoints_to_alert(self) -> jsii.Number:
-        '''Within EvaluationPeriod, how many execution failures will raise an alert.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-monitoringschedulealert.html#cfn-sagemaker-monitoringschedulealert-datapointstoalert
-        '''
-        result = self._values.get("datapoints_to_alert")
-        assert result is not None, "Required property 'datapoints_to_alert' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def evaluation_period(self) -> jsii.Number:
-        '''The number of most recent monitoring executions to consider when evaluating alert status.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-monitoringschedulealert.html#cfn-sagemaker-monitoringschedulealert-evaluationperiod
-        '''
-        result = self._values.get("evaluation_period")
-        assert result is not None, "Required property 'evaluation_period' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def monitoring_alert_name(self) -> builtins.str:
-        '''The name of the monitoring alert.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-monitoringschedulealert.html#cfn-sagemaker-monitoringschedulealert-monitoringalertname
-        '''
-        result = self._values.get("monitoring_alert_name")
-        assert result is not None, "Required property 'monitoring_alert_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def monitoring_schedule_name(self) -> builtins.str:
-        '''The name of the monitoring schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-monitoringschedulealert.html#cfn-sagemaker-monitoringschedulealert-monitoringschedulename
-        '''
-        result = self._values.get("monitoring_schedule_name")
-        assert result is not None, "Required property 'monitoring_schedule_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMonitoringScheduleAlertProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_sagemaker.CfnMonitoringScheduleProps",
     jsii_struct_bases=[],
@@ -60998,1666 +62828,6 @@ class CfnStudioLifecycleConfigProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.ITransformJobRef, _aws_cdk_0cae9daa.ITaggableV2)
-class CfnTransformJob(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob",
-):
-    '''Resource type definition for AWS::SageMaker::TransformJob.
-
-    A transform job uses a trained model to get inferences on a dataset and saves these results to an Amazon S3 location that you specify.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html
-    :cloudformationResource: AWS::SageMaker::TransformJob
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_sagemaker as sagemaker
-        
-        cfn_transform_job = sagemaker.CfnTransformJob(self, "MyCfnTransformJob",
-            model_name="modelName",
-            transform_input=sagemaker.CfnTransformJob.TransformInputProperty(
-                data_source=sagemaker.CfnTransformJob.DataSourceProperty(
-                    s3_data_source=sagemaker.CfnTransformJob.S3DataSourceProperty(
-                        s3_data_type="s3DataType",
-                        s3_uri="s3Uri"
-                    )
-                ),
-        
-                # the properties below are optional
-                compression_type="compressionType",
-                content_type="contentType",
-                split_type="splitType"
-            ),
-            transform_output=sagemaker.CfnTransformJob.TransformOutputProperty(
-                s3_output_path="s3OutputPath",
-        
-                # the properties below are optional
-                accept="accept",
-                assemble_with="assembleWith",
-                kms_key_id="kmsKeyId"
-            ),
-            transform_resources=sagemaker.CfnTransformJob.TransformResourcesProperty(
-                instance_count=123,
-                instance_type="instanceType",
-        
-                # the properties below are optional
-                volume_kms_key_id="volumeKmsKeyId"
-            ),
-        
-            # the properties below are optional
-            batch_strategy="batchStrategy",
-            data_capture_config=sagemaker.CfnTransformJob.DataCaptureConfigProperty(
-                destination_s3_uri="destinationS3Uri",
-        
-                # the properties below are optional
-                generate_inference_id=False,
-                kms_key_id="kmsKeyId"
-            ),
-            data_processing=sagemaker.CfnTransformJob.DataProcessingProperty(
-                input_filter="inputFilter",
-                join_source="joinSource",
-                output_filter="outputFilter"
-            ),
-            environment={
-                "environment_key": "environment"
-            },
-            experiment_config=sagemaker.CfnTransformJob.ExperimentConfigProperty(
-                experiment_name="experimentName",
-                trial_component_display_name="trialComponentDisplayName",
-                trial_name="trialName"
-            ),
-            max_concurrent_transforms=123,
-            max_payload_in_mb=123,
-            model_client_config=sagemaker.CfnTransformJob.ModelClientConfigProperty(
-                invocations_max_retries=123,
-                invocations_timeout_in_seconds=123
-            ),
-            tags=[sagemaker.CfnTransformJob.TagsItemsProperty(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        model_name: builtins.str,
-        transform_input: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.TransformInputProperty", typing.Dict[builtins.str, typing.Any]]],
-        transform_output: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.TransformOutputProperty", typing.Dict[builtins.str, typing.Any]]],
-        transform_resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.TransformResourcesProperty", typing.Dict[builtins.str, typing.Any]]],
-        batch_strategy: typing.Optional[builtins.str] = None,
-        data_capture_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.DataCaptureConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_processing: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.DataProcessingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
-        experiment_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.ExperimentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        max_concurrent_transforms: typing.Optional[jsii.Number] = None,
-        max_payload_in_mb: typing.Optional[jsii.Number] = None,
-        model_client_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.ModelClientConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnTransformJob.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Create a new ``AWS::SageMaker::TransformJob``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param model_name: The name of the model that you want to use for the transform job.
-        :param transform_input: Describes the input source and the way the transform job consumes it.
-        :param transform_output: Describes the results of the transform job.
-        :param transform_resources: Describes the resources, including ML instance types and ML instance count, to use for the transform job.
-        :param batch_strategy: Specifies the number of records to include in a mini-batch for an HTTP inference request.
-        :param data_capture_config: Configuration to control how SageMaker captures inference data.
-        :param data_processing: The data structure used to specify the data to be used for inference in a batch transform job.
-        :param environment: The environment variables to set in the Docker container.
-        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and trial.
-        :param max_concurrent_transforms: The maximum number of parallel requests that can be sent to each instance in a transform job.
-        :param max_payload_in_mb: The maximum allowed size of the payload, in MB.
-        :param model_client_config: Configures the timeout and maximum number of retries for processing a transform job invocation.
-        :param tags: An array of key-value pairs.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__169171ccf26b2dca10e2ed09dc31bff89c823f35b2eb0ac147d73663a8415196)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnTransformJobProps(
-            model_name=model_name,
-            transform_input=transform_input,
-            transform_output=transform_output,
-            transform_resources=transform_resources,
-            batch_strategy=batch_strategy,
-            data_capture_config=data_capture_config,
-            data_processing=data_processing,
-            environment=environment,
-            experiment_config=experiment_config,
-            max_concurrent_transforms=max_concurrent_transforms,
-            max_payload_in_mb=max_payload_in_mb,
-            model_client_config=model_client_config,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForTransformJob")
-    @builtins.classmethod
-    def arn_for_transform_job(
-        cls,
-        resource: "_aws_sagemaker_2f7a2e3e.ITransformJobRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__8dcdcfbb6c58b326dfef3c74f34a46470817270de1cb532b377e20c0fa778868)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTransformJob", [resource]))
-
-    @jsii.member(jsii_name="isCfnTransformJob")
-    @builtins.classmethod
-    def is_cfn_transform_job(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnTransformJob.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d216ac7d8b4250947350e0cb86de39caa54cf760611f7beab43a396414964ec3)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTransformJob", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__98d5507c4f5aaf77a80285d2e6b56fc468bc48b8769e1dbaaecb700674c800d7)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__8551304d11730265cbdcbddcb37c7ce98dd5ba2757e953cc60d64b3082cedd22)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationTime")
-    def attr_creation_time(self) -> builtins.str:
-        '''A timestamp that shows when the transform job was created.
-
-        :cloudformationAttribute: CreationTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTransformEndTime")
-    def attr_transform_end_time(self) -> builtins.str:
-        '''Indicates when the transform job has been completed, or has stopped or failed.
-
-        :cloudformationAttribute: TransformEndTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTransformEndTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTransformJobArn")
-    def attr_transform_job_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the transform job.
-
-        :cloudformationAttribute: TransformJobArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTransformJobArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTransformJobName")
-    def attr_transform_job_name(self) -> builtins.str:
-        '''The name of the transform job.
-
-        The name must be unique within an AWS Region in an AWS account.
-
-        :cloudformationAttribute: TransformJobName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTransformJobName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTransformJobStatus")
-    def attr_transform_job_status(self) -> builtins.str:
-        '''The status of the transform job.
-
-        :cloudformationAttribute: TransformJobStatus
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTransformJobStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTransformStartTime")
-    def attr_transform_start_time(self) -> builtins.str:
-        '''Indicates when the transform job starts on ML instances.
-
-        :cloudformationAttribute: TransformStartTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTransformStartTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="transformJobRef")
-    def transform_job_ref(self) -> "_aws_sagemaker_2f7a2e3e.TransformJobReference":
-        '''A reference to a TransformJob resource.'''
-        return typing.cast("_aws_sagemaker_2f7a2e3e.TransformJobReference", jsii.get(self, "transformJobRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="modelName")
-    def model_name(self) -> builtins.str:
-        '''The name of the model that you want to use for the transform job.'''
-        return typing.cast(builtins.str, jsii.get(self, "modelName"))
-
-    @model_name.setter
-    def model_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__56484f52b3e9b429685418aaf92671d7de9907d29ac0cc1a70444e81fcc32dae)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="transformInput")
-    def transform_input(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformInputProperty"]:
-        '''Describes the input source and the way the transform job consumes it.'''
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformInputProperty"], jsii.get(self, "transformInput"))
-
-    @transform_input.setter
-    def transform_input(
-        self,
-        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformInputProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__1abaff524943f1430341f45f86184305c222264f150b5fc733ba62c011537272)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transformInput", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="transformOutput")
-    def transform_output(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformOutputProperty"]:
-        '''Describes the results of the transform job.'''
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformOutputProperty"], jsii.get(self, "transformOutput"))
-
-    @transform_output.setter
-    def transform_output(
-        self,
-        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformOutputProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__6d988d55f7be9555b3ad5a8dfd7724b80f16d9149ad006232d369053105c9697)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transformOutput", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="transformResources")
-    def transform_resources(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformResourcesProperty"]:
-        '''Describes the resources, including ML instance types and ML instance count, to use for the transform job.'''
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformResourcesProperty"], jsii.get(self, "transformResources"))
-
-    @transform_resources.setter
-    def transform_resources(
-        self,
-        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformResourcesProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__eb621c17d2a414ee2071f357a4b05b81c7f2ea4c96bd321bd6a202f076f30c49)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transformResources", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="batchStrategy")
-    def batch_strategy(self) -> typing.Optional[builtins.str]:
-        '''Specifies the number of records to include in a mini-batch for an HTTP inference request.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "batchStrategy"))
-
-    @batch_strategy.setter
-    def batch_strategy(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__83760df3a5c945e5023b40b153728f766ff2e7d20a00708925beacd2908c5b3f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "batchStrategy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dataCaptureConfig")
-    def data_capture_config(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataCaptureConfigProperty"]]:
-        '''Configuration to control how SageMaker captures inference data.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataCaptureConfigProperty"]], jsii.get(self, "dataCaptureConfig"))
-
-    @data_capture_config.setter
-    def data_capture_config(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataCaptureConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__6c850e3bb31d0f3a891b4943af01218b14bca7255b27054545a1787c7d834f5f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataCaptureConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dataProcessing")
-    def data_processing(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataProcessingProperty"]]:
-        '''The data structure used to specify the data to be used for inference in a batch transform job.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataProcessingProperty"]], jsii.get(self, "dataProcessing"))
-
-    @data_processing.setter
-    def data_processing(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataProcessingProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__744ca5ba2cb4adb46f608b84abebbe42d6bc0d785b48f17d3cc0676e767e11b1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataProcessing", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="environment")
-    def environment(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
-        '''The environment variables to set in the Docker container.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "environment"))
-
-    @environment.setter
-    def environment(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__3e0236301dd94a970ab12823531bc247c82d05bef1f84d9a080d2b8cf4551b74)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="experimentConfig")
-    def experiment_config(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ExperimentConfigProperty"]]:
-        '''Associates a SageMaker job as a trial component with an experiment and trial.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ExperimentConfigProperty"]], jsii.get(self, "experimentConfig"))
-
-    @experiment_config.setter
-    def experiment_config(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ExperimentConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__1d1bdd831e1c4af3602f409283e20b94b361c06b61e4e4c87608750a2f7ae561)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "experimentConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maxConcurrentTransforms")
-    def max_concurrent_transforms(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of parallel requests that can be sent to each instance in a transform job.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxConcurrentTransforms"))
-
-    @max_concurrent_transforms.setter
-    def max_concurrent_transforms(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__2474ede611e2c397f8ca73054c0c55ff00d5cbdb209dcabb748de67074bcf780)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxConcurrentTransforms", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maxPayloadInMb")
-    def max_payload_in_mb(self) -> typing.Optional[jsii.Number]:
-        '''The maximum allowed size of the payload, in MB.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxPayloadInMb"))
-
-    @max_payload_in_mb.setter
-    def max_payload_in_mb(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__c2d01da18130fba6591090d0aeaf6b76e747cdbc7ca3172ca76306b8ea392b13)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxPayloadInMb", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="modelClientConfig")
-    def model_client_config(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ModelClientConfigProperty"]]:
-        '''Configures the timeout and maximum number of retries for processing a transform job invocation.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ModelClientConfigProperty"]], jsii.get(self, "modelClientConfig"))
-
-    @model_client_config.setter
-    def model_client_config(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ModelClientConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5b03e0a389dfd9658615b49ebc9e15c181534375545ea2fd3fc73b4a3e22d36e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelClientConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["CfnTransformJob.TagsItemsProperty"]]:
-        '''An array of key-value pairs.'''
-        return typing.cast(typing.Optional[typing.List["CfnTransformJob.TagsItemsProperty"]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(
-        self,
-        value: typing.Optional[typing.List["CfnTransformJob.TagsItemsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__61026fc4c3c2e21a26aaf5a29a9b66bfe3c84ba196e307cf585767696066dbb7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.DataCaptureConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "destination_s3_uri": "destinationS3Uri",
-            "generate_inference_id": "generateInferenceId",
-            "kms_key_id": "kmsKeyId",
-        },
-    )
-    class DataCaptureConfigProperty:
-        def __init__(
-            self,
-            *,
-            destination_s3_uri: builtins.str,
-            generate_inference_id: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
-            kms_key_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Configuration to control how SageMaker captures inference data.
-
-            :param destination_s3_uri: The Amazon S3 location being used to capture the data.
-            :param generate_inference_id: Flag that indicates whether to append inference id to the output.
-            :param kms_key_id: The ARN of a KMS key that SageMaker uses to encrypt data on the storage volume.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-datacaptureconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                data_capture_config_property = sagemaker.CfnTransformJob.DataCaptureConfigProperty(
-                    destination_s3_uri="destinationS3Uri",
-                
-                    # the properties below are optional
-                    generate_inference_id=False,
-                    kms_key_id="kmsKeyId"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__12fb80262af726d9a26c176e48963c0c41c989d256da59375216513ae3f82941)
-                check_type(argname="argument destination_s3_uri", value=destination_s3_uri, expected_type=type_hints["destination_s3_uri"])
-                check_type(argname="argument generate_inference_id", value=generate_inference_id, expected_type=type_hints["generate_inference_id"])
-                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "destination_s3_uri": destination_s3_uri,
-            }
-            if generate_inference_id is not None:
-                self._values["generate_inference_id"] = generate_inference_id
-            if kms_key_id is not None:
-                self._values["kms_key_id"] = kms_key_id
-
-        @builtins.property
-        def destination_s3_uri(self) -> builtins.str:
-            '''The Amazon S3 location being used to capture the data.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-datacaptureconfig.html#cfn-sagemaker-transformjob-datacaptureconfig-destinations3uri
-            '''
-            result = self._values.get("destination_s3_uri")
-            assert result is not None, "Required property 'destination_s3_uri' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def generate_inference_id(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''Flag that indicates whether to append inference id to the output.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-datacaptureconfig.html#cfn-sagemaker-transformjob-datacaptureconfig-generateinferenceid
-            '''
-            result = self._values.get("generate_inference_id")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
-
-        @builtins.property
-        def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''The ARN of a KMS key that SageMaker uses to encrypt data on the storage volume.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-datacaptureconfig.html#cfn-sagemaker-transformjob-datacaptureconfig-kmskeyid
-            '''
-            result = self._values.get("kms_key_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DataCaptureConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.DataProcessingProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "input_filter": "inputFilter",
-            "join_source": "joinSource",
-            "output_filter": "outputFilter",
-        },
-    )
-    class DataProcessingProperty:
-        def __init__(
-            self,
-            *,
-            input_filter: typing.Optional[builtins.str] = None,
-            join_source: typing.Optional[builtins.str] = None,
-            output_filter: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The data structure used to specify the data to be used for inference in a batch transform job.
-
-            :param input_filter: A JSONPath expression used to select a portion of the input data to pass to the algorithm.
-            :param join_source: Specifies the source of the data to join with the transformed data.
-            :param output_filter: A JSONPath expression used to select a portion of the joined dataset to save in the output file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-dataprocessing.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                data_processing_property = sagemaker.CfnTransformJob.DataProcessingProperty(
-                    input_filter="inputFilter",
-                    join_source="joinSource",
-                    output_filter="outputFilter"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__ae230a4c5cbda8a0586e80683c11371abbf355a6b840362c2ab5680e3143ec58)
-                check_type(argname="argument input_filter", value=input_filter, expected_type=type_hints["input_filter"])
-                check_type(argname="argument join_source", value=join_source, expected_type=type_hints["join_source"])
-                check_type(argname="argument output_filter", value=output_filter, expected_type=type_hints["output_filter"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if input_filter is not None:
-                self._values["input_filter"] = input_filter
-            if join_source is not None:
-                self._values["join_source"] = join_source
-            if output_filter is not None:
-                self._values["output_filter"] = output_filter
-
-        @builtins.property
-        def input_filter(self) -> typing.Optional[builtins.str]:
-            '''A JSONPath expression used to select a portion of the input data to pass to the algorithm.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-dataprocessing.html#cfn-sagemaker-transformjob-dataprocessing-inputfilter
-            '''
-            result = self._values.get("input_filter")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def join_source(self) -> typing.Optional[builtins.str]:
-            '''Specifies the source of the data to join with the transformed data.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-dataprocessing.html#cfn-sagemaker-transformjob-dataprocessing-joinsource
-            '''
-            result = self._values.get("join_source")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def output_filter(self) -> typing.Optional[builtins.str]:
-            '''A JSONPath expression used to select a portion of the joined dataset to save in the output file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-dataprocessing.html#cfn-sagemaker-transformjob-dataprocessing-outputfilter
-            '''
-            result = self._values.get("output_filter")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DataProcessingProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.DataSourceProperty",
-        jsii_struct_bases=[],
-        name_mapping={"s3_data_source": "s3DataSource"},
-    )
-    class DataSourceProperty:
-        def __init__(
-            self,
-            *,
-            s3_data_source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.S3DataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
-        ) -> None:
-            '''Describes the location of the channel data.
-
-            :param s3_data_source: The S3 location of the data source.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-datasource.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                data_source_property = sagemaker.CfnTransformJob.DataSourceProperty(
-                    s3_data_source=sagemaker.CfnTransformJob.S3DataSourceProperty(
-                        s3_data_type="s3DataType",
-                        s3_uri="s3Uri"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__06426fbe440337f6b403bf393363c54bf1507f019db2a864c4c3658bc59df58e)
-                check_type(argname="argument s3_data_source", value=s3_data_source, expected_type=type_hints["s3_data_source"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "s3_data_source": s3_data_source,
-            }
-
-        @builtins.property
-        def s3_data_source(
-            self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.S3DataSourceProperty"]:
-            '''The S3 location of the data source.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-datasource.html#cfn-sagemaker-transformjob-datasource-s3datasource
-            '''
-            result = self._values.get("s3_data_source")
-            assert result is not None, "Required property 's3_data_source' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.S3DataSourceProperty"], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DataSourceProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.ExperimentConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "experiment_name": "experimentName",
-            "trial_component_display_name": "trialComponentDisplayName",
-            "trial_name": "trialName",
-        },
-    )
-    class ExperimentConfigProperty:
-        def __init__(
-            self,
-            *,
-            experiment_name: typing.Optional[builtins.str] = None,
-            trial_component_display_name: typing.Optional[builtins.str] = None,
-            trial_name: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Associates a SageMaker job as a trial component with an experiment and trial.
-
-            :param experiment_name: The name of an existing experiment to associate with the trial component.
-            :param trial_component_display_name: The display name for the trial component.
-            :param trial_name: The name of an existing trial to associate the trial component with.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-experimentconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                experiment_config_property = sagemaker.CfnTransformJob.ExperimentConfigProperty(
-                    experiment_name="experimentName",
-                    trial_component_display_name="trialComponentDisplayName",
-                    trial_name="trialName"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__204e0bddb74e777bf7d123c75ec3e9f260afb0f3268aa3a075f986a474237fa7)
-                check_type(argname="argument experiment_name", value=experiment_name, expected_type=type_hints["experiment_name"])
-                check_type(argname="argument trial_component_display_name", value=trial_component_display_name, expected_type=type_hints["trial_component_display_name"])
-                check_type(argname="argument trial_name", value=trial_name, expected_type=type_hints["trial_name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if experiment_name is not None:
-                self._values["experiment_name"] = experiment_name
-            if trial_component_display_name is not None:
-                self._values["trial_component_display_name"] = trial_component_display_name
-            if trial_name is not None:
-                self._values["trial_name"] = trial_name
-
-        @builtins.property
-        def experiment_name(self) -> typing.Optional[builtins.str]:
-            '''The name of an existing experiment to associate with the trial component.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-experimentconfig.html#cfn-sagemaker-transformjob-experimentconfig-experimentname
-            '''
-            result = self._values.get("experiment_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def trial_component_display_name(self) -> typing.Optional[builtins.str]:
-            '''The display name for the trial component.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-experimentconfig.html#cfn-sagemaker-transformjob-experimentconfig-trialcomponentdisplayname
-            '''
-            result = self._values.get("trial_component_display_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def trial_name(self) -> typing.Optional[builtins.str]:
-            '''The name of an existing trial to associate the trial component with.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-experimentconfig.html#cfn-sagemaker-transformjob-experimentconfig-trialname
-            '''
-            result = self._values.get("trial_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ExperimentConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.ModelClientConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "invocations_max_retries": "invocationsMaxRetries",
-            "invocations_timeout_in_seconds": "invocationsTimeoutInSeconds",
-        },
-    )
-    class ModelClientConfigProperty:
-        def __init__(
-            self,
-            *,
-            invocations_max_retries: typing.Optional[jsii.Number] = None,
-            invocations_timeout_in_seconds: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Configures the timeout and maximum number of retries for processing a transform job invocation.
-
-            :param invocations_max_retries: The maximum number of retries when invocation requests are failing.
-            :param invocations_timeout_in_seconds: The timeout value in seconds for an invocation request.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-modelclientconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                model_client_config_property = sagemaker.CfnTransformJob.ModelClientConfigProperty(
-                    invocations_max_retries=123,
-                    invocations_timeout_in_seconds=123
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__87ab14c1682973a76b2afa65f4d9f446eddc053fb9ebce556e1b3e4bf10cd59b)
-                check_type(argname="argument invocations_max_retries", value=invocations_max_retries, expected_type=type_hints["invocations_max_retries"])
-                check_type(argname="argument invocations_timeout_in_seconds", value=invocations_timeout_in_seconds, expected_type=type_hints["invocations_timeout_in_seconds"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if invocations_max_retries is not None:
-                self._values["invocations_max_retries"] = invocations_max_retries
-            if invocations_timeout_in_seconds is not None:
-                self._values["invocations_timeout_in_seconds"] = invocations_timeout_in_seconds
-
-        @builtins.property
-        def invocations_max_retries(self) -> typing.Optional[jsii.Number]:
-            '''The maximum number of retries when invocation requests are failing.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-modelclientconfig.html#cfn-sagemaker-transformjob-modelclientconfig-invocationsmaxretries
-            '''
-            result = self._values.get("invocations_max_retries")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def invocations_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-            '''The timeout value in seconds for an invocation request.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-modelclientconfig.html#cfn-sagemaker-transformjob-modelclientconfig-invocationstimeoutinseconds
-            '''
-            result = self._values.get("invocations_timeout_in_seconds")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ModelClientConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.S3DataSourceProperty",
-        jsii_struct_bases=[],
-        name_mapping={"s3_data_type": "s3DataType", "s3_uri": "s3Uri"},
-    )
-    class S3DataSourceProperty:
-        def __init__(self, *, s3_data_type: builtins.str, s3_uri: builtins.str) -> None:
-            '''The S3 location of the data source.
-
-            :param s3_data_type: The data type.
-            :param s3_uri: The S3 URI.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-s3datasource.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                s3_data_source_property = sagemaker.CfnTransformJob.S3DataSourceProperty(
-                    s3_data_type="s3DataType",
-                    s3_uri="s3Uri"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__19527c25348acdcfd34f7c7e508129a535a8d300a717a810f6eb9375d228614d)
-                check_type(argname="argument s3_data_type", value=s3_data_type, expected_type=type_hints["s3_data_type"])
-                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "s3_data_type": s3_data_type,
-                "s3_uri": s3_uri,
-            }
-
-        @builtins.property
-        def s3_data_type(self) -> builtins.str:
-            '''The data type.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-s3datasource.html#cfn-sagemaker-transformjob-s3datasource-s3datatype
-            '''
-            result = self._values.get("s3_data_type")
-            assert result is not None, "Required property 's3_data_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def s3_uri(self) -> builtins.str:
-            '''The S3 URI.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-s3datasource.html#cfn-sagemaker-transformjob-s3datasource-s3uri
-            '''
-            result = self._values.get("s3_uri")
-            assert result is not None, "Required property 's3_uri' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "S3DataSourceProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.TagsItemsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class TagsItemsProperty:
-        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''
-            :param key: The tag key.
-            :param value: The tag value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-tagsitems.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                tags_items_property = sagemaker.CfnTransformJob.TagsItemsProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__72a6a58e3b81d1ab95888aa773cc6a5243b37ca5123280c4ec7a8e577676ee44)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "value": value,
-            }
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The tag key.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-tagsitems.html#cfn-sagemaker-transformjob-tagsitems-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The tag value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-tagsitems.html#cfn-sagemaker-transformjob-tagsitems-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TagsItemsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.TransformInputProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "data_source": "dataSource",
-            "compression_type": "compressionType",
-            "content_type": "contentType",
-            "split_type": "splitType",
-        },
-    )
-    class TransformInputProperty:
-        def __init__(
-            self,
-            *,
-            data_source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
-            compression_type: typing.Optional[builtins.str] = None,
-            content_type: typing.Optional[builtins.str] = None,
-            split_type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Describes the input source and the way the transform job consumes it.
-
-            :param data_source: Describes the location of the channel data.
-            :param compression_type: If your transform data is compressed, specify the compression type.
-            :param content_type: The multipurpose internet mail extension (MIME) type of the data.
-            :param split_type: The method to use to split the transform job's data files into smaller batches.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transforminput.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                transform_input_property = sagemaker.CfnTransformJob.TransformInputProperty(
-                    data_source=sagemaker.CfnTransformJob.DataSourceProperty(
-                        s3_data_source=sagemaker.CfnTransformJob.S3DataSourceProperty(
-                            s3_data_type="s3DataType",
-                            s3_uri="s3Uri"
-                        )
-                    ),
-                
-                    # the properties below are optional
-                    compression_type="compressionType",
-                    content_type="contentType",
-                    split_type="splitType"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__a03039ac2a9d0148411e13c38cfdf4e05a36005b2d414afc29a9488bbd60bed8)
-                check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
-                check_type(argname="argument compression_type", value=compression_type, expected_type=type_hints["compression_type"])
-                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
-                check_type(argname="argument split_type", value=split_type, expected_type=type_hints["split_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "data_source": data_source,
-            }
-            if compression_type is not None:
-                self._values["compression_type"] = compression_type
-            if content_type is not None:
-                self._values["content_type"] = content_type
-            if split_type is not None:
-                self._values["split_type"] = split_type
-
-        @builtins.property
-        def data_source(
-            self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataSourceProperty"]:
-            '''Describes the location of the channel data.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transforminput.html#cfn-sagemaker-transformjob-transforminput-datasource
-            '''
-            result = self._values.get("data_source")
-            assert result is not None, "Required property 'data_source' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataSourceProperty"], result)
-
-        @builtins.property
-        def compression_type(self) -> typing.Optional[builtins.str]:
-            '''If your transform data is compressed, specify the compression type.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transforminput.html#cfn-sagemaker-transformjob-transforminput-compressiontype
-            '''
-            result = self._values.get("compression_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def content_type(self) -> typing.Optional[builtins.str]:
-            '''The multipurpose internet mail extension (MIME) type of the data.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transforminput.html#cfn-sagemaker-transformjob-transforminput-contenttype
-            '''
-            result = self._values.get("content_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def split_type(self) -> typing.Optional[builtins.str]:
-            '''The method to use to split the transform job's data files into smaller batches.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transforminput.html#cfn-sagemaker-transformjob-transforminput-splittype
-            '''
-            result = self._values.get("split_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TransformInputProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.TransformOutputProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "s3_output_path": "s3OutputPath",
-            "accept": "accept",
-            "assemble_with": "assembleWith",
-            "kms_key_id": "kmsKeyId",
-        },
-    )
-    class TransformOutputProperty:
-        def __init__(
-            self,
-            *,
-            s3_output_path: builtins.str,
-            accept: typing.Optional[builtins.str] = None,
-            assemble_with: typing.Optional[builtins.str] = None,
-            kms_key_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Describes the results of the transform job.
-
-            :param s3_output_path: The Amazon S3 path where you want Amazon SageMaker to store the results of the transform job.
-            :param accept: The MIME type used to specify the output data.
-            :param assemble_with: Defines how to assemble the results of the transform job as a single S3 object.
-            :param kms_key_id: The AWS KMS key that Amazon SageMaker uses to encrypt the model artifacts at rest using Amazon S3 server-side encryption.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformoutput.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                transform_output_property = sagemaker.CfnTransformJob.TransformOutputProperty(
-                    s3_output_path="s3OutputPath",
-                
-                    # the properties below are optional
-                    accept="accept",
-                    assemble_with="assembleWith",
-                    kms_key_id="kmsKeyId"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__d84d6b94f66af613d191a7252a8664e6ad9cd02b16eba530272ce97c84177397)
-                check_type(argname="argument s3_output_path", value=s3_output_path, expected_type=type_hints["s3_output_path"])
-                check_type(argname="argument accept", value=accept, expected_type=type_hints["accept"])
-                check_type(argname="argument assemble_with", value=assemble_with, expected_type=type_hints["assemble_with"])
-                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "s3_output_path": s3_output_path,
-            }
-            if accept is not None:
-                self._values["accept"] = accept
-            if assemble_with is not None:
-                self._values["assemble_with"] = assemble_with
-            if kms_key_id is not None:
-                self._values["kms_key_id"] = kms_key_id
-
-        @builtins.property
-        def s3_output_path(self) -> builtins.str:
-            '''The Amazon S3 path where you want Amazon SageMaker to store the results of the transform job.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformoutput.html#cfn-sagemaker-transformjob-transformoutput-s3outputpath
-            '''
-            result = self._values.get("s3_output_path")
-            assert result is not None, "Required property 's3_output_path' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def accept(self) -> typing.Optional[builtins.str]:
-            '''The MIME type used to specify the output data.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformoutput.html#cfn-sagemaker-transformjob-transformoutput-accept
-            '''
-            result = self._values.get("accept")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def assemble_with(self) -> typing.Optional[builtins.str]:
-            '''Defines how to assemble the results of the transform job as a single S3 object.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformoutput.html#cfn-sagemaker-transformjob-transformoutput-assemblewith
-            '''
-            result = self._values.get("assemble_with")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''The AWS KMS key that Amazon SageMaker uses to encrypt the model artifacts at rest using Amazon S3 server-side encryption.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformoutput.html#cfn-sagemaker-transformjob-transformoutput-kmskeyid
-            '''
-            result = self._values.get("kms_key_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TransformOutputProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJob.TransformResourcesProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "instance_count": "instanceCount",
-            "instance_type": "instanceType",
-            "volume_kms_key_id": "volumeKmsKeyId",
-        },
-    )
-    class TransformResourcesProperty:
-        def __init__(
-            self,
-            *,
-            instance_count: jsii.Number,
-            instance_type: builtins.str,
-            volume_kms_key_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Describes the resources, including ML instance types and ML instance count, to use for the transform job.
-
-            :param instance_count: The number of ML compute instances to use in the transform job.
-            :param instance_type: The ML compute instance type for the transform job.
-            :param volume_kms_key_id: The AWS KMS key that Amazon SageMaker uses to encrypt model data on the storage volume.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformresources.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_sagemaker as sagemaker
-                
-                transform_resources_property = sagemaker.CfnTransformJob.TransformResourcesProperty(
-                    instance_count=123,
-                    instance_type="instanceType",
-                
-                    # the properties below are optional
-                    volume_kms_key_id="volumeKmsKeyId"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__f7b79816ba7c3aa85c54542ede2db8dddd631d55ac85d18cc545c12a06b8a49e)
-                check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
-                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-                check_type(argname="argument volume_kms_key_id", value=volume_kms_key_id, expected_type=type_hints["volume_kms_key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "instance_count": instance_count,
-                "instance_type": instance_type,
-            }
-            if volume_kms_key_id is not None:
-                self._values["volume_kms_key_id"] = volume_kms_key_id
-
-        @builtins.property
-        def instance_count(self) -> jsii.Number:
-            '''The number of ML compute instances to use in the transform job.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformresources.html#cfn-sagemaker-transformjob-transformresources-instancecount
-            '''
-            result = self._values.get("instance_count")
-            assert result is not None, "Required property 'instance_count' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def instance_type(self) -> builtins.str:
-            '''The ML compute instance type for the transform job.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformresources.html#cfn-sagemaker-transformjob-transformresources-instancetype
-            '''
-            result = self._values.get("instance_type")
-            assert result is not None, "Required property 'instance_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def volume_kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''The AWS KMS key that Amazon SageMaker uses to encrypt model data on the storage volume.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-transformjob-transformresources.html#cfn-sagemaker-transformjob-transformresources-volumekmskeyid
-            '''
-            result = self._values.get("volume_kms_key_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TransformResourcesProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sagemaker.CfnTransformJobProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "model_name": "modelName",
-        "transform_input": "transformInput",
-        "transform_output": "transformOutput",
-        "transform_resources": "transformResources",
-        "batch_strategy": "batchStrategy",
-        "data_capture_config": "dataCaptureConfig",
-        "data_processing": "dataProcessing",
-        "environment": "environment",
-        "experiment_config": "experimentConfig",
-        "max_concurrent_transforms": "maxConcurrentTransforms",
-        "max_payload_in_mb": "maxPayloadInMb",
-        "model_client_config": "modelClientConfig",
-        "tags": "tags",
-    },
-)
-class CfnTransformJobProps:
-    def __init__(
-        self,
-        *,
-        model_name: builtins.str,
-        transform_input: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.TransformInputProperty", typing.Dict[builtins.str, typing.Any]]],
-        transform_output: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.TransformOutputProperty", typing.Dict[builtins.str, typing.Any]]],
-        transform_resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.TransformResourcesProperty", typing.Dict[builtins.str, typing.Any]]],
-        batch_strategy: typing.Optional[builtins.str] = None,
-        data_capture_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.DataCaptureConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_processing: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.DataProcessingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
-        experiment_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.ExperimentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        max_concurrent_transforms: typing.Optional[jsii.Number] = None,
-        max_payload_in_mb: typing.Optional[jsii.Number] = None,
-        model_client_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformJob.ModelClientConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnTransformJob.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTransformJob``.
-
-        :param model_name: The name of the model that you want to use for the transform job.
-        :param transform_input: Describes the input source and the way the transform job consumes it.
-        :param transform_output: Describes the results of the transform job.
-        :param transform_resources: Describes the resources, including ML instance types and ML instance count, to use for the transform job.
-        :param batch_strategy: Specifies the number of records to include in a mini-batch for an HTTP inference request.
-        :param data_capture_config: Configuration to control how SageMaker captures inference data.
-        :param data_processing: The data structure used to specify the data to be used for inference in a batch transform job.
-        :param environment: The environment variables to set in the Docker container.
-        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and trial.
-        :param max_concurrent_transforms: The maximum number of parallel requests that can be sent to each instance in a transform job.
-        :param max_payload_in_mb: The maximum allowed size of the payload, in MB.
-        :param model_client_config: Configures the timeout and maximum number of retries for processing a transform job invocation.
-        :param tags: An array of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sagemaker as sagemaker
-            
-            cfn_transform_job_props = sagemaker.CfnTransformJobProps(
-                model_name="modelName",
-                transform_input=sagemaker.CfnTransformJob.TransformInputProperty(
-                    data_source=sagemaker.CfnTransformJob.DataSourceProperty(
-                        s3_data_source=sagemaker.CfnTransformJob.S3DataSourceProperty(
-                            s3_data_type="s3DataType",
-                            s3_uri="s3Uri"
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    compression_type="compressionType",
-                    content_type="contentType",
-                    split_type="splitType"
-                ),
-                transform_output=sagemaker.CfnTransformJob.TransformOutputProperty(
-                    s3_output_path="s3OutputPath",
-            
-                    # the properties below are optional
-                    accept="accept",
-                    assemble_with="assembleWith",
-                    kms_key_id="kmsKeyId"
-                ),
-                transform_resources=sagemaker.CfnTransformJob.TransformResourcesProperty(
-                    instance_count=123,
-                    instance_type="instanceType",
-            
-                    # the properties below are optional
-                    volume_kms_key_id="volumeKmsKeyId"
-                ),
-            
-                # the properties below are optional
-                batch_strategy="batchStrategy",
-                data_capture_config=sagemaker.CfnTransformJob.DataCaptureConfigProperty(
-                    destination_s3_uri="destinationS3Uri",
-            
-                    # the properties below are optional
-                    generate_inference_id=False,
-                    kms_key_id="kmsKeyId"
-                ),
-                data_processing=sagemaker.CfnTransformJob.DataProcessingProperty(
-                    input_filter="inputFilter",
-                    join_source="joinSource",
-                    output_filter="outputFilter"
-                ),
-                environment={
-                    "environment_key": "environment"
-                },
-                experiment_config=sagemaker.CfnTransformJob.ExperimentConfigProperty(
-                    experiment_name="experimentName",
-                    trial_component_display_name="trialComponentDisplayName",
-                    trial_name="trialName"
-                ),
-                max_concurrent_transforms=123,
-                max_payload_in_mb=123,
-                model_client_config=sagemaker.CfnTransformJob.ModelClientConfigProperty(
-                    invocations_max_retries=123,
-                    invocations_timeout_in_seconds=123
-                ),
-                tags=[sagemaker.CfnTransformJob.TagsItemsProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__98c2320185b360b4ab266b00a207fe75875b9d0dc65ded738695578824ee7d0a)
-            check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
-            check_type(argname="argument transform_input", value=transform_input, expected_type=type_hints["transform_input"])
-            check_type(argname="argument transform_output", value=transform_output, expected_type=type_hints["transform_output"])
-            check_type(argname="argument transform_resources", value=transform_resources, expected_type=type_hints["transform_resources"])
-            check_type(argname="argument batch_strategy", value=batch_strategy, expected_type=type_hints["batch_strategy"])
-            check_type(argname="argument data_capture_config", value=data_capture_config, expected_type=type_hints["data_capture_config"])
-            check_type(argname="argument data_processing", value=data_processing, expected_type=type_hints["data_processing"])
-            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
-            check_type(argname="argument experiment_config", value=experiment_config, expected_type=type_hints["experiment_config"])
-            check_type(argname="argument max_concurrent_transforms", value=max_concurrent_transforms, expected_type=type_hints["max_concurrent_transforms"])
-            check_type(argname="argument max_payload_in_mb", value=max_payload_in_mb, expected_type=type_hints["max_payload_in_mb"])
-            check_type(argname="argument model_client_config", value=model_client_config, expected_type=type_hints["model_client_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "model_name": model_name,
-            "transform_input": transform_input,
-            "transform_output": transform_output,
-            "transform_resources": transform_resources,
-        }
-        if batch_strategy is not None:
-            self._values["batch_strategy"] = batch_strategy
-        if data_capture_config is not None:
-            self._values["data_capture_config"] = data_capture_config
-        if data_processing is not None:
-            self._values["data_processing"] = data_processing
-        if environment is not None:
-            self._values["environment"] = environment
-        if experiment_config is not None:
-            self._values["experiment_config"] = experiment_config
-        if max_concurrent_transforms is not None:
-            self._values["max_concurrent_transforms"] = max_concurrent_transforms
-        if max_payload_in_mb is not None:
-            self._values["max_payload_in_mb"] = max_payload_in_mb
-        if model_client_config is not None:
-            self._values["model_client_config"] = model_client_config
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def model_name(self) -> builtins.str:
-        '''The name of the model that you want to use for the transform job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-modelname
-        '''
-        result = self._values.get("model_name")
-        assert result is not None, "Required property 'model_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def transform_input(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformInputProperty"]:
-        '''Describes the input source and the way the transform job consumes it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-transforminput
-        '''
-        result = self._values.get("transform_input")
-        assert result is not None, "Required property 'transform_input' is missing"
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformInputProperty"], result)
-
-    @builtins.property
-    def transform_output(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformOutputProperty"]:
-        '''Describes the results of the transform job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-transformoutput
-        '''
-        result = self._values.get("transform_output")
-        assert result is not None, "Required property 'transform_output' is missing"
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformOutputProperty"], result)
-
-    @builtins.property
-    def transform_resources(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformResourcesProperty"]:
-        '''Describes the resources, including ML instance types and ML instance count, to use for the transform job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-transformresources
-        '''
-        result = self._values.get("transform_resources")
-        assert result is not None, "Required property 'transform_resources' is missing"
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.TransformResourcesProperty"], result)
-
-    @builtins.property
-    def batch_strategy(self) -> typing.Optional[builtins.str]:
-        '''Specifies the number of records to include in a mini-batch for an HTTP inference request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-batchstrategy
-        '''
-        result = self._values.get("batch_strategy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_capture_config(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataCaptureConfigProperty"]]:
-        '''Configuration to control how SageMaker captures inference data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-datacaptureconfig
-        '''
-        result = self._values.get("data_capture_config")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataCaptureConfigProperty"]], result)
-
-    @builtins.property
-    def data_processing(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataProcessingProperty"]]:
-        '''The data structure used to specify the data to be used for inference in a batch transform job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-dataprocessing
-        '''
-        result = self._values.get("data_processing")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.DataProcessingProperty"]], result)
-
-    @builtins.property
-    def environment(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
-        '''The environment variables to set in the Docker container.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-environment
-        '''
-        result = self._values.get("environment")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
-
-    @builtins.property
-    def experiment_config(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ExperimentConfigProperty"]]:
-        '''Associates a SageMaker job as a trial component with an experiment and trial.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-experimentconfig
-        '''
-        result = self._values.get("experiment_config")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ExperimentConfigProperty"]], result)
-
-    @builtins.property
-    def max_concurrent_transforms(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of parallel requests that can be sent to each instance in a transform job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-maxconcurrenttransforms
-        '''
-        result = self._values.get("max_concurrent_transforms")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def max_payload_in_mb(self) -> typing.Optional[jsii.Number]:
-        '''The maximum allowed size of the payload, in MB.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-maxpayloadinmb
-        '''
-        result = self._values.get("max_payload_in_mb")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def model_client_config(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ModelClientConfigProperty"]]:
-        '''Configures the timeout and maximum number of retries for processing a transform job invocation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-modelclientconfig
-        '''
-        result = self._values.get("model_client_config")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformJob.ModelClientConfigProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List["CfnTransformJob.TagsItemsProperty"]]:
-        '''An array of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-transformjob.html#cfn-sagemaker-transformjob-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["CfnTransformJob.TagsItemsProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTransformJobProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.ITrialComponentRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTrialComponent(
     _aws_cdk_0cae9daa.CfnResource,
@@ -66721,6 +66891,933 @@ class CfnUserProfileProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IWorkforceRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnWorkforce(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnWorkforce",
+):
+    '''Resource Type definition for AWS::SageMaker::Workforce.
+
+    Use to create a private workforce that you can use to label your training data using Amazon SageMaker Ground Truth.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html
+    :cloudformationResource: AWS::SageMaker::Workforce
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sagemaker as sagemaker
+        
+        cfn_workforce = sagemaker.CfnWorkforce(self, "MyCfnWorkforce",
+            workforce_name="workforceName",
+        
+            # the properties below are optional
+            cognito_config=sagemaker.CfnWorkforce.CognitoConfigProperty(
+                client_id="clientId",
+                user_pool="userPool"
+            ),
+            ip_address_type="ipAddressType",
+            oidc_config=sagemaker.CfnWorkforce.OidcConfigProperty(
+                authorization_endpoint="authorizationEndpoint",
+                client_id="clientId",
+                issuer="issuer",
+                jwks_uri="jwksUri",
+                logout_endpoint="logoutEndpoint",
+                token_endpoint="tokenEndpoint",
+                user_info_endpoint="userInfoEndpoint",
+        
+                # the properties below are optional
+                authentication_request_extra_params={
+                    "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                },
+                client_secret="clientSecret",
+                scope="scope"
+            ),
+            source_ip_config=sagemaker.CfnWorkforce.SourceIpConfigProperty(
+                cidrs=["cidrs"]
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            workforce_vpc_config=sagemaker.CfnWorkforce.WorkforceVpcConfigRequestProperty(
+                security_group_ids=["securityGroupIds"],
+                subnets=["subnets"],
+                vpc_id="vpcId"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        workforce_name: builtins.str,
+        cognito_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkforce.CognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        oidc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkforce.OidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_ip_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkforce.SourceIpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workforce_vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkforce.WorkforceVpcConfigRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SageMaker::Workforce``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param workforce_name: The name of the private workforce.
+        :param cognito_config: The configuration of an Amazon Cognito workforce. A single Cognito workforce is created using and corresponds to a single Amazon Cognito user pool.
+        :param ip_address_type: The IP address type for the workforce. IPv4 only or dualstack (IPv4 and IPv6).
+        :param oidc_config: The configuration of an OIDC Identity Provider (IdP) private workforce.
+        :param source_ip_config: A list of IP address ranges used to access your training data.
+        :param tags: An array of key-value pairs.
+        :param workforce_vpc_config: The VPC configuration for the workforce.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__896a3f8b697769a46cd7fbed1e0fdf7572cca060dd4c5841f77a4bd06a2d972e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWorkforceProps(
+            workforce_name=workforce_name,
+            cognito_config=cognito_config,
+            ip_address_type=ip_address_type,
+            oidc_config=oidc_config,
+            source_ip_config=source_ip_config,
+            tags=tags,
+            workforce_vpc_config=workforce_vpc_config,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForWorkforce")
+    @builtins.classmethod
+    def arn_for_workforce(
+        cls,
+        resource: "_aws_sagemaker_2f7a2e3e.IWorkforceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2389896c94ec0afb9fa0d9976dc0057b63b9c3a9238c72a7cdb981ed9a57635a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkforce", [resource]))
+
+    @jsii.member(jsii_name="isCfnWorkforce")
+    @builtins.classmethod
+    def is_cfn_workforce(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWorkforce.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d457853d09c6dcbc8242c267b9336dbf066872e37abd5e047624f9ebc0bf9c45)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkforce", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f8cf2144203d479a99f3344a077b51d84737a6d8307a3dea4e50f2bf1d8f9a83)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b0dfa9e81d70aaf0551bc5c069f9b01f547d95493027dbd8fc9f5f9459314f2f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSubDomain")
+    def attr_sub_domain(self) -> builtins.str:
+        '''The subdomain for your OIDC Identity Provider.
+
+        :cloudformationAttribute: SubDomain
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSubDomain"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWorkforceArn")
+    def attr_workforce_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the private workforce.
+
+        :cloudformationAttribute: WorkforceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWorkforceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workforceRef")
+    def workforce_ref(self) -> "_aws_sagemaker_2f7a2e3e.WorkforceReference":
+        '''A reference to a Workforce resource.'''
+        return typing.cast("_aws_sagemaker_2f7a2e3e.WorkforceReference", jsii.get(self, "workforceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workforceName")
+    def workforce_name(self) -> builtins.str:
+        '''The name of the private workforce.'''
+        return typing.cast(builtins.str, jsii.get(self, "workforceName"))
+
+    @workforce_name.setter
+    def workforce_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4184ccad0a93cc154a5f3d70adcedf245c24187b85af8dcce6d90963a9effb53)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workforceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cognitoConfig")
+    def cognito_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.CognitoConfigProperty"]]:
+        '''The configuration of an Amazon Cognito workforce.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.CognitoConfigProperty"]], jsii.get(self, "cognitoConfig"))
+
+    @cognito_config.setter
+    def cognito_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.CognitoConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ac8f6c6a4032a84528681d10eeb3db3ec873fe9fecb3511e09e055a727b4b7f1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cognitoConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAddressType")
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''The IP address type for the workforce.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddressType"))
+
+    @ip_address_type.setter
+    def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a05ad9218269865c6705ed77dc44ac6418092681fb8c6b28671d1cf09a69664a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="oidcConfig")
+    def oidc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.OidcConfigProperty"]]:
+        '''The configuration of an OIDC Identity Provider (IdP) private workforce.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.OidcConfigProperty"]], jsii.get(self, "oidcConfig"))
+
+    @oidc_config.setter
+    def oidc_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.OidcConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__35ff76b31e1a1f44527112f11321a3406b0ce5693d74b2a381a2a9d9f99cc398)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "oidcConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceIpConfig")
+    def source_ip_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.SourceIpConfigProperty"]]:
+        '''A list of IP address ranges used to access your training data.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.SourceIpConfigProperty"]], jsii.get(self, "sourceIpConfig"))
+
+    @source_ip_config.setter
+    def source_ip_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.SourceIpConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cce4be6d8266365e52fcae3d375b0e5bac548a0eadd799d57bdb7d74940f34c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceIpConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b7bbb44ec39ff3c27bbabd4dd30dba876a887e8f0cb255be9e6ded3d4362ad70)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workforceVpcConfig")
+    def workforce_vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.WorkforceVpcConfigRequestProperty"]]:
+        '''The VPC configuration for the workforce.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.WorkforceVpcConfigRequestProperty"]], jsii.get(self, "workforceVpcConfig"))
+
+    @workforce_vpc_config.setter
+    def workforce_vpc_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.WorkforceVpcConfigRequestProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f6c34a085d5b8582e2d7cbf595e72e08e4db03967379ad873f099ce9e81a61c7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workforceVpcConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnWorkforce.CognitoConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "user_pool": "userPool"},
+    )
+    class CognitoConfigProperty:
+        def __init__(self, *, client_id: builtins.str, user_pool: builtins.str) -> None:
+            '''The configuration of an Amazon Cognito workforce.
+
+            A single Cognito workforce is created using and corresponds to a single Amazon Cognito user pool.
+
+            :param client_id: The client ID for your Amazon Cognito user pool.
+            :param user_pool: The ID for your Amazon Cognito user pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-cognitoconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cognito_config_property = sagemaker.CfnWorkforce.CognitoConfigProperty(
+                    client_id="clientId",
+                    user_pool="userPool"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__02bb1cbf28f7b3f20add0ffc597435c1fbaf7720f469e1098a183116967f1f42)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "user_pool": user_pool,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''The client ID for your Amazon Cognito user pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-cognitoconfig.html#cfn-sagemaker-workforce-cognitoconfig-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def user_pool(self) -> builtins.str:
+            '''The ID for your Amazon Cognito user pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-cognitoconfig.html#cfn-sagemaker-workforce-cognitoconfig-userpool
+            '''
+            result = self._values.get("user_pool")
+            assert result is not None, "Required property 'user_pool' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CognitoConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnWorkforce.OidcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_endpoint": "authorizationEndpoint",
+            "client_id": "clientId",
+            "issuer": "issuer",
+            "jwks_uri": "jwksUri",
+            "logout_endpoint": "logoutEndpoint",
+            "token_endpoint": "tokenEndpoint",
+            "user_info_endpoint": "userInfoEndpoint",
+            "authentication_request_extra_params": "authenticationRequestExtraParams",
+            "client_secret": "clientSecret",
+            "scope": "scope",
+        },
+    )
+    class OidcConfigProperty:
+        def __init__(
+            self,
+            *,
+            authorization_endpoint: builtins.str,
+            client_id: builtins.str,
+            issuer: builtins.str,
+            jwks_uri: builtins.str,
+            logout_endpoint: builtins.str,
+            token_endpoint: builtins.str,
+            user_info_endpoint: builtins.str,
+            authentication_request_extra_params: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            client_secret: typing.Optional[builtins.str] = None,
+            scope: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration of an OIDC Identity Provider (IdP) private workforce.
+
+            :param authorization_endpoint: The OIDC IdP authorization endpoint used to configure your private workforce.
+            :param client_id: The OIDC IdP client ID used to configure your private workforce.
+            :param issuer: The OIDC IdP issuer used to configure your private workforce.
+            :param jwks_uri: The OIDC IdP JSON Web Key Set (Jwks) URI used to configure your private workforce.
+            :param logout_endpoint: The OIDC IdP logout endpoint used to configure your private workforce.
+            :param token_endpoint: The OIDC IdP token endpoint used to configure your private workforce.
+            :param user_info_endpoint: The OIDC IdP user info endpoint used to configure your private workforce.
+            :param authentication_request_extra_params: A string to string map of identifiers specific to the custom identity provider (IdP) being used.
+            :param client_secret: The OIDC IdP client secret used to configure your private workforce.
+            :param scope: An array of string identifiers used to refer to the specific pieces of user data or claims that the client application wants to access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                oidc_config_property = sagemaker.CfnWorkforce.OidcConfigProperty(
+                    authorization_endpoint="authorizationEndpoint",
+                    client_id="clientId",
+                    issuer="issuer",
+                    jwks_uri="jwksUri",
+                    logout_endpoint="logoutEndpoint",
+                    token_endpoint="tokenEndpoint",
+                    user_info_endpoint="userInfoEndpoint",
+                
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    client_secret="clientSecret",
+                    scope="scope"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__21b181fafdf4f0aeee725ba62b21a2edc60af3dc6b7fa051812e367611caea8a)
+                check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+                check_type(argname="argument jwks_uri", value=jwks_uri, expected_type=type_hints["jwks_uri"])
+                check_type(argname="argument logout_endpoint", value=logout_endpoint, expected_type=type_hints["logout_endpoint"])
+                check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
+                check_type(argname="argument user_info_endpoint", value=user_info_endpoint, expected_type=type_hints["user_info_endpoint"])
+                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_endpoint": authorization_endpoint,
+                "client_id": client_id,
+                "issuer": issuer,
+                "jwks_uri": jwks_uri,
+                "logout_endpoint": logout_endpoint,
+                "token_endpoint": token_endpoint,
+                "user_info_endpoint": user_info_endpoint,
+            }
+            if authentication_request_extra_params is not None:
+                self._values["authentication_request_extra_params"] = authentication_request_extra_params
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if scope is not None:
+                self._values["scope"] = scope
+
+        @builtins.property
+        def authorization_endpoint(self) -> builtins.str:
+            '''The OIDC IdP authorization endpoint used to configure your private workforce.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-authorizationendpoint
+            '''
+            result = self._values.get("authorization_endpoint")
+            assert result is not None, "Required property 'authorization_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''The OIDC IdP client ID used to configure your private workforce.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def issuer(self) -> builtins.str:
+            '''The OIDC IdP issuer used to configure your private workforce.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-issuer
+            '''
+            result = self._values.get("issuer")
+            assert result is not None, "Required property 'issuer' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def jwks_uri(self) -> builtins.str:
+            '''The OIDC IdP JSON Web Key Set (Jwks) URI used to configure your private workforce.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-jwksuri
+            '''
+            result = self._values.get("jwks_uri")
+            assert result is not None, "Required property 'jwks_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def logout_endpoint(self) -> builtins.str:
+            '''The OIDC IdP logout endpoint used to configure your private workforce.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-logoutendpoint
+            '''
+            result = self._values.get("logout_endpoint")
+            assert result is not None, "Required property 'logout_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_endpoint(self) -> builtins.str:
+            '''The OIDC IdP token endpoint used to configure your private workforce.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-tokenendpoint
+            '''
+            result = self._values.get("token_endpoint")
+            assert result is not None, "Required property 'token_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def user_info_endpoint(self) -> builtins.str:
+            '''The OIDC IdP user info endpoint used to configure your private workforce.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-userinfoendpoint
+            '''
+            result = self._values.get("user_info_endpoint")
+            assert result is not None, "Required property 'user_info_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authentication_request_extra_params(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A string to string map of identifiers specific to the custom identity provider (IdP) being used.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-authenticationrequestextraparams
+            '''
+            result = self._values.get("authentication_request_extra_params")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def client_secret(self) -> typing.Optional[builtins.str]:
+            '''The OIDC IdP client secret used to configure your private workforce.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scope(self) -> typing.Optional[builtins.str]:
+            '''An array of string identifiers used to refer to the specific pieces of user data or claims that the client application wants to access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-oidcconfig.html#cfn-sagemaker-workforce-oidcconfig-scope
+            '''
+            result = self._values.get("scope")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OidcConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnWorkforce.SourceIpConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cidrs": "cidrs"},
+    )
+    class SourceIpConfigProperty:
+        def __init__(self, *, cidrs: typing.Sequence[builtins.str]) -> None:
+            '''A list of IP address ranges used to access your training data.
+
+            :param cidrs: A list of one to ten Classless Inter-Domain Routing (CIDR) values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-sourceipconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                source_ip_config_property = sagemaker.CfnWorkforce.SourceIpConfigProperty(
+                    cidrs=["cidrs"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c529df918923ab141d19296765ee5815a06e2b3930c5be1cd0a6224514acbaa6)
+                check_type(argname="argument cidrs", value=cidrs, expected_type=type_hints["cidrs"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cidrs": cidrs,
+            }
+
+        @builtins.property
+        def cidrs(self) -> typing.List[builtins.str]:
+            '''A list of one to ten Classless Inter-Domain Routing (CIDR) values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-sourceipconfig.html#cfn-sagemaker-workforce-sourceipconfig-cidrs
+            '''
+            result = self._values.get("cidrs")
+            assert result is not None, "Required property 'cidrs' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceIpConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnWorkforce.WorkforceVpcConfigRequestProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnets": "subnets",
+            "vpc_id": "vpcId",
+        },
+    )
+    class WorkforceVpcConfigRequestProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
+            vpc_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The VPC configuration for the workforce.
+
+            :param security_group_ids: The VPC security group IDs.
+            :param subnets: The VPC subnets.
+            :param vpc_id: The ID of the VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-workforcevpcconfigrequest.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                workforce_vpc_config_request_property = sagemaker.CfnWorkforce.WorkforceVpcConfigRequestProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnets=["subnets"],
+                    vpc_id="vpcId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3642721f0a094d668aa0220aa84658ed644f6ae27019be5e8b3659df24c15f38)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+            if subnets is not None:
+                self._values["subnets"] = subnets
+            if vpc_id is not None:
+                self._values["vpc_id"] = vpc_id
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The VPC security group IDs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-workforcevpcconfigrequest.html#cfn-sagemaker-workforce-workforcevpcconfigrequest-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The VPC subnets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-workforcevpcconfigrequest.html#cfn-sagemaker-workforce-workforcevpcconfigrequest-subnets
+            '''
+            result = self._values.get("subnets")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def vpc_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-workforce-workforcevpcconfigrequest.html#cfn-sagemaker-workforce-workforcevpcconfigrequest-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WorkforceVpcConfigRequestProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnWorkforceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "workforce_name": "workforceName",
+        "cognito_config": "cognitoConfig",
+        "ip_address_type": "ipAddressType",
+        "oidc_config": "oidcConfig",
+        "source_ip_config": "sourceIpConfig",
+        "tags": "tags",
+        "workforce_vpc_config": "workforceVpcConfig",
+    },
+)
+class CfnWorkforceProps:
+    def __init__(
+        self,
+        *,
+        workforce_name: builtins.str,
+        cognito_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkforce.CognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        oidc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkforce.OidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_ip_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkforce.SourceIpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workforce_vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkforce.WorkforceVpcConfigRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkforce``.
+
+        :param workforce_name: The name of the private workforce.
+        :param cognito_config: The configuration of an Amazon Cognito workforce. A single Cognito workforce is created using and corresponds to a single Amazon Cognito user pool.
+        :param ip_address_type: The IP address type for the workforce. IPv4 only or dualstack (IPv4 and IPv6).
+        :param oidc_config: The configuration of an OIDC Identity Provider (IdP) private workforce.
+        :param source_ip_config: A list of IP address ranges used to access your training data.
+        :param tags: An array of key-value pairs.
+        :param workforce_vpc_config: The VPC configuration for the workforce.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sagemaker as sagemaker
+            
+            cfn_workforce_props = sagemaker.CfnWorkforceProps(
+                workforce_name="workforceName",
+            
+                # the properties below are optional
+                cognito_config=sagemaker.CfnWorkforce.CognitoConfigProperty(
+                    client_id="clientId",
+                    user_pool="userPool"
+                ),
+                ip_address_type="ipAddressType",
+                oidc_config=sagemaker.CfnWorkforce.OidcConfigProperty(
+                    authorization_endpoint="authorizationEndpoint",
+                    client_id="clientId",
+                    issuer="issuer",
+                    jwks_uri="jwksUri",
+                    logout_endpoint="logoutEndpoint",
+                    token_endpoint="tokenEndpoint",
+                    user_info_endpoint="userInfoEndpoint",
+            
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    client_secret="clientSecret",
+                    scope="scope"
+                ),
+                source_ip_config=sagemaker.CfnWorkforce.SourceIpConfigProperty(
+                    cidrs=["cidrs"]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                workforce_vpc_config=sagemaker.CfnWorkforce.WorkforceVpcConfigRequestProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnets=["subnets"],
+                    vpc_id="vpcId"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3aeb4eb025bc8540d65afaa6e9a76431513105efeb32b12102db6977915290d)
+            check_type(argname="argument workforce_name", value=workforce_name, expected_type=type_hints["workforce_name"])
+            check_type(argname="argument cognito_config", value=cognito_config, expected_type=type_hints["cognito_config"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument oidc_config", value=oidc_config, expected_type=type_hints["oidc_config"])
+            check_type(argname="argument source_ip_config", value=source_ip_config, expected_type=type_hints["source_ip_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument workforce_vpc_config", value=workforce_vpc_config, expected_type=type_hints["workforce_vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workforce_name": workforce_name,
+        }
+        if cognito_config is not None:
+            self._values["cognito_config"] = cognito_config
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
+        if oidc_config is not None:
+            self._values["oidc_config"] = oidc_config
+        if source_ip_config is not None:
+            self._values["source_ip_config"] = source_ip_config
+        if tags is not None:
+            self._values["tags"] = tags
+        if workforce_vpc_config is not None:
+            self._values["workforce_vpc_config"] = workforce_vpc_config
+
+    @builtins.property
+    def workforce_name(self) -> builtins.str:
+        '''The name of the private workforce.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html#cfn-sagemaker-workforce-workforcename
+        '''
+        result = self._values.get("workforce_name")
+        assert result is not None, "Required property 'workforce_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cognito_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.CognitoConfigProperty"]]:
+        '''The configuration of an Amazon Cognito workforce.
+
+        A single Cognito workforce is created using and corresponds to a single Amazon Cognito user pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html#cfn-sagemaker-workforce-cognitoconfig
+        '''
+        result = self._values.get("cognito_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.CognitoConfigProperty"]], result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''The IP address type for the workforce.
+
+        IPv4 only or dualstack (IPv4 and IPv6).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html#cfn-sagemaker-workforce-ipaddresstype
+        '''
+        result = self._values.get("ip_address_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def oidc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.OidcConfigProperty"]]:
+        '''The configuration of an OIDC Identity Provider (IdP) private workforce.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html#cfn-sagemaker-workforce-oidcconfig
+        '''
+        result = self._values.get("oidc_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.OidcConfigProperty"]], result)
+
+    @builtins.property
+    def source_ip_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.SourceIpConfigProperty"]]:
+        '''A list of IP address ranges used to access your training data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html#cfn-sagemaker-workforce-sourceipconfig
+        '''
+        result = self._values.get("source_ip_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.SourceIpConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html#cfn-sagemaker-workforce-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def workforce_vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.WorkforceVpcConfigRequestProperty"]]:
+        '''The VPC configuration for the workforce.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-workforce.html#cfn-sagemaker-workforce-workforcevpcconfig
+        '''
+        result = self._values.get("workforce_vpc_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkforce.WorkforceVpcConfigRequestProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkforceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IWorkteamRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWorkteam(
     _aws_cdk_0cae9daa.CfnResource,
@@ -67611,6 +68708,8 @@ __all__ = [
     "CfnAppImageConfig",
     "CfnAppImageConfigProps",
     "CfnAppProps",
+    "CfnArtifact",
+    "CfnArtifactProps",
     "CfnCluster",
     "CfnClusterProps",
     "CfnCodeRepository",
@@ -67637,6 +68736,8 @@ __all__ = [
     "CfnFeatureGroupProps",
     "CfnHub",
     "CfnHubProps",
+    "CfnHumanTaskUi",
+    "CfnHumanTaskUiProps",
     "CfnImage",
     "CfnImageProps",
     "CfnImageVersion",
@@ -67653,8 +68754,6 @@ __all__ = [
     "CfnModelBiasJobDefinition",
     "CfnModelBiasJobDefinitionProps",
     "CfnModelCard",
-    "CfnModelCardExportJob",
-    "CfnModelCardExportJobProps",
     "CfnModelCardProps",
     "CfnModelExplainabilityJobDefinition",
     "CfnModelExplainabilityJobDefinitionProps",
@@ -67666,8 +68765,6 @@ __all__ = [
     "CfnModelQualityJobDefinition",
     "CfnModelQualityJobDefinitionProps",
     "CfnMonitoringSchedule",
-    "CfnMonitoringScheduleAlert",
-    "CfnMonitoringScheduleAlertProps",
     "CfnMonitoringScheduleProps",
     "CfnNotebookInstance",
     "CfnNotebookInstanceLifecycleConfig",
@@ -67685,12 +68782,12 @@ __all__ = [
     "CfnSpaceProps",
     "CfnStudioLifecycleConfig",
     "CfnStudioLifecycleConfigProps",
-    "CfnTransformJob",
-    "CfnTransformJobProps",
     "CfnTrialComponent",
     "CfnTrialComponentProps",
     "CfnUserProfile",
     "CfnUserProfileProps",
+    "CfnWorkforce",
+    "CfnWorkforceProps",
     "CfnWorkteam",
     "CfnWorkteamProps",
     "IEndpoint",
@@ -68275,6 +69372,118 @@ def _typecheckingstub__2f03f5ccb1b2c4633c9ef3bee30e7429d047ef909520efe2cbcf88d12
     user_profile_name: builtins.str,
     recovery_mode: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     resource_spec: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.ResourceSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d4c5b7926b8d23db2c698ab19339f791a2452fbcc57e62bb71cc53280f92032(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    artifact_type: builtins.str,
+    source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnArtifact.ArtifactSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    artifact_name: typing.Optional[builtins.str] = None,
+    metadata_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnArtifact.MetadataPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0d782f89de321bef5bd6a57ba9f282bf85fca0098c184e24b3d8b9caa462356(
+    resource: _aws_sagemaker_2f7a2e3e.IArtifactRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1472326ac2e37b4b757935c2bb374f81758f9accc5d70102e39f64a28d1543e3(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64d83274da623b42168a91fed7203a47f653f0af01b931598ca0c9e65cc44721(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b276e860df39064ef8b9d463d2acd11d8f8fbfaea14c2c8c0814673cdd4db1e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__455e2a85b80afdef271a809f4cecd9ab727ef3a355f6708e08217a9e765350a6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ee55e99487acaf674156034886d992164c65af54e2305dc97a5144dba41ce6c(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnArtifact.ArtifactSourceProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6b2aa078b3ecbe6ba3cf51aca037c6b8398557fa578d141567c3ccfd7c01db0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18e3365f0ce72f6428a999fdde9283fb5b2add8870441f1873112c672b95f7b4(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnArtifact.MetadataPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f4746d010ec143aa6af6839aee356854842e53965e558eef1afc360a5b417c3(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17addb09ae9f57ede909a07551196511eed87dbdc17ec2680dc3b27c8cd9d8de(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b42d0fe154a1309df43066ab405a367a6702265867dfbe27629dcb290fd9fd3(
+    *,
+    source_uri: builtins.str,
+    source_types: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnArtifact.ArtifactSourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e1cc4aa419ad303c2974f21945a40c229523bb9e3e84a38601073da3d06ba4f(
+    *,
+    source_id_type: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e786ab76e3dcdfbb3c711abbc5661dc0f7b1f687623a3969e6bd13c81533f5e9(
+    *,
+    commit_id: typing.Optional[builtins.str] = None,
+    generated_by: typing.Optional[builtins.str] = None,
+    project_id: typing.Optional[builtins.str] = None,
+    repository: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94806791f6b9023b8bef59a40d37dc12fd76c86b0ca48bbed3b60d97de8deb42(
+    *,
+    artifact_type: builtins.str,
+    source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnArtifact.ArtifactSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    artifact_name: typing.Optional[builtins.str] = None,
+    metadata_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnArtifact.MetadataPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -69867,6 +71076,7 @@ def _typecheckingstub__d5ec3761393d0c2344de58784b3017f7e1498d65c80ca0e29094c6171
     execution_role_arn: typing.Optional[builtins.str] = None,
     explainer_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.ExplainerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.MetricsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     shadow_production_variants: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.ProductionVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -69942,6 +71152,12 @@ def _typecheckingstub__1f3348af00a67f21513de8698151acf7998ee647db8a9740c9d0d51eb
 
 def _typecheckingstub__1feedfcd01ce7ecf1fca052ce76bf378f4ce268fabd561d3ec301f697053426d(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__723791b0b63cd4e377161453b4bdcc3643e7cd62178473a472a91273c2e4eaa2(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEndpointConfig.MetricsConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -70075,6 +71291,14 @@ def _typecheckingstub__bb02c2885c5605c12d9e5b35849a33c20ae5db4791746707dc4165477
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5628cda77e3c06ac2a105ce376069380b22370f2b52476a0451652fb1a6ad2d6(
+    *,
+    destination_s3_uri: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5f66371a559ba65ff125b2321cd8b6a93386ca97a2bbac0b89139668121914bb(
     *,
     capture_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.CaptureOptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -70094,7 +71318,7 @@ def _typecheckingstub__bca400d67b7e0b7493acf5a52ff4165f4d522d876c087e0e3b8c804a1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__45e19fe76343914e43c1a490a6036a8da6b791d3d6a862e72ecf819ed65ba1df(
+def _typecheckingstub__4d6ba56ed8c0a08861b6d04e189aae74603a0e7c038420d7ab3b242da7df1df0(
     *,
     instance_type: builtins.str,
     priority: jsii.Number,
@@ -70107,7 +71331,25 @@ def _typecheckingstub__46cb311c857cc447bc44e0db8728dd4118d07da4d442a846a68ff8c75
     *,
     max_instance_count: typing.Optional[jsii.Number] = None,
     min_instance_count: typing.Optional[jsii.Number] = None,
+    scale_in_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.ScaleInPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1a8afce1265c6711ca2bd8d68ee291556bcb1116e4a679c0a3329777707346e(
+    *,
+    enable_detailed_observability: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_enhanced_metrics: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    metric_publish_frequency_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c40ea21425db9425ed7aed53b0f36151441b712327e968318c86bee8421ee67(
+    *,
+    concurrency_threshold: typing.Optional[jsii.Number] = None,
+    prefix_length: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -70118,11 +71360,12 @@ def _typecheckingstub__685c22aefe4bd12e237f4e6f239c6de7809e228c81d2604127d6824fa
     accelerator_type: typing.Optional[builtins.str] = None,
     capacity_reservation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.CapacityReservationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container_startup_health_check_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    core_dump_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.CoreDumpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     enable_ssm_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     inference_ami_version: typing.Optional[builtins.str] = None,
     initial_instance_count: typing.Optional[jsii.Number] = None,
     initial_variant_weight: typing.Optional[jsii.Number] = None,
-    instance_pools: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.InstancePoolsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    instance_pools: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.InstancePoolProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     instance_type: typing.Optional[builtins.str] = None,
     managed_instance_scaling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.ManagedInstanceScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     model_data_download_timeout_in_seconds: typing.Optional[jsii.Number] = None,
@@ -70137,7 +71380,17 @@ def _typecheckingstub__685c22aefe4bd12e237f4e6f239c6de7809e228c81d2604127d6824fa
 
 def _typecheckingstub__41a70a45b46693d52cb9cc5fc85772297ca38491c9ce53c7e06d6304a7c4f1e0(
     *,
+    prefix_aware_routing_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.PrefixAwareRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_strategy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__719c8d5ef8282a07bb81e0778e46e5dc200d51108d091f7870523907e8bb35f3(
+    *,
+    strategy: builtins.str,
+    cooldown_in_minutes: typing.Optional[jsii.Number] = None,
+    maximum_step_size: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -70169,6 +71422,7 @@ def _typecheckingstub__78ef2b9ddede793caaf7b19d01bb59252a5dbfeb2526319f7e6ad617b
     execution_role_arn: typing.Optional[builtins.str] = None,
     explainer_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.ExplainerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.MetricsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     shadow_production_variants: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.ProductionVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointConfig.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -70675,6 +71929,75 @@ def _typecheckingstub__3eb80429de3128f0873fe6fb6dfee85bbbb04e2a40c593ecdd30b3c7d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8e44e53d556920a38cf52b5ef803c8cb587eea5938ebdbb04f7a3db9b42a8823(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    human_task_ui_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ui_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHumanTaskUi.UiTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80858ecdf328468b15d1a2069dfd6bf20a2d23a79cd83bbf303e16d915fa783e(
+    resource: _aws_sagemaker_2f7a2e3e.IHumanTaskUiRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__037303faa26ccaaee676f5febecb0927baa2d2ec9e7feab76f2a1d5dbf782bc4(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e03cd32dc9c0358042a145fe5b235bad3ee3d9c65cb9a86308f1faa75eaaf46(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4cfe2e5d5f4eb766c0c0e85e0ec9fb124d45fed388393df39af1459744719cae(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d08db1f4c9cc3821513cc284e4d57c16454700a0158ff2b23eed13922c01e737(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4864736692ed75c9c9d6cd2c03a3ca9b25e2130fb1bd2825992fa51f8237875(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92a5f63773320fbdb0ad63a7413cad142301a6e364823dbf4a4f429d4a350b0e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnHumanTaskUi.UiTemplateProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ecc40f7f59256b4b6d1fe59f5491d842947c46aa20259f2c8295b26d1ac5476(
+    *,
+    content: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fddcee7d8ead3650e78e1097bd0d9720da1d12434e10acb1ce2f483e81f71944(
+    *,
+    human_task_ui_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ui_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHumanTaskUi.UiTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dde982bdab4dea21946725303bd84c1eb61267733b6351eb23c00f7d036f6966(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -70884,11 +72207,12 @@ def _typecheckingstub__3f4e5766b29b94468be54bb573abdb408c06e9ece9272100939b3c018
     id: builtins.str,
     *,
     endpoint_name: builtins.str,
-    specification: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
     deployment_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentDeploymentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     endpoint_arn: typing.Optional[builtins.str] = None,
     inference_component_name: typing.Optional[builtins.str] = None,
     runtime_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentRuntimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     variant_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -70925,12 +72249,6 @@ def _typecheckingstub__b5da5a7b9146494fb112ee7d607f46334dc3051d93d50b77735f62bdd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0adfcd5be0b7e042e0a87c6ccfbe4b53fc4803e5b7da8ad8951b7875f1bc187d(
-    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInferenceComponent.InferenceComponentSpecificationProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e199bdfdfc0d9fd1ee6e1e738627e42cbf742196ce04c25062153cb3351b483d(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInferenceComponent.InferenceComponentDeploymentConfigProperty]],
 ) -> None:
@@ -70951,6 +72269,18 @@ def _typecheckingstub__3472a30311d416ad067afa5672326f2c73cf974625b4aa6be0907db35
 
 def _typecheckingstub__4e7c351a25e5bcfa57adb1a6effe98407a73bd29e017ee9e9dea5d09a2106d9c(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInferenceComponent.InferenceComponentRuntimeConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0adfcd5be0b7e042e0a87c6ccfbe4b53fc4803e5b7da8ad8951b7875f1bc187d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInferenceComponent.InferenceComponentSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ba96f1f28ff58975a277c9d3378a4e328f02441d1db95d6fa26aa2c14043d81(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -70981,11 +72311,26 @@ def _typecheckingstub__b45c128e4eb34d277b6582f23b7a23327ba1c7a555322e894c50830f7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__95dbc759c2c99220695066a1aea602d6b44cd3f7ba986854ef6c94d6c6d8a094(
+    *,
+    metrics_endpoints: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.MetricsEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c27834d414a93bc1a61027191b0a24b7e6f65578d28266dfd21a6ed1a5a85ee1(
     *,
     resolution_time: typing.Optional[builtins.str] = None,
     resolved_image: typing.Optional[builtins.str] = None,
     specified_image: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__048c6e4e847102af4565a6c339307a8c9e7718c33da122f08a68713755324207(
+    *,
+    enforcement_mode: builtins.str,
+    max_imbalance: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -71008,12 +72353,30 @@ def _typecheckingstub__c434e562757acaaae52cb6bda4572fad68492cf9a55f32d82b5e11d8f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7ee42f1f15d134de011d0cab70b41e2deaacf8701d0a822f7bb4794dbb51c0d2(
+    *,
+    artifact_url: typing.Optional[builtins.str] = None,
+    container_metrics_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.ContainerMetricsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    image: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f5aed592935acb4ecc3dffe218101a8b9053d16d99e4a24219409fd2bd906fec(
     *,
     artifact_url: typing.Optional[builtins.str] = None,
+    container_metrics_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.ContainerMetricsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deployed_image: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.DeployedImageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     image: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97ff5fe53a11dd7ff0a771f23b3e3f2d86719029e7e8647afeb6c3adc9c9b518(
+    *,
+    enable_caching: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -71022,6 +72385,14 @@ def _typecheckingstub__a70516845877d0ca21bee7e4344b7ffa9a86cd8096f492bb70c79806a
     *,
     auto_rollback_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.AutoRollbackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rolling_update_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentRollingUpdatePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__847e8f58947706d3481edecf55c090242e631764c16ce9dc98ad2fac6fe7b8e9(
+    *,
+    current_copy_count: jsii.Number,
+    instance_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -71041,6 +72412,29 @@ def _typecheckingstub__63c5c7c37d4a557d84dc45694cd00ae845f319a810bc817c50db41e7d
     copy_count: typing.Optional[jsii.Number] = None,
     current_copy_count: typing.Optional[jsii.Number] = None,
     desired_copy_count: typing.Optional[jsii.Number] = None,
+    placement_status: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentPlacementStatusProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db7e4ef3a90f8e1fd6cbf141deb64a8fda217f74d3ad0da1ec9a5c36ae1613fe(
+    *,
+    availability_zone_balance: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentAvailabilityZoneBalanceProperty, typing.Dict[builtins.str, typing.Any]]],
+    placement_strategy: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c44a0dfefb49f0bca2f657c8fd88c6c87d4c180ae24be230f683afd767e893f4(
+    *,
+    instance_type: builtins.str,
+    compute_resource_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentContainerSpecificationForInstanceTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    current_data_cache_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentDataCacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_cache_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentDataCacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    model_name: typing.Optional[builtins.str] = None,
+    scheduling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentSchedulingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    startup_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentStartupParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -71050,7 +72444,10 @@ def _typecheckingstub__6a0b62210860358f55c428526365b9cb1755209df1a27a1d8b73278ff
     base_inference_component_name: typing.Optional[builtins.str] = None,
     compute_resource_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentComputeResourceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentContainerSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    current_data_cache_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentDataCacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_cache_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentDataCacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     model_name: typing.Optional[builtins.str] = None,
+    scheduling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentSchedulingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     startup_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentStartupParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -71064,14 +72461,23 @@ def _typecheckingstub__51a3a32a227ed8c98901c9a701372df1d229c6ff59152c6bdae0644d1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__03d58a78ecf31403386cf7c7d8eec49b9363d1fc4b77db7de6360b06e66dea15(
+    *,
+    metrics_endpoint_path: builtins.str,
+    metric_publish_frequency_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3926edf39d044760bb8195e9466dfa81ab70056fcc1e3a9053c6c3d90bcaaafa(
     *,
     endpoint_name: builtins.str,
-    specification: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
     deployment_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentDeploymentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     endpoint_arn: typing.Optional[builtins.str] = None,
     inference_component_name: typing.Optional[builtins.str] = None,
     runtime_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentRuntimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceComponent.InferenceComponentSpecificationForInstanceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     variant_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -72266,90 +73672,6 @@ def _typecheckingstub__605653cc827c713b5c70a6fd0d29eadda991963ffa0099e26bf96b5bb
     domain_id: typing.Optional[builtins.str] = None,
     user_profile_arn: typing.Optional[builtins.str] = None,
     user_profile_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__37aa7a409bbce4e8cb9ef7f42c3758be5c57ea8c3a3b6c62fb2c7d25aecadaa2(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    model_card_export_job_name: builtins.str,
-    model_card_name: builtins.str,
-    output_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnModelCardExportJob.ModelCardExportOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    model_card_version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5909b1d6f9f3115152776073102f95514f0db9f19f5dc3e9cc91ff33636c7f43(
-    resource: _aws_sagemaker_2f7a2e3e.IModelCardExportJobRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e4429995818a08f86c282639c22e57018c0ce264bad9c7a84bdb15aede932120(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5591547d87ea2068ffdc3626e9fe562f3f9a4dbf53a803510cc8aa6dc04500d1(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1f6283b989876666dad519a99385fb0f8e0f8e53f7ed03cae9598829159fd0d0(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__55f89bca34620e5c3d256c8dff347e69391669b7d58c16fed2ba19fc2bd81903(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ca06ec2f9876a565b2c3014b0e32c800fd7fa19dc939746803d542720919c9e(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e989b94682f428ccc59fbbe9ac44f871511d8ae879035075d7f12c4ef011dbd0(
-    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnModelCardExportJob.ModelCardExportOutputConfigProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__191073344bf7b74ed404d016e3799d1525d4d0e88dab4f81455c8d95f7f16f4d(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d73d75a45a30d913e58e120c50446be666d9e8a91e3e071acde378d266a5b2ef(
-    *,
-    s3_export_artifacts: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7c3c022ec09151d9ff9338ff5a542e45445bb9f055d4250e468319a17735ffe8(
-    *,
-    s3_output_path: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f1ce60683ccb30c2f24bb833955e5126d63d86f4c53200de85f0919e92830f3f(
-    *,
-    model_card_export_job_name: builtins.str,
-    model_card_name: builtins.str,
-    output_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnModelCardExportJob.ModelCardExportOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    model_card_version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -73839,90 +75161,6 @@ def _typecheckingstub__5443f2ae1a6b1327f14c81943da48e1b6fbb092c8467ad6b5e44facb1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__69c0052ca80de506967c2c043112e2761577e5ec64ebc59888cc7f5a929a8036(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    datapoints_to_alert: jsii.Number,
-    evaluation_period: jsii.Number,
-    monitoring_alert_name: builtins.str,
-    monitoring_schedule_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__303103da5e7057a4be38fdd46afedf88f88a584a8536d7c2d18800a119942bf9(
-    resource: _aws_sagemaker_2f7a2e3e.IMonitoringScheduleAlertRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9be01ee14a87a87ea8cf188023dc5fb2cf7037a2c60e7ae3e392959e9f9b0d86(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__29e27b4f1da677cbf50d93a4322ba69bcc5970aa40d6fc7377751fb756e9ebda(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e441106b0a986fa8d53b18811b9cb3894732c727f594fe44791176c94c65e13c(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b020e92e8adb339aceab6c30c5e2d1e80636a97de6e9d3cbab8e0fdd0b8e320e(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2342094b769e0fff9430fc32898b61caf940a746c68a04f691ddab2fa3353701(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f0b31ed0cb9bd4e8e0c53e2679437434f7e0d760fe3b96f4a28f125347145916(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fb7b333a8917dcd1f84ca2100bf686db6c6f1a5d373fbe73383beb877257f58f(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__05aad09c8656fbfbf2cf5d17a9fff2ef2b0f800b4d721d413b3288e42968fa56(
-    *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e5e662d99a9fcea973ae1b2b22387efacb26a02a86f568a05ba40aa3375e73b9(
-    *,
-    model_dashboard_indicator: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMonitoringScheduleAlert.ModelDashboardIndicatorActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__831dc1d4260fdbe1761001da6c63e1da1ccbf3da5a458dc1c2343402fcc089ec(
-    *,
-    datapoints_to_alert: jsii.Number,
-    evaluation_period: jsii.Number,
-    monitoring_alert_name: builtins.str,
-    monitoring_schedule_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__28a5b0047aa30ebc0aac1bb6a24b6076a786c61f9934d3ffef223f7e4d15b3b4(
     *,
     monitoring_schedule_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMonitoringSchedule.MonitoringScheduleConfigProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -75209,235 +76447,6 @@ def _typecheckingstub__62e2e75950c8b91443a5eafe11f4b96b5496112668fbd36efbedc9c78
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__169171ccf26b2dca10e2ed09dc31bff89c823f35b2eb0ac147d73663a8415196(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    model_name: builtins.str,
-    transform_input: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.TransformInputProperty, typing.Dict[builtins.str, typing.Any]]],
-    transform_output: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.TransformOutputProperty, typing.Dict[builtins.str, typing.Any]]],
-    transform_resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.TransformResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
-    batch_strategy: typing.Optional[builtins.str] = None,
-    data_capture_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.DataCaptureConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_processing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.DataProcessingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
-    experiment_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.ExperimentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    max_concurrent_transforms: typing.Optional[jsii.Number] = None,
-    max_payload_in_mb: typing.Optional[jsii.Number] = None,
-    model_client_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.ModelClientConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnTransformJob.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8dcdcfbb6c58b326dfef3c74f34a46470817270de1cb532b377e20c0fa778868(
-    resource: _aws_sagemaker_2f7a2e3e.ITransformJobRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d216ac7d8b4250947350e0cb86de39caa54cf760611f7beab43a396414964ec3(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98d5507c4f5aaf77a80285d2e6b56fc468bc48b8769e1dbaaecb700674c800d7(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8551304d11730265cbdcbddcb37c7ce98dd5ba2757e953cc60d64b3082cedd22(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__56484f52b3e9b429685418aaf92671d7de9907d29ac0cc1a70444e81fcc32dae(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1abaff524943f1430341f45f86184305c222264f150b5fc733ba62c011537272(
-    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformJob.TransformInputProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6d988d55f7be9555b3ad5a8dfd7724b80f16d9149ad006232d369053105c9697(
-    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformJob.TransformOutputProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__eb621c17d2a414ee2071f357a4b05b81c7f2ea4c96bd321bd6a202f076f30c49(
-    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformJob.TransformResourcesProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__83760df3a5c945e5023b40b153728f766ff2e7d20a00708925beacd2908c5b3f(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6c850e3bb31d0f3a891b4943af01218b14bca7255b27054545a1787c7d834f5f(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformJob.DataCaptureConfigProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__744ca5ba2cb4adb46f608b84abebbe42d6bc0d785b48f17d3cc0676e767e11b1(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformJob.DataProcessingProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3e0236301dd94a970ab12823531bc247c82d05bef1f84d9a080d2b8cf4551b74(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1d1bdd831e1c4af3602f409283e20b94b361c06b61e4e4c87608750a2f7ae561(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformJob.ExperimentConfigProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2474ede611e2c397f8ca73054c0c55ff00d5cbdb209dcabb748de67074bcf780(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c2d01da18130fba6591090d0aeaf6b76e747cdbc7ca3172ca76306b8ea392b13(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5b03e0a389dfd9658615b49ebc9e15c181534375545ea2fd3fc73b4a3e22d36e(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformJob.ModelClientConfigProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__61026fc4c3c2e21a26aaf5a29a9b66bfe3c84ba196e307cf585767696066dbb7(
-    value: typing.Optional[typing.List[CfnTransformJob.TagsItemsProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__12fb80262af726d9a26c176e48963c0c41c989d256da59375216513ae3f82941(
-    *,
-    destination_s3_uri: builtins.str,
-    generate_inference_id: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ae230a4c5cbda8a0586e80683c11371abbf355a6b840362c2ab5680e3143ec58(
-    *,
-    input_filter: typing.Optional[builtins.str] = None,
-    join_source: typing.Optional[builtins.str] = None,
-    output_filter: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__06426fbe440337f6b403bf393363c54bf1507f019db2a864c4c3658bc59df58e(
-    *,
-    s3_data_source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.S3DataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__204e0bddb74e777bf7d123c75ec3e9f260afb0f3268aa3a075f986a474237fa7(
-    *,
-    experiment_name: typing.Optional[builtins.str] = None,
-    trial_component_display_name: typing.Optional[builtins.str] = None,
-    trial_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__87ab14c1682973a76b2afa65f4d9f446eddc053fb9ebce556e1b3e4bf10cd59b(
-    *,
-    invocations_max_retries: typing.Optional[jsii.Number] = None,
-    invocations_timeout_in_seconds: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__19527c25348acdcfd34f7c7e508129a535a8d300a717a810f6eb9375d228614d(
-    *,
-    s3_data_type: builtins.str,
-    s3_uri: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__72a6a58e3b81d1ab95888aa773cc6a5243b37ca5123280c4ec7a8e577676ee44(
-    *,
-    key: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a03039ac2a9d0148411e13c38cfdf4e05a36005b2d414afc29a9488bbd60bed8(
-    *,
-    data_source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    compression_type: typing.Optional[builtins.str] = None,
-    content_type: typing.Optional[builtins.str] = None,
-    split_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d84d6b94f66af613d191a7252a8664e6ad9cd02b16eba530272ce97c84177397(
-    *,
-    s3_output_path: builtins.str,
-    accept: typing.Optional[builtins.str] = None,
-    assemble_with: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f7b79816ba7c3aa85c54542ede2db8dddd631d55ac85d18cc545c12a06b8a49e(
-    *,
-    instance_count: jsii.Number,
-    instance_type: builtins.str,
-    volume_kms_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98c2320185b360b4ab266b00a207fe75875b9d0dc65ded738695578824ee7d0a(
-    *,
-    model_name: builtins.str,
-    transform_input: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.TransformInputProperty, typing.Dict[builtins.str, typing.Any]]],
-    transform_output: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.TransformOutputProperty, typing.Dict[builtins.str, typing.Any]]],
-    transform_resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.TransformResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
-    batch_strategy: typing.Optional[builtins.str] = None,
-    data_capture_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.DataCaptureConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_processing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.DataProcessingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
-    experiment_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.ExperimentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    max_concurrent_transforms: typing.Optional[jsii.Number] = None,
-    max_payload_in_mb: typing.Optional[jsii.Number] = None,
-    model_client_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformJob.ModelClientConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnTransformJob.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__bfd2b70c697d4440e41cf139618c70d12fab3d567b0e3a3fe1ecb55f5d2e8422(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -75869,6 +76878,140 @@ def _typecheckingstub__59e94811af563857fc7e4ba10de1c5e364f6af3d8c1863c0c3396d72a
     single_sign_on_user_value: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserProfile.UserSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__896a3f8b697769a46cd7fbed1e0fdf7572cca060dd4c5841f77a4bd06a2d972e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    workforce_name: builtins.str,
+    cognito_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkforce.CognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    oidc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkforce.OidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_ip_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkforce.SourceIpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workforce_vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkforce.WorkforceVpcConfigRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2389896c94ec0afb9fa0d9976dc0057b63b9c3a9238c72a7cdb981ed9a57635a(
+    resource: _aws_sagemaker_2f7a2e3e.IWorkforceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d457853d09c6dcbc8242c267b9336dbf066872e37abd5e047624f9ebc0bf9c45(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8cf2144203d479a99f3344a077b51d84737a6d8307a3dea4e50f2bf1d8f9a83(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0dfa9e81d70aaf0551bc5c069f9b01f547d95493027dbd8fc9f5f9459314f2f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4184ccad0a93cc154a5f3d70adcedf245c24187b85af8dcce6d90963a9effb53(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac8f6c6a4032a84528681d10eeb3db3ec873fe9fecb3511e09e055a727b4b7f1(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkforce.CognitoConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a05ad9218269865c6705ed77dc44ac6418092681fb8c6b28671d1cf09a69664a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35ff76b31e1a1f44527112f11321a3406b0ce5693d74b2a381a2a9d9f99cc398(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkforce.OidcConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cce4be6d8266365e52fcae3d375b0e5bac548a0eadd799d57bdb7d74940f34c9(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkforce.SourceIpConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7bbb44ec39ff3c27bbabd4dd30dba876a887e8f0cb255be9e6ded3d4362ad70(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6c34a085d5b8582e2d7cbf595e72e08e4db03967379ad873f099ce9e81a61c7(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkforce.WorkforceVpcConfigRequestProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02bb1cbf28f7b3f20add0ffc597435c1fbaf7720f469e1098a183116967f1f42(
+    *,
+    client_id: builtins.str,
+    user_pool: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21b181fafdf4f0aeee725ba62b21a2edc60af3dc6b7fa051812e367611caea8a(
+    *,
+    authorization_endpoint: builtins.str,
+    client_id: builtins.str,
+    issuer: builtins.str,
+    jwks_uri: builtins.str,
+    logout_endpoint: builtins.str,
+    token_endpoint: builtins.str,
+    user_info_endpoint: builtins.str,
+    authentication_request_extra_params: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    client_secret: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c529df918923ab141d19296765ee5815a06e2b3930c5be1cd0a6224514acbaa6(
+    *,
+    cidrs: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3642721f0a094d668aa0220aa84658ed644f6ae27019be5e8b3659df24c15f38(
+    *,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3aeb4eb025bc8540d65afaa6e9a76431513105efeb32b12102db6977915290d(
+    *,
+    workforce_name: builtins.str,
+    cognito_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkforce.CognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    oidc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkforce.OidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_ip_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkforce.SourceIpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workforce_vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkforce.WorkforceVpcConfigRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

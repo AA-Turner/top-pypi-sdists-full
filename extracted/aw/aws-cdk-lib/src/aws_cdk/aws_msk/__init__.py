@@ -285,6 +285,2383 @@ class CfnBatchScramSecretProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_msk_eed08006.IChannelRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnChannel(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_msk.CfnChannel",
+):
+    '''Resource Type definition for AWS::MSK::Channel.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html
+    :cloudformationResource: AWS::MSK::Channel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_msk as msk
+        
+        cfn_channel = msk.CfnChannel(self, "MyCfnChannel",
+            channel_name="channelName",
+            topic_configuration_list=[msk.CfnChannel.TopicConfigurationProperty(
+                record_converter=msk.CfnChannel.RecordConverterProperty(
+                    value_converter="valueConverter"
+                ),
+                topic_arn="topicArn",
+        
+                # the properties below are optional
+                record_schema=msk.CfnChannel.RecordSchemaProperty(
+                    gsr_arn="gsrArn"
+                )
+            )],
+        
+            # the properties below are optional
+            cluster_arn="clusterArn",
+            encryption_configuration=msk.CfnChannel.EncryptionConfigurationProperty(
+                kms_key_arn="kmsKeyArn"
+            ),
+            iceberg_destination_configuration=msk.CfnChannel.IcebergDestinationConfigurationProperty(
+                append_only=False,
+                dead_letter_queue_s3=msk.CfnChannel.DeadLetterQueueS3Property(
+                    bucket_arn="bucketArn",
+                    error_output_prefix="errorOutputPrefix",
+        
+                    # the properties below are optional
+                    expected_bucket_owner="expectedBucketOwner"
+                ),
+                destination_table_list=[msk.CfnChannel.DestinationTableProperty(
+                    destination_database_name="destinationDatabaseName",
+                    destination_table_name="destinationTableName",
+        
+                    # the properties below are optional
+                    partition_spec=msk.CfnChannel.PartitionSpecProperty(
+                        partition_strategy="partitionStrategy",
+        
+                        # the properties below are optional
+                        source_list=[msk.CfnChannel.PartitionSourceProperty(
+                            source_name="sourceName"
+                        )]
+                    )
+                )],
+                schema_evolution=msk.CfnChannel.SchemaEvolutionProperty(
+                    enable_schema_evolution=False
+                ),
+                service_execution_role_arn="serviceExecutionRoleArn",
+                table_creation=msk.CfnChannel.TableCreationProperty(
+                    enable_table_creation=False
+                ),
+        
+                # the properties below are optional
+                catalog=msk.CfnChannel.CatalogProperty(
+                    catalog_arn="catalogArn",
+                    warehouse_location="warehouseLocation"
+                ),
+                compression_type="compressionType",
+                data_freshness_in_seconds=123
+            ),
+            logging_info=msk.CfnChannel.ChannelLoggingInfoProperty(
+                cloud_watch_logs=msk.CfnChannel.CloudWatchLogsLogDestinationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    log_group="logGroup"
+                ),
+                firehose=msk.CfnChannel.FirehoseLogDestinationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    delivery_stream="deliveryStream"
+                ),
+                s3=msk.CfnChannel.S3LogDestinationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    bucket="bucket",
+                    prefix="prefix"
+                )
+            ),
+            s3_destination_configuration=msk.CfnChannel.S3DestinationConfigurationProperty(
+                dead_letter_queue_s3=msk.CfnChannel.DeadLetterQueueS3Property(
+                    bucket_arn="bucketArn",
+                    error_output_prefix="errorOutputPrefix",
+        
+                    # the properties below are optional
+                    expected_bucket_owner="expectedBucketOwner"
+                ),
+                service_execution_role_arn="serviceExecutionRoleArn",
+                storage=msk.CfnChannel.S3StorageProperty(
+                    bucket_arn="bucketArn",
+                    compression_type="compressionType",
+                    storage_class="storageClass",
+        
+                    # the properties below are optional
+                    expected_bucket_owner="expectedBucketOwner",
+                    output_key_template="outputKeyTemplate",
+                    output_prefix="outputPrefix"
+                ),
+        
+                # the properties below are optional
+                data_freshness_in_seconds=123
+            ),
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        channel_name: builtins.str,
+        topic_configuration_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TopicConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        cluster_arn: typing.Optional[builtins.str] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iceberg_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.IcebergDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.ChannelLoggingInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MSK::Channel``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param channel_name: Name of the channel.
+        :param topic_configuration_list: Topic configuration.
+        :param cluster_arn: The Amazon Resource Name (ARN) of the cluster.
+        :param encryption_configuration: Encryption configuration.
+        :param iceberg_destination_configuration: Iceberg destination configuration.
+        :param logging_info: Log configuration details for Channel.
+        :param s3_destination_configuration: S3 destination configuration.
+        :param tags: Tags attached to the channel.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a59a4ef99c4e6d386c7004c6e941ae46a86f80fe7fcb6e8348460f76755004cf)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnChannelProps(
+            channel_name=channel_name,
+            topic_configuration_list=topic_configuration_list,
+            cluster_arn=cluster_arn,
+            encryption_configuration=encryption_configuration,
+            iceberg_destination_configuration=iceberg_destination_configuration,
+            logging_info=logging_info,
+            s3_destination_configuration=s3_destination_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForChannel")
+    @builtins.classmethod
+    def arn_for_channel(cls, resource: "_aws_msk_eed08006.IChannelRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c0a6a24517e56ad3c5510f37643b2192442f0b4052a36e8ae843aa2d9c1fafbd)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannel", [resource]))
+
+    @jsii.member(jsii_name="isCfnChannel")
+    @builtins.classmethod
+    def is_cfn_channel(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnChannel.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3260b7e16afd7480351aa693b39bab2a8ed1e04d654631d812bf206f4310cb21)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannel", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b59608e0d7f25e174c5d6d69394ee4ea5158e676f80f569a94478b9f93f6e177)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40aa396b778baab009502f7ec7a09b88b50dad373330612bbdad6ef75a1b8748)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrChannelArn")
+    def attr_channel_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) that uniquely identifies the channel.
+
+        :cloudformationAttribute: ChannelArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrChannelArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStateInfo")
+    def attr_state_info(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Includes information about the channel state.
+
+        :cloudformationAttribute: StateInfo
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrStateInfo"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Status of a channel resource.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> "_aws_msk_eed08006.ChannelReference":
+        '''A reference to a Channel resource.'''
+        return typing.cast("_aws_msk_eed08006.ChannelReference", jsii.get(self, "channelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelName")
+    def channel_name(self) -> builtins.str:
+        '''Name of the channel.'''
+        return typing.cast(builtins.str, jsii.get(self, "channelName"))
+
+    @channel_name.setter
+    def channel_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7b118e55dd8d5d3d696f76122bb84826aafb0d693e8904bd475d961eb162a3e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="topicConfigurationList")
+    def topic_configuration_list(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TopicConfigurationProperty"]]]:
+        '''Topic configuration.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TopicConfigurationProperty"]]], jsii.get(self, "topicConfigurationList"))
+
+    @topic_configuration_list.setter
+    def topic_configuration_list(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TopicConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__feff25687936fec919f4b25619392247ae0b35ff0b82f7ce95e5d4c10d9cfb80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "topicConfigurationList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterArn")
+    def cluster_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterArn"))
+
+    @cluster_arn.setter
+    def cluster_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d345fae7f388e4f05bf5917176de0ec1eadfef205eb38111a731019045f1afb9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]]:
+        '''Encryption configuration.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+
+    @encryption_configuration.setter
+    def encryption_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f703cb98883609b21a105015de638d6560499771cc65486c1975b319bb6ac426)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="icebergDestinationConfiguration")
+    def iceberg_destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.IcebergDestinationConfigurationProperty"]]:
+        '''Iceberg destination configuration.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.IcebergDestinationConfigurationProperty"]], jsii.get(self, "icebergDestinationConfiguration"))
+
+    @iceberg_destination_configuration.setter
+    def iceberg_destination_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.IcebergDestinationConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f64ca010115d4e5cbb5db0f764b8c05d447ad2f8dc4ba5c08aee10003e57ec7f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "icebergDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingInfo")
+    def logging_info(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ChannelLoggingInfoProperty"]]:
+        '''Log configuration details for Channel.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ChannelLoggingInfoProperty"]], jsii.get(self, "loggingInfo"))
+
+    @logging_info.setter
+    def logging_info(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ChannelLoggingInfoProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__27385efc61f9a5fbdad5ddef1fa2065da69474f362fe7032afe4c1176e222271)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loggingInfo", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DestinationConfiguration")
+    def s3_destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]]:
+        '''S3 destination configuration.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]], jsii.get(self, "s3DestinationConfiguration"))
+
+    @s3_destination_configuration.setter
+    def s3_destination_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3fe85c116164a2819cf06f17bc461a546c56e6059dfe6ae41661cd2914191e4e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3DestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags attached to the channel.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4f37846ac1b5f48798bcdca51a8bc4b1d4766b4acf624593f6e1e3bd0dbfc4c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.CatalogProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "catalog_arn": "catalogArn",
+            "warehouse_location": "warehouseLocation",
+        },
+    )
+    class CatalogProperty:
+        def __init__(
+            self,
+            *,
+            catalog_arn: typing.Optional[builtins.str] = None,
+            warehouse_location: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Catalog configuration of the destination.
+
+            :param catalog_arn: The ARN of the catalog.
+            :param warehouse_location: The warehouse location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-catalog.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                catalog_property = msk.CfnChannel.CatalogProperty(
+                    catalog_arn="catalogArn",
+                    warehouse_location="warehouseLocation"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b4d2983ddb7a3c2807825f012c2090cd992168f4455677f33c317b97fb5abe24)
+                check_type(argname="argument catalog_arn", value=catalog_arn, expected_type=type_hints["catalog_arn"])
+                check_type(argname="argument warehouse_location", value=warehouse_location, expected_type=type_hints["warehouse_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if catalog_arn is not None:
+                self._values["catalog_arn"] = catalog_arn
+            if warehouse_location is not None:
+                self._values["warehouse_location"] = warehouse_location
+
+        @builtins.property
+        def catalog_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the catalog.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-catalog.html#cfn-msk-channel-catalog-catalogarn
+            '''
+            result = self._values.get("catalog_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def warehouse_location(self) -> typing.Optional[builtins.str]:
+            '''The warehouse location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-catalog.html#cfn-msk-channel-catalog-warehouselocation
+            '''
+            result = self._values.get("warehouse_location")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CatalogProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.ChannelLoggingInfoProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cloud_watch_logs": "cloudWatchLogs",
+            "firehose": "firehose",
+            "s3": "s3",
+        },
+    )
+    class ChannelLoggingInfoProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CloudWatchLogsLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.FirehoseLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3LogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Log configuration details for Channel.
+
+            :param cloud_watch_logs: CloudWatch Logs log destination details.
+            :param firehose: Firehose log destination details.
+            :param s3: S3 log destination details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channellogginginfo.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                channel_logging_info_property = msk.CfnChannel.ChannelLoggingInfoProperty(
+                    cloud_watch_logs=msk.CfnChannel.CloudWatchLogsLogDestinationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        log_group="logGroup"
+                    ),
+                    firehose=msk.CfnChannel.FirehoseLogDestinationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        delivery_stream="deliveryStream"
+                    ),
+                    s3=msk.CfnChannel.S3LogDestinationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        bucket="bucket",
+                        prefix="prefix"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dbdcbf2046a9add3cce9815b3fa5f6f282784e2f076ed7254bcfc99c5b99ee2e)
+                check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
+                check_type(argname="argument firehose", value=firehose, expected_type=type_hints["firehose"])
+                check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cloud_watch_logs is not None:
+                self._values["cloud_watch_logs"] = cloud_watch_logs
+            if firehose is not None:
+                self._values["firehose"] = firehose
+            if s3 is not None:
+                self._values["s3"] = s3
+
+        @builtins.property
+        def cloud_watch_logs(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CloudWatchLogsLogDestinationProperty"]]:
+            '''CloudWatch Logs log destination details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channellogginginfo.html#cfn-msk-channel-channellogginginfo-cloudwatchlogs
+            '''
+            result = self._values.get("cloud_watch_logs")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CloudWatchLogsLogDestinationProperty"]], result)
+
+        @builtins.property
+        def firehose(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.FirehoseLogDestinationProperty"]]:
+            '''Firehose log destination details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channellogginginfo.html#cfn-msk-channel-channellogginginfo-firehose
+            '''
+            result = self._values.get("firehose")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.FirehoseLogDestinationProperty"]], result)
+
+        @builtins.property
+        def s3(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3LogDestinationProperty"]]:
+            '''S3 log destination details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channellogginginfo.html#cfn-msk-channel-channellogginginfo-s3
+            '''
+            result = self._values.get("s3")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3LogDestinationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ChannelLoggingInfoProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.ChannelStateInfoProperty",
+        jsii_struct_bases=[],
+        name_mapping={"code": "code", "message": "message"},
+    )
+    class ChannelStateInfoProperty:
+        def __init__(
+            self,
+            *,
+            code: typing.Optional[builtins.str] = None,
+            message: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Includes information about the channel state.
+
+            :param code: Code for channel state.
+            :param message: Message for channel state.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channelstateinfo.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                channel_state_info_property = msk.CfnChannel.ChannelStateInfoProperty(
+                    code="code",
+                    message="message"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fb932c6fb9893eab7e4cf885763439e42c9ac3ff21df48434c329c565509d5e6)
+                check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+                check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if code is not None:
+                self._values["code"] = code
+            if message is not None:
+                self._values["message"] = message
+
+        @builtins.property
+        def code(self) -> typing.Optional[builtins.str]:
+            '''Code for channel state.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channelstateinfo.html#cfn-msk-channel-channelstateinfo-code
+            '''
+            result = self._values.get("code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message(self) -> typing.Optional[builtins.str]:
+            '''Message for channel state.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channelstateinfo.html#cfn-msk-channel-channelstateinfo-message
+            '''
+            result = self._values.get("message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ChannelStateInfoProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.CloudWatchLogsLogDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "log_group": "logGroup"},
+    )
+    class CloudWatchLogsLogDestinationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            log_group: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''CloudWatch Logs log destination details.
+
+            :param enabled: Whether CloudWatch Logs logging is enabled.
+            :param log_group: The CloudWatch log group for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-cloudwatchlogslogdestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                cloud_watch_logs_log_destination_property = msk.CfnChannel.CloudWatchLogsLogDestinationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    log_group="logGroup"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0e721a8ab43ae5fa30b36f925f30bf17113eded670763503c914433b11ce4d16)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if log_group is not None:
+                self._values["log_group"] = log_group
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether CloudWatch Logs logging is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-cloudwatchlogslogdestination.html#cfn-msk-channel-cloudwatchlogslogdestination-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def log_group(self) -> typing.Optional[builtins.str]:
+            '''The CloudWatch log group for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-cloudwatchlogslogdestination.html#cfn-msk-channel-cloudwatchlogslogdestination-loggroup
+            '''
+            result = self._values.get("log_group")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchLogsLogDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.DeadLetterQueueS3Property",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket_arn": "bucketArn",
+            "error_output_prefix": "errorOutputPrefix",
+            "expected_bucket_owner": "expectedBucketOwner",
+        },
+    )
+    class DeadLetterQueueS3Property:
+        def __init__(
+            self,
+            *,
+            bucket_arn: builtins.str,
+            error_output_prefix: builtins.str,
+            expected_bucket_owner: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Dead letter queue S3 configuration of the destination.
+
+            :param bucket_arn: The ARN of the S3 bucket.
+            :param error_output_prefix: The error output prefix.
+            :param expected_bucket_owner: Optional 12-digit AWS account ID expected to own the dead-letter S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-deadletterqueues3.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                dead_letter_queue_s3_property = msk.CfnChannel.DeadLetterQueueS3Property(
+                    bucket_arn="bucketArn",
+                    error_output_prefix="errorOutputPrefix",
+                
+                    # the properties below are optional
+                    expected_bucket_owner="expectedBucketOwner"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__000ff39f59b9c111a7366910cf68e9032a9876628098eeae6556ffc26f040aa2)
+                check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
+                check_type(argname="argument error_output_prefix", value=error_output_prefix, expected_type=type_hints["error_output_prefix"])
+                check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_arn": bucket_arn,
+                "error_output_prefix": error_output_prefix,
+            }
+            if expected_bucket_owner is not None:
+                self._values["expected_bucket_owner"] = expected_bucket_owner
+
+        @builtins.property
+        def bucket_arn(self) -> builtins.str:
+            '''The ARN of the S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-deadletterqueues3.html#cfn-msk-channel-deadletterqueues3-bucketarn
+            '''
+            result = self._values.get("bucket_arn")
+            assert result is not None, "Required property 'bucket_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def error_output_prefix(self) -> builtins.str:
+            '''The error output prefix.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-deadletterqueues3.html#cfn-msk-channel-deadletterqueues3-erroroutputprefix
+            '''
+            result = self._values.get("error_output_prefix")
+            assert result is not None, "Required property 'error_output_prefix' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+            '''Optional 12-digit AWS account ID expected to own the dead-letter S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-deadletterqueues3.html#cfn-msk-channel-deadletterqueues3-expectedbucketowner
+            '''
+            result = self._values.get("expected_bucket_owner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeadLetterQueueS3Property(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.DestinationTableProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_database_name": "destinationDatabaseName",
+            "destination_table_name": "destinationTableName",
+            "partition_spec": "partitionSpec",
+        },
+    )
+    class DestinationTableProperty:
+        def __init__(
+            self,
+            *,
+            destination_database_name: builtins.str,
+            destination_table_name: builtins.str,
+            partition_spec: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.PartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Destination table configuration.
+
+            :param destination_database_name: The destination database name.
+            :param destination_table_name: The destination table name.
+            :param partition_spec: Partition specification.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-destinationtable.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                destination_table_property = msk.CfnChannel.DestinationTableProperty(
+                    destination_database_name="destinationDatabaseName",
+                    destination_table_name="destinationTableName",
+                
+                    # the properties below are optional
+                    partition_spec=msk.CfnChannel.PartitionSpecProperty(
+                        partition_strategy="partitionStrategy",
+                
+                        # the properties below are optional
+                        source_list=[msk.CfnChannel.PartitionSourceProperty(
+                            source_name="sourceName"
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8c6cb60e981f9425bb3694cc941e62cb82ca631d47155b126e433a6f405caebb)
+                check_type(argname="argument destination_database_name", value=destination_database_name, expected_type=type_hints["destination_database_name"])
+                check_type(argname="argument destination_table_name", value=destination_table_name, expected_type=type_hints["destination_table_name"])
+                check_type(argname="argument partition_spec", value=partition_spec, expected_type=type_hints["partition_spec"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_database_name": destination_database_name,
+                "destination_table_name": destination_table_name,
+            }
+            if partition_spec is not None:
+                self._values["partition_spec"] = partition_spec
+
+        @builtins.property
+        def destination_database_name(self) -> builtins.str:
+            '''The destination database name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-destinationtable.html#cfn-msk-channel-destinationtable-destinationdatabasename
+            '''
+            result = self._values.get("destination_database_name")
+            assert result is not None, "Required property 'destination_database_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_table_name(self) -> builtins.str:
+            '''The destination table name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-destinationtable.html#cfn-msk-channel-destinationtable-destinationtablename
+            '''
+            result = self._values.get("destination_table_name")
+            assert result is not None, "Required property 'destination_table_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def partition_spec(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PartitionSpecProperty"]]:
+            '''Partition specification.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-destinationtable.html#cfn-msk-channel-destinationtable-partitionspec
+            '''
+            result = self._values.get("partition_spec")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PartitionSpecProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationTableProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.EncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kms_key_arn": "kmsKeyArn"},
+    )
+    class EncryptionConfigurationProperty:
+        def __init__(self, *, kms_key_arn: builtins.str) -> None:
+            '''Encryption configuration.
+
+            :param kms_key_arn: The ARN of the KMS key for encryption.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-encryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                encryption_configuration_property = msk.CfnChannel.EncryptionConfigurationProperty(
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__03bec652ae699ed1446065bc9b3d204cb1f688e261d6effc135a667cc875bc91)
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "kms_key_arn": kms_key_arn,
+            }
+
+        @builtins.property
+        def kms_key_arn(self) -> builtins.str:
+            '''The ARN of the KMS key for encryption.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-encryptionconfiguration.html#cfn-msk-channel-encryptionconfiguration-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            assert result is not None, "Required property 'kms_key_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.FirehoseLogDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "delivery_stream": "deliveryStream"},
+    )
+    class FirehoseLogDestinationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            delivery_stream: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Firehose log destination details.
+
+            :param enabled: Whether Firehose logging is enabled.
+            :param delivery_stream: The Firehose delivery stream for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-firehoselogdestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                firehose_log_destination_property = msk.CfnChannel.FirehoseLogDestinationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    delivery_stream="deliveryStream"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1d2665e25ad8259568b87b12934efc897bd0acd57e90772eeb00e9cc9d0529a1)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if delivery_stream is not None:
+                self._values["delivery_stream"] = delivery_stream
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether Firehose logging is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-firehoselogdestination.html#cfn-msk-channel-firehoselogdestination-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def delivery_stream(self) -> typing.Optional[builtins.str]:
+            '''The Firehose delivery stream for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-firehoselogdestination.html#cfn-msk-channel-firehoselogdestination-deliverystream
+            '''
+            result = self._values.get("delivery_stream")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FirehoseLogDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.IcebergDestinationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "append_only": "appendOnly",
+            "dead_letter_queue_s3": "deadLetterQueueS3",
+            "destination_table_list": "destinationTableList",
+            "schema_evolution": "schemaEvolution",
+            "service_execution_role_arn": "serviceExecutionRoleArn",
+            "table_creation": "tableCreation",
+            "catalog": "catalog",
+            "compression_type": "compressionType",
+            "data_freshness_in_seconds": "dataFreshnessInSeconds",
+        },
+    )
+    class IcebergDestinationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            append_only: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            dead_letter_queue_s3: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.DeadLetterQueueS3Property", typing.Dict[builtins.str, typing.Any]]],
+            destination_table_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.DestinationTableProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            schema_evolution: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.SchemaEvolutionProperty", typing.Dict[builtins.str, typing.Any]]],
+            service_execution_role_arn: builtins.str,
+            table_creation: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TableCreationProperty", typing.Dict[builtins.str, typing.Any]]],
+            catalog: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            compression_type: typing.Optional[builtins.str] = None,
+            data_freshness_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Iceberg destination configuration.
+
+            :param append_only: Append only mode. Default: - true
+            :param dead_letter_queue_s3: Dead letter queue S3 configuration of the destination.
+            :param destination_table_list: List of destination tables.
+            :param schema_evolution: Schema evolution configuration of the destination.
+            :param service_execution_role_arn: The Amazon Resource Name (ARN) of an IAM role used by MSK to access the table.
+            :param table_creation: Table creation configuration of the destination.
+            :param catalog: Catalog configuration of the destination.
+            :param compression_type: Compression codec for Iceberg table data files. Defaults to ZSTD.
+            :param data_freshness_in_seconds: Data freshness in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                iceberg_destination_configuration_property = msk.CfnChannel.IcebergDestinationConfigurationProperty(
+                    append_only=False,
+                    dead_letter_queue_s3=msk.CfnChannel.DeadLetterQueueS3Property(
+                        bucket_arn="bucketArn",
+                        error_output_prefix="errorOutputPrefix",
+                
+                        # the properties below are optional
+                        expected_bucket_owner="expectedBucketOwner"
+                    ),
+                    destination_table_list=[msk.CfnChannel.DestinationTableProperty(
+                        destination_database_name="destinationDatabaseName",
+                        destination_table_name="destinationTableName",
+                
+                        # the properties below are optional
+                        partition_spec=msk.CfnChannel.PartitionSpecProperty(
+                            partition_strategy="partitionStrategy",
+                
+                            # the properties below are optional
+                            source_list=[msk.CfnChannel.PartitionSourceProperty(
+                                source_name="sourceName"
+                            )]
+                        )
+                    )],
+                    schema_evolution=msk.CfnChannel.SchemaEvolutionProperty(
+                        enable_schema_evolution=False
+                    ),
+                    service_execution_role_arn="serviceExecutionRoleArn",
+                    table_creation=msk.CfnChannel.TableCreationProperty(
+                        enable_table_creation=False
+                    ),
+                
+                    # the properties below are optional
+                    catalog=msk.CfnChannel.CatalogProperty(
+                        catalog_arn="catalogArn",
+                        warehouse_location="warehouseLocation"
+                    ),
+                    compression_type="compressionType",
+                    data_freshness_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5826ce74b57947038ee0c182b36e9f6c74bbe7d1b8620efe9be1063b9563de19)
+                check_type(argname="argument append_only", value=append_only, expected_type=type_hints["append_only"])
+                check_type(argname="argument dead_letter_queue_s3", value=dead_letter_queue_s3, expected_type=type_hints["dead_letter_queue_s3"])
+                check_type(argname="argument destination_table_list", value=destination_table_list, expected_type=type_hints["destination_table_list"])
+                check_type(argname="argument schema_evolution", value=schema_evolution, expected_type=type_hints["schema_evolution"])
+                check_type(argname="argument service_execution_role_arn", value=service_execution_role_arn, expected_type=type_hints["service_execution_role_arn"])
+                check_type(argname="argument table_creation", value=table_creation, expected_type=type_hints["table_creation"])
+                check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
+                check_type(argname="argument compression_type", value=compression_type, expected_type=type_hints["compression_type"])
+                check_type(argname="argument data_freshness_in_seconds", value=data_freshness_in_seconds, expected_type=type_hints["data_freshness_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "append_only": append_only,
+                "dead_letter_queue_s3": dead_letter_queue_s3,
+                "destination_table_list": destination_table_list,
+                "schema_evolution": schema_evolution,
+                "service_execution_role_arn": service_execution_role_arn,
+                "table_creation": table_creation,
+            }
+            if catalog is not None:
+                self._values["catalog"] = catalog
+            if compression_type is not None:
+                self._values["compression_type"] = compression_type
+            if data_freshness_in_seconds is not None:
+                self._values["data_freshness_in_seconds"] = data_freshness_in_seconds
+
+        @builtins.property
+        def append_only(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Append only mode.
+
+            :default: - true
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-appendonly
+            '''
+            result = self._values.get("append_only")
+            assert result is not None, "Required property 'append_only' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def dead_letter_queue_s3(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DeadLetterQueueS3Property"]:
+            '''Dead letter queue S3 configuration of the destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-deadletterqueues3
+            '''
+            result = self._values.get("dead_letter_queue_s3")
+            assert result is not None, "Required property 'dead_letter_queue_s3' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DeadLetterQueueS3Property"], result)
+
+        @builtins.property
+        def destination_table_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DestinationTableProperty"]]]:
+            '''List of destination tables.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-destinationtablelist
+            '''
+            result = self._values.get("destination_table_list")
+            assert result is not None, "Required property 'destination_table_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DestinationTableProperty"]]], result)
+
+        @builtins.property
+        def schema_evolution(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.SchemaEvolutionProperty"]:
+            '''Schema evolution configuration of the destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-schemaevolution
+            '''
+            result = self._values.get("schema_evolution")
+            assert result is not None, "Required property 'schema_evolution' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.SchemaEvolutionProperty"], result)
+
+        @builtins.property
+        def service_execution_role_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of an IAM role used by MSK to access the table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-serviceexecutionrolearn
+            '''
+            result = self._values.get("service_execution_role_arn")
+            assert result is not None, "Required property 'service_execution_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def table_creation(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TableCreationProperty"]:
+            '''Table creation configuration of the destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-tablecreation
+            '''
+            result = self._values.get("table_creation")
+            assert result is not None, "Required property 'table_creation' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TableCreationProperty"], result)
+
+        @builtins.property
+        def catalog(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CatalogProperty"]]:
+            '''Catalog configuration of the destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-catalog
+            '''
+            result = self._values.get("catalog")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CatalogProperty"]], result)
+
+        @builtins.property
+        def compression_type(self) -> typing.Optional[builtins.str]:
+            '''Compression codec for Iceberg table data files.
+
+            Defaults to ZSTD.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-compressiontype
+            '''
+            result = self._values.get("compression_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def data_freshness_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''Data freshness in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html#cfn-msk-channel-icebergdestinationconfiguration-datafreshnessinseconds
+            '''
+            result = self._values.get("data_freshness_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergDestinationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.PartitionSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_name": "sourceName"},
+    )
+    class PartitionSourceProperty:
+        def __init__(
+            self,
+            *,
+            source_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Partition source configuration.
+
+            :param source_name: Source name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-partitionsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                partition_source_property = msk.CfnChannel.PartitionSourceProperty(
+                    source_name="sourceName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8fab6346a387856b6d2a247db1732dbc432dd23cb189f16a5c1b94fd4c81a84d)
+                check_type(argname="argument source_name", value=source_name, expected_type=type_hints["source_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if source_name is not None:
+                self._values["source_name"] = source_name
+
+        @builtins.property
+        def source_name(self) -> typing.Optional[builtins.str]:
+            '''Source name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-partitionsource.html#cfn-msk-channel-partitionsource-sourcename
+            '''
+            result = self._values.get("source_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PartitionSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.PartitionSpecProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "partition_strategy": "partitionStrategy",
+            "source_list": "sourceList",
+        },
+    )
+    class PartitionSpecProperty:
+        def __init__(
+            self,
+            *,
+            partition_strategy: builtins.str,
+            source_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.PartitionSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Partition specification.
+
+            :param partition_strategy: Partition strategy for MSK channel.
+            :param source_list: Source list.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-partitionspec.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                partition_spec_property = msk.CfnChannel.PartitionSpecProperty(
+                    partition_strategy="partitionStrategy",
+                
+                    # the properties below are optional
+                    source_list=[msk.CfnChannel.PartitionSourceProperty(
+                        source_name="sourceName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5d8097cf9b8d78a3a9f940a6bdb2d922dffe7a6f67257c777dc09f61dce0fc22)
+                check_type(argname="argument partition_strategy", value=partition_strategy, expected_type=type_hints["partition_strategy"])
+                check_type(argname="argument source_list", value=source_list, expected_type=type_hints["source_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "partition_strategy": partition_strategy,
+            }
+            if source_list is not None:
+                self._values["source_list"] = source_list
+
+        @builtins.property
+        def partition_strategy(self) -> builtins.str:
+            '''Partition strategy for MSK channel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-partitionspec.html#cfn-msk-channel-partitionspec-partitionstrategy
+            '''
+            result = self._values.get("partition_strategy")
+            assert result is not None, "Required property 'partition_strategy' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_list(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PartitionSourceProperty"]]]]:
+            '''Source list.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-partitionspec.html#cfn-msk-channel-partitionspec-sourcelist
+            '''
+            result = self._values.get("source_list")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PartitionSourceProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PartitionSpecProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.RecordConverterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"value_converter": "valueConverter"},
+    )
+    class RecordConverterProperty:
+        def __init__(self, *, value_converter: builtins.str) -> None:
+            '''Record converter configuration for a topic.
+
+            :param value_converter: Value converter for topic data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-recordconverter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                record_converter_property = msk.CfnChannel.RecordConverterProperty(
+                    value_converter="valueConverter"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__28e6b043fe420b02fe84eceb38db119b98a0e53d1f3522f25bbb422ef79c2706)
+                check_type(argname="argument value_converter", value=value_converter, expected_type=type_hints["value_converter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "value_converter": value_converter,
+            }
+
+        @builtins.property
+        def value_converter(self) -> builtins.str:
+            '''Value converter for topic data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-recordconverter.html#cfn-msk-channel-recordconverter-valueconverter
+            '''
+            result = self._values.get("value_converter")
+            assert result is not None, "Required property 'value_converter' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecordConverterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.RecordSchemaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"gsr_arn": "gsrArn"},
+    )
+    class RecordSchemaProperty:
+        def __init__(self, *, gsr_arn: builtins.str) -> None:
+            '''Record schema configuration for a topic.
+
+            :param gsr_arn: ARN of Glue Schema Registry resource used for table schema.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-recordschema.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                record_schema_property = msk.CfnChannel.RecordSchemaProperty(
+                    gsr_arn="gsrArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a6658a2ea87101c301bfee5d01969c57bfe9e16a7686d860276ce07b23c5dbaf)
+                check_type(argname="argument gsr_arn", value=gsr_arn, expected_type=type_hints["gsr_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "gsr_arn": gsr_arn,
+            }
+
+        @builtins.property
+        def gsr_arn(self) -> builtins.str:
+            '''ARN of Glue Schema Registry resource used for table schema.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-recordschema.html#cfn-msk-channel-recordschema-gsrarn
+            '''
+            result = self._values.get("gsr_arn")
+            assert result is not None, "Required property 'gsr_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecordSchemaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.S3DestinationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dead_letter_queue_s3": "deadLetterQueueS3",
+            "service_execution_role_arn": "serviceExecutionRoleArn",
+            "storage": "storage",
+            "data_freshness_in_seconds": "dataFreshnessInSeconds",
+        },
+    )
+    class S3DestinationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            dead_letter_queue_s3: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.DeadLetterQueueS3Property", typing.Dict[builtins.str, typing.Any]]],
+            service_execution_role_arn: builtins.str,
+            storage: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3StorageProperty", typing.Dict[builtins.str, typing.Any]]],
+            data_freshness_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''S3 destination configuration.
+
+            :param dead_letter_queue_s3: Dead letter queue S3 configuration of the destination.
+            :param service_execution_role_arn: The Amazon Resource Name (ARN) of an IAM role used by MSK to access S3.
+            :param storage: S3 storage configuration.
+            :param data_freshness_in_seconds: Data freshness in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3destinationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                s3_destination_configuration_property = msk.CfnChannel.S3DestinationConfigurationProperty(
+                    dead_letter_queue_s3=msk.CfnChannel.DeadLetterQueueS3Property(
+                        bucket_arn="bucketArn",
+                        error_output_prefix="errorOutputPrefix",
+                
+                        # the properties below are optional
+                        expected_bucket_owner="expectedBucketOwner"
+                    ),
+                    service_execution_role_arn="serviceExecutionRoleArn",
+                    storage=msk.CfnChannel.S3StorageProperty(
+                        bucket_arn="bucketArn",
+                        compression_type="compressionType",
+                        storage_class="storageClass",
+                
+                        # the properties below are optional
+                        expected_bucket_owner="expectedBucketOwner",
+                        output_key_template="outputKeyTemplate",
+                        output_prefix="outputPrefix"
+                    ),
+                
+                    # the properties below are optional
+                    data_freshness_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9d8f6c47b02247663e9e1333fd17ad1b48eb475948ae3a2a239f32cd3b97dc7d)
+                check_type(argname="argument dead_letter_queue_s3", value=dead_letter_queue_s3, expected_type=type_hints["dead_letter_queue_s3"])
+                check_type(argname="argument service_execution_role_arn", value=service_execution_role_arn, expected_type=type_hints["service_execution_role_arn"])
+                check_type(argname="argument storage", value=storage, expected_type=type_hints["storage"])
+                check_type(argname="argument data_freshness_in_seconds", value=data_freshness_in_seconds, expected_type=type_hints["data_freshness_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dead_letter_queue_s3": dead_letter_queue_s3,
+                "service_execution_role_arn": service_execution_role_arn,
+                "storage": storage,
+            }
+            if data_freshness_in_seconds is not None:
+                self._values["data_freshness_in_seconds"] = data_freshness_in_seconds
+
+        @builtins.property
+        def dead_letter_queue_s3(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DeadLetterQueueS3Property"]:
+            '''Dead letter queue S3 configuration of the destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3destinationconfiguration.html#cfn-msk-channel-s3destinationconfiguration-deadletterqueues3
+            '''
+            result = self._values.get("dead_letter_queue_s3")
+            assert result is not None, "Required property 'dead_letter_queue_s3' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DeadLetterQueueS3Property"], result)
+
+        @builtins.property
+        def service_execution_role_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of an IAM role used by MSK to access S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3destinationconfiguration.html#cfn-msk-channel-s3destinationconfiguration-serviceexecutionrolearn
+            '''
+            result = self._values.get("service_execution_role_arn")
+            assert result is not None, "Required property 'service_execution_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def storage(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3StorageProperty"]:
+            '''S3 storage configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3destinationconfiguration.html#cfn-msk-channel-s3destinationconfiguration-storage
+            '''
+            result = self._values.get("storage")
+            assert result is not None, "Required property 'storage' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3StorageProperty"], result)
+
+        @builtins.property
+        def data_freshness_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''Data freshness in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3destinationconfiguration.html#cfn-msk-channel-s3destinationconfiguration-datafreshnessinseconds
+            '''
+            result = self._values.get("data_freshness_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3DestinationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.S3LogDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "bucket": "bucket", "prefix": "prefix"},
+    )
+    class S3LogDestinationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            bucket: typing.Optional[builtins.str] = None,
+            prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''S3 log destination details.
+
+            :param enabled: Whether S3 logging is enabled.
+            :param bucket: The name of the S3 bucket for log delivery.
+            :param prefix: The S3 prefix for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3logdestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                s3_log_destination_property = msk.CfnChannel.S3LogDestinationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    bucket="bucket",
+                    prefix="prefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__27e7b16da9ca94aa6baff63db12ba6f664ff34071824260c0a1a12542df5e262)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if bucket is not None:
+                self._values["bucket"] = bucket
+            if prefix is not None:
+                self._values["prefix"] = prefix
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether S3 logging is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3logdestination.html#cfn-msk-channel-s3logdestination-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def bucket(self) -> typing.Optional[builtins.str]:
+            '''The name of the S3 bucket for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3logdestination.html#cfn-msk-channel-s3logdestination-bucket
+            '''
+            result = self._values.get("bucket")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def prefix(self) -> typing.Optional[builtins.str]:
+            '''The S3 prefix for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3logdestination.html#cfn-msk-channel-s3logdestination-prefix
+            '''
+            result = self._values.get("prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3LogDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.S3StorageProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket_arn": "bucketArn",
+            "compression_type": "compressionType",
+            "storage_class": "storageClass",
+            "expected_bucket_owner": "expectedBucketOwner",
+            "output_key_template": "outputKeyTemplate",
+            "output_prefix": "outputPrefix",
+        },
+    )
+    class S3StorageProperty:
+        def __init__(
+            self,
+            *,
+            bucket_arn: builtins.str,
+            compression_type: builtins.str,
+            storage_class: builtins.str,
+            expected_bucket_owner: typing.Optional[builtins.str] = None,
+            output_key_template: typing.Optional[builtins.str] = None,
+            output_prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''S3 storage configuration.
+
+            :param bucket_arn: ARN of the S3 bucket.
+            :param compression_type: S3 compression type.
+            :param storage_class: S3 storage class.
+            :param expected_bucket_owner: Optional 12-digit AWS account ID expected to own the S3 bucket.
+            :param output_key_template: Template for S3 key for output objects, used for partitioning.
+            :param output_prefix: Optional prefix for output objects.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3storage.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                s3_storage_property = msk.CfnChannel.S3StorageProperty(
+                    bucket_arn="bucketArn",
+                    compression_type="compressionType",
+                    storage_class="storageClass",
+                
+                    # the properties below are optional
+                    expected_bucket_owner="expectedBucketOwner",
+                    output_key_template="outputKeyTemplate",
+                    output_prefix="outputPrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__54618ba410deb2ff65ec298874c9e57e62ec5e6d3260eba8249b71575b0f9031)
+                check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
+                check_type(argname="argument compression_type", value=compression_type, expected_type=type_hints["compression_type"])
+                check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
+                check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+                check_type(argname="argument output_key_template", value=output_key_template, expected_type=type_hints["output_key_template"])
+                check_type(argname="argument output_prefix", value=output_prefix, expected_type=type_hints["output_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_arn": bucket_arn,
+                "compression_type": compression_type,
+                "storage_class": storage_class,
+            }
+            if expected_bucket_owner is not None:
+                self._values["expected_bucket_owner"] = expected_bucket_owner
+            if output_key_template is not None:
+                self._values["output_key_template"] = output_key_template
+            if output_prefix is not None:
+                self._values["output_prefix"] = output_prefix
+
+        @builtins.property
+        def bucket_arn(self) -> builtins.str:
+            '''ARN of the S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3storage.html#cfn-msk-channel-s3storage-bucketarn
+            '''
+            result = self._values.get("bucket_arn")
+            assert result is not None, "Required property 'bucket_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def compression_type(self) -> builtins.str:
+            '''S3 compression type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3storage.html#cfn-msk-channel-s3storage-compressiontype
+            '''
+            result = self._values.get("compression_type")
+            assert result is not None, "Required property 'compression_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def storage_class(self) -> builtins.str:
+            '''S3 storage class.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3storage.html#cfn-msk-channel-s3storage-storageclass
+            '''
+            result = self._values.get("storage_class")
+            assert result is not None, "Required property 'storage_class' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+            '''Optional 12-digit AWS account ID expected to own the S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3storage.html#cfn-msk-channel-s3storage-expectedbucketowner
+            '''
+            result = self._values.get("expected_bucket_owner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_key_template(self) -> typing.Optional[builtins.str]:
+            '''Template for S3 key for output objects, used for partitioning.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3storage.html#cfn-msk-channel-s3storage-outputkeytemplate
+            '''
+            result = self._values.get("output_key_template")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_prefix(self) -> typing.Optional[builtins.str]:
+            '''Optional prefix for output objects.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3storage.html#cfn-msk-channel-s3storage-outputprefix
+            '''
+            result = self._values.get("output_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3StorageProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.SchemaEvolutionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enable_schema_evolution": "enableSchemaEvolution"},
+    )
+    class SchemaEvolutionProperty:
+        def __init__(
+            self,
+            *,
+            enable_schema_evolution: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''Schema evolution configuration of the destination.
+
+            :param enable_schema_evolution: Whether schema evolution is enabled. Default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-schemaevolution.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                schema_evolution_property = msk.CfnChannel.SchemaEvolutionProperty(
+                    enable_schema_evolution=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1d1582c6709229592eb74165087b46207c4a4a0dbb72b4b1d819e5974aed39ef)
+                check_type(argname="argument enable_schema_evolution", value=enable_schema_evolution, expected_type=type_hints["enable_schema_evolution"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enable_schema_evolution": enable_schema_evolution,
+            }
+
+        @builtins.property
+        def enable_schema_evolution(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether schema evolution is enabled.
+
+            :default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-schemaevolution.html#cfn-msk-channel-schemaevolution-enableschemaevolution
+            '''
+            result = self._values.get("enable_schema_evolution")
+            assert result is not None, "Required property 'enable_schema_evolution' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchemaEvolutionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.TableCreationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enable_table_creation": "enableTableCreation"},
+    )
+    class TableCreationProperty:
+        def __init__(
+            self,
+            *,
+            enable_table_creation: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''Table creation configuration of the destination.
+
+            :param enable_table_creation: Whether table creation is enabled. Default: - true
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-tablecreation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                table_creation_property = msk.CfnChannel.TableCreationProperty(
+                    enable_table_creation=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9b5b49241e95c5e7e5f56b51aaa9a494e42102e353bd1f5ff7bf05d7105f4e03)
+                check_type(argname="argument enable_table_creation", value=enable_table_creation, expected_type=type_hints["enable_table_creation"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enable_table_creation": enable_table_creation,
+            }
+
+        @builtins.property
+        def enable_table_creation(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether table creation is enabled.
+
+            :default: - true
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-tablecreation.html#cfn-msk-channel-tablecreation-enabletablecreation
+            '''
+            result = self._values.get("enable_table_creation")
+            assert result is not None, "Required property 'enable_table_creation' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TableCreationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnChannel.TopicConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "record_converter": "recordConverter",
+            "topic_arn": "topicArn",
+            "record_schema": "recordSchema",
+        },
+    )
+    class TopicConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            record_converter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.RecordConverterProperty", typing.Dict[builtins.str, typing.Any]]],
+            topic_arn: builtins.str,
+            record_schema: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.RecordSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration of topic in a channel.
+
+            :param record_converter: Record converter configuration for a topic.
+            :param topic_arn: The Amazon Resource Name (ARN) that uniquely identifies the topic.
+            :param record_schema: Record schema configuration for a topic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-topicconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                topic_configuration_property = msk.CfnChannel.TopicConfigurationProperty(
+                    record_converter=msk.CfnChannel.RecordConverterProperty(
+                        value_converter="valueConverter"
+                    ),
+                    topic_arn="topicArn",
+                
+                    # the properties below are optional
+                    record_schema=msk.CfnChannel.RecordSchemaProperty(
+                        gsr_arn="gsrArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3e7bbfed96343fe37aa84f246d6b24c7f358af6acbb163aebf1207fee49bc353)
+                check_type(argname="argument record_converter", value=record_converter, expected_type=type_hints["record_converter"])
+                check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
+                check_type(argname="argument record_schema", value=record_schema, expected_type=type_hints["record_schema"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "record_converter": record_converter,
+                "topic_arn": topic_arn,
+            }
+            if record_schema is not None:
+                self._values["record_schema"] = record_schema
+
+        @builtins.property
+        def record_converter(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RecordConverterProperty"]:
+            '''Record converter configuration for a topic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-topicconfiguration.html#cfn-msk-channel-topicconfiguration-recordconverter
+            '''
+            result = self._values.get("record_converter")
+            assert result is not None, "Required property 'record_converter' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RecordConverterProperty"], result)
+
+        @builtins.property
+        def topic_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) that uniquely identifies the topic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-topicconfiguration.html#cfn-msk-channel-topicconfiguration-topicarn
+            '''
+            result = self._values.get("topic_arn")
+            assert result is not None, "Required property 'topic_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def record_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RecordSchemaProperty"]]:
+            '''Record schema configuration for a topic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-topicconfiguration.html#cfn-msk-channel-topicconfiguration-recordschema
+            '''
+            result = self._values.get("record_schema")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RecordSchemaProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TopicConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_name": "channelName",
+        "topic_configuration_list": "topicConfigurationList",
+        "cluster_arn": "clusterArn",
+        "encryption_configuration": "encryptionConfiguration",
+        "iceberg_destination_configuration": "icebergDestinationConfiguration",
+        "logging_info": "loggingInfo",
+        "s3_destination_configuration": "s3DestinationConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnChannelProps:
+    def __init__(
+        self,
+        *,
+        channel_name: builtins.str,
+        topic_configuration_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TopicConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        cluster_arn: typing.Optional[builtins.str] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iceberg_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.IcebergDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.ChannelLoggingInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannel``.
+
+        :param channel_name: Name of the channel.
+        :param topic_configuration_list: Topic configuration.
+        :param cluster_arn: The Amazon Resource Name (ARN) of the cluster.
+        :param encryption_configuration: Encryption configuration.
+        :param iceberg_destination_configuration: Iceberg destination configuration.
+        :param logging_info: Log configuration details for Channel.
+        :param s3_destination_configuration: S3 destination configuration.
+        :param tags: Tags attached to the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cfn_channel_props = msk.CfnChannelProps(
+                channel_name="channelName",
+                topic_configuration_list=[msk.CfnChannel.TopicConfigurationProperty(
+                    record_converter=msk.CfnChannel.RecordConverterProperty(
+                        value_converter="valueConverter"
+                    ),
+                    topic_arn="topicArn",
+            
+                    # the properties below are optional
+                    record_schema=msk.CfnChannel.RecordSchemaProperty(
+                        gsr_arn="gsrArn"
+                    )
+                )],
+            
+                # the properties below are optional
+                cluster_arn="clusterArn",
+                encryption_configuration=msk.CfnChannel.EncryptionConfigurationProperty(
+                    kms_key_arn="kmsKeyArn"
+                ),
+                iceberg_destination_configuration=msk.CfnChannel.IcebergDestinationConfigurationProperty(
+                    append_only=False,
+                    dead_letter_queue_s3=msk.CfnChannel.DeadLetterQueueS3Property(
+                        bucket_arn="bucketArn",
+                        error_output_prefix="errorOutputPrefix",
+            
+                        # the properties below are optional
+                        expected_bucket_owner="expectedBucketOwner"
+                    ),
+                    destination_table_list=[msk.CfnChannel.DestinationTableProperty(
+                        destination_database_name="destinationDatabaseName",
+                        destination_table_name="destinationTableName",
+            
+                        # the properties below are optional
+                        partition_spec=msk.CfnChannel.PartitionSpecProperty(
+                            partition_strategy="partitionStrategy",
+            
+                            # the properties below are optional
+                            source_list=[msk.CfnChannel.PartitionSourceProperty(
+                                source_name="sourceName"
+                            )]
+                        )
+                    )],
+                    schema_evolution=msk.CfnChannel.SchemaEvolutionProperty(
+                        enable_schema_evolution=False
+                    ),
+                    service_execution_role_arn="serviceExecutionRoleArn",
+                    table_creation=msk.CfnChannel.TableCreationProperty(
+                        enable_table_creation=False
+                    ),
+            
+                    # the properties below are optional
+                    catalog=msk.CfnChannel.CatalogProperty(
+                        catalog_arn="catalogArn",
+                        warehouse_location="warehouseLocation"
+                    ),
+                    compression_type="compressionType",
+                    data_freshness_in_seconds=123
+                ),
+                logging_info=msk.CfnChannel.ChannelLoggingInfoProperty(
+                    cloud_watch_logs=msk.CfnChannel.CloudWatchLogsLogDestinationProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        log_group="logGroup"
+                    ),
+                    firehose=msk.CfnChannel.FirehoseLogDestinationProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        delivery_stream="deliveryStream"
+                    ),
+                    s3=msk.CfnChannel.S3LogDestinationProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        bucket="bucket",
+                        prefix="prefix"
+                    )
+                ),
+                s3_destination_configuration=msk.CfnChannel.S3DestinationConfigurationProperty(
+                    dead_letter_queue_s3=msk.CfnChannel.DeadLetterQueueS3Property(
+                        bucket_arn="bucketArn",
+                        error_output_prefix="errorOutputPrefix",
+            
+                        # the properties below are optional
+                        expected_bucket_owner="expectedBucketOwner"
+                    ),
+                    service_execution_role_arn="serviceExecutionRoleArn",
+                    storage=msk.CfnChannel.S3StorageProperty(
+                        bucket_arn="bucketArn",
+                        compression_type="compressionType",
+                        storage_class="storageClass",
+            
+                        # the properties below are optional
+                        expected_bucket_owner="expectedBucketOwner",
+                        output_key_template="outputKeyTemplate",
+                        output_prefix="outputPrefix"
+                    ),
+            
+                    # the properties below are optional
+                    data_freshness_in_seconds=123
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3c3a3fa9d2fdae57a708b539a210b4411382a344e794eba4fdc4d99658ce8c01)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument topic_configuration_list", value=topic_configuration_list, expected_type=type_hints["topic_configuration_list"])
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument iceberg_destination_configuration", value=iceberg_destination_configuration, expected_type=type_hints["iceberg_destination_configuration"])
+            check_type(argname="argument logging_info", value=logging_info, expected_type=type_hints["logging_info"])
+            check_type(argname="argument s3_destination_configuration", value=s3_destination_configuration, expected_type=type_hints["s3_destination_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+            "topic_configuration_list": topic_configuration_list,
+        }
+        if cluster_arn is not None:
+            self._values["cluster_arn"] = cluster_arn
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
+        if iceberg_destination_configuration is not None:
+            self._values["iceberg_destination_configuration"] = iceberg_destination_configuration
+        if logging_info is not None:
+            self._values["logging_info"] = logging_info
+        if s3_destination_configuration is not None:
+            self._values["s3_destination_configuration"] = s3_destination_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''Name of the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html#cfn-msk-channel-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def topic_configuration_list(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TopicConfigurationProperty"]]]:
+        '''Topic configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html#cfn-msk-channel-topicconfigurationlist
+        '''
+        result = self._values.get("topic_configuration_list")
+        assert result is not None, "Required property 'topic_configuration_list' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TopicConfigurationProperty"]]], result)
+
+    @builtins.property
+    def cluster_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html#cfn-msk-channel-clusterarn
+        '''
+        result = self._values.get("cluster_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]]:
+        '''Encryption configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html#cfn-msk-channel-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def iceberg_destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.IcebergDestinationConfigurationProperty"]]:
+        '''Iceberg destination configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html#cfn-msk-channel-icebergdestinationconfiguration
+        '''
+        result = self._values.get("iceberg_destination_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.IcebergDestinationConfigurationProperty"]], result)
+
+    @builtins.property
+    def logging_info(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ChannelLoggingInfoProperty"]]:
+        '''Log configuration details for Channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html#cfn-msk-channel-logginginfo
+        '''
+        result = self._values.get("logging_info")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ChannelLoggingInfoProperty"]], result)
+
+    @builtins.property
+    def s3_destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]]:
+        '''S3 destination configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html#cfn-msk-channel-s3destinationconfiguration
+        '''
+        result = self._values.get("s3_destination_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags attached to the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html#cfn-msk-channel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_msk_eed08006.IClusterRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCluster(
     _aws_cdk_0cae9daa.CfnResource,
@@ -381,6 +2758,29 @@ class CfnCluster(
             enhanced_monitoring="enhancedMonitoring",
             logging_info=msk.CfnCluster.LoggingInfoProperty(
                 broker_logs=msk.CfnCluster.BrokerLogsProperty(
+                    cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
+                        enabled=False,
+        
+                        # the properties below are optional
+                        log_group="logGroup"
+                    ),
+                    firehose=msk.CfnCluster.FirehoseProperty(
+                        enabled=False,
+        
+                        # the properties below are optional
+                        delivery_stream="deliveryStream"
+                    ),
+                    s3=msk.CfnCluster.S3Property(
+                        enabled=False,
+        
+                        # the properties below are optional
+                        bucket="bucket",
+                        prefix="prefix"
+                    )
+                ),
+        
+                # the properties below are optional
+                authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
                     cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
                         enabled=False,
         
@@ -817,6 +3217,113 @@ class CfnCluster(
             type_hints = cached_type_hints(_typecheckingstub__0f3c9360426b4d2e105db2410d06dd6eaca815368635b59b5f3c0036d053f2e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "zookeeperAccess", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnCluster.AuthorizerLogsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cloud_watch_logs": "cloudWatchLogs",
+            "firehose": "firehose",
+            "s3": "s3",
+        },
+    )
+    class AuthorizerLogsProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.CloudWatchLogsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.FirehoseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param cloud_watch_logs: 
+            :param firehose: 
+            :param s3: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-authorizerlogs.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                authorizer_logs_property = msk.CfnCluster.AuthorizerLogsProperty(
+                    cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        log_group="logGroup"
+                    ),
+                    firehose=msk.CfnCluster.FirehoseProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        delivery_stream="deliveryStream"
+                    ),
+                    s3=msk.CfnCluster.S3Property(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        bucket="bucket",
+                        prefix="prefix"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__db4c547e1bc47d1a2de98b763c86e3f30f5370ee3895e227275f1f63879ec5b9)
+                check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
+                check_type(argname="argument firehose", value=firehose, expected_type=type_hints["firehose"])
+                check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cloud_watch_logs is not None:
+                self._values["cloud_watch_logs"] = cloud_watch_logs
+            if firehose is not None:
+                self._values["firehose"] = firehose
+            if s3 is not None:
+                self._values["s3"] = s3
+
+        @builtins.property
+        def cloud_watch_logs(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CloudWatchLogsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-authorizerlogs.html#cfn-msk-cluster-authorizerlogs-cloudwatchlogs
+            '''
+            result = self._values.get("cloud_watch_logs")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CloudWatchLogsProperty"]], result)
+
+        @builtins.property
+        def firehose(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.FirehoseProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-authorizerlogs.html#cfn-msk-cluster-authorizerlogs-firehose
+            '''
+            result = self._values.get("firehose")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.FirehoseProperty"]], result)
+
+        @builtins.property
+        def s3(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.S3Property"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-authorizerlogs.html#cfn-msk-cluster-authorizerlogs-s3
+            '''
+            result = self._values.get("s3")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.S3Property"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthorizerLogsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnCluster.BrokerLogsProperty",
@@ -1982,19 +4489,24 @@ class CfnCluster(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnCluster.LoggingInfoProperty",
         jsii_struct_bases=[],
-        name_mapping={"broker_logs": "brokerLogs"},
+        name_mapping={
+            "broker_logs": "brokerLogs",
+            "authorizer_logs": "authorizerLogs",
+        },
     )
     class LoggingInfoProperty:
         def __init__(
             self,
             *,
             broker_logs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.BrokerLogsProperty", typing.Dict[builtins.str, typing.Any]]],
+            authorizer_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.AuthorizerLogsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''You can configure your MSK cluster to send broker logs to different destination types.
 
             This is a container for the configuration details related to broker logs.
 
             :param broker_logs: You can configure your MSK cluster to send broker logs to different destination types. This configuration specifies the details of these destinations.
+            :param authorizer_logs: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-logginginfo.html
             :exampleMetadata: fixture=_generated
@@ -2026,15 +4538,41 @@ class CfnCluster(
                             bucket="bucket",
                             prefix="prefix"
                         )
+                    ),
+                
+                    # the properties below are optional
+                    authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
+                        cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            log_group="logGroup"
+                        ),
+                        firehose=msk.CfnCluster.FirehoseProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            delivery_stream="deliveryStream"
+                        ),
+                        s3=msk.CfnCluster.S3Property(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            bucket="bucket",
+                            prefix="prefix"
+                        )
                     )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__cb34e9e4e6ea2dca1d1d7c205b60cf5fc069f6150273b5e5c14b565ef784c6cb)
                 check_type(argname="argument broker_logs", value=broker_logs, expected_type=type_hints["broker_logs"])
+                check_type(argname="argument authorizer_logs", value=authorizer_logs, expected_type=type_hints["authorizer_logs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "broker_logs": broker_logs,
             }
+            if authorizer_logs is not None:
+                self._values["authorizer_logs"] = authorizer_logs
 
         @builtins.property
         def broker_logs(
@@ -2049,6 +4587,16 @@ class CfnCluster(
             result = self._values.get("broker_logs")
             assert result is not None, "Required property 'broker_logs' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BrokerLogsProperty"], result)
+
+        @builtins.property
+        def authorizer_logs(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AuthorizerLogsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-logginginfo.html#cfn-msk-cluster-logginginfo-authorizerlogs
+            '''
+            result = self._values.get("authorizer_logs")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AuthorizerLogsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3702,6 +6250,29 @@ class CfnClusterProps:
                             bucket="bucket",
                             prefix="prefix"
                         )
+                    ),
+            
+                    # the properties below are optional
+                    authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
+                        cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            log_group="logGroup"
+                        ),
+                        firehose=msk.CfnCluster.FirehoseProperty(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            delivery_stream="deliveryStream"
+                        ),
+                        s3=msk.CfnCluster.S3Property(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            bucket="bucket",
+                            prefix="prefix"
+                        )
                     )
                 ),
                 open_monitoring=msk.CfnCluster.OpenMonitoringProperty(
@@ -4457,6 +7028,31 @@ class CfnReplicator(
                     mtls=msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
                         secret_arn="secretArn"
                     ),
+                    sasl_o_auth_bearer=msk.CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty(
+                        token_endpoint_authentication_method="tokenEndpointAuthenticationMethod",
+                        token_endpoint_url="tokenEndpointUrl",
+        
+                        # the properties below are optional
+                        client_credentials=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsProperty(
+                            token_request_secret_arn="tokenRequestSecretArn"
+                        ),
+                        client_credentials_assertion=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty(
+                            audience="audience",
+                            signing_algorithm="signingAlgorithm",
+        
+                            # the properties below are optional
+                            token_request_secret_arn="tokenRequestSecretArn"
+                        ),
+                        iam_jwt_bearer=msk.CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty(
+                            audience="audience",
+                            signing_algorithm="signingAlgorithm",
+        
+                            # the properties below are optional
+                            token_request_secret_arn="tokenRequestSecretArn"
+                        ),
+                        scope="scope",
+                        token_endpoint_tls_certificate_arn="tokenEndpointTlsCertificateArn"
+                    ),
                     sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
                         mechanism="mechanism",
                         secret_arn="secretArn"
@@ -5200,18 +7796,24 @@ class CfnReplicator(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterClientAuthenticationProperty",
         jsii_struct_bases=[],
-        name_mapping={"mtls": "mtls", "sasl_scram": "saslScram"},
+        name_mapping={
+            "mtls": "mtls",
+            "sasl_o_auth_bearer": "saslOAuthBearer",
+            "sasl_scram": "saslScram",
+        },
     )
     class KafkaClusterClientAuthenticationProperty:
         def __init__(
             self,
             *,
             mtls: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicator.KafkaClusterMtlsAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sasl_o_auth_bearer: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             sasl_scram: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicator.KafkaClusterSaslScramAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Details of the client authentication used by the Apache Kafka cluster.
 
             :param mtls: Details for mTLS client authentication.
+            :param sasl_o_auth_bearer: Details for client authentication using SASL/OAUTHBEARER.
             :param sasl_scram: Details for SASL/SCRAM client authentication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterclientauthentication.html
@@ -5227,6 +7829,31 @@ class CfnReplicator(
                     mtls=msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
                         secret_arn="secretArn"
                     ),
+                    sasl_o_auth_bearer=msk.CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty(
+                        token_endpoint_authentication_method="tokenEndpointAuthenticationMethod",
+                        token_endpoint_url="tokenEndpointUrl",
+                
+                        # the properties below are optional
+                        client_credentials=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsProperty(
+                            token_request_secret_arn="tokenRequestSecretArn"
+                        ),
+                        client_credentials_assertion=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty(
+                            audience="audience",
+                            signing_algorithm="signingAlgorithm",
+                
+                            # the properties below are optional
+                            token_request_secret_arn="tokenRequestSecretArn"
+                        ),
+                        iam_jwt_bearer=msk.CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty(
+                            audience="audience",
+                            signing_algorithm="signingAlgorithm",
+                
+                            # the properties below are optional
+                            token_request_secret_arn="tokenRequestSecretArn"
+                        ),
+                        scope="scope",
+                        token_endpoint_tls_certificate_arn="tokenEndpointTlsCertificateArn"
+                    ),
                     sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
                         mechanism="mechanism",
                         secret_arn="secretArn"
@@ -5236,10 +7863,13 @@ class CfnReplicator(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__c571a114ab290550ca33f1735aecfb895c5cfc0879d719ffab9178fd3c27f276)
                 check_type(argname="argument mtls", value=mtls, expected_type=type_hints["mtls"])
+                check_type(argname="argument sasl_o_auth_bearer", value=sasl_o_auth_bearer, expected_type=type_hints["sasl_o_auth_bearer"])
                 check_type(argname="argument sasl_scram", value=sasl_scram, expected_type=type_hints["sasl_scram"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if mtls is not None:
                 self._values["mtls"] = mtls
+            if sasl_o_auth_bearer is not None:
+                self._values["sasl_o_auth_bearer"] = sasl_o_auth_bearer
             if sasl_scram is not None:
                 self._values["sasl_scram"] = sasl_scram
 
@@ -5253,6 +7883,17 @@ class CfnReplicator(
             '''
             result = self._values.get("mtls")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterMtlsAuthenticationProperty"]], result)
+
+        @builtins.property
+        def sasl_o_auth_bearer(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty"]]:
+            '''Details for client authentication using SASL/OAUTHBEARER.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterclientauthentication.html#cfn-msk-replicator-kafkaclusterclientauthentication-sasloauthbearer
+            '''
+            result = self._values.get("sasl_o_auth_bearer")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty"]], result)
 
         @builtins.property
         def sasl_scram(
@@ -5481,6 +8122,246 @@ class CfnReplicator(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "audience": "audience",
+            "signing_algorithm": "signingAlgorithm",
+            "token_request_secret_arn": "tokenRequestSecretArn",
+        },
+    )
+    class KafkaClusterOAuthClientCredentialsAssertionProperty:
+        def __init__(
+            self,
+            *,
+            audience: builtins.str,
+            signing_algorithm: builtins.str,
+            token_request_secret_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details for SASL/OAUTHBEARER using the client credentials grant with a JWT client assertion (RFC 7521/7523 Section 2.2). An STS-vended JWT is used as the client_assertion.
+
+            :param audience: The audience (aud claim) set in the STS JWT client assertion.
+            :param signing_algorithm: The algorithm used to sign the STS JWT assertion.
+            :param token_request_secret_arn: Optional Secrets Manager ARN for identity providers that require client_id as a form parameter alongside the JWT client assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthclientcredentialsassertion.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                kafka_cluster_o_auth_client_credentials_assertion_property = msk.CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty(
+                    audience="audience",
+                    signing_algorithm="signingAlgorithm",
+                
+                    # the properties below are optional
+                    token_request_secret_arn="tokenRequestSecretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__36d358d30c5744458d1e1d8d3eea8a059ccd0482bf481fafba173cac46cd0a91)
+                check_type(argname="argument audience", value=audience, expected_type=type_hints["audience"])
+                check_type(argname="argument signing_algorithm", value=signing_algorithm, expected_type=type_hints["signing_algorithm"])
+                check_type(argname="argument token_request_secret_arn", value=token_request_secret_arn, expected_type=type_hints["token_request_secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "audience": audience,
+                "signing_algorithm": signing_algorithm,
+            }
+            if token_request_secret_arn is not None:
+                self._values["token_request_secret_arn"] = token_request_secret_arn
+
+        @builtins.property
+        def audience(self) -> builtins.str:
+            '''The audience (aud claim) set in the STS JWT client assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthclientcredentialsassertion.html#cfn-msk-replicator-kafkaclusteroauthclientcredentialsassertion-audience
+            '''
+            result = self._values.get("audience")
+            assert result is not None, "Required property 'audience' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def signing_algorithm(self) -> builtins.str:
+            '''The algorithm used to sign the STS JWT assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthclientcredentialsassertion.html#cfn-msk-replicator-kafkaclusteroauthclientcredentialsassertion-signingalgorithm
+            '''
+            result = self._values.get("signing_algorithm")
+            assert result is not None, "Required property 'signing_algorithm' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_request_secret_arn(self) -> typing.Optional[builtins.str]:
+            '''Optional Secrets Manager ARN for identity providers that require client_id as a form parameter alongside the JWT client assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthclientcredentialsassertion.html#cfn-msk-replicator-kafkaclusteroauthclientcredentialsassertion-tokenrequestsecretarn
+            '''
+            result = self._values.get("token_request_secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KafkaClusterOAuthClientCredentialsAssertionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterOAuthClientCredentialsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"token_request_secret_arn": "tokenRequestSecretArn"},
+    )
+    class KafkaClusterOAuthClientCredentialsProperty:
+        def __init__(self, *, token_request_secret_arn: builtins.str) -> None:
+            '''Details for SASL/OAUTHBEARER using the standard client_credentials grant.
+
+            The referenced secret must contain client_id and client_secret.
+
+            :param token_request_secret_arn: Secrets Manager ARN of the secret containing the client_id and client_secret used to obtain an OAuth Bearer token via the client_credentials grant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthclientcredentials.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                kafka_cluster_o_auth_client_credentials_property = msk.CfnReplicator.KafkaClusterOAuthClientCredentialsProperty(
+                    token_request_secret_arn="tokenRequestSecretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__85e81f5683185e3fece1e7e76b231b410fd27612f1c8c2ea3757017fe3cc9dac)
+                check_type(argname="argument token_request_secret_arn", value=token_request_secret_arn, expected_type=type_hints["token_request_secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "token_request_secret_arn": token_request_secret_arn,
+            }
+
+        @builtins.property
+        def token_request_secret_arn(self) -> builtins.str:
+            '''Secrets Manager ARN of the secret containing the client_id and client_secret used to obtain an OAuth Bearer token via the client_credentials grant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthclientcredentials.html#cfn-msk-replicator-kafkaclusteroauthclientcredentials-tokenrequestsecretarn
+            '''
+            result = self._values.get("token_request_secret_arn")
+            assert result is not None, "Required property 'token_request_secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KafkaClusterOAuthClientCredentialsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "audience": "audience",
+            "signing_algorithm": "signingAlgorithm",
+            "token_request_secret_arn": "tokenRequestSecretArn",
+        },
+    )
+    class KafkaClusterOAuthIamJwtBearerProperty:
+        def __init__(
+            self,
+            *,
+            audience: builtins.str,
+            signing_algorithm: builtins.str,
+            token_request_secret_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details for SASL/OAUTHBEARER using the JWT Bearer assertion grant (RFC 7523).
+
+            An STS-vended JWT is used as the assertion.
+
+            :param audience: The audience (aud claim) set in the STS JWT assertion.
+            :param signing_algorithm: The algorithm used to sign the STS JWT assertion.
+            :param token_request_secret_arn: Optional Secrets Manager ARN for identity providers that require client authentication alongside the JWT Bearer assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthiamjwtbearer.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                kafka_cluster_o_auth_iam_jwt_bearer_property = msk.CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty(
+                    audience="audience",
+                    signing_algorithm="signingAlgorithm",
+                
+                    # the properties below are optional
+                    token_request_secret_arn="tokenRequestSecretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d21a6b090b676100f0bade5b675058abd670c180dc1d1a3b52018934fc0955d3)
+                check_type(argname="argument audience", value=audience, expected_type=type_hints["audience"])
+                check_type(argname="argument signing_algorithm", value=signing_algorithm, expected_type=type_hints["signing_algorithm"])
+                check_type(argname="argument token_request_secret_arn", value=token_request_secret_arn, expected_type=type_hints["token_request_secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "audience": audience,
+                "signing_algorithm": signing_algorithm,
+            }
+            if token_request_secret_arn is not None:
+                self._values["token_request_secret_arn"] = token_request_secret_arn
+
+        @builtins.property
+        def audience(self) -> builtins.str:
+            '''The audience (aud claim) set in the STS JWT assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthiamjwtbearer.html#cfn-msk-replicator-kafkaclusteroauthiamjwtbearer-audience
+            '''
+            result = self._values.get("audience")
+            assert result is not None, "Required property 'audience' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def signing_algorithm(self) -> builtins.str:
+            '''The algorithm used to sign the STS JWT assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthiamjwtbearer.html#cfn-msk-replicator-kafkaclusteroauthiamjwtbearer-signingalgorithm
+            '''
+            result = self._values.get("signing_algorithm")
+            assert result is not None, "Required property 'signing_algorithm' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_request_secret_arn(self) -> typing.Optional[builtins.str]:
+            '''Optional Secrets Manager ARN for identity providers that require client authentication alongside the JWT Bearer assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthiamjwtbearer.html#cfn-msk-replicator-kafkaclusteroauthiamjwtbearer-tokenrequestsecretarn
+            '''
+            result = self._values.get("token_request_secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KafkaClusterOAuthIamJwtBearerProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5529,6 +8410,31 @@ class CfnReplicator(
                     client_authentication=msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
                         mtls=msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
                             secret_arn="secretArn"
+                        ),
+                        sasl_o_auth_bearer=msk.CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty(
+                            token_endpoint_authentication_method="tokenEndpointAuthenticationMethod",
+                            token_endpoint_url="tokenEndpointUrl",
+                
+                            # the properties below are optional
+                            client_credentials=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsProperty(
+                                token_request_secret_arn="tokenRequestSecretArn"
+                            ),
+                            client_credentials_assertion=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty(
+                                audience="audience",
+                                signing_algorithm="signingAlgorithm",
+                
+                                # the properties below are optional
+                                token_request_secret_arn="tokenRequestSecretArn"
+                            ),
+                            iam_jwt_bearer=msk.CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty(
+                                audience="audience",
+                                signing_algorithm="signingAlgorithm",
+                
+                                # the properties below are optional
+                                token_request_secret_arn="tokenRequestSecretArn"
+                            ),
+                            scope="scope",
+                            token_endpoint_tls_certificate_arn="tokenEndpointTlsCertificateArn"
                         ),
                         sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
                             mechanism="mechanism",
@@ -5631,6 +8537,190 @@ class CfnReplicator(
 
         def __repr__(self) -> str:
             return "KafkaClusterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "token_endpoint_authentication_method": "tokenEndpointAuthenticationMethod",
+            "token_endpoint_url": "tokenEndpointUrl",
+            "client_credentials": "clientCredentials",
+            "client_credentials_assertion": "clientCredentialsAssertion",
+            "iam_jwt_bearer": "iamJwtBearer",
+            "scope": "scope",
+            "token_endpoint_tls_certificate_arn": "tokenEndpointTlsCertificateArn",
+        },
+    )
+    class KafkaClusterSaslOAuthBearerAuthenticationProperty:
+        def __init__(
+            self,
+            *,
+            token_endpoint_authentication_method: builtins.str,
+            token_endpoint_url: builtins.str,
+            client_credentials: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicator.KafkaClusterOAuthClientCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_credentials_assertion: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iam_jwt_bearer: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scope: typing.Optional[builtins.str] = None,
+            token_endpoint_tls_certificate_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details for client authentication using SASL/OAUTHBEARER.
+
+            :param token_endpoint_authentication_method: How client credentials are sent to the identity provider's token endpoint.
+            :param token_endpoint_url: The HTTPS URL of the OAuth token endpoint that vends OAuth Bearer tokens per RFC 6749.
+            :param client_credentials: Details for SASL/OAUTHBEARER using the standard client_credentials grant. The referenced secret must contain client_id and client_secret.
+            :param client_credentials_assertion: Details for SASL/OAUTHBEARER using the client credentials grant with a JWT client assertion (RFC 7521/7523 Section 2.2). An STS-vended JWT is used as the client_assertion.
+            :param iam_jwt_bearer: Details for SASL/OAUTHBEARER using the JWT Bearer assertion grant (RFC 7523). An STS-vended JWT is used as the assertion.
+            :param scope: OAuth scope to request. Included in the token request if provided.
+            :param token_endpoint_tls_certificate_arn: Secrets Manager ARN containing a custom CA certificate for the identity provider. Required only if the identity provider uses a private CA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                kafka_cluster_sasl_o_auth_bearer_authentication_property = msk.CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty(
+                    token_endpoint_authentication_method="tokenEndpointAuthenticationMethod",
+                    token_endpoint_url="tokenEndpointUrl",
+                
+                    # the properties below are optional
+                    client_credentials=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsProperty(
+                        token_request_secret_arn="tokenRequestSecretArn"
+                    ),
+                    client_credentials_assertion=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty(
+                        audience="audience",
+                        signing_algorithm="signingAlgorithm",
+                
+                        # the properties below are optional
+                        token_request_secret_arn="tokenRequestSecretArn"
+                    ),
+                    iam_jwt_bearer=msk.CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty(
+                        audience="audience",
+                        signing_algorithm="signingAlgorithm",
+                
+                        # the properties below are optional
+                        token_request_secret_arn="tokenRequestSecretArn"
+                    ),
+                    scope="scope",
+                    token_endpoint_tls_certificate_arn="tokenEndpointTlsCertificateArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5e51b94a5bb03dacce0d354e3eb6dbf2131910b089736c95fe27d7b1123fd3b0)
+                check_type(argname="argument token_endpoint_authentication_method", value=token_endpoint_authentication_method, expected_type=type_hints["token_endpoint_authentication_method"])
+                check_type(argname="argument token_endpoint_url", value=token_endpoint_url, expected_type=type_hints["token_endpoint_url"])
+                check_type(argname="argument client_credentials", value=client_credentials, expected_type=type_hints["client_credentials"])
+                check_type(argname="argument client_credentials_assertion", value=client_credentials_assertion, expected_type=type_hints["client_credentials_assertion"])
+                check_type(argname="argument iam_jwt_bearer", value=iam_jwt_bearer, expected_type=type_hints["iam_jwt_bearer"])
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+                check_type(argname="argument token_endpoint_tls_certificate_arn", value=token_endpoint_tls_certificate_arn, expected_type=type_hints["token_endpoint_tls_certificate_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "token_endpoint_authentication_method": token_endpoint_authentication_method,
+                "token_endpoint_url": token_endpoint_url,
+            }
+            if client_credentials is not None:
+                self._values["client_credentials"] = client_credentials
+            if client_credentials_assertion is not None:
+                self._values["client_credentials_assertion"] = client_credentials_assertion
+            if iam_jwt_bearer is not None:
+                self._values["iam_jwt_bearer"] = iam_jwt_bearer
+            if scope is not None:
+                self._values["scope"] = scope
+            if token_endpoint_tls_certificate_arn is not None:
+                self._values["token_endpoint_tls_certificate_arn"] = token_endpoint_tls_certificate_arn
+
+        @builtins.property
+        def token_endpoint_authentication_method(self) -> builtins.str:
+            '''How client credentials are sent to the identity provider's token endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html#cfn-msk-replicator-kafkaclustersasloauthbearerauthentication-tokenendpointauthenticationmethod
+            '''
+            result = self._values.get("token_endpoint_authentication_method")
+            assert result is not None, "Required property 'token_endpoint_authentication_method' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_endpoint_url(self) -> builtins.str:
+            '''The HTTPS URL of the OAuth token endpoint that vends OAuth Bearer tokens per RFC 6749.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html#cfn-msk-replicator-kafkaclustersasloauthbearerauthentication-tokenendpointurl
+            '''
+            result = self._values.get("token_endpoint_url")
+            assert result is not None, "Required property 'token_endpoint_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_credentials(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterOAuthClientCredentialsProperty"]]:
+            '''Details for SASL/OAUTHBEARER using the standard client_credentials grant.
+
+            The referenced secret must contain client_id and client_secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html#cfn-msk-replicator-kafkaclustersasloauthbearerauthentication-clientcredentials
+            '''
+            result = self._values.get("client_credentials")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterOAuthClientCredentialsProperty"]], result)
+
+        @builtins.property
+        def client_credentials_assertion(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty"]]:
+            '''Details for SASL/OAUTHBEARER using the client credentials grant with a JWT client assertion (RFC 7521/7523 Section 2.2). An STS-vended JWT is used as the client_assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html#cfn-msk-replicator-kafkaclustersasloauthbearerauthentication-clientcredentialsassertion
+            '''
+            result = self._values.get("client_credentials_assertion")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty"]], result)
+
+        @builtins.property
+        def iam_jwt_bearer(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty"]]:
+            '''Details for SASL/OAUTHBEARER using the JWT Bearer assertion grant (RFC 7523).
+
+            An STS-vended JWT is used as the assertion.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html#cfn-msk-replicator-kafkaclustersasloauthbearerauthentication-iamjwtbearer
+            '''
+            result = self._values.get("iam_jwt_bearer")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty"]], result)
+
+        @builtins.property
+        def scope(self) -> typing.Optional[builtins.str]:
+            '''OAuth scope to request.
+
+            Included in the token request if provided.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html#cfn-msk-replicator-kafkaclustersasloauthbearerauthentication-scope
+            '''
+            result = self._values.get("scope")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def token_endpoint_tls_certificate_arn(self) -> typing.Optional[builtins.str]:
+            '''Secrets Manager ARN containing a custom CA certificate for the identity provider.
+
+            Required only if the identity provider uses a private CA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html#cfn-msk-replicator-kafkaclustersasloauthbearerauthentication-tokenendpointtlscertificatearn
+            '''
+            result = self._values.get("token_endpoint_tls_certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KafkaClusterSaslOAuthBearerAuthenticationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -6495,6 +9585,31 @@ class CfnReplicatorProps:
                     client_authentication=msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
                         mtls=msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
                             secret_arn="secretArn"
+                        ),
+                        sasl_o_auth_bearer=msk.CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty(
+                            token_endpoint_authentication_method="tokenEndpointAuthenticationMethod",
+                            token_endpoint_url="tokenEndpointUrl",
+            
+                            # the properties below are optional
+                            client_credentials=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsProperty(
+                                token_request_secret_arn="tokenRequestSecretArn"
+                            ),
+                            client_credentials_assertion=msk.CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty(
+                                audience="audience",
+                                signing_algorithm="signingAlgorithm",
+            
+                                # the properties below are optional
+                                token_request_secret_arn="tokenRequestSecretArn"
+                            ),
+                            iam_jwt_bearer=msk.CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty(
+                                audience="audience",
+                                signing_algorithm="signingAlgorithm",
+            
+                                # the properties below are optional
+                                token_request_secret_arn="tokenRequestSecretArn"
+                            ),
+                            scope="scope",
+                            token_endpoint_tls_certificate_arn="tokenEndpointTlsCertificateArn"
                         ),
                         sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
                             mechanism="mechanism",
@@ -8014,6 +11129,8 @@ class CfnVpcConnectionProps:
 __all__ = [
     "CfnBatchScramSecret",
     "CfnBatchScramSecretProps",
+    "CfnChannel",
+    "CfnChannelProps",
     "CfnCluster",
     "CfnClusterPolicy",
     "CfnClusterPolicyProps",
@@ -8076,6 +11193,272 @@ def _typecheckingstub__3f9f8128f7dc818d3ee4d75c78613bf29636c365b9489e1c33d4a2144
     *,
     cluster_arn: builtins.str,
     secret_arn_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a59a4ef99c4e6d386c7004c6e941ae46a86f80fe7fcb6e8348460f76755004cf(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    channel_name: builtins.str,
+    topic_configuration_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TopicConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    cluster_arn: typing.Optional[builtins.str] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.IcebergDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.ChannelLoggingInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0a6a24517e56ad3c5510f37643b2192442f0b4052a36e8ae843aa2d9c1fafbd(
+    resource: _aws_msk_eed08006.IChannelRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3260b7e16afd7480351aa693b39bab2a8ed1e04d654631d812bf206f4310cb21(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b59608e0d7f25e174c5d6d69394ee4ea5158e676f80f569a94478b9f93f6e177(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40aa396b778baab009502f7ec7a09b88b50dad373330612bbdad6ef75a1b8748(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b118e55dd8d5d3d696f76122bb84826aafb0d693e8904bd475d961eb162a3e6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__feff25687936fec919f4b25619392247ae0b35ff0b82f7ce95e5d4c10d9cfb80(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.TopicConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d345fae7f388e4f05bf5917176de0ec1eadfef205eb38111a731019045f1afb9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f703cb98883609b21a105015de638d6560499771cc65486c1975b319bb6ac426(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.EncryptionConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f64ca010115d4e5cbb5db0f764b8c05d447ad2f8dc4ba5c08aee10003e57ec7f(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.IcebergDestinationConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27385efc61f9a5fbdad5ddef1fa2065da69474f362fe7032afe4c1176e222271(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.ChannelLoggingInfoProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3fe85c116164a2819cf06f17bc461a546c56e6059dfe6ae41661cd2914191e4e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.S3DestinationConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f37846ac1b5f48798bcdca51a8bc4b1d4766b4acf624593f6e1e3bd0dbfc4c0(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4d2983ddb7a3c2807825f012c2090cd992168f4455677f33c317b97fb5abe24(
+    *,
+    catalog_arn: typing.Optional[builtins.str] = None,
+    warehouse_location: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dbdcbf2046a9add3cce9815b3fa5f6f282784e2f076ed7254bcfc99c5b99ee2e(
+    *,
+    cloud_watch_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CloudWatchLogsLogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.FirehoseLogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3LogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb932c6fb9893eab7e4cf885763439e42c9ac3ff21df48434c329c565509d5e6(
+    *,
+    code: typing.Optional[builtins.str] = None,
+    message: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e721a8ab43ae5fa30b36f925f30bf17113eded670763503c914433b11ce4d16(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    log_group: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__000ff39f59b9c111a7366910cf68e9032a9876628098eeae6556ffc26f040aa2(
+    *,
+    bucket_arn: builtins.str,
+    error_output_prefix: builtins.str,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c6cb60e981f9425bb3694cc941e62cb82ca631d47155b126e433a6f405caebb(
+    *,
+    destination_database_name: builtins.str,
+    destination_table_name: builtins.str,
+    partition_spec: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.PartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03bec652ae699ed1446065bc9b3d204cb1f688e261d6effc135a667cc875bc91(
+    *,
+    kms_key_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d2665e25ad8259568b87b12934efc897bd0acd57e90772eeb00e9cc9d0529a1(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    delivery_stream: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5826ce74b57947038ee0c182b36e9f6c74bbe7d1b8620efe9be1063b9563de19(
+    *,
+    append_only: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    dead_letter_queue_s3: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.DeadLetterQueueS3Property, typing.Dict[builtins.str, typing.Any]]],
+    destination_table_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.DestinationTableProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    schema_evolution: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.SchemaEvolutionProperty, typing.Dict[builtins.str, typing.Any]]],
+    service_execution_role_arn: builtins.str,
+    table_creation: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TableCreationProperty, typing.Dict[builtins.str, typing.Any]]],
+    catalog: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    compression_type: typing.Optional[builtins.str] = None,
+    data_freshness_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fab6346a387856b6d2a247db1732dbc432dd23cb189f16a5c1b94fd4c81a84d(
+    *,
+    source_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d8097cf9b8d78a3a9f940a6bdb2d922dffe7a6f67257c777dc09f61dce0fc22(
+    *,
+    partition_strategy: builtins.str,
+    source_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.PartitionSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__28e6b043fe420b02fe84eceb38db119b98a0e53d1f3522f25bbb422ef79c2706(
+    *,
+    value_converter: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6658a2ea87101c301bfee5d01969c57bfe9e16a7686d860276ce07b23c5dbaf(
+    *,
+    gsr_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d8f6c47b02247663e9e1333fd17ad1b48eb475948ae3a2a239f32cd3b97dc7d(
+    *,
+    dead_letter_queue_s3: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.DeadLetterQueueS3Property, typing.Dict[builtins.str, typing.Any]]],
+    service_execution_role_arn: builtins.str,
+    storage: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3StorageProperty, typing.Dict[builtins.str, typing.Any]]],
+    data_freshness_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27e7b16da9ca94aa6baff63db12ba6f664ff34071824260c0a1a12542df5e262(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    bucket: typing.Optional[builtins.str] = None,
+    prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54618ba410deb2ff65ec298874c9e57e62ec5e6d3260eba8249b71575b0f9031(
+    *,
+    bucket_arn: builtins.str,
+    compression_type: builtins.str,
+    storage_class: builtins.str,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    output_key_template: typing.Optional[builtins.str] = None,
+    output_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d1582c6709229592eb74165087b46207c4a4a0dbb72b4b1d819e5974aed39ef(
+    *,
+    enable_schema_evolution: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b5b49241e95c5e7e5f56b51aaa9a494e42102e353bd1f5ff7bf05d7105f4e03(
+    *,
+    enable_table_creation: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e7bbfed96343fe37aa84f246d6b24c7f358af6acbb163aebf1207fee49bc353(
+    *,
+    record_converter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.RecordConverterProperty, typing.Dict[builtins.str, typing.Any]]],
+    topic_arn: builtins.str,
+    record_schema: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.RecordSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c3a3fa9d2fdae57a708b539a210b4411382a344e794eba4fdc4d99658ce8c01(
+    *,
+    channel_name: builtins.str,
+    topic_configuration_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TopicConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    cluster_arn: typing.Optional[builtins.str] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.IcebergDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.ChannelLoggingInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8217,6 +11600,15 @@ def _typecheckingstub__0f3c9360426b4d2e105db2410d06dd6eaca815368635b59b5f3c0036d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__db4c547e1bc47d1a2de98b763c86e3f30f5370ee3895e227275f1f63879ec5b9(
+    *,
+    cloud_watch_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.CloudWatchLogsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.FirehoseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.S3Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fbd8029dbfc62bcbd4abadd3745c2e188c7166e8208e634cad8832a450ab294f(
     *,
     cloud_watch_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.CloudWatchLogsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8328,6 +11720,7 @@ def _typecheckingstub__4eaa737fdd4b761b60d33bd8c66551298c9e7beeb94798e2b9eb9a3cb
 def _typecheckingstub__cb34e9e4e6ea2dca1d1d7c205b60cf5fc069f6150273b5e5c14b565ef784c6cb(
     *,
     broker_logs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.BrokerLogsProperty, typing.Dict[builtins.str, typing.Any]]],
+    authorizer_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.AuthorizerLogsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8755,6 +12148,7 @@ def _typecheckingstub__42de6b2042f8086b2898030e584464f88b05b245c742dd15f6ac50ce1
 def _typecheckingstub__c571a114ab290550ca33f1735aecfb895c5cfc0879d719ffab9178fd3c27f276(
     *,
     mtls: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterMtlsAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sasl_o_auth_bearer: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterSaslOAuthBearerAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sasl_scram: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterSaslScramAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8783,6 +12177,31 @@ def _typecheckingstub__a9b59dc53fb186f75b7c4e80f864155f9c5a72a4e3ddbb40fa204209f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__36d358d30c5744458d1e1d8d3eea8a059ccd0482bf481fafba173cac46cd0a91(
+    *,
+    audience: builtins.str,
+    signing_algorithm: builtins.str,
+    token_request_secret_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85e81f5683185e3fece1e7e76b231b410fd27612f1c8c2ea3757017fe3cc9dac(
+    *,
+    token_request_secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d21a6b090b676100f0bade5b675058abd670c180dc1d1a3b52018934fc0955d3(
+    *,
+    audience: builtins.str,
+    signing_algorithm: builtins.str,
+    token_request_secret_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6bd0abb9f47b9df020dcab4109fa663638863abb8a4bbd2280b4a02b658e2cb8(
     *,
     amazon_msk_cluster: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.AmazonMskClusterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8790,6 +12209,19 @@ def _typecheckingstub__6bd0abb9f47b9df020dcab4109fa663638863abb8a4bbd2280b4a02b6
     client_authentication: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption_in_transit: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterEncryptionInTransitProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterClientVpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e51b94a5bb03dacce0d354e3eb6dbf2131910b089736c95fe27d7b1123fd3b0(
+    *,
+    token_endpoint_authentication_method: builtins.str,
+    token_endpoint_url: builtins.str,
+    client_credentials: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterOAuthClientCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_credentials_assertion: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterOAuthClientCredentialsAssertionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iam_jwt_bearer: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicator.KafkaClusterOAuthIamJwtBearerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scope: typing.Optional[builtins.str] = None,
+    token_endpoint_tls_certificate_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

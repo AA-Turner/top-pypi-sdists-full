@@ -304,6 +304,45 @@ def _handle_hdf5_strings(values: np.ndarray) -> str | np.ndarray | list[str | np
         raise RuntimeError('String arrays with more than 2 dimensionsare not supported at the moment.')
 
 
+def _get_mcos_class_name(data: MatlabOpaque) -> str | bytes | None:
+    """
+    Determine the MATLAB class name of an MCOS object stored as MatlabOpaque.
+
+    scipy changed the layout of the records returned by loadmat for
+    mxOPAQUE_CLASS objects in scipy 1.18
+    (https://github.com/scipy/scipy/pull/23481):
+
+    - scipy < 1.18: fields ('s0', 's1', 's2', ...), where the second field
+      holds b'MCOS' and the third field holds the class name as bytes.
+    - scipy >= 1.18: named fields ('_TypeSystem', '_Class',
+      '_ObjectMetadata'), where the first field holds 'MCOS' and the second
+      field holds the class name as str.
+
+    Parameters
+    ----------
+    data: MatlabOpaque
+        data to be checked
+
+    Returns
+    -------
+    str or bytes or None
+        The MATLAB class name (e.g. b'string') or None if it cannot be
+        determined.
+    """
+    try:
+        if data.dtype.names[0] == '_TypeSystem':
+            # layout used by scipy >= 1.18
+            if data[0][0] in ('MCOS', b'MCOS'):
+                return data[0][1]
+        # layout used by scipy < 1.18
+        elif data[0][1] in ('MCOS', b'MCOS'):
+            return data[0][2]
+    except IndexError:
+        pass
+
+    return None
+
+
 def _parse_scipy_mat_dict(data: dict) -> dict:
     """
     Parse a scipy.io.matlab.mio5_params.mat_struct dictionary.
@@ -344,16 +383,13 @@ def _check_for_scipy_mat_struct(
         return _parse_scipy_mat_dict(data)
 
     if isinstance(data, MatlabOpaque):
-        try:
-            if data[0][2] == b'string':
-                warn(
-                    'pymatreader cannot import Matlab string variables. '
-                    'Please convert these variables to char arrays '
-                    'in Matlab.'
-                )
-                return None
-        except IndexError:
-            pass
+        if _get_mcos_class_name(data) in ('string', b'string'):
+            warn(
+                'pymatreader cannot import Matlab string variables. '
+                'Please convert these variables to char arrays '
+                'in Matlab.'
+            )
+            return None
         warn(
             'Complex objects (like classes) are not supported. '
             'They are imported on a best effort base '

@@ -26,6 +26,7 @@ from django_lifecycle import BEFORE_SAVE, BEFORE_UPDATE, hook
 
 from pulpcore.app import pulp_hashlib
 from pulpcore.app.models import BaseModel, MasterModel, fields, storage
+from pulpcore.app.models.fields import RelativePathField
 from pulpcore.app.util import get_domain_pk, gpg_verify
 from pulpcore.constants import ALL_KNOWN_CONTENT_CHECKSUMS
 from pulpcore.exceptions import (
@@ -99,12 +100,12 @@ class BulkCreateManager(models.Manager):
 
 class BulkTouchQuerySet(models.QuerySet):
     """
-    A query set that provides ``touch()``.
+    A query set that provides `touch()`.
     """
 
     def touch(self):
         """
-        Update the ``timestamp_of_interest`` on all objects of the query.
+        Update the `timestamp_of_interest` on all objects of the query.
         """
 
         # Postgres' UPDATE call doesn't support order-by. This can (and does) result in deadlocks in
@@ -171,9 +172,10 @@ class HandleTempFilesMixin:
             args (list): list of positional arguments for Model.delete()
             kwargs (dict): dictionary of keyword arguments to pass to Model.delete()
         """
-        super().delete(*args, **kwargs)
+        delete_result = super().delete(*args, **kwargs)
         # In case of rollback, we want the artifact to stay connected with it's file.
         transaction.on_commit(partial(self.file.delete, save=False))
+        return delete_result
 
 
 class ArtifactQuerySet(BulkTouchQuerySet):
@@ -334,12 +336,12 @@ class Artifact(HandleTempFilesMixin, BaseModel):
             expected_size (int): The number of bytes the download is expected to have.
 
         Raises:
-            [pulpcore.exceptions.DigestValidationError][]: When any of the ``expected_digest``
+            [pulpcore.exceptions.DigestValidationError][]: When any of the `expected_digest`
                 values don't match the digest of the data
-            [pulpcore.exceptions.SizeValidationError][]: When the ``expected_size`` value
+            [pulpcore.exceptions.SizeValidationError][]: When the `expected_size` value
                 doesn't match the size of the data
             [pulpcore.exceptions.UnsupportedDigestValidationError][]: When any of the
-                ``expected_digest`` algorithms aren't in the ALLOWED_CONTENT_CHECKSUMS list
+                `expected_digest` algorithms aren't in the ALLOWED_CONTENT_CHECKSUMS list
         Returns:
             An in-memory, unsaved [pulpcore.plugin.models.Artifact][]
         """
@@ -453,12 +455,12 @@ class PulpTemporaryFile(HandleTempFilesMixin, BaseModel):
             expected_size (int): The number of bytes the download is expected to have.
 
         Raises:
-            [pulpcore.exceptions.DigestValidationError][]: When any of the ``expected_digest``
+            [pulpcore.exceptions.DigestValidationError][]: When any of the `expected_digest`
                 values don't match the digest of the data
-            [pulpcore.exceptions.SizeValidationError][]: When the ``expected_size`` value
+            [pulpcore.exceptions.SizeValidationError][]: When the `expected_size` value
                 doesn't match the size of the data
             [pulpcore.exceptions.UnsupportedDigestValidationError][]: When any of the
-                ``expected_digest`` algorithms aren't in the ALLOWED_CONTENT_CHECKSUMS list
+                `expected_digest` algorithms aren't in the ALLOWED_CONTENT_CHECKSUMS list
 
         Returns:
             An in-memory, unsaved [pulpcore.plugin.models.PulpTemporaryFile][]
@@ -656,7 +658,7 @@ class ContentArtifact(BaseModel, QueryMixin):
         Artifact, on_delete=models.PROTECT, null=True, related_name="content_memberships"
     )
     content = models.ForeignKey(Content, on_delete=models.CASCADE)
-    relative_path = models.TextField()
+    relative_path = RelativePathField()
 
     objects = BulkCreateManager()
 

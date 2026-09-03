@@ -36,8 +36,13 @@ def build_section():
     by_dest = collections.defaultdict(list)
     excluded = 0
     for f in tracked_files():
-        stem = f[:-3] if f.endswith(".py") else None
-        if stem in mods or any(f.startswith(p + "/") for p in pkgs):
+        # v0.412.0 FRONT DOOR: FULL MIRROR - modules and package files ship in
+        # site-packages AND in the share/ mirror, so data_root() is a complete
+        # repository on every layout and the gate reads its own sources there.
+        # Sole exclusion: the legacy junk file with a space in its name
+        # (Windows-locked; delete manually - it must never enter the wheel).
+        _ = (mods, pkgs)
+        if f == "python uqff_downhole_simulator.py":
             excluded += 1
             continue
         d = f.rsplit("/", 1)[0] if "/" in f else ""

@@ -46,7 +46,9 @@ class DistributionFile(object):
         assert data['type'] == DistributionFile._type, "Expected file type is '%s', not '%s'" % (DistributionFile._type, data['type'])
 
         assert 'version' in data, "Source file for '%s' lacks required version information" % self.name
-        assert int(data['version']) in [1, 2], "Unable to handle '%s' format version '%d', please update rosdistro (e.g. on Ubuntu/Debian use: sudo apt-get update && sudo apt-get install --only-upgrade python-rosdistro)" % (DistributionFile._type, int(data['version']))
+        if int(data['version']) not in [1, 2]:
+            from . import FormatVersionError
+            raise FormatVersionError(DistributionFile._type, data['version'], [1, 2], self.name)
         self.version = int(data['version'])
 
         self.repositories = {}

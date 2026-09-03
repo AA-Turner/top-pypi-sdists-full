@@ -20,11 +20,11 @@ class CreateAgentlessScanTaskRequest(DaraModel):
     ):
         # The asset selection identifier.
         self.asset_selection_type = asset_selection_type
-        # The image retention period, in days. This parameter takes effect only for host detection and does not take effect for user snapshot detection or user custom image detection.
+        # The image retention period, in days. This parameter takes effect only for host detection. It does not take effect for user snapshot detection or user custom image detection.
         self.auto_delete_days = auto_delete_days
         # The idempotency key.
         self.client_token = client_token
-        # The region ID of the instance to query. Valid values:
+        # The ID of the region in which the instance resides. Valid values:
         # 
         # - **cn-hangzhou** (default): China.
         # - **ap-southeast-1**: outside China.

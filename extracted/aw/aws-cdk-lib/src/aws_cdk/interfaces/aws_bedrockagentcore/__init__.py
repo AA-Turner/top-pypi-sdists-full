@@ -208,15 +208,15 @@ class BrowserProfileReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.BrowserReference",
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.CapacityProviderReference",
     jsii_struct_bases=[],
-    name_mapping={"browser_arn": "browserArn"},
+    name_mapping={"capacity_provider_arn": "capacityProviderArn"},
 )
-class BrowserReference:
-    def __init__(self, *, browser_arn: builtins.str) -> None:
-        '''A reference to a Browser resource.
+class CapacityProviderReference:
+    def __init__(self, *, capacity_provider_arn: builtins.str) -> None:
+        '''A reference to a CapacityProvider resource.
 
-        :param browser_arn: The BrowserArn of the Browser resource.
+        :param capacity_provider_arn: The Arn of the CapacityProvider resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -226,22 +226,22 @@ class BrowserReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
             
-            browser_reference = interfaces_bedrockagentcore.BrowserReference(
-                browser_arn="browserArn"
+            capacity_provider_reference = interfaces_bedrockagentcore.CapacityProviderReference(
+                capacity_provider_arn="capacityProviderArn"
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__034848268532baf668c0361e8e3e56d301d54aaf674e8707e4efd6baf5ca6a75)
-            check_type(argname="argument browser_arn", value=browser_arn, expected_type=type_hints["browser_arn"])
+            type_hints = cached_type_hints(_typecheckingstub__e32c7f423154cb785f3752875ab4d2ff0b868c5fbe0a594a434bcf157ffec135)
+            check_type(argname="argument capacity_provider_arn", value=capacity_provider_arn, expected_type=type_hints["capacity_provider_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "browser_arn": browser_arn,
+            "capacity_provider_arn": capacity_provider_arn,
         }
 
     @builtins.property
-    def browser_arn(self) -> builtins.str:
-        '''The BrowserArn of the Browser resource.'''
-        result = self._values.get("browser_arn")
-        assert result is not None, "Required property 'browser_arn' is missing"
+    def capacity_provider_arn(self) -> builtins.str:
+        '''The Arn of the CapacityProvider resource.'''
+        result = self._values.get("capacity_provider_arn")
+        assert result is not None, "Required property 'capacity_provider_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -251,7 +251,7 @@ class BrowserReference:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "BrowserReference(%s)" % ", ".join(
+        return "CapacityProviderReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -320,55 +320,6 @@ class CodeInterpreterCustomReference:
 
     def __repr__(self) -> str:
         return "CodeInterpreterCustomReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.CodeInterpreterReference",
-    jsii_struct_bases=[],
-    name_mapping={"code_interpreter_arn": "codeInterpreterArn"},
-)
-class CodeInterpreterReference:
-    def __init__(self, *, code_interpreter_arn: builtins.str) -> None:
-        '''A reference to a CodeInterpreter resource.
-
-        :param code_interpreter_arn: The CodeInterpreterArn of the CodeInterpreter resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
-            
-            code_interpreter_reference = interfaces_bedrockagentcore.CodeInterpreterReference(
-                code_interpreter_arn="codeInterpreterArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__50bf4f42aad7202dcc67a666eca7dbea6d8d90827120546abd13a1cf7c227c7a)
-            check_type(argname="argument code_interpreter_arn", value=code_interpreter_arn, expected_type=type_hints["code_interpreter_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "code_interpreter_arn": code_interpreter_arn,
-        }
-
-    @builtins.property
-    def code_interpreter_arn(self) -> builtins.str:
-        '''The CodeInterpreterArn of the CodeInterpreter resource.'''
-        result = self._values.get("code_interpreter_arn")
-        assert result is not None, "Required property 'code_interpreter_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CodeInterpreterReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -521,6 +472,74 @@ class EvaluatorReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.GatewayRateLimitReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "gateway_identifier": "gatewayIdentifier",
+        "rate_limit_id": "rateLimitId",
+    },
+)
+class GatewayRateLimitReference:
+    def __init__(
+        self,
+        *,
+        gateway_identifier: builtins.str,
+        rate_limit_id: builtins.str,
+    ) -> None:
+        '''A reference to a GatewayRateLimit resource.
+
+        :param gateway_identifier: The GatewayIdentifier of the GatewayRateLimit resource.
+        :param rate_limit_id: The RateLimitId of the GatewayRateLimit resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            gateway_rate_limit_reference = interfaces_bedrockagentcore.GatewayRateLimitReference(
+                gateway_identifier="gatewayIdentifier",
+                rate_limit_id="rateLimitId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e8ab090e71244a25ab8bc28d8666d3182cfbe4eaed9219c631e6b4ffe9d27a23)
+            check_type(argname="argument gateway_identifier", value=gateway_identifier, expected_type=type_hints["gateway_identifier"])
+            check_type(argname="argument rate_limit_id", value=rate_limit_id, expected_type=type_hints["rate_limit_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "gateway_identifier": gateway_identifier,
+            "rate_limit_id": rate_limit_id,
+        }
+
+    @builtins.property
+    def gateway_identifier(self) -> builtins.str:
+        '''The GatewayIdentifier of the GatewayRateLimit resource.'''
+        result = self._values.get("gateway_identifier")
+        assert result is not None, "Required property 'gateway_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rate_limit_id(self) -> builtins.str:
+        '''The RateLimitId of the GatewayRateLimit resource.'''
+        result = self._values.get("rate_limit_id")
+        assert result is not None, "Required property 'rate_limit_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayRateLimitReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.GatewayReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -589,6 +608,71 @@ class GatewayReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.GatewayRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"gateway_identifier": "gatewayIdentifier", "rule_id": "ruleId"},
+)
+class GatewayRuleReference:
+    def __init__(
+        self,
+        *,
+        gateway_identifier: builtins.str,
+        rule_id: builtins.str,
+    ) -> None:
+        '''A reference to a GatewayRule resource.
+
+        :param gateway_identifier: The GatewayIdentifier of the GatewayRule resource.
+        :param rule_id: The RuleId of the GatewayRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            gateway_rule_reference = interfaces_bedrockagentcore.GatewayRuleReference(
+                gateway_identifier="gatewayIdentifier",
+                rule_id="ruleId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6f29a874950451c446fe1e5102f21ed55e851e58bcc7a118d68ab3163a0e9911)
+            check_type(argname="argument gateway_identifier", value=gateway_identifier, expected_type=type_hints["gateway_identifier"])
+            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "gateway_identifier": gateway_identifier,
+            "rule_id": rule_id,
+        }
+
+    @builtins.property
+    def gateway_identifier(self) -> builtins.str:
+        '''The GatewayIdentifier of the GatewayRule resource.'''
+        result = self._values.get("gateway_identifier")
+        assert result is not None, "Required property 'gateway_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_id(self) -> builtins.str:
+        '''The RuleId of the GatewayRule resource.'''
+        result = self._values.get("rule_id")
+        assert result is not None, "Required property 'rule_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.GatewayTargetReference",
     jsii_struct_bases=[],
     name_mapping={"gateway_identifier": "gatewayIdentifier", "target_id": "targetId"},
@@ -649,6 +733,55 @@ class GatewayTargetReference:
 
     def __repr__(self) -> str:
         return "GatewayTargetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.HarnessEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"harness_endpoint_arn": "harnessEndpointArn"},
+)
+class HarnessEndpointReference:
+    def __init__(self, *, harness_endpoint_arn: builtins.str) -> None:
+        '''A reference to a HarnessEndpoint resource.
+
+        :param harness_endpoint_arn: The Arn of the HarnessEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            harness_endpoint_reference = interfaces_bedrockagentcore.HarnessEndpointReference(
+                harness_endpoint_arn="harnessEndpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__765cfec6311aebf1582b09c10d5a137a5ca7c2ffd56ae4730529a5c0ac33e7a0)
+            check_type(argname="argument harness_endpoint_arn", value=harness_endpoint_arn, expected_type=type_hints["harness_endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "harness_endpoint_arn": harness_endpoint_arn,
+        }
+
+    @builtins.property
+    def harness_endpoint_arn(self) -> builtins.str:
+        '''The Arn of the HarnessEndpoint resource.'''
+        result = self._values.get("harness_endpoint_arn")
+        assert result is not None, "Required property 'harness_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HarnessEndpointReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -843,49 +976,51 @@ class _IBrowserProfileRefProxy(
 typing.cast(typing.Any, IBrowserProfileRef).__jsii_proxy_class__ = lambda : _IBrowserProfileRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IBrowserRef")
-class IBrowserRef(
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ICapacityProviderRef"
+)
+class ICapacityProviderRef(
     _constructs_77d1e7e8.IConstruct,
     _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Browser.
+    '''(experimental) Indicates that this resource can be referenced as a CapacityProvider.
 
     :stability: experimental
     '''
 
     @builtins.property
-    @jsii.member(jsii_name="browserRef")
-    def browser_ref(self) -> "BrowserReference":
-        '''(experimental) A reference to a Browser resource.
+    @jsii.member(jsii_name="capacityProviderRef")
+    def capacity_provider_ref(self) -> "CapacityProviderReference":
+        '''(experimental) A reference to a CapacityProvider resource.
 
         :stability: experimental
         '''
         ...
 
 
-class _IBrowserRefProxy(
+class _ICapacityProviderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
     jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Browser.
+    '''(experimental) Indicates that this resource can be referenced as a CapacityProvider.
 
     :stability: experimental
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IBrowserRef"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.ICapacityProviderRef"
 
     @builtins.property
-    @jsii.member(jsii_name="browserRef")
-    def browser_ref(self) -> "BrowserReference":
-        '''(experimental) A reference to a Browser resource.
+    @jsii.member(jsii_name="capacityProviderRef")
+    def capacity_provider_ref(self) -> "CapacityProviderReference":
+        '''(experimental) A reference to a CapacityProvider resource.
 
         :stability: experimental
         '''
-        return typing.cast("BrowserReference", jsii.get(self, "browserRef"))
+        return typing.cast("CapacityProviderReference", jsii.get(self, "capacityProviderRef"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBrowserRef).__jsii_proxy_class__ = lambda : _IBrowserRefProxy
+typing.cast(typing.Any, ICapacityProviderRef).__jsii_proxy_class__ = lambda : _ICapacityProviderRefProxy
 
 
 @jsii.interface(
@@ -933,53 +1068,6 @@ class _ICodeInterpreterCustomRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICodeInterpreterCustomRef).__jsii_proxy_class__ = lambda : _ICodeInterpreterCustomRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ICodeInterpreterRef"
-)
-class ICodeInterpreterRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CodeInterpreter.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="codeInterpreterRef")
-    def code_interpreter_ref(self) -> "CodeInterpreterReference":
-        '''(experimental) A reference to a CodeInterpreter resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICodeInterpreterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CodeInterpreter.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.ICodeInterpreterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="codeInterpreterRef")
-    def code_interpreter_ref(self) -> "CodeInterpreterReference":
-        '''(experimental) A reference to a CodeInterpreter resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("CodeInterpreterReference", jsii.get(self, "codeInterpreterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICodeInterpreterRef).__jsii_proxy_class__ = lambda : _ICodeInterpreterRefProxy
 
 
 @jsii.interface(
@@ -1119,6 +1207,53 @@ class _IEvaluatorRefProxy(
 typing.cast(typing.Any, IEvaluatorRef).__jsii_proxy_class__ = lambda : _IEvaluatorRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IGatewayRateLimitRef"
+)
+class IGatewayRateLimitRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a GatewayRateLimit.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRateLimitRef")
+    def gateway_rate_limit_ref(self) -> "GatewayRateLimitReference":
+        '''(experimental) A reference to a GatewayRateLimit resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGatewayRateLimitRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GatewayRateLimit.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IGatewayRateLimitRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRateLimitRef")
+    def gateway_rate_limit_ref(self) -> "GatewayRateLimitReference":
+        '''(experimental) A reference to a GatewayRateLimit resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("GatewayRateLimitReference", jsii.get(self, "gatewayRateLimitRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGatewayRateLimitRef).__jsii_proxy_class__ = lambda : _IGatewayRateLimitRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IGatewayRef")
 class IGatewayRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1162,6 +1297,53 @@ class _IGatewayRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IGatewayRef).__jsii_proxy_class__ = lambda : _IGatewayRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IGatewayRuleRef"
+)
+class IGatewayRuleRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a GatewayRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRuleRef")
+    def gateway_rule_ref(self) -> "GatewayRuleReference":
+        '''(experimental) A reference to a GatewayRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGatewayRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GatewayRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IGatewayRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRuleRef")
+    def gateway_rule_ref(self) -> "GatewayRuleReference":
+        '''(experimental) A reference to a GatewayRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("GatewayRuleReference", jsii.get(self, "gatewayRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGatewayRuleRef).__jsii_proxy_class__ = lambda : _IGatewayRuleRefProxy
 
 
 @jsii.interface(
@@ -1209,6 +1391,53 @@ class _IGatewayTargetRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IGatewayTargetRef).__jsii_proxy_class__ = lambda : _IGatewayTargetRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IHarnessEndpointRef"
+)
+class IHarnessEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a HarnessEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="harnessEndpointRef")
+    def harness_endpoint_ref(self) -> "HarnessEndpointReference":
+        '''(experimental) A reference to a HarnessEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHarnessEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HarnessEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IHarnessEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="harnessEndpointRef")
+    def harness_endpoint_ref(self) -> "HarnessEndpointReference":
+        '''(experimental) A reference to a HarnessEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("HarnessEndpointReference", jsii.get(self, "harnessEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHarnessEndpointRef).__jsii_proxy_class__ = lambda : _IHarnessEndpointRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IHarnessRef")
@@ -1765,51 +1994,6 @@ class _IRuntimeRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IRuntimeRef).__jsii_proxy_class__ = lambda : _IRuntimeRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ITokenVaultRef")
-class ITokenVaultRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a TokenVault.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenVaultRef")
-    def token_vault_ref(self) -> "TokenVaultReference":
-        '''(experimental) A reference to a TokenVault resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ITokenVaultRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a TokenVault.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.ITokenVaultRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenVaultRef")
-    def token_vault_ref(self) -> "TokenVaultReference":
-        '''(experimental) A reference to a TokenVault resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("TokenVaultReference", jsii.get(self, "tokenVaultRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ITokenVaultRef).__jsii_proxy_class__ = lambda : _ITokenVaultRefProxy
 
 
 @jsii.interface(
@@ -2418,55 +2602,6 @@ class RuntimeReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.TokenVaultReference",
-    jsii_struct_bases=[],
-    name_mapping={"token_vault_arn": "tokenVaultArn"},
-)
-class TokenVaultReference:
-    def __init__(self, *, token_vault_arn: builtins.str) -> None:
-        '''A reference to a TokenVault resource.
-
-        :param token_vault_arn: The Arn of the TokenVault resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
-            
-            token_vault_reference = interfaces_bedrockagentcore.TokenVaultReference(
-                token_vault_arn="tokenVaultArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e7de2953cdd99a4f015b49bb35921f65ed1b92fc09a4ac33c5cca47efae4b4c0)
-            check_type(argname="argument token_vault_arn", value=token_vault_arn, expected_type=type_hints["token_vault_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "token_vault_arn": token_vault_arn,
-        }
-
-    @builtins.property
-    def token_vault_arn(self) -> builtins.str:
-        '''The Arn of the TokenVault resource.'''
-        result = self._values.get("token_vault_arn")
-        assert result is not None, "Required property 'token_vault_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TokenVaultReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.WorkloadIdentityReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -2538,26 +2673,30 @@ __all__ = [
     "ApiKeyCredentialProviderReference",
     "BrowserCustomReference",
     "BrowserProfileReference",
-    "BrowserReference",
+    "CapacityProviderReference",
     "CodeInterpreterCustomReference",
-    "CodeInterpreterReference",
     "ConfigurationBundleReference",
     "DatasetReference",
     "EvaluatorReference",
+    "GatewayRateLimitReference",
     "GatewayReference",
+    "GatewayRuleReference",
     "GatewayTargetReference",
+    "HarnessEndpointReference",
     "HarnessReference",
     "IApiKeyCredentialProviderRef",
     "IBrowserCustomRef",
     "IBrowserProfileRef",
-    "IBrowserRef",
+    "ICapacityProviderRef",
     "ICodeInterpreterCustomRef",
-    "ICodeInterpreterRef",
     "IConfigurationBundleRef",
     "IDatasetRef",
     "IEvaluatorRef",
+    "IGatewayRateLimitRef",
     "IGatewayRef",
+    "IGatewayRuleRef",
     "IGatewayTargetRef",
+    "IHarnessEndpointRef",
     "IHarnessRef",
     "IMemoryRef",
     "IOAuth2CredentialProviderRef",
@@ -2570,7 +2709,6 @@ __all__ = [
     "IResourcePolicyRef",
     "IRuntimeEndpointRef",
     "IRuntimeRef",
-    "ITokenVaultRef",
     "IWorkloadIdentityRef",
     "MemoryReference",
     "OAuth2CredentialProviderReference",
@@ -2583,7 +2721,6 @@ __all__ = [
     "ResourcePolicyReference",
     "RuntimeEndpointReference",
     "RuntimeReference",
-    "TokenVaultReference",
     "WorkloadIdentityReference",
 ]
 
@@ -2612,9 +2749,9 @@ def _typecheckingstub__a7892c81335b99bdd3f64213133e62d6d9197507de560d727bce23127
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__034848268532baf668c0361e8e3e56d301d54aaf674e8707e4efd6baf5ca6a75(
+def _typecheckingstub__e32c7f423154cb785f3752875ab4d2ff0b868c5fbe0a594a434bcf157ffec135(
     *,
-    browser_arn: builtins.str,
+    capacity_provider_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2623,13 +2760,6 @@ def _typecheckingstub__31803efaee1e805b6555da7f5c0c2c409540346b67d7cb412b9f78fbe
     *,
     code_interpreter_arn: builtins.str,
     code_interpreter_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__50bf4f42aad7202dcc67a666eca7dbea6d8d90827120546abd13a1cf7c227c7a(
-    *,
-    code_interpreter_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2655,6 +2785,14 @@ def _typecheckingstub__5f1fa2ba5daf86bd2c75ee6985f54875f6e176a5051bbaf53aadbabb2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e8ab090e71244a25ab8bc28d8666d3182cfbe4eaed9219c631e6b4ffe9d27a23(
+    *,
+    gateway_identifier: builtins.str,
+    rate_limit_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f0d4b1089724a6b1cb8eaa1115a2c124f0d3516237c16f992947cb2b890de904(
     *,
     gateway_arn: builtins.str,
@@ -2663,10 +2801,25 @@ def _typecheckingstub__f0d4b1089724a6b1cb8eaa1115a2c124f0d3516237c16f992947cb2b8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6f29a874950451c446fe1e5102f21ed55e851e58bcc7a118d68ab3163a0e9911(
+    *,
+    gateway_identifier: builtins.str,
+    rule_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__10c5b43c2a90eb380f924dad8dc36cab52c5988b4f78c98aa489c624cec4200d(
     *,
     gateway_identifier: builtins.str,
     target_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__765cfec6311aebf1582b09c10d5a137a5ca7c2ffd56ae4730529a5c0ac33e7a0(
+    *,
+    harness_endpoint_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2756,13 +2909,6 @@ def _typecheckingstub__a1435ab047fbb10ad1262aabe5dcc3598ed76fcfee17487287cbf9bfe
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e7de2953cdd99a4f015b49bb35921f65ed1b92fc09a4ac33c5cca47efae4b4c0(
-    *,
-    token_vault_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374db18dc71(
     *,
     workload_identity_arn: builtins.str,
@@ -2771,5 +2917,5 @@ def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374d
     """Type checking stubs"""
     pass
 
-for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, IBrowserRef, ICodeInterpreterCustomRef, ICodeInterpreterRef, IConfigurationBundleRef, IDatasetRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IHarnessRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentConnectorRef, IPaymentCredentialProviderRef, IPaymentManagerRef, IPolicyEngineRef, IPolicyRef, IResourcePolicyRef, IRuntimeEndpointRef, IRuntimeRef, ITokenVaultRef, IWorkloadIdentityRef]:
+for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, ICapacityProviderRef, ICodeInterpreterCustomRef, IConfigurationBundleRef, IDatasetRef, IEvaluatorRef, IGatewayRateLimitRef, IGatewayRef, IGatewayRuleRef, IGatewayTargetRef, IHarnessEndpointRef, IHarnessRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentConnectorRef, IPaymentCredentialProviderRef, IPaymentManagerRef, IPolicyEngineRef, IPolicyRef, IResourcePolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

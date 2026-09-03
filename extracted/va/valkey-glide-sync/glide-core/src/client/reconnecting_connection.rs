@@ -195,6 +195,9 @@ impl TokioDisconnectNotifier {
     }
 }
 
+// The Err variant is large because it hands the connection back for the caller to retry
+// on. Boxing it would change the error type at every call site.
+#[allow(clippy::result_large_err)]
 async fn create_connection(
     connection_backend: ConnectionBackend,
     retry_strategy: RetryStrategy,
@@ -203,7 +206,7 @@ async fn create_connection(
     connection_timeout: Duration,
     tcp_nodelay: bool,
     pubsub_synchronizer: Option<Arc<dyn crate::pubsub::PubSubSynchronizer>>,
-) -> Result<ReconnectingConnection, (ReconnectingConnection, RedisError)> {
+) -> Result<ReconnectingConnection, Box<(ReconnectingConnection, RedisError)>> {
     let client = {
         let guard = connection_backend
             .connection_info
@@ -293,7 +296,7 @@ async fn create_connection(
                 connection_options,
             };
             connection.reconnect(ReconnectReason::CreateError);
-            Err((connection, err))
+            Err(Box::new((connection, err)))
         }
     }
 }
@@ -325,6 +328,9 @@ impl ConnectionBackend {
 }
 
 impl ReconnectingConnection {
+    // Large Err for the same reason as create_connection, and boxing it would change the
+    // error type at every call site.
+    #[allow(clippy::result_large_err)]
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn new(
         address: &NodeAddress,
@@ -339,7 +345,7 @@ impl ReconnectingConnection {
         pubsub_synchronizer: Option<Arc<dyn crate::pubsub::PubSubSynchronizer>>,
         address_resolver: Option<&std::sync::Arc<dyn AddressResolver>>,
         iam_token_handle: Option<IAMTokenHandle>,
-    ) -> Result<ReconnectingConnection, (ReconnectingConnection, RedisError)> {
+    ) -> Result<ReconnectingConnection, Box<(ReconnectingConnection, RedisError)>> {
         log_debug(
             "connection creation",
             format!("Attempting connection to {address}"),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-statici18n
-Version: 2.7.1
+Version: 2.8.0
 Summary: A Django app that compiles i18n JavaScript catalogs to static files.
 Home-page: http://django-statici18n.readthedocs.org/
 Author: Sebastien Fievet
@@ -10,23 +10,21 @@ Project-URL: Source, https://github.com/zyegfryed/django-statici18n
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
-Requires-Dist: Django<6.1,>=4.2
+Requires-Dist: Django<6.2,>=4.2
 Requires-Dist: django-appconf>=1.0
 Dynamic: author
 Dynamic: author-email
@@ -80,7 +78,7 @@ Supported Django Versions
 
 ``django-statici18n`` works with all the Django versions officially
 supported by the Django project. At this time of writing, these are the
-4.2 (LTS), 5.2 (LTS) and 6.0 series.
+5.2 (LTS), 6.0 and 6.1 series.
 
 Installation
 ------------

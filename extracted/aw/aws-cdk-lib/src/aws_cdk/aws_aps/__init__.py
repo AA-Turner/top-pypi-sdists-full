@@ -1560,6 +1560,9 @@ class CfnScraper(
             destination=aps.CfnScraper.DestinationProperty(
                 amp_configuration=aps.CfnScraper.AmpConfigurationProperty(
                     workspace_arn="workspaceArn"
+                ),
+                cloud_watch_configuration=aps.CfnScraper.CloudWatchConfigurationProperty(
+                    dataset_arn="datasetArn"
                 )
             ),
             scrape_configuration=aps.CfnScraper.ScrapeConfigurationProperty(
@@ -1930,6 +1933,58 @@ class CfnScraper(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_aps.CfnScraper.CloudWatchConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"dataset_arn": "datasetArn"},
+    )
+    class CloudWatchConfigurationProperty:
+        def __init__(self, *, dataset_arn: builtins.str) -> None:
+            '''Configuration for CloudWatch metrics destination.
+
+            :param dataset_arn: ARN of a CloudWatch dataset.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-cloudwatchconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_aps as aps
+                
+                cloud_watch_configuration_property = aps.CfnScraper.CloudWatchConfigurationProperty(
+                    dataset_arn="datasetArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ba67a6f13f4fa0433695fcc24a8c109a12ddb2e8ad12a936c0765527ee1cbac1)
+                check_type(argname="argument dataset_arn", value=dataset_arn, expected_type=type_hints["dataset_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dataset_arn": dataset_arn,
+            }
+
+        @builtins.property
+        def dataset_arn(self) -> builtins.str:
+            '''ARN of a CloudWatch dataset.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-cloudwatchconfiguration.html#cfn-aps-scraper-cloudwatchconfiguration-datasetarn
+            '''
+            result = self._values.get("dataset_arn")
+            assert result is not None, "Required property 'dataset_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_aps.CfnScraper.CloudWatchLogDestinationProperty",
         jsii_struct_bases=[],
         name_mapping={"log_group_arn": "logGroupArn"},
@@ -2046,17 +2101,22 @@ class CfnScraper(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_aps.CfnScraper.DestinationProperty",
         jsii_struct_bases=[],
-        name_mapping={"amp_configuration": "ampConfiguration"},
+        name_mapping={
+            "amp_configuration": "ampConfiguration",
+            "cloud_watch_configuration": "cloudWatchConfiguration",
+        },
     )
     class DestinationProperty:
         def __init__(
             self,
             *,
-            amp_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.AmpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            amp_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.AmpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.CloudWatchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Where to send the metrics from a scraper.
 
             :param amp_configuration: The Amazon Managed Service for Prometheus workspace to send metrics to.
+            :param cloud_watch_configuration: Configuration for CloudWatch metrics destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-destination.html
             :exampleMetadata: fixture=_generated
@@ -2070,27 +2130,43 @@ class CfnScraper(
                 destination_property = aps.CfnScraper.DestinationProperty(
                     amp_configuration=aps.CfnScraper.AmpConfigurationProperty(
                         workspace_arn="workspaceArn"
+                    ),
+                    cloud_watch_configuration=aps.CfnScraper.CloudWatchConfigurationProperty(
+                        dataset_arn="datasetArn"
                     )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__e9dfeb013903b3b566e12e34ac903da7aaad96412ee8622e798d0f4931b78c31)
                 check_type(argname="argument amp_configuration", value=amp_configuration, expected_type=type_hints["amp_configuration"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "amp_configuration": amp_configuration,
-            }
+                check_type(argname="argument cloud_watch_configuration", value=cloud_watch_configuration, expected_type=type_hints["cloud_watch_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if amp_configuration is not None:
+                self._values["amp_configuration"] = amp_configuration
+            if cloud_watch_configuration is not None:
+                self._values["cloud_watch_configuration"] = cloud_watch_configuration
 
         @builtins.property
         def amp_configuration(
             self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.AmpConfigurationProperty"]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.AmpConfigurationProperty"]]:
             '''The Amazon Managed Service for Prometheus workspace to send metrics to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-destination.html#cfn-aps-scraper-destination-ampconfiguration
             '''
             result = self._values.get("amp_configuration")
-            assert result is not None, "Required property 'amp_configuration' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.AmpConfigurationProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.AmpConfigurationProperty"]], result)
+
+        @builtins.property
+        def cloud_watch_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.CloudWatchConfigurationProperty"]]:
+            '''Configuration for CloudWatch metrics destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-destination.html#cfn-aps-scraper-destination-cloudwatchconfiguration
+            '''
+            result = self._values.get("cloud_watch_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.CloudWatchConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2760,6 +2836,9 @@ class CfnScraperProps:
                 destination=aps.CfnScraper.DestinationProperty(
                     amp_configuration=aps.CfnScraper.AmpConfigurationProperty(
                         workspace_arn="workspaceArn"
+                    ),
+                    cloud_watch_configuration=aps.CfnScraper.CloudWatchConfigurationProperty(
+                        dataset_arn="datasetArn"
                     )
                 ),
                 scrape_configuration=aps.CfnScraper.ScrapeConfigurationProperty(
@@ -4428,6 +4507,13 @@ def _typecheckingstub__02c8f0a43ed30375a3d1b283c2450f310915b0f0fcff6103d168cb18a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ba67a6f13f4fa0433695fcc24a8c109a12ddb2e8ad12a936c0765527ee1cbac1(
+    *,
+    dataset_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d4d1b8a234d9b0461189ac94d16b7043b8e40fc1a62680a811ba8396bc54a5d6(
     *,
     log_group_arn: typing.Optional[builtins.str] = None,
@@ -4444,7 +4530,8 @@ def _typecheckingstub__c81abd8a9526f73204a9bfa774d69e9b3ec81f7592dafabd756679cc6
 
 def _typecheckingstub__e9dfeb013903b3b566e12e34ac903da7aaad96412ee8622e798d0f4931b78c31(
     *,
-    amp_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.AmpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    amp_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.AmpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.CloudWatchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -90,11 +90,26 @@ def get_cci_frame(
     df["year"] = df["year"].astype(int)
     df["Month"] = df["Month"].astype(int)
 
-    monthly = df.groupby(["region", "year", "Month"], as_index=False)["cci"].mean()
+    # %Good+Excellent, the farmdoc daily (2026) metric: across six peanut
+    # states they found the plain G+E share consistently beat weighted
+    # condition indices for yield forecasting. The QuickStats extract carries
+    # the raw category shares, so expose G+E alongside the weighted index and
+    # let the ML stage choose the representation ([ML] cci_windows =
+    # current_ge). Absent category columns (older extracts) -> no cci_ge
+    # column, downstream no-ops.
+    val_cols = ["cci"]
+    if "good" in df.columns and "excellent" in df.columns:
+        df["cci_ge"] = (
+            pd.to_numeric(df["good"], errors="coerce")
+            + pd.to_numeric(df["excellent"], errors="coerce")
+        )
+        val_cols.append("cci_ge")
+
+    monthly = df.groupby(["region", "year", "Month"], as_index=False)[val_cols].mean()
     if years is not None:
         keep = set(int(y) for y in years)
         monthly = monthly[monthly["year"].isin(keep)]
-    return monthly[["region", "year", "Month", "cci"]].reset_index(drop=True)
+    return monthly[["region", "year", "Month"] + val_cols].reset_index(drop=True)
 
 
 def _norm_id(x) -> str:

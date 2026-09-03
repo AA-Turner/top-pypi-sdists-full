@@ -72,7 +72,9 @@ from datadog_api_client.v2.model.maintenance_window_update_request import Mainte
 
 class CaseManagementApi:
     """
-    View and manage cases and projects within Case Management. See the `Case Management page <https://docs.datadoghq.com/service_management/case_management/>`_ for more information.
+    **Note** : Work Management is the UI name for Case Management. These API endpoints and permissions use ``case`` terminology.
+
+    View and manage work items and projects within Work Management. For more information, see `Work Management <https://docs.datadoghq.com/incident_response/work_management/>`_.
     """
 
     def __init__(self, api_client=None):
@@ -2683,7 +2685,7 @@ class CaseManagementApi:
 
         Search cases.
 
-        :param page_size: Size for a given page. The maximum allowed value is 100.
+        :param page_size: Number of items to return per page. The maximum allowed value is 100.
         :type page_size: int, optional
         :param page_number: Specific page number to return.
         :type page_number: int, optional
@@ -2726,7 +2728,7 @@ class CaseManagementApi:
 
         Provide a paginated version of :meth:`search_cases`, returning all items.
 
-        :param page_size: Size for a given page. The maximum allowed value is 100.
+        :param page_size: Number of items to return per page. The maximum allowed value is 100.
         :type page_size: int, optional
         :param page_number: Specific page number to return.
         :type page_number: int, optional

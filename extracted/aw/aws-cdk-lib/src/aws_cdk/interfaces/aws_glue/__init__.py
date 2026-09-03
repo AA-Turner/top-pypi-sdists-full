@@ -139,13 +139,13 @@ class CatalogReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.ClassifierReference",
     jsii_struct_bases=[],
-    name_mapping={"classifier_id": "classifierId"},
+    name_mapping={"classifier_name": "classifierName"},
 )
 class ClassifierReference:
-    def __init__(self, *, classifier_id: builtins.str) -> None:
+    def __init__(self, *, classifier_name: builtins.str) -> None:
         '''A reference to a Classifier resource.
 
-        :param classifier_id: The Id of the Classifier resource.
+        :param classifier_name: The Name of the Classifier resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -156,21 +156,21 @@ class ClassifierReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             classifier_reference = interfaces_glue.ClassifierReference(
-                classifier_id="classifierId"
+                classifier_name="classifierName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__153075acc355fb8c67c2595f86bb736959d7a3490470e1496c4634652a073e55)
-            check_type(argname="argument classifier_id", value=classifier_id, expected_type=type_hints["classifier_id"])
+            check_type(argname="argument classifier_name", value=classifier_name, expected_type=type_hints["classifier_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "classifier_id": classifier_id,
+            "classifier_name": classifier_name,
         }
 
     @builtins.property
-    def classifier_id(self) -> builtins.str:
-        '''The Id of the Classifier resource.'''
-        result = self._values.get("classifier_id")
-        assert result is not None, "Required property 'classifier_id' is missing"
+    def classifier_name(self) -> builtins.str:
+        '''The Name of the Classifier resource.'''
+        result = self._values.get("classifier_name")
+        assert result is not None, "Required property 'classifier_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -188,13 +188,19 @@ class ClassifierReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.ConnectionReference",
     jsii_struct_bases=[],
-    name_mapping={"connection_id": "connectionId"},
+    name_mapping={"catalog_id": "catalogId", "connection_name": "connectionName"},
 )
 class ConnectionReference:
-    def __init__(self, *, connection_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        catalog_id: builtins.str,
+        connection_name: builtins.str,
+    ) -> None:
         '''A reference to a Connection resource.
 
-        :param connection_id: The Id of the Connection resource.
+        :param catalog_id: The CatalogId of the Connection resource.
+        :param connection_name: The Name of the Connection resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -205,21 +211,31 @@ class ConnectionReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             connection_reference = interfaces_glue.ConnectionReference(
-                connection_id="connectionId"
+                catalog_id="catalogId",
+                connection_name="connectionName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0c23f5314f51a17152319ab80f389d2f1b18975384c84d1d2931ac1a3121d9f)
-            check_type(argname="argument connection_id", value=connection_id, expected_type=type_hints["connection_id"])
+            check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
+            check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "connection_id": connection_id,
+            "catalog_id": catalog_id,
+            "connection_name": connection_name,
         }
 
     @builtins.property
-    def connection_id(self) -> builtins.str:
-        '''The Id of the Connection resource.'''
-        result = self._values.get("connection_id")
-        assert result is not None, "Required property 'connection_id' is missing"
+    def catalog_id(self) -> builtins.str:
+        '''The CatalogId of the Connection resource.'''
+        result = self._values.get("catalog_id")
+        assert result is not None, "Required property 'catalog_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connection_name(self) -> builtins.str:
+        '''The Name of the Connection resource.'''
+        result = self._values.get("connection_name")
+        assert result is not None, "Required property 'connection_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -286,13 +302,13 @@ class CrawlerReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.CustomEntityTypeReference",
     jsii_struct_bases=[],
-    name_mapping={"custom_entity_type_id": "customEntityTypeId"},
+    name_mapping={"custom_entity_type_name": "customEntityTypeName"},
 )
 class CustomEntityTypeReference:
-    def __init__(self, *, custom_entity_type_id: builtins.str) -> None:
+    def __init__(self, *, custom_entity_type_name: builtins.str) -> None:
         '''A reference to a CustomEntityType resource.
 
-        :param custom_entity_type_id: The Id of the CustomEntityType resource.
+        :param custom_entity_type_name: The Name of the CustomEntityType resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -303,21 +319,21 @@ class CustomEntityTypeReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             custom_entity_type_reference = interfaces_glue.CustomEntityTypeReference(
-                custom_entity_type_id="customEntityTypeId"
+                custom_entity_type_name="customEntityTypeName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2752daff245d03b65a99c918eff72a3eb4c7c58fc56a5bf622d9117515921d7f)
-            check_type(argname="argument custom_entity_type_id", value=custom_entity_type_id, expected_type=type_hints["custom_entity_type_id"])
+            check_type(argname="argument custom_entity_type_name", value=custom_entity_type_name, expected_type=type_hints["custom_entity_type_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "custom_entity_type_id": custom_entity_type_id,
+            "custom_entity_type_name": custom_entity_type_name,
         }
 
     @builtins.property
-    def custom_entity_type_id(self) -> builtins.str:
-        '''The Id of the CustomEntityType resource.'''
-        result = self._values.get("custom_entity_type_id")
-        assert result is not None, "Required property 'custom_entity_type_id' is missing"
+    def custom_entity_type_name(self) -> builtins.str:
+        '''The Name of the CustomEntityType resource.'''
+        result = self._values.get("custom_entity_type_name")
+        assert result is not None, "Required property 'custom_entity_type_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -384,13 +400,13 @@ class DataCatalogEncryptionSettingsReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.DataQualityRulesetReference",
     jsii_struct_bases=[],
-    name_mapping={"data_quality_ruleset_id": "dataQualityRulesetId"},
+    name_mapping={"data_quality_ruleset_name": "dataQualityRulesetName"},
 )
 class DataQualityRulesetReference:
-    def __init__(self, *, data_quality_ruleset_id: builtins.str) -> None:
+    def __init__(self, *, data_quality_ruleset_name: builtins.str) -> None:
         '''A reference to a DataQualityRuleset resource.
 
-        :param data_quality_ruleset_id: The Id of the DataQualityRuleset resource.
+        :param data_quality_ruleset_name: The Name of the DataQualityRuleset resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -401,21 +417,21 @@ class DataQualityRulesetReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             data_quality_ruleset_reference = interfaces_glue.DataQualityRulesetReference(
-                data_quality_ruleset_id="dataQualityRulesetId"
+                data_quality_ruleset_name="dataQualityRulesetName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__637b7e752aad4e64a85b4673d0fd9fbde33283ca6452dac108809ad38887f3cd)
-            check_type(argname="argument data_quality_ruleset_id", value=data_quality_ruleset_id, expected_type=type_hints["data_quality_ruleset_id"])
+            check_type(argname="argument data_quality_ruleset_name", value=data_quality_ruleset_name, expected_type=type_hints["data_quality_ruleset_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_quality_ruleset_id": data_quality_ruleset_id,
+            "data_quality_ruleset_name": data_quality_ruleset_name,
         }
 
     @builtins.property
-    def data_quality_ruleset_id(self) -> builtins.str:
-        '''The Id of the DataQualityRuleset resource.'''
-        result = self._values.get("data_quality_ruleset_id")
-        assert result is not None, "Required property 'data_quality_ruleset_id' is missing"
+    def data_quality_ruleset_name(self) -> builtins.str:
+        '''The Name of the DataQualityRuleset resource.'''
+        result = self._values.get("data_quality_ruleset_name")
+        assert result is not None, "Required property 'data_quality_ruleset_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1491,6 +1507,51 @@ class _ISecurityConfigurationRefProxy(
 typing.cast(typing.Any, ISecurityConfigurationRef).__jsii_proxy_class__ = lambda : _ISecurityConfigurationRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.ISessionRef")
+class ISessionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Session.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionRef")
+    def session_ref(self) -> "SessionReference":
+        '''(experimental) A reference to a Session resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISessionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Session.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_glue.ISessionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionRef")
+    def session_ref(self) -> "SessionReference":
+        '''(experimental) A reference to a Session resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SessionReference", jsii.get(self, "sessionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISessionRef).__jsii_proxy_class__ = lambda : _ISessionRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.ITableOptimizerRef")
 class ITableOptimizerRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1998,13 +2059,13 @@ class JobReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.MLTransformReference",
     jsii_struct_bases=[],
-    name_mapping={"ml_transform_id": "mlTransformId"},
+    name_mapping={"transform_id": "transformId"},
 )
 class MLTransformReference:
-    def __init__(self, *, ml_transform_id: builtins.str) -> None:
+    def __init__(self, *, transform_id: builtins.str) -> None:
         '''A reference to a MLTransform resource.
 
-        :param ml_transform_id: The Id of the MLTransform resource.
+        :param transform_id: The TransformId of the MLTransform resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -2015,21 +2076,21 @@ class MLTransformReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             m_l_transform_reference = interfaces_glue.MLTransformReference(
-                ml_transform_id="mlTransformId"
+                transform_id="transformId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3f1a2f7b4f39bcc3b7be922b88fffd5ccf9f63df878ae375f85fa00250d7cff)
-            check_type(argname="argument ml_transform_id", value=ml_transform_id, expected_type=type_hints["ml_transform_id"])
+            check_type(argname="argument transform_id", value=transform_id, expected_type=type_hints["transform_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ml_transform_id": ml_transform_id,
+            "transform_id": transform_id,
         }
 
     @builtins.property
-    def ml_transform_id(self) -> builtins.str:
-        '''The Id of the MLTransform resource.'''
-        result = self._values.get("ml_transform_id")
-        assert result is not None, "Required property 'ml_transform_id' is missing"
+    def transform_id(self) -> builtins.str:
+        '''The TransformId of the MLTransform resource.'''
+        result = self._values.get("transform_id")
+        assert result is not None, "Required property 'transform_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2324,13 +2385,13 @@ class SchemaVersionReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.SecurityConfigurationReference",
     jsii_struct_bases=[],
-    name_mapping={"security_configuration_id": "securityConfigurationId"},
+    name_mapping={"security_configuration_name": "securityConfigurationName"},
 )
 class SecurityConfigurationReference:
-    def __init__(self, *, security_configuration_id: builtins.str) -> None:
+    def __init__(self, *, security_configuration_name: builtins.str) -> None:
         '''A reference to a SecurityConfiguration resource.
 
-        :param security_configuration_id: The Id of the SecurityConfiguration resource.
+        :param security_configuration_name: The Name of the SecurityConfiguration resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -2341,21 +2402,21 @@ class SecurityConfigurationReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             security_configuration_reference = interfaces_glue.SecurityConfigurationReference(
-                security_configuration_id="securityConfigurationId"
+                security_configuration_name="securityConfigurationName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5f762055d8744dcdcadf6d3ee48e027edbbedb409f2aee69d69051529ab7d003)
-            check_type(argname="argument security_configuration_id", value=security_configuration_id, expected_type=type_hints["security_configuration_id"])
+            check_type(argname="argument security_configuration_name", value=security_configuration_name, expected_type=type_hints["security_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "security_configuration_id": security_configuration_id,
+            "security_configuration_name": security_configuration_name,
         }
 
     @builtins.property
-    def security_configuration_id(self) -> builtins.str:
-        '''The Id of the SecurityConfiguration resource.'''
-        result = self._values.get("security_configuration_id")
-        assert result is not None, "Required property 'security_configuration_id' is missing"
+    def security_configuration_name(self) -> builtins.str:
+        '''The Name of the SecurityConfiguration resource.'''
+        result = self._values.get("security_configuration_name")
+        assert result is not None, "Required property 'security_configuration_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2371,15 +2432,79 @@ class SecurityConfigurationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_glue.SessionReference",
+    jsii_struct_bases=[],
+    name_mapping={"session_arn": "sessionArn"},
+)
+class SessionReference:
+    def __init__(self, *, session_arn: builtins.str) -> None:
+        '''A reference to a Session resource.
+
+        :param session_arn: The Arn of the Session resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_glue as interfaces_glue
+            
+            session_reference = interfaces_glue.SessionReference(
+                session_arn="sessionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5d556c62e8ccef01cb2ebde5bdf8e8e61850e36ae87a512eb64e73be540ab0fa)
+            check_type(argname="argument session_arn", value=session_arn, expected_type=type_hints["session_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "session_arn": session_arn,
+        }
+
+    @builtins.property
+    def session_arn(self) -> builtins.str:
+        '''The Arn of the Session resource.'''
+        result = self._values.get("session_arn")
+        assert result is not None, "Required property 'session_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SessionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.TableOptimizerReference",
     jsii_struct_bases=[],
-    name_mapping={"table_optimizer_id": "tableOptimizerId"},
+    name_mapping={
+        "catalog_id": "catalogId",
+        "database_name": "databaseName",
+        "table_name": "tableName",
+        "type": "type",
+    },
 )
 class TableOptimizerReference:
-    def __init__(self, *, table_optimizer_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        catalog_id: builtins.str,
+        database_name: builtins.str,
+        table_name: builtins.str,
+        type: builtins.str,
+    ) -> None:
         '''A reference to a TableOptimizer resource.
 
-        :param table_optimizer_id: The Id of the TableOptimizer resource.
+        :param catalog_id: The CatalogId of the TableOptimizer resource.
+        :param database_name: The DatabaseName of the TableOptimizer resource.
+        :param table_name: The TableName of the TableOptimizer resource.
+        :param type: The Type of the TableOptimizer resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -2390,21 +2515,51 @@ class TableOptimizerReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             table_optimizer_reference = interfaces_glue.TableOptimizerReference(
-                table_optimizer_id="tableOptimizerId"
+                catalog_id="catalogId",
+                database_name="databaseName",
+                table_name="tableName",
+                type="type"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36d18932d532cd2df3f2355353c78a3d21a028fa0d2181f51b94ae7c9101726b)
-            check_type(argname="argument table_optimizer_id", value=table_optimizer_id, expected_type=type_hints["table_optimizer_id"])
+            check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "table_optimizer_id": table_optimizer_id,
+            "catalog_id": catalog_id,
+            "database_name": database_name,
+            "table_name": table_name,
+            "type": type,
         }
 
     @builtins.property
-    def table_optimizer_id(self) -> builtins.str:
-        '''The Id of the TableOptimizer resource.'''
-        result = self._values.get("table_optimizer_id")
-        assert result is not None, "Required property 'table_optimizer_id' is missing"
+    def catalog_id(self) -> builtins.str:
+        '''The CatalogId of the TableOptimizer resource.'''
+        result = self._values.get("catalog_id")
+        assert result is not None, "Required property 'catalog_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def database_name(self) -> builtins.str:
+        '''The DatabaseName of the TableOptimizer resource.'''
+        result = self._values.get("database_name")
+        assert result is not None, "Required property 'database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''The TableName of the TableOptimizer resource.'''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The Type of the TableOptimizer resource.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2696,6 +2851,7 @@ __all__ = [
     "ISchemaVersionMetadataRef",
     "ISchemaVersionRef",
     "ISecurityConfigurationRef",
+    "ISessionRef",
     "ITableOptimizerRef",
     "ITableRef",
     "ITriggerRef",
@@ -2713,6 +2869,7 @@ __all__ = [
     "SchemaVersionMetadataReference",
     "SchemaVersionReference",
     "SecurityConfigurationReference",
+    "SessionReference",
     "TableOptimizerReference",
     "TableReference",
     "TriggerReference",
@@ -2739,14 +2896,15 @@ def _typecheckingstub__f73a6ea26762ecbddcfac7ae43b16414e1d43933b3ed36504fa0600d7
 
 def _typecheckingstub__153075acc355fb8c67c2595f86bb736959d7a3490470e1496c4634652a073e55(
     *,
-    classifier_id: builtins.str,
+    classifier_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d0c23f5314f51a17152319ab80f389d2f1b18975384c84d1d2931ac1a3121d9f(
     *,
-    connection_id: builtins.str,
+    catalog_id: builtins.str,
+    connection_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2760,7 +2918,7 @@ def _typecheckingstub__ad53740eb8897f033af56fd03963af3e4f644f727baf57ca71c35961f
 
 def _typecheckingstub__2752daff245d03b65a99c918eff72a3eb4c7c58fc56a5bf622d9117515921d7f(
     *,
-    custom_entity_type_id: builtins.str,
+    custom_entity_type_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2774,7 +2932,7 @@ def _typecheckingstub__824f5a564c0864f04cf9c7b44937b6e5dbe2d9acb8bd8b048f28e3b1f
 
 def _typecheckingstub__637b7e752aad4e64a85b4673d0fd9fbde33283ca6452dac108809ad38887f3cd(
     *,
-    data_quality_ruleset_id: builtins.str,
+    data_quality_ruleset_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2825,7 +2983,7 @@ def _typecheckingstub__f8c47c403cca6462755fa024cf63a9b8531d52ca6834543a739c13e8e
 
 def _typecheckingstub__b3f1a2f7b4f39bcc3b7be922b88fffd5ccf9f63df878ae375f85fa00250d7cff(
     *,
-    ml_transform_id: builtins.str,
+    transform_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2869,14 +3027,24 @@ def _typecheckingstub__8183bbaf7cbe72ac30393afbba3db6508105f9305b6e69bf1acef9abf
 
 def _typecheckingstub__5f762055d8744dcdcadf6d3ee48e027edbbedb409f2aee69d69051529ab7d003(
     *,
-    security_configuration_id: builtins.str,
+    security_configuration_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d556c62e8ccef01cb2ebde5bdf8e8e61850e36ae87a512eb64e73be540ab0fa(
+    *,
+    session_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__36d18932d532cd2df3f2355353c78a3d21a028fa0d2181f51b94ae7c9101726b(
     *,
-    table_optimizer_id: builtins.str,
+    catalog_id: builtins.str,
+    database_name: builtins.str,
+    table_name: builtins.str,
+    type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2916,5 +3084,5 @@ def _typecheckingstub__05490662a534e7ac737a01a3e54258abf2c5d6dd3a563391b841bd656
     """Type checking stubs"""
     pass
 
-for cls in [IBlueprintRef, ICatalogRef, IClassifierRef, IConnectionRef, ICrawlerRef, ICustomEntityTypeRef, IDataCatalogEncryptionSettingsRef, IDataQualityRulesetRef, IDatabaseRef, IDevEndpointRef, IIdentityCenterConfigurationRef, IIntegrationRef, IIntegrationResourcePropertyRef, IJobRef, IMLTransformRef, IPartitionRef, IRegistryRef, ISchemaRef, ISchemaVersionMetadataRef, ISchemaVersionRef, ISecurityConfigurationRef, ITableOptimizerRef, ITableRef, ITriggerRef, IUsageProfileRef, IUserDefinedFunctionRef, IWorkflowRef]:
+for cls in [IBlueprintRef, ICatalogRef, IClassifierRef, IConnectionRef, ICrawlerRef, ICustomEntityTypeRef, IDataCatalogEncryptionSettingsRef, IDataQualityRulesetRef, IDatabaseRef, IDevEndpointRef, IIdentityCenterConfigurationRef, IIntegrationRef, IIntegrationResourcePropertyRef, IJobRef, IMLTransformRef, IPartitionRef, IRegistryRef, ISchemaRef, ISchemaVersionMetadataRef, ISchemaVersionRef, ISecurityConfigurationRef, ISessionRef, ITableOptimizerRef, ITableRef, ITriggerRef, IUsageProfileRef, IUserDefinedFunctionRef, IWorkflowRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

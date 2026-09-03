@@ -336,6 +336,13 @@ class TestLint:
         r = boost("lint", "--min", "0")
         assert "1 skill passes lint (min 0)" in r.out
 
+    def test_min_out_of_0_to_100_range_is_rejected(self, boost, sandbox):
+        # --min 500 used to fail every skill outright since scores cap at 100.
+        r = boost("lint", "--min", "500", expect=2)
+        assert "must be between 0 and 100" in r.err
+        r = boost("lint", "--min", "-1", expect=2)
+        assert "must be between 0 and 100" in r.err
+
     def test_missing_fields_error_rc1_and_json(self, boost, sandbox, tmp_path):
         d = tmp_path / "noname"
         d.mkdir()
@@ -621,6 +628,15 @@ class TestVerify:
     def test_unknown_name_rc1(self, boost, installed):
         r = boost("verify", "ghost", expect=1)
         assert "not installed: ghost" in r.err
+        assert "closest matches" not in r.err
+
+    def test_typo_gets_close_match_hint(self, boost, installed):
+        # One character off 'brainstorming', the only thing installed — the
+        # old hint was the same fixed "see what is with `boost list`" a
+        # totally unrelated name would get.
+        r = boost("verify", "brainstormin", expect=1)
+        assert "not installed: brainstormin" in r.err
+        assert "closest matches: brainstorming" in r.err
 
     def test_no_lock_file_but_nothing_ever_installed_rc0(self, boost, tapped):
         # Genuinely fresh: no lock file AND an empty store is not a fault.
@@ -667,6 +683,13 @@ class TestDrift:
         assert "boost reinstall brainstorming to discard local edits" in r.out
         assert "1 local-edits" in r.out
 
+    def test_unknown_name_close_match_hint(self, boost, installed):
+        # `drift` resolves across every lock section via `_iter_installed_all`
+        # — the same miss-hint gap as `verify`, in the other resolver.
+        r = boost("drift", "brainstormin", expect=1)
+        assert "not installed: brainstormin" in r.err
+        assert "closest matches: brainstorming" in r.err
+
     def test_upstream_moved_via_tap_copy(self, boost, fixture_tap_src,
                                          tmp_path):
         tap_dir = _copy_tap(fixture_tap_src, tmp_path / "drift-tap")
@@ -681,6 +704,20 @@ class TestDrift:
         assert data == {"skills": [{"name": "brainstorming", "kind": "skill",
                                     "status": "upstream-moved",
                                     "hint": "boost update"}]}
+
+    def test_source_missing_after_untap_hints_retap_not_update(self, boost,
+                                                                installed):
+        # `boost update` only refreshes configured taps — once the tap is
+        # gone, it's a guaranteed no-op. The only remedy that can actually
+        # restore the source is re-tapping it.
+        boost("untap", "fixture-tap")
+        r = boost("drift")
+        assert "source-missing" in r.out
+        assert "boost tap fixture-tap" in r.out
+        data = json.loads(boost("drift", "--json").out)
+        assert data == {"skills": [{"name": "brainstorming", "kind": "skill",
+                                    "status": "source-missing",
+                                    "hint": "boost tap fixture-tap"}]}
 
     def test_no_lock_file_but_nothing_ever_installed_rc0(self, boost, tapped):
         r = boost("drift")
@@ -743,6 +780,33 @@ class TestFingerprint:
         d3 = json.loads(boost("fingerprint", "--json").out)
         assert d3["fingerprint"] != d1["fingerprint"]
         assert len(d3["components"]) == 1
+
+    def test_quarantine_changes_fingerprint(self, boost, installed):
+        d1 = json.loads(boost("fingerprint", "--json").out)
+        boost("quarantine", "brainstorming")
+        d2 = json.loads(boost("fingerprint", "--json").out)
+        assert d2["fingerprint"] != d1["fingerprint"]
+        sha = _lock()["brainstorming"]["sha256"]
+        assert "brainstorming:%s:q" % sha in d2["components"]
+
+        boost("quarantine", "--release", "brainstorming")
+        d3 = json.loads(boost("fingerprint", "--json").out)
+        assert d3["fingerprint"] == d1["fingerprint"]   # release restores it
+
+    def test_uncloned_tap_reported_incomplete(self, boost, installed):
+        d1 = json.loads(boost("fingerprint", "--json").out)
+        assert d1["incomplete"] == []
+
+        shutil.rmtree(paths.repos_dir() / "fixture-tap")
+        d2 = json.loads(boost("fingerprint", "--json").out)
+        assert d2["incomplete"] == ["fixture-tap"]
+        assert d2["fingerprint"] != d1["fingerprint"]
+        assert "fixture-tap:" in d2["components"]
+
+        r = boost("fingerprint")
+        assert ("tap fixture-tap not cloned — fingerprint incomplete "
+                "(boost update)" in r.err)
+        assert r.rc == 0
 
 
 # ── quarantine ───────────────────────────────────────────────────────────
@@ -1129,6 +1193,16 @@ class TestChangelog:
         _import_skill(boost, tmp_path, "local-one", "# Local\n\nBody.\n")
         r = boost("changelog", "local-one")
         assert "no upstream history — local-one was imported locally" in r.out
+
+    def test_n_must_be_positive_int(self, boost, installed):
+        # -n 0 used to print no log lines and claim "no history found" even
+        # when history exists; -n -1 is passed straight to `git log -n -1`,
+        # which git treats as "unlimited" — a surprise the flag's own help
+        # ("number of entries") never suggested.
+        r = boost("changelog", "brainstorming", "-n", "0", expect=2)
+        assert "must be >= 1" in r.err
+        r = boost("changelog", "brainstorming", "-n", "-1", expect=2)
+        assert "must be >= 1" in r.err
 
 
 # ── attest ───────────────────────────────────────────────────────────────

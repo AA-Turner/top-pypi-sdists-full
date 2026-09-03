@@ -49,7 +49,7 @@ class RawMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ListMethodsResponseDataItem, ListMethodsResponse]:
         """
-        Lists the bank accounts, wallets, and crypto addresses an account or user can withdraw to, newest first.
+        Lists the bank accounts, wallets, and crypto addresses an account or user can pay out to, newest first.
 
         Parameters
         ----------
@@ -63,7 +63,7 @@ class RawMethodsClient:
             Optional status filter. `created` means saved but unused, `active` means a payout through it succeeded, `broken` means the last payout failed and the method needs fixing.
 
         amount : typing.Optional[float]
-            Optional withdrawal amount in whole currency units, for example `250.00`. When provided, each method includes a quote with the estimated fee, amount received, and delivery date for that amount.
+            Optional payout amount in whole currency units, for example `250.00`. When provided, each method includes a quote with the estimated fee, amount received, and delivery date for that amount.
 
         currency : typing.Optional[str]
             Currency code of the amount, for example `usd`. Only meaningful with amount or include_limits.
@@ -89,7 +89,7 @@ class RawMethodsClient:
         Returns
         -------
         SyncPager[ListMethodsResponseDataItem, ListMethodsResponse]
-            internal stablecoin destinations omitted
+            payout methods listed
         """
         _response = self._client_wrapper.httpx_client.request(
             "payouts/methods",
@@ -203,7 +203,7 @@ class RawMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateMethodsResponse]:
         """
-        Saves a new place an account or user can withdraw to. Sensitive details are vaulted in transit and never stored raw.
+        Saves a new place an account or user can pay out to. Sensitive details are vaulted in transit and never stored raw.
 
         Parameters
         ----------
@@ -234,7 +234,7 @@ class RawMethodsClient:
         Returns
         -------
         HttpResponse[CreateMethodsResponse]
-            a pre-tokenized Basis Theory value passes through unvaulted
+            payout method created
         """
         _response = self._client_wrapper.httpx_client.request(
             "payouts/methods",
@@ -405,17 +405,25 @@ class RawMethodsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def update(
-        self, id: str, *, nickname: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        id: str,
+        *,
+        is_default: typing.Optional[bool] = OMIT,
+        nickname: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[UpdateMethodsResponse]:
         """
-        Changes the label used to identify a saved payout method.
+        Changes the label used to identify a saved payout method or makes it the account's default payout method.
 
         Parameters
         ----------
         id : str
             Payout method ID, prefixed `potk_`.
 
-        nickname : str
+        is_default : typing.Optional[bool]
+            Set to `true` to make this the account's default payout method. `false` is not accepted.
+
+        nickname : typing.Optional[str]
             New label for the payout method, with at least one non-whitespace character and a maximum of 100 characters.
 
         request_options : typing.Optional[RequestOptions]
@@ -424,12 +432,13 @@ class RawMethodsClient:
         Returns
         -------
         HttpResponse[UpdateMethodsResponse]
-            payout method renamed
+            payout method updated
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payouts/methods/{encode_path_param(id)}",
             method="PATCH",
             json={
+                "is_default": is_default,
                 "nickname": nickname,
             },
             headers={
@@ -522,7 +531,7 @@ class AsyncRawMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ListMethodsResponseDataItem, ListMethodsResponse]:
         """
-        Lists the bank accounts, wallets, and crypto addresses an account or user can withdraw to, newest first.
+        Lists the bank accounts, wallets, and crypto addresses an account or user can pay out to, newest first.
 
         Parameters
         ----------
@@ -536,7 +545,7 @@ class AsyncRawMethodsClient:
             Optional status filter. `created` means saved but unused, `active` means a payout through it succeeded, `broken` means the last payout failed and the method needs fixing.
 
         amount : typing.Optional[float]
-            Optional withdrawal amount in whole currency units, for example `250.00`. When provided, each method includes a quote with the estimated fee, amount received, and delivery date for that amount.
+            Optional payout amount in whole currency units, for example `250.00`. When provided, each method includes a quote with the estimated fee, amount received, and delivery date for that amount.
 
         currency : typing.Optional[str]
             Currency code of the amount, for example `usd`. Only meaningful with amount or include_limits.
@@ -562,7 +571,7 @@ class AsyncRawMethodsClient:
         Returns
         -------
         AsyncPager[ListMethodsResponseDataItem, ListMethodsResponse]
-            internal stablecoin destinations omitted
+            payout methods listed
         """
         _response = await self._client_wrapper.httpx_client.request(
             "payouts/methods",
@@ -679,7 +688,7 @@ class AsyncRawMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateMethodsResponse]:
         """
-        Saves a new place an account or user can withdraw to. Sensitive details are vaulted in transit and never stored raw.
+        Saves a new place an account or user can pay out to. Sensitive details are vaulted in transit and never stored raw.
 
         Parameters
         ----------
@@ -710,7 +719,7 @@ class AsyncRawMethodsClient:
         Returns
         -------
         AsyncHttpResponse[CreateMethodsResponse]
-            a pre-tokenized Basis Theory value passes through unvaulted
+            payout method created
         """
         _response = await self._client_wrapper.httpx_client.request(
             "payouts/methods",
@@ -881,17 +890,25 @@ class AsyncRawMethodsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def update(
-        self, id: str, *, nickname: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        id: str,
+        *,
+        is_default: typing.Optional[bool] = OMIT,
+        nickname: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[UpdateMethodsResponse]:
         """
-        Changes the label used to identify a saved payout method.
+        Changes the label used to identify a saved payout method or makes it the account's default payout method.
 
         Parameters
         ----------
         id : str
             Payout method ID, prefixed `potk_`.
 
-        nickname : str
+        is_default : typing.Optional[bool]
+            Set to `true` to make this the account's default payout method. `false` is not accepted.
+
+        nickname : typing.Optional[str]
             New label for the payout method, with at least one non-whitespace character and a maximum of 100 characters.
 
         request_options : typing.Optional[RequestOptions]
@@ -900,12 +917,13 @@ class AsyncRawMethodsClient:
         Returns
         -------
         AsyncHttpResponse[UpdateMethodsResponse]
-            payout method renamed
+            payout method updated
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payouts/methods/{encode_path_param(id)}",
             method="PATCH",
             json={
+                "is_default": is_default,
                 "nickname": nickname,
             },
             headers={

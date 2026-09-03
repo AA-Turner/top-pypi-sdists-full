@@ -1,7 +1,10 @@
 import logging
 import multiprocessing
+import pickle
 import sys
+import threading
 import time
+import weakref
 
 import os.path
 
@@ -40,6 +43,13 @@ class TaskScheduler:
     # How long __halt_running_nodes() waits for a node to go away, first after
     # terminate() and then after kill().
     __HALT_TIMEOUT = 5.0
+
+    # Every scheduler built in this process, so a caller that does not hold one
+    # -- a server shutting down while a job is in flight -- can still end the
+    # node processes it started. Weak, so a finished run is not kept alive by
+    # being listed here.
+    __instances = weakref.WeakSet()
+    __instances_lock = threading.Lock()
 
     @staticmethod
     def register_callback(hook: Literal["pre_run", "pre_node", "post_node", "post_run"],
@@ -111,7 +121,14 @@ class TaskScheduler:
         self.__startTimes: Dict[Optional[Tuple[str, str]], float] = {}
         self.__dwellTime: float = 0.1
 
+        # Guards __halt_running_nodes(): halt_all() can arrive on another thread
+        # while this run's own cleanup is ending the same processes.
+        self.__halt_lock = threading.Lock()
+
         self.__create_nodes(tasks)
+
+        with TaskScheduler.__instances_lock:
+            TaskScheduler.__instances.add(self)
 
     def __create_nodes(self, tasks: Dict[Tuple[str, str], "SchedulerNode"]) -> None:
         """
@@ -284,7 +301,32 @@ class TaskScheduler:
                 # if there are more than 1, join the first with a timeout
                 self.__nodes[running_nodes[0]]["proc"].join(timeout=self.__dwellTime)
 
-    def __halt_running_nodes(self) -> None:
+    @staticmethod
+    def halt_all() -> int:
+        """Ends the node processes of every run in flight in this process.
+
+        For a caller that has no scheduler to ask -- a server being shut down
+        while a job thread is still inside Project.run(). Node processes are not
+        daemons, so anything left running would be joined at interpreter exit
+        and hold the process open for as long as the task takes.
+
+        Returns:
+            int: How many runs had node processes to end.
+        """
+        with TaskScheduler.__instances_lock:
+            schedulers = list(TaskScheduler.__instances)
+
+        return sum(1 for scheduler in schedulers if scheduler.halt())
+
+    def halt(self) -> bool:
+        """Ends any node process this run still has running.
+
+        Returns:
+            bool: True if anything was still running.
+        """
+        return self.__halt_running_nodes()
+
+    def __halt_running_nodes(self) -> bool:
         """Ends any node process still running, so teardown cannot block on one.
 
         Only an interrupted run reaches here with anything alive: normal
@@ -294,20 +336,29 @@ class TaskScheduler:
         The joins are bounded on purpose. An unbounded join would trade the
         deadlock this avoids for another one, against a node that ignores
         SIGTERM.
+
+        Returns:
+            bool: True if anything was still running.
         """
-        running = [info["proc"] for info in self.__nodes.values()
-                   if info.get("proc") is not None and info["proc"].is_alive()]
-        if not running:
-            return
+        # Serialized: two threads calling terminate()/join() on one process race
+        # on waitpid, and one of them loses with ChildProcessError. Whoever
+        # arrives second finds nothing running and returns.
+        with self.__halt_lock:
+            running = [info["proc"] for info in self.__nodes.values()
+                       if info.get("proc") is not None and info["proc"].is_alive()]
+            if not running:
+                return False
 
-        for proc in running:
-            proc.terminate()
+            for proc in running:
+                proc.terminate()
 
-        for proc in running:
-            proc.join(timeout=TaskScheduler.__HALT_TIMEOUT)
-            if proc.is_alive():
-                proc.kill()
+            for proc in running:
                 proc.join(timeout=TaskScheduler.__HALT_TIMEOUT)
+                if proc.is_alive():
+                    proc.kill()
+                    proc.join(timeout=TaskScheduler.__HALT_TIMEOUT)
+
+            return True
 
     def get_nodes(self) -> List[Tuple[str, str]]:
         """Gets an ordered list of all nodes managed by this scheduler.
@@ -366,22 +417,20 @@ class TaskScheduler:
 
                 if os.path.exists(manifest):
                     Journal.replay_file(self.__schema, manifest)
-                    # TODO: once tool is fixed this can go away
-                    self.__schema.unset("arg", "step")
-                    self.__schema.unset("arg", "index")
 
                 # The child either sent the package cache before exiting or
                 # it never will. poll(0) avoids blocking the scheduler loop
                 # for a full second when a child died without writing.
+                cache = None
                 if info["parent_pipe"] and info["parent_pipe"].poll(0):
                     try:
-                        # Take the paths the node resolved, but not its failures:
-                        # a fetch that failed for one node may still succeed for
-                        # the next, so each node gets its own retry budget for now.
-                        MPManager.get_path_cache().seed(
-                            info["parent_pipe"].recv(), include_failures=False)
-                    except:  # noqa E722
-                        pass
+                        cache = info["parent_pipe"].recv()
+                    except (EOFError, OSError, pickle.UnpicklingError) as e:
+                        # A child that died mid-write leaves a truncated pickle.
+                        # Losing the cache only costs the next node a re-resolve,
+                        # so say so and carry on rather than failing the run.
+                        self.__logger.debug(
+                            f'{info["name"]} did not send a usable package cache: {e}')
 
                 # Remove pipe
                 info["parent_pipe"] = None
@@ -410,6 +459,18 @@ class TaskScheduler:
                 MPManager.get_transient_settings().get(
                     'TaskScheduler', 'post_node',
                     lambda project, step, index: None)(self.__project, step, index)
+
+                if cache is not None:
+                    # Merged last, and outside the handler above: what the child sent
+                    # is its business, but a failure to merge it is this scheduler's
+                    # bug and must not hide behind a read error. By this point the
+                    # node has released its pipe and queue and its status is
+                    # recorded, so raising here cannot leave it marked running.
+                    #
+                    # Take the paths the node resolved, but not its failures: a fetch
+                    # that failed for one node may still succeed for the next, so
+                    # each node gets its own retry budget for now.
+                    MPManager.get_path_cache().seed(cache, include_failures=False)
 
         return changed
 

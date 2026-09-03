@@ -1309,6 +1309,51 @@ class _IFleetMetricRefProxy(
 typing.cast(typing.Any, IFleetMetricRef).__jsii_proxy_class__ = lambda : _IFleetMetricRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iot.IJobRef")
+class IJobRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Job.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="jobRef")
+    def job_ref(self) -> "JobReference":
+        '''(experimental) A reference to a Job resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Job.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_iot.IJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="jobRef")
+    def job_ref(self) -> "JobReference":
+        '''(experimental) A reference to a Job resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("JobReference", jsii.get(self, "jobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IJobRef).__jsii_proxy_class__ = lambda : _IJobRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iot.IJobTemplateRef")
 class IJobTemplateRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1851,6 +1896,51 @@ class _ISoftwarePackageVersionRefProxy(
 typing.cast(typing.Any, ISoftwarePackageVersionRef).__jsii_proxy_class__ = lambda : _ISoftwarePackageVersionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iot.IStreamRef")
+class IStreamRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Stream.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> "StreamReference":
+        '''(experimental) A reference to a Stream resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStreamRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Stream.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_iot.IStreamRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> "StreamReference":
+        '''(experimental) A reference to a Stream resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StreamReference", jsii.get(self, "streamRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStreamRef).__jsii_proxy_class__ = lambda : _IStreamRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iot.IThingGroupRef")
 class IThingGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -2121,6 +2211,55 @@ class _ITopicRuleRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITopicRuleRef).__jsii_proxy_class__ = lambda : _ITopicRuleRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_iot.JobReference",
+    jsii_struct_bases=[],
+    name_mapping={"job_arn": "jobArn"},
+)
+class JobReference:
+    def __init__(self, *, job_arn: builtins.str) -> None:
+        '''A reference to a Job resource.
+
+        :param job_arn: The Arn of the Job resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_iot as interfaces_iot
+            
+            job_reference = interfaces_iot.JobReference(
+                job_arn="jobArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6a5eadd3435a2774d4d425e29f01c9426ead01ede6534b0bb384cc699a12378d)
+            check_type(argname="argument job_arn", value=job_arn, expected_type=type_hints["job_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "job_arn": job_arn,
+        }
+
+    @builtins.property
+    def job_arn(self) -> builtins.str:
+        '''The Arn of the Job resource.'''
+        result = self._values.get("job_arn")
+        assert result is not None, "Required property 'job_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JobReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -2831,6 +2970,55 @@ class SoftwarePackageVersionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_iot.StreamReference",
+    jsii_struct_bases=[],
+    name_mapping={"stream_arn": "streamArn"},
+)
+class StreamReference:
+    def __init__(self, *, stream_arn: builtins.str) -> None:
+        '''A reference to a Stream resource.
+
+        :param stream_arn: The Arn of the Stream resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_iot as interfaces_iot
+            
+            stream_reference = interfaces_iot.StreamReference(
+                stream_arn="streamArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ae71da10fe5bd2f0aea2ba6d10000d8ac69fe64d7b5b49b557b5ba135b3d4b7b)
+            check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stream_arn": stream_arn,
+        }
+
+    @builtins.property
+    def stream_arn(self) -> builtins.str:
+        '''The Arn of the Stream resource.'''
+        result = self._values.get("stream_arn")
+        assert result is not None, "Required property 'stream_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StreamReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_iot.ThingGroupReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -3214,6 +3402,7 @@ __all__ = [
     "IDomainConfigurationRef",
     "IEncryptionConfigurationRef",
     "IFleetMetricRef",
+    "IJobRef",
     "IJobTemplateRef",
     "ILoggingRef",
     "IMitigationActionRef",
@@ -3226,12 +3415,14 @@ __all__ = [
     "ISecurityProfileRef",
     "ISoftwarePackageRef",
     "ISoftwarePackageVersionRef",
+    "IStreamRef",
     "IThingGroupRef",
     "IThingPrincipalAttachmentRef",
     "IThingRef",
     "IThingTypeRef",
     "ITopicRuleDestinationRef",
     "ITopicRuleRef",
+    "JobReference",
     "JobTemplateReference",
     "LoggingReference",
     "MitigationActionReference",
@@ -3244,6 +3435,7 @@ __all__ = [
     "SecurityProfileReference",
     "SoftwarePackageReference",
     "SoftwarePackageVersionReference",
+    "StreamReference",
     "ThingGroupReference",
     "ThingPrincipalAttachmentReference",
     "ThingReference",
@@ -3346,6 +3538,13 @@ def _typecheckingstub__87bcc885b51342fc4a7fd186621f27ba55cc31a51b3cd22d20675d422
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6a5eadd3435a2774d4d425e29f01c9426ead01ede6534b0bb384cc699a12378d(
+    *,
+    job_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cffd41be04fe17710e1be7db9d085434eb15f2abdfafdc430d120ed83c4ec4aa(
     *,
     job_template_arn: builtins.str,
@@ -3437,6 +3636,13 @@ def _typecheckingstub__8549067511c3dd9b2931691a58ae4f172a4d90a25349fe4ef5b45920e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ae71da10fe5bd2f0aea2ba6d10000d8ac69fe64d7b5b49b557b5ba135b3d4b7b(
+    *,
+    stream_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bf577bbf82c8129b7cff9884cac80e23395d69657fd40c3d65bef791576507a6(
     *,
     thing_group_arn: builtins.str,
@@ -3483,5 +3689,5 @@ def _typecheckingstub__eedeb429f63d21682b03ce0a579ac335118e4919a1318e377d4376db9
     """Type checking stubs"""
     pass
 
-for cls in [IAccountAuditConfigurationRef, IAuthorizerRef, IBillingGroupRef, ICACertificateRef, ICertificateProviderRef, ICertificateRef, ICommandRef, ICustomMetricRef, IDimensionRef, IDomainConfigurationRef, IEncryptionConfigurationRef, IFleetMetricRef, IJobTemplateRef, ILoggingRef, IMitigationActionRef, IPolicyPrincipalAttachmentRef, IPolicyRef, IProvisioningTemplateRef, IResourceSpecificLoggingRef, IRoleAliasRef, IScheduledAuditRef, ISecurityProfileRef, ISoftwarePackageRef, ISoftwarePackageVersionRef, IThingGroupRef, IThingPrincipalAttachmentRef, IThingRef, IThingTypeRef, ITopicRuleDestinationRef, ITopicRuleRef]:
+for cls in [IAccountAuditConfigurationRef, IAuthorizerRef, IBillingGroupRef, ICACertificateRef, ICertificateProviderRef, ICertificateRef, ICommandRef, ICustomMetricRef, IDimensionRef, IDomainConfigurationRef, IEncryptionConfigurationRef, IFleetMetricRef, IJobRef, IJobTemplateRef, ILoggingRef, IMitigationActionRef, IPolicyPrincipalAttachmentRef, IPolicyRef, IProvisioningTemplateRef, IResourceSpecificLoggingRef, IRoleAliasRef, IScheduledAuditRef, ISecurityProfileRef, ISoftwarePackageRef, ISoftwarePackageVersionRef, IStreamRef, IThingGroupRef, IThingPrincipalAttachmentRef, IThingRef, IThingTypeRef, ITopicRuleDestinationRef, ITopicRuleRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

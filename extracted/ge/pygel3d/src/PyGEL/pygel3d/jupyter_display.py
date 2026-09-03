@@ -7,24 +7,13 @@ from pygel3d.hmesh import Manifold, triangulate
 from pygel3d.graph import Graph
 from numpy import array
 import plotly.graph_objs as go
-import plotly.offline as py
-
-EXPORT_MODE = False
 
 def set_export_mode(_exp_mode: bool = True):
-    """ Calling this function will set export mode to true. It is necessary
-    to do so if we wish to export a notebook containing interactive
-    plotly graphics (made with display below) to HTML. In other words, this function
-    should not necessarily be called in normal usage but only when we export to HTML. It is
-    then called once in the beginning of the notebook. However, as a bit of a twist on
-    this story, it appears that if we don't call this function, any call to display must
-    be the last thing that happens in a cell. So, maybe it is best to always call
-    set_export_mode in the beginning of a notebook.
+    """ Deprecated and no longer needed. display now always returns a plain
+    go.Figure, which renders correctly in Jupyter (regardless of position in
+    a cell), in Marimo, and when a notebook is exported to HTML. This function
+    is kept only for backwards compatibility and does nothing.
     """
-    global EXPORT_MODE
-    EXPORT_MODE=_exp_mode
-    if EXPORT_MODE:
-        py.init_notebook_mode(connected=False)
 
 def display(m: Manifold | Graph, wireframe: bool = True, smooth: bool = True, data: ArrayLike | None = None):
     """ The display function shows an interactive presentation of the Manifold, m, inside
@@ -84,8 +73,5 @@ def display(m: Manifold | Graph, wireframe: bool = True, smooth: bool = True, da
         
     lyt = go.Layout(width=850,height=800)
     lyt.scene.aspectmode="data"
-    if EXPORT_MODE:
-        py.iplot(dict(data=mesh_data,layout=lyt))
-    else:
-        return go.FigureWidget(mesh_data,lyt)
+    return go.Figure(mesh_data,lyt)
 

@@ -3,6 +3,8 @@ from typing import Annotated, Any
 
 import typer
 
+from fastapi_cloud_cli._app import app, cloud_app
+from fastapi_cloud_cli.api import APIClient
 from fastapi_cloud_cli.commands._flow import (
     DEFAULT_LOGIN_TIMEOUT_SECONDS,
     complete_device_login,
@@ -10,7 +12,7 @@ from fastapi_cloud_cli.commands._flow import (
     render_login_output,
     start_device_authorization,
 )
-from fastapi_cloud_cli.utils.api import APIClient
+from fastapi_cloud_cli.commands.auth._app import auth_app
 from fastapi_cloud_cli.utils.auth import Identity
 from fastapi_cloud_cli.utils.cli import FastAPIRichToolkit, get_rich_toolkit
 from fastapi_cloud_cli.utils.execution import JsonOutputOption
@@ -59,6 +61,9 @@ def _interactive_login(
         )
 
 
+@app.command()
+@cloud_app.command()
+@auth_app.command()
 def login(
     no_open: Annotated[
         bool,

@@ -54,6 +54,14 @@ def test_volatile_is_matched_after_stripping():
     assert stable + tail == _SYSTEM
 
 
+def test_splits_at_the_last_occurrence_when_the_tail_repeats():
+    text = _STABLE + _VOLATILE + "M" * 1_000 + _VOLATILE
+    stable, tail = split_system_text(text, _VOLATILE)
+    assert tail == _VOLATILE
+    assert stable == _STABLE + _VOLATILE + "M" * 1_000
+    assert stable + tail == text
+
+
 @pytest.mark.parametrize(
     "text,volatile",
     [

@@ -15,11 +15,11 @@ if typing.TYPE_CHECKING:
     from .accounts.client import AccountsClient, AsyncAccountsClient
     from .ad_campaigns.client import AdCampaignsClient, AsyncAdCampaignsClient
     from .ad_groups.client import AdGroupsClient, AsyncAdGroupsClient
-    from .ad_reports.client import AdReportsClient, AsyncAdReportsClient
     from .ads.client import AdsClient, AsyncAdsClient
     from .affiliates.client import AffiliatesClient, AsyncAffiliatesClient
     from .ai_chats.client import AiChatsClient, AsyncAiChatsClient
     from .api_keys.client import ApiKeysClient, AsyncApiKeysClient
+    from .api_logs.client import ApiLogsClient, AsyncApiLogsClient
     from .app_builds.client import AppBuildsClient, AsyncAppBuildsClient
     from .apps.client import AppsClient, AsyncAppsClient
     from .audiences.client import AsyncAudiencesClient, AudiencesClient
@@ -30,9 +30,8 @@ if typing.TYPE_CHECKING:
     from .cards.client import AsyncCardsClient, CardsClient
     from .chat_channels.client import AsyncChatChannelsClient, ChatChannelsClient
     from .checkout_configurations.client import AsyncCheckoutConfigurationsClient, CheckoutConfigurationsClient
-    from .checkout_sessions.client import AsyncCheckoutSessionsClient, CheckoutSessionsClient
-    from .companies.client import AsyncCompaniesClient, CompaniesClient
     from .company_token_transactions.client import AsyncCompanyTokenTransactionsClient, CompanyTokenTransactionsClient
+    from .confirmation_tokens.client import AsyncConfirmationTokensClient, ConfirmationTokensClient
     from .course_chapters.client import AsyncCourseChaptersClient, CourseChaptersClient
     from .course_lesson_interactions.client import AsyncCourseLessonInteractionsClient, CourseLessonInteractionsClient
     from .course_lessons.client import AsyncCourseLessonsClient, CourseLessonsClient
@@ -50,13 +49,13 @@ if typing.TYPE_CHECKING:
     from .fee_markups.client import AsyncFeeMarkupsClient, FeeMarkupsClient
     from .files.client import AsyncFilesClient, FilesClient
     from .financial_activity.client import AsyncFinancialActivityClient, FinancialActivityClient
+    from .financial_reports.client import AsyncFinancialReportsClient, FinancialReportsClient
     from .forum_posts.client import AsyncForumPostsClient, ForumPostsClient
     from .forums.client import AsyncForumsClient, ForumsClient
     from .identity_profiles.client import AsyncIdentityProfilesClient, IdentityProfilesClient
     from .invoices.client import AsyncInvoicesClient, InvoicesClient
     from .leads.client import AsyncLeadsClient, LeadsClient
     from .ledger_accounts.client import AsyncLedgerAccountsClient, LedgerAccountsClient
-    from .ledgers.client import AsyncLedgersClient, LedgersClient
     from .media.client import AsyncMediaClient, MediaClient
     from .members.client import AsyncMembersClient, MembersClient
     from .memberships.client import AsyncMembershipsClient, MembershipsClient
@@ -91,7 +90,6 @@ if typing.TYPE_CHECKING:
     from .users.client import AsyncUsersClient, UsersClient
     from .verifications.client import AsyncVerificationsClient, VerificationsClient
     from .webhooks.client import AsyncWebhooksClient, WebhooksClient
-    from .withdrawals.client import AsyncWithdrawalsClient, WithdrawalsClient
 
 
 class Whop:
@@ -144,7 +142,7 @@ class Whop:
     from whop_sdk import Whop
 
     client = Whop(
-        "2026-08-21-1",
+        "2026-09-02-2",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -155,7 +153,7 @@ class Whop:
         *,
         base_url: typing.Optional[str] = None,
         environment: WhopEnvironment = WhopEnvironment.DEFAULT,
-        api_version_date: typing.Optional[str] = "2026-08-21-1",
+        api_version_date: typing.Optional[str] = "2026-09-02-2",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -191,11 +189,11 @@ class Whop:
         self._accounts: typing.Optional[AccountsClient] = None
         self._ad_campaigns: typing.Optional[AdCampaignsClient] = None
         self._ad_groups: typing.Optional[AdGroupsClient] = None
-        self._ad_reports: typing.Optional[AdReportsClient] = None
         self._ads: typing.Optional[AdsClient] = None
         self._affiliates: typing.Optional[AffiliatesClient] = None
         self._ai_chats: typing.Optional[AiChatsClient] = None
         self._api_keys: typing.Optional[ApiKeysClient] = None
+        self._api_logs: typing.Optional[ApiLogsClient] = None
         self._app_builds: typing.Optional[AppBuildsClient] = None
         self._apps: typing.Optional[AppsClient] = None
         self._audiences: typing.Optional[AudiencesClient] = None
@@ -206,9 +204,8 @@ class Whop:
         self._cards: typing.Optional[CardsClient] = None
         self._chat_channels: typing.Optional[ChatChannelsClient] = None
         self._checkout_configurations: typing.Optional[CheckoutConfigurationsClient] = None
-        self._checkout_sessions: typing.Optional[CheckoutSessionsClient] = None
-        self._companies: typing.Optional[CompaniesClient] = None
         self._company_token_transactions: typing.Optional[CompanyTokenTransactionsClient] = None
+        self._confirmation_tokens: typing.Optional[ConfirmationTokensClient] = None
         self._course_chapters: typing.Optional[CourseChaptersClient] = None
         self._course_lesson_interactions: typing.Optional[CourseLessonInteractionsClient] = None
         self._course_lessons: typing.Optional[CourseLessonsClient] = None
@@ -226,7 +223,7 @@ class Whop:
         self._fee_markups: typing.Optional[FeeMarkupsClient] = None
         self._files: typing.Optional[FilesClient] = None
         self._financial_activity: typing.Optional[FinancialActivityClient] = None
-        self._ledgers: typing.Optional[LedgersClient] = None
+        self._financial_reports: typing.Optional[FinancialReportsClient] = None
         self._forum_posts: typing.Optional[ForumPostsClient] = None
         self._forums: typing.Optional[ForumsClient] = None
         self._identity_profiles: typing.Optional[IdentityProfilesClient] = None
@@ -267,7 +264,6 @@ class Whop:
         self._users: typing.Optional[UsersClient] = None
         self._verifications: typing.Optional[VerificationsClient] = None
         self._webhooks: typing.Optional[WebhooksClient] = None
-        self._withdrawals: typing.Optional[WithdrawalsClient] = None
 
     @property
     def access_tokens(self):
@@ -310,14 +306,6 @@ class Whop:
         return self._ad_groups
 
     @property
-    def ad_reports(self):
-        if self._ad_reports is None:
-            from .ad_reports.client import AdReportsClient  # noqa: E402
-
-            self._ad_reports = AdReportsClient(client_wrapper=self._client_wrapper)
-        return self._ad_reports
-
-    @property
     def ads(self):
         if self._ads is None:
             from .ads.client import AdsClient  # noqa: E402
@@ -348,6 +336,14 @@ class Whop:
 
             self._api_keys = ApiKeysClient(client_wrapper=self._client_wrapper)
         return self._api_keys
+
+    @property
+    def api_logs(self):
+        if self._api_logs is None:
+            from .api_logs.client import ApiLogsClient  # noqa: E402
+
+            self._api_logs = ApiLogsClient(client_wrapper=self._client_wrapper)
+        return self._api_logs
 
     @property
     def app_builds(self):
@@ -430,28 +426,20 @@ class Whop:
         return self._checkout_configurations
 
     @property
-    def checkout_sessions(self):
-        if self._checkout_sessions is None:
-            from .checkout_sessions.client import CheckoutSessionsClient  # noqa: E402
-
-            self._checkout_sessions = CheckoutSessionsClient(client_wrapper=self._client_wrapper)
-        return self._checkout_sessions
-
-    @property
-    def companies(self):
-        if self._companies is None:
-            from .companies.client import CompaniesClient  # noqa: E402
-
-            self._companies = CompaniesClient(client_wrapper=self._client_wrapper)
-        return self._companies
-
-    @property
     def company_token_transactions(self):
         if self._company_token_transactions is None:
             from .company_token_transactions.client import CompanyTokenTransactionsClient  # noqa: E402
 
             self._company_token_transactions = CompanyTokenTransactionsClient(client_wrapper=self._client_wrapper)
         return self._company_token_transactions
+
+    @property
+    def confirmation_tokens(self):
+        if self._confirmation_tokens is None:
+            from .confirmation_tokens.client import ConfirmationTokensClient  # noqa: E402
+
+            self._confirmation_tokens = ConfirmationTokensClient(client_wrapper=self._client_wrapper)
+        return self._confirmation_tokens
 
     @property
     def course_chapters(self):
@@ -590,12 +578,12 @@ class Whop:
         return self._financial_activity
 
     @property
-    def ledgers(self):
-        if self._ledgers is None:
-            from .ledgers.client import LedgersClient  # noqa: E402
+    def financial_reports(self):
+        if self._financial_reports is None:
+            from .financial_reports.client import FinancialReportsClient  # noqa: E402
 
-            self._ledgers = LedgersClient(client_wrapper=self._client_wrapper)
-        return self._ledgers
+            self._financial_reports = FinancialReportsClient(client_wrapper=self._client_wrapper)
+        return self._financial_reports
 
     @property
     def forum_posts(self):
@@ -917,14 +905,6 @@ class Whop:
             self._webhooks = WebhooksClient(client_wrapper=self._client_wrapper)
         return self._webhooks
 
-    @property
-    def withdrawals(self):
-        if self._withdrawals is None:
-            from .withdrawals.client import WithdrawalsClient  # noqa: E402
-
-            self._withdrawals = WithdrawalsClient(client_wrapper=self._client_wrapper)
-        return self._withdrawals
-
 
 def _make_default_async_client(
     timeout: typing.Optional[float],
@@ -997,7 +977,7 @@ class AsyncWhop:
     from whop_sdk import AsyncWhop
 
     client = AsyncWhop(
-        "2026-08-21-1",
+        "2026-09-02-2",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -1008,7 +988,7 @@ class AsyncWhop:
         *,
         base_url: typing.Optional[str] = None,
         environment: WhopEnvironment = WhopEnvironment.DEFAULT,
-        api_version_date: typing.Optional[str] = "2026-08-21-1",
+        api_version_date: typing.Optional[str] = "2026-09-02-2",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -1044,11 +1024,11 @@ class AsyncWhop:
         self._accounts: typing.Optional[AsyncAccountsClient] = None
         self._ad_campaigns: typing.Optional[AsyncAdCampaignsClient] = None
         self._ad_groups: typing.Optional[AsyncAdGroupsClient] = None
-        self._ad_reports: typing.Optional[AsyncAdReportsClient] = None
         self._ads: typing.Optional[AsyncAdsClient] = None
         self._affiliates: typing.Optional[AsyncAffiliatesClient] = None
         self._ai_chats: typing.Optional[AsyncAiChatsClient] = None
         self._api_keys: typing.Optional[AsyncApiKeysClient] = None
+        self._api_logs: typing.Optional[AsyncApiLogsClient] = None
         self._app_builds: typing.Optional[AsyncAppBuildsClient] = None
         self._apps: typing.Optional[AsyncAppsClient] = None
         self._audiences: typing.Optional[AsyncAudiencesClient] = None
@@ -1059,9 +1039,8 @@ class AsyncWhop:
         self._cards: typing.Optional[AsyncCardsClient] = None
         self._chat_channels: typing.Optional[AsyncChatChannelsClient] = None
         self._checkout_configurations: typing.Optional[AsyncCheckoutConfigurationsClient] = None
-        self._checkout_sessions: typing.Optional[AsyncCheckoutSessionsClient] = None
-        self._companies: typing.Optional[AsyncCompaniesClient] = None
         self._company_token_transactions: typing.Optional[AsyncCompanyTokenTransactionsClient] = None
+        self._confirmation_tokens: typing.Optional[AsyncConfirmationTokensClient] = None
         self._course_chapters: typing.Optional[AsyncCourseChaptersClient] = None
         self._course_lesson_interactions: typing.Optional[AsyncCourseLessonInteractionsClient] = None
         self._course_lessons: typing.Optional[AsyncCourseLessonsClient] = None
@@ -1079,7 +1058,7 @@ class AsyncWhop:
         self._fee_markups: typing.Optional[AsyncFeeMarkupsClient] = None
         self._files: typing.Optional[AsyncFilesClient] = None
         self._financial_activity: typing.Optional[AsyncFinancialActivityClient] = None
-        self._ledgers: typing.Optional[AsyncLedgersClient] = None
+        self._financial_reports: typing.Optional[AsyncFinancialReportsClient] = None
         self._forum_posts: typing.Optional[AsyncForumPostsClient] = None
         self._forums: typing.Optional[AsyncForumsClient] = None
         self._identity_profiles: typing.Optional[AsyncIdentityProfilesClient] = None
@@ -1120,7 +1099,6 @@ class AsyncWhop:
         self._users: typing.Optional[AsyncUsersClient] = None
         self._verifications: typing.Optional[AsyncVerificationsClient] = None
         self._webhooks: typing.Optional[AsyncWebhooksClient] = None
-        self._withdrawals: typing.Optional[AsyncWithdrawalsClient] = None
 
     @property
     def access_tokens(self):
@@ -1163,14 +1141,6 @@ class AsyncWhop:
         return self._ad_groups
 
     @property
-    def ad_reports(self):
-        if self._ad_reports is None:
-            from .ad_reports.client import AsyncAdReportsClient  # noqa: E402
-
-            self._ad_reports = AsyncAdReportsClient(client_wrapper=self._client_wrapper)
-        return self._ad_reports
-
-    @property
     def ads(self):
         if self._ads is None:
             from .ads.client import AsyncAdsClient  # noqa: E402
@@ -1201,6 +1171,14 @@ class AsyncWhop:
 
             self._api_keys = AsyncApiKeysClient(client_wrapper=self._client_wrapper)
         return self._api_keys
+
+    @property
+    def api_logs(self):
+        if self._api_logs is None:
+            from .api_logs.client import AsyncApiLogsClient  # noqa: E402
+
+            self._api_logs = AsyncApiLogsClient(client_wrapper=self._client_wrapper)
+        return self._api_logs
 
     @property
     def app_builds(self):
@@ -1283,28 +1261,20 @@ class AsyncWhop:
         return self._checkout_configurations
 
     @property
-    def checkout_sessions(self):
-        if self._checkout_sessions is None:
-            from .checkout_sessions.client import AsyncCheckoutSessionsClient  # noqa: E402
-
-            self._checkout_sessions = AsyncCheckoutSessionsClient(client_wrapper=self._client_wrapper)
-        return self._checkout_sessions
-
-    @property
-    def companies(self):
-        if self._companies is None:
-            from .companies.client import AsyncCompaniesClient  # noqa: E402
-
-            self._companies = AsyncCompaniesClient(client_wrapper=self._client_wrapper)
-        return self._companies
-
-    @property
     def company_token_transactions(self):
         if self._company_token_transactions is None:
             from .company_token_transactions.client import AsyncCompanyTokenTransactionsClient  # noqa: E402
 
             self._company_token_transactions = AsyncCompanyTokenTransactionsClient(client_wrapper=self._client_wrapper)
         return self._company_token_transactions
+
+    @property
+    def confirmation_tokens(self):
+        if self._confirmation_tokens is None:
+            from .confirmation_tokens.client import AsyncConfirmationTokensClient  # noqa: E402
+
+            self._confirmation_tokens = AsyncConfirmationTokensClient(client_wrapper=self._client_wrapper)
+        return self._confirmation_tokens
 
     @property
     def course_chapters(self):
@@ -1443,12 +1413,12 @@ class AsyncWhop:
         return self._financial_activity
 
     @property
-    def ledgers(self):
-        if self._ledgers is None:
-            from .ledgers.client import AsyncLedgersClient  # noqa: E402
+    def financial_reports(self):
+        if self._financial_reports is None:
+            from .financial_reports.client import AsyncFinancialReportsClient  # noqa: E402
 
-            self._ledgers = AsyncLedgersClient(client_wrapper=self._client_wrapper)
-        return self._ledgers
+            self._financial_reports = AsyncFinancialReportsClient(client_wrapper=self._client_wrapper)
+        return self._financial_reports
 
     @property
     def forum_posts(self):
@@ -1769,14 +1739,6 @@ class AsyncWhop:
 
             self._webhooks = AsyncWebhooksClient(client_wrapper=self._client_wrapper)
         return self._webhooks
-
-    @property
-    def withdrawals(self):
-        if self._withdrawals is None:
-            from .withdrawals.client import AsyncWithdrawalsClient  # noqa: E402
-
-            self._withdrawals = AsyncWithdrawalsClient(client_wrapper=self._client_wrapper)
-        return self._withdrawals
 
 
 def _get_base_url(*, base_url: typing.Optional[str] = None, environment: WhopEnvironment) -> str:

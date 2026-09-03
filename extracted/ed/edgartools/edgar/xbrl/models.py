@@ -112,6 +112,11 @@ class ElementCatalog:
         balance: The balance type of the element (e.g., "debit", "credit", or None)
         abstract: Whether the element is abstract (True/False)
         labels: A dictionary of labels for the element, keyed by role URI
+        substitution_group: The declared substitutionGroup, which is what marks
+            an element as a dimension ("xbrldt:dimensionItem") or a hypercube
+        typed_domain_ref: The xbrldt:typedDomainRef of a TYPED dimension. Its
+            presence is what makes a dimension typed rather than explicit, so
+            None here means "declared without one", not "we never looked"
     """
 
     def __init__(self,
@@ -120,7 +125,9 @@ class ElementCatalog:
                  period_type: str,
                  balance: Optional[str] = None,
                  abstract: bool = False,
-                 labels: Optional[Dict[str, str]] = None
+                 labels: Optional[Dict[str, str]] = None,
+                 substitution_group: Optional[str] = None,
+                 typed_domain_ref: Optional[str] = None
                  ):
         self.name = name
         self.data_type = data_type
@@ -128,6 +135,8 @@ class ElementCatalog:
         self.balance = balance
         self.abstract = abstract
         self.labels = labels if labels is not None else {}
+        self.substitution_group = substitution_group
+        self.typed_domain_ref = typed_domain_ref
 
     def __str__(self) -> str:
         return self.name
@@ -297,6 +306,21 @@ class CalculationNode(BaseModel):
     period_type: Optional[str] = None  # "instant" or "duration"
 
 
+class CalculationArc(BaseModel):
+    """
+    One parent-to-child summation-item relationship.
+
+    Calculation edges are per relationship, not per concept: a concept may
+    legitimately roll up into two different totals, with a different weight —
+    and often a different sign — under each. `CalculationNode` can only record
+    one of those, so the edges are kept here.
+    """
+    parent_id: str
+    child_id: str
+    weight: float = 1.0
+    order: float = 0.0
+
+
 class CalculationTree(BaseModel):
     """
     A calculation tree for a specific role.
@@ -307,6 +331,10 @@ class CalculationTree(BaseModel):
     definition: str
     root_element_id: str
     all_nodes: Dict[str, CalculationNode] = Field(default_factory=dict)
+    # Every filed relationship in this role. `all_nodes` keeps one node per
+    # concept for lookup and membership; this keeps one entry per edge, which is
+    # what a concept with two calculation parents needs.
+    all_arcs: List[CalculationArc] = Field(default_factory=list)
 
 
 class Axis(BaseModel):
@@ -317,6 +345,10 @@ class Axis(BaseModel):
     """
     element_id: str
     label: str
+    # The extended link role this axis was declared under. An axis can be
+    # attached to a different domain in each role, so the pair (role_uri,
+    # element_id) is its identity; "" marks an entry merged across roles.
+    role_uri: str = ""
     domain_id: Optional[str] = None
     default_member_id: Optional[str] = None
     is_typed_dimension: bool = False
@@ -331,6 +363,10 @@ class Domain(BaseModel):
     """
     element_id: str
     label: str
+    # The extended link role this domain was declared under. The same domain
+    # routinely carries different members in different roles; "" marks an entry
+    # merged across roles.
+    role_uri: str = ""
     members: List[str] = Field(default_factory=list)  # List of domain member element IDs
     parent: Optional[str] = None  # Parent domain element ID
 

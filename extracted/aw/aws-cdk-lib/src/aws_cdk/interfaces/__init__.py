@@ -183,7 +183,9 @@ __all__ = [
     "ResourceEnvironment",
     "alexa_ask",
     "aws_accessanalyzer",
+    "aws_accountaccess",
     "aws_acmpca",
+    "aws_agentregistry",
     "aws_aiops",
     "aws_amazonmq",
     "aws_amplify",
@@ -204,7 +206,6 @@ __all__ = [
     "aws_aps",
     "aws_arcregionswitch",
     "aws_arczonalshift",
-    "aws_artifact",
     "aws_athena",
     "aws_auditmanager",
     "aws_autoscaling",
@@ -213,7 +214,6 @@ __all__ = [
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
-    "aws_backupsearch",
     "aws_batch",
     "aws_bcm",
     "aws_bcmdataexports",
@@ -236,6 +236,7 @@ __all__ = [
     "aws_cloud9",
     "aws_cloudformation",
     "aws_cloudfront",
+    "aws_cloudhsm",
     "aws_cloudtrail",
     "aws_cloudwatch",
     "aws_codeartifact",
@@ -250,18 +251,17 @@ __all__ = [
     "aws_codestarconnections",
     "aws_codestarnotifications",
     "aws_cognito",
-    "aws_cognitosync",
     "aws_comprehend",
     "aws_computeoptimizer",
     "aws_config",
     "aws_connect",
     "aws_connectcampaigns",
     "aws_connectcampaignsv2",
-    "aws_controlcatalog",
     "aws_controltower",
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
+    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -277,6 +277,7 @@ __all__ = [
     "aws_dms",
     "aws_docdb",
     "aws_docdbelastic",
+    "aws_drs",
     "aws_dsql",
     "aws_dynamodb",
     "aws_ec2",
@@ -329,6 +330,7 @@ __all__ = [
     "aws_iotevents",
     "aws_iotfleethub",
     "aws_iotfleetwise",
+    "aws_iotsecuretunneling",
     "aws_iotsitewise",
     "aws_iotthingsgraph",
     "aws_iottwinmaker",
@@ -366,6 +368,7 @@ __all__ = [
     "aws_mediastore",
     "aws_mediatailor",
     "aws_memorydb",
+    "aws_mgn",
     "aws_mpa",
     "aws_msk",
     "aws_mwaa",
@@ -383,6 +386,7 @@ __all__ = [
     "aws_observabilityadmin",
     "aws_odb",
     "aws_omics",
+    "aws_opensearch",
     "aws_opensearchserverless",
     "aws_opensearchservice",
     "aws_opsworks",
@@ -440,6 +444,7 @@ __all__ = [
     "aws_securityagent",
     "aws_securityhub",
     "aws_securitylake",
+    "aws_serverlessrepo",
     "aws_servicecatalog",
     "aws_servicecatalogappregistry",
     "aws_servicediscovery",
@@ -456,17 +461,17 @@ __all__ = [
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
-    "aws_states",
     "aws_stepfunctions",
     "aws_storagegateway",
     "aws_supportapp",
+    "aws_supportauthz",
     "aws_synthetics",
     "aws_systemsmanagersap",
-    "aws_thinclient",
+    "aws_textract",
     "aws_timestream",
     "aws_transcribe",
     "aws_transfer",
-    "aws_usernotifications",
+    "aws_translate",
     "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
@@ -475,6 +480,7 @@ __all__ = [
     "aws_wafregional",
     "aws_wafv2",
     "aws_wellarchitected",
+    "aws_wickr",
     "aws_wisdom",
     "aws_workspaces",
     "aws_workspacesinstances",
@@ -489,7 +495,9 @@ if typing.TYPE_CHECKING:
     pass
     from . import alexa_ask as alexa_ask
     from . import aws_accessanalyzer as aws_accessanalyzer
+    from . import aws_accountaccess as aws_accountaccess
     from . import aws_acmpca as aws_acmpca
+    from . import aws_agentregistry as aws_agentregistry
     from . import aws_aiops as aws_aiops
     from . import aws_amazonmq as aws_amazonmq
     from . import aws_amplify as aws_amplify
@@ -510,7 +518,6 @@ if typing.TYPE_CHECKING:
     from . import aws_aps as aws_aps
     from . import aws_arcregionswitch as aws_arcregionswitch
     from . import aws_arczonalshift as aws_arczonalshift
-    from . import aws_artifact as aws_artifact
     from . import aws_athena as aws_athena
     from . import aws_auditmanager as aws_auditmanager
     from . import aws_autoscaling as aws_autoscaling
@@ -519,7 +526,6 @@ if typing.TYPE_CHECKING:
     from . import aws_b2bi as aws_b2bi
     from . import aws_backup as aws_backup
     from . import aws_backupgateway as aws_backupgateway
-    from . import aws_backupsearch as aws_backupsearch
     from . import aws_batch as aws_batch
     from . import aws_bcm as aws_bcm
     from . import aws_bcmdataexports as aws_bcmdataexports
@@ -542,6 +548,7 @@ if typing.TYPE_CHECKING:
     from . import aws_cloud9 as aws_cloud9
     from . import aws_cloudformation as aws_cloudformation
     from . import aws_cloudfront as aws_cloudfront
+    from . import aws_cloudhsm as aws_cloudhsm
     from . import aws_cloudtrail as aws_cloudtrail
     from . import aws_cloudwatch as aws_cloudwatch
     from . import aws_codeartifact as aws_codeartifact
@@ -556,18 +563,17 @@ if typing.TYPE_CHECKING:
     from . import aws_codestarconnections as aws_codestarconnections
     from . import aws_codestarnotifications as aws_codestarnotifications
     from . import aws_cognito as aws_cognito
-    from . import aws_cognitosync as aws_cognitosync
     from . import aws_comprehend as aws_comprehend
     from . import aws_computeoptimizer as aws_computeoptimizer
     from . import aws_config as aws_config
     from . import aws_connect as aws_connect
     from . import aws_connectcampaigns as aws_connectcampaigns
     from . import aws_connectcampaignsv2 as aws_connectcampaignsv2
-    from . import aws_controlcatalog as aws_controlcatalog
     from . import aws_controltower as aws_controltower
     from . import aws_cur as aws_cur
     from . import aws_customerprofiles as aws_customerprofiles
     from . import aws_databrew as aws_databrew
+    from . import aws_dataexchange as aws_dataexchange
     from . import aws_datapipeline as aws_datapipeline
     from . import aws_datasync as aws_datasync
     from . import aws_datazone as aws_datazone
@@ -583,6 +589,7 @@ if typing.TYPE_CHECKING:
     from . import aws_dms as aws_dms
     from . import aws_docdb as aws_docdb
     from . import aws_docdbelastic as aws_docdbelastic
+    from . import aws_drs as aws_drs
     from . import aws_dsql as aws_dsql
     from . import aws_dynamodb as aws_dynamodb
     from . import aws_ec2 as aws_ec2
@@ -635,6 +642,7 @@ if typing.TYPE_CHECKING:
     from . import aws_iotevents as aws_iotevents
     from . import aws_iotfleethub as aws_iotfleethub
     from . import aws_iotfleetwise as aws_iotfleetwise
+    from . import aws_iotsecuretunneling as aws_iotsecuretunneling
     from . import aws_iotsitewise as aws_iotsitewise
     from . import aws_iotthingsgraph as aws_iotthingsgraph
     from . import aws_iottwinmaker as aws_iottwinmaker
@@ -672,6 +680,7 @@ if typing.TYPE_CHECKING:
     from . import aws_mediastore as aws_mediastore
     from . import aws_mediatailor as aws_mediatailor
     from . import aws_memorydb as aws_memorydb
+    from . import aws_mgn as aws_mgn
     from . import aws_mpa as aws_mpa
     from . import aws_msk as aws_msk
     from . import aws_mwaa as aws_mwaa
@@ -689,6 +698,7 @@ if typing.TYPE_CHECKING:
     from . import aws_observabilityadmin as aws_observabilityadmin
     from . import aws_odb as aws_odb
     from . import aws_omics as aws_omics
+    from . import aws_opensearch as aws_opensearch
     from . import aws_opensearchserverless as aws_opensearchserverless
     from . import aws_opensearchservice as aws_opensearchservice
     from . import aws_opsworks as aws_opsworks
@@ -746,6 +756,7 @@ if typing.TYPE_CHECKING:
     from . import aws_securityagent as aws_securityagent
     from . import aws_securityhub as aws_securityhub
     from . import aws_securitylake as aws_securitylake
+    from . import aws_serverlessrepo as aws_serverlessrepo
     from . import aws_servicecatalog as aws_servicecatalog
     from . import aws_servicecatalogappregistry as aws_servicecatalogappregistry
     from . import aws_servicediscovery as aws_servicediscovery
@@ -762,17 +773,17 @@ if typing.TYPE_CHECKING:
     from . import aws_ssmincidents as aws_ssmincidents
     from . import aws_ssmquicksetup as aws_ssmquicksetup
     from . import aws_sso as aws_sso
-    from . import aws_states as aws_states
     from . import aws_stepfunctions as aws_stepfunctions
     from . import aws_storagegateway as aws_storagegateway
     from . import aws_supportapp as aws_supportapp
+    from . import aws_supportauthz as aws_supportauthz
     from . import aws_synthetics as aws_synthetics
     from . import aws_systemsmanagersap as aws_systemsmanagersap
-    from . import aws_thinclient as aws_thinclient
+    from . import aws_textract as aws_textract
     from . import aws_timestream as aws_timestream
     from . import aws_transcribe as aws_transcribe
     from . import aws_transfer as aws_transfer
-    from . import aws_usernotifications as aws_usernotifications
+    from . import aws_translate as aws_translate
     from . import aws_uxc as aws_uxc
     from . import aws_verifiedpermissions as aws_verifiedpermissions
     from . import aws_voiceid as aws_voiceid
@@ -781,6 +792,7 @@ if typing.TYPE_CHECKING:
     from . import aws_wafregional as aws_wafregional
     from . import aws_wafv2 as aws_wafv2
     from . import aws_wellarchitected as aws_wellarchitected
+    from . import aws_wickr as aws_wickr
     from . import aws_wisdom as aws_wisdom
     from . import aws_workspaces as aws_workspaces
     from . import aws_workspacesinstances as aws_workspacesinstances
@@ -793,7 +805,9 @@ publication.publish()
 _SUBMODULES = {
     "alexa_ask",
     "aws_accessanalyzer",
+    "aws_accountaccess",
     "aws_acmpca",
+    "aws_agentregistry",
     "aws_aiops",
     "aws_amazonmq",
     "aws_amplify",
@@ -814,7 +828,6 @@ _SUBMODULES = {
     "aws_aps",
     "aws_arcregionswitch",
     "aws_arczonalshift",
-    "aws_artifact",
     "aws_athena",
     "aws_auditmanager",
     "aws_autoscaling",
@@ -823,7 +836,6 @@ _SUBMODULES = {
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
-    "aws_backupsearch",
     "aws_batch",
     "aws_bcm",
     "aws_bcmdataexports",
@@ -846,6 +858,7 @@ _SUBMODULES = {
     "aws_cloud9",
     "aws_cloudformation",
     "aws_cloudfront",
+    "aws_cloudhsm",
     "aws_cloudtrail",
     "aws_cloudwatch",
     "aws_codeartifact",
@@ -860,18 +873,17 @@ _SUBMODULES = {
     "aws_codestarconnections",
     "aws_codestarnotifications",
     "aws_cognito",
-    "aws_cognitosync",
     "aws_comprehend",
     "aws_computeoptimizer",
     "aws_config",
     "aws_connect",
     "aws_connectcampaigns",
     "aws_connectcampaignsv2",
-    "aws_controlcatalog",
     "aws_controltower",
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
+    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -887,6 +899,7 @@ _SUBMODULES = {
     "aws_dms",
     "aws_docdb",
     "aws_docdbelastic",
+    "aws_drs",
     "aws_dsql",
     "aws_dynamodb",
     "aws_ec2",
@@ -939,6 +952,7 @@ _SUBMODULES = {
     "aws_iotevents",
     "aws_iotfleethub",
     "aws_iotfleetwise",
+    "aws_iotsecuretunneling",
     "aws_iotsitewise",
     "aws_iotthingsgraph",
     "aws_iottwinmaker",
@@ -976,6 +990,7 @@ _SUBMODULES = {
     "aws_mediastore",
     "aws_mediatailor",
     "aws_memorydb",
+    "aws_mgn",
     "aws_mpa",
     "aws_msk",
     "aws_mwaa",
@@ -993,6 +1008,7 @@ _SUBMODULES = {
     "aws_observabilityadmin",
     "aws_odb",
     "aws_omics",
+    "aws_opensearch",
     "aws_opensearchserverless",
     "aws_opensearchservice",
     "aws_opsworks",
@@ -1050,6 +1066,7 @@ _SUBMODULES = {
     "aws_securityagent",
     "aws_securityhub",
     "aws_securitylake",
+    "aws_serverlessrepo",
     "aws_servicecatalog",
     "aws_servicecatalogappregistry",
     "aws_servicediscovery",
@@ -1066,17 +1083,17 @@ _SUBMODULES = {
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
-    "aws_states",
     "aws_stepfunctions",
     "aws_storagegateway",
     "aws_supportapp",
+    "aws_supportauthz",
     "aws_synthetics",
     "aws_systemsmanagersap",
-    "aws_thinclient",
+    "aws_textract",
     "aws_timestream",
     "aws_transcribe",
     "aws_transfer",
-    "aws_usernotifications",
+    "aws_translate",
     "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
@@ -1085,6 +1102,7 @@ _SUBMODULES = {
     "aws_wafregional",
     "aws_wafv2",
     "aws_wellarchitected",
+    "aws_wickr",
     "aws_wisdom",
     "aws_workspaces",
     "aws_workspacesinstances",

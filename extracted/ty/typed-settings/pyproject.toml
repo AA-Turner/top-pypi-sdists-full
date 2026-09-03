@@ -48,32 +48,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-attrs = [
-    "attrs>=23.1",
-]
-cattrs = [
-    "cattrs>=24.1",
-]
-click = [
-    "click>=7",
-]
-option-groups = [
-    "click-option-group",
-    "click>=7",
-]
-dotenv = [
-    "python-dotenv",
-]
-jinja = [
-    "jinja2",
-]
+attrs = ["attrs>=23.1"]
+cattrs = ["cattrs>=24.1"]
+click = ["click>=7" ]
+option-groups = ["click-option-group", "click>=7"]
+dotenv = ["python-dotenv"]
+jinja = ["jinja2"]
+orjson = ["orjson"]
+yaml = ["pyyaml"]
 pydantic = [
     "pydantic>=2; python_version<'3.14'",
     "pydantic>=2.12.0a1; python_version>='3.14'",
 ]
-all = [  # All features
-    "typed-settings[attrs,cattrs,click,option-groups,jinja,pydantic]",
-]
+all = ["typed-settings[attrs,cattrs,click,option-groups,jinja,pydantic]"]
 
 [dependency-groups]
 docs = [
@@ -86,19 +73,19 @@ docs = [
 lint = [
     "ruff",
     "mypy",
+    "types-pyyaml",
 ]
 test = [
     "coverage[toml]",
     "hypothesis",
     "pytest-cov",
-    "pytest",
+    "pytest>=9.0",
     "rich-click",
     "sybil",
     "typing-extensions; python_version<'3.11'",
 ]
 dev = [
     "nox",
-    "pip-audit",
     {include-group = "docs"},
     {include-group = "lint"},
     {include-group = "test"},
@@ -150,8 +137,8 @@ show_error_codes = true
 module = "typed_settings.*"
 disallow_untyped_defs = true
 
-[tool.pytest.ini_options]
-addopts = "--ignore=README.md --ignore=docs/_build"
+[tool.pytest]
+addopts = ["--ignore=README.md", "--ignore=docs/_build"]
 filterwarnings = [
     # "error",
     "ignore:.*\\-\\-a is used more than once.*:UserWarning"

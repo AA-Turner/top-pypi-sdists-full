@@ -2726,7 +2726,11 @@ class CfnAlarm(
             threshold=123,
             threshold_metric_id="thresholdMetricId",
             treat_missing_data="treatMissingData",
-            unit="unit"
+            unit="unit",
+            warm_up_configuration=cloudwatch.CfnAlarm.WarmUpConfigurationProperty(
+                only_start_evaluating_after_warm_up_period_ends=False,
+                warm_up_period_duration_in_minutes=123
+            )
         )
     '''
 
@@ -2760,6 +2764,7 @@ class CfnAlarm(
         threshold_metric_id: typing.Optional[builtins.str] = None,
         treat_missing_data: typing.Optional[builtins.str] = None,
         unit: typing.Optional[builtins.str] = None,
+        warm_up_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.WarmUpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::Alarm``.
 
@@ -2776,7 +2781,7 @@ class CfnAlarm(
         :param evaluation_criteria: The evaluation criteria for an alarm. This is a union type that currently supports ``PromQLCriteria``.
         :param evaluation_interval: The frequency, in seconds, at which the alarm is evaluated.
         :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
-        :param evaluation_window: 
+        :param evaluation_window: The evaluation window that an alarm uses to select the range of metric data that it evaluates each time it runs. This is a union type. Set exactly one of its members, ``SlidingWindow`` or ``WallClockWindow``. If you don't set ``EvaluationWindow``, the alarm uses a ``SlidingWindow`` by default. For more information, see `Alarm evaluation windows <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarm-evaluation-window.html>`_ in the *CloudWatch User Guide*.
         :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
         :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
         :param metric_name: The name of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you use ``Metrics`` instead and you can't specify ``MetricName`` .
@@ -2790,6 +2795,7 @@ class CfnAlarm(
         :param threshold_metric_id: In an alarm based on an anomaly detection model, this is the ID of the ``ANOMALY_DETECTION_BAND`` function used as the threshold for the alarm.
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are ``breaching`` , ``notBreaching`` , ``ignore`` , and ``missing`` . For more information, see `Configuring How CloudWatch Alarms Treat Missing Data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarms-and-missing-data>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, the default behavior of ``missing`` is used.
         :param unit: The unit of the metric associated with the alarm. Specify this only if you are creating an alarm based on a single metric. Do not specify this if you are specifying a ``Metrics`` array. You can specify the following values: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
+        :param warm_up_configuration: 
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4d1f1b68)
@@ -2821,6 +2827,7 @@ class CfnAlarm(
             threshold_metric_id=threshold_metric_id,
             treat_missing_data=treat_missing_data,
             unit=unit,
+            warm_up_configuration=warm_up_configuration,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3120,6 +3127,7 @@ class CfnAlarm(
     def evaluation_window(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.EvaluationWindowProperty"]]:
+        '''The evaluation window that an alarm uses to select the range of metric data that it evaluates each time it runs.'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.EvaluationWindowProperty"]], jsii.get(self, "evaluationWindow"))
 
     @evaluation_window.setter
@@ -3317,6 +3325,23 @@ class CfnAlarm(
             type_hints = cached_type_hints(_typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c33749d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="warmUpConfiguration")
+    def warm_up_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WarmUpConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WarmUpConfigurationProperty"]], jsii.get(self, "warmUpConfiguration"))
+
+    @warm_up_configuration.setter
+    def warm_up_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WarmUpConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__003a9c2234f92ae718efcb7d512db766d03bdf50e56899f31a1618b747d0a3a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "warmUpConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty",
@@ -3557,9 +3582,13 @@ class CfnAlarm(
             sliding_window: typing.Any = None,
             wall_clock_window: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.WallClockWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param sliding_window: Configuration for sliding evaluation window (default behavior).
-            :param wall_clock_window: 
+            '''The evaluation window that an alarm uses to select the range of metric data that it evaluates each time it runs.
+
+            This is a union type. Set exactly one of its members, ``SlidingWindow`` or ``WallClockWindow``. If you don't set ``EvaluationWindow``, the alarm uses a ``SlidingWindow`` by default.
+            For more information, see `Alarm evaluation windows <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarm-evaluation-window.html>`_ in the *CloudWatch User Guide*.
+
+            :param sliding_window: A sliding window, which advances each time the alarm is evaluated, forming a rolling time window. This is the default evaluation window.
+            :param wall_clock_window: An evaluation window that aligns the evaluated range to fixed clock boundaries that match the alarm's period, such as the top of the hour, midnight, or the start of the calendar week, optionally in a specific time zone. When you use a wall clock window, the alarm's period must be 1 minute (60 seconds), 5 minutes (300 seconds), 1 hour (3,600 seconds), 1 day (86,400 seconds), or 1 week (604,800 seconds). Other period values aren't supported with a wall clock window. Choose a wall clock window when your monitoring is tied to a business or calendar period, such as daily reports, batch jobs, or backups, or when you want alarm evaluations to match the periods shown on a metric dashboard.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationwindow.html
             :exampleMetadata: fixture=_generated
@@ -3591,7 +3620,9 @@ class CfnAlarm(
 
         @builtins.property
         def sliding_window(self) -> typing.Any:
-            '''Configuration for sliding evaluation window (default behavior).
+            '''A sliding window, which advances each time the alarm is evaluated, forming a rolling time window.
+
+            This is the default evaluation window.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationwindow.html#cfn-cloudwatch-alarm-evaluationwindow-slidingwindow
             '''
@@ -3602,7 +3633,11 @@ class CfnAlarm(
         def wall_clock_window(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WallClockWindowProperty"]]:
-            '''
+            '''An evaluation window that aligns the evaluated range to fixed clock boundaries that match the alarm's period, such as the top of the hour, midnight, or the start of the calendar week, optionally in a specific time zone.
+
+            When you use a wall clock window, the alarm's period must be 1 minute (60 seconds), 5 minutes (300 seconds), 1 hour (3,600 seconds), 1 day (86,400 seconds), or 1 week (604,800 seconds). Other period values aren't supported with a wall clock window.
+            Choose a wall clock window when your monitoring is tied to a business or calendar period, such as daily reports, batch jobs, or backups, or when you want alarm evaluations to match the periods shown on a metric dashboard.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationwindow.html#cfn-cloudwatch-alarm-evaluationwindow-wallclockwindow
             '''
             result = self._values.get("wall_clock_window")
@@ -4049,8 +4084,12 @@ class CfnAlarm(
     )
     class WallClockWindowProperty:
         def __init__(self, *, timezone: typing.Optional[builtins.str] = None) -> None:
-            '''
-            :param timezone: The timezone for wall clock evaluation, in IANA time zone format (e.g., America/New_York, UTC).
+            '''An evaluation window that aligns the evaluated range to fixed clock boundaries that match the alarm's period, such as the top of the hour, midnight, or the start of the calendar week, optionally in a specific time zone.
+
+            When you use a wall clock window, the alarm's period must be 1 minute (60 seconds), 5 minutes (300 seconds), 1 hour (3,600 seconds), 1 day (86,400 seconds), or 1 week (604,800 seconds). Other period values aren't supported with a wall clock window.
+            Choose a wall clock window when your monitoring is tied to a business or calendar period, such as daily reports, batch jobs, or backups, or when you want alarm evaluations to match the periods shown on a metric dashboard.
+
+            :param timezone: The time zone to use when the alarm aligns the evaluation window to clock boundaries. You can specify an IANA time zone name (for example, ``America/New_York``), a fixed UTC offset (for example, ``+05:30``), or an offset-prefixed identifier (for example, ``UTC+05:30``). The offset must be aligned to a multiple of 5 minutes. If you don't specify a time zone, CloudWatch uses ``UTC``. The time zone affects window alignment for all periods, including periods of one hour or shorter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-wallclockwindow.html
             :exampleMetadata: fixture=_generated
@@ -4074,7 +4113,10 @@ class CfnAlarm(
 
         @builtins.property
         def timezone(self) -> typing.Optional[builtins.str]:
-            '''The timezone for wall clock evaluation, in IANA time zone format (e.g., America/New_York, UTC).
+            '''The time zone to use when the alarm aligns the evaluation window to clock boundaries.
+
+            You can specify an IANA time zone name (for example, ``America/New_York``), a fixed UTC offset (for example, ``+05:30``), or an offset-prefixed identifier (for example, ``UTC+05:30``). The offset must be aligned to a multiple of 5 minutes. If you don't specify a time zone, CloudWatch uses ``UTC``.
+            The time zone affects window alignment for all periods, including periods of one hour or shorter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-wallclockwindow.html#cfn-cloudwatch-alarm-wallclockwindow-timezone
             '''
@@ -4089,6 +4131,84 @@ class CfnAlarm(
 
         def __repr__(self) -> str:
             return "WallClockWindowProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.WarmUpConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "only_start_evaluating_after_warm_up_period_ends": "onlyStartEvaluatingAfterWarmUpPeriodEnds",
+            "warm_up_period_duration_in_minutes": "warmUpPeriodDurationInMinutes",
+        },
+    )
+    class WarmUpConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            only_start_evaluating_after_warm_up_period_ends: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            warm_up_period_duration_in_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param only_start_evaluating_after_warm_up_period_ends: Specifies whether the alarm waits for the full warm-up period before it starts evaluating. If true, the alarm waits the entire WarmUpPeriodDurationInMinutes before it starts evaluating, even if metric data arrives earlier. If false, the alarm ends the warm-up period early and starts evaluating as soon as it has enough metric data to fill its evaluation window. This is the default behavior.
+            :param warm_up_period_duration_in_minutes: The length of the warm-up period, in minutes. For this duration after you create or update the alarm, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions. Valid values range from 1 to 2880 minutes (2 days). You can change this value while the alarm is still in its warm-up period. Changes have no effect after the warm-up period ends.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-warmupconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                warm_up_configuration_property = cloudwatch.CfnAlarm.WarmUpConfigurationProperty(
+                    only_start_evaluating_after_warm_up_period_ends=False,
+                    warm_up_period_duration_in_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6a97fa744a520167b77dd441c5768ef7ced332d92c4b1132e7bf1a79b0a4b84d)
+                check_type(argname="argument only_start_evaluating_after_warm_up_period_ends", value=only_start_evaluating_after_warm_up_period_ends, expected_type=type_hints["only_start_evaluating_after_warm_up_period_ends"])
+                check_type(argname="argument warm_up_period_duration_in_minutes", value=warm_up_period_duration_in_minutes, expected_type=type_hints["warm_up_period_duration_in_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if only_start_evaluating_after_warm_up_period_ends is not None:
+                self._values["only_start_evaluating_after_warm_up_period_ends"] = only_start_evaluating_after_warm_up_period_ends
+            if warm_up_period_duration_in_minutes is not None:
+                self._values["warm_up_period_duration_in_minutes"] = warm_up_period_duration_in_minutes
+
+        @builtins.property
+        def only_start_evaluating_after_warm_up_period_ends(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether the alarm waits for the full warm-up period before it starts evaluating.
+
+            If true, the alarm waits the entire WarmUpPeriodDurationInMinutes before it starts evaluating, even if metric data arrives earlier. If false, the alarm ends the warm-up period early and starts evaluating as soon as it has enough metric data to fill its evaluation window. This is the default behavior.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-warmupconfiguration.html#cfn-cloudwatch-alarm-warmupconfiguration-onlystartevaluatingafterwarmupperiodends
+            '''
+            result = self._values.get("only_start_evaluating_after_warm_up_period_ends")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def warm_up_period_duration_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''The length of the warm-up period, in minutes.
+
+            For this duration after you create or update the alarm, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions. Valid values range from 1 to 2880 minutes (2 days). You can change this value while the alarm is still in its warm-up period. Changes have no effect after the warm-up period ends.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-warmupconfiguration.html#cfn-cloudwatch-alarm-warmupconfiguration-warmupperioddurationinminutes
+            '''
+            result = self._values.get("warm_up_period_duration_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WarmUpConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4810,6 +4930,7 @@ class CfnAlarmMuteRuleProps:
         "threshold_metric_id": "thresholdMetricId",
         "treat_missing_data": "treatMissingData",
         "unit": "unit",
+        "warm_up_configuration": "warmUpConfiguration",
     },
 )
 class CfnAlarmProps:
@@ -4841,6 +4962,7 @@ class CfnAlarmProps:
         threshold_metric_id: typing.Optional[builtins.str] = None,
         treat_missing_data: typing.Optional[builtins.str] = None,
         unit: typing.Optional[builtins.str] = None,
+        warm_up_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.WarmUpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAlarm``.
 
@@ -4855,7 +4977,7 @@ class CfnAlarmProps:
         :param evaluation_criteria: The evaluation criteria for an alarm. This is a union type that currently supports ``PromQLCriteria``.
         :param evaluation_interval: The frequency, in seconds, at which the alarm is evaluated.
         :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
-        :param evaluation_window: 
+        :param evaluation_window: The evaluation window that an alarm uses to select the range of metric data that it evaluates each time it runs. This is a union type. Set exactly one of its members, ``SlidingWindow`` or ``WallClockWindow``. If you don't set ``EvaluationWindow``, the alarm uses a ``SlidingWindow`` by default. For more information, see `Alarm evaluation windows <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarm-evaluation-window.html>`_ in the *CloudWatch User Guide*.
         :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
         :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
         :param metric_name: The name of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you use ``Metrics`` instead and you can't specify ``MetricName`` .
@@ -4869,6 +4991,7 @@ class CfnAlarmProps:
         :param threshold_metric_id: In an alarm based on an anomaly detection model, this is the ID of the ``ANOMALY_DETECTION_BAND`` function used as the threshold for the alarm.
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are ``breaching`` , ``notBreaching`` , ``ignore`` , and ``missing`` . For more information, see `Configuring How CloudWatch Alarms Treat Missing Data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarms-and-missing-data>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, the default behavior of ``missing`` is used.
         :param unit: The unit of the metric associated with the alarm. Specify this only if you are creating an alarm based on a single metric. Do not specify this if you are specifying a ``Metrics`` array. You can specify the following values: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
+        :param warm_up_configuration: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html
         :exampleMetadata: fixture=_generated
@@ -4948,7 +5071,11 @@ class CfnAlarmProps:
                 threshold=123,
                 threshold_metric_id="thresholdMetricId",
                 treat_missing_data="treatMissingData",
-                unit="unit"
+                unit="unit",
+                warm_up_configuration=cloudwatch.CfnAlarm.WarmUpConfigurationProperty(
+                    only_start_evaluating_after_warm_up_period_ends=False,
+                    warm_up_period_duration_in_minutes=123
+                )
             )
         '''
         if __debug__:
@@ -4978,6 +5105,7 @@ class CfnAlarmProps:
             check_type(argname="argument threshold_metric_id", value=threshold_metric_id, expected_type=type_hints["threshold_metric_id"])
             check_type(argname="argument treat_missing_data", value=treat_missing_data, expected_type=type_hints["treat_missing_data"])
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            check_type(argname="argument warm_up_configuration", value=warm_up_configuration, expected_type=type_hints["warm_up_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if actions_enabled is not None:
             self._values["actions_enabled"] = actions_enabled
@@ -5029,6 +5157,8 @@ class CfnAlarmProps:
             self._values["treat_missing_data"] = treat_missing_data
         if unit is not None:
             self._values["unit"] = unit
+        if warm_up_configuration is not None:
+            self._values["warm_up_configuration"] = warm_up_configuration
 
     @builtins.property
     def actions_enabled(
@@ -5168,7 +5298,11 @@ class CfnAlarmProps:
     def evaluation_window(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.EvaluationWindowProperty"]]:
-        '''
+        '''The evaluation window that an alarm uses to select the range of metric data that it evaluates each time it runs.
+
+        This is a union type. Set exactly one of its members, ``SlidingWindow`` or ``WallClockWindow``. If you don't set ``EvaluationWindow``, the alarm uses a ``SlidingWindow`` by default.
+        For more information, see `Alarm evaluation windows <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarm-evaluation-window.html>`_ in the *CloudWatch User Guide*.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-evaluationwindow
         '''
         result = self._values.get("evaluation_window")
@@ -5336,6 +5470,16 @@ class CfnAlarmProps:
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def warm_up_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WarmUpConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-warmupconfiguration
+        '''
+        result = self._values.get("warm_up_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WarmUpConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8271,7 +8415,11 @@ class CfnLogAlarm(
                 key="key",
                 value="value"
             )],
-            treat_missing_data="treatMissingData"
+            treat_missing_data="treatMissingData",
+            warm_up_configuration=cloudwatch.CfnLogAlarm.WarmUpConfigurationProperty(
+                only_start_evaluating_after_warm_up_period_ends=False,
+                warm_up_period_duration_in_minutes=123
+            )
         )
     '''
 
@@ -8295,6 +8443,7 @@ class CfnLogAlarm(
         ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         treat_missing_data: typing.Optional[builtins.str] = None,
+        warm_up_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.WarmUpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::LogAlarm``.
 
@@ -8315,6 +8464,7 @@ class CfnLogAlarm(
         :param ok_actions: The actions to execute when this alarm transitions to the OK state from any other state.
         :param tags: A list of key-value pairs to associate with the log alarm.
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are breaching, notBreaching, ignore, and missing.
+        :param warm_up_configuration: The warm-up configuration for an alarm. A warm-up period delays alarm evaluation after you create or update the alarm. This reduces alarm noise from missing data while a new resource or service starts up. During the warm-up period, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54cfe154f)
@@ -8336,6 +8486,7 @@ class CfnLogAlarm(
             ok_actions=ok_actions,
             tags=tags,
             treat_missing_data=treat_missing_data,
+            warm_up_configuration=warm_up_configuration,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -8638,6 +8789,24 @@ class CfnLogAlarm(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "treatMissingData", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="warmUpConfiguration")
+    def warm_up_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.WarmUpConfigurationProperty"]]:
+        '''The warm-up configuration for an alarm.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.WarmUpConfigurationProperty"]], jsii.get(self, "warmUpConfiguration"))
+
+    @warm_up_configuration.setter
+    def warm_up_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.WarmUpConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ec5e41b15f772a74735e022859920a8c97602512f8dc3337ee8c7c71698bb39)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "warmUpConfiguration", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty",
         jsii_struct_bases=[],
@@ -8886,6 +9055,87 @@ class CfnLogAlarm(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm.WarmUpConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "only_start_evaluating_after_warm_up_period_ends": "onlyStartEvaluatingAfterWarmUpPeriodEnds",
+            "warm_up_period_duration_in_minutes": "warmUpPeriodDurationInMinutes",
+        },
+    )
+    class WarmUpConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            only_start_evaluating_after_warm_up_period_ends: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            warm_up_period_duration_in_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The warm-up configuration for an alarm.
+
+            A warm-up period delays alarm evaluation after you create or update the alarm. This reduces alarm noise from missing data while a new resource or service starts up. During the warm-up period, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions.
+
+            :param only_start_evaluating_after_warm_up_period_ends: Specifies whether the alarm waits for the full warm-up period before it starts evaluating. If true, the alarm waits the entire WarmUpPeriodDurationInMinutes before it starts evaluating, even if metric data arrives earlier. If false, the alarm ends the warm-up period early and starts evaluating as soon as it has enough metric data to fill its evaluation window. This is the default behavior.
+            :param warm_up_period_duration_in_minutes: The length of the warm-up period, in minutes. For this duration after you create or update the alarm, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions. Valid values range from 1 to 2,880 minutes (2 days). You can change this value while the alarm is still in its warm-up period. Changes have no effect after the warm-up period ends.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-warmupconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                warm_up_configuration_property = cloudwatch.CfnLogAlarm.WarmUpConfigurationProperty(
+                    only_start_evaluating_after_warm_up_period_ends=False,
+                    warm_up_period_duration_in_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b793c7a702304d5f4d4b5dc682c52cfd40cbeef13504887308c117debacbb2bc)
+                check_type(argname="argument only_start_evaluating_after_warm_up_period_ends", value=only_start_evaluating_after_warm_up_period_ends, expected_type=type_hints["only_start_evaluating_after_warm_up_period_ends"])
+                check_type(argname="argument warm_up_period_duration_in_minutes", value=warm_up_period_duration_in_minutes, expected_type=type_hints["warm_up_period_duration_in_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if only_start_evaluating_after_warm_up_period_ends is not None:
+                self._values["only_start_evaluating_after_warm_up_period_ends"] = only_start_evaluating_after_warm_up_period_ends
+            if warm_up_period_duration_in_minutes is not None:
+                self._values["warm_up_period_duration_in_minutes"] = warm_up_period_duration_in_minutes
+
+        @builtins.property
+        def only_start_evaluating_after_warm_up_period_ends(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether the alarm waits for the full warm-up period before it starts evaluating.
+
+            If true, the alarm waits the entire WarmUpPeriodDurationInMinutes before it starts evaluating, even if metric data arrives earlier. If false, the alarm ends the warm-up period early and starts evaluating as soon as it has enough metric data to fill its evaluation window. This is the default behavior.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-warmupconfiguration.html#cfn-cloudwatch-logalarm-warmupconfiguration-onlystartevaluatingafterwarmupperiodends
+            '''
+            result = self._values.get("only_start_evaluating_after_warm_up_period_ends")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def warm_up_period_duration_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''The length of the warm-up period, in minutes.
+
+            For this duration after you create or update the alarm, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions. Valid values range from 1 to 2,880 minutes (2 days). You can change this value while the alarm is still in its warm-up period. Changes have no effect after the warm-up period ends.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-warmupconfiguration.html#cfn-cloudwatch-logalarm-warmupconfiguration-warmupperioddurationinminutes
+            '''
+            result = self._values.get("warm_up_period_duration_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WarmUpConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarmProps",
@@ -8906,6 +9156,7 @@ class CfnLogAlarm(
         "ok_actions": "okActions",
         "tags": "tags",
         "treat_missing_data": "treatMissingData",
+        "warm_up_configuration": "warmUpConfiguration",
     },
 )
 class CfnLogAlarmProps:
@@ -8927,6 +9178,7 @@ class CfnLogAlarmProps:
         ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         treat_missing_data: typing.Optional[builtins.str] = None,
+        warm_up_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.WarmUpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLogAlarm``.
 
@@ -8945,6 +9197,7 @@ class CfnLogAlarmProps:
         :param ok_actions: The actions to execute when this alarm transitions to the OK state from any other state.
         :param tags: A list of key-value pairs to associate with the log alarm.
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are breaching, notBreaching, ignore, and missing.
+        :param warm_up_configuration: The warm-up configuration for an alarm. A warm-up period delays alarm evaluation after you create or update the alarm. This reduces alarm noise from missing data while a new resource or service starts up. During the warm-up period, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html
         :exampleMetadata: fixture=_generated
@@ -8994,7 +9247,11 @@ class CfnLogAlarmProps:
                     key="key",
                     value="value"
                 )],
-                treat_missing_data="treatMissingData"
+                treat_missing_data="treatMissingData",
+                warm_up_configuration=cloudwatch.CfnLogAlarm.WarmUpConfigurationProperty(
+                    only_start_evaluating_after_warm_up_period_ends=False,
+                    warm_up_period_duration_in_minutes=123
+                )
             )
         '''
         if __debug__:
@@ -9014,6 +9271,7 @@ class CfnLogAlarmProps:
             check_type(argname="argument ok_actions", value=ok_actions, expected_type=type_hints["ok_actions"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument treat_missing_data", value=treat_missing_data, expected_type=type_hints["treat_missing_data"])
+            check_type(argname="argument warm_up_configuration", value=warm_up_configuration, expected_type=type_hints["warm_up_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "comparison_operator": comparison_operator,
             "query_results_to_alarm": query_results_to_alarm,
@@ -9041,6 +9299,8 @@ class CfnLogAlarmProps:
             self._values["tags"] = tags
         if treat_missing_data is not None:
             self._values["treat_missing_data"] = treat_missing_data
+        if warm_up_configuration is not None:
+            self._values["warm_up_configuration"] = warm_up_configuration
 
     @builtins.property
     def comparison_operator(self) -> builtins.str:
@@ -9197,6 +9457,19 @@ class CfnLogAlarmProps:
         '''
         result = self._values.get("treat_missing_data")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def warm_up_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.WarmUpConfigurationProperty"]]:
+        '''The warm-up configuration for an alarm.
+
+        A warm-up period delays alarm evaluation after you create or update the alarm. This reduces alarm noise from missing data while a new resource or service starts up. During the warm-up period, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-warmupconfiguration
+        '''
+        result = self._values.get("warm_up_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.WarmUpConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13970,25 +14243,22 @@ class MetricOptions(CommonMetricOptions):
 
         Example::
 
-            import aws_cdk.aws_cloudwatch as cloudwatch
+            # channel: medialive.Channel
+            # stack: Stack
             
-            # delivery_stream: firehose.DeliveryStream
             
-            
-            # Alarm that triggers when the per-second average of incoming bytes exceeds 90% of the current service limit
-            incoming_bytes_percent_of_limit = cloudwatch.MathExpression(
-                expression="incomingBytes / 300 / bytePerSecLimit",
-                using_metrics={
-                    "incoming_bytes": delivery_stream.metric_incoming_bytes(statistic=cloudwatch.Statistic.SUM),
-                    "byte_per_sec_limit": delivery_stream.metric("BytesPerSecondLimit")
-                }
+            channel.metric_dropped_frames(medialive.Pipeline.PIPELINE_0).create_alarm(stack, "DroppedFrames",
+                threshold=1,
+                evaluation_periods=2
             )
             
-            cloudwatch.Alarm(self, "Alarm",
-                metric=incoming_bytes_percent_of_limit,
-                threshold=0.9,
-                evaluation_periods=3
+            channel.metric_svq_time(medialive.Pipeline.PIPELINE_0).create_alarm(stack, "SvqTime",
+                threshold=0,
+                evaluation_periods=1
             )
+            
+            # Custom metric by name with sum statistic
+            channel.metric("Output4xxErrors", medialive.Pipeline.PIPELINE_0, statistic="sum")
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0dbe737a4d124c27184430b7c20048e16171cb8b5b94bdac632b26d8480d8116)
@@ -21452,6 +21722,7 @@ def _typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4
     threshold_metric_id: typing.Optional[builtins.str] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
     unit: typing.Optional[builtins.str] = None,
+    warm_up_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.WarmUpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21646,6 +21917,12 @@ def _typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__003a9c2234f92ae718efcb7d512db766d03bdf50e56899f31a1618b747d0a3a9(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarm.WarmUpConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__eca5b42a79ed0b85738a1d3bd7ab396cd5c081454d961525656b642417fc6716(
     *,
     pending_period: typing.Optional[jsii.Number] = None,
@@ -21713,6 +21990,14 @@ def _typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f
 def _typecheckingstub__c2e045796465d23a9dfd1d07836d8ee8d55e86a8697ffac4b4d2fe5b3fd59d67(
     *,
     timezone: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a97fa744a520167b77dd441c5768ef7ced332d92c4b1132e7bf1a79b0a4b84d(
+    *,
+    only_start_evaluating_after_warm_up_period_ends: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    warm_up_period_duration_in_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21861,6 +22146,7 @@ def _typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f1
     threshold_metric_id: typing.Optional[builtins.str] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
     unit: typing.Optional[builtins.str] = None,
+    warm_up_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.WarmUpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22351,6 +22637,7 @@ def _typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54
     ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
+    warm_up_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.WarmUpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22469,6 +22756,12 @@ def _typecheckingstub__67cdad3895817945c11d079d150eedd2b9f00e676c26f36803a927c2a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6ec5e41b15f772a74735e022859920a8c97602512f8dc3337ee8c7c71698bb39(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLogAlarm.WarmUpConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__667c1019a9984b84c525857c349836c0dc54f901df7ce89cbaf01d9dd1a69ef0(
     *,
     schedule_expression: builtins.str,
@@ -22490,6 +22783,14 @@ def _typecheckingstub__8402428f8b2868e4cbb2f43635f42d8e2e2090c5674b0e512c490d0c6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b793c7a702304d5f4d4b5dc682c52cfd40cbeef13504887308c117debacbb2bc(
+    *,
+    only_start_evaluating_after_warm_up_period_ends: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    warm_up_period_duration_in_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5bc1d264(
     *,
     comparison_operator: builtins.str,
@@ -22507,6 +22808,7 @@ def _typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5
     ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
+    warm_up_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.WarmUpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

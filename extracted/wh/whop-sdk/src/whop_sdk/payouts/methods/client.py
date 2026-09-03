@@ -48,7 +48,7 @@ class MethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ListMethodsResponseDataItem, ListMethodsResponse]:
         """
-        Lists the bank accounts, wallets, and crypto addresses an account or user can withdraw to, newest first.
+        Lists the bank accounts, wallets, and crypto addresses an account or user can pay out to, newest first.
 
         Parameters
         ----------
@@ -62,7 +62,7 @@ class MethodsClient:
             Optional status filter. `created` means saved but unused, `active` means a payout through it succeeded, `broken` means the last payout failed and the method needs fixing.
 
         amount : typing.Optional[float]
-            Optional withdrawal amount in whole currency units, for example `250.00`. When provided, each method includes a quote with the estimated fee, amount received, and delivery date for that amount.
+            Optional payout amount in whole currency units, for example `250.00`. When provided, each method includes a quote with the estimated fee, amount received, and delivery date for that amount.
 
         currency : typing.Optional[str]
             Currency code of the amount, for example `usd`. Only meaningful with amount or include_limits.
@@ -88,14 +88,14 @@ class MethodsClient:
         Returns
         -------
         SyncPager[ListMethodsResponseDataItem, ListMethodsResponse]
-            internal stablecoin destinations omitted
+            payout methods listed
 
         Examples
         --------
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -133,7 +133,7 @@ class MethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateMethodsResponse:
         """
-        Saves a new place an account or user can withdraw to. Sensitive details are vaulted in transit and never stored raw.
+        Saves a new place an account or user can pay out to. Sensitive details are vaulted in transit and never stored raw.
 
         Parameters
         ----------
@@ -164,14 +164,14 @@ class MethodsClient:
         Returns
         -------
         CreateMethodsResponse
-            a pre-tokenized Basis Theory value passes through unvaulted
+            payout method created
 
         Examples
         --------
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -213,7 +213,7 @@ class MethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -225,17 +225,25 @@ class MethodsClient:
         return _response.data
 
     def update(
-        self, id: str, *, nickname: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        id: str,
+        *,
+        is_default: typing.Optional[bool] = OMIT,
+        nickname: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateMethodsResponse:
         """
-        Changes the label used to identify a saved payout method.
+        Changes the label used to identify a saved payout method or makes it the account's default payout method.
 
         Parameters
         ----------
         id : str
             Payout method ID, prefixed `potk_`.
 
-        nickname : str
+        is_default : typing.Optional[bool]
+            Set to `true` to make this the account's default payout method. `false` is not accepted.
+
+        nickname : typing.Optional[str]
             New label for the payout method, with at least one non-whitespace character and a maximum of 100 characters.
 
         request_options : typing.Optional[RequestOptions]
@@ -244,23 +252,24 @@ class MethodsClient:
         Returns
         -------
         UpdateMethodsResponse
-            payout method renamed
+            payout method updated
 
         Examples
         --------
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.payouts.methods.update(
             id="id",
-            nickname="Primary checking",
         )
         """
-        _response = self._raw_client.update(id, nickname=nickname, request_options=request_options)
+        _response = self._raw_client.update(
+            id, is_default=is_default, nickname=nickname, request_options=request_options
+        )
         return _response.data
 
 
@@ -295,7 +304,7 @@ class AsyncMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ListMethodsResponseDataItem, ListMethodsResponse]:
         """
-        Lists the bank accounts, wallets, and crypto addresses an account or user can withdraw to, newest first.
+        Lists the bank accounts, wallets, and crypto addresses an account or user can pay out to, newest first.
 
         Parameters
         ----------
@@ -309,7 +318,7 @@ class AsyncMethodsClient:
             Optional status filter. `created` means saved but unused, `active` means a payout through it succeeded, `broken` means the last payout failed and the method needs fixing.
 
         amount : typing.Optional[float]
-            Optional withdrawal amount in whole currency units, for example `250.00`. When provided, each method includes a quote with the estimated fee, amount received, and delivery date for that amount.
+            Optional payout amount in whole currency units, for example `250.00`. When provided, each method includes a quote with the estimated fee, amount received, and delivery date for that amount.
 
         currency : typing.Optional[str]
             Currency code of the amount, for example `usd`. Only meaningful with amount or include_limits.
@@ -335,7 +344,7 @@ class AsyncMethodsClient:
         Returns
         -------
         AsyncPager[ListMethodsResponseDataItem, ListMethodsResponse]
-            internal stablecoin destinations omitted
+            payout methods listed
 
         Examples
         --------
@@ -344,7 +353,7 @@ class AsyncMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -389,7 +398,7 @@ class AsyncMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateMethodsResponse:
         """
-        Saves a new place an account or user can withdraw to. Sensitive details are vaulted in transit and never stored raw.
+        Saves a new place an account or user can pay out to. Sensitive details are vaulted in transit and never stored raw.
 
         Parameters
         ----------
@@ -420,7 +429,7 @@ class AsyncMethodsClient:
         Returns
         -------
         CreateMethodsResponse
-            a pre-tokenized Basis Theory value passes through unvaulted
+            payout method created
 
         Examples
         --------
@@ -429,7 +438,7 @@ class AsyncMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -481,7 +490,7 @@ class AsyncMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -499,17 +508,25 @@ class AsyncMethodsClient:
         return _response.data
 
     async def update(
-        self, id: str, *, nickname: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        id: str,
+        *,
+        is_default: typing.Optional[bool] = OMIT,
+        nickname: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateMethodsResponse:
         """
-        Changes the label used to identify a saved payout method.
+        Changes the label used to identify a saved payout method or makes it the account's default payout method.
 
         Parameters
         ----------
         id : str
             Payout method ID, prefixed `potk_`.
 
-        nickname : str
+        is_default : typing.Optional[bool]
+            Set to `true` to make this the account's default payout method. `false` is not accepted.
+
+        nickname : typing.Optional[str]
             New label for the payout method, with at least one non-whitespace character and a maximum of 100 characters.
 
         request_options : typing.Optional[RequestOptions]
@@ -518,7 +535,7 @@ class AsyncMethodsClient:
         Returns
         -------
         UpdateMethodsResponse
-            payout method renamed
+            payout method updated
 
         Examples
         --------
@@ -527,7 +544,7 @@ class AsyncMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-08-21-1",
+            "2026-09-02-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -536,11 +553,12 @@ class AsyncMethodsClient:
         async def main() -> None:
             await client.payouts.methods.update(
                 id="id",
-                nickname="Primary checking",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.update(id, nickname=nickname, request_options=request_options)
+        _response = await self._raw_client.update(
+            id, is_default=is_default, nickname=nickname, request_options=request_options
+        )
         return _response.data

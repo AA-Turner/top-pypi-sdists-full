@@ -491,7 +491,8 @@ class MgnClient(BaseClient):
         self, **kwargs: Unpack[DescribeReplicationConfigurationTemplatesRequestTypeDef]
     ) -> DescribeReplicationConfigurationTemplatesResponseTypeDef:
         """
-        Lists all ReplicationConfigurationTemplates, filtered by Source Server IDs.
+        Lists all ReplicationConfigurationTemplates, filtered by replication
+        configuration template IDs.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/describe_replication_configuration_templates.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#describe_replication_configuration_templates)
@@ -1186,7 +1187,7 @@ class MgnClient(BaseClient):
         self, **kwargs: Unpack[UpdateReplicationConfigurationTemplateRequestTypeDef]
     ) -> ReplicationConfigurationTemplateResponseTypeDef:
         """
-        Updates multiple ReplicationConfigurationTemplates by ID.
+        Updates a ReplicationConfigurationTemplate by ID.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/update_replication_configuration_template.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#update_replication_configuration_template)

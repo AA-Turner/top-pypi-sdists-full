@@ -1620,6 +1620,51 @@ class _IIntegrationAssociationRefProxy(
 typing.cast(typing.Any, IIntegrationAssociationRef).__jsii_proxy_class__ = lambda : _IIntegrationAssociationRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IMetricRef")
+class IMetricRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Metric.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="metricRef")
+    def metric_ref(self) -> "MetricReference":
+        '''(experimental) A reference to a Metric resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMetricRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Metric.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_connect.IMetricRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="metricRef")
+    def metric_ref(self) -> "MetricReference":
+        '''(experimental) A reference to a Metric resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MetricReference", jsii.get(self, "metricRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMetricRef).__jsii_proxy_class__ = lambda : _IMetricRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.INotificationRef")
 class INotificationRef(
     _constructs_77d1e7e8.IConstruct,
@@ -2691,6 +2736,55 @@ class IntegrationAssociationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.MetricReference",
+    jsii_struct_bases=[],
+    name_mapping={"metric_arn": "metricArn"},
+)
+class MetricReference:
+    def __init__(self, *, metric_arn: builtins.str) -> None:
+        '''A reference to a Metric resource.
+
+        :param metric_arn: The MetricArn of the Metric resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_connect as interfaces_connect
+            
+            metric_reference = interfaces_connect.MetricReference(
+                metric_arn="metricArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b96335055a40c92d6e81d53cdbc82638d4a28857b15d9d54d0ee9b34a21cf003)
+            check_type(argname="argument metric_arn", value=metric_arn, expected_type=type_hints["metric_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_arn": metric_arn,
+        }
+
+    @builtins.property
+    def metric_arn(self) -> builtins.str:
+        '''The MetricArn of the Metric resource.'''
+        result = self._values.get("metric_arn")
+        assert result is not None, "Required property 'metric_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MetricReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_connect.NotificationReference",
     jsii_struct_bases=[],
     name_mapping={"notification_arn": "notificationArn"},
@@ -3688,6 +3782,7 @@ __all__ = [
     "IInstanceRef",
     "IInstanceStorageConfigRef",
     "IIntegrationAssociationRef",
+    "IMetricRef",
     "INotificationRef",
     "IPhoneNumberRef",
     "IPredefinedAttributeRef",
@@ -3710,6 +3805,7 @@ __all__ = [
     "InstanceReference",
     "InstanceStorageConfigReference",
     "IntegrationAssociationReference",
+    "MetricReference",
     "NotificationReference",
     "PhoneNumberReference",
     "PredefinedAttributeReference",
@@ -3864,6 +3960,13 @@ def _typecheckingstub__c5999c1ba890f4adfda7054c24861a2310b5ba7a9a28f49ee65ee35f0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b96335055a40c92d6e81d53cdbc82638d4a28857b15d9d54d0ee9b34a21cf003(
+    *,
+    metric_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0f4ece0f255a501d0bd96693eb9db3bee21572a43e2fd821454853291e5c8f9e(
     *,
     notification_arn: builtins.str,
@@ -3999,5 +4102,5 @@ def _typecheckingstub__59549022c53269d7289aa349f0070431eec816e9588f5cf8c4a4c8e46
     """Type checking stubs"""
     pass
 
-for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataLakeAssociationRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITestCaseRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IWorkspaceRef]:
+for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataLakeAssociationRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, IMetricRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITestCaseRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IWorkspaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

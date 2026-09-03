@@ -146,6 +146,16 @@ class VolumeType(str, Enum, metaclass=StrEnumMeta):
 
 
 @dataclass
+class EngineUpgrade:
+    new_version_id: str
+
+
+@dataclass
+class ServiceUpdate:
+    service_name: str
+
+
+@dataclass
 class EndpointPrivateNetworkDetails:
     """
     Private Network details.
@@ -167,13 +177,10 @@ class EndpointPublicNetworkDetails:
 
 
 @dataclass
-class EngineUpgrade:
-    new_version_id: str
+class Workflow:
+    engine_upgrade: Optional[EngineUpgrade] = None
 
-
-@dataclass
-class ServiceUpdate:
-    service_name: str
+    service_update: Optional[ServiceUpdate] = None
 
 
 @dataclass
@@ -227,6 +234,64 @@ class InstanceSnapshotSchedule:
 
 
 @dataclass
+class Maintenance:
+    id: str
+    """
+    ID of the maintenance.
+    """
+
+    instance_id: str
+    """
+    ID of the instance on which the maintenance is applied.
+    """
+
+    status: MaintenanceStatus
+    """
+    Current status of the maintenance.
+    """
+
+    applied_by: MaintenanceAppliedBy
+    """
+    Usertype who launched the maintenance.
+    """
+
+    reason: str
+    """
+    Reason of the maintenance.
+    """
+
+    created_at: Optional[datetime] = None
+    """
+    Creation date of the maintenance.
+    """
+
+    starts_at: Optional[datetime] = None
+    """
+    Start date of the maintenance.
+    """
+
+    stops_at: Optional[datetime] = None
+    """
+    Stop date of the maintenance.
+    """
+
+    forced_at: Optional[datetime] = None
+    """
+    Forced application date of the maintenance.
+    """
+
+    applied_at: Optional[datetime] = None
+    """
+    Application date of the maintenance.
+    """
+
+    workflow: Optional[Workflow] = None
+    """
+    Workflow to be applied during maintenance.
+    """
+
+
+@dataclass
 class Volume:
     type_: VolumeType
     """
@@ -237,13 +302,6 @@ class Volume:
     """
     Volume size.
     """
-
-
-@dataclass
-class Workflow:
-    engine_upgrade: Optional[EngineUpgrade] = None
-
-    service_update: Optional[ServiceUpdate] = None
 
 
 @dataclass
@@ -360,6 +418,16 @@ class Instance:
     List of settings applied to the Database Instance.
     """
 
+    maintenances: list[Maintenance]
+    """
+    List of pending maintenances applicable to the Database Instance.
+    """
+
+    upgradable_versions: list[str]
+    """
+    List of MongoDB® versions the Database Instance can be upgraded to.
+    """
+
     volume: Optional[Volume] = None
     """
     Volumes of the Database Instance.
@@ -373,64 +441,6 @@ class Instance:
     snapshot_schedule: Optional[InstanceSnapshotSchedule] = None
     """
     Snapshot schedule configuration of the Database Instance.
-    """
-
-
-@dataclass
-class Maintenance:
-    id: str
-    """
-    ID of the maintenance.
-    """
-
-    instance_id: str
-    """
-    ID of the instance on which the maintenance is applied.
-    """
-
-    status: MaintenanceStatus
-    """
-    Current status of the maintenance.
-    """
-
-    applied_by: MaintenanceAppliedBy
-    """
-    Usertype who launched the maintenance.
-    """
-
-    reason: str
-    """
-    Reason of the maintenance.
-    """
-
-    created_at: Optional[datetime] = None
-    """
-    Creation date of the maintenance.
-    """
-
-    starts_at: Optional[datetime] = None
-    """
-    Start date of the maintenance.
-    """
-
-    stops_at: Optional[datetime] = None
-    """
-    Stop date of the maintenance.
-    """
-
-    forced_at: Optional[datetime] = None
-    """
-    Forced application date of the maintenance.
-    """
-
-    applied_at: Optional[datetime] = None
-    """
-    Application date of the maintenance.
-    """
-
-    workflow: Optional[Workflow] = None
-    """
-    Workflow to be applied during maintenance.
     """
 
 
@@ -570,10 +580,19 @@ class Version:
     Date of End of Life.
     """
 
+    released_at: Optional[datetime] = None
+    """
+    Date of Release.
+    """
+
 
 @dataclass
 class ApplyMaintenanceRequest:
     maintenance_id: str
+    """
+    ID of the maintenance.
+    """
+
     region: Optional[ScwRegion] = None
     """
     Region to target. If none is passed will use default region from the config.
@@ -879,6 +898,11 @@ class ListInstancesRequest:
     project_id: Optional[str] = None
     """
     Project ID to list the instances of.
+    """
+
+    has_maintenance: Optional[bool] = False
+    """
+    Retrieve pending maintenances for the database instances if given.
     """
 
     page: Optional[int] = 0
@@ -1232,4 +1256,4 @@ class UpgradeInstanceRequest:
 
     volume_size_bytes: Optional[int] = 0
 
-    version_id: Optional[str] = None
+    version: Optional[str] = None

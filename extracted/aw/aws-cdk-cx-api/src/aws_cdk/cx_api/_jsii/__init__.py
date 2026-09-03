@@ -17,7 +17,7 @@ from jsii._type_checking import cached_type_hints, check_type
 import aws_cdk.cloud_assembly_schema._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "@aws-cdk/cx-api", "2.267.0", __name__[0:-6], "cx-api@2.267.0.jsii.tgz"
+    "@aws-cdk/cx-api", "2.268.0", __name__[0:-6], "cx-api@2.268.0.jsii.tgz"
 )
 
 __all__ = [

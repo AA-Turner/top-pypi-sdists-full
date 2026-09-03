@@ -377,15 +377,15 @@ finally:
             patch("resource.getrusage", side_effect=[rusage_self, rusage_children]),
             patch.object(
                 command_metrics,
-                "_capture_linux_disk_read_mb",
-                return_value=8.0,
+                "_capture_linux_disk_read_usage",
+                return_value={"disk_read_ops": 11.0, "disk_read_mb": 8.0},
             ),
         ):
             usage = command_metrics._capture_resource_usage()
         assert usage == _usage(
             cpu_time_ms=pytest.approx(1500.0),
             peak_memory_mb=pytest.approx(2.0),
-            disk_read_ops=7.0,
+            disk_read_ops=11.0,
             disk_read_mb=8.0,
         )
 
@@ -414,16 +414,16 @@ finally:
             disk_read_mb=6.0,
         )
 
-    def test_linux_disk_read_bytes_come_from_proc_self_io(self):
-        proc_io = "rchar: 123\nwchar: 456\nread_bytes: 8388608\n"
+    def test_linux_disk_read_usage_comes_from_logical_proc_self_io_counters(self):
+        proc_io = "rchar: 8388608\nwchar: 456\nsyscr: 123\nread_bytes: 16777216\n"
         with patch.object(
             command_metrics.Path,
             "read_text",
             return_value=proc_io,
         ):
-            disk_read_mb = command_metrics._capture_linux_disk_read_mb()
+            usage = command_metrics._capture_linux_disk_read_usage()
 
-        assert disk_read_mb == 8.0
+        assert usage == {"disk_read_ops": 123.0, "disk_read_mb": 8.0}
 
     def test_linux_disk_read_capture_fails_dark(self):
         with patch.object(
@@ -431,7 +431,31 @@ finally:
             "read_text",
             side_effect=OSError("procfs unavailable"),
         ):
-            assert command_metrics._capture_linux_disk_read_mb() is None
+            assert command_metrics._capture_linux_disk_read_usage() == {
+                "disk_read_ops": None,
+                "disk_read_mb": None,
+            }
+
+    @pytest.mark.parametrize(
+        ("proc_io", "expected"),
+        [
+            (
+                "syscr: 123\n",
+                {"disk_read_ops": 123.0, "disk_read_mb": None},
+            ),
+            (
+                "rchar: 8388608\n",
+                {"disk_read_ops": None, "disk_read_mb": 8.0},
+            ),
+        ],
+    )
+    def test_linux_disk_read_capture_fails_dark_per_missing_counter(
+        self,
+        proc_io: str,
+        expected: dict[str, float | None],
+    ):
+        with patch.object(command_metrics.Path, "read_text", return_value=proc_io):
+            assert command_metrics._capture_linux_disk_read_usage() == expected
 
     def test_macos_disk_read_bytes_come_from_proc_pid_rusage(self):
         libproc = MagicMock()
@@ -463,13 +487,13 @@ finally:
             patch("resource.getrusage", side_effect=OSError("boom")),
             patch.object(
                 command_metrics,
-                "_capture_linux_disk_read_mb",
-                return_value=9.0,
+                "_capture_linux_disk_read_usage",
+                return_value={"disk_read_ops": 4.0, "disk_read_mb": 9.0},
             ),
         ):
             usage = command_metrics._capture_resource_usage()
 
-        assert usage == _usage(disk_read_mb=9.0)
+        assert usage == _usage(disk_read_ops=4.0, disk_read_mb=9.0)
 
     def test_capture_failure_returns_none_none(self):
         with (
@@ -477,8 +501,8 @@ finally:
             patch("resource.getrusage", side_effect=OSError("boom")),
             patch.object(
                 command_metrics,
-                "_capture_linux_disk_read_mb",
-                return_value=None,
+                "_capture_linux_disk_read_usage",
+                return_value={"disk_read_ops": None, "disk_read_mb": None},
             ),
         ):
             assert command_metrics._capture_resource_usage() == _usage()

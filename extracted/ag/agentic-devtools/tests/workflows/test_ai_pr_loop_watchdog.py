@@ -26,10 +26,11 @@ class TestAiPrLoopWatchdog:
         schedules = triggers["schedule"]
         assert isinstance(schedules, list)
         assert schedules[0]["cron"] == "*/20 * * * *"
+        assert schedules[1]["cron"] == "*/5 * * * *"
 
     def test_has_required_permissions(self) -> None:
         content = AI_PR_LOOP_WATCHDOG.read_text(encoding="utf-8")
-        assert "contents: read" in content
+        assert "contents: write" in content
         assert "actions: write" in content
         assert "pull-requests: read" in content
 
@@ -46,4 +47,5 @@ class TestAiPrLoopWatchdog:
     def test_delegates_to_watchdog_cli(self) -> None:
         content = AI_PR_LOOP_WATCHDOG.read_text(encoding="utf-8")
         assert "agdt-ai-pr-loop-watchdog" in content
+        assert '--mode "$MODE"' in content
         assert '--repo "${{ github.repository }}"' in content

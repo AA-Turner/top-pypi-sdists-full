@@ -46,9 +46,9 @@ class NonHumanAccount(BaseModel):
         default=None,
         description="ISO 8601 timestamp of the account's last observed activity, when the listing endpoint returns it.",
     )
-    custom_attributes: Optional[Dict[str, StrictStr]] = Field(
+    custom_attributes: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Custom attributes associated with the non-human account. See the list_custom_attributes_schema capability.",
+        description='Custom attributes associated with the non-human account. Values are typed per the attribute\'s declared attribute_type in the list_custom_attributes_schema capability (e.g. a boolean attribute carries a JSON boolean, not "true"/"false" text).',
     )
     extra_data: Optional[Dict[str, Any]] = Field(
         default=None,

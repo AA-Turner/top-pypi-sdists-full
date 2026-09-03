@@ -22,9 +22,10 @@ from matrx_ai.config.message_config import (
     pick_text_by_role,
 )
 from matrx_ai.config.tools_config import ToolCallContent
-from matrx_ai.providers.outbound_params import resolve_outbound_params
 from matrx_ai.config.unified_content import TextContent, ThinkingContent
 from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.providers.cache_guard import normalize_openai_prompt_cache_key
+from matrx_ai.providers.outbound_params import resolve_outbound_params
 
 # ============================================================================
 # OPENAI TRANSLATOR
@@ -130,6 +131,11 @@ class OpenAITranslator(BaseTranslator):
 
         if config.store is not None:
             openai_request["store"] = config.store
+
+        if config.prompt_cache_key:
+            openai_request["prompt_cache_key"] = normalize_openai_prompt_cache_key(
+                config.prompt_cache_key
+            )
 
         return openai_request
 

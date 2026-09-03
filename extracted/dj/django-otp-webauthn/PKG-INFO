@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: django-otp-webauthn
-Version: 0.10.0
+Version: 0.10.3
 Summary: FIDO2 WebAuthn support for django-otp: lets your users authenticate with Passkeys
 Project-URL: Changelog, https://github.com/Stormbase/django-otp-webauthn/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://django-otp-webauthn.readthedocs.io/en/latest/

@@ -5002,6 +5002,436 @@ class CaCertificate(
         return typing.cast("CaCertificate", jsii.sget(cls, "RDS_CA_RSA4096_G1"))
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.IClusterSnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnClusterSnapshot(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_rds.CfnClusterSnapshot",
+):
+    '''Creates a snapshot of a DB cluster.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-clustersnapshot.html
+    :cloudformationResource: AWS::RDS::ClusterSnapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_rds as rds
+        
+        cfn_cluster_snapshot = rds.CfnClusterSnapshot(self, "MyCfnClusterSnapshot",
+            db_cluster_identifier="dbClusterIdentifier",
+            db_cluster_snapshot_identifier="dbClusterSnapshotIdentifier",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        db_cluster_identifier: builtins.str,
+        db_cluster_snapshot_identifier: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::RDS::ClusterSnapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param db_cluster_identifier: The identifier of the DB cluster to create a snapshot for.
+        :param db_cluster_snapshot_identifier: The identifier for the DB cluster snapshot. Must contain from 1 to 63 letters, numbers, or hyphens. First character must be a letter. Can't end with a hyphen or contain two consecutive hyphens.
+        :param tags: The tags to be assigned to the DB cluster snapshot.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__efe695176b46f2abcab54dc717795f2cc1190ed305b2710c996839566371b035)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnClusterSnapshotProps(
+            db_cluster_identifier=db_cluster_identifier,
+            db_cluster_snapshot_identifier=db_cluster_snapshot_identifier,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnClusterSnapshot")
+    @builtins.classmethod
+    def is_cfn_cluster_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnClusterSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__afe424884bcddf69c190a982e43519514541e71eaf953e59aa01c66c2a4a1386)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnClusterSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9974b74bee5c5cdb9ad2595bc081323637ada68563120f27334e74f2122cce7a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6afa8685a0fef194a1ade4c5a142fdc985f2d0d5af61705361f880baf9c9d86a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAllocatedStorage")
+    def attr_allocated_storage(self) -> jsii.Number:
+        '''The allocated storage size of the DB cluster snapshot in gibibytes (GiB).
+
+        :cloudformationAttribute: AllocatedStorage
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrAllocatedStorage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAvailabilityZones")
+    def attr_availability_zones(self) -> typing.List[builtins.str]:
+        '''The list of Availability Zones where instances in the DB cluster snapshot can be restored.
+
+        :cloudformationAttribute: AvailabilityZones
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrAvailabilityZones"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClusterCreateTime")
+    def attr_cluster_create_time(self) -> builtins.str:
+        '''The time when the DB cluster was created, in Universal Coordinated Time (UTC).
+
+        :cloudformationAttribute: ClusterCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClusterCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbClusterResourceId")
+    def attr_db_cluster_resource_id(self) -> builtins.str:
+        '''The resource ID of the DB cluster that this DB cluster snapshot was created from.
+
+        :cloudformationAttribute: DbClusterResourceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbClusterResourceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbClusterSnapshotArn")
+    def attr_db_cluster_snapshot_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the DB cluster snapshot.
+
+        :cloudformationAttribute: DBClusterSnapshotArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbClusterSnapshotArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngine")
+    def attr_engine(self) -> builtins.str:
+        '''The name of the database engine for this DB cluster snapshot.
+
+        :cloudformationAttribute: Engine
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngine"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineMode")
+    def attr_engine_mode(self) -> builtins.str:
+        '''The engine mode of the database engine for this DB cluster snapshot.
+
+        :cloudformationAttribute: EngineMode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineMode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineVersion")
+    def attr_engine_version(self) -> builtins.str:
+        '''The version of the database engine for this DB cluster snapshot.
+
+        :cloudformationAttribute: EngineVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIamDatabaseAuthenticationEnabled")
+    def attr_iam_database_authentication_enabled(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Indicates whether mapping of AWS IAM accounts to database accounts is enabled.
+
+        :cloudformationAttribute: IAMDatabaseAuthenticationEnabled
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIamDatabaseAuthenticationEnabled"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKmsKeyId")
+    def attr_kms_key_id(self) -> builtins.str:
+        '''If StorageEncrypted is true, the AWS KMS key identifier for the encrypted DB cluster snapshot.
+
+        :cloudformationAttribute: KmsKeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKmsKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLicenseModel")
+    def attr_license_model(self) -> builtins.str:
+        '''The license model information for this DB cluster snapshot.
+
+        :cloudformationAttribute: LicenseModel
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLicenseModel"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMasterUsername")
+    def attr_master_username(self) -> builtins.str:
+        '''The master username for this DB cluster snapshot.
+
+        :cloudformationAttribute: MasterUsername
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMasterUsername"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPort")
+    def attr_port(self) -> jsii.Number:
+        '''The port that the DB cluster was listening on at the time of the snapshot.
+
+        :cloudformationAttribute: Port
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotCreateTime")
+    def attr_snapshot_create_time(self) -> builtins.str:
+        '''The time when the snapshot was taken, in Universal Coordinated Time (UTC).
+
+        :cloudformationAttribute: SnapshotCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotType")
+    def attr_snapshot_type(self) -> builtins.str:
+        '''The type of the DB cluster snapshot.
+
+        :cloudformationAttribute: SnapshotType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of this DB cluster snapshot.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStorageEncrypted")
+    def attr_storage_encrypted(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Indicates whether the DB cluster snapshot is encrypted.
+
+        :cloudformationAttribute: StorageEncrypted
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrStorageEncrypted"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcId")
+    def attr_vpc_id(self) -> builtins.str:
+        '''The VPC ID associated with the DB cluster snapshot.
+
+        :cloudformationAttribute: VpcId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSnapshotRef")
+    def cluster_snapshot_ref(self) -> "_aws_rds_26740a85.ClusterSnapshotReference":
+        '''A reference to a ClusterSnapshot resource.'''
+        return typing.cast("_aws_rds_26740a85.ClusterSnapshotReference", jsii.get(self, "clusterSnapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterIdentifier")
+    def db_cluster_identifier(self) -> builtins.str:
+        '''The identifier of the DB cluster to create a snapshot for.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbClusterIdentifier"))
+
+    @db_cluster_identifier.setter
+    def db_cluster_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__341e244d6327da16f81c63a6dd38b530b1d05037d874cd60c94e677867f0025f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterSnapshotIdentifier")
+    def db_cluster_snapshot_identifier(self) -> builtins.str:
+        '''The identifier for the DB cluster snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbClusterSnapshotIdentifier"))
+
+    @db_cluster_snapshot_identifier.setter
+    def db_cluster_snapshot_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3186a275081e63254522988a8ae3004b5981d35f51b5a76ba8fe6ecee31aed56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbClusterSnapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to be assigned to the DB cluster snapshot.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7ff2cfb1ed050bdf888a11a570cab1f93dedd84645dd143b0f061e24c8ae8c88)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rds.CfnClusterSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "db_cluster_identifier": "dbClusterIdentifier",
+        "db_cluster_snapshot_identifier": "dbClusterSnapshotIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnClusterSnapshotProps:
+    def __init__(
+        self,
+        *,
+        db_cluster_identifier: builtins.str,
+        db_cluster_snapshot_identifier: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnClusterSnapshot``.
+
+        :param db_cluster_identifier: The identifier of the DB cluster to create a snapshot for.
+        :param db_cluster_snapshot_identifier: The identifier for the DB cluster snapshot. Must contain from 1 to 63 letters, numbers, or hyphens. First character must be a letter. Can't end with a hyphen or contain two consecutive hyphens.
+        :param tags: The tags to be assigned to the DB cluster snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-clustersnapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rds as rds
+            
+            cfn_cluster_snapshot_props = rds.CfnClusterSnapshotProps(
+                db_cluster_identifier="dbClusterIdentifier",
+                db_cluster_snapshot_identifier="dbClusterSnapshotIdentifier",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__feeca9163693a34b2eddc8a9f6f2c232bbff9b7b749f3627335532973cd6c282)
+            check_type(argname="argument db_cluster_identifier", value=db_cluster_identifier, expected_type=type_hints["db_cluster_identifier"])
+            check_type(argname="argument db_cluster_snapshot_identifier", value=db_cluster_snapshot_identifier, expected_type=type_hints["db_cluster_snapshot_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_cluster_identifier": db_cluster_identifier,
+            "db_cluster_snapshot_identifier": db_cluster_snapshot_identifier,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def db_cluster_identifier(self) -> builtins.str:
+        '''The identifier of the DB cluster to create a snapshot for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-clustersnapshot.html#cfn-rds-clustersnapshot-dbclusteridentifier
+        '''
+        result = self._values.get("db_cluster_identifier")
+        assert result is not None, "Required property 'db_cluster_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def db_cluster_snapshot_identifier(self) -> builtins.str:
+        '''The identifier for the DB cluster snapshot.
+
+        Must contain from 1 to 63 letters, numbers, or hyphens. First character must be a letter. Can't end with a hyphen or contain two consecutive hyphens.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-clustersnapshot.html#cfn-rds-clustersnapshot-dbclustersnapshotidentifier
+        '''
+        result = self._values.get("db_cluster_snapshot_identifier")
+        assert result is not None, "Required property 'db_cluster_snapshot_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to be assigned to the DB cluster snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-clustersnapshot.html#cfn-rds-clustersnapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterSnapshotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.ICustomDBEngineVersionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCustomDBEngineVersion(
     _aws_cdk_0cae9daa.CfnResource,
@@ -14594,6 +15024,62 @@ class CfnDBParameterGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDBParameterGroup")
+    @builtins.classmethod
+    def arn_for_db_parameter_group(
+        cls,
+        resource: "_aws_rds_26740a85.IDBParameterGroupRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBParameterGroup", [resource]))
+
+    @jsii.member(jsii_name="fromDBParameterGroupArn")
+    @builtins.classmethod
+    def from_db_parameter_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_rds_26740a85.IDBParameterGroupRef":
+        '''Creates a new IDBParameterGroupRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0e79529645da906d85da3938c20dfc4c79680c5aa7ced9ab1856da737260ba81)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_rds_26740a85.IDBParameterGroupRef", jsii.sinvoke(cls, "fromDBParameterGroupArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromDBParameterGroupName")
+    @builtins.classmethod
+    def from_db_parameter_group_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        db_parameter_group_name: builtins.str,
+    ) -> "_aws_rds_26740a85.IDBParameterGroupRef":
+        '''Creates a new IDBParameterGroupRef from a dbParameterGroupName.
+
+        :param scope: -
+        :param id: -
+        :param db_parameter_group_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument db_parameter_group_name", value=db_parameter_group_name, expected_type=type_hints["db_parameter_group_name"])
+        return typing.cast("_aws_rds_26740a85.IDBParameterGroupRef", jsii.sinvoke(cls, "fromDBParameterGroupName", [scope, id, db_parameter_group_name]))
+
     @jsii.member(jsii_name="isCfnDBParameterGroup")
     @builtins.classmethod
     def is_cfn_db_parameter_group(cls, x: typing.Any) -> builtins.bool:
@@ -14635,6 +15121,14 @@ class CfnDBParameterGroup(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbParameterGroupArn")
+    def attr_db_parameter_group_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: DBParameterGroupArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbParameterGroupArn"))
 
     @builtins.property
     @jsii.member(jsii_name="attrDbParameterGroupName")
@@ -18158,6 +18652,488 @@ class CfnDBShardGroupProps:
 
     def __repr__(self) -> str:
         return "CfnDBShardGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.IDBSnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDBSnapshot(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_rds.CfnDBSnapshot",
+):
+    '''Creates a snapshot of a DB instance.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbsnapshot.html
+    :cloudformationResource: AWS::RDS::DBSnapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_rds as rds
+        
+        cfn_db_snapshot = rds.CfnDBSnapshot(self, "MyCfnDBSnapshot",
+            db_instance_identifier="dbInstanceIdentifier",
+            db_snapshot_identifier="dbSnapshotIdentifier",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        db_instance_identifier: builtins.str,
+        db_snapshot_identifier: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::RDS::DBSnapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param db_instance_identifier: The identifier of the DB instance that you want to create the snapshot of.
+        :param db_snapshot_identifier: The identifier for the DB snapshot. Must contain from 1 to 255 letters, numbers, or hyphens. First character must be a letter. Can't end with a hyphen or contain two consecutive hyphens.
+        :param tags: The tags to be assigned to the DB snapshot.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e035c02db92a7371a8fc175272efb9753c07ae0b0c8384e39273f469f92b3890)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDBSnapshotProps(
+            db_instance_identifier=db_instance_identifier,
+            db_snapshot_identifier=db_snapshot_identifier,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDBSnapshot")
+    @builtins.classmethod
+    def arn_for_db_snapshot(
+        cls,
+        resource: "_aws_rds_26740a85.IDBSnapshotRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__54edf653cd39717e481e803243b8adab899c0e0f29d696905dcc6985b27c0be0)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBSnapshot", [resource]))
+
+    @jsii.member(jsii_name="isCfnDBSnapshot")
+    @builtins.classmethod
+    def is_cfn_db_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDBSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eac4ec531870ec1c1e2f8bc51785f2efba18a2400130cf6c6c5e97d4a6b98b69)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDBSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__12d945ca6ad90d1cbea2a2409e3502fcadce7b2ec201096f3bdd0e1a7dcc7aef)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88b3096f8d438b24bc5bce3df76e8b3ea90b35467acd01883d6bef9643a1d1a0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAllocatedStorage")
+    def attr_allocated_storage(self) -> jsii.Number:
+        '''The allocated storage size in gibibytes (GiB).
+
+        :cloudformationAttribute: AllocatedStorage
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrAllocatedStorage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAvailabilityZone")
+    def attr_availability_zone(self) -> builtins.str:
+        '''The name of the Availability Zone the DB instance was located in at the time of the DB snapshot.
+
+        :cloudformationAttribute: AvailabilityZone
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAvailabilityZone"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbiResourceId")
+    def attr_dbi_resource_id(self) -> builtins.str:
+        '''The identifier for the source DB instance, which is unique to an AWS Region.
+
+        :cloudformationAttribute: DbiResourceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbiResourceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbSnapshotArn")
+    def attr_db_snapshot_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the DB snapshot.
+
+        :cloudformationAttribute: DBSnapshotArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbSnapshotArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEncrypted")
+    def attr_encrypted(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Indicates whether the DB snapshot is encrypted.
+
+        :cloudformationAttribute: Encrypted
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEncrypted"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngine")
+    def attr_engine(self) -> builtins.str:
+        '''The name of the database engine.
+
+        :cloudformationAttribute: Engine
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngine"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineVersion")
+    def attr_engine_version(self) -> builtins.str:
+        '''The version of the database engine.
+
+        :cloudformationAttribute: EngineVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIamDatabaseAuthenticationEnabled")
+    def attr_iam_database_authentication_enabled(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Indicates whether mapping of AWS IAM accounts to database accounts is enabled.
+
+        :cloudformationAttribute: IAMDatabaseAuthenticationEnabled
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIamDatabaseAuthenticationEnabled"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrInstanceCreateTime")
+    def attr_instance_create_time(self) -> builtins.str:
+        '''The time when the DB instance was created, in UTC.
+
+        :cloudformationAttribute: InstanceCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrInstanceCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIops")
+    def attr_iops(self) -> jsii.Number:
+        '''The Provisioned IOPS value of the DB instance at the time of the snapshot.
+
+        :cloudformationAttribute: Iops
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrIops"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKmsKeyId")
+    def attr_kms_key_id(self) -> builtins.str:
+        '''If Encrypted is true, the AWS KMS key identifier for the encrypted DB snapshot.
+
+        :cloudformationAttribute: KmsKeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKmsKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLicenseModel")
+    def attr_license_model(self) -> builtins.str:
+        '''License model information for the restored DB instance.
+
+        :cloudformationAttribute: LicenseModel
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLicenseModel"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMasterUsername")
+    def attr_master_username(self) -> builtins.str:
+        '''The master username for the DB snapshot.
+
+        :cloudformationAttribute: MasterUsername
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMasterUsername"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOptionGroupName")
+    def attr_option_group_name(self) -> builtins.str:
+        '''The option group name for the DB snapshot.
+
+        :cloudformationAttribute: OptionGroupName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOptionGroupName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOriginalSnapshotCreateTime")
+    def attr_original_snapshot_create_time(self) -> builtins.str:
+        '''The time of the CreateDBSnapshot operation in UTC.
+
+        Doesn't change when the snapshot is copied.
+
+        :cloudformationAttribute: OriginalSnapshotCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOriginalSnapshotCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPort")
+    def attr_port(self) -> jsii.Number:
+        '''The port that the database engine was listening on at the time of the snapshot.
+
+        :cloudformationAttribute: Port
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotCreateTime")
+    def attr_snapshot_create_time(self) -> builtins.str:
+        '''The time when the snapshot was taken, in UTC.
+
+        :cloudformationAttribute: SnapshotCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotType")
+    def attr_snapshot_type(self) -> builtins.str:
+        '''The type of the DB snapshot.
+
+        :cloudformationAttribute: SnapshotType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of this DB snapshot.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStorageThroughput")
+    def attr_storage_throughput(self) -> jsii.Number:
+        '''The storage throughput for the DB snapshot.
+
+        :cloudformationAttribute: StorageThroughput
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrStorageThroughput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStorageType")
+    def attr_storage_type(self) -> builtins.str:
+        '''The storage type associated with the DB snapshot.
+
+        :cloudformationAttribute: StorageType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStorageType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcId")
+    def attr_vpc_id(self) -> builtins.str:
+        '''The VPC ID associated with the DB snapshot.
+
+        :cloudformationAttribute: VpcId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSnapshotRef")
+    def db_snapshot_ref(self) -> "_aws_rds_26740a85.DBSnapshotReference":
+        '''A reference to a DBSnapshot resource.'''
+        return typing.cast("_aws_rds_26740a85.DBSnapshotReference", jsii.get(self, "dbSnapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbInstanceIdentifier")
+    def db_instance_identifier(self) -> builtins.str:
+        '''The identifier of the DB instance that you want to create the snapshot of.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbInstanceIdentifier"))
+
+    @db_instance_identifier.setter
+    def db_instance_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f725e7260afb306dfc56692e1ed6af4f86836cd6bedaa0e1ba836270d7bcbfee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbInstanceIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSnapshotIdentifier")
+    def db_snapshot_identifier(self) -> builtins.str:
+        '''The identifier for the DB snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbSnapshotIdentifier"))
+
+    @db_snapshot_identifier.setter
+    def db_snapshot_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__70924dbcab62433a43ed9559c50f01924ae5cc9408612f2c59719b5a1376ae87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbSnapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to be assigned to the DB snapshot.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88bb7ad5e931a72646c0c1b4456d65949d027756f32e67f27cbade6b882b8ed4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rds.CfnDBSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "db_instance_identifier": "dbInstanceIdentifier",
+        "db_snapshot_identifier": "dbSnapshotIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnDBSnapshotProps:
+    def __init__(
+        self,
+        *,
+        db_instance_identifier: builtins.str,
+        db_snapshot_identifier: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDBSnapshot``.
+
+        :param db_instance_identifier: The identifier of the DB instance that you want to create the snapshot of.
+        :param db_snapshot_identifier: The identifier for the DB snapshot. Must contain from 1 to 255 letters, numbers, or hyphens. First character must be a letter. Can't end with a hyphen or contain two consecutive hyphens.
+        :param tags: The tags to be assigned to the DB snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbsnapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rds as rds
+            
+            cfn_db_snapshot_props = rds.CfnDBSnapshotProps(
+                db_instance_identifier="dbInstanceIdentifier",
+                db_snapshot_identifier="dbSnapshotIdentifier",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7601d0adb107bf67089cd1335e82c9804875819a80fd9e1285031d506565b362)
+            check_type(argname="argument db_instance_identifier", value=db_instance_identifier, expected_type=type_hints["db_instance_identifier"])
+            check_type(argname="argument db_snapshot_identifier", value=db_snapshot_identifier, expected_type=type_hints["db_snapshot_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_instance_identifier": db_instance_identifier,
+            "db_snapshot_identifier": db_snapshot_identifier,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def db_instance_identifier(self) -> builtins.str:
+        '''The identifier of the DB instance that you want to create the snapshot of.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbsnapshot.html#cfn-rds-dbsnapshot-dbinstanceidentifier
+        '''
+        result = self._values.get("db_instance_identifier")
+        assert result is not None, "Required property 'db_instance_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def db_snapshot_identifier(self) -> builtins.str:
+        '''The identifier for the DB snapshot.
+
+        Must contain from 1 to 255 letters, numbers, or hyphens. First character must be a letter. Can't end with a hyphen or contain two consecutive hyphens.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbsnapshot.html#cfn-rds-dbsnapshot-dbsnapshotidentifier
+        '''
+        result = self._values.get("db_snapshot_identifier")
+        assert result is not None, "Required property 'db_snapshot_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to be assigned to the DB snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbsnapshot.html#cfn-rds-dbsnapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDBSnapshotProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -38204,6 +39180,9 @@ class ParameterGroup(
     ) -> "IParameterGroup":
         '''Imports a parameter group.
 
+        ``dbParameterGroupRef.dbParameterGroupArn`` is an instance DB parameter group ARN, and is not valid
+        for a cluster parameter group.
+
         :param scope: -
         :param id: -
         :param parameter_group_name: -
@@ -52465,6 +53444,8 @@ __all__ = [
     "AuroraPostgresEngineVersion",
     "BackupProps",
     "CaCertificate",
+    "CfnClusterSnapshot",
+    "CfnClusterSnapshotProps",
     "CfnCustomDBEngineVersion",
     "CfnCustomDBEngineVersionProps",
     "CfnDBCluster",
@@ -52487,6 +53468,8 @@ __all__ = [
     "CfnDBSecurityGroupProps",
     "CfnDBShardGroup",
     "CfnDBShardGroupProps",
+    "CfnDBSnapshot",
+    "CfnDBSnapshotProps",
     "CfnDBSubnetGroup",
     "CfnDBSubnetGroupProps",
     "CfnEventSubscription",
@@ -52686,6 +53669,62 @@ def _typecheckingstub__4b1b9d82383453f3cc9869e51ee8303d65c2e0eadfa6d1cf8782f7ae8
 
 def _typecheckingstub__5900c7f8a03fc12ffd195c0127ea0596682d0c181849883945d3acd11f44c98f(
     identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efe695176b46f2abcab54dc717795f2cc1190ed305b2710c996839566371b035(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    db_cluster_identifier: builtins.str,
+    db_cluster_snapshot_identifier: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afe424884bcddf69c190a982e43519514541e71eaf953e59aa01c66c2a4a1386(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9974b74bee5c5cdb9ad2595bc081323637ada68563120f27334e74f2122cce7a(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6afa8685a0fef194a1ade4c5a142fdc985f2d0d5af61705361f880baf9c9d86a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__341e244d6327da16f81c63a6dd38b530b1d05037d874cd60c94e677867f0025f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3186a275081e63254522988a8ae3004b5981d35f51b5a76ba8fe6ecee31aed56(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ff2cfb1ed050bdf888a11a570cab1f93dedd84645dd143b0f061e24c8ae8c88(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__feeca9163693a34b2eddc8a9f6f2c232bbff9b7b749f3627335532973cd6c282(
+    *,
+    db_cluster_identifier: builtins.str,
+    db_cluster_snapshot_identifier: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -54254,6 +55293,28 @@ def _typecheckingstub__c10aa78132a0eae6199258b5e55e45968fdce240e932138b48918eafb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824(
+    resource: _aws_rds_26740a85.IDBParameterGroupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e79529645da906d85da3938c20dfc4c79680c5aa7ced9ab1856da737260ba81(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    db_parameter_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2f17818f41efbd62d0fc1866fd7961a9fe1921edcae2321ea2baee88721a8972(
     x: typing.Any,
 ) -> None:
@@ -54888,6 +55949,68 @@ def _typecheckingstub__ef2e2c3ea9f2513c52e11e182ce1bd49fc39031812b9d1f5137293b8e
     db_shard_group_identifier: typing.Optional[builtins.str] = None,
     min_acu: typing.Optional[jsii.Number] = None,
     publicly_accessible: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e035c02db92a7371a8fc175272efb9753c07ae0b0c8384e39273f469f92b3890(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    db_instance_identifier: builtins.str,
+    db_snapshot_identifier: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54edf653cd39717e481e803243b8adab899c0e0f29d696905dcc6985b27c0be0(
+    resource: _aws_rds_26740a85.IDBSnapshotRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eac4ec531870ec1c1e2f8bc51785f2efba18a2400130cf6c6c5e97d4a6b98b69(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12d945ca6ad90d1cbea2a2409e3502fcadce7b2ec201096f3bdd0e1a7dcc7aef(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88b3096f8d438b24bc5bce3df76e8b3ea90b35467acd01883d6bef9643a1d1a0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f725e7260afb306dfc56692e1ed6af4f86836cd6bedaa0e1ba836270d7bcbfee(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70924dbcab62433a43ed9559c50f01924ae5cc9408612f2c59719b5a1376ae87(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88bb7ad5e931a72646c0c1b4456d65949d027756f32e67f27cbade6b882b8ed4(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7601d0adb107bf67089cd1335e82c9804875819a80fd9e1285031d506565b362(
+    *,
+    db_instance_identifier: builtins.str,
+    db_snapshot_identifier: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -176,7 +176,7 @@ class FrontdoorCustomDomainAssociation(pulumi.CustomResource):
                 input=[
                     "contoso",
                     example_zone.name,
-                ]).apply(lambda invoke: invoke.result),
+                ]).result,
             tls={
                 "certificate_type": "ManagedCertificate",
                 "minimum_tls_version": "TLS12",
@@ -207,7 +207,7 @@ class FrontdoorCustomDomainAssociation(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.Cdn` - 2025-04-15
+        * `Microsoft.Cdn` - 2025-12-01
 
         ## Import
 
@@ -294,7 +294,7 @@ class FrontdoorCustomDomainAssociation(pulumi.CustomResource):
                 input=[
                     "contoso",
                     example_zone.name,
-                ]).apply(lambda invoke: invoke.result),
+                ]).result,
             tls={
                 "certificate_type": "ManagedCertificate",
                 "minimum_tls_version": "TLS12",
@@ -325,7 +325,7 @@ class FrontdoorCustomDomainAssociation(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.Cdn` - 2025-04-15
+        * `Microsoft.Cdn` - 2025-12-01
 
         ## Import
 

@@ -10,6 +10,7 @@ from .ad_delivery_status import AdDeliveryStatus
 from .ad_entity_reference import AdEntityReference
 from .ad_lead_form import AdLeadForm
 from .ad_messaging_config import AdMessagingConfig
+from .ad_music import AdMusic
 from .ad_platform_issue import AdPlatformIssue
 from .ad_post_source import AdPostSource
 from .ad_result_event import AdResultEvent
@@ -159,6 +160,11 @@ class Ad(UniversalBaseModel):
     """
 
     descriptions: typing.List[str]
+    existing_post_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The post you pointed this ad at, when it promotes one you already published — a Facebook post, Instagram media, or TikTok video ID. `null` when the ad uses uploaded creatives.
+    """
+
     frequency: typing.Optional[float] = pydantic.Field(default=None)
     """
     Platform-reported impressions divided by reach.
@@ -196,6 +202,11 @@ class Ad(UniversalBaseModel):
     Whop pixel-attributed leads, last-click.
     """
 
+    link_clicks: float = pydantic.Field()
+    """
+    Clicks on links in the ad that lead to your destination, as reported by the ad platform. A subset of clicks, which also counts likes, comments, and other interactions with the ad.
+    """
+
     messaging_config: typing.Optional[AdMessagingConfig] = pydantic.Field(default=None)
     """
     Welcome message for click-to-message ads, shown when the conversation opens. `null` when the ad has none.
@@ -206,19 +217,24 @@ class Ad(UniversalBaseModel):
     Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
     """
 
+    music: typing.Optional[AdMusic] = pydantic.Field(default=None)
+    """
+    The advertiser-uploaded MP3 a TikTok carousel ad plays. TikTok-only; `null` elsewhere and for non-carousel ads.
+    """
+
     post_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The existing post this ad promotes — a Facebook post or Instagram media ID. `null` when the ad uses uploaded creatives.
+    The post the ad network serves for this ad, as `pageID_postID` on Meta — the post Meta created for an uploaded creative, or the post being promoted. Use it to open the live post, or to promote the same post from another ad. `null` until the network has created the post.
     """
 
     post_source: typing.Optional[AdPostSource] = pydantic.Field(default=None)
     """
-    Identifies the network that owns `post_id`; `null` when the ad uses uploaded creatives.
+    Identifies the network that owns `existing_post_id`; `null` when the ad uses uploaded creatives.
     """
 
     post_thumbnail_url: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Preview image of the existing post this ad promotes. `null` for ads that use uploaded creatives, or until the post's media has been fetched from the network.
+    Preview image of the post named by `existing_post_id`. `null` for ads that use uploaded creatives, or until the post's media has been fetched from the network.
     """
 
     primary_texts: typing.List[str]
@@ -320,7 +336,7 @@ class Ad(UniversalBaseModel):
 
     url_parameters: typing.Dict[str, typing.Any] = pydantic.Field()
     """
-    Every query parameter appended to the URL, keyed by parameter name — including any you sent on `url` itself. Whop adds its own click-attribution parameters on top; those are reserved and rejected if you set them (utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid).
+    Every query parameter appended to the URL, keyed by parameter name — including any you sent on `url` itself. Whop adds its own click-attribution parameters on top; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
     """
 
     viewed_content_value: float = pydantic.Field()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sumologic-sdk
-Version: 0.2.0
+Version: 0.2.1
 Summary: Sumo Logic Python SDK
 Home-page: https://github.com/SumoLogic/sumologic-python-sdk
 Author: SumoLogic, Yoway Buorn, Melchi Salins

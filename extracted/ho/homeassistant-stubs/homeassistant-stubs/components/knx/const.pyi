@@ -12,6 +12,7 @@ from xknx.telegram import Telegram
 
 DOMAIN: Final[str]
 KNX_MODULE_KEY: HassKey[KNXModule]
+UI_DEVICE_ID_PREFIX: Final[str]
 KNX_ADDRESS: Final[str]
 CONF_INVERT: Final[str]
 CONF_KNX_EXPOSE: Final[str]
@@ -81,6 +82,7 @@ SERVICE_KNX_EVENT_REGISTER: Final[str]
 SERVICE_KNX_EXPOSURE_REGISTER: Final[str]
 SERVICE_KNX_READ: Final[str]
 REPAIR_ISSUE_DATA_SECURE_GROUP_KEY: Final[str]
+REPAIR_ISSUE_ENTITY_VALIDATION_ERROR: Final[str]
 REPAIR_ISSUE_TELEGRAM_BACKEND_ERROR: Final[str]
 
 class KNXConfigEntryData(TypedDict, total=False):
@@ -154,3 +156,11 @@ class NumberConf:
 
 class SceneConf:
     SCENE_NUMBER: Final[str]
+
+class SelectConf:
+    OPTIONS: Final[str]
+    OPTION: Final[str]
+    OPTIONS_SOURCE: Final[str]
+    GA_ENUM: Final[str]
+    GA_CUSTOM: Final[str]
+    CUSTOM_OPTIONS: Final[str]

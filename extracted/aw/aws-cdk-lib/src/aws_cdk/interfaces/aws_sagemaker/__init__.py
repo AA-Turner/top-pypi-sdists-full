@@ -312,6 +312,55 @@ class AppReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ArtifactReference",
+    jsii_struct_bases=[],
+    name_mapping={"artifact_arn": "artifactArn"},
+)
+class ArtifactReference:
+    def __init__(self, *, artifact_arn: builtins.str) -> None:
+        '''A reference to a Artifact resource.
+
+        :param artifact_arn: The Arn of the Artifact resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
+            
+            artifact_reference = interfaces_sagemaker.ArtifactReference(
+                artifact_arn="artifactArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__122e4efc7a8f1f1e8b2d9048370bed4aff166b3830af507939268f9e679edfc1)
+            check_type(argname="argument artifact_arn", value=artifact_arn, expected_type=type_hints["artifact_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "artifact_arn": artifact_arn,
+        }
+
+    @builtins.property
+    def artifact_arn(self) -> builtins.str:
+        '''The Arn of the Artifact resource.'''
+        result = self._values.get("artifact_arn")
+        assert result is not None, "Required property 'artifact_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ArtifactReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ClusterReference",
     jsii_struct_bases=[],
     name_mapping={"cluster_arn": "clusterArn"},
@@ -687,22 +736,13 @@ class DomainReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.EndpointConfigReference",
     jsii_struct_bases=[],
-    name_mapping={
-        "endpoint_config_id": "endpointConfigId",
-        "endpoint_config_name": "endpointConfigName",
-    },
+    name_mapping={"endpoint_config_arn": "endpointConfigArn"},
 )
 class EndpointConfigReference:
-    def __init__(
-        self,
-        *,
-        endpoint_config_id: builtins.str,
-        endpoint_config_name: builtins.str,
-    ) -> None:
+    def __init__(self, *, endpoint_config_arn: builtins.str) -> None:
         '''A reference to a EndpointConfig resource.
 
-        :param endpoint_config_id: The Id of the EndpointConfig resource.
-        :param endpoint_config_name: The EndpointConfigName of the EndpointConfig resource.
+        :param endpoint_config_arn: The EndpointConfigArn of the EndpointConfig resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -713,31 +753,21 @@ class EndpointConfigReference:
             from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
             
             endpoint_config_reference = interfaces_sagemaker.EndpointConfigReference(
-                endpoint_config_id="endpointConfigId",
-                endpoint_config_name="endpointConfigName"
+                endpoint_config_arn="endpointConfigArn"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__671b59e91ff91baea0cef8d7d45d4100318e43b4ba27225394b64570ce952f45)
-            check_type(argname="argument endpoint_config_id", value=endpoint_config_id, expected_type=type_hints["endpoint_config_id"])
-            check_type(argname="argument endpoint_config_name", value=endpoint_config_name, expected_type=type_hints["endpoint_config_name"])
+            check_type(argname="argument endpoint_config_arn", value=endpoint_config_arn, expected_type=type_hints["endpoint_config_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "endpoint_config_id": endpoint_config_id,
-            "endpoint_config_name": endpoint_config_name,
+            "endpoint_config_arn": endpoint_config_arn,
         }
 
     @builtins.property
-    def endpoint_config_id(self) -> builtins.str:
-        '''The Id of the EndpointConfig resource.'''
-        result = self._values.get("endpoint_config_id")
-        assert result is not None, "Required property 'endpoint_config_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def endpoint_config_name(self) -> builtins.str:
-        '''The EndpointConfigName of the EndpointConfig resource.'''
-        result = self._values.get("endpoint_config_name")
-        assert result is not None, "Required property 'endpoint_config_name' is missing"
+    def endpoint_config_arn(self) -> builtins.str:
+        '''The EndpointConfigArn of the EndpointConfig resource.'''
+        result = self._values.get("endpoint_config_arn")
+        assert result is not None, "Required property 'endpoint_config_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -853,13 +883,22 @@ class ExperimentReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ExperimentTrialComponentReference",
     jsii_struct_bases=[],
-    name_mapping={"experiment_trial_component_arn": "experimentTrialComponentArn"},
+    name_mapping={
+        "experiment_trial_component_arn": "experimentTrialComponentArn",
+        "experiment_trial_component_id": "experimentTrialComponentId",
+    },
 )
 class ExperimentTrialComponentReference:
-    def __init__(self, *, experiment_trial_component_arn: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        experiment_trial_component_arn: builtins.str,
+        experiment_trial_component_id: builtins.str,
+    ) -> None:
         '''A reference to a ExperimentTrialComponent resource.
 
-        :param experiment_trial_component_arn: The Arn of the ExperimentTrialComponent resource.
+        :param experiment_trial_component_arn: The ARN of the ExperimentTrialComponent resource.
+        :param experiment_trial_component_id: The Id of the ExperimentTrialComponent resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -870,21 +909,31 @@ class ExperimentTrialComponentReference:
             from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
             
             experiment_trial_component_reference = interfaces_sagemaker.ExperimentTrialComponentReference(
-                experiment_trial_component_arn="experimentTrialComponentArn"
+                experiment_trial_component_arn="experimentTrialComponentArn",
+                experiment_trial_component_id="experimentTrialComponentId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1de4d9e2671da84ed4d2a29d5e17d17850701d1e2df8869490bb63c9469dd428)
             check_type(argname="argument experiment_trial_component_arn", value=experiment_trial_component_arn, expected_type=type_hints["experiment_trial_component_arn"])
+            check_type(argname="argument experiment_trial_component_id", value=experiment_trial_component_id, expected_type=type_hints["experiment_trial_component_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "experiment_trial_component_arn": experiment_trial_component_arn,
+            "experiment_trial_component_id": experiment_trial_component_id,
         }
 
     @builtins.property
     def experiment_trial_component_arn(self) -> builtins.str:
-        '''The Arn of the ExperimentTrialComponent resource.'''
+        '''The ARN of the ExperimentTrialComponent resource.'''
         result = self._values.get("experiment_trial_component_arn")
         assert result is not None, "Required property 'experiment_trial_component_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def experiment_trial_component_id(self) -> builtins.str:
+        '''The Id of the ExperimentTrialComponent resource.'''
+        result = self._values.get("experiment_trial_component_id")
+        assert result is not None, "Required property 'experiment_trial_component_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -993,6 +1042,55 @@ class HubReference:
 
     def __repr__(self) -> str:
         return "HubReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.HumanTaskUiReference",
+    jsii_struct_bases=[],
+    name_mapping={"human_task_ui_arn": "humanTaskUiArn"},
+)
+class HumanTaskUiReference:
+    def __init__(self, *, human_task_ui_arn: builtins.str) -> None:
+        '''A reference to a HumanTaskUi resource.
+
+        :param human_task_ui_arn: The HumanTaskUiArn of the HumanTaskUi resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
+            
+            human_task_ui_reference = interfaces_sagemaker.HumanTaskUiReference(
+                human_task_ui_arn="humanTaskUiArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__72b2c4ab538146c5e0fc04aef7f7c87cdea3e3d76931f40bc6d930a6fd9e8cd3)
+            check_type(argname="argument human_task_ui_arn", value=human_task_ui_arn, expected_type=type_hints["human_task_ui_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "human_task_ui_arn": human_task_ui_arn,
+        }
+
+    @builtins.property
+    def human_task_ui_arn(self) -> builtins.str:
+        '''The HumanTaskUiArn of the HumanTaskUi resource.'''
+        result = self._values.get("human_task_ui_arn")
+        assert result is not None, "Required property 'human_task_ui_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HumanTaskUiReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1175,6 +1273,51 @@ class _IAppRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAppRef).__jsii_proxy_class__ = lambda : _IAppRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IArtifactRef")
+class IArtifactRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Artifact.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactRef")
+    def artifact_ref(self) -> "ArtifactReference":
+        '''(experimental) A reference to a Artifact resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IArtifactRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Artifact.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sagemaker.IArtifactRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactRef")
+    def artifact_ref(self) -> "ArtifactReference":
+        '''(experimental) A reference to a Artifact resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ArtifactReference", jsii.get(self, "artifactRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IArtifactRef).__jsii_proxy_class__ = lambda : _IArtifactRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IClusterRef")
@@ -1766,6 +1909,51 @@ class _IHubRefProxy(
 typing.cast(typing.Any, IHubRef).__jsii_proxy_class__ = lambda : _IHubRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IHumanTaskUiRef")
+class IHumanTaskUiRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a HumanTaskUi.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="humanTaskUiRef")
+    def human_task_ui_ref(self) -> "HumanTaskUiReference":
+        '''(experimental) A reference to a HumanTaskUi resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHumanTaskUiRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HumanTaskUi.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sagemaker.IHumanTaskUiRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="humanTaskUiRef")
+    def human_task_ui_ref(self) -> "HumanTaskUiReference":
+        '''(experimental) A reference to a HumanTaskUi resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("HumanTaskUiReference", jsii.get(self, "humanTaskUiRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHumanTaskUiRef).__jsii_proxy_class__ = lambda : _IHumanTaskUiRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IImageRef")
 class IImageRef(
     _constructs_77d1e7e8.IConstruct,
@@ -2089,53 +2277,6 @@ class _IModelBiasJobDefinitionRefProxy(
 typing.cast(typing.Any, IModelBiasJobDefinitionRef).__jsii_proxy_class__ = lambda : _IModelBiasJobDefinitionRefProxy
 
 
-@jsii.interface(
-    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IModelCardExportJobRef"
-)
-class IModelCardExportJobRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ModelCardExportJob.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="modelCardExportJobRef")
-    def model_card_export_job_ref(self) -> "ModelCardExportJobReference":
-        '''(experimental) A reference to a ModelCardExportJob resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IModelCardExportJobRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ModelCardExportJob.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sagemaker.IModelCardExportJobRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="modelCardExportJobRef")
-    def model_card_export_job_ref(self) -> "ModelCardExportJobReference":
-        '''(experimental) A reference to a ModelCardExportJob resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ModelCardExportJobReference", jsii.get(self, "modelCardExportJobRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IModelCardExportJobRef).__jsii_proxy_class__ = lambda : _IModelCardExportJobRefProxy
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IModelCardRef")
 class IModelCardRef(
     _constructs_77d1e7e8.IConstruct,
@@ -2412,53 +2553,6 @@ class _IModelRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IModelRef).__jsii_proxy_class__ = lambda : _IModelRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IMonitoringScheduleAlertRef"
-)
-class IMonitoringScheduleAlertRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a MonitoringScheduleAlert.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="monitoringScheduleAlertRef")
-    def monitoring_schedule_alert_ref(self) -> "MonitoringScheduleAlertReference":
-        '''(experimental) A reference to a MonitoringScheduleAlert resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMonitoringScheduleAlertRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a MonitoringScheduleAlert.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sagemaker.IMonitoringScheduleAlertRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="monitoringScheduleAlertRef")
-    def monitoring_schedule_alert_ref(self) -> "MonitoringScheduleAlertReference":
-        '''(experimental) A reference to a MonitoringScheduleAlert resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MonitoringScheduleAlertReference", jsii.get(self, "monitoringScheduleAlertRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMonitoringScheduleAlertRef).__jsii_proxy_class__ = lambda : _IMonitoringScheduleAlertRefProxy
 
 
 @jsii.interface(
@@ -2876,51 +2970,6 @@ class _IStudioLifecycleConfigRefProxy(
 typing.cast(typing.Any, IStudioLifecycleConfigRef).__jsii_proxy_class__ = lambda : _IStudioLifecycleConfigRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ITransformJobRef")
-class ITransformJobRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a TransformJob.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="transformJobRef")
-    def transform_job_ref(self) -> "TransformJobReference":
-        '''(experimental) A reference to a TransformJob resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ITransformJobRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a TransformJob.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sagemaker.ITransformJobRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="transformJobRef")
-    def transform_job_ref(self) -> "TransformJobReference":
-        '''(experimental) A reference to a TransformJob resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("TransformJobReference", jsii.get(self, "transformJobRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ITransformJobRef).__jsii_proxy_class__ = lambda : _ITransformJobRefProxy
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ITrialComponentRef")
 class ITrialComponentRef(
     _constructs_77d1e7e8.IConstruct,
@@ -3009,6 +3058,51 @@ class _IUserProfileRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IUserProfileRef).__jsii_proxy_class__ = lambda : _IUserProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IWorkforceRef")
+class IWorkforceRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workforce.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workforceRef")
+    def workforce_ref(self) -> "WorkforceReference":
+        '''(experimental) A reference to a Workforce resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkforceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workforce.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sagemaker.IWorkforceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workforceRef")
+    def workforce_ref(self) -> "WorkforceReference":
+        '''(experimental) A reference to a Workforce resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkforceReference", jsii.get(self, "workforceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkforceRef).__jsii_proxy_class__ = lambda : _IWorkforceRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IWorkteamRef")
@@ -3419,55 +3513,6 @@ class ModelBiasJobDefinitionReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ModelCardExportJobReference",
-    jsii_struct_bases=[],
-    name_mapping={"model_card_export_job_arn": "modelCardExportJobArn"},
-)
-class ModelCardExportJobReference:
-    def __init__(self, *, model_card_export_job_arn: builtins.str) -> None:
-        '''A reference to a ModelCardExportJob resource.
-
-        :param model_card_export_job_arn: The ModelCardExportJobArn of the ModelCardExportJob resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
-            
-            model_card_export_job_reference = interfaces_sagemaker.ModelCardExportJobReference(
-                model_card_export_job_arn="modelCardExportJobArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__1b99914bd84f0eab60453546460abeb5e229655b26d1658306250b6b4913c6db)
-            check_type(argname="argument model_card_export_job_arn", value=model_card_export_job_arn, expected_type=type_hints["model_card_export_job_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "model_card_export_job_arn": model_card_export_job_arn,
-        }
-
-    @builtins.property
-    def model_card_export_job_arn(self) -> builtins.str:
-        '''The ModelCardExportJobArn of the ModelCardExportJob resource.'''
-        result = self._values.get("model_card_export_job_arn")
-        assert result is not None, "Required property 'model_card_export_job_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ModelCardExportJobReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ModelCardReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -3776,55 +3821,6 @@ class ModelReference:
 
     def __repr__(self) -> str:
         return "ModelReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.MonitoringScheduleAlertReference",
-    jsii_struct_bases=[],
-    name_mapping={"monitoring_schedule_alert_arn": "monitoringScheduleAlertArn"},
-)
-class MonitoringScheduleAlertReference:
-    def __init__(self, *, monitoring_schedule_alert_arn: builtins.str) -> None:
-        '''A reference to a MonitoringScheduleAlert resource.
-
-        :param monitoring_schedule_alert_arn: The Arn of the MonitoringScheduleAlert resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
-            
-            monitoring_schedule_alert_reference = interfaces_sagemaker.MonitoringScheduleAlertReference(
-                monitoring_schedule_alert_arn="monitoringScheduleAlertArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__2466c4f9597e1b08a91ada66d4204b5c74949c8b41f1b9c17bd1a77f0d3cbda3)
-            check_type(argname="argument monitoring_schedule_alert_arn", value=monitoring_schedule_alert_arn, expected_type=type_hints["monitoring_schedule_alert_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "monitoring_schedule_alert_arn": monitoring_schedule_alert_arn,
-        }
-
-    @builtins.property
-    def monitoring_schedule_alert_arn(self) -> builtins.str:
-        '''The Arn of the MonitoringScheduleAlert resource.'''
-        result = self._values.get("monitoring_schedule_alert_arn")
-        assert result is not None, "Required property 'monitoring_schedule_alert_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MonitoringScheduleAlertReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4360,55 +4356,6 @@ class StudioLifecycleConfigReference:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.TransformJobReference",
-    jsii_struct_bases=[],
-    name_mapping={"transform_job_arn": "transformJobArn"},
-)
-class TransformJobReference:
-    def __init__(self, *, transform_job_arn: builtins.str) -> None:
-        '''A reference to a TransformJob resource.
-
-        :param transform_job_arn: The TransformJobArn of the TransformJob resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
-            
-            transform_job_reference = interfaces_sagemaker.TransformJobReference(
-                transform_job_arn="transformJobArn"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__3ac709d609ad93098e1b4e83ffbe9b89ec6f8dd6c315a624c40eb0e7305d28f3)
-            check_type(argname="argument transform_job_arn", value=transform_job_arn, expected_type=type_hints["transform_job_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "transform_job_arn": transform_job_arn,
-        }
-
-    @builtins.property
-    def transform_job_arn(self) -> builtins.str:
-        '''The TransformJobArn of the TransformJob resource.'''
-        result = self._values.get("transform_job_arn")
-        assert result is not None, "Required property 'transform_job_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TransformJobReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.TrialComponentReference",
     jsii_struct_bases=[],
     name_mapping={"trial_component_arn": "trialComponentArn"},
@@ -4539,6 +4486,55 @@ class UserProfileReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.WorkforceReference",
+    jsii_struct_bases=[],
+    name_mapping={"workforce_arn": "workforceArn"},
+)
+class WorkforceReference:
+    def __init__(self, *, workforce_arn: builtins.str) -> None:
+        '''A reference to a Workforce resource.
+
+        :param workforce_arn: The WorkforceArn of the Workforce resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
+            
+            workforce_reference = interfaces_sagemaker.WorkforceReference(
+                workforce_arn="workforceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__03daf6ea4c8baa66a149cf74129b0e636997cbdfa624dc274ac3b9cd049ba97c)
+            check_type(argname="argument workforce_arn", value=workforce_arn, expected_type=type_hints["workforce_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workforce_arn": workforce_arn,
+        }
+
+    @builtins.property
+    def workforce_arn(self) -> builtins.str:
+        '''The WorkforceArn of the Workforce resource.'''
+        result = self._values.get("workforce_arn")
+        assert result is not None, "Required property 'workforce_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkforceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.WorkteamReference",
     jsii_struct_bases=[],
     name_mapping={"workteam_id": "workteamId", "workteam_name": "workteamName"},
@@ -4608,6 +4604,7 @@ __all__ = [
     "AlgorithmReference",
     "AppImageConfigReference",
     "AppReference",
+    "ArtifactReference",
     "ClusterReference",
     "CodeRepositoryReference",
     "ContextReference",
@@ -4621,10 +4618,12 @@ __all__ = [
     "ExperimentTrialComponentReference",
     "FeatureGroupReference",
     "HubReference",
+    "HumanTaskUiReference",
     "IActionRef",
     "IAlgorithmRef",
     "IAppImageConfigRef",
     "IAppRef",
+    "IArtifactRef",
     "IClusterRef",
     "ICodeRepositoryRef",
     "IContextRef",
@@ -4638,6 +4637,7 @@ __all__ = [
     "IExperimentTrialComponentRef",
     "IFeatureGroupRef",
     "IHubRef",
+    "IHumanTaskUiRef",
     "IImageRef",
     "IImageVersionRef",
     "IInferenceComponentRef",
@@ -4645,14 +4645,12 @@ __all__ = [
     "IMlflowAppRef",
     "IMlflowTrackingServerRef",
     "IModelBiasJobDefinitionRef",
-    "IModelCardExportJobRef",
     "IModelCardRef",
     "IModelExplainabilityJobDefinitionRef",
     "IModelPackageGroupRef",
     "IModelPackageRef",
     "IModelQualityJobDefinitionRef",
     "IModelRef",
-    "IMonitoringScheduleAlertRef",
     "IMonitoringScheduleRef",
     "INotebookInstanceLifecycleConfigRef",
     "INotebookInstanceRef",
@@ -4662,9 +4660,9 @@ __all__ = [
     "IProjectRef",
     "ISpaceRef",
     "IStudioLifecycleConfigRef",
-    "ITransformJobRef",
     "ITrialComponentRef",
     "IUserProfileRef",
+    "IWorkforceRef",
     "IWorkteamRef",
     "ImageReference",
     "ImageVersionReference",
@@ -4673,14 +4671,12 @@ __all__ = [
     "MlflowAppReference",
     "MlflowTrackingServerReference",
     "ModelBiasJobDefinitionReference",
-    "ModelCardExportJobReference",
     "ModelCardReference",
     "ModelExplainabilityJobDefinitionReference",
     "ModelPackageGroupReference",
     "ModelPackageReference",
     "ModelQualityJobDefinitionReference",
     "ModelReference",
-    "MonitoringScheduleAlertReference",
     "MonitoringScheduleReference",
     "NotebookInstanceLifecycleConfigReference",
     "NotebookInstanceReference",
@@ -4690,9 +4686,9 @@ __all__ = [
     "ProjectReference",
     "SpaceReference",
     "StudioLifecycleConfigReference",
-    "TransformJobReference",
     "TrialComponentReference",
     "UserProfileReference",
+    "WorkforceReference",
     "WorkteamReference",
 ]
 
@@ -4727,6 +4723,13 @@ def _typecheckingstub__acf6b4a544b0ae2c52d54ce3ceff8c75d3dcd96d513a527222edb518b
     app_type: builtins.str,
     domain_id: builtins.str,
     user_profile_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__122e4efc7a8f1f1e8b2d9048370bed4aff166b3830af507939268f9e679edfc1(
+    *,
+    artifact_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4784,8 +4787,7 @@ def _typecheckingstub__3b051cfa5b56c2c44861ce067c6e3e2b5ff6bc49d74d2a599515c501b
 
 def _typecheckingstub__671b59e91ff91baea0cef8d7d45d4100318e43b4ba27225394b64570ce952f45(
     *,
-    endpoint_config_id: builtins.str,
-    endpoint_config_name: builtins.str,
+    endpoint_config_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4807,6 +4809,7 @@ def _typecheckingstub__256efcb9f83b9813d98e0ac9f37d4a26ab51923159b4527ed006e688d
 def _typecheckingstub__1de4d9e2671da84ed4d2a29d5e17d17850701d1e2df8869490bb63c9469dd428(
     *,
     experiment_trial_component_arn: builtins.str,
+    experiment_trial_component_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4821,6 +4824,13 @@ def _typecheckingstub__0043c65a11b7af9fa8bd64a420c0be15fb3226e8c86d9153a34ccb0e0
 def _typecheckingstub__54396bda75ad052f3237ac91e93f089c9a84a4350482834c7d7bbf6f22c59821(
     *,
     hub_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72b2c4ab538146c5e0fc04aef7f7c87cdea3e3d76931f40bc6d930a6fd9e8cd3(
+    *,
+    human_task_ui_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4875,13 +4885,6 @@ def _typecheckingstub__5975e1e9188ce42ebb073ab7c379272fdeac18196793ba4480f21e139
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1b99914bd84f0eab60453546460abeb5e229655b26d1658306250b6b4913c6db(
-    *,
-    model_card_export_job_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__585b4b2caaab4bb217cdcf5e9292379439e22c8a4340180cb0280cd16ec35e45(
     *,
     model_card_arn: builtins.str,
@@ -4921,13 +4924,6 @@ def _typecheckingstub__3bbb410da1ba18623b904a946e29f21cdc36bdf281f4a84f6f7791580
 def _typecheckingstub__8cd61af7df82fd40369c69cb9d02ff44230d37cd682d4ca1b498121f1cc8b4c5(
     *,
     model_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2466c4f9597e1b08a91ada66d4204b5c74949c8b41f1b9c17bd1a77f0d3cbda3(
-    *,
-    monitoring_schedule_alert_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5000,13 +4996,6 @@ def _typecheckingstub__eb952dd8843aa4f3071a4649857357f9cf5f6ee34b859ebafd283f701
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3ac709d609ad93098e1b4e83ffbe9b89ec6f8dd6c315a624c40eb0e7305d28f3(
-    *,
-    transform_job_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__5b2c21346de6d66e969968f07269aff15c94f7dfccde9693109ab895f30de90f(
     *,
     trial_component_arn: builtins.str,
@@ -5023,6 +5012,13 @@ def _typecheckingstub__6c8b4ff7d349ddb3632965b5498543cbf7e6d497d2d7bc15f093cf6cf
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__03daf6ea4c8baa66a149cf74129b0e636997cbdfa624dc274ac3b9cd049ba97c(
+    *,
+    workforce_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__57fcc1ca690db91207cd9de5695c57ca45d13772e64730ab43c815d1704cc2b9(
     *,
     workteam_id: builtins.str,
@@ -5031,5 +5027,5 @@ def _typecheckingstub__57fcc1ca690db91207cd9de5695c57ca45d13772e64730ab43c815d17
     """Type checking stubs"""
     pass
 
-for cls in [IActionRef, IAlgorithmRef, IAppImageConfigRef, IAppRef, IClusterRef, ICodeRepositoryRef, IContextRef, IDataQualityJobDefinitionRef, IDeviceFleetRef, IDeviceRef, IDomainRef, IEndpointConfigRef, IEndpointRef, IExperimentRef, IExperimentTrialComponentRef, IFeatureGroupRef, IHubRef, IImageRef, IImageVersionRef, IInferenceComponentRef, IInferenceExperimentRef, IMlflowAppRef, IMlflowTrackingServerRef, IModelBiasJobDefinitionRef, IModelCardExportJobRef, IModelCardRef, IModelExplainabilityJobDefinitionRef, IModelPackageGroupRef, IModelPackageRef, IModelQualityJobDefinitionRef, IModelRef, IMonitoringScheduleAlertRef, IMonitoringScheduleRef, INotebookInstanceLifecycleConfigRef, INotebookInstanceRef, IPartnerAppRef, IPipelineRef, IProcessingJobRef, IProjectRef, ISpaceRef, IStudioLifecycleConfigRef, ITransformJobRef, ITrialComponentRef, IUserProfileRef, IWorkteamRef]:
+for cls in [IActionRef, IAlgorithmRef, IAppImageConfigRef, IAppRef, IArtifactRef, IClusterRef, ICodeRepositoryRef, IContextRef, IDataQualityJobDefinitionRef, IDeviceFleetRef, IDeviceRef, IDomainRef, IEndpointConfigRef, IEndpointRef, IExperimentRef, IExperimentTrialComponentRef, IFeatureGroupRef, IHubRef, IHumanTaskUiRef, IImageRef, IImageVersionRef, IInferenceComponentRef, IInferenceExperimentRef, IMlflowAppRef, IMlflowTrackingServerRef, IModelBiasJobDefinitionRef, IModelCardRef, IModelExplainabilityJobDefinitionRef, IModelPackageGroupRef, IModelPackageRef, IModelQualityJobDefinitionRef, IModelRef, IMonitoringScheduleRef, INotebookInstanceLifecycleConfigRef, INotebookInstanceRef, IPartnerAppRef, IPipelineRef, IProcessingJobRef, IProjectRef, ISpaceRef, IStudioLifecycleConfigRef, ITrialComponentRef, IUserProfileRef, IWorkforceRef, IWorkteamRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

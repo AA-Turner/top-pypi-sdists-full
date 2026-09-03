@@ -1491,6 +1491,1274 @@ class CfnLicense(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_licensemanager_19fc2853.ILicenseAssetRuleSetRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnLicenseAssetRuleSet(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet",
+):
+    '''Resource schema for AWS::LicenseManager::LicenseAssetRuleSet.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetruleset.html
+    :cloudformationResource: AWS::LicenseManager::LicenseAssetRuleSet
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_licensemanager as licensemanager
+        
+        cfn_license_asset_rule_set = licensemanager.CfnLicenseAssetRuleSet(self, "MyCfnLicenseAssetRuleSet",
+            name="name",
+            rules=[licensemanager.CfnLicenseAssetRuleSet.LicenseAssetRuleProperty(
+                rule_statement=licensemanager.CfnLicenseAssetRuleSet.RuleStatementProperty(
+                    instance_rule_statement=licensemanager.CfnLicenseAssetRuleSet.InstanceRuleStatementProperty(
+                        and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        ),
+                        matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        ),
+                        or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        )
+                    ),
+                    license_configuration_rule_statement=licensemanager.CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty(
+                        and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        ),
+                        matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        ),
+                        or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        )
+                    ),
+                    license_rule_statement=licensemanager.CfnLicenseAssetRuleSet.LicenseRuleStatementProperty(
+                        and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        ),
+                        matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        ),
+                        or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        )
+                    )
+                )
+            )],
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.LicenseAssetRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::LicenseManager::LicenseAssetRuleSet``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: License asset ruleset name.
+        :param rules: License asset rules.
+        :param description: License asset ruleset description.
+        :param tags: Tags to add to the license asset ruleset.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1ba952316268af1b26957b51d696b1aa8286e141cf7553db6307ec657096189f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLicenseAssetRuleSetProps(
+            name=name, rules=rules, description=description, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnLicenseAssetRuleSet")
+    @builtins.classmethod
+    def is_cfn_license_asset_rule_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLicenseAssetRuleSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ac108e2d28cc654bdf6815e52119293486a87fbf16ef9db3c23627d9d831950b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLicenseAssetRuleSet", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6399b21f17aa776fc304c94465c25edf876170b90e49f08f31f8fca7bd9d3b78)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51170ec63a26912fbad280745bb3f562c60b672319da63b9e45c0c5df343fe97)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLicenseAssetRulesetArn")
+    def attr_license_asset_ruleset_arn(self) -> builtins.str:
+        '''Amazon Resource Name (ARN) of the license asset ruleset.
+
+        :cloudformationAttribute: LicenseAssetRulesetArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLicenseAssetRulesetArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseAssetRuleSetRef")
+    def license_asset_rule_set_ref(
+        self,
+    ) -> "_aws_licensemanager_19fc2853.LicenseAssetRuleSetReference":
+        '''A reference to a LicenseAssetRuleSet resource.'''
+        return typing.cast("_aws_licensemanager_19fc2853.LicenseAssetRuleSetReference", jsii.get(self, "licenseAssetRuleSetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''License asset ruleset name.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__525fd9dbe8cb0b4e5b67ba0b86a261c2521eac2baf72015a61b48e6486e0c83d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rules")
+    def rules(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseAssetRuleProperty"]]]:
+        '''License asset rules.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseAssetRuleProperty"]]], jsii.get(self, "rules"))
+
+    @rules.setter
+    def rules(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseAssetRuleProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c97dfd6a5a6871608f5bc0744d456839b806943055976e35981d7fbcd2c2a454)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''License asset ruleset description.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9abf4c54fba904f0a35e19401bd078be267956935a54d9ff60582ab955135ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to add to the license asset ruleset.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bc128a7be3b437201333f3b6713bc566c0df84f0e23a9da3991ccaf7faea26c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={"matching_rule_statements": "matchingRuleStatements"},
+    )
+    class AndRuleStatementProperty:
+        def __init__(
+            self,
+            *,
+            matching_rule_statements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.MatchingRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''AND rule statement.
+
+            :param matching_rule_statements: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-andrulestatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                and_rule_statement_property = licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                    matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                        constraint="constraint",
+                        key_to_match="keyToMatch",
+                        value_to_match=["valueToMatch"]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f96a98025e44f891863a710cec51b576e4360ddda6b145b5d1d5cffcdcca98b1)
+                check_type(argname="argument matching_rule_statements", value=matching_rule_statements, expected_type=type_hints["matching_rule_statements"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if matching_rule_statements is not None:
+                self._values["matching_rule_statements"] = matching_rule_statements
+
+        @builtins.property
+        def matching_rule_statements(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-andrulestatement.html#cfn-licensemanager-licenseassetruleset-andrulestatement-matchingrulestatements
+            '''
+            result = self._values.get("matching_rule_statements")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AndRuleStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.InstanceRuleStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "and_rule_statement": "andRuleStatement",
+            "matching_rule_statement": "matchingRuleStatement",
+            "or_rule_statement": "orRuleStatement",
+        },
+    )
+    class InstanceRuleStatementProperty:
+        def __init__(
+            self,
+            *,
+            and_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.AndRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            matching_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.MatchingRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            or_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.OrRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Instance rule statement.
+
+            :param and_rule_statement: AND rule statement.
+            :param matching_rule_statement: Matching rule statement.
+            :param or_rule_statement: OR rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-instancerulestatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                instance_rule_statement_property = licensemanager.CfnLicenseAssetRuleSet.InstanceRuleStatementProperty(
+                    and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                        matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        )]
+                    ),
+                    matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                        constraint="constraint",
+                        key_to_match="keyToMatch",
+                        value_to_match=["valueToMatch"]
+                    ),
+                    or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                        matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6bcc9a22c99817e2a9e86bd95e15419f2233ada65496bfc9db7d4a26d0c157b4)
+                check_type(argname="argument and_rule_statement", value=and_rule_statement, expected_type=type_hints["and_rule_statement"])
+                check_type(argname="argument matching_rule_statement", value=matching_rule_statement, expected_type=type_hints["matching_rule_statement"])
+                check_type(argname="argument or_rule_statement", value=or_rule_statement, expected_type=type_hints["or_rule_statement"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if and_rule_statement is not None:
+                self._values["and_rule_statement"] = and_rule_statement
+            if matching_rule_statement is not None:
+                self._values["matching_rule_statement"] = matching_rule_statement
+            if or_rule_statement is not None:
+                self._values["or_rule_statement"] = or_rule_statement
+
+        @builtins.property
+        def and_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.AndRuleStatementProperty"]]:
+            '''AND rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-instancerulestatement.html#cfn-licensemanager-licenseassetruleset-instancerulestatement-andrulestatement
+            '''
+            result = self._values.get("and_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.AndRuleStatementProperty"]], result)
+
+        @builtins.property
+        def matching_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]]:
+            '''Matching rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-instancerulestatement.html#cfn-licensemanager-licenseassetruleset-instancerulestatement-matchingrulestatement
+            '''
+            result = self._values.get("matching_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]], result)
+
+        @builtins.property
+        def or_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.OrRuleStatementProperty"]]:
+            '''OR rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-instancerulestatement.html#cfn-licensemanager-licenseassetruleset-instancerulestatement-orrulestatement
+            '''
+            result = self._values.get("or_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.OrRuleStatementProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InstanceRuleStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.LicenseAssetRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"rule_statement": "ruleStatement"},
+    )
+    class LicenseAssetRuleProperty:
+        def __init__(
+            self,
+            *,
+            rule_statement: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.RuleStatementProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''License asset rule.
+
+            :param rule_statement: Rule statement. Specify exactly one of InstanceRuleStatement, LicenseRuleStatement, or LicenseConfigurationRuleStatement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenseassetrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                license_asset_rule_property = licensemanager.CfnLicenseAssetRuleSet.LicenseAssetRuleProperty(
+                    rule_statement=licensemanager.CfnLicenseAssetRuleSet.RuleStatementProperty(
+                        instance_rule_statement=licensemanager.CfnLicenseAssetRuleSet.InstanceRuleStatementProperty(
+                            and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            ),
+                            matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            ),
+                            or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            )
+                        ),
+                        license_configuration_rule_statement=licensemanager.CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty(
+                            and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            ),
+                            matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            ),
+                            or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            )
+                        ),
+                        license_rule_statement=licensemanager.CfnLicenseAssetRuleSet.LicenseRuleStatementProperty(
+                            and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            ),
+                            matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            ),
+                            or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            )
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__30834bcde461fec39215a36939067432618a26c99b5fa09d6350a0636664f47b)
+                check_type(argname="argument rule_statement", value=rule_statement, expected_type=type_hints["rule_statement"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "rule_statement": rule_statement,
+            }
+
+        @builtins.property
+        def rule_statement(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.RuleStatementProperty"]:
+            '''Rule statement.
+
+            Specify exactly one of InstanceRuleStatement, LicenseRuleStatement, or LicenseConfigurationRuleStatement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenseassetrule.html#cfn-licensemanager-licenseassetruleset-licenseassetrule-rulestatement
+            '''
+            result = self._values.get("rule_statement")
+            assert result is not None, "Required property 'rule_statement' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.RuleStatementProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LicenseAssetRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "and_rule_statement": "andRuleStatement",
+            "matching_rule_statement": "matchingRuleStatement",
+            "or_rule_statement": "orRuleStatement",
+        },
+    )
+    class LicenseConfigurationRuleStatementProperty:
+        def __init__(
+            self,
+            *,
+            and_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.AndRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            matching_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.MatchingRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            or_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.OrRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''License configuration rule statement.
+
+            :param and_rule_statement: AND rule statement.
+            :param matching_rule_statement: Matching rule statement.
+            :param or_rule_statement: OR rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenseconfigurationrulestatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                license_configuration_rule_statement_property = licensemanager.CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty(
+                    and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                        matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        )]
+                    ),
+                    matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                        constraint="constraint",
+                        key_to_match="keyToMatch",
+                        value_to_match=["valueToMatch"]
+                    ),
+                    or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                        matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5dde005b953b1c1cb411f34985858f76a2810b64878dd1d36534214161008fe7)
+                check_type(argname="argument and_rule_statement", value=and_rule_statement, expected_type=type_hints["and_rule_statement"])
+                check_type(argname="argument matching_rule_statement", value=matching_rule_statement, expected_type=type_hints["matching_rule_statement"])
+                check_type(argname="argument or_rule_statement", value=or_rule_statement, expected_type=type_hints["or_rule_statement"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if and_rule_statement is not None:
+                self._values["and_rule_statement"] = and_rule_statement
+            if matching_rule_statement is not None:
+                self._values["matching_rule_statement"] = matching_rule_statement
+            if or_rule_statement is not None:
+                self._values["or_rule_statement"] = or_rule_statement
+
+        @builtins.property
+        def and_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.AndRuleStatementProperty"]]:
+            '''AND rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenseconfigurationrulestatement.html#cfn-licensemanager-licenseassetruleset-licenseconfigurationrulestatement-andrulestatement
+            '''
+            result = self._values.get("and_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.AndRuleStatementProperty"]], result)
+
+        @builtins.property
+        def matching_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]]:
+            '''Matching rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenseconfigurationrulestatement.html#cfn-licensemanager-licenseassetruleset-licenseconfigurationrulestatement-matchingrulestatement
+            '''
+            result = self._values.get("matching_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]], result)
+
+        @builtins.property
+        def or_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.OrRuleStatementProperty"]]:
+            '''OR rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenseconfigurationrulestatement.html#cfn-licensemanager-licenseassetruleset-licenseconfigurationrulestatement-orrulestatement
+            '''
+            result = self._values.get("or_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.OrRuleStatementProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LicenseConfigurationRuleStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.LicenseRuleStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "and_rule_statement": "andRuleStatement",
+            "matching_rule_statement": "matchingRuleStatement",
+            "or_rule_statement": "orRuleStatement",
+        },
+    )
+    class LicenseRuleStatementProperty:
+        def __init__(
+            self,
+            *,
+            and_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.AndRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            matching_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.MatchingRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            or_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.OrRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''License rule statement.
+
+            :param and_rule_statement: AND rule statement.
+            :param matching_rule_statement: Matching rule statement.
+            :param or_rule_statement: OR rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenserulestatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                license_rule_statement_property = licensemanager.CfnLicenseAssetRuleSet.LicenseRuleStatementProperty(
+                    and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                        matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        )]
+                    ),
+                    matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                        constraint="constraint",
+                        key_to_match="keyToMatch",
+                        value_to_match=["valueToMatch"]
+                    ),
+                    or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                        matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1e8ef7dc20d4de655c8fb6e0d29e2aebd58bc58e2d8059e08b1a901cd4af5a42)
+                check_type(argname="argument and_rule_statement", value=and_rule_statement, expected_type=type_hints["and_rule_statement"])
+                check_type(argname="argument matching_rule_statement", value=matching_rule_statement, expected_type=type_hints["matching_rule_statement"])
+                check_type(argname="argument or_rule_statement", value=or_rule_statement, expected_type=type_hints["or_rule_statement"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if and_rule_statement is not None:
+                self._values["and_rule_statement"] = and_rule_statement
+            if matching_rule_statement is not None:
+                self._values["matching_rule_statement"] = matching_rule_statement
+            if or_rule_statement is not None:
+                self._values["or_rule_statement"] = or_rule_statement
+
+        @builtins.property
+        def and_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.AndRuleStatementProperty"]]:
+            '''AND rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenserulestatement.html#cfn-licensemanager-licenseassetruleset-licenserulestatement-andrulestatement
+            '''
+            result = self._values.get("and_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.AndRuleStatementProperty"]], result)
+
+        @builtins.property
+        def matching_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]]:
+            '''Matching rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenserulestatement.html#cfn-licensemanager-licenseassetruleset-licenserulestatement-matchingrulestatement
+            '''
+            result = self._values.get("matching_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]], result)
+
+        @builtins.property
+        def or_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.OrRuleStatementProperty"]]:
+            '''OR rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-licenserulestatement.html#cfn-licensemanager-licenseassetruleset-licenserulestatement-orrulestatement
+            '''
+            result = self._values.get("or_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.OrRuleStatementProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LicenseRuleStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "constraint": "constraint",
+            "key_to_match": "keyToMatch",
+            "value_to_match": "valueToMatch",
+        },
+    )
+    class MatchingRuleStatementProperty:
+        def __init__(
+            self,
+            *,
+            constraint: builtins.str,
+            key_to_match: builtins.str,
+            value_to_match: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Matching rule statement.
+
+            :param constraint: Constraint (e.g. Equals, Not_Equals).
+            :param key_to_match: Key to match.
+            :param value_to_match: Values to match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-matchingrulestatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                matching_rule_statement_property = licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                    constraint="constraint",
+                    key_to_match="keyToMatch",
+                    value_to_match=["valueToMatch"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6f56f947b615ee02a8b5cca0182a5fcd8cefb2725a1fe87cf9df9c73b6d348a0)
+                check_type(argname="argument constraint", value=constraint, expected_type=type_hints["constraint"])
+                check_type(argname="argument key_to_match", value=key_to_match, expected_type=type_hints["key_to_match"])
+                check_type(argname="argument value_to_match", value=value_to_match, expected_type=type_hints["value_to_match"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "constraint": constraint,
+                "key_to_match": key_to_match,
+                "value_to_match": value_to_match,
+            }
+
+        @builtins.property
+        def constraint(self) -> builtins.str:
+            '''Constraint (e.g. Equals, Not_Equals).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-matchingrulestatement.html#cfn-licensemanager-licenseassetruleset-matchingrulestatement-constraint
+            '''
+            result = self._values.get("constraint")
+            assert result is not None, "Required property 'constraint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_to_match(self) -> builtins.str:
+            '''Key to match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-matchingrulestatement.html#cfn-licensemanager-licenseassetruleset-matchingrulestatement-keytomatch
+            '''
+            result = self._values.get("key_to_match")
+            assert result is not None, "Required property 'key_to_match' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value_to_match(self) -> typing.List[builtins.str]:
+            '''Values to match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-matchingrulestatement.html#cfn-licensemanager-licenseassetruleset-matchingrulestatement-valuetomatch
+            '''
+            result = self._values.get("value_to_match")
+            assert result is not None, "Required property 'value_to_match' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MatchingRuleStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={"matching_rule_statements": "matchingRuleStatements"},
+    )
+    class OrRuleStatementProperty:
+        def __init__(
+            self,
+            *,
+            matching_rule_statements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.MatchingRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''OR rule statement.
+
+            :param matching_rule_statements: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-orrulestatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                or_rule_statement_property = licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                    matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                        constraint="constraint",
+                        key_to_match="keyToMatch",
+                        value_to_match=["valueToMatch"]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__803a611726146d376227fde8148339ba44283ba51ecc9ea0873dfc44542684aa)
+                check_type(argname="argument matching_rule_statements", value=matching_rule_statements, expected_type=type_hints["matching_rule_statements"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if matching_rule_statements is not None:
+                self._values["matching_rule_statements"] = matching_rule_statements
+
+        @builtins.property
+        def matching_rule_statements(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-orrulestatement.html#cfn-licensemanager-licenseassetruleset-orrulestatement-matchingrulestatements
+            '''
+            result = self._values.get("matching_rule_statements")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.MatchingRuleStatementProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OrRuleStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.RuleStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "instance_rule_statement": "instanceRuleStatement",
+            "license_configuration_rule_statement": "licenseConfigurationRuleStatement",
+            "license_rule_statement": "licenseRuleStatement",
+        },
+    )
+    class RuleStatementProperty:
+        def __init__(
+            self,
+            *,
+            instance_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.InstanceRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            license_configuration_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            license_rule_statement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.LicenseRuleStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Rule statement.
+
+            Specify exactly one of InstanceRuleStatement, LicenseRuleStatement, or LicenseConfigurationRuleStatement.
+
+            :param instance_rule_statement: Instance rule statement.
+            :param license_configuration_rule_statement: License configuration rule statement.
+            :param license_rule_statement: License rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-rulestatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                rule_statement_property = licensemanager.CfnLicenseAssetRuleSet.RuleStatementProperty(
+                    instance_rule_statement=licensemanager.CfnLicenseAssetRuleSet.InstanceRuleStatementProperty(
+                        and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        ),
+                        matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        ),
+                        or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        )
+                    ),
+                    license_configuration_rule_statement=licensemanager.CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty(
+                        and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        ),
+                        matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        ),
+                        or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        )
+                    ),
+                    license_rule_statement=licensemanager.CfnLicenseAssetRuleSet.LicenseRuleStatementProperty(
+                        and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        ),
+                        matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                            constraint="constraint",
+                            key_to_match="keyToMatch",
+                            value_to_match=["valueToMatch"]
+                        ),
+                        or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                            matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            )]
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__077fd612350f2737baba6535b61919be84e60223a74345b4f15b888d80095bff)
+                check_type(argname="argument instance_rule_statement", value=instance_rule_statement, expected_type=type_hints["instance_rule_statement"])
+                check_type(argname="argument license_configuration_rule_statement", value=license_configuration_rule_statement, expected_type=type_hints["license_configuration_rule_statement"])
+                check_type(argname="argument license_rule_statement", value=license_rule_statement, expected_type=type_hints["license_rule_statement"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if instance_rule_statement is not None:
+                self._values["instance_rule_statement"] = instance_rule_statement
+            if license_configuration_rule_statement is not None:
+                self._values["license_configuration_rule_statement"] = license_configuration_rule_statement
+            if license_rule_statement is not None:
+                self._values["license_rule_statement"] = license_rule_statement
+
+        @builtins.property
+        def instance_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.InstanceRuleStatementProperty"]]:
+            '''Instance rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-rulestatement.html#cfn-licensemanager-licenseassetruleset-rulestatement-instancerulestatement
+            '''
+            result = self._values.get("instance_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.InstanceRuleStatementProperty"]], result)
+
+        @builtins.property
+        def license_configuration_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty"]]:
+            '''License configuration rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-rulestatement.html#cfn-licensemanager-licenseassetruleset-rulestatement-licenseconfigurationrulestatement
+            '''
+            result = self._values.get("license_configuration_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty"]], result)
+
+        @builtins.property
+        def license_rule_statement(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseRuleStatementProperty"]]:
+            '''License rule statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetruleset-rulestatement.html#cfn-licensemanager-licenseassetruleset-rulestatement-licenserulestatement
+            '''
+            result = self._values.get("license_rule_statement")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseRuleStatementProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "rules": "rules",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnLicenseAssetRuleSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetRuleSet.LicenseAssetRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLicenseAssetRuleSet``.
+
+        :param name: License asset ruleset name.
+        :param rules: License asset rules.
+        :param description: License asset ruleset description.
+        :param tags: Tags to add to the license asset ruleset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetruleset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_licensemanager as licensemanager
+            
+            cfn_license_asset_rule_set_props = licensemanager.CfnLicenseAssetRuleSetProps(
+                name="name",
+                rules=[licensemanager.CfnLicenseAssetRuleSet.LicenseAssetRuleProperty(
+                    rule_statement=licensemanager.CfnLicenseAssetRuleSet.RuleStatementProperty(
+                        instance_rule_statement=licensemanager.CfnLicenseAssetRuleSet.InstanceRuleStatementProperty(
+                            and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            ),
+                            matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            ),
+                            or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            )
+                        ),
+                        license_configuration_rule_statement=licensemanager.CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty(
+                            and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            ),
+                            matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            ),
+                            or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            )
+                        ),
+                        license_rule_statement=licensemanager.CfnLicenseAssetRuleSet.LicenseRuleStatementProperty(
+                            and_rule_statement=licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            ),
+                            matching_rule_statement=licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                constraint="constraint",
+                                key_to_match="keyToMatch",
+                                value_to_match=["valueToMatch"]
+                            ),
+                            or_rule_statement=licensemanager.CfnLicenseAssetRuleSet.OrRuleStatementProperty(
+                                matching_rule_statements=[licensemanager.CfnLicenseAssetRuleSet.MatchingRuleStatementProperty(
+                                    constraint="constraint",
+                                    key_to_match="keyToMatch",
+                                    value_to_match=["valueToMatch"]
+                                )]
+                            )
+                        )
+                    )
+                )],
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c715e4e583b24c76ec87ab806ef270df3fcb252fd77e33889db896b624e3575f)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "rules": rules,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''License asset ruleset name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetruleset.html#cfn-licensemanager-licenseassetruleset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseAssetRuleProperty"]]]:
+        '''License asset rules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetruleset.html#cfn-licensemanager-licenseassetruleset-rules
+        '''
+        result = self._values.get("rules")
+        assert result is not None, "Required property 'rules' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetRuleSet.LicenseAssetRuleProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''License asset ruleset description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetruleset.html#cfn-licensemanager-licenseassetruleset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to add to the license asset ruleset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetruleset.html#cfn-licensemanager-licenseassetruleset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLicenseAssetRuleSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseProps",
     jsii_struct_bases=[],
@@ -1775,6 +3043,8 @@ __all__ = [
     "CfnGrant",
     "CfnGrantProps",
     "CfnLicense",
+    "CfnLicenseAssetRuleSet",
+    "CfnLicenseAssetRuleSetProps",
     "CfnLicenseProps",
 ]
 
@@ -2046,6 +3316,136 @@ def _typecheckingstub__483b5b4e301dfddf60a6c6da8bdc4898ec615b5045a70ceeeefc10fe7
     *,
     begin: builtins.str,
     end: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ba952316268af1b26957b51d696b1aa8286e141cf7553db6307ec657096189f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.LicenseAssetRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac108e2d28cc654bdf6815e52119293486a87fbf16ef9db3c23627d9d831950b(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6399b21f17aa776fc304c94465c25edf876170b90e49f08f31f8fca7bd9d3b78(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51170ec63a26912fbad280745bb3f562c60b672319da63b9e45c0c5df343fe97(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__525fd9dbe8cb0b4e5b67ba0b86a261c2521eac2baf72015a61b48e6486e0c83d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c97dfd6a5a6871608f5bc0744d456839b806943055976e35981d7fbcd2c2a454(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLicenseAssetRuleSet.LicenseAssetRuleProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9abf4c54fba904f0a35e19401bd078be267956935a54d9ff60582ab955135ab(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc128a7be3b437201333f3b6713bc566c0df84f0e23a9da3991ccaf7faea26c5(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f96a98025e44f891863a710cec51b576e4360ddda6b145b5d1d5cffcdcca98b1(
+    *,
+    matching_rule_statements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.MatchingRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bcc9a22c99817e2a9e86bd95e15419f2233ada65496bfc9db7d4a26d0c157b4(
+    *,
+    and_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.AndRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    matching_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.MatchingRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    or_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.OrRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30834bcde461fec39215a36939067432618a26c99b5fa09d6350a0636664f47b(
+    *,
+    rule_statement: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.RuleStatementProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dde005b953b1c1cb411f34985858f76a2810b64878dd1d36534214161008fe7(
+    *,
+    and_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.AndRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    matching_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.MatchingRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    or_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.OrRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e8ef7dc20d4de655c8fb6e0d29e2aebd58bc58e2d8059e08b1a901cd4af5a42(
+    *,
+    and_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.AndRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    matching_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.MatchingRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    or_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.OrRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f56f947b615ee02a8b5cca0182a5fcd8cefb2725a1fe87cf9df9c73b6d348a0(
+    *,
+    constraint: builtins.str,
+    key_to_match: builtins.str,
+    value_to_match: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__803a611726146d376227fde8148339ba44283ba51ecc9ea0873dfc44542684aa(
+    *,
+    matching_rule_statements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.MatchingRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__077fd612350f2737baba6535b61919be84e60223a74345b4f15b888d80095bff(
+    *,
+    instance_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.InstanceRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    license_configuration_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.LicenseConfigurationRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    license_rule_statement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.LicenseRuleStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c715e4e583b24c76ec87ab806ef270df3fcb252fd77e33889db896b624e3575f(
+    *,
+    name: builtins.str,
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetRuleSet.LicenseAssetRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
