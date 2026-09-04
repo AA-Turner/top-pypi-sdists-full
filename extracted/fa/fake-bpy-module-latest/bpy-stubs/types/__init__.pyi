@@ -1874,7 +1874,12 @@ bpy.types.ShaderNodeHoldout.rst
 bpy.types.ShaderNodeHueSaturation.rst
 bpy.types.ShaderNodeInvert.rst
 bpy.types.ShaderNodeLayerWeight.rst
+bpy.types.ShaderNodeLightAccumulation.rst
+bpy.types.ShaderNodeLightEvaluation.rst
 bpy.types.ShaderNodeLightFalloff.rst
+bpy.types.ShaderNodeLightInfo.rst
+bpy.types.ShaderNodeLightIterInternalInput.rst
+bpy.types.ShaderNodeLightIterInternalOutput.rst
 bpy.types.ShaderNodeLightPath.rst
 bpy.types.ShaderNodeMapRange.rst
 bpy.types.ShaderNodeMapping.rst
@@ -1902,6 +1907,7 @@ bpy.types.ShaderNodeScript.rst
 bpy.types.ShaderNodeSeparateColor.rst
 bpy.types.ShaderNodeSeparateXYZ.rst
 bpy.types.ShaderNodeShaderToRGB.rst
+bpy.types.ShaderNodeShadowRaycast.rst
 bpy.types.ShaderNodeSqueeze.rst
 bpy.types.ShaderNodeSubsurfaceScattering.rst
 bpy.types.ShaderNodeTangent.rst
@@ -94677,7 +94683,7 @@ class SequencerTonemapModifierData(StripModifier, bpy_struct):
     """Tone mapping modifier"""
 
     adaptation: float
-    """ If 0, global; if 1, based on pixel intensity (in [0, 1], default 0.0)"""
+    """ If 0, global; if 1, based on pixel intensity (in [0, 1], default 1.0)"""
 
     contrast: float
     """ Set to 0 to use estimate from input image (in [0, 1], default 0.0)"""
@@ -94686,22 +94692,22 @@ class SequencerTonemapModifierData(StripModifier, bpy_struct):
     """ If 0, same for all channels; if 1, each independent (in [0, 1], default 0.0)"""
 
     gamma: float
-    """ If not used, set to 1 (in [0.001, 3], default 0.0)"""
+    """ If not used, set to 1 (in [0.001, 3], default 1.0)"""
 
     intensity: float
     """ If less than zero, darkens image; otherwise, makes it brighter (in [-8, 8], default 0.0)"""
 
     key: float
-    """ The value the average luminance is mapped to (in [0, 1], default 0.0)"""
+    """ The value the average luminance is mapped to (in [0, 1], default 0.18)"""
 
     offset: float
-    """ Normally always 1, but can be used as an extra control to alter the brightness curve (in [0.001, 10], default 0.0)"""
+    """ Normally always 1, but can be used as an extra control to alter the brightness curve (in [0.001, 10], default 1.0)"""
 
     open_mask_input_panel: bool
     """ (default False)"""
 
     tonemap_type: typing.Literal["RD_PHOTORECEPTOR", "RH_SIMPLE"]
-    """ Tone mapping algorithm (default 'RH_SIMPLE')"""
+    """ Tone mapping algorithm (default 'RD_PHOTORECEPTOR')"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -95445,9 +95451,12 @@ class ShaderNodeAttribute(ShaderNode, NodeInternal, Node, bpy_struct):
     attribute_name: str
     """ (default "", never None)"""
 
-    attribute_type: typing.Literal["GEOMETRY", "OBJECT", "INSTANCER", "VIEW_LAYER"]
+    attribute_type: typing.Literal[
+        "GEOMETRY", "OBJECT", "INSTANCER", "VIEW_LAYER", "LIGHT"
+    ]
     """ General type of the attribute (default 'GEOMETRY')"""
 
+    inputs: _ShaderNodeAttribute_NodeInputs | None
     outputs: _ShaderNodeAttribute_NodeOutputs | None
 
     @classmethod
@@ -97536,11 +97545,297 @@ class ShaderNodeLayerWeight(ShaderNode, NodeInternal, Node, bpy_struct):
         :return: The class or default when not found.
         """
 
+class ShaderNodeLightAccumulation(ShaderNode, NodeInternal, Node, bpy_struct):
+    """Adds the result of all the evaluated lights and stores each input into its respective Compositing Pass.
+    The combined result is computed as (Diffuse Light * Diffuse Color) + (Glossy Light * Glossy Color)
+    """
+
+    inputs: _ShaderNodeLightAccumulation_NodeInputs | None
+    outputs: _ShaderNodeLightAccumulation_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class ShaderNodeLightEvaluation(ShaderNode, NodeInternal, Node, bpy_struct):
+    """Light Evaluation"""
+
+    mode: typing.Literal["DIFFUSE", "GLOSSY"]
+    """ Defines parametrization of the light evaluation (default 'DIFFUSE')"""
+
+    inputs: _ShaderNodeLightEvaluation_NodeInputs | None
+    outputs: _ShaderNodeLightEvaluation_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
 class ShaderNodeLightFalloff(ShaderNode, NodeInternal, Node, bpy_struct):
     """Manipulate how light intensity decreases over distance. Typically used for non-physically-based effects; in reality light always falls off quadratically"""
 
     inputs: _ShaderNodeLightFalloff_NodeInputs | None
     outputs: _ShaderNodeLightFalloff_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class ShaderNodeLightInfo(ShaderNode, NodeInternal, Node, bpy_struct):
+    """Exposes physical properties of the light being evaluated and computes basic information relative to the evaluation position"""
+
+    inputs: _ShaderNodeLightInfo_NodeInputs | None
+    outputs: _ShaderNodeLightInfo_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class ShaderNodeLightIterInternalInput(ShaderNode, NodeInternal, Node, bpy_struct):
+    """Light Iter Internal Input"""
+
+    outputs: _ShaderNodeLightIterInternalInput_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class ShaderNodeLightIterInternalOutput(ShaderNode, NodeInternal, Node, bpy_struct):
+    """Light Iter Internal Output"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -99206,6 +99501,63 @@ class ShaderNodeShaderToRGB(ShaderNode, NodeInternal, Node, bpy_struct):
 
     inputs: _ShaderNodeShaderToRGB_NodeInputs | None
     outputs: _ShaderNodeShaderToRGB_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class ShaderNodeShadowRaycast(ShaderNode, NodeInternal, Node, bpy_struct):
+    """Shadow Raycast"""
+
+    inputs: _ShaderNodeShadowRaycast_NodeInputs | None
+    outputs: _ShaderNodeShadowRaycast_NodeOutputs | None
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -106727,10 +107079,10 @@ class StripColorBalanceData(bpy_struct):
     """ (default 'LIFT_GAMMA_GAIN')"""
 
     gain: mathutils.Color
-    """ Color balance gain (highlights) (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
+    """ Color balance gain (highlights) (array of 3 items, in [0, inf], default (1.0, 1.0, 1.0))"""
 
     gamma: mathutils.Color
-    """ Color balance gamma (midtones) (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
+    """ Color balance gamma (midtones) (array of 3 items, in [0, inf], default (1.0, 1.0, 1.0))"""
 
     invert_gain: bool
     """ Invert the gain color (default False)"""
@@ -106751,16 +107103,16 @@ class StripColorBalanceData(bpy_struct):
     """ Invert the slope color (default False)"""
 
     lift: mathutils.Color
-    """ Color balance lift (shadows) (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
+    """ Color balance lift (shadows) (array of 3 items, in [0, inf], default (1.0, 1.0, 1.0))"""
 
     offset: mathutils.Color
-    """ Correction for entire tonal range (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
+    """ Correction for entire tonal range (array of 3 items, in [0, inf], default (1.0, 1.0, 1.0))"""
 
     power: mathutils.Color
-    """ Correction for midtones (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
+    """ Correction for midtones (array of 3 items, in [0, inf], default (1.0, 1.0, 1.0))"""
 
     slope: mathutils.Color
-    """ Correction for highlights (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
+    """ Correction for highlights (array of 3 items, in [0, inf], default (1.0, 1.0, 1.0))"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -114102,7 +114454,7 @@ class UILayout(bpy_struct):
     """ When true, buttons defined in popups will be activated on first display (use so you can type into a field without having to click on it first) (default False)"""
 
     active: bool | None
-    """ (default False)"""
+    """ When false, all items within this layout are grayed out. Values can still be changed and interactions are allowed (default False)"""
 
     active_default: bool | None
     """ When true, an operator button defined after this will be activated when pressing return(use with popup dialogs) (default False)"""
@@ -114122,7 +114474,7 @@ class UILayout(bpy_struct):
     """ (default 'NORMAL')"""
 
     enabled: bool
-    """ When false, this (sub)layout is grayed out (default False)"""
+    """ When false, all items within this layout are grayed out. Values cannot be changed and interactions are disabled (default False)"""
 
     operator_context: typing.Literal[bpy.stub_internal.rna_enums.OperatorContextItems]
     """ Typically set to 'INVOKE_REGION_WIN', except some cases in `bpy.types.Menu` when it's set to 'EXEC_REGION_WIN'. (default 'INVOKE_DEFAULT')"""
@@ -119830,7 +120182,7 @@ class WhiteBalanceModifier(StripModifier, bpy_struct):
     """ (default False)"""
 
     white_value: mathutils.Color
-    """ This color defines white in the strip (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
+    """ This color defines white in the strip (array of 3 items, in [0, 1], default (1.0, 1.0, 1.0))"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -133700,6 +134052,17 @@ class _ShaderNodeAmbientOcclusion_NodeInputs(NodeInputs):
         :return:
         """
 
+class _ShaderNodeAttribute_NodeInputs(NodeInputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["LightIndex"]
+    ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
 class _ShaderNodeBackground_NodeInputs(NodeInputs):
     @typing.overload
     def __getitem__(
@@ -135402,6 +135765,128 @@ class _ShaderNodeLayerWeight_NodeInputs(NodeInputs):
         :return:
         """
 
+class _ShaderNodeLightAccumulation_NodeInputs(NodeInputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["LightIndex"]
+    ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Diffuse Light"]
+    ) -> NodeSocketColor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[2] | typing.Literal["Diffuse Color"]
+    ) -> NodeSocketColor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[3] | typing.Literal["Glossy Light"]
+    ) -> NodeSocketColor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[4] | typing.Literal["Glossy Color"]
+    ) -> NodeSocketColor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[5] | typing.Literal["Transmission Light"]
+    ) -> NodeSocketColor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[6] | typing.Literal["Transmission Color"]
+    ) -> NodeSocketColor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[7] | typing.Literal["Weight"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _ShaderNodeLightEvaluation_NodeInputs(NodeInputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["LightIndex"]
+    ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Position"]
+    ) -> NodeSocketVector:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[2] | typing.Literal["Normal"]
+    ) -> NodeSocketVector:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[3] | typing.Literal["Roughness"]
+    ) -> NodeSocketFloatFactor:
+        """
+
+        :param key:
+        :return:
+        """
+
 class _ShaderNodeLightFalloff_NodeInputs(NodeInputs):
     @typing.overload
     def __getitem__(
@@ -135417,6 +135902,17 @@ class _ShaderNodeLightFalloff_NodeInputs(NodeInputs):
     def __getitem__(
         self, key: typing.Literal[1] | typing.Literal["Smooth"]
     ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _ShaderNodeLightInfo_NodeInputs(NodeInputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["LightIndex"]
+    ) -> NodeSocketInt:
         """
 
         :param key:
@@ -136077,6 +136573,37 @@ class _ShaderNodeShaderToRGB_NodeInputs(NodeInputs):
     def __getitem__(
         self, key: typing.Literal[0] | typing.Literal["Shader"]
     ) -> NodeSocketShader:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _ShaderNodeShadowRaycast_NodeInputs(NodeInputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["LightIndex"]
+    ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Position"]
+    ) -> NodeSocketVector:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[2] | typing.Literal["Softness"]
+    ) -> NodeSocketFloatFactor:
         """
 
         :param key:
@@ -144796,6 +145323,58 @@ class _ShaderNodeLayerWeight_NodeOutputs(NodeOutputs):
         :return:
         """
 
+class _ShaderNodeLightAccumulation_NodeOutputs(NodeOutputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Shader"]
+    ) -> NodeSocketShader:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _ShaderNodeLightEvaluation_NodeOutputs(NodeOutputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Factor"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Mask"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[2] | typing.Literal["Direction"]
+    ) -> NodeSocketVector:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[3] | typing.Literal["Distance"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
 class _ShaderNodeLightFalloff_NodeOutputs(NodeOutputs):
     @typing.overload
     def __getitem__(
@@ -144821,6 +145400,48 @@ class _ShaderNodeLightFalloff_NodeOutputs(NodeOutputs):
     def __getitem__(
         self, key: typing.Literal[2] | typing.Literal["Constant"]
     ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _ShaderNodeLightInfo_NodeOutputs(NodeOutputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Color"]
+    ) -> NodeSocketColor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Power"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[2] | typing.Literal["Position"]
+    ) -> NodeSocketVector:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _ShaderNodeLightIterInternalInput_NodeOutputs(NodeOutputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["LightIndex"]
+    ) -> NodeSocketInt:
         """
 
         :param key:
@@ -145592,6 +146213,17 @@ class _ShaderNodeShaderToRGB_NodeOutputs(NodeOutputs):
     def __getitem__(
         self, key: typing.Literal[1] | typing.Literal["Alpha"]
     ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _ShaderNodeShadowRaycast_NodeOutputs(NodeOutputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Color"]
+    ) -> NodeSocketColor:
         """
 
         :param key:

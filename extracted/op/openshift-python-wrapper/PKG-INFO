@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openshift-python-wrapper
-Version: 11.0.140
+Version: 11.0.141
 Summary: Wrapper around https://github.com/kubernetes-client/python
 Project-URL: homepage, https://github.com/RedHatQE/openshift-python-wrapper
 Project-URL: documentation, https://openshift-python-wrapper.readthedocs.io/en/latest/

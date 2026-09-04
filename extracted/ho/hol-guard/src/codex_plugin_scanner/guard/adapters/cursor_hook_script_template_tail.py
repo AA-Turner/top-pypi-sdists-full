@@ -255,100 +255,73 @@ def _cursor_availability_response(
             recording_only=recording_only,
         )
     except Exception:
-        if recording_only:
-            compact = hook_event_name.strip().lower().replace("_", "").replace("-", "")
-            if compact in {"aftershellexecution", "aftermcpexecution"}:
-                return {}, 0
-            return {"permission": "allow"}, 0
         compact = hook_event_name.strip().lower().replace("_", "").replace("-", "")
         if compact in {"aftershellexecution", "aftermcpexecution"}:
             return {}, 0
-        if compact == "beforereadfile":
-            path = str(payload.get("file_path") or payload.get("path") or "")
-            posix = path.replace("\\\\", "/")
-            lowered = posix.lower()
-            if not posix.strip() or posix.startswith("//") or ".." in posix.split("/"):
-                return {
-                    "permission": "deny",
-                    "user_message": "HOL Guard paused a file read while native review was unavailable.",
-                }, 2
-            if any(
-                marker in lowered
-                for marker in (
-                    ".env",
-                    "id_rsa",
-                    "id_ed25519",
-                    "id_ecdsa",
-                    ".npmrc",
-                    ".pypirc",
-                    ".netrc",
-                    ".ssh/",
-                    ".aws/",
-                    ".gnupg/",
-                    ".kube/",
-                    "credentials",
-                    "/etc/",
-                    "/proc/",
-                    "/sys/",
-                    "/dev/",
-                    "/root/",
-                    "/var/root/",
-                    "/private/etc/",
-                )
-            ):
-                return {
-                    "permission": "deny",
-                    "user_message": "HOL Guard paused a sensitive file read while native review was unavailable.",
-                }, 2
-            return {"permission": "allow"}, 0
-        return {
-            "permission": "deny",
-            "user_message": "HOL Guard paused this action because native review was unavailable.",
-            "agent_message": "HOL Guard paused this action because native review was unavailable.",
-        }, 2
+        return {"permission": "allow"}, 0
 
 
 _LAST_HOOK_EVENT_NAME = ""
+
+
+def _cursor_hook_event_from_argv() -> str:
+    args = sys.argv
+    try:
+        index = args.index("--cursor-hook-event")
+    except ValueError:
+        return ""
+    if index + 1 >= len(args):
+        return ""
+    value = str(args[index + 1]).strip()
+    return value
+
+
+def _exit_unparseable_cursor_input() -> int:
+    event_name = _cursor_hook_event_from_argv() or _LAST_HOOK_EVENT_NAME
+    try:
+        from codex_plugin_scanner.guard.daemon.hook_availability_policy import (
+            cursor_unparseable_input_permission,
+        )
+
+        response, code = cursor_unparseable_input_permission(
+            event_name,
+            recording_only=_recording_only_from_guard_home(),
+        )
+    except Exception:
+        compact = event_name.strip().lower().replace("_", "").replace("-", "")
+        if compact in {"aftershellexecution", "aftermcpexecution"}:
+            print("{}")
+            return 0
+        allow = _recording_only_from_guard_home() or compact in {"beforereadfile", ""}
+        print(json.dumps({"permission": "allow" if allow else "deny"}))
+        return 0 if allow else 2
+    print("{}" if not response else json.dumps(response))
+    return code
 
 
 def main() -> int:
     try:
         return _main_inner()
     except Exception:
-        if _recording_only_from_guard_home():
-            compact = _LAST_HOOK_EVENT_NAME.strip().lower().replace("_", "").replace("-", "")
-            if compact in {"aftershellexecution", "aftermcpexecution"}:
-                print("{}")
-            else:
-                print(json.dumps({"permission": "allow"}))
-            return 0
-        print(
-            json.dumps(
-                {
-                    "permission": "deny",
-                    "user_message": "HOL Guard could not complete this Cursor hook safely.",
-                }
-            )
-        )
-        return 2
+        return _exit_unparseable_cursor_input()
 
 
 def _main_inner() -> int:
+    global _LAST_HOOK_EVENT_NAME
+    argv_event = _cursor_hook_event_from_argv()
+    if argv_event:
+        _LAST_HOOK_EVENT_NAME = argv_event
     raw = sys.stdin.read()
     if not raw.strip():
-        print(json.dumps({"permission": "deny", "user_message": "HOL Guard received empty Cursor hook input."}))
-        return 2
+        return _exit_unparseable_cursor_input()
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
-        print(json.dumps({"permission": "deny", "user_message": "HOL Guard could not parse Cursor hook input."}))
-        return 2
+        return _exit_unparseable_cursor_input()
     if not isinstance(payload, dict):
-        print(json.dumps({"permission": "deny", "user_message": "HOL Guard received invalid Cursor hook input."}))
-        return 2
+        return _exit_unparseable_cursor_input()
     inferred = _infer_cursor_hook_event_name(payload)
     hook_event_name = str(inferred.get("hook_event_name") or inferred.get("hookEventName") or "preToolUse")
-    global _LAST_HOOK_EVENT_NAME
     _LAST_HOOK_EVENT_NAME = hook_event_name
     prepared = _prepare_cursor_hook_payload(inferred)
     workspace = _workspace_from_cursor_input(prepared)
@@ -378,25 +351,38 @@ def _main_inner() -> int:
         hook_env_overlay=_daemon_hook_env_overlay(guard_env),
     )
     if daemon_result is None:
-        availability, availability_code = _cursor_availability_response(
-            prepared,
-            hook_event_name=hook_event_name,
-            workspace=workspace,
-        )
-        if availability_code == 0 and availability.get("permission") == "allow":
-            if daemon_failure_kind not in {None, "overload"}:
-                threading.Thread(
-                    target=_run_guard_recovery,
-                    args=(daemon_failure_kind,),
-                    kwargs={"guard_env": guard_env, "deadline_monotonic": deadline_monotonic},
-                    daemon=True,
-                    name="hol-guard-cursor-recovery",
-                ).start()
+        recover_kind = daemon_failure_kind or "transport-failure"
+        if _recording_only_from_guard_home(workspace):
+            availability, availability_code = _cursor_availability_response(
+                prepared,
+                hook_event_name=hook_event_name,
+                workspace=workspace,
+            )
             print(json.dumps(availability))
             return availability_code
-        if daemon_failure_kind not in {None, "overload"}:
+        compact_event = hook_event_name.strip().lower().replace("_", "").replace("-", "")
+        if compact_event == "beforereadfile":
+            try:
+                from codex_plugin_scanner.guard.daemon.hook_availability_policy import hook_action_is_emergency_safe
+
+                workspace_path = Path(workspace) if workspace else None
+                check_payload = dict(prepared)
+                check_payload["hook_event_name"] = "PreToolUse"
+                check_payload.setdefault("tool_name", "Read")
+                safe_read = hook_action_is_emergency_safe(check_payload, workspace=workspace_path)
+            except Exception:
+                safe_read = False
+            if safe_read:
+                availability, availability_code = _cursor_availability_response(
+                    prepared,
+                    hook_event_name=hook_event_name,
+                    workspace=workspace,
+                )
+                print(json.dumps(availability))
+                return availability_code
+        if recover_kind != "overload":
             _run_guard_recovery(
-                daemon_failure_kind,
+                recover_kind,
                 guard_env=guard_env,
                 deadline_monotonic=deadline_monotonic,
             )
@@ -409,7 +395,7 @@ def _main_inner() -> int:
     try:
         if daemon_result is not None:
             proc = subprocess.CompletedProcess(
-                [*GUARD_CLI, *guard_argv],
+                [*_resolved_guard_cli(), *guard_argv],
                 daemon_result[0],
                 stdout=daemon_result[1],
                 stderr=daemon_result[2],

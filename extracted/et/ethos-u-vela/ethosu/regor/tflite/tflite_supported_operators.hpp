@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -67,6 +67,7 @@ protected:
     ConstraintCheck tensMustHaveShape;
     ConstraintCheck tensDimMustBeStatic;
     ConstraintCheck supportedDTypes;
+    ConstraintCheck variableDTypes;
     ConstraintCheck tensQuantized;
     ConstraintCheck quantizationScaleShiftPositive;
     ConstraintCheck fcWeightShape;
@@ -88,6 +89,10 @@ protected:
     ConstraintCheck transposeDims;
     ConstraintCheck logShapes;
     ConstraintCheck logPrecision;
+    ConstraintCheck geluShapes;
+    ConstraintCheck geluPrecision;
+    ConstraintCheck eluShapes;
+    ConstraintCheck eluPrecision;
     ConstraintCheck unitBatch;
     ConstraintCheck meanDepth;
     ConstraintCheck meanAxisSize;

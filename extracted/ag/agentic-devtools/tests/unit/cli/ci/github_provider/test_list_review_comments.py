@@ -155,8 +155,9 @@ class TestListReviewComments:
     def test_returns_empty_list_when_no_comments(self, mock_run_safe) -> None:
         mock_run_safe.return_value = _mock_run_safe_response([])
         provider = GitHubActionsProvider(repo="owner/repo")
-        result = provider.list_review_comments(42, 7)
+        result = provider.list_review_comments(42, 0)
         assert result == []
+        assert provider._was_review_comment_recovery_complete(pr_number=42, review_id=0) is True
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     def test_commit_id_is_populated_from_api_response(self, mock_run_safe) -> None:
@@ -287,6 +288,37 @@ class TestListReviewComments:
         result = provider.list_review_comments(42, 100)
 
         assert [comment.id for comment in result] == [1]
+
+    @patch("agentic_devtools.cli.ci.retry.time.sleep")
+    @patch("agentic_devtools.cli.ci.github_provider.run_safe")
+    def test_tracks_incomplete_review_body_recovery_when_non_rate_limit_error_occurs(
+        self, mock_run_safe, _mock_sleep
+    ) -> None:
+        mock_run_safe.side_effect = [
+            _mock_run_safe_response([]),
+            ProviderRateLimitError(provider="github", is_rate_limit=False),
+        ]
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        comments, recovery_complete = provider._list_review_comments_with_recovery_status(42, 100)
+
+        assert comments == []
+        assert recovery_complete is False
+
+    def test_returns_cached_review_comment_recovery_status(self) -> None:
+        provider = GitHubActionsProvider(repo="owner/repo")
+        provider._set_review_comment_recovery_complete(pr_number=42, review_id=100, recovery_complete=False)
+
+        assert provider._was_review_comment_recovery_complete(pr_number=42, review_id=100) is False
+
+    def test_updates_existing_review_comment_recovery_cache(self) -> None:
+        provider = GitHubActionsProvider(repo="owner/repo")
+        provider._set_review_comment_recovery_complete(pr_number=42, review_id=100, recovery_complete=False)
+
+        provider._set_review_comment_recovery_complete(pr_number=42, review_id=101, recovery_complete=True)
+
+        assert provider._was_review_comment_recovery_complete(pr_number=42, review_id=100) is False
+        assert provider._was_review_comment_recovery_complete(pr_number=42, review_id=101) is True
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     def test_no_details_block_returns_rest_only(self, mock_run_safe) -> None:

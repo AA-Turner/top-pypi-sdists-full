@@ -10,7 +10,9 @@ There are also some Mailbox classes to deal with RFC6638.
 A SynchronizableCalendarObjectCollection contains a local copy of objects from a calendar on the server.
 """
 
+import inspect
 import logging
+import re
 import uuid
 import warnings
 from dataclasses import dataclass
@@ -31,7 +33,7 @@ if TYPE_CHECKING:
 from collections.abc import Coroutine, Iterable, Iterator, Sequence
 from typing import Literal
 
-from .base_client import ICALH
+from .base_client import ICALH, _warn_unreadable_display_name
 from .calendarobjectresource import (
     CalendarObjectResource,
     Event,
@@ -39,11 +41,15 @@ from .calendarobjectresource import (
     Journal,
     Todo,
 )
+from .compatibility_hints import (
+    at_literal_is_refused,
+    at_spelling_is_significant,
+)
 from .davobject import DAVObject
 from .elements import cdav, dav
 from .lib import error, vcal
 from .lib.python_utilities import to_wire
-from .lib.url import URL
+from .lib.url import URL, normalise_path, requote_path
 
 _CC = TypeVar("_CC", bound="CalendarObjectResource")
 log = logging.getLogger("caldav")
@@ -78,11 +84,37 @@ def _extract_calendar_id_from_url(url: str) -> str | None:
     return None
 
 
-def _quote_url_path(url: str) -> str:
-    """Quote the path component of a URL to handle unencoded spaces (e.g. Zimbra)."""
+def _safe_display_name(cal) -> str | None:
+    """Return ``cal``'s DAV:displayname, or None if it can't be read.
+
+    Used when discovering a relocated calendar's canonical URL after creation
+    (see Calendar._adopt_canonical_url); a calendar that refuses to report its
+    display name simply isn't a match.
+    """
+    try:
+        return cal.get_display_name()
+    except Exception:
+        return None
+
+
+def _quote_url_path(url: str, features: Any = None) -> str:
+    """Percent-encode what the server left unencoded in the path of a URL.
+
+    Servers do hand out hrefs containing raw spaces (Zimbra), and
+    ``DAVObject.__init__`` refuses a URL with a space in it, so the path has to
+    be run through ``quote`` before anything can be built from it - returning
+    it untouched is not an option.  The round-trip through ``unquote`` first is
+    what stops an already-encoded path being encoded twice.
+
+    That round-trip also normalises ``%40`` down to a literal ``@``, which is
+    the historic behaviour and stays the default: where the two spellings name
+    one resource it makes no difference which one is sent.  Only a server whose
+    ``url.encode-at.identity`` says otherwise gets both spellings left alone.
+    The netloc is never touched, so credentials embedded in the URL survive.
+    """
     parsed = urlparse(url)
-    quoted_path = quote(unquote(parsed.path), safe="/@")
-    return urlunparse(parsed._replace(path=quoted_path))
+    path = normalise_path(parsed.path, safe="/@", preserve_at=at_spelling_is_significant(features))
+    return urlunparse(parsed._replace(path=path))
 
 
 def _is_calendar_resource(properties: dict[str, Any]) -> bool:
@@ -92,13 +124,15 @@ def _is_calendar_resource(properties: dict[str, Any]) -> bool:
     return "{urn:ietf:params:xml:ns:caldav}calendar" in rt
 
 
-def _extract_calendars_from_propfind_results(results: list[Any] | None) -> list[CalendarInfo]:
+def _extract_calendars_from_propfind_results(
+    results: list[Any] | None, features: Any = None
+) -> list[CalendarInfo]:
     """Extract CalendarInfo objects from a list of PropfindResult objects."""
     calendars = []
     for result in results or []:
         if not _is_calendar_resource(result.properties):
             continue
-        url = _quote_url_path(result.href)
+        url = _quote_url_path(result.href, features)
         name = result.properties.get("{DAV:}displayname")
         cal_id = _extract_calendar_id_from_url(url)
         if not cal_id:
@@ -114,21 +148,53 @@ def _extract_calendars_from_propfind_results(results: list[Any] | None) -> list[
     return calendars
 
 
-def _sanitize_calendar_home_set_url(url: str | None) -> str | None:
-    """Quote @ in owncloud-style URLs that are not full URLs."""
+def _sanitize_calendar_home_set_url(url: str | None, features: Any = None) -> str | None:
+    """Percent-encode an ``@`` in a relative calendar-home-set, as we always have.
+
+    ownCloud reports a home-set containing a literal ``@``
+    (``/remote.php/dav/calendars/tobixen@e.email/``) and this has quoted it
+    since 2021.  Where the two spellings name one resource - the default -
+    sending ``%40`` costs nothing whether or not the server needs it, so the
+    hack stays on: undoing it would be a behaviour change for every ownCloud
+    and Nextcloud user with an email-like account name, to no purpose.
+
+    It is skipped for a server whose ``url.encode-at.identity`` makes the
+    spelling significant, because there rewriting it addresses a different
+    resource - unless ``url.encode-at.literal.principal`` says the literal
+    spelling is the one the server will not serve, which is the case the hack
+    was written for in the first place.  That is the *principal* axis
+    specifically: a home-set is a username inside a path the server minted,
+    and an object-name observation must not switch this on (Stalwart refuses a
+    literal ``@`` in an object name and serves one in a principal path).
+    """
     if url is None:
         return None
-    if "@" in url and "://" not in url and "%40" not in url:
-        return quote(url)
-    return url
+    if not at_spelling_is_significant(features):
+        ## The spelling names nothing, so keep doing what we have always done.
+        if "@" in url and "://" not in url and "%40" not in url:
+            ## normalise_path() rather than a bare quote(): quoting an already
+            ## quoted home-set turns "%20" into "%2520".  The "%40 not in url"
+            ## guard above was only ever a partial fix for that.
+            return normalise_path(url, safe="/")
+        return url
+    if not at_literal_is_refused(features):
+        ## Conformant server that serves what it named: echo its bytes back.
+        return url
+    ## Conformant, and the literal spelling is the one it will not serve.  The
+    ## relative-only limit of the historic hack goes here: a server that needs
+    ## the encoding needs it in an absolute home-set too.
+    parsed = urlparse(url)
+    return urlunparse(parsed._replace(path=parsed.path.replace("@", "%40")))
 
 
-def _extract_calendar_home_set_from_results(results: list[Any] | None) -> str | None:
+def _extract_calendar_home_set_from_results(
+    results: list[Any] | None, features: Any = None
+) -> str | None:
     """Extract calendar-home-set URL from a list of PropfindResult objects."""
     for result in results or []:
         home_set = result.properties.get("{urn:ietf:params:xml:ns:caldav}calendar-home-set")
         if home_set:
-            return _sanitize_calendar_home_set_url(home_set)
+            return _sanitize_calendar_home_set_url(home_set, features=features)
     return None
 
 
@@ -139,7 +205,8 @@ class CalendarSet(DAVObject):
 
     def _calendars_from_results(self, results) -> list["Calendar"]:
         """Convert PropfindResult list into Calendar objects."""
-        calendar_infos = _extract_calendars_from_propfind_results(results)
+        features = self.client.features if self.client else None
+        calendar_infos = _extract_calendars_from_propfind_results(results, features=features)
         return [
             Calendar(client=self.client, url=info.url, name=info.name, id=info.cal_id, parent=self)
             for info in calendar_infos
@@ -183,6 +250,43 @@ class CalendarSet(DAVObject):
         This method is an alias kept for backwards compatibility.
         """
         return self.get_calendars()
+
+    def _find_calendar_by_name(
+        self, calendars: "list[tuple[Calendar, str | None]]", name: str
+    ) -> "Calendar":
+        """Pick the calendar whose display name is ``name``.
+
+        The display names are supplied already resolved, so that the sync and
+        async twins of :meth:`calendar` can share the matching and the error.
+        """
+        for calendar, display_name in calendars:
+            if display_name == name:
+                return calendar
+        raise error.NotFoundError(f"No calendar with name {name} found under {self.url}")
+
+    def _first_calendar(self, calendars: "list[Calendar]") -> "Calendar":
+        """Return the first calendar, or raise if there are none."""
+        if not calendars:
+            raise error.NotFoundError("no calendars found")
+        return calendars[0]
+
+    async def _async_calendar(self, name: str | None = None) -> "Calendar":
+        """Async twin of :meth:`calendar` for the lookups that need the server."""
+        calendars = await self.get_calendars()
+        if not name:
+            return self._first_calendar(calendars)
+        named = []
+        for calendar in calendars:
+            try:
+                display_name = await calendar.get_display_name()
+            except Exception as e:
+                ## Skip calendars whose display name can't be read; warn only
+                ## when the failure is unexpected (see helper).  Continuing
+                ## ensures one unreadable calendar doesn't abort the lookup.
+                _warn_unreadable_display_name(self.client, calendar, name, e)
+                continue
+            named.append((calendar, display_name))
+        return self._find_calendar_by_name(named, name)
 
     def make_calendar(
         self,
@@ -236,7 +340,9 @@ class CalendarSet(DAVObject):
         )
         return await calendar.save(method=method)
 
-    def calendar(self, name: str | None = None, cal_id: str | None = None) -> "Calendar":
+    def calendar(
+        self, name: str | None = None, cal_id: str | None = None
+    ) -> "Calendar | Coroutine[Any, Any, Calendar]":
         """
         The calendar method will return a calendar object.  If it gets a cal_id
         but no name, it will not initiate any communication with the server
@@ -246,21 +352,31 @@ class CalendarSet(DAVObject):
           cal_id: return the calendar with this calendar id or URL
 
         Returns:
-          Calendar(...)-object
+          Calendar(...)-object.  A lookup by ``name``, or with neither
+          argument, has to list the calendars on the server, so on an async
+          client it returns a coroutine that must be awaited.
         """
-        # For name-based lookup, use calendars() which already uses async delegation
+        ## A lookup by name (or with no arguments at all) lists the calendars
+        ## and reads their display names - round-trips, so the async client
+        ## needs its own path.  A cal_id is pure URL arithmetic and stays
+        ## synchronous for both.
+        if not cal_id and self.is_async_client:
+            return self._async_calendar(name)
         if name and not cal_id:
+            named = []
             for calendar in self.get_calendars():
-                display_name = calendar.get_display_name()
-                if display_name == name:
-                    return calendar
-        if name and not cal_id:
-            raise error.NotFoundError(f"No calendar with name {name} found under {self.url}")
+                try:
+                    display_name = calendar.get_display_name()
+                except Exception as e:
+                    ## Skip calendars whose display name can't be read; warn only
+                    ## when the failure is unexpected (see helper).  Continuing
+                    ## ensures one unreadable calendar doesn't abort the lookup.
+                    _warn_unreadable_display_name(self.client, calendar, name, e)
+                    continue
+                named.append((calendar, display_name))
+            return self._find_calendar_by_name(named, name)
         if not cal_id and not name:
-            cals = self.get_calendars()
-            if not cals:
-                raise error.NotFoundError("no calendars found")
-            return cals[0]
+            return self._first_calendar(self.get_calendars())
 
         if self.client is None:
             raise ValueError("Unexpected value None for self.client")
@@ -285,7 +401,10 @@ class CalendarSet(DAVObject):
             if cal_id is None:
                 raise ValueError("Unexpected value None for cal_id")
 
-            url = self.url.join(quote(cal_id) + "/")
+            ## a cal_id is minted, not preserved - the one other place the
+            ## client picks an "@" spelling for itself
+            safe = "/@" if self._at_spelling == "@" else "/"
+            url = self.url.join(quote(cal_id, safe=safe) + "/")
 
         return Calendar(self.client, name=name, parent=self, url=url, id=cal_id)
 
@@ -432,13 +551,9 @@ class Principal(DAVObject):
             return self._calendar_home_set
 
         calendar_home_set_url = await self.get_property(cdav.CalendarHomeSet())
-        if (
-            calendar_home_set_url is not None
-            and "@" in calendar_home_set_url
-            and "://" not in calendar_home_set_url
-        ):
-            calendar_home_set_url = quote(calendar_home_set_url)
-        self.calendar_home_set = calendar_home_set_url
+        self.calendar_home_set = _sanitize_calendar_home_set_url(
+            calendar_home_set_url, features=self.client.features
+        )
         return self._calendar_home_set
 
     ## TODO: the parameter names name, cal_id and cal_url is quite inconsistent
@@ -450,10 +565,15 @@ class Principal(DAVObject):
         name: str | None = None,
         cal_id: str | None = None,
         cal_url: str | None = None,
-    ) -> "Calendar":
+    ) -> "Calendar | Coroutine[Any, Any, Calendar]":
         """
         The calendar method will return a calendar object.
-        It will not initiate any communication with the server.
+
+        For a full-URL ``cal_id`` or a ``cal_url`` it does not initiate any
+        communication with the server and returns the Calendar directly (also
+        for async clients).  For a bare ``cal_id``/``name`` it needs the
+        calendar home set, which on an async client is resolved with a PROPFIND;
+        in that case it returns a coroutine that must be awaited.
         """
         if not cal_url:
             ## For full-URL cal_id, skip calendar_home_set (which may be async-lazy)
@@ -467,12 +587,31 @@ class Principal(DAVObject):
                 if self.client is None:
                     raise ValueError("Unexpected value None for self.client")
                 return Calendar(self.client, url=URL.objectify(cal_id))
+            ## A bare cal_id/name needs the calendar home set.  On async clients
+            ## that resolution awaits a PROPFIND, so we must hand back a coroutine
+            ## rather than evaluating the (lazy, coroutine-valued) home set here.
+            if self.is_async_client:
+                return self._async_calendar(name, cal_id)
             return self.calendar_home_set.calendar(name, cal_id)
         else:
             if self.client is None:
                 raise ValueError("Unexpected value None for self.client")
 
             return Calendar(self.client, url=self.client.url.join(cal_url))
+
+    async def _async_calendar(
+        self,
+        name: str | None = None,
+        cal_id: str | None = None,
+    ) -> "Calendar":
+        """Async implementation of calendar() for a bare cal_id/name."""
+        calendar_home_set = await self._async_get_calendar_home_set()
+        calendar = calendar_home_set.calendar(name, cal_id)
+        ## A bare cal_id resolves synchronously even on an async client; a
+        ## name lookup hands back a coroutine.
+        if inspect.isawaitable(calendar):
+            calendar = await calendar
+        return calendar
 
     def get_vcal_address(self) -> "vCalAddress | Coroutine[Any, Any, vCalAddress]":
         """
@@ -514,16 +653,9 @@ class Principal(DAVObject):
     def calendar_home_set(self):
         if not self._calendar_home_set:
             calendar_home_set_url = self.get_property(cdav.CalendarHomeSet())
-            ## owncloud returns /remote.php/dav/calendars/tobixen@e.email/
-            ## in that case the @ should be quoted.  Perhaps other
-            ## implementations return already quoted URLs.  Hacky workaround:
-            if (
-                calendar_home_set_url is not None
-                and "@" in calendar_home_set_url
-                and "://" not in calendar_home_set_url
-            ):
-                calendar_home_set_url = quote(calendar_home_set_url)
-            self.calendar_home_set = calendar_home_set_url
+            self.calendar_home_set = _sanitize_calendar_home_set_url(
+                calendar_home_set_url, features=self.client.features
+            )
         return self._calendar_home_set
 
     @calendar_home_set.setter
@@ -598,22 +730,27 @@ class Principal(DAVObject):
         freebusy_ical.add_component(freebusy_comp)
         outbox = self.schedule_outbox()
         caldavobj = FreeBusy(data=freebusy_ical, parent=self)
-        for attendee in attendees:
-            caldavobj.add_attendee(attendee, no_default_parameters=True)
 
         if self.is_async_client:
-            return self._async_freebusy_request(outbox, caldavobj)
+            return self._async_freebusy_request(outbox, caldavobj, attendees)
+
+        for attendee in attendees:
+            caldavobj.add_attendee(attendee, no_default_parameters=True)
 
         caldavobj.add_organizer()
 
         response = self.client.post(outbox.url, caldavobj.data, headers=ICALH)
         return response._parse_scheduling_response_objects(parent=self)
 
-    async def _async_freebusy_request(self, outbox, fb_obj) -> dict:
+    async def _async_freebusy_request(self, outbox, fb_obj, attendees) -> dict:
         """Async implementation of freebusy_request() for async clients."""
         ## TODO: could we have common headers as global variable?
         headers = ICALH
         outbox = await outbox
+        for attendee in attendees:
+            if isinstance(attendee, Principal):
+                attendee = await attendee.get_vcal_address()
+            fb_obj.add_attendee(attendee, no_default_parameters=True)
         ## TODO: it's really bad that arbitrary methods returns
         ## a coroutine in async mode.  It's needed to make it much
         ## more clear what methods involves I/O and what methods
@@ -747,16 +884,38 @@ class Calendar(DAVObject):
 
         prop = dav.Prop()
         display_name = None
-        # Some servers (e.g. Zimbra) use the DisplayName from the MKCALENDAR body
-        # as the calendar URL, ignoring the actual request path.  When the server
-        # does not support setting a separate display name, omit it from the body so
-        # the request URL path is used as the calendar identifier.
         supports_displayname = not self.client or self.client.features.is_supported(
             "create-calendar.set-displayname"
         )
+        stable_url = not self.client or self.client.features.is_supported(
+            "create-calendar.stable-url"
+        )
+        # A few servers assign a calendar a canonical URL that differs from the
+        # requested cal_id when a display name is set: Zimbra relocates the
+        # collection to a display-name-derived path (a collection-level alias
+        # lingers at the cal_id and answers PROPFIND/REPORT, but a GET on a child
+        # object under it 404s, so the cal_id is not a usable address), while OX
+        # always exposes an opaque cal://0/NNN canonical URL.  We still send the
+        # display name (it sticks); afterwards, for such servers
+        # (create-calendar.stable-url unsupported), we DISCOVER and ADOPT the
+        # canonical URL (see _adopt_canonical_url) so that self.url - and every
+        # later URL-based operation - points at the address that actually
+        # resolves.  This replaces the older "drop the display name" workaround
+        # and behaves identically for Zimbra and OX.  We only omit the display
+        # name when the server cannot set one at creation at all
+        # (create-calendar.set-displayname unsupported).
         if name and supports_displayname:
             display_name = dav.DisplayName(name)
             prop += [display_name]
+        elif name:  # not supports_displayname
+            log.warning(
+                "Creating calendar %r without the requested display name %r: the "
+                "server does not support setting a display name when a calendar is "
+                "created (create-calendar.set-displayname). The calendar keeps its "
+                "requested URL but will have no display name.",
+                id,
+                name,
+            )
         if supported_calendar_component_set:
             sccs = cdav.SupportedCalendarComponentSet()
             for scc in supported_calendar_component_set:
@@ -769,7 +928,7 @@ class Calendar(DAVObject):
         mkcol = (dav.Mkcol() if method == "mkcol" else cdav.Mkcalendar()) + set
 
         if self.is_async_client:
-            return self._async_create(path, mkcol, method, name, display_name)
+            return self._async_create(path, mkcol, method, name, display_name, stable_url)
 
         self._query(root=mkcol, query_method=method, url=path, expected_return_value=201)
 
@@ -792,7 +951,84 @@ class Calendar(DAVObject):
                         exc_info=True,
                     )
 
-    async def _async_create(self, path, mkcol, method, name, display_name) -> None:
+        # On servers that don't keep the calendar at the requested cal_id when a
+        # display name is set (create-calendar.stable-url unsupported), re-point
+        # self.url to the canonical URL the server actually assigned.
+        if display_name and not stable_url:
+            self._adopt_canonical_url(name)
+
+    def _adopt_canonical_url(self, name) -> None:
+        """Re-point ``self.url`` to the server's canonical URL for this calendar.
+
+        Called only for servers where ``create-calendar.stable-url`` is
+        unsupported: the calendar just created is reachable under a canonical URL
+        that differs from the requested cal_id (Zimbra: a display-name-derived
+        path; OX: an opaque ``cal://0/NNN`` segment).  The requested cal_id is not
+        a reliable address there (on Zimbra a collection alias answers
+        PROPFIND/REPORT but a GET on a child object 404s).  We locate the calendar
+        by the display name we just set and adopt its URL so later URL-based
+        operations resolve.
+
+        Best effort: if the calendar can't be located (or its name is ambiguous
+        because another calendar already shares it), ``self.url`` is left at the
+        requested URL.
+        """
+        requested = self.url.canonical()
+        try:
+            relocated = [
+                cal.url
+                for cal in self.parent.calendars()
+                if _safe_display_name(cal) == name and cal.url.canonical() != requested
+            ]
+        except Exception:
+            log.warning("Could not list calendars to discover canonical URL", exc_info=True)
+            return
+        self._adopt_relocated_url(name, relocated)
+
+    async def _async_adopt_canonical_url(self, name) -> None:
+        """Async twin of :meth:`_adopt_canonical_url`."""
+        try:
+            cals = await self.parent.calendars()
+        except Exception:
+            log.warning("Could not list calendars to discover canonical URL (async)", exc_info=True)
+            return
+        requested = self.url.canonical()
+        relocated = []
+        for cal in cals:
+            try:
+                display_name = await cal.get_display_name()
+            except Exception:
+                ## a calendar that refuses to report its display name is not a match
+                continue
+            if display_name == name and cal.url.canonical() != requested:
+                relocated.append(cal.url)
+        self._adopt_relocated_url(name, relocated)
+
+    def _adopt_relocated_url(self, name, relocated: list) -> None:
+        """Adopt the one relocated URL found, or keep the requested one.
+
+        Shared by :meth:`_adopt_canonical_url` and its async twin.  An
+        ambiguous display name is deliberately *not* resolved by picking the
+        first candidate: the other candidate is typically a pre-existing,
+        unrelated calendar, and adopting it would send every later
+        ``add_event()``, ``search()`` and ``delete()`` to the wrong calendar
+        while orphaning the one just created.
+        """
+        if not relocated:
+            return
+        if len(relocated) > 1:
+            log.warning(
+                "%d calendars are named %r, so the canonical URL of the calendar just "
+                "created is ambiguous; keeping the requested URL (%s) rather than risk "
+                "adopting a pre-existing unrelated calendar",
+                len(relocated),
+                name,
+                self.url,
+            )
+            return
+        self.url = relocated[0]
+
+    async def _async_create(self, path, mkcol, method, name, display_name, stable_url) -> None:
         """Async implementation of _create (call via _create, not directly)."""
         await self._query(root=mkcol, query_method=method, url=path, expected_return_value=201)
 
@@ -809,6 +1045,10 @@ class Calendar(DAVObject):
                         "calendar server does not support display name on calendar?  Ignoring",
                         exc_info=True,
                     )
+
+        # See _adopt_canonical_url (sync) - re-point self.url on unstable servers.
+        if display_name and not stable_url:
+            await self._async_adopt_canonical_url(name)
 
     def delete(self, wipe=None):
         """Delete the calendar.
@@ -1139,28 +1379,41 @@ class Calendar(DAVObject):
 
     # def data2object_class
 
-    def _multiget(self, event_urls: Iterable[URL], raise_notfound: bool = False) -> Iterable[str]:
-        """
-        get multiple events' data.
-        TODO: Does it overlap the _request_report_build_resultlist method
-        ## WARNING: async logic is duplicated in _async_multiget — mirror any changes there
+    def _build_multiget_root(self, event_urls: Iterable[URL]) -> cdav.CalendarMultiGet:
+        """Build the calendar-multiget REPORT body for the given hrefs.
+
+        Pure (no I/O) — shared by the sync and async multiget twins.
         """
         if self.url is None:
             raise ValueError("Unexpected value None for self.url")
-
         prop = dav.Prop() + cdav.CalendarData()
-        root = cdav.CalendarMultiGet() + prop + [dav.Href(value=u.path) for u in event_urls]
-        # RFC 4791 section 7.9: "the 'Depth' header MUST be ignored by the
-        # server and SHOULD NOT be sent by the client" for calendar-multiget
-        response = self._query(root, None, "report")
+        return cdav.CalendarMultiGet() + prop + [dav.Href(value=u.path) for u in event_urls]
+
+    def _extract_multiget_results(
+        self, response: Any, raise_notfound: bool
+    ) -> list[tuple[str, str]]:
+        """Turn a multiget REPORT response into ``(href, calendar_data)`` tuples.
+
+        Pure (no I/O) — shared by the sync and async multiget twins.
+        """
         results = response.expand_simple_props([cdav.CalendarData()])
         if raise_notfound:
-            for href in response.statuses:
-                status = response.statuses[href]
+            for href, status in response.statuses.items():
                 if status and "404" in status:
                     raise error.NotFoundError(f"Status {status} in {href}")
-        for r in results:
-            yield (r, results[r][cdav.CalendarData.tag])
+        return [(r, results[r][cdav.CalendarData.tag]) for r in results]
+
+    def _multiget(
+        self, event_urls: Iterable[URL], raise_notfound: bool = False
+    ) -> list[tuple[str, str]]:
+        """get multiple events' data.
+
+        TODO: Does it overlap the _request_report_build_resultlist method?
+        """
+        # RFC 4791 section 7.9: "the 'Depth' header MUST be ignored by the
+        # server and SHOULD NOT be sent by the client" for calendar-multiget
+        response = self._query(self._build_multiget_root(event_urls), None, "report")
+        return self._extract_multiget_results(response, raise_notfound)
 
     def _post_multiget(self, results: Iterable[tuple[str, str]]) -> list[_CC]:
         """Post-processing shared by multiget and _async_multiget_objects."""
@@ -1168,7 +1421,9 @@ class Calendar(DAVObject):
             self._calendar_comp_class_by_data(data)(
                 self.client,
                 # Quote path to handle servers returning unencoded spaces (e.g., Zimbra)
-                url=self.url.join(quote(unquote(str(url)), safe="/:@")),
+                url=self.url.join(
+                    normalise_path(str(url), safe="/:@", preserve_at=self._preserve_at)
+                ),
                 data=data,
                 parent=self,
             )
@@ -1188,20 +1443,8 @@ class Calendar(DAVObject):
     async def _async_multiget(
         self, event_urls: Iterable[URL], raise_notfound: bool = False
     ) -> list[tuple[str, str]]:
-        ## WARNING: sync logic is duplicated in _multiget — mirror any changes there
-        if self.url is None:
-            raise ValueError("Unexpected value None for self.url")
-
-        prop = dav.Prop() + cdav.CalendarData()
-        root = cdav.CalendarMultiGet() + prop + [dav.Href(value=u.path) for u in event_urls]
-        response = await self._query(root, None, "report")
-        results = response.expand_simple_props([cdav.CalendarData()])
-        if raise_notfound:
-            for href in response.statuses:
-                status = response.statuses[href]
-                if status and "404" in status:
-                    raise error.NotFoundError(f"Status {status} in {href}")
-        return [(r, results[r][cdav.CalendarData.tag]) for r in results]
+        response = await self._query(self._build_multiget_root(event_urls), None, "report")
+        return self._extract_multiget_results(response, raise_notfound)
 
     async def _async_multiget_objects(
         self, event_urls: Iterable[URL], raise_notfound: bool = False
@@ -1210,6 +1453,84 @@ class Calendar(DAVObject):
         return self._post_multiget(
             await self._async_multiget(event_urls, raise_notfound=raise_notfound)
         )
+
+    def _assign_multiget_data(self, unloaded: list, results: Iterable[tuple[str, str]]) -> None:
+        """Assign multiget (href, data) results onto the matching unloaded objects.
+
+        Shared post-processing for _batch_load_objects and its async twin: index
+        the results by normalised URL (quoting to match servers that return
+        unencoded spaces, e.g. Zimbra) and set obj.data on each match.
+
+        Both sides of the comparison are unquoted before matching.  Servers
+        disagree on what to percent-encode, and the object URLs themselves
+        went through `quote()` with the default `safe="/"` -- so a UID of the
+        conventional `<something>@<domain>` form ends up as `%40` on one side
+        and `@` on the other.  Comparing the unquoted forms makes the two
+        spellings equal instead of silently dropping the object.
+        """
+        url_to_data = {
+            unquote(str(self.url.join(quote(unquote(str(href)), safe="/:@")))): data
+            for href, data in results
+        }
+        for obj in unloaded:
+            key = unquote(str(obj.url))
+            if key in url_to_data:
+                obj.data = url_to_data[key]
+
+    def _batch_load_objects(self, objects: list) -> None:
+        """Load unloaded objects from the list in a single calendar-multiget REPORT.
+
+        Already-loaded objects are skipped.  If the REPORT fails, falls back to
+        individual obj.load(only_if_unloaded=True) calls per object; a per-object
+        failure is logged at debug level and otherwise swallowed, so callers can
+        filter on is_loaded() afterward.
+        """
+        unloaded = [o for o in objects if not o.is_loaded()]
+        if not unloaded:
+            return
+        try:
+            self._assign_multiget_data(unloaded, self._multiget([o.url for o in unloaded]))
+        except Exception:
+            logging.error("Batch multiget failed, falling back to individual loads", exc_info=True)
+            for obj in unloaded:
+                try:
+                    obj.load(only_if_unloaded=True)
+                except Exception:
+                    ## Deliberate: this method's contract is that the caller
+                    ## filters on is_loaded() afterwards, so one object that
+                    ## cannot be fetched must not abort the rest.  Logged at
+                    ## debug rather than warning because the batch failure above
+                    ## is already an error-level line, and a large batch would
+                    ## otherwise produce a wall of warnings.
+                    log.debug("Individual load failed for %s", obj.url, exc_info=True)
+
+    async def _async_batch_load_objects(self, objects: list) -> None:
+        """Async version of _batch_load_objects.
+
+        The post-processing is shared via _assign_multiget_data(); the only
+        sync/async difference is the await on the multiget REPORT and on the
+        per-object fallback load().
+        """
+        unloaded = [o for o in objects if not o.is_loaded()]
+        if not unloaded:
+            return
+        try:
+            self._assign_multiget_data(
+                unloaded, await self._async_multiget([o.url for o in unloaded])
+            )
+        except Exception:
+            logging.error(
+                "Async batch multiget failed, falling back to individual loads", exc_info=True
+            )
+            for obj in unloaded:
+                try:
+                    load_result = obj.load(only_if_unloaded=True)
+                    if inspect.isawaitable(load_result):
+                        await load_result
+                except Exception:
+                    ## Same contract as the sync twin above: skip and let the
+                    ## caller filter on is_loaded().
+                    log.debug("Individual load failed for %s", obj.url, exc_info=True)
 
     def calendar_multiget(self, *largs, **kwargs):
         """
@@ -1311,7 +1632,7 @@ class Calendar(DAVObject):
             url = URL(r)
             if url.hostname is None:
                 # Quote when result is not a full URL
-                url = quote(r)
+                url = requote_path(r) if self._preserve_at else quote(r)
             ## icloud hack - icloud returns the calendar URL as well as the calendar item URLs
             if self.url.join(url) == self.url:
                 continue
@@ -1417,6 +1738,7 @@ class Calendar(DAVObject):
         filters=None,
         post_filter=None,
         _hacks=None,
+        compatibility_workarounds: bool | None = None,
         **searchargs,
     ) -> "list[_CC] | Coroutine[Any, Any, list[_CC]]":
         """Sends a search request towards the server, processes the
@@ -1529,11 +1851,25 @@ class Calendar(DAVObject):
         # For async clients, use async_search
         if self.is_async_client:
             return my_searcher.async_search(
-                self, server_expand, split_expanded, props, xml, post_filter, _hacks
+                self,
+                server_expand,
+                split_expanded,
+                props,
+                xml,
+                post_filter,
+                _hacks,
+                compatibility_workarounds,
             )
 
         return my_searcher.search(
-            self, server_expand, split_expanded, props, xml, post_filter, _hacks
+            self,
+            server_expand,
+            split_expanded,
+            props,
+            xml,
+            post_filter,
+            _hacks,
+            compatibility_workarounds,
         )
 
     def freebusy_request(
@@ -1834,6 +2170,64 @@ class Calendar(DAVObject):
         hash_value = hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
         return f"fake-{hash_value}"
 
+    ## The three helpers below carry the pure (no-I/O) logic shared between the
+    ## get_objects_by_sync_token sync/async twins, so only the awaited
+    ## server round-trips differ between them.
+
+    def _should_use_sync_token(self, sync_token: Any, disable_fallback: bool) -> bool:
+        """Decide whether to attempt a real sync-collection REPORT.
+
+        Raises ReportError when the server can't do sync-tokens and the caller
+        forbade the full-retrieval fallback.
+        """
+        sync_support = self.client.features.is_supported("sync-token", return_type=dict)
+        if sync_support.get("support") == "unsupported":
+            if disable_fallback:
+                raise error.ReportError("Sync tokens are not supported by the server")
+            return False
+        ## A fake token means we emulated sync support last time; don't try a real one.
+        if sync_token and isinstance(sync_token, str) and sync_token.startswith("fake-"):
+            return False
+        return True
+
+    def _apply_fallback_etags(self, response: Any, all_objects: list) -> None:
+        """Map ETags from a depth-1 PROPFIND response onto the given objects.
+
+        ETags are crucial for detecting content changes in the fallback
+        mechanism (which can otherwise only see additions/deletions).
+        """
+        etag_props = response.expand_simple_props([dav.GetEtag()])
+        url_to_obj = {str(obj.url.canonical()): obj for obj in all_objects}
+        log.debug(f"Fallback: Fetching ETags for {len(url_to_obj)} objects")
+        for url_str, props in etag_props.items():
+            canonical_url_str = str(self.url.join(url_str).canonical())
+            if canonical_url_str in url_to_obj:
+                if not hasattr(url_to_obj[canonical_url_str], "props"):
+                    url_to_obj[canonical_url_str].props = {}
+                url_to_obj[canonical_url_str].props.update(props)
+                log.debug(f"Fallback: Added ETag to {canonical_url_str}")
+
+    def _build_fallback_sync_result(
+        self, all_objects: list, sync_token: Any
+    ) -> "SynchronizableCalendarObjectCollection":
+        """Build the fallback collection from a full object list, emulating
+        sync-token semantics: if the caller passed back our previous fake
+        token and nothing changed, return an empty collection.
+        """
+        fake_sync_token = self._generate_fake_sync_token(all_objects)
+        if (
+            sync_token
+            and isinstance(sync_token, str)
+            and sync_token.startswith("fake-")
+            and sync_token == fake_sync_token
+        ):
+            return SynchronizableCalendarObjectCollection(
+                calendar=self, objects=[], sync_token=fake_sync_token
+            )
+        return SynchronizableCalendarObjectCollection(
+            calendar=self, objects=all_objects, sync_token=fake_sync_token
+        )
+
     def get_objects_by_sync_token(
         self,
         sync_token: Any | None = None,
@@ -1869,23 +2263,9 @@ class Calendar(DAVObject):
         the server truly supports sync tokens.
         """
         if self.is_async_client:
-            ## TODO: lots of code duplication here.  It's difficult, since there is a lot of
-            ## forth and back between the client and the server in this method.
             return self._async_get_objects_by_sync_token(sync_token, load_objects, disable_fallback)
 
-        ## Check if we should attempt to use sync tokens
-        ## (either server supports them, or we haven't checked yet, or this is a fake token)
-        use_sync_token = True
-        sync_support = self.client.features.is_supported("sync-token", return_type=dict)
-        if sync_support.get("support") == "unsupported":
-            if disable_fallback:
-                raise error.ReportError("Sync tokens are not supported by the server")
-            use_sync_token = False
-        ## If sync_token looks like a fake token, don't try real sync-collection
-        if sync_token and isinstance(sync_token, str) and sync_token.startswith("fake-"):
-            use_sync_token = False
-
-        if use_sync_token:
+        if self._should_use_sync_token(sync_token, disable_fallback):
             try:
                 root = self.client._build_sync_collection_body(
                     sync_token=sync_token, props=["getetag"]
@@ -1931,50 +2311,17 @@ class Calendar(DAVObject):
                         pass
 
         ## Fetch ETags for all objects if not already present
-        ## ETags are crucial for detecting changes in the fallback mechanism
         if all_objects and (
             not hasattr(all_objects[0], "props") or dav.GetEtag.tag not in all_objects[0].props
         ):
-            ## Use PROPFIND to fetch ETags for all objects
             try:
                 ## Do a depth-1 PROPFIND on the calendar to get all ETags
                 response = self._query_properties([dav.GetEtag()], depth=1)
-                etag_props = response.expand_simple_props([dav.GetEtag()])
-
-                ## Map ETags to objects by URL (using string keys for reliable comparison)
-                url_to_obj = {str(obj.url.canonical()): obj for obj in all_objects}
-                log.debug(f"Fallback: Fetching ETags for {len(url_to_obj)} objects")
-                for url_str, props in etag_props.items():
-                    canonical_url_str = str(self.url.join(url_str).canonical())
-                    if canonical_url_str in url_to_obj:
-                        if not hasattr(url_to_obj[canonical_url_str], "props"):
-                            url_to_obj[canonical_url_str].props = {}
-                        url_to_obj[canonical_url_str].props.update(props)
-                        log.debug(f"Fallback: Added ETag to {canonical_url_str}")
+                self._apply_fallback_etags(response, all_objects)
             except Exception as e:
-                ## If fetching ETags fails, we'll fall back to URL-based tokens
-                ## which can't detect content changes, only additions/deletions
                 log.debug(f"Failed to fetch ETags for fallback sync: {e}")
-                pass
 
-        ## Generate a fake sync token based on current state
-        fake_sync_token = self._generate_fake_sync_token(all_objects)
-
-        ## If a sync_token was provided, check if anything has changed
-        if sync_token and isinstance(sync_token, str) and sync_token.startswith("fake-"):
-            ## Compare the provided token with the new token
-            if sync_token == fake_sync_token:
-                ## Nothing has changed, return empty collection
-                return SynchronizableCalendarObjectCollection(
-                    calendar=self, objects=[], sync_token=fake_sync_token
-                )
-            ## If tokens differ, return all objects (emulating a full sync)
-            ## In a real implementation, we'd return only changed objects,
-            ## but that requires storing previous state which we don't have
-
-        return SynchronizableCalendarObjectCollection(
-            calendar=self, objects=all_objects, sync_token=fake_sync_token
-        )
+        return self._build_fallback_sync_result(all_objects, sync_token)
 
     def objects_by_sync_token(
         self, *largs, **kwargs
@@ -1996,20 +2343,7 @@ class Calendar(DAVObject):
         disable_fallback: bool = False,
     ) -> "SynchronizableCalendarObjectCollection":
         """Async implementation of get_objects_by_sync_token."""
-
-        ## TODO: lots of code duplication here.  It's difficult, since there is a lot of
-        ## forth and back between the client and the server in this method.
-
-        use_sync_token = True
-        sync_support = self.client.features.is_supported("sync-token", return_type=dict)
-        if sync_support.get("support") == "unsupported":
-            if disable_fallback:
-                raise error.ReportError("Sync tokens are not supported by the server")
-            use_sync_token = False
-        if sync_token and isinstance(sync_token, str) and sync_token.startswith("fake-"):
-            use_sync_token = False
-
-        if use_sync_token:
+        if self._should_use_sync_token(sync_token, disable_fallback):
             try:
                 root = self.client._build_sync_collection_body(
                     sync_token=sync_token, props=["getetag"]
@@ -2048,30 +2382,11 @@ class Calendar(DAVObject):
         ):
             try:
                 response = await self._query_properties([dav.GetEtag()], depth=1)
-                etag_props = response.expand_simple_props([dav.GetEtag()])
-                url_to_obj = {str(obj.url.canonical()): obj for obj in all_objects}
-                log.debug(f"Fallback: Fetching ETags for {len(url_to_obj)} objects")
-                for url_str, props in etag_props.items():
-                    canonical_url_str = str(self.url.join(url_str).canonical())
-                    if canonical_url_str in url_to_obj:
-                        if not hasattr(url_to_obj[canonical_url_str], "props"):
-                            url_to_obj[canonical_url_str].props = {}
-                        url_to_obj[canonical_url_str].props.update(props)
-                        log.debug(f"Fallback: Added ETag to {canonical_url_str}")
+                self._apply_fallback_etags(response, all_objects)
             except Exception as e:
                 log.debug(f"Failed to fetch ETags for fallback sync: {e}")
 
-        fake_sync_token = self._generate_fake_sync_token(all_objects)
-
-        if sync_token and isinstance(sync_token, str) and sync_token.startswith("fake-"):
-            if sync_token == fake_sync_token:
-                return SynchronizableCalendarObjectCollection(
-                    calendar=self, objects=[], sync_token=fake_sync_token
-                )
-
-        return SynchronizableCalendarObjectCollection(
-            calendar=self, objects=all_objects, sync_token=fake_sync_token
-        )
+        return self._build_fallback_sync_result(all_objects, sync_token)
 
     def get_journals(self) -> "list[Journal] | Coroutine[Any, Any, list[Journal]]":
         """

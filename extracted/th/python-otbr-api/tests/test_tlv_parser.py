@@ -5,6 +5,7 @@ import pytest
 from python_otbr_api.tlv_parser import (
     Timestamp,
     Channel,
+    DelayTimer,
     MeshcopTLVItem,
     MeshcopTLVType,
     NetworkName,
@@ -31,10 +32,10 @@ NEW_MESHCOP_DATASET: dict[MeshcopTLVType | int, MeshcopTLVItem] = {
         MeshcopTLVType.IPV6_ADDRESS_TLV,
         bytes.fromhex("20010db8000000000000000000000001"),
     ),
-    MeshcopTLVType.PENDINGTIMESTAMP: MeshcopTLVItem(
+    MeshcopTLVType.PENDINGTIMESTAMP: Timestamp(
         MeshcopTLVType.PENDINGTIMESTAMP, bytes.fromhex("0000000000010000")
     ),
-    MeshcopTLVType.DELAYTIMER: MeshcopTLVItem(
+    MeshcopTLVType.DELAYTIMER: DelayTimer(
         MeshcopTLVType.DELAYTIMER, bytes.fromhex("00001388")
     ),
     MeshcopTLVType.COUNT: MeshcopTLVItem(MeshcopTLVType.COUNT, bytes.fromhex("03")),
@@ -252,3 +253,96 @@ def test_timestamp_parsing_full_integrity() -> None:
 
     # 3. Check Authoritative: Ensures the lowest bit is read correctly
     assert timestamp.authoritative is True
+
+
+def test_timestamp_from_values() -> None:
+    """Test constructing a timestamp from field values."""
+    timestamp = Timestamp.from_values(
+        MeshcopTLVType.ACTIVETIMESTAMP, seconds=400, ticks=32767, authoritative=True
+    )
+    assert timestamp.data == bytes.fromhex("000000000190FFFF")
+    assert timestamp.seconds == 400
+    assert timestamp.ticks == 32767
+    assert timestamp.authoritative is True
+
+    pending = Timestamp.from_values(MeshcopTLVType.PENDINGTIMESTAMP, seconds=1)
+    assert pending.tag == MeshcopTLVType.PENDINGTIMESTAMP
+    assert pending.data == bytes.fromhex("0000000000010000")
+    assert pending.ticks == 0
+    assert pending.authoritative is False
+
+    # The largest encodable timestamp survives a roundtrip
+    ceiling = Timestamp.from_values(
+        MeshcopTLVType.ACTIVETIMESTAMP, seconds=2**48 - 1, ticks=2**15 - 1
+    )
+    assert ceiling.seconds == 2**48 - 1
+    assert ceiling.ticks == 2**15 - 1
+
+
+@pytest.mark.parametrize(
+    ("seconds", "ticks", "msg"),
+    (
+        (2**48, 0, "timestamp seconds out of range"),
+        (-1, 0, "timestamp seconds out of range"),
+        (0, 2**15, "timestamp ticks out of range"),
+        (0, -1, "timestamp ticks out of range"),
+    ),
+)
+def test_timestamp_from_values_out_of_range(seconds, ticks, msg) -> None:
+    """Test constructing a timestamp from values which don't fit the wire format."""
+    with pytest.raises(TLVError, match=msg):
+        Timestamp.from_values(
+            MeshcopTLVType.ACTIVETIMESTAMP, seconds=seconds, ticks=ticks
+        )
+
+
+def test_timestamp_invalid_data() -> None:
+    """Test a malformed timestamp raises TLVError, not struct.error."""
+    with pytest.raises(TLVError, match="invalid timestamp '00'"):
+        Timestamp(MeshcopTLVType.ACTIVETIMESTAMP, bytes.fromhex("00"))
+    # Also via the parser, as it would arrive from user supplied TLVs
+    with pytest.raises(TLVError, match="invalid timestamp '00000000000100'"):
+        parse_tlv("0E0700000000000100")
+
+
+def test_pending_timestamp_and_delay_timer_parsed() -> None:
+    """Test PENDINGTIMESTAMP and DELAYTIMER decode to typed items."""
+    dataset = parse_tlv("33080000000000010000340400006699")
+    pending = dataset[MeshcopTLVType.PENDINGTIMESTAMP]
+    assert isinstance(pending, Timestamp)
+    assert pending.seconds == 1
+    delay = dataset[MeshcopTLVType.DELAYTIMER]
+    assert isinstance(delay, DelayTimer)
+    assert delay.delay == 0x6699
+
+
+def test_delay_timer_from_milliseconds() -> None:
+    """Test constructing a delay timer from a delay in milliseconds."""
+    delay = DelayTimer.from_milliseconds(5 * 60 * 1000)
+    assert delay.tag == MeshcopTLVType.DELAYTIMER
+    assert delay.data == bytes.fromhex("000493E0")
+    assert delay.delay == 300000
+    assert encode_tlv({MeshcopTLVType.DELAYTIMER: delay}) == "3404000493e0"
+
+
+@pytest.mark.parametrize("delay", (2**32, -1))
+def test_delay_timer_out_of_range(delay) -> None:
+    """Test constructing a delay timer which doesn't fit the wire format."""
+    with pytest.raises(TLVError, match="delay timer out of range"):
+        DelayTimer.from_milliseconds(delay)
+
+
+def test_delay_timer_invalid_data() -> None:
+    """Test a malformed delay timer raises TLVError, not struct.error."""
+    with pytest.raises(TLVError, match="invalid delay timer '00'"):
+        DelayTimer(MeshcopTLVType.DELAYTIMER, bytes.fromhex("00"))
+    # Also via the parser, as it would arrive from user supplied TLVs
+    with pytest.raises(TLVError, match="invalid delay timer '000000'"):
+        parse_tlv("3403000000")
+
+
+def test_unknown_tlv_value_not_logged(caplog: pytest.LogCaptureFixture) -> None:
+    """Test the unknown-TLV warning does not log the value."""
+    parse_tlv("BD03ABCDEF")
+    assert "unknown TLV type 189 (3 bytes)" in caplog.text
+    assert "abcdef" not in caplog.text.lower()

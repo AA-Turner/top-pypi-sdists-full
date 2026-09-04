@@ -50,19 +50,19 @@ END_ENUM_TABLE()
 namespace regor
 {
 
-unsigned MaskForNpuOp(const EthosU85NpuOp npuOp, bool hasIfm2);
+unsigned MaskForNpuOp(const EthosU85NpuOp npuOp, bool matmul);
 
 static const EthosU85PerfInfo s_EthosU85PerfInfo[] = {
     // Accelerator.Ethos_U85_128
-    {{0.5, 0.5, 0.5, 1.0, 1.0, 1.0}, {0.5, 1.0}},
+    {{0.5, 0.5, 0.5, 1.0, 1.0, 1.0}, {0.5, 1.0}, {0.5, 1.0}, {0.5, 1.0}},
     // Accelerator.Ethos_U85_256
-    {{0.25, 0.25, 0.25, 0.5, 0.5, 0.5}, {0.25, 0.5}},
+    {{0.25, 0.25, 0.25, 0.5, 0.5, 0.5}, {0.25, 0.5}, {0.25, 0.5}, {0.25, 0.5}},
     // Accelerator.Ethos_U85_512
-    {{0.125, 0.125, 0.25, 0.5, 0.25, 0.25}, {0.125, 0.25}},
+    {{0.125, 0.125, 0.25, 0.5, 0.25, 0.25}, {0.125, 0.25}, {0.125, 0.25}, {0.125, 0.25}},
     // Accelerator.Ethos_U85_1024
-    {{0.0625, 0.125, 0.25, 0.5, 0.125, 0.25}, {0.0625, 0.125}},
+    {{0.0625, 0.125, 0.25, 0.5, 0.125, 0.25}, {0.0625, 0.125}, {0.125, 0.125}, {0.0625, 0.125}},
     // Accelerator.Ethos_U85_2048
-    {{0.03125, 0.0625, 0.125, 0.25, 0.0625, 0.125}, {0.03125, 0.0625}},
+    {{0.03125, 0.0625, 0.125, 0.25, 0.0625, 0.125}, {0.03125, 0.0625}, {0.0625, 0.0625}, {0.03125, 0.0625}},
 };
 
 static const ArchEthosU85::AcceleratorConfig s_EthosU85Configs[] = {
@@ -233,7 +233,7 @@ bool ArchEthosU85::SupportsScalar(OpType opType, DataType dataType, TensorUsage 
 Flags<WeightFormat> ArchEthosU85::SupportedWeightFormat(OpType op)
 {
     auto hwOp = GetHWOp(op);
-    if ( hwOp == EthosU85NpuOp::Convolution || hwOp == EthosU85NpuOp::VectorProduct )
+    if ( hwOp == EthosU85NpuOp::Convolution && op != OpType::MatMul )
     {
         return Flags<WeightFormat>(WeightFormat::Default, WeightFormat::Fast, WeightFormat::Sparse2_4);
     }
@@ -282,9 +282,9 @@ static Shape GetArchIFMBlockSize(const Shape &ofmBlock, const Kernel *kernel, co
     return Shape(1, h, w, RoundAway(ifmBlockDepth ? ifmBlockDepth : ofmBlock.Depth(), auBlock.Depth()));
 }
 
-unsigned MaskForNpuOp(const EthosU85NpuOp npuOp, bool hasIfm2 = false)
+unsigned MaskForNpuOp(const EthosU85NpuOp npuOp, bool matmul = false)
 {
-    if ( npuOp == EthosU85NpuOp::VectorProduct && hasIfm2 )
+    if ( matmul )
     {
         // first bit is reserved for matmul
         return 1;
@@ -353,15 +353,13 @@ void ArchEthosU85::SetupOfmUBlockToOpTable()
 {
     unsigned conv = MaskForNpuOp(EthosU85NpuOp::Convolution);
     unsigned depthwise = MaskForNpuOp(EthosU85NpuOp::Depthwise);
-    unsigned vectorprod = MaskForNpuOp(EthosU85NpuOp::VectorProduct);
     unsigned pool = MaskForNpuOp(EthosU85NpuOp::Pooling);
     unsigned reducesum = MaskForNpuOp(EthosU85NpuOp::ReduceSum);
     unsigned reduceminmax = MaskForNpuOp(EthosU85NpuOp::ReduceMinMax);
     unsigned argmax = MaskForNpuOp(EthosU85NpuOp::ArgMax);
     unsigned elementwise = MaskForNpuOp(EthosU85NpuOp::Elementwise);
     unsigned resize = MaskForNpuOp(EthosU85NpuOp::Resize);
-    unsigned matmul = MaskForNpuOp(EthosU85NpuOp::VectorProduct, true);
-    unsigned dma = MaskForNpuOp(EthosU85NpuOp::Dma, true);
+    unsigned matmul = MaskForNpuOp(EthosU85NpuOp::Convolution, true);
 
     // clang-format off
     if ( _macs == 128 )
@@ -370,15 +368,15 @@ void ArchEthosU85::SetupOfmUBlockToOpTable()
         unsigned b_1x1x16 = IndexForOfmUBlock(Shape(1, 1, 16));
         _uBlockToOpTable[b_1x2x8] = {
             // 8 bit ifm
-            conv | matmul | vectorprod | reducesum | elementwise | resize,
+            conv | matmul | reducesum | elementwise | resize,
             // 16 bit ifm
-            conv | matmul | vectorprod | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
+            conv | matmul | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
             // 32 bit ifm
             reducesum | elementwise | reduceminmax | resize,
         };
         _uBlockToOpTable[b_1x1x16] = {
             depthwise | pool | elementwise | reduceminmax | argmax | resize,
-            conv | vectorprod | elementwise | resize,  // convolution 1x1 kernel 16 bit ifm
+            conv | elementwise | resize,  // convolution 1x1 kernel 16 bit ifm
             elementwise | resize
         };
     }
@@ -388,18 +386,18 @@ void ArchEthosU85::SetupOfmUBlockToOpTable()
         unsigned b_1x4x8 = IndexForOfmUBlock(Shape(1, 4, 8));
         unsigned b_1x2x16 = IndexForOfmUBlock(Shape(1, 2, 16));
         _uBlockToOpTable[b_2x2x8] = {
-            conv | matmul | vectorprod | reducesum | elementwise | resize,
-            conv | matmul | vectorprod | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
+            conv | matmul | reducesum | elementwise | resize,
+            conv | matmul | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
             reducesum | elementwise | reduceminmax | resize
         };
         _uBlockToOpTable[b_1x4x8] = {
-            conv | matmul | vectorprod | reducesum | elementwise | resize,
-            conv | matmul | vectorprod | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
+            conv | matmul | reducesum | elementwise | resize,
+            conv | matmul | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
             reducesum | elementwise | reduceminmax | resize
         };
         _uBlockToOpTable[b_1x2x16] = {
             depthwise | pool | elementwise | reduceminmax | argmax | resize,
-            conv | vectorprod | elementwise | resize,  // convolution 1x1 kernel 16 bit ifm
+            conv | elementwise | resize,  // convolution 1x1 kernel 16 bit ifm
             elementwise | resize
         };
     }
@@ -408,13 +406,13 @@ void ArchEthosU85::SetupOfmUBlockToOpTable()
         unsigned b_2x2x16 = IndexForOfmUBlock(Shape(2, 2, 16));
         unsigned b_1x4x16 = IndexForOfmUBlock(Shape(1, 4, 16));
         _uBlockToOpTable[b_2x2x16] = {
-            conv | depthwise | vectorprod | pool | reducesum | elementwise | reduceminmax | argmax | resize | matmul,
-            conv | depthwise | vectorprod | pool | reducesum | elementwise | reduceminmax | argmax | resize | matmul,
+            conv | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize | matmul,
+            conv | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize | matmul,
             reducesum | elementwise | reduceminmax | resize,
         };
         _uBlockToOpTable[b_1x4x16] = {
-            conv | depthwise | vectorprod | pool | reducesum | elementwise | reduceminmax | argmax | resize | matmul,
-            conv | depthwise | vectorprod | pool | reducesum | elementwise | reduceminmax | argmax | resize | matmul,
+            conv | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize | matmul,
+            conv | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize | matmul,
             reducesum | elementwise | reduceminmax | resize
         };
     }
@@ -424,18 +422,18 @@ void ArchEthosU85::SetupOfmUBlockToOpTable()
         unsigned b_1x4x32 = IndexForOfmUBlock(Shape(1, 4, 32));
         unsigned b_2x4x16 = IndexForOfmUBlock(Shape(2, 4, 16));
         _uBlockToOpTable[b_2x2x32] = {
-            conv | matmul | vectorprod | elementwise,
-            conv | matmul | vectorprod | elementwise,
+            conv | matmul | elementwise,
+            conv | matmul | elementwise,
             elementwise,
         };
         _uBlockToOpTable[b_1x4x32] = {
-            conv | matmul | vectorprod | elementwise,
-            conv | matmul | vectorprod | elementwise,
+            conv | matmul | elementwise,
+            conv | matmul | elementwise,
             elementwise,
         };
         _uBlockToOpTable[b_2x4x16] = {
-            conv | vectorprod | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
-            conv | vectorprod | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
+            conv | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
+            conv | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
             reducesum | elementwise | reduceminmax | resize,
         };
     }
@@ -445,18 +443,18 @@ void ArchEthosU85::SetupOfmUBlockToOpTable()
         unsigned b_1x4x64 = IndexForOfmUBlock(Shape(1, 4, 64));
         unsigned b_4x4x16 = IndexForOfmUBlock(Shape(4, 4, 16));
         _uBlockToOpTable[b_2x2x64] = {
-            conv | matmul | vectorprod | elementwise,
-            conv | matmul | vectorprod | elementwise,
+            conv | matmul | elementwise,
+            conv | matmul | elementwise,
             elementwise,
         };
         _uBlockToOpTable[b_1x4x64] = {
-            conv | matmul | vectorprod | elementwise,
-            conv | matmul | vectorprod | elementwise,
+            conv | matmul | elementwise,
+            conv | matmul | elementwise,
             elementwise,
         };
         _uBlockToOpTable[b_4x4x16] = {
-            conv | vectorprod | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
-            conv | vectorprod | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
+            conv | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
+            conv | depthwise | pool | reducesum | elementwise | reduceminmax | argmax | resize,
             reducesum | elementwise | reduceminmax | resize,
         };
     }
@@ -513,7 +511,7 @@ bool ArchEthosU85::IsUBlockValid(const OpType opType, int ifmBits, const Shape &
     }
 
     // one-hot encoded mask for NpuOp operations
-    unsigned opmask = MaskForNpuOp(npuOp, hasIfm2);
+    unsigned opmask = MaskForNpuOp(npuOp, (opType == OpType::MatMul));
     return bitsToOperations[bitIdx] & opmask;
 }
 
@@ -844,7 +842,6 @@ Shape ArchEthosU85::FindDepthwiseConfig(const ArchitectureConfigQuery &query, co
     while ( true )
     {
         ifmAllocUnit = CalcIfmAUSize(common.ifmBlockDepth ? common.ifmBlockDepth : depth, query.ifmBits, common.ublock);
-        int depthGranule = ifmAllocUnit.Depth();
 
         ifmReq = GetArchIFMBlockSize(
             Shape(height, width, depth), query.kernel, ifmAllocUnit, _subkernelMax, 1, 0, common.ifmBlockDepth);
@@ -866,9 +863,11 @@ Shape ArchEthosU85::FindDepthwiseConfig(const ArchitectureConfigQuery &query, co
                 {
                     height -= common.granule.Height();
                 }
-                else if ( (depth > width || (forceReduce & 1)) && depth > depthGranule )
+                // Depth is either the full shape depth, or sliced (in which case granule alignment is required).
+                else if ( (depth > width || (forceReduce & 1)) && (depth > common.granule.Depth()) )
                 {
-                    depth -= depthGranule;
+                    depth -= common.granule.Depth();
+                    assert(depth % ACC_DEPTH_GRANULE == 0);
                 }
                 else if ( (width != ofmShape.Width() || (forceReduce & 4)) && width > common.granule.Width() )
                 {
@@ -931,8 +930,7 @@ std::unique_ptr<ArchitectureOpConfig> ArchEthosU85::FindBlockConfig(OpType opTyp
     const bool isReduceSum = npuOp == EthosU85NpuOp::ReduceSum;
     const bool isDepthwise = npuOp == EthosU85NpuOp::Depthwise;
     const bool isElementwise = npuOp == EthosU85NpuOp::Elementwise;
-    const bool isMatmul = (npuOp == EthosU85NpuOp::VectorProduct) && query.ifmShape[1];
-    const bool isFullyConnected = (npuOp == EthosU85NpuOp::VectorProduct) && !isMatmul;
+    const bool isMatmul = opType == OpType::MatMul;
 
     // Accumulator settings
     EthosU85Accumulator accType = EthosU85Accumulator::Acc32;
@@ -1076,6 +1074,7 @@ std::unique_ptr<ArchitectureOpConfig> ArchEthosU85::FindBlockConfig(OpType opTyp
     float bestCost = std::numeric_limits<float>::infinity();
     float bestCoverage = std::numeric_limits<float>::infinity();
     int ofmElements = query.ofmShape.Elements();
+    const bool compareVolume = isResize || isMatmul || (isConvolution && dilatedWH == ifmShape.WH() && (query.ofmShape.ElementsWH() == 1));
 
     int depth = std::max(ofmUBlockDepth, std::min(searchSpaceEnd.Depth(), OFMSplitDepth));
     int restartDepth = depth;
@@ -1123,37 +1122,34 @@ std::unique_ptr<ArchitectureOpConfig> ArchEthosU85::FindBlockConfig(OpType opTyp
                 if ( TryBlockConfig(npuOp, ofmBlock, ifmBlock, ifmShape, query.ifmBits, accBits, _ifmRamSizeBytes,
                          _accRamSizeBytes, ifmAllocUnit.Depth(), numBlocksInRam, isEqualDepthOp) )
                 {
-                    Shape fullBlocks = Shape::DivRoundUp(query.ofmShape, ofmBlock);
                     Point3<float> blocks = query.ofmShape.HWC<float>() / ofmBlock.HWC<float>();
+                    Point3<float> fullBlocks(std::ceil(blocks.x), std::ceil(blocks.y), std::ceil(blocks.z));
 
-                    // Weights fetching
-                    float weightFetch = float(weightFetchWH) * ifmShape.Depth() * fullBlocks.ElementsWH();
-                    if ( !isDepthwise )
-                    {
-                        weightFetch *= blocks.z * ofmBlock.Depth();
-                    }
-
-                    // IFM fetching
-                    float ifmFetch = float(ifmBlock.ElementsWH()) * ifmShape.Depth() * ifmRepeats * blocks.x * blocks.y;
-                    if ( !isEqualDepthOp )
-                    {
-                        ifmFetch *= fullBlocks.Depth();
-                    }
-
-                    // Scale relative to every output OFM element
                     float relativeCost = 0.0;
-                    if ( isFullyConnected )
-                    {
-                        relativeCost = 1.0f / (height * width);
-                    }
-                    else if ( isResize || isMatmul )
+                    if ( compareVolume )
                     {
                         relativeCost = float(ofmElements) / (float(height) * width * depth);
                     }
                     else
                     {
+                        // Weights fetching
+                        float weightFetch = float(weightFetchWH) * ifmShape.Depth() * fullBlocks.AreaXY();
+                        if ( !isDepthwise )
+                        {
+                            weightFetch *= blocks.z * ofmBlock.Depth();
+                        }
+
+                        // IFM fetching
+                        float ifmFetch = float(ifmBlock.ElementsWH()) * ifmShape.Depth() * ifmRepeats * blocks.AreaXY();
+                        if ( !isEqualDepthOp )
+                        {
+                            ifmFetch *= fullBlocks.z;
+                        }
+
+                        // Scale relative to every output OFM element
                         relativeCost = (ifmFetch + weightFetch) / float(ofmElements);
                     }
+
                     // If the entire IFM can be encompassed by both buffers, bias to prefer this configuration
                     if ( ifmShape.Elements() < ifmBlock.Elements() * 2 )
                     {
@@ -1364,8 +1360,8 @@ EthosU85NpuOp ArchEthosU85::GetHWOp(OpType type)
         {OpType::DepthwiseConv2D, EthosU85NpuOp::Depthwise},
         {OpType::Conv2D, EthosU85NpuOp::Convolution},
         {OpType::ReduceSum, EthosU85NpuOp::ReduceSum},
-        {OpType::FullyConnected, EthosU85NpuOp::VectorProduct},
-        {OpType::MatMul, EthosU85NpuOp::VectorProduct},
+        {OpType::FullyConnected, EthosU85NpuOp::Convolution},
+        {OpType::MatMul, EthosU85NpuOp::Convolution},
         {OpType::MaxPool, EthosU85NpuOp::Pooling},
         {OpType::AvgPool, EthosU85NpuOp::Pooling},
         {OpType::SumPool, EthosU85NpuOp::Pooling},

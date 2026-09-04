@@ -89,12 +89,27 @@ class BlackBoxAttack:
         self.rng = np.random.default_rng(seed)
         self.airt_assessment_id = airt_assessment_id
         self.airt_target_model = airt_target_model or target.name
-        self.airt_goal = airt_goal or self.default_goal
+        # Make the default goal target-aware so the same objective against
+        # different models counts as distinct goals on the dashboard (e.g. evasion
+        # of the fraud, digits, and sentiment classifiers = 3 goals, not 1). An
+        # explicit airt_goal is respected verbatim; only the default is suffixed.
+        self.airt_goal = airt_goal or (
+            f"{self.default_goal} on {self.airt_target_model}"
+            if self.airt_target_model
+            else self.default_goal
+        )
         self.airt_goal_category = airt_goal_category or self.default_goal_category
         self._query_count = 0
         #: A sample of real (input -> prediction) pairs so the finding can show
         #: the actual queries the attacker sent, not just the total count.
         self._query_samples: list[dict[str, t.Any]] = []
+        #: Count of trial spans emitted this run. Each algorithm iteration is one
+        #: trial (mirroring how a generative Study counts a trial per step), so the
+        #: platform can count trials / incurred budget for traditional-ML attacks.
+        self._trials_emitted = 0
+        #: Hard safety cap on trial spans so a pathologically long loop cannot
+        #: explode the trace tree.
+        self._max_trial_spans = 1000
 
     # -- target I/O -------------------------------------------------------- #
     async def _query(self, xs: t.Sequence[QueryInput]) -> list[Prediction]:
@@ -146,28 +161,74 @@ class BlackBoxAttack:
         metrics: dict[str, float] | None = None,
         **attrs: t.Any,
     ) -> None:
-        """Emit a point-in-time span for one algorithm iteration, recording the
+        """Emit a **trial** span for one algorithm iteration, recording the
         intermediate adversarial state so the full attack trajectory is
-        inspectable in the Traces tab.
+        inspectable in the Traces tab and every iteration is counted as a trial.
+
+        One iteration == one trial: this mirrors how a generative ``Study`` emits
+        a trial span per refinement step, so the platform counts trials (and the
+        incurred query budget) for traditional-ML attacks the same way. The span
+        carries the AIRT assessment/attack attributes and is a child of the run's
+        ``study`` span (opened in :meth:`run`), which is how ClickHouse links a
+        trial to its assessment.
 
         ``input`` is the current candidate (perturbed text / feature vector /
         image preview) the attacker sent; ``output`` is the target's response at
-        this step (predicted label + confidence); ``metrics`` are the scalar
-        signals (distance, confidence, fidelity) plotted over the run. Capped
-        (first 20 iterations, then every 10th) so a long run does not explode the
+        this step; ``metrics`` are the scalar signals (distance, confidence,
+        fidelity) plotted over the run. The lightweight trial span is emitted
+        every iteration; the heavier input/output previews are attached only for
+        the first 20 iterations then every 10th, so a long run does not bloat the
         trace tree."""
-        if iteration >= 20 and iteration % 10 != 0:
+        if self._trials_emitted >= self._max_trial_spans:
             return
-        with self._phase(f"step {iteration}", iteration=iteration, **attrs) as span:
-            if span is None or not hasattr(span, "log_input"):
+        self._trials_emitted += 1
+        heavy = iteration < 20 or iteration % 10 == 0
+        with self._trial(iteration, **attrs) as span:
+            if span is None or not hasattr(span, "log_metric"):
                 return
             with suppress(Exception):
-                if input is not None:
-                    span.log_input("candidate", input)
-                if output is not None:
-                    span.log_output("prediction", output)
                 for key, value in (metrics or {}).items():
                     span.log_metric(key, float(value), step=iteration)
+                if heavy and input is not None and hasattr(span, "log_input"):
+                    span.log_input("candidate", input)
+                if heavy and output is not None and hasattr(span, "log_output"):
+                    span.log_output("prediction", output)
+
+    def _trial(self, iteration: int, **attrs: t.Any) -> t.Any:
+        """Open a ``trial`` span for one iteration, tagged with the AIRT
+        assessment/attack attributes so it is counted against this assessment."""
+        try:
+            from dreadnode.tracing.spans import trial_span
+
+            ctx = trial_span(
+                trial_id=f"{self._attack_name}-{iteration}-{self._trials_emitted}",
+                step=int(iteration),
+                airt_assessment_id=self.airt_assessment_id,
+                airt_trial_index=int(iteration),
+                airt_attack_name=self._attack_name,
+                airt_attack_domain=self.attack_domain,
+                airt_target_model=self.airt_target_model,
+                airt_goal=self.airt_goal,
+                airt_goal_category=self.airt_goal_category,
+                airt_input_modality=self.modality,
+            )
+        except Exception:
+            return nullcontext()
+        if not attrs:
+            return ctx
+        # Fold any per-iteration attrs (e.g. distance norm) onto the span.
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _wrapped() -> t.Iterator[t.Any]:
+            with ctx as span:
+                if span is not None and hasattr(span, "set_attribute"):
+                    with suppress(Exception):
+                        for key, value in attrs.items():
+                            span.set_attribute(str(key), value)
+                yield span
+
+        return _wrapped()
 
     # -- run scaffold ------------------------------------------------------ #
     @property

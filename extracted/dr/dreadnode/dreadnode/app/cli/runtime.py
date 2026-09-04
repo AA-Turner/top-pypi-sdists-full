@@ -295,6 +295,54 @@ def _print_started_runtime(payload: dict[str, t.Any]) -> None:
     if sandbox_token:
         console.print(f"[dim]Token:[/dim] {sandbox_token}")
 
+    timing_line = _format_startup_timing(instance.get("startup_timing"))
+    if timing_line:
+        console.print(f"[dim]Cold start:[/dim] {timing_line}")
+
+
+def _format_startup_timing(timing: t.Any) -> str | None:
+    """One line of where a cold start spent its time, from the API's breakdown.
+
+    Only the phases that were recorded are shown, so an instance started before
+    timing existed prints nothing rather than a row of blanks.
+    """
+    if not isinstance(timing, dict):
+        return None
+    total = timing.get("total_sec")
+    if not isinstance(total, int | float):
+        return None
+    runtime_raw = timing.get("runtime")
+    runtime: dict[str, t.Any] = runtime_raw if isinstance(runtime_raw, dict) else {}
+    marks_raw = runtime.get("timings")
+    marks: dict[str, t.Any] = marks_raw if isinstance(marks_raw, dict) else {}
+    durations_raw = runtime.get("durations")
+    durations: dict[str, t.Any] = durations_raw if isinstance(durations_raw, dict) else {}
+    install_total = sum(
+        v for k, v in durations.items() if k.startswith("install.") and isinstance(v, int | float)
+    )
+    parts: list[tuple[str, t.Any]] = [
+        ("api", timing.get("api_pre_provision_sec")),
+        ("provider", timing.get("provider_provision_sec")),
+        ("runtime boot", marks.get("serve_entered")),
+        ("install", install_total or None),
+        ("ready", marks.get("ready")),
+        ("detect lag", timing.get("ready_detect_lag_sec")),
+    ]
+    rendered = [f"{label} {value:.1f}s" for label, value in parts if isinstance(value, int | float)]
+    phases_raw = timing.get("phases")
+    phases = (
+        {k: v for k, v in phases_raw.items() if isinstance(v, int | float)}
+        if isinstance(phases_raw, dict)
+        else {}
+    )
+    if phases:
+        # The api and provider figures above are totals; name the single
+        # platform-side step that cost the most so a slow one is attributable
+        # from the terminal.
+        slowest = max(phases, key=lambda k: phases[k])
+        rendered.append(f"slowest {slowest} {phases[slowest]:.1f}s")
+    return f"{total:.1f}s" + (f" ({', '.join(rendered)})" if rendered else "")
+
 
 # ---------------------------------------------------------------------------
 # list / get

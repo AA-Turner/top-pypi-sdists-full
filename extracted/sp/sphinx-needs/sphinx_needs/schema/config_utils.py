@@ -224,13 +224,13 @@ def check_network_links_against_links(
                     nested_fields = ["contains", "items"]
                     for field in nested_fields:
                         if field in resolved_link_schema:
-                            if not isinstance(resolved_link_schema[field], dict):  # type: ignore[literal-required]
+                            if not isinstance(resolved_link_schema[field], dict):  # ty: ignore[invalid-key]
                                 schema_name = get_schema_name(schema)
                                 raise NeedsConfigException(
                                     f"Schema '{schema_name}' defines a {network_key} link type '{link_type}' "
                                     f"but its '{field}' value is not a dict."
                                 )
-                            validate_schemas.append(resolved_link_schema[field])  # type: ignore[literal-required]
+                            validate_schemas.append(resolved_link_schema[field])  # ty: ignore[invalid-key]
 
 
 def resolve_refs(
@@ -517,7 +517,7 @@ def _get_core_field_type(
 ) -> (
     tuple[
         Literal["string", "boolean", "integer", "number", "array"],
-        None | Literal["string", "boolean", "integer", "number"],
+        Literal["string", "boolean", "integer", "number"] | None,
     ]
     | None
 ):

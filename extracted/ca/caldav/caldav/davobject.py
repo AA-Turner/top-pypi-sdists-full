@@ -16,12 +16,13 @@ if sys.version_info < (3, 11):
 else:
     from typing import Self
 
+from .compatibility_hints import at_spelling_is_significant, at_spelling_to_mint
 from .elements import cdav, dav
 from .elements.base import BaseElement
 from .lib import error
 from .lib.error import errmsg
 from .lib.python_utilities import to_wire
-from .lib.url import URL
+from .lib.url import URL, requote_path
 
 _CC = TypeVar("_CC", bound="CalendarObjectResource")
 log = logging.getLogger("caldav")
@@ -48,6 +49,26 @@ class DAVObject:
     url: URL | None = None
     client: Optional["DAVClient"] = None
     parent: Optional["DAVObject"] = None
+
+    @property
+    def _at_spelling(self) -> str:
+        """The ``@`` spelling to use where this object has to mint a path.
+
+        ``%40``, which is what this library has always sent, unless
+        ``url.encode-at.encoded`` says the server will not resolve it - see
+        ``compatibility_hints.at_spelling_to_mint``.  Nowhere else may rewrite
+        a spelling it was handed - see ``url.requote_path``.
+        """
+        return at_spelling_to_mint(getattr(self.client, "features", None))
+
+    @property
+    def _preserve_at(self) -> bool:
+        """Whether a path from the server keeps the ``@`` spelling it arrived with.
+
+        False unless a profile declares the server conformant - see
+        ``compatibility_hints.at_spelling_is_significant``.
+        """
+        return at_spelling_is_significant(getattr(self.client, "features", None))
 
     def __init__(
         self,
@@ -160,7 +181,7 @@ class DAVObject:
                 url = URL(path)
                 if url.hostname is None:
                     # Quote when path is not a full URL
-                    path = quote(path)
+                    path = requote_path(path) if self._preserve_at else quote(path)
                 # TODO: investigate the RFCs thoroughly - why does a "get
                 # members of this collection"-request also return the
                 # collection URL itself?
@@ -406,6 +427,13 @@ class DAVObject:
         """Shared post-processing for get_properties and _async_get_properties."""
         if not parse_response_xml:
             return response
+
+        ## A 207 whose responses are all bare 404s means the resource we
+        ## asked about is not there.  Without this the propstat-oriented
+        ## parsing below finds nothing and hands the caller a dict of None
+        ## values instead - see DAVResponse.all_responses_not_found().
+        if response.all_responses_not_found():
+            raise error.NotFoundError(f"{self.url} not found on the server")
 
         # Use protocol layer results when available and parse_props=True
         if parse_props and response.results:

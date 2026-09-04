@@ -1,13 +1,20 @@
+import asyncio
 from typing import Annotated
 
 import pytest
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from docket import Docket, Worker
 from docket.annotations import Logged
-from docket.dependencies import CurrentDocket, CurrentWorker, Depends
-from docket.execution import Execution, TaskFunction, compact_signature, get_signature
+from docket.dependencies import CurrentDocket, CurrentExecution, CurrentWorker, Depends
+from docket.execution import (
+    Execution,
+    ExecutionState,
+    TaskFunction,
+    compact_signature,
+    get_signature,
+)
 
 
 async def no_args() -> None: ...  # pragma: no cover
@@ -166,3 +173,85 @@ async def test_execution_from_message_without_fallback_raises_for_unknown_task(
 
     assert "unknown_task" in str(exc_info.value)
     assert "not registered" in str(exc_info.value)
+
+
+async def test_schedule_does_not_wait_on_a_per_key_lock(docket: Docket):
+    """schedule() takes no lock on the task key, so an outside holder cannot stall it.
+
+    The `_schedule` script is atomic on its own, and nothing else in docket
+    acquires a `{known}:lock` key.
+    """
+    when = datetime.now(timezone.utc) + timedelta(minutes=1)
+    lock_key = f"{docket.known_task_key('unblocked')}:lock"
+
+    async with docket.redis() as redis:
+        async with redis.lock(lock_key, timeout=10):
+            await asyncio.wait_for(
+                docket.add(no_args, when, key="unblocked")(), timeout=2
+            )
+
+    snapshot = await docket.snapshot()
+    assert [execution.key for execution in snapshot.future] == ["unblocked"]
+
+
+def lifecycle_attributes(execution: Execution) -> dict[str, object]:
+    """The attributes a claim or a sync fills in from Redis."""
+    return {
+        "state": execution.state,
+        "worker": execution.worker,
+        "started_at": execution.started_at,
+        "completed_at": execution.completed_at,
+        "error": execution.error,
+        "result_key": execution.result_key,
+        "current": execution.progress.current,
+        "total": execution.progress.total,
+        "message": execution.progress.message,
+        "updated_at": execution.progress.updated_at,
+    }
+
+
+async def test_the_claimed_execution_matches_a_synced_one(
+    docket: Docket, worker: Worker
+):
+    """The task body sees exactly what a sync of the same message would report."""
+    seen: list[tuple[dict[str, object], dict[str, object]]] = []
+
+    async def report(execution: Execution = CurrentExecution()) -> None:
+        async with docket.redis() as redis:
+            messages = await redis.xrange(docket.stream_key, count=1)
+        _, message = messages[0]
+        synced = await Execution.from_message(docket, message)
+        seen.append((lifecycle_attributes(execution), lifecycle_attributes(synced)))
+
+    await docket.add(report, key="claimed")()
+
+    await worker.run_until_finished()
+
+    claimed, synced = seen[0]
+    assert claimed == synced
+
+
+async def test_a_refused_claim_reports_what_redis_holds(docket: Docket):
+    """A superseded execution shows the state of the key it lost, not stale defaults."""
+    await docket.add(no_args, key="refused")()
+
+    async with docket.redis() as redis:
+        messages = await redis.xrange(docket.stream_key, count=1)
+    _, message = messages[0]
+    stale = await Execution.from_message(docket, message)
+
+    await docket.replace(no_args, datetime.now(timezone.utc), "refused")()
+
+    assert not await stale.claim("worker-1")
+    assert lifecycle_attributes(stale) == {
+        "state": ExecutionState.QUEUED,
+        "worker": None,
+        "started_at": None,
+        "completed_at": None,
+        "error": None,
+        "result_key": None,
+        "current": None,
+        "total": 100,
+        "message": None,
+        "updated_at": None,
+    }

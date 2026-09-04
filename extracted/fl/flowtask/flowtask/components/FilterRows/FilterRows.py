@@ -12,7 +12,7 @@ from ...exceptions import ComponentError, DataNotFound
 
 
 class FilterRows(FlowComponent):
-    """
+    r"""
     FilterRows
 
     Overview

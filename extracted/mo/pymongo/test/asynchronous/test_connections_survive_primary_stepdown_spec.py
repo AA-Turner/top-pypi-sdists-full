@@ -13,13 +13,20 @@
 # limitations under the License.
 
 """Test compliance with the connections survive primary step down spec."""
+
 from __future__ import annotations
 
 import sys
+
 from test.asynchronous.utils import async_ensure_all_connected
 
 sys.path[0:0] = [""]
 
+from bson import SON
+from pymongo import monitoring
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import NotPrimaryError
+from pymongo.write_concern import WriteConcern
 from test.asynchronous import (
     AsyncIntegrationTest,
     async_client_context,
@@ -29,12 +36,6 @@ from test.asynchronous.helpers import async_repl_set_step_down
 from test.utils_shared import (
     CMAPListener,
 )
-
-from bson import SON
-from pymongo import monitoring
-from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.errors import NotPrimaryError
-from pymongo.write_concern import WriteConcern
 
 _IS_SYNC = False
 
@@ -73,7 +74,6 @@ class TestAsyncConnectionsSurvivePrimaryStepDown(AsyncIntegrationTest):
     def verify_pool_not_cleared(self):
         self.assertEqual(self.listener.event_count(monitoring.PoolClearedEvent), 0)
 
-    @async_client_context.require_version_min(4, 2, -1)
     async def test_get_more_iteration(self):
         # Insert 5 documents with WC majority.
         await self.coll.insert_many([{"data": k} for k in range(5)])
@@ -117,17 +117,14 @@ class TestAsyncConnectionsSurvivePrimaryStepDown(AsyncIntegrationTest):
         # Always retry here to ensure discovery of new primary.
         await self.coll.insert_one({"test": 1})
 
-    @async_client_context.require_version_min(4, 2, -1)
     @async_client_context.require_test_commands
     async def test_not_primary_keep_connection_pool(self):
         await self.run_scenario(10107, True, self.verify_pool_not_cleared)
 
-    @async_client_context.require_version_min(4, 2, 0)
     @async_client_context.require_test_commands
     async def test_shutdown_in_progress(self):
         await self.run_scenario(91, False, self.verify_pool_cleared)
 
-    @async_client_context.require_version_min(4, 2, 0)
     @async_client_context.require_test_commands
     async def test_interrupted_at_shutdown(self):
         await self.run_scenario(11600, False, self.verify_pool_cleared)

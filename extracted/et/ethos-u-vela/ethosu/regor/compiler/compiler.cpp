@@ -514,6 +514,23 @@ static void mapOutputs(const Graph *subgraph, const SchedulerOperation *op, std:
     }
 }
 
+static void MapPersistent(const Graph *graph, std::unordered_map<std::string, UniqueId> &variableNameToEqId,
+    std::unordered_map<UniqueId, UniqueId> &tensorToEqId)
+{
+    // Map graph persistent
+    for ( const auto &persistent : graph->Persistent() )
+    {
+        const auto &name = persistent->Name();
+        if ( variableNameToEqId.count(name) == 0 )
+        {
+            variableNameToEqId[name] = GenerateUniqueId();
+        }
+        const int eqID = variableNameToEqId[name];
+        tensorToEqId[persistent->Uid()] = eqID;
+        LOG_TRACE1("Mapping persistent {} (eqID {})\n", name, eqID);
+    }
+}
+
 // Compiled a graph and its subgraphs
 std::unique_ptr<CompiledGraph> Compiler::CompileGraph(
     Graph *graph, std::unordered_map<std::string, Graph *> &graphs, IncrementalLinearAllocator &readOnlyAllocator)
@@ -556,6 +573,9 @@ std::unique_ptr<CompiledGraph> Compiler::CompileGraph(
         SetLastError(e.what());
         return nullptr;
     }
+
+    // Map persistent tensors with same name to the same equivalence ID
+    MapPersistent(graph, _variableNameToEquivalenceID, _tensorToEquivalenceID);
 
     // Pack/linearise graph Operations into SchedulerOperations
     SchedulerPacking packing(_architecture.get(), _schedulerOptions.disabled.All(SchedulerFeature::Grouping), _tensorToEquivalenceID);

@@ -14,6 +14,12 @@ class TestSnowflake(Validator):
     dialect = "snowflake"
 
     def test_snowflake(self):
+        ast = parse_one("BLA(x) FILTER (WHERE x = 5)")
+        self.assertEqual(
+            ast.this.assert_is(exp.Anonymous).parent.sql("snowflake"),
+            "BLA(IFF(x = 5, x, NULL))",
+        )
+
         self.validate_identity(
             """WITH t AS (SELECT PARSE_JSON('{"level1": {"level2": {"level3": "value"}}}') AS data) SELECT data:     level1  : level2 : level3::VARIANT FROM t""",
             """WITH t AS (SELECT PARSE_JSON('{"level1": {"level2": {"level3": "value"}}}') AS data) SELECT CAST(GET_PATH(data, 'level1.level2.level3') AS VARIANT) FROM t""",
@@ -785,6 +791,13 @@ class TestSnowflake(Validator):
         )
         self.validate_identity("INITCAP('iqamqinterestedqinqthisqtopic', 'q')")
         self.validate_identity("OBJECT_CONSTRUCT(*)")
+        self.validate_identity("OBJECT_CONSTRUCT(t.*)")
+        self.validate_identity("OBJECT_CONSTRUCT_KEEP_NULL(*)")
+        self.validate_identity("OBJECT_CONSTRUCT_KEEP_NULL(t.*)")
+        self.validate_identity("OBJECT_CONSTRUCT_KEEP_NULL(t.* ILIKE 'col1%')")
+        self.validate_identity("OBJECT_CONSTRUCT_KEEP_NULL(t.* EXCLUDE (col1, col2))")
+        with self.assertRaises(ParseError):
+            parse_one("OBJECT_CONSTRUCT_KEEP_NULL(t.*, 'a', 1)", dialect="snowflake")
         self.validate_identity("SELECT CAST('2021-01-01' AS DATE) + INTERVAL '1 DAY'")
         self.validate_identity("SELECT HLL(*)")
         self.validate_identity("SELECT HLL(a)")
@@ -4414,6 +4427,9 @@ class TestSnowflake(Validator):
         )
         self.validate_identity(
             "CREATE OR REPLACE TABLE EXAMPLE_DB.DEMO.USERS (ID DECIMAL(38, 0) NOT NULL, PRIMARY KEY (ID), FOREIGN KEY (CITY_CODE) REFERENCES EXAMPLE_DB.DEMO.CITIES (CITY_CODE))"
+        )
+        self.validate_identity(
+            "CREATE TABLE t (a ARRAY(INT), b ARRAY(ARRAY(INT)), c OBJECT(x INT), d MAP(VARCHAR, INT))"
         )
         self.validate_identity(
             "CREATE ICEBERG TABLE my_iceberg_table (amount ARRAY(INT)) CATALOG='SNOWFLAKE' EXTERNAL_VOLUME='my_external_volume' BASE_LOCATION='my/relative/path/from/extvol'"

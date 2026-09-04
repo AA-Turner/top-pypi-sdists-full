@@ -62,6 +62,7 @@ from importlib import metadata
 from math import ceil, cos, hypot, pi, sin
 from unicodedata import bidirectional
 
+from boltons.strutils import strip_ansi
 from click import style, unstyle
 from wcwidth import wcswidth
 
@@ -71,6 +72,8 @@ from .execution import args_cleanup, format_cli_prompt, run_cli
 from .screenshot_presets import (
     MACOS_BUTTONS,
     PRESETS,
+    Cursor,
+    CursorShape,
     TerminalPalette,
     TerminalPreset,
     WindowButtons,
@@ -97,6 +100,9 @@ if TYPE_CHECKING:
 
     TColumns: TypeAlias = int | Literal["auto"]
     """Width a capture is taken and rendered at, see {data}`AUTO_COLUMNS`."""
+
+    THold: TypeAlias = float | Literal["auto"]
+    """Pause an animation takes on its last frame, see {data}`AUTO_HOLD`."""
 
 
 class CaptureFormat(Enum):
@@ -414,10 +420,29 @@ does not, through the two variables
 [cli-theme](https://wiki.tau.garden/cli-theme) `CLITHEME`, and `COLORFGBG`
 carrying `foreground;background` palette indices.
 
-So a CLI asking for [`--theme auto`](theme.md#automatic-background-detection)
+So a CLI asking for {ref}`--theme auto <automatic-background-detection>`
 renders for the chrome its picture is drawn on, instead of falling back to dark
 inside a light window. A CLI that never asks is unaffected: the variables only
 answer a question it does not put.
+"""
+
+CAPTURE_HIDDEN_TERMINAL_VARS: tuple[str, ...] = ("TERM_PROGRAM",)
+"""Environment variables naming the terminal a capture is *taken* from.
+
+A capture is drawn for a file, and read in a browser or an image viewer. The
+terminal that happened to run it is therefore not the terminal it is drawn
+for, and anything the command would tailor to that terminal has to be kept
+away from it, or the same capture comes out differently on every machine.
+
+`TERM_PROGRAM` is the one that bites, through
+{data}`~click_extra.table.NARROW_EMOJI_PRESENTATION_TERMINALS`: a table
+carrying an emoji-presentation sequence is padded for the terminal named
+there, so a capture taken under Apple Terminal is wider than the same capture
+taken anywhere else. Committed side by side, the two never stop rewriting each
+other.
+
+Cleared rather than pinned to a value: no name is the honest answer, since a
+capture is drawn for no terminal in particular.
 """
 
 CAPTURE_FONT_STACK = DEFAULT_PRESET.font_stack
@@ -431,16 +456,20 @@ a page forbidding third-party requests, and in a viewer that speaks no CSS
 Family names are single-quoted on purpose: this lands in a double-quoted
 `style` attribute, which a double quote here would terminate early.
 
-```{todo}
-Decide whether to embed a subsetted font, which is the only thing that would
-hold a capture's columns for a reader who has neither of the first two families.
-A stock macOS falls through to Menlo, which carries no Braille and none of the
-Mathematical Operators the spinner catalog draws, so those resolve to the
-proportional Apple Symbols: measured in a browser, 26 of the 89 tiles under
-`docs/assets/spinner-*.svg` draw 11% to 80% wider than the column they are laid
-out on, and the window's clip cuts the overflow. JuliaMono carries all 50
-non-emoji code points that catalog uses, every one on the cell grid, so a subset
-of it would close the gap. Emoji stay beyond reach of any monospaced font.
+```{note}
+Not embedding is a decision, not an omission: a subsetted font would ship inside
+this package, and redistribute someone else's font under its own license. The
+bytes are small; the license management is not worth a terminal picture. The
+JuliaMono subset under `docs/_static/` does not change this: it sets the
+documentation's own HTML, where a stylesheet reaches the text, and reusing it in
+a capture would be that same redistribution.
+
+The fallback cost is measured. A stock macOS falls through to Menlo, which
+carries no Braille and none of the Mathematical Operators the spinner catalog
+draws, so those resolve to the proportional Apple Symbols: 26 of the 89 tiles
+under `docs/assets/spinner-*.svg` draw 11% to 80% wider than their column, and
+the window's clip cuts the overflow. A reader with either of the first two
+families sees none of it, and emoji stay out of reach of every monospaced font.
 
 Fitting each run to its columns instead (`lengthAdjust="spacingAndGlyphs"`) was
 measured and rejected: across the 1407 runs in the committed captures it
@@ -485,6 +514,34 @@ CELL_TOP_INSET = 1.5
 A glyph does not fill its line box: the leading sits above the tallest letter.
 Starting the paint just under that keeps a highlighted run reading as one block
 of color rather than as a band taller than the text it marks.
+"""
+
+CURSOR_THICKNESS = 2.0
+"""Pixels a cursor is drawn thick, when it is a line rather than a cell.
+
+Both {attr}`~click_extra.screenshot_presets.CursorShape.BAR` and
+{attr}`~click_extra.screenshot_presets.CursorShape.UNDERLINE` are the same line
+turned a quarter, so one number states both. Thin enough to read as a cursor
+beside a glyph, thick enough to survive a renderer rounding it to whole pixels.
+"""
+
+AUTO_CURSOR: Literal["auto"] = "auto"
+"""Cursor shape asking for the one the terminal preset decides.
+
+The third of this module's `auto` sentinels, and the same bargain as
+{data}`AUTO_COLUMNS` and {data}`AUTO_HOLD`: the caller says a cursor is wanted
+and leaves what it looks like to whatever knows the terminal. It is what
+{attr}`~click_extra.screenshot_presets.Cursor.shape` of `None` spells on a
+command line, which cannot pass `None`.
+"""
+
+DEFAULT_CURSOR_SHAPE = CursorShape.BLOCK
+"""Shape a cursor takes when nothing names one.
+
+What every terminal here but Windows draws, and the shape a reader recognizes
+as a terminal cursor rather than as a text caret. A capture given a preset takes
+that terminal's own shape instead, see
+{attr}`~click_extra.screenshot_presets.TerminalPreset.cursor`.
 """
 
 TILE_RUN = 8
@@ -578,6 +635,54 @@ A stroke straddles the shape it outlines, so a frame drawn flush with the
 viewBox loses its outer half to the crop. Inset by more than that half and the
 whole line shows.
 """
+
+AUTO_HOLD: Literal["auto"] = "auto"
+"""Hold asking for the pause the final screen's own density decides.
+
+Resolved by {func}`auto_hold`: the busier the closing screen, the longer the
+loop pauses on it before starting over. A fixed number serves an animation
+whose ending the author has seen; this serves one whose ending changes with
+every retake, like a recorded command whose closing report grows with what
+there is to report.
+"""
+
+AUTO_HOLD_SECONDS_PER_LINE = 0.25
+"""Seconds {func}`auto_hold` grants per populated line of the final screen.
+
+A scanning rate rather than a reading one: terminal output is tables and
+listings, which a reader sweeps at a few lines a second rather than reads
+word by word.
+"""
+
+AUTO_HOLD_MIN = 2.0
+"""Shortest pause {func}`auto_hold` answers.
+
+Even a one-line outcome deserves a beat before the loop swallows it.
+"""
+
+AUTO_HOLD_MAX = 30.0
+"""Longest pause {func}`auto_hold` answers.
+
+Past this, a looping animation reads as a still that never moves: whoever
+needs longer than half a minute on one screen wants the still, not the loop.
+"""
+
+
+def auto_hold(text: str) -> float:
+    """Seconds a reader needs on a closing screen, from how much it shows.
+
+    Counts the populated lines of *text* (ANSI escapes stripped, blank rows
+    ignored) and grants {data}`AUTO_HOLD_SECONDS_PER_LINE` for each, clamped
+    between {data}`AUTO_HOLD_MIN` and {data}`AUTO_HOLD_MAX`. Lines rather than
+    words, because terminal output is mostly tables whose box-drawing rows
+    would drown a word count without adding anything to read.
+
+    :param text: the final frame's captured text, ANSI escapes included.
+    :return: the pause, in seconds.
+    """
+    lines = sum(1 for line in strip_ansi(text).splitlines() if line.strip())
+    return min(AUTO_HOLD_MAX, max(AUTO_HOLD_MIN, lines * AUTO_HOLD_SECONDS_PER_LINE))
+
 
 AUTO_COLUMNS: Literal["auto"] = "auto"
 """Width asking for the one the captured text itself decides.
@@ -748,6 +853,40 @@ def cell_width(text: str) -> int:
     return width if width >= 0 else len(text)
 
 
+def cursor_cell(picture: str, columns: int) -> tuple[int, int] | None:
+    """Where a terminal left its cursor on the screen a capture pictures.
+
+    A {class}`~click_extra.recording.TerminalScreen` joins its rows with
+    newlines and appends what a command writes to the last of them, so the
+    cursor stands at the end of that row. A picture closing on a newline
+    therefore carries an empty last row, and the cursor lands on it at column
+    zero, which is where a terminal puts it.
+
+    ```{note}
+    Derived rather than recorded, and exactly rather than nearly: the position
+    is a property of the text a screen holds, so it survives a frame travelling
+    as a bare string and costs the recorder no second channel to carry it on.
+    Checked against the screen's own column across a spinner's writes.
+    ```
+
+    :param picture: the captured text, ANSI escape sequences included.
+    :param columns: width of the terminal, in characters.
+    :return: the cursor's row and column, both counted from zero, or `None` for
+        a screen showing nothing. The blank beat closing an animation's cycle is
+        the one such screen, and an empty terminal shows no cursor.
+    """
+    if not picture.strip():
+        return None
+    rows = picture.split("\n")
+    # Only the escapes are dropped: they are drawn nowhere, so they occupy no
+    # cell, and counting them would push the cursor off the end of its row.
+    row, column = len(rows) - 1, cell_width(strip_ansi(rows[-1]))
+    if column >= columns:
+        # A terminal carries a cursor past its last column onto the next row.
+        row, column = row + 1, 0
+    return (row, column)
+
+
 @cache
 def _char_width(char: str) -> int:
     """Cells one character occupies, cached.
@@ -775,6 +914,73 @@ def fit_columns(text: str) -> int:
     )
 
 
+def auto_columns(pictures: Sequence[str], cursor: Cursor | None = None) -> int:
+    """Width, in characters, an auto-sized capture of `pictures` asks for.
+
+    The longest line any of them holds, which is what keeps a command's own
+    wrapping from folding again inside the picture. Frames are stacked in one
+    window, so the widest is what has to fit.
+
+    A cursor standing past the end of its row needs a cell of its own on top of
+    that. At exactly the text's width it would otherwise wrap onto the row
+    below, see {func}`cursor_cell`, and an auto-sized capture would show a row
+    holding nothing but a cursor: the width is derived from the text, so the
+    text always ends on the last column.
+
+    :param pictures: the captured texts, one per frame, or the one a still
+        draws.
+    :param cursor: the cursor the capture draws, if any.
+    :return: the width, in characters.
+    """
+    width = max(fit_columns(picture) for picture in pictures)
+    if cursor is None:
+        return width
+    # Probed one column wider than the text, so the reading is where the cursor
+    # stands rather than where that width would already have wrapped it.
+    standing = (cursor_cell(picture, width + 1) for picture in pictures)
+    return max(width, *(at[1] + 1 for at in standing if at is not None))
+
+
+def append_prompt(
+    text: str,
+    *,
+    background: CaptureBackground = CaptureBackground.DARK,
+    preset: TerminalPreset | None = None,
+) -> str:
+    """Put the shell's prompt back on the row under a finished command.
+
+    What a terminal actually shows once a command exits: the shell comes back
+    and waits, so the row under the output holds its sigil rather than nothing.
+    Paired with a cursor it costs no height at all, the cursor having already
+    claimed that row, see {func}`cursor_cell`. It also puts the cursor
+    somewhere that reads: after a prompt, instead of alone on an empty line.
+
+    ```{caution}
+    Only for a screen the command has finished drawing. Mid-animation the shell
+    has not come back, and a sigil there says the command exited when it did
+    not. {func}`~click_extra.recording.record_and_render` therefore closes its
+    last frame alone.
+    ```
+
+    :param text: the captured text to close.
+    :param background: chrome the capture is headed for, which picks the theme
+        the sigil is styled with.
+    :param preset: terminal being pictured, which names the sigil its shell
+        draws. `None` keeps this platform's.
+    :return: the same text, closed by a prompt.
+    """
+    with forced_color():
+        sigil = format_cli_prompt(
+            (),
+            theme=PROMPT_THEMES[background],
+            prompt=None if preset is None else preset.prompt,
+        )
+    # A screen closing on a newline already carries the empty row the prompt
+    # belongs on: filling it costs nothing, where appending would leave a blank
+    # row between the output and the shell.
+    return f"{text}{sigil}" if text.endswith("\n") else f"{text}\n{sigil}"
+
+
 def capture_output(
     args: TArg | TNestedArgs,
     *,
@@ -795,6 +1001,10 @@ def capture_output(
     the progress lines and build chatter a wrapper like `uv` writes to `stderr`,
     with no shell redirection to remember.
 
+    The terminal this runs *from* is hidden from the command, see
+    {data}`CAPTURE_HIDDEN_TERMINAL_VARS`, so one machine's capture matches
+    another's.
+
     :param args: the command line, in the nested form
         {func}`~click_extra.execution.run_cli` accepts.
     :param columns: terminal width, in characters, the command wraps its output
@@ -807,6 +1017,7 @@ def capture_output(
     :return: the completed process, whose `stdout` holds the captured text.
     """
     extra_env: dict[str, str | None] = dict(CAPTURE_TERMINAL_HINTS[background])
+    extra_env.update(dict.fromkeys(CAPTURE_HIDDEN_TERMINAL_VARS))
     if columns != AUTO_COLUMNS:
         extra_env["COLUMNS"] = str(columns)
     with forced_color():
@@ -1212,6 +1423,57 @@ def window_buttons(
     )
 
 
+def cursor_svg(
+    cursor: Cursor,
+    row: int,
+    column: int,
+    paint: str,
+    unique_id: str,
+) -> str:
+    """Draw a terminal's cursor on the cell it stands on.
+
+    Emitted as part of that row's cell backgrounds rather than as a layer of its
+    own, which is what puts it under the glyphs and hands it to the machinery
+    already deciding which rows move between frames. A row whose cursor never
+    stirs is then drawn once for the whole animation, and a row that moves
+    carries its cursor along at no charge. It is also why an animation typing a
+    command line needs no caret of its own: the cursor follows the text.
+
+    ```{note}
+    The cursor is never drawn over a glyph, so a block shape covering one is not
+    a case to answer. {func}`cursor_cell` puts it at the end of a row, which is
+    past everything written on it.
+    ```
+
+    :param cursor: what the cursor looks like, see
+        {class}`~click_extra.screenshot_presets.Cursor`.
+    :param row: the row it stands on, counted from zero.
+    :param column: the column it stands on, counted from zero.
+    :param paint: color it is drawn in.
+    :param unique_id: prefix namespacing this document's classes.
+    :return: the SVG source for the cursor.
+    """
+    left = column * CELL_WIDTH
+    top = row * LINE_HEIGHT + CELL_TOP_INSET
+    height = LINE_HEIGHT + CELL_BLEED
+    width = CELL_WIDTH
+    shape = cursor.shape or DEFAULT_CURSOR_SHAPE
+    if shape is CursorShape.BAR:
+        width = CURSOR_THICKNESS
+    elif shape is CursorShape.UNDERLINE:
+        top += height - CURSOR_THICKNESS
+        height = CURSOR_THICKNESS
+    # Only a blinking cursor wears a class: a steady one needs no rule, and
+    # naming a class the stylesheet does not define is what breaks a renderer.
+    blinking = f' class="{unique_id}-blink"' if cursor.blink > 0 else ""
+    return (
+        f'<rect{blinking} fill="{paint}" '
+        f'x="{_svg_number(left)}" y="{_svg_number(top)}" '
+        f'width="{_svg_number(width)}" height="{_svg_number(height)}" '
+        'shape-rendering="crispEdges"/>'
+    )
+
+
 def column_segments(text: str, column: int) -> Iterator[tuple[str, int]]:
     """Cut a run of text into the columns it actually occupies.
 
@@ -1459,6 +1721,43 @@ def frame_animation_css(unique_id: str, durations: Sequence[float]) -> str:
     return f"    {REDUCED_MOTION_QUERY} {{\n{animation}\n    }}"
 
 
+def blink_css(unique_id: str, period: float) -> str:
+    """Time a cursor's blink into a CSS animation rule.
+
+    One keyframe set and one rule for the whole document, however many frames
+    it holds: a terminal has one cursor, and every frame's copy of it therefore
+    lights and darkens together. It steps like a frame does, being lit or dark
+    with nothing in between, see {data}`FRAME_TIMING_FUNCTION`.
+
+    ```{note}
+    The blink dims `opacity` and never touches `visibility`. A cursor sits
+    inside the group of the frame it belongs to, and that group is hidden by
+    both properties at once, see {data}`HIDDEN_FRAME_ATTRIBUTES`. Opacity
+    multiplies down into the group, so a hidden frame's cursor stays hidden;
+    a rule restoring `visibility` would instead override the inherited value
+    and show every frame's cursor at once.
+    ```
+
+    The rule sits behind {data}`REDUCED_MOTION_QUERY`, which leaves the cursor
+    lit and still for a reader who asked their system for less motion.
+
+    :param unique_id: prefix namespacing this document's classes and keyframes.
+    :param period: seconds one blink takes, half of it lit.
+    :return: the stylesheet fragment, indented to sit in a `<style>` block.
+    :raises ValueError: when the period is not positive.
+    """
+    if period <= 0:
+        raise ValueError("A blinking cursor takes a positive time to blink.")
+    return (
+        f"    {REDUCED_MOTION_QUERY} {{\n"
+        f"    @keyframes {unique_id}-blink "
+        "{ 0% { opacity: 1; } 50% { opacity: 0; } }\n"
+        f"    .{unique_id}-blink {{ animation: {unique_id}-blink "
+        f"{_css_number(period)}s {FRAME_TIMING_FUNCTION} infinite; }}\n"
+        "    }"
+    )
+
+
 def render_svg(
     text: str = "",
     *,
@@ -1467,10 +1766,11 @@ def render_svg(
     unique_id: str | None = None,
     frames: Sequence[str] | None = None,
     interval: float | Sequence[float] | None = None,
-    hold: float = 0.0,
+    hold: THold = 0.0,
     blank: float = 0.0,
     speed: float = 1.0,
     emphasize: Sequence[int] = (),
+    cursor: Cursor | None = None,
     palette: TerminalPalette = CAPTURE_PALETTES[CaptureBackground.DARK],
     font_stack: str = CAPTURE_FONT_STACK,
     border: str = NO_PAINT,
@@ -1540,6 +1840,8 @@ def render_svg(
         run out, an outcome landed) is worth reading, and a loop that restarts
         the instant it arrives never lets anyone. A spinner turning in place
         ends nowhere, so it wants none of this and defaults to none.
+        {data}`AUTO_HOLD` scales the pause to the final frame's own line
+        count, see {func}`auto_hold`.
     :param blank: seconds of empty screen closing the cycle, after `hold`. A
         loop that jumps from its last frame back to its first reads as one long
         animation doing something odd; an empty beat says plainly that this is
@@ -1554,6 +1856,13 @@ def render_svg(
         animation it appears with the frame that first draws the row it marks,
         which is also when a gutter would first number that row, and it is gone
         again wherever the row is.
+    :param cursor: the terminal cursor to draw, see
+        {class}`~click_extra.screenshot_presets.Cursor`. `None` draws none,
+        which is what every capture taken before this option existed shows.
+        Where it stands is read off each frame's own text, see
+        {func}`cursor_cell`, so an animation carries it from screen to screen
+        on its own. A cursor landing under the last line of output grows the
+        window by that line, the way a terminal's does.
     :param palette: terminal colors the capture's ANSI codes resolve against.
     :param font_stack: fonts the text is set in, best first.
     :param border: paint for the window's frame. {data}`NO_PAINT` draws none.
@@ -1579,8 +1888,9 @@ def render_svg(
     :param watermark_color: color that line is drawn in, alpha included.
     :return: the SVG source.
     :raises ValueError: when `frames` is given without an `interval`, when the
-        two disagree on how many frames there are, when no frame is given, or
-        when `emphasize` names a line the capture does not have.
+        two disagree on how many frames there are, when no frame is given, when
+        `emphasize` names a line the capture does not have, or when a `cursor`
+        is given a negative blink.
     """
     animated = frames is not None
     pictures = tuple(frames) if frames is not None else (text,)
@@ -1602,6 +1912,13 @@ def render_svg(
             raise ValueError(f"{speed} is not a speed, which is positive.")
         if speed != 1:
             durations = tuple(each / speed for each in durations)
+        if hold == AUTO_HOLD:
+            hold = auto_hold(pictures[-1])
+        # The annotation admits one word only, so a checker rules this branch
+        # out. It catches the caller that never ran one: a Sphinx directive
+        # option, a CLI argument, anything read from text.
+        elif isinstance(hold, str):  # type: ignore[unreachable]
+            raise ValueError(f"{hold!r} is not a hold, which is seconds or 'auto'.")
         if hold:
             # Spent on the last frame rather than on a pause of its own, so the
             # frame a still falls back to is the one that was held.
@@ -1620,6 +1937,12 @@ def render_svg(
     unique_id = _NON_IDENTIFIER_RE.sub("-", unique_id)
     if buttons_color is None:
         buttons_color = palette.foreground
+    cursor_paint = palette.foreground
+    if cursor is not None:
+        if cursor.blink < 0:
+            raise ValueError(f"{cursor.blink} is not a blink, which is not negative.")
+        if cursor.color is not None:
+            cursor_paint = cursor.color
 
     # One dictionary across every frame, so a color two frames share is written
     # as a single rule and no frame can name a class the stylesheet omits.
@@ -1631,9 +1954,12 @@ def render_svg(
     filled: list[int] = []
     # Frames are stacked in one window, so the tallest is what has to fit.
     row_count = 0
+    # The same count before a cursor is added, which is what `emphasize` marks:
+    # a band picks out a line of output, and a cursor draws no line.
+    text_rows = 0
     for picture in pictures:
         rows = grid(picture.rstrip("\n"), columns)
-        row_count = max(row_count, len(rows))
+        text_rows = max(text_rows, len(rows))
         rendered_rows: list[tuple[str, str]] = []
         for row, runs in enumerate(rows):
             baseline = row * LINE_HEIGHT + CELL_HEIGHT
@@ -1667,7 +1993,25 @@ def render_svg(
                             f"{_xml_escape(drawn, preserve_spaces=True)}</text>"
                         )
             rendered_rows.append(("".join(cells), "".join(glyphs)))
+        if cursor is not None:
+            standing = cursor_cell(picture, columns)
+            if standing is not None:
+                cursor_row, cursor_column = standing
+                # A command whose last line closed on a newline leaves the
+                # cursor on the row under its output, and the window grows a
+                # line to hold it, exactly as the terminal's would.
+                while len(rendered_rows) <= cursor_row:
+                    rendered_rows.append(("", ""))
+                row_cells, row_glyphs = rendered_rows[cursor_row]
+                rendered_rows[cursor_row] = (
+                    row_cells
+                    + cursor_svg(
+                        cursor, cursor_row, cursor_column, cursor_paint, unique_id
+                    ),
+                    row_glyphs,
+                )
         painted.append(rendered_rows)
+        row_count = max(row_count, len(rendered_rows))
         filled.append(len(rows) if picture.strip() else 0)
 
     # A collapsed title bar is negative padding applied to the top alone, which
@@ -1675,11 +2019,11 @@ def render_svg(
     dropped = TITLEBAR_HEIGHT if collapse_titlebar else 0
     text_width = columns * CELL_WIDTH
     text_height = row_count * LINE_HEIGHT
-    beyond = sorted(line for line in emphasize if not 1 <= line <= row_count)
+    beyond = sorted(line for line in emphasize if not 1 <= line <= text_rows)
     if beyond:
         raise ValueError(
             f"Cannot emphasize line {', '.join(map(str, beyond))} of a capture "
-            f"{row_count} lines long."
+            f"{text_rows} lines long."
         )
     window_width = ceil(text_width + 2 * (WINDOW_PADDING + padding))
     window_height = (
@@ -1947,6 +2291,8 @@ def render_svg(
     )
     if animated:
         styles += f"\n{frame_animation_css(unique_id, durations)}"
+    if cursor is not None and cursor.blink > 0:
+        styles += f"\n{blink_css(unique_id, cursor.blink)}"
     return (
         # A standalone SVG carries no HTTP header to state its encoding, and a
         # reader that assumes the platform's instead renders every multi-byte
@@ -2167,10 +2513,11 @@ def render(
     unique_id: str | None = None,
     frames: Sequence[str] | None = None,
     interval: float | Sequence[float] | None = None,
-    hold: float = 0.0,
+    hold: THold = 0.0,
     blank: float = 0.0,
     speed: float = 1.0,
     emphasize: Sequence[int] = (),
+    cursor: Cursor | None = None,
     full: bool = True,
     background: CaptureBackground = CaptureBackground.DARK,
     preset: TerminalPreset | None = None,
@@ -2207,7 +2554,8 @@ def render(
     :param frames: SVG only. The animation's frames, see {func}`render_svg`.
     :param interval: SVG only. How long each of them is shown, see
         {func}`render_svg`.
-    :param hold: SVG only. Extra seconds the last frame stays up, see
+    :param hold: SVG only. Extra seconds the last frame stays up, or
+        {data}`AUTO_HOLD` to scale them to that frame's line count, see
         {func}`render_svg`.
     :param blank: SVG only. Seconds of empty screen closing the cycle, see
         {func}`render_svg`.
@@ -2215,6 +2563,10 @@ def render(
         {func}`render_svg`.
     :param emphasize: SVG only. Lines to draw a band behind, see
         {func}`render_svg`.
+    :param cursor: SVG only. The terminal cursor to draw, see
+        {class}`~click_extra.screenshot_presets.Cursor`. `None` draws none. A
+        cursor naming no shape takes the one the `preset` says that terminal
+        draws, so `--preset windows` gets its bar without stating it.
     :param full: HTML only. See {func}`render_html`.
     :param background: chrome to draw on, see {class}`CaptureBackground`.
     :param palette: colors the text resolves against. `None` takes the ones the
@@ -2277,6 +2629,8 @@ def render(
         frame["collapse_titlebar"] = not any(
             (preset.buttons.circles, preset.buttons.glyphs, title),
         )
+        if cursor is not None and cursor.shape is None:
+            cursor = cursor._replace(shape=preset.cursor)
     if format is CaptureFormat.ANSI:
         if frames is not None:
             raise ValueError(f"{CaptureFormat.ANSI} captures do not animate.")
@@ -2305,9 +2659,8 @@ def render(
         )
     return render_svg(
         text,
-        # Frames are stacked in one window, so the widest is what has to fit.
         columns=(
-            max(fit_columns(picture) for picture in frames or (text,))
+            auto_columns(frames or (text,), cursor)
             if columns == AUTO_COLUMNS
             else columns
         ),
@@ -2319,9 +2672,45 @@ def render(
         blank=blank,
         speed=speed,
         emphasize=emphasize,
+        cursor=cursor,
         palette=palette,
         **frame,
     )
+
+
+def prompt_line(
+    args: TArg | TNestedArgs,
+    *,
+    prompt: str | None = None,
+    background: CaptureBackground = CaptureBackground.DARK,
+    preset: TerminalPreset | None = None,
+) -> str:
+    """Compose the invocation a capture draws above its output.
+
+    The one place three pipelines agree on what a prompt looks like: a still
+    capture, a recording, and a documentation block that records one. Each drew
+    its own before, which is three chances for the sigil, the theme or the
+    preset to disagree between an image and the image beside it.
+
+    :param args: the command line that was run, in the nested form
+        {func}`~click_extra.execution.run_cli` accepts.
+    :param prompt: command line to *display*, when it differs from the one run.
+        An empty string draws no prompt at all; `None` shows what was run.
+    :param background: chrome the capture is headed for, which picks the theme
+        the line is styled with.
+    :param preset: terminal being pictured, which names the sigil its shell
+        draws. `None` keeps this platform's.
+    :return: the styled line, or empty when nothing is to be drawn.
+    """
+    displayed = args_cleanup(args) if prompt is None else tuple(shlex.split(prompt))
+    if not displayed:
+        return ""
+    with forced_color():
+        return format_cli_prompt(
+            displayed,
+            theme=PROMPT_THEMES[background],
+            prompt=None if preset is None else preset.prompt,
+        )
 
 
 def capture(
@@ -2337,6 +2726,8 @@ def capture(
     timeout: float | None = None,
     line_numbers: bool = False,
     emphasize: Sequence[int] = (),
+    cursor: Cursor | None = None,
+    closing_prompt: bool = False,
     title: str = "",
     unique_id: str | None = None,
     full: bool = True,
@@ -2377,6 +2768,11 @@ def capture(
         invocation everything under it came from.
     :param emphasize: lines to draw a band behind, see {func}`render_svg`. The
         prompt is line 1 here too, and a gutter does not shift the count.
+    :param cursor: see {func}`render`. A still capture leaves its cursor after
+        the last thing the command printed, which is where the shell finds it.
+    :param closing_prompt: draw the shell's prompt on the row under the output,
+        which is where it comes back once the command exits, see
+        {func}`append_prompt`.
     :param title: see {func}`render`.
     :param unique_id: see {func}`render`.
     :param full: see {func}`render`.
@@ -2406,17 +2802,13 @@ def capture(
         tail=tail,
         truncation=truncation,
     )
-    displayed = args_cleanup(args) if prompt is None else tuple(shlex.split(prompt))
-    if displayed:
-        with forced_color():
-            prompt_line = format_cli_prompt(
-                displayed,
-                theme=PROMPT_THEMES[background],
-                prompt=None if preset is None else preset.prompt,
-            )
-            text = f"{prompt_line}\n{text}"
-    # Numbered after the prompt joins it, so line 1 is the invocation that
-    # produced everything under it.
+    invocation = prompt_line(args, prompt=prompt, background=background, preset=preset)
+    if invocation:
+        text = f"{invocation}\n{text}"
+    if closing_prompt:
+        text = append_prompt(text, background=background, preset=preset)
+    # Numbered after both prompts join it, so line 1 is the invocation that
+    # produced everything under it and the last is the shell coming back.
     if line_numbers:
         text = number_lines(text)
     return (
@@ -2425,6 +2817,7 @@ def capture(
             format=format,
             columns=columns,
             emphasize=emphasize,
+            cursor=cursor,
             title=title,
             unique_id=unique_id,
             full=full,
@@ -2479,7 +2872,7 @@ def _svg_number(value: float) -> str:
     a committed file reads as a bug rather than as the zero it is.
     """
     rounded = round(value, 1)
-    return f"{rounded if rounded else 0.0:.1f}".removesuffix(".0")
+    return f"{rounded or 0.0:.1f}".removesuffix(".0")
 
 
 def _xml_escape(text: str, *, preserve_spaces: bool = False) -> str:

@@ -16,6 +16,7 @@
 
 from meridian import analysis
 from meridian import backend
+from meridian import common
 from meridian import data
 from meridian import model
 from meridian.version import __version__  # pylint: disable=g-importing-member

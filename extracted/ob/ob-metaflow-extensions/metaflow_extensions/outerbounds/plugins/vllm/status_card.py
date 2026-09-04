@@ -296,7 +296,7 @@ class VLLMStatusCard(CardRefresher):
         events = data.get("events", [])
         if events:
             current_card.append(Markdown("## 📝 Recent Events"))
-            for event in events[:5]:  # Show last 5 events
+            for event in events:
                 event_type = event.get("type", "info")
                 message = event.get("message", "")
                 timestamp = event.get("timestamp", datetime.now())

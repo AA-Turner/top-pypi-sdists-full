@@ -53,6 +53,7 @@ from coord.commands.setup import (
     config_cmd,
     init,
     install_skills,
+    store_backend_cmd,
     version,
 )
 from coord.commands.agent_ops import agent, pause, quiet_hours, unpause
@@ -89,7 +90,11 @@ from coord.health.cli import health
 from coord.notifier.cli import notifier_group
 # #2179: coord-portal sync bridge client — coord/portal_bridge.py is the
 # client, coord/commands/portal.py is the CLI over it.
-from coord.commands.portal import portal_group
+# #3071: `journal` is top-level, not a `portal` subcommand — it answers a
+# client's "what is happening with my project", not an operator's question
+# about the bridge. Implemented alongside the bridge commands because it reads
+# the same tables.
+from coord.commands.portal import journal, portal_group
 from coord.commands.merge import (
     backfill_review_cost,
     bounce,
@@ -398,6 +403,7 @@ def main() -> None:
 # pre-#747 cli.py exactly.
 main.add_command(version)
 main.add_command(config_cmd)
+main.add_command(store_backend_cmd)
 main.add_command(init)
 main.add_command(agent)
 main.add_command(status)
@@ -435,6 +441,7 @@ main.add_command(doctor)
 main.add_command(health)
 main.add_command(notifier_group)
 main.add_command(portal_group)
+main.add_command(journal)
 main.add_command(issue_group)
 main.add_command(context_group)
 main.add_command(audit)

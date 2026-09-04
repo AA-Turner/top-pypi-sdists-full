@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Synchronous test suite for pymongo, bson, and gridfs."""
+
 from __future__ import annotations
 
 import asyncio
@@ -42,9 +43,10 @@ try:
     HAVE_IPADDRESS = True
 except ImportError:
     HAVE_IPADDRESS = False
+from collections.abc import Generator
 from contextlib import contextmanager
 from functools import partial, wraps
-from typing import Any, Callable, Dict, Generator, overload
+from typing import Any, Callable, overload
 from unittest import SkipTest
 from urllib.parse import quote_plus
 
@@ -117,7 +119,7 @@ class ClientContext:
         self.tls = False
         self.tlsCertificateKeyFile = False
         self.server_is_resolvable = is_server_resolvable()
-        self.default_client_options: Dict = {}
+        self.default_client_options: dict = {}
         self.sessions_enabled = False
         self.client = None  # type: ignore
         self.conn_lock = threading.Lock()
@@ -245,9 +247,6 @@ class ClientContext:
                 self.cmd_line = self.client.admin.command("getCmdLineOpts")
 
             self.server_status = self.client.admin.command("serverStatus")
-            if self.storage_engine == "mmapv1":
-                # MMAPv1 does not support retryWrites=True.
-                self.default_client_options["retryWrites"] = False
 
             hello = self.hello
             self.sessions_enabled = "logicalSessionTimeoutMinutes" in hello
@@ -701,7 +700,7 @@ class ClientContext:
         """Run a test only if the server supports the failCommand appName."""
         # SERVER-47195 and SERVER-49336.
         return self._require(
-            lambda: (self.test_commands_enabled and self.version >= (4, 4, 7)),
+            lambda: self.test_commands_enabled and self.version >= (4, 4, 7),
             "failCommand appName must be supported",
             func=func,
         )
@@ -761,14 +760,24 @@ class ClientContext:
             func=func,
         )
 
+    def supports_exhaust_cursors(self):
+        """Whether this deployment supports exhaust cursors."""
+        if self.load_balancer:
+            return True
+        if self.is_mongos:
+            return self.version.at_least(7, 1)
+        return True
+
+    def require_exhaust_cursors(self, func):
+        """Run a test only if the deployment supports exhaust cursors."""
+        return self._require(
+            self.supports_exhaust_cursors,
+            "This server does not support exhaust cursors",
+            func=func,
+        )
+
     def supports_transactions(self):
-        if self.version.at_least(4, 1, 8):
-            return self.is_mongos or self.is_rs
-
-        if self.version.at_least(4, 0):
-            return self.is_rs
-
-        return False
+        return self.is_mongos or self.is_rs
 
     def require_transactions(self, func):
         """Run a test only if the deployment might support transactions.
@@ -807,16 +816,7 @@ class ClientContext:
     @property
     def supports_failCommand_fail_point(self):
         """Does the server support the failCommand fail point?"""
-        if self.is_mongos:
-            return self.version.at_least(4, 1, 5) and self.test_commands_enabled
-        else:
-            return self.version.at_least(4, 0) and self.test_commands_enabled
-
-    @property
-    def requires_hint_with_min_max_queries(self):
-        """Does the server require a hint with min/max queries."""
-        # Changed in SERVER-39567.
-        return self.version.at_least(4, 1, 10)
+        return self.test_commands_enabled
 
     @property
     def max_bson_size(self):
@@ -1156,7 +1156,7 @@ class IntegrationTest(PyMongoTestCase):
 
     client: MongoClient[dict]
     db: Database
-    credentials: Dict[str, str]
+    credentials: dict[str, str]
 
     @client_context.require_connection
     def setUp(self) -> None:

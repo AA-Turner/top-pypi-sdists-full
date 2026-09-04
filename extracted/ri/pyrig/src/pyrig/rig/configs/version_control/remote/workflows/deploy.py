@@ -40,13 +40,17 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         if_condition = if_condition or self.if_workflow_run_is_success()
         return super().job(
             method,
-            if_condition=if_condition,
             needs=needs,
             strategy=strategy,
             permissions=permissions,
             runs_on=runs_on,
+            if_condition=if_condition,
             steps=steps,
         )
+
+    def concurrency_cancel_in_progress(self) -> bool:
+        """Return `False`; a deploy run must not be cancelled mid-publish."""
+        return False
 
     def jobs(self) -> dict[str, Any]:
         """Build the top-level jobs configuration.
@@ -73,15 +77,20 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
     def job_documentation(self) -> dict[str, Any]:
         """Build the job that builds and deploys the documentation site.
 
-        Requests `pages: write` and `id-token: write` permissions at the job
-        level, required by the GitHub Pages deployment API.
+        Requests `contents: read` to check out the repository, plus
+        `pages: write` and `id-token: write` permissions at the job level,
+        required by the GitHub Pages deployment API.
 
         Returns:
             Dict mapping the derived job ID to its configuration.
         """
         return self.job(
             self.job_documentation,
-            permissions={"id-token": "write", "pages": "write"},
+            permissions={
+                **self.permission_contents(),
+                **self.permission_id_token(write=True),
+                **self.permission_pages(write=True),
+            },
             steps=self.steps_documentation(),
         )
 

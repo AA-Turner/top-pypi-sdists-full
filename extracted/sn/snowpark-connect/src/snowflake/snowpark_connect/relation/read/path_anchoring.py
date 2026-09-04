@@ -408,6 +408,8 @@ def classify_source_path(clean_path: str) -> PathClassification:
 def compute_anchor_pattern(
     clean_source_paths: list[str],
     classifications: list[PathClassification] | None = None,
+    *,
+    relative_scope_only: bool = False,
 ) -> str | None:
     """Compute a Snowflake PATTERN regex that anchors the user's source paths.
 
@@ -469,7 +471,18 @@ def compute_anchor_pattern(
                 # is preferable to losing the user's data entirely.
                 return None
             escaped_basename = re.escape(basename)
-            branches.append(f"(.*/)?{escaped_basename}(?:$|/(?:.*/)?[^_.][^/]*$)")
+            if relative_scope_only:
+                # Parquet Direct: PATTERN is matched *relative to FILE_PATH* (the file's parent
+                # prefix), so drop the ``(.*/)?`` head that would let the named entry appear at
+                # arbitrary depth -- otherwise ``@stage/dir/f.parquet`` (FILE_PATH=``dir/``) would
+                # also match ``dir/sub/f.parquet`` and over-read nested files the non-PD path
+                # excludes. Keep the descendant alternation so a cloud "file" path that is really a
+                # directory of part-files (``dir/f.parquet/part-0.parquet``) still matches at depth
+                # 0. Mirrors the glob branch below and ``compute_non_recursive_pattern
+                # (relative_scope_only)``; same defect/fix as the glob head (Choden blocker #1).
+                branches.append(f"{escaped_basename}(?:$|/(?:.*/)?[^_.][^/]*$)")
+            else:
+                branches.append(f"(.*/)?{escaped_basename}(?:$|/(?:.*/)?[^_.][^/]*$)")
         else:  # glob
             assert classification.regex is not None
             # SNOW-3594869: Snowflake matches PATTERN against the full
@@ -477,6 +490,21 @@ def compute_anchor_pattern(
             # glob reads must embed the scan-directory prefix with the same
             # ``(.*/)?`` head used for file/dir anchoring. A suffix-only regex
             # silently excludes every staged file.
+            #
+            # EXCEPTION -- Parquet Direct (``relative_scope_only``): PD matches PATTERN *relative
+            # to FILE_PATH* (the scan prefix IS the loose-parquet table's FILE_PATH and is stripped
+            # from the matched subject), and ``classification.regex`` is already the scan-relative
+            # glob suffix (from ``_stage_relative_glob_path``). Emit it BARE -- drop both the scan
+            # prefix AND the ``(.*/)?`` head. The head permits arbitrary leading directories, so a
+            # NON-recursive glob (``dir/*.parquet``) with the head would match ``sub/x.parquet`` and
+            # over-read nested files the non-PD path excludes. Verified live on SFCTEST0
+            # (SNOW-3748550) against a fixture of 20 top-level + 100 nested rows under FILE_PATH:
+            # bare ``[^/]*\.parquet$`` -> 20 (top-level only, correct); ``(.*/)?[^/]*\.parquet$``
+            # -> 120 (over-reads the nested file). Bare enforces depth-0, matching the dir-read form
+            # emitted by ``compute_non_recursive_pattern(relative_scope_only)``.
+            if relative_scope_only:
+                branches.append(f"{classification.regex}$")
+                continue
             scan_prefix, _ = split_glob_scan_prefix(clean_path)
             stage_rel_prefix = _scan_prefix_stage_relative(scan_prefix)
             if stage_rel_prefix:
@@ -489,6 +517,27 @@ def compute_anchor_pattern(
     if len(branches) == 1:
         return branches[0]
     return "|".join(f"(?:{b})" for b in branches)
+
+
+def pattern_from_path_glob_filter(glob: str | None) -> str | None:
+    """Return a user ``pathGlobFilter`` value as a Parquet Direct ``PATTERN`` regex.
+
+    SCOS forwards ``pathGlobFilter`` **directly** to Snowflake's ``PATTERN`` clause with **no
+    glob -> regex translation** (pre-existing behavior; the value is already a Snowflake regex, not
+    a Hadoop glob -- see ``reader_config`` and ``test_recursive_file_lookup_user_pathglobfilter``).
+    Parquet Direct must do the same so PD filters identically to the non-PD path: the value is
+    used **verbatim** as the ``PATTERN`` regex -- no client-side ``^...$`` wrapping or glob
+    translation. (Snowflake's ``PATTERN`` is a server-side full-match against the ``FILE_PATH``-
+    relative path, exactly like COPY INTO's ``PATTERN``, so the anchoring effect comes from the
+    server, not from this function.) Callers therefore supply a Snowflake regex (e.g.
+    ``.*\\.csv``), not a Spark glob (``*.csv``).
+
+    Returns ``None`` for an empty / blank value so the caller keeps its path-derived pattern.
+    """
+    if glob is None:
+        return None
+    glob = str(glob).strip()
+    return glob or None
 
 
 # Formats whose readers translate Spark's ``pathGlobFilter`` option into
@@ -729,6 +778,8 @@ def filter_list_paths_for_non_recursive_read(
 def compute_non_recursive_pattern(
     clean_source_paths: list[str],
     classifications: list[PathClassification],
+    *,
+    relative_scope_only: bool = False,
 ) -> str | None:
     """Build a depth-0 PATTERN regex for dir-kind source paths.
 
@@ -789,6 +840,17 @@ def compute_non_recursive_pattern(
     excludes the user's data is worse than producing none at all).
     """
     hive_tail = f"({_HIVE_PARTITION_DIR_PATTERN}/)*[^_.][^/]*$"
+    # Parquet Direct (loose-parquet EP registration) matches PATTERN *relative to FILE_PATH*
+    # (listed-dir scope), unlike LIST/COPY which some deployments scope to the full path. Under
+    # PD the prefixed full-path branch never matches the relative subject and, worse, poisons the
+    # two-branch alternation (PD anchors the pattern ^...$, so the leading ^ binds only to the
+    # first branch and the bare second branch never carries the match). So for the PD caller emit
+    # ONLY the prefix-less depth-0 branch -- it matches (relative scope) and still enforces depth-0
+    # (a nested ``sub/file`` cannot full-match ``[^/]*``). Verified live on SFCTEST0 (SNOW-3748550):
+    # bare branch -> rows returned; prefixed or compound -> 0 rows. The prefix is not embedded, so
+    # the unsafe-prefix bail-out below is unnecessary here.
+    if relative_scope_only:
+        return hive_tail if any(c.kind == "dir" for c in classifications) else None
     branches: list[str] = []
     saw_prefixed_dir = False
     for path, cls in zip(clean_source_paths, classifications):

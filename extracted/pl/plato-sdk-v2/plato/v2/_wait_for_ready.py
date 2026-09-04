@@ -37,6 +37,19 @@ _TERMINAL_JOB_STATUSES: frozenset[JobStatus] = frozenset(
 )
 _TERMINAL_SESSION_STATUSES: frozenset[Status5] = frozenset({Status5.failed})
 
+# Artifact status is a plain string on the API (backend ``ArtifactStatus``): a
+# snapshot request creates the row as ``creating`` and the VM's upload flips it
+# to ``ready`` or ``failed``. There is no long-poll endpoint for artifacts; the
+# artifact managers poll ``GET /api/v2/artifacts/{id}`` with these.
+ARTIFACT_STATUS_CREATING = "creating"
+ARTIFACT_STATUS_READY = "ready"
+ARTIFACT_STATUS_FAILED = "failed"
+ARTIFACT_TERMINAL_STATUSES: frozenset[str] = frozenset({ARTIFACT_STATUS_READY, ARTIFACT_STATUS_FAILED})
+# Base snapshots of a big sim upload for minutes; the backend's own snapshot
+# publish timeout is 300s, so 600s leaves headroom for the upload behind it.
+ARTIFACT_WAIT_TIMEOUT_SECONDS = 600.0
+ARTIFACT_POLL_INTERVAL_SECONDS = 5.0
+
 
 class _ReadyResponse(Protocol):
     @property

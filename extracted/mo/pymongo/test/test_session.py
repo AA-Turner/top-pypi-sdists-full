@@ -13,21 +13,30 @@
 # limitations under the License.
 
 """Test the client_session module."""
+
 from __future__ import annotations
 
-import asyncio
 import copy
 import sys
 import time
 from inspect import iscoroutinefunction
 from io import BytesIO
-from test.helpers import ExceptionCatchingTask
-from typing import Any, Callable, List, Set, Tuple
+from typing import Any, Callable
 
-from pymongo.synchronous.mongo_client import MongoClient
+from test.helpers import ExceptionCatchingTask
 
 sys.path[0:0] = [""]
 
+from bson import DBRef
+from gridfs.synchronous.grid_file import GridFS, GridFSBucket
+from pymongo import ASCENDING, MongoClient, monitoring
+from pymongo.common import _MAX_END_SESSIONS
+from pymongo.errors import ConfigurationError, InvalidOperation, OperationFailure
+from pymongo.operations import IndexModel, InsertOne, UpdateOne
+from pymongo.read_concern import ReadConcern
+from pymongo.synchronous.command_cursor import CommandCursor
+from pymongo.synchronous.cursor import Cursor
+from pymongo.synchronous.helpers import next
 from test import (
     IntegrationTest,
     SkipTest,
@@ -42,17 +51,6 @@ from test.utils_shared import (
     OvertCommandListener,
     wait_until,
 )
-
-from bson import DBRef
-from gridfs.synchronous.grid_file import GridFS, GridFSBucket
-from pymongo import ASCENDING, MongoClient, _csot, monitoring
-from pymongo.common import _MAX_END_SESSIONS
-from pymongo.errors import ConfigurationError, InvalidOperation, OperationFailure
-from pymongo.operations import IndexModel, InsertOne, UpdateOne
-from pymongo.read_concern import ReadConcern
-from pymongo.synchronous.command_cursor import CommandCursor
-from pymongo.synchronous.cursor import Cursor
-from pymongo.synchronous.helpers import next
 
 _IS_SYNC = True
 
@@ -83,7 +81,7 @@ def session_ids(client):
 
 class TestSession(IntegrationTest):
     client2: MongoClient
-    sensitive_commands: Set[str]
+    sensitive_commands: set[str]
 
     @client_context.require_sessions
     def setUp(self):
@@ -245,17 +243,17 @@ class TestSession(IntegrationTest):
         # Retry up to 10 times because there is a known race condition that can cause multiple
         # sessions to be used: connection check in happens before session check in
         for _ in range(10):
-            cursor = client.db.test.find({})
-            ops: List[Tuple[Callable, List[Any]]] = [
-                (client.db.test.find_one, [{"_id": 1}]),
-                (client.db.test.delete_one, [{}]),
-                (client.db.test.update_one, [{}, {"$set": {"x": 2}}]),
-                (client.db.test.bulk_write, [[UpdateOne({}, {"$set": {"x": 2}})]]),
-                (client.db.test.find_one_and_delete, [{}]),
-                (client.db.test.find_one_and_update, [{}, {"$set": {"x": 1}}]),
-                (client.db.test.find_one_and_replace, [{}, {}]),
-                (client.db.test.aggregate, [[{"$limit": 1}]]),
-                (client.db.test.find, []),
+            cursor = client.db.coll.find({})
+            ops: list[tuple[Callable, list[Any]]] = [
+                (client.db.coll.find_one, [{"_id": 1}]),
+                (client.db.coll.delete_one, [{}]),
+                (client.db.coll.update_one, [{}, {"$set": {"x": 2}}]),
+                (client.db.coll.bulk_write, [[UpdateOne({}, {"$set": {"x": 2}})]]),
+                (client.db.coll.find_one_and_delete, [{}]),
+                (client.db.coll.find_one_and_update, [{}, {"$set": {"x": 1}}]),
+                (client.db.coll.find_one_and_replace, [{}, {}]),
+                (client.db.coll.aggregate, [[{"$limit": 1}]]),
+                (client.db.coll.find, []),
                 (client.server_info, []),
                 (client.db.aggregate, [[{"$listLocalSessions": {}}, {"$limit": 1}]]),
                 (cursor.distinct, ["_id"]),
@@ -417,7 +415,7 @@ class TestSession(IntegrationTest):
         self._test_ops(client, *ops)
 
     def test_cursor_clone(self):
-        coll = self.client.pymongo_test.collection
+        coll = self.db.collection
         # Ensure some batches.
         coll.insert_many({} for _ in range(10))
         self.addCleanup(coll.drop)
@@ -678,7 +676,7 @@ class TestSession(IntegrationTest):
         coll = client.pymongo_test.collection
         # 3.6.0 mongos only validates the aggregate pipeline when the
         # database exists.
-        coll.insert_one({})
+        coll.database.create_collection(coll.name)
         listener.reset()
 
         with self.assertRaises(OperationFailure):
@@ -691,7 +689,7 @@ class TestSession(IntegrationTest):
         self.assertIn(lsid, session_ids(client))
 
     def _test_cursor_helper(self, create_cursor, close_cursor):
-        coll = self.client.pymongo_test.collection
+        coll = self.db.collection
         coll.insert_many([{} for _ in range(1000)])
 
         cursor = create_cursor(coll, None)
@@ -830,7 +828,7 @@ class TestSession(IntegrationTest):
 
     def test_unacknowledged_writes(self):
         # Ensure the collection exists.
-        self.client.pymongo_test.test_unacked_writes.insert_one({})
+        self.db.create_collection("test_unacked_writes")
         client = self.rs_or_single_client(w=0, event_listeners=[self.listener])
         db = client.pymongo_test
         coll = db.test_unacked_writes
@@ -872,7 +870,7 @@ class TestSession(IntegrationTest):
             self.assertRaises(TypeError, lambda: copy.copy(s))
 
     def test_nested_session_binding(self):
-        coll = self.client.pymongo_test.test
+        coll = self.db.coll
         coll.insert_one({"x": 1})
 
         session1 = self.client.start_session()
@@ -923,7 +921,7 @@ class TestSession(IntegrationTest):
             session2.end_session()
 
     def test_session_binding_end_session(self):
-        coll = self.client.pymongo_test.test
+        coll = self.db.coll
         coll.insert_one({"x": 1})
 
         with self.client.start_session().bind() as s1:
@@ -938,6 +936,39 @@ class TestSession(IntegrationTest):
 
         s2.end_session()
 
+    def test_getmore_preserves_lsid_after_session_support_lost(self):
+        listener = OvertCommandListener()
+        client = self.rs_or_single_client(event_listeners=[listener], maxPoolSize=1)
+        coll = client.pymongo_test.coll
+        coll.drop()
+        coll.insert_many([{"x": i} for i in range(10)])
+        self.addCleanup(coll.drop)
+
+        with client.start_session() as s:
+            cursor = coll.find({}, batch_size=2, session=s)
+            next(cursor)
+
+            find_event = next(e for e in listener.started_events if e.command_name == "find")
+            lsid = find_event.command["lsid"]
+
+            # Simulate a node stepping down: mark idle connections as not supporting sessions.
+            for server in client._topology._servers.values():
+                for conn in server.pool.conns:
+                    conn.supports_sessions = False
+
+            listener.reset()
+            cursor.to_list()
+
+        getmore_events = [e for e in listener.started_events if e.command_name == "getMore"]
+        self.assertGreater(len(getmore_events), 0, "expected at least one getMore command")
+        for event in getmore_events:
+            self.assertIn(
+                "lsid", event.command, "getMore must include lsid when session is materialized"
+            )
+            self.assertEqual(
+                lsid, event.command["lsid"], "getMore lsid must match the session lsid from find"
+            )
+
 
 class TestCausalConsistency(UnitTest):
     listener: SessionTestListener
@@ -948,6 +979,8 @@ class TestCausalConsistency(UnitTest):
         super().setUp()
         self.listener = SessionTestListener()
         self.client = self.rs_or_single_client(event_listeners=[self.listener])
+        self.client.pymongo_test.drop_collection("coll")
+        self.client.pymongo_test.create_collection("coll")
 
     @client_context.require_no_standalone
     def test_core(self):
@@ -955,7 +988,7 @@ class TestCausalConsistency(UnitTest):
             self.assertIsNone(sess.cluster_time)
             self.assertIsNone(sess.operation_time)
             self.listener.reset()
-            self.client.pymongo_test.test.find_one(session=sess)
+            self.client.pymongo_test.coll.find_one(session=sess)
             started = self.listener.started_events[0]
             cmd = started.command
             self.assertIsNone(cmd.get("readConcern"))
@@ -966,7 +999,7 @@ class TestCausalConsistency(UnitTest):
             self.assertEqual(op_time, reply.get("operationTime"))
 
             # No explicit session
-            self.client.pymongo_test.test.insert_one({})
+            self.client.pymongo_test.coll.insert_one({})
             self.assertEqual(sess.operation_time, op_time)
             self.listener.reset()
             try:
@@ -998,7 +1031,7 @@ class TestCausalConsistency(UnitTest):
                 self.assertEqual(sess.operation_time, sess2.operation_time)
 
     def _test_reads(self, op, exception=None):
-        coll = self.client.pymongo_test.test
+        coll = self.client.pymongo_test.coll
         with self.client.start_session() as sess:
             coll.find_one({}, session=sess)
             operation_time = sess.operation_time
@@ -1018,9 +1051,6 @@ class TestCausalConsistency(UnitTest):
 
     @client_context.require_no_standalone
     def test_reads(self):
-        # Make sure the collection exists.
-        self.client.pymongo_test.test.insert_one({})
-
         def aggregate(coll, session):
             return (coll.aggregate([], session=session)).to_list()
 
@@ -1042,7 +1072,7 @@ class TestCausalConsistency(UnitTest):
             self._test_reads(lambda coll, session: coll.estimated_document_count(session=session))
 
     def _test_writes(self, op):
-        coll = self.client.pymongo_test.test
+        coll = self.client.pymongo_test.coll
         with self.client.start_session() as sess:
             op(coll, sess)
             operation_time = sess.operation_time
@@ -1093,7 +1123,7 @@ class TestCausalConsistency(UnitTest):
         self._test_writes(lambda coll, session: coll.drop_indexes(session=session))
 
     def _test_no_read_concern(self, op):
-        coll = self.client.pymongo_test.test
+        coll = self.client.pymongo_test.coll
         with self.client.start_session() as sess:
             coll.find_one({}, session=sess)
             operation_time = sess.operation_time
@@ -1104,49 +1134,12 @@ class TestCausalConsistency(UnitTest):
             self.assertIsNone(rc)
 
     @client_context.require_no_standalone
-    def test_writes_do_not_include_read_concern(self):
-        self._test_no_read_concern(
-            lambda coll, session: coll.bulk_write([InsertOne[dict]({})], session=session)
-        )
-        self._test_no_read_concern(lambda coll, session: coll.insert_one({}, session=session))
-        self._test_no_read_concern(lambda coll, session: coll.insert_many([{}], session=session))
-        self._test_no_read_concern(
-            lambda coll, session: coll.replace_one({"_id": 1}, {"x": 1}, session=session)
-        )
-        self._test_no_read_concern(
-            lambda coll, session: coll.update_one({}, {"$set": {"X": 1}}, session=session)
-        )
-        self._test_no_read_concern(
-            lambda coll, session: coll.update_many({}, {"$set": {"x": 1}}, session=session)
-        )
-        self._test_no_read_concern(lambda coll, session: coll.delete_one({}, session=session))
-        self._test_no_read_concern(lambda coll, session: coll.delete_many({}, session=session))
-        self._test_no_read_concern(
-            lambda coll, session: coll.find_one_and_replace({"x": 1}, {"y": 1}, session=session)
-        )
-        self._test_no_read_concern(
-            lambda coll, session: coll.find_one_and_update(
-                {"y": 1}, {"$set": {"x": 1}}, session=session
-            )
-        )
-        self._test_no_read_concern(
-            lambda coll, session: coll.find_one_and_delete({"x": 1}, session=session)
-        )
-        self._test_no_read_concern(lambda coll, session: coll.create_index("foo", session=session))
-        self._test_no_read_concern(
-            lambda coll, session: coll.create_indexes(
-                [IndexModel([("bar", ASCENDING)])], session=session
-            )
-        )
-        self._test_no_read_concern(lambda coll, session: coll.drop_index("foo_1", session=session))
-        self._test_no_read_concern(lambda coll, session: coll.drop_indexes(session=session))
-
-        # Not a write, but explain also doesn't support readConcern.
+    def test_explain_does_not_include_read_concern(self):
         self._test_no_read_concern(lambda coll, session: coll.find({}, session=session).explain())
 
     @client_context.require_no_standalone
     def test_get_more_does_not_include_read_concern(self):
-        coll = self.client.pymongo_test.test
+        coll = self.client.pymongo_test.coll
         with self.client.start_session() as sess:
             coll.find_one({}, session=sess)
             operation_time = sess.operation_time
@@ -1162,9 +1155,9 @@ class TestCausalConsistency(UnitTest):
 
     def test_session_not_causal(self):
         with self.client.start_session(causal_consistency=False) as s:
-            self.client.pymongo_test.test.insert_one({}, session=s)
+            self.client.pymongo_test.coll.insert_one({}, session=s)
             self.listener.reset()
-            self.client.pymongo_test.test.find_one({}, session=s)
+            self.client.pymongo_test.coll.find_one({}, session=s)
             act = (
                 self.listener.started_events[0]
                 .command.get("readConcern", {})
@@ -1175,9 +1168,9 @@ class TestCausalConsistency(UnitTest):
     @client_context.require_standalone
     def test_server_not_causal(self):
         with self.client.start_session(causal_consistency=True) as s:
-            self.client.pymongo_test.test.insert_one({}, session=s)
+            self.client.pymongo_test.coll.insert_one({}, session=s)
             self.listener.reset()
-            self.client.pymongo_test.test.find_one({}, session=s)
+            self.client.pymongo_test.coll.find_one({}, session=s)
             act = (
                 self.listener.started_events[0]
                 .command.get("readConcern", {})
@@ -1188,7 +1181,7 @@ class TestCausalConsistency(UnitTest):
     @client_context.require_no_standalone
     def test_read_concern(self):
         with self.client.start_session(causal_consistency=True) as s:
-            coll = self.client.pymongo_test.test
+            coll = self.client.pymongo_test.coll
             coll.insert_one({}, session=s)
             self.listener.reset()
             coll.find_one({}, session=s)
@@ -1207,17 +1200,15 @@ class TestCausalConsistency(UnitTest):
 
     @client_context.require_no_standalone
     def test_cluster_time_with_server_support(self):
-        self.client.pymongo_test.test.insert_one({})
         self.listener.reset()
-        self.client.pymongo_test.test.find_one({})
+        self.client.pymongo_test.coll.find_one({})
         after_cluster_time = self.listener.started_events[0].command.get("$clusterTime")
         self.assertIsNotNone(after_cluster_time)
 
     @client_context.require_standalone
     def test_cluster_time_no_server_support(self):
-        self.client.pymongo_test.test.insert_one({})
         self.listener.reset()
-        self.client.pymongo_test.test.find_one({})
+        self.client.pymongo_test.coll.find_one({})
         after_cluster_time = self.listener.started_events[0].command.get("$clusterTime")
         self.assertIsNone(after_cluster_time)
 
@@ -1324,7 +1315,7 @@ class TestClusterTime(IntegrationTest):
             self.assertEqual(c1._topology.max_cluster_time(), cluster_time)
 
             # Advance the server's $clusterTime by performing an insert via another client.
-            self.db.test.insert_one({"advance": "$clusterTime"})
+            self.db.coll.insert_one({"advance": "$clusterTime"})
             # Wait until the client C1 processes the next pair of SDAM heartbeat started + succeeded events.
             heartbeat_listener.reset()
 

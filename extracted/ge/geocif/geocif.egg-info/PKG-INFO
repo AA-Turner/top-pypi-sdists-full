@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.963
+Version: 0.4.967
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -307,6 +307,7 @@ geocif supports the following model types (configured via `models` in `[DEFAULT]
 | PyGRF | `pygrf` | Geographical random forest (global + per-sample local RFs, Moran's-I blend) |
 | TabPFN-GSA | `tabpfn_gsa` | TabPFN with geospatial sparse attention (local in-context sampling; git-only dep) |
 | george | `george` | Exact GP regression (dfm/george, fitted kernel + noise; `geocif[george]` extra) |
+| BNN | `bnn` | Bayesian NN (Ma et al. 2021 RSE): variational two-headed torch net with native heteroscedastic prediction intervals |
 | GPR | `gpr` | sklearn Gaussian process regression |
 | Median | `median` | Median baseline |
 | Analog | `analog` | Analogous year baseline |
@@ -320,7 +321,17 @@ live in `[ML]`: `pygrf_band_width` / `pygrf_local_weight` /
 `pygrf_resampled` (defaults: adaptive 15%-of-n bandwidth, floor 20; local
 weight = global Moran's I of y), `tabpfn_gsa_K` / `tabpfn_gsa_s` (grid cells —
 rounded to a perfect square — and distant-sampling rate), `george_kernel`
-(`expsquared` | `matern32` | `matern52`) / `george_jitter`.
+(`expsquared` | `matern32` | `matern52`) / `george_jitter`, and `bnn_epochs` /
+`bnn_batch_size` / `bnn_lr` / `bnn_prior_sigma` / `bnn_kl_weight` /
+`bnn_warmup_epochs` / `bnn_n_mc` / `bnn_calibrate_sigma`.
+
+The `bnn` model reports its own predictive uncertainty: total sigma =
+sqrt(aleatoric² + epistemic²) from Monte-Carlo weight sampling, rescaled by a
+factor fitted on the held-out most recent training year (two-pass: fit on
+earlier years to estimate the scale, then refit on all years). `kl_weight`
+defaults to 0.05 — the paper's full-KL objective collapses the sigma head to a
+near-constant. Its intervals bypass the conformal wrapper and land in the same
+`"lower CI"` / `"upper CI"` columns.
 
 ### Feature selection methods
 

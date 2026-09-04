@@ -87,12 +87,22 @@ class TestClickhouse(Validator):
         self.validate_identity("SELECT xor(TRUE, FALSE)")
         self.validate_identity("CAST(['hello'], 'Array(Enum8(''hello'' = 1))')")
         self.validate_identity("SELECT x, COUNT() FROM y GROUP BY x WITH TOTALS")
+        self.validate_identity("SELECT x, COUNT() FROM y GROUP BY x WITH TOTALS LIMIT 1")
         self.validate_identity("SELECT INTERVAL t.days DAY")
         self.validate_identity("SELECT match('abc', '([a-z]+)')")
         self.validate_identity("dictGet(x, 'y')")
         self.validate_identity("WITH final AS (SELECT 1) SELECT * FROM final")
         self.validate_identity("SELECT * FROM x FINAL")
         self.validate_identity("SELECT * FROM x AS y FINAL")
+        self.validate_identity('SELECT event_id FROM "analytics"."events_view"(final = 1)')
+        self.validate_identity(
+            'SELECT event_id FROM "analytics"."uniqExactIf"(final = 1)',
+            'SELECT event_id FROM "analytics".uniqExactIf(final = 1)',
+        )
+        self.validate_identity(
+            'SELECT event_id FROM "analytics"."sum"(final = 1)',
+            'SELECT event_id FROM "analytics".sum(final = 1)',
+        )
         self.validate_identity("'a' IN mapKeys(map('a', 1, 'b', 2))")
         self.validate_identity("CAST((1, 2) AS Tuple(a Int8, b Int16))")
         self.validate_identity("SELECT * FROM foo LEFT ANY JOIN bla")
@@ -299,18 +309,31 @@ class TestClickhouse(Validator):
             },
         )
         self.validate_all(
-            "SELECT lagInFrame(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
+            "SELECT lag(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
             read={
-                "clickhouse": "SELECT lagInFrame(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
                 "oracle": "SELECT LAG(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
+            },
+            write={
+                "duckdb": "SELECT LAG(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
             },
         )
         self.validate_all(
-            "SELECT leadInFrame(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
+            "SELECT lead(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
             read={
-                "clickhouse": "SELECT leadInFrame(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
                 "oracle": "SELECT LEAD(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
             },
+            write={
+                "duckdb": "SELECT LEAD(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees",
+            },
+        )
+
+        # lagInFrame / leadInFrame are relative to the window frame, not the partition, so
+        # they're not equivalent to LAG / LEAD and are preserved as-is
+        self.validate_identity(
+            "SELECT lagInFrame(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees"
+        )
+        self.validate_identity(
+            "SELECT leadInFrame(salary, 1, 0) OVER (ORDER BY hire_date) AS prev_sal FROM employees"
         )
         self.validate_all(
             "SELECT CAST(STR_TO_DATE('05 12 2000', '%d %m %Y') AS Nullable(DATE))",
@@ -703,6 +726,19 @@ class TestClickhouse(Validator):
         )
         self.validate_identity("SELECT TRIM(TRAILING ')' FROM '(   Hello, world!   )')")
         self.validate_identity("SELECT TRIM(LEADING '(' FROM '(   Hello, world!   )')")
+        self.validate_all(
+            "SELECT trimLeft(s, 'xy'), trimRight(s, 'xy'), trimBoth(s, 'xy')",
+            write={
+                "clickhouse": "SELECT TRIM(LEADING 'xy' FROM s), TRIM(TRAILING 'xy' FROM s), TRIM(BOTH 'xy' FROM s)",
+                "duckdb": "SELECT LTRIM(s, 'xy'), RTRIM(s, 'xy'), TRIM(s, 'xy')",
+                "postgres": "SELECT TRIM(LEADING 'xy' FROM s), TRIM(TRAILING 'xy' FROM s), TRIM('xy' FROM s)",
+            },
+        )
+        self.validate_all(
+            "SELECT LTRIM(s), RTRIM(s), TRIM(s)",
+            read={"clickhouse": "SELECT trimLeft(s), trimRight(s), trimBoth(s)"},
+            write={"duckdb": "SELECT LTRIM(s), RTRIM(s), TRIM(s)"},
+        )
         self.validate_identity("current_timestamp").assert_is(exp.Column)
 
         self.validate_identity("SELECT * APPLY(sum) FROM columns_transformers")
@@ -814,6 +850,11 @@ class TestClickhouse(Validator):
             "INSERT INTO t (col1, col2) FORMAT Values('abcd', 1234)",
             "INSERT INTO t (col1, col2) VALUES (('abcd'), (1234))",
         )
+
+        # Wrapping the values in tuples must be idempotent, otherwise re-parsing
+        # generated SQL keeps adding a layer of parentheses on every roundtrip
+        self.validate_identity("INSERT INTO t (col1, col2) VALUES (('abcd'), (1234))")
+        self.validate_identity("SELECT * FROM VALUES ((1), (2), (3))")
 
         self.validate_all(
             "SELECT col FROM (SELECT 1 AS col) AS _t",
@@ -1831,6 +1872,13 @@ LIFETIME(MIN 0 MAX 0)""",
         )
         self.validate_identity("arrayMap(x -> x + 1, arr)").assert_is(exp.Transform)
         self.validate_identity("arrayFilter(x -> x > 0, arr)").assert_is(exp.ArrayFilter)
+        self.validate_identity(
+            "SELECT arrayMap((a, b) -> a * b, [1, 2, 3], [10, 20, 30]) AS products"
+        ).expressions[0].this.assert_is(exp.Anonymous)
+        self.validate_identity("arrayMap((x, y, z) -> x + y + z, [1, 2], [3, 4], [5, 6])")
+        self.validate_identity("arrayFilter((x, y) -> y, [1, 2, 3], [1, 0, 1])").assert_is(
+            exp.Anonymous
+        )
 
     def test_array_offset(self):
         with self.assertLogs(helper_logger) as cm:
@@ -1940,6 +1988,10 @@ LIFETIME(MIN 0 MAX 0)""",
         )
         self.validate_identity("SELECT * FROM file('path', Parquet) WHERE x > 1")
         self.validate_identity("SELECT * FROM file('path', Parquet)")
+        self.validate_identity("SELECT x FROM view(SELECT 1 AS x)")
+        self.validate_identity(
+            "SELECT country, sum(installs) AS installs FROM cluster('default', view(SELECT 'US' AS country, count() AS installs FROM numbers(1) GROUP BY country)) GROUP BY country"
+        )
 
     def test_sql_security(self):
         stmts = [

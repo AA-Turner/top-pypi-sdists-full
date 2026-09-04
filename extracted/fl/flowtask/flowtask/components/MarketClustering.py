@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import logging
 import math
+import sys
 from decimal import Decimal
 from pathlib import Path
 import osmnx as ox
@@ -894,16 +895,28 @@ class MarketClustering(FlowComponent):
             ``exclusion_reason`` column and are never reassigned.
         state_column (str, optional): Column holding the state code used by
             ``exclude_states``. Default: ``state_code``.
-        excluded_markets (list | str, optional): Parent-market values (e.g.
+        excluded_regions (list | str, optional): Region values (e.g.
             ``['Great Lakes']``) whose stores are dropped before clustering
             and from the output — the ``exclude_states`` philosophy keyed on
-            ``market_column``. Comparison is case-insensitive and
+            ``region_column``. Comparison is case-insensitive and
             whitespace-tolerant. Excluded stores are available via
             ``get_excluded_stores()`` with ``exclusion_reason``
-            ``'excluded_market'`` and are never reassigned.
-        market_column (str, optional): Column holding the parent-market value
-            used by ``excluded_markets`` (e.g. ``'Verizon Market'``).
-            Required when ``excluded_markets`` is set.
+            ``'excluded_region'`` and are never reassigned. Requires
+            ``region_column`` (e.g. ``'Verizon Market'``).
+        market_column (str, default ``'sub_market'``): Column holding the
+            pre-defined market per store, read only in ``no_clustering``
+            mode.
+        no_clustering (bool, default False): Skip clustering entirely and
+            adopt the markets pre-defined in ``market_column``: each distinct
+            non-null value becomes one market holding exactly its rows —
+            nothing is formed, moved, merged or shed, and formation options
+            (``max_markets``, ``standalone_markets``, budget mode,
+            ``subcluster_outliers``, ``optimize``) are ignored with a
+            warning. Rows with a null/empty value are delivered unassigned
+            (``market_id = -1``). The reporting chain still runs in full:
+            centroids (core-anchored like standalone markets), distances,
+            cadence, FTE metrics (reporting only, never enforced),
+            Market-1..N renumbering and centroid reverse-geocoding.
         isolation_column (str, optional): Column used to ring-fence a group
             of stores (e.g. NYC sub-markets) into its own partition.
         standalone_markets (list, optional): Values of ``isolation_column``
@@ -1039,6 +1052,19 @@ class MarketClustering(FlowComponent):
         scheduling_kwargs (dict, default None): Kwargs passed as-is to the
             internal ``SchedulingVisits`` instance when ``optimize=True``.
             Must contain ``'year'`` and ``'month'``.
+        reject_unanchorable_subclusters (bool, default False): FEAT-249.
+            Governs what happens when a satellite pocket (see
+            ``subcluster_outliers``) has no candidate market within
+            ``_subcluster_anchor_cap()`` road miles AND with whole-pocket
+            headroom under ``_effective_ceiling`` (FEAT-248 G4). ``False``
+            (default, restores the pre-FEAT-248 100%-assignment guarantee):
+            the pocket anchors to the best market from the FULL
+            (unfiltered) candidate pool instead, and every row is stamped
+            ``constraint_reason='subcluster_anchored_beyond_cap'``. ``True``:
+            the pocket is delivered UNASSIGNED
+            (``market_id=-1``, ``constraint_reason=
+            'subcluster_no_candidate_within_cap'``) — the FEAT-248 G4
+            behavior, now opt-in.
 
     |---|---|---|
     | version | No | version of component |
@@ -1258,6 +1284,16 @@ class MarketClustering(FlowComponent):
                 "flyout_probe_factor must be <= flyout_distance_factor, got "
                 f"{self.flyout_probe_factor!r} > {self.flyout_distance_factor!r}"
             )
+        # Satellite anchor opt-out (FEAT-249). Default False restores the
+        # pre-FEAT-248 100%-assignment guarantee: a pocket with no candidate
+        # market within _subcluster_anchor_cap()/headroom anchors to the
+        # best market from the FULL (unfiltered) candidate pool instead of
+        # being delivered unassigned. True reproduces FEAT-248 G4's
+        # honest-rejection behavior (pocket delivered market_id=-1,
+        # constraint_reason='subcluster_no_candidate_within_cap').
+        self.reject_unanchorable_subclusters: bool = bool(
+            kwargs.pop('reject_unanchorable_subclusters', False)
+        )
 
         # Capacity-aware shedding pass (FEAT-243). Opt-in, independent of
         # subcluster_flyout/subcluster_outliers.
@@ -1509,24 +1545,48 @@ class MarketClustering(FlowComponent):
             if exclude_states else None
         )
         self.state_column: str = kwargs.pop('state_column', 'state_code')
-        # Stores whose parent-market value (market_column) is listed here are
-        # dropped before clustering and from the output — the exclude_states
-        # philosophy keyed on a market column instead of a state column
-        # (e.g. market_column='Verizon Market', excluded_markets=['Great Lakes']).
-        excluded_markets = kwargs.pop('excluded_markets', None)
-        if isinstance(excluded_markets, str):
-            excluded_markets = [excluded_markets]
-        self.excluded_markets: Optional[List[str]] = (
-            [str(market).strip().casefold() for market in excluded_markets]
-            if excluded_markets else None
-        )
-        self.market_column: Optional[str] = kwargs.pop('market_column', None)
-        if self.excluded_markets and not self.market_column:
-            raise ComponentError(
-                "excluded_markets is configured but market_column was not "
-                "provided; set market_column to the column holding those "
-                "values (e.g. market_column='Verizon Market')."
+        # Region hard-constraint (FEAT-247): the input is split by this
+        # column BEFORE any clustering happens, and the existing pipeline
+        # core runs once per region — a market can never span two region
+        # values. When set, per-region formation is ALWAYS on; there is no
+        # enable/disable flag (hard cut, spec §2). None reproduces today's
+        # single-partition behaviour.
+        self.region_column: Optional[str] = kwargs.pop('region_column', None)
+        # Soft-score weights for state affinity at assignment surfaces
+        # (FEAT-247): state / distance / capacity, default
+        # {"state": 0.5, "distance": 0.3, "capacity": 0.2} (state
+        # dominant). Missing keys fill from the defaults; must be a dict
+        # of known keys with non-negative numeric values and at least one
+        # weight > 0, else ConfigError (FEAT-241 fail-fast pattern).
+        self.state_score_weights: Dict[str, float] = (
+            self._validate_state_score_weights(
+                kwargs.pop('state_score_weights', None)
             )
+        )
+        # Stores whose region value (region_column) is listed here are
+        # dropped before clustering and from the output — the exclude_states
+        # philosophy keyed on the region column instead of a state column
+        # (e.g. region_column='Verizon Market', excluded_regions=['Great Lakes']).
+        excluded_regions = kwargs.pop('excluded_regions', None)
+        if isinstance(excluded_regions, str):
+            excluded_regions = [excluded_regions]
+        self.excluded_regions: Optional[List[str]] = (
+            [str(region).strip().casefold() for region in excluded_regions]
+            if excluded_regions else None
+        )
+        if self.excluded_regions and not self.region_column:
+            raise ComponentError(
+                "excluded_regions is configured but region_column was not "
+                "provided; set region_column to the column holding those "
+                "values (e.g. region_column='Verizon Market')."
+            )
+        # Pre-defined markets (no clustering): each distinct non-null value
+        # of market_column IS a market, delivered exactly as given — no
+        # formation, no movement passes, no constraint enforcement. Only the
+        # reporting chain runs (centroids, distances, cadence, FTE metrics,
+        # Market-1..N renumbering, centroid geocoding).
+        self.no_clustering: bool = bool(kwargs.pop('no_clustering', False))
+        self.market_column: str = kwargs.pop('market_column', 'sub_market')
         # Market isolation (e.g. New York City): stores whose isolation_column
         # value is in isolation_values are clustered separately and can never
         # share a market with the rest of the network.
@@ -1990,6 +2050,14 @@ class MarketClustering(FlowComponent):
         # safely to a cache miss — never a crash — if _merge_saving is
         # ever bypassed (e.g. monkeypatched directly in a test).
         self._merge_avg_distance_cache: Dict[frozenset, float] = {}
+        # Scratch cache (FEAT-247): dominant state / headroom per market,
+        # cleared once at the top of each of the five state-affinity
+        # scoring surfaces (_reset_state_score_cache) so repeated
+        # candidates within ONE pass are not recomputed per pair, while a
+        # fresh pass always sees the current membership.
+        self._state_score_cache: Dict[str, Dict[Any, Any]] = {
+            'dominant_state': {}, 'headroom': {},
+        }
         super().__init__(loop=loop, job=job, stat=stat, **kwargs)
         self._outlier_stores: set = set()  # Track stores that were marked as outliers
 
@@ -2072,6 +2140,66 @@ class MarketClustering(FlowComponent):
             groups.append(tuple(group))
 
         return groups
+
+    @staticmethod
+    def _validate_state_score_weights(
+        raw: Optional[Dict[str, Any]]
+    ) -> Dict[str, float]:
+        """Validate and normalise the ``state_score_weights`` kwarg.
+
+        Merges the caller's overrides onto the FEAT-247 defaults
+        (``{"state": 0.5, "distance": 0.3, "capacity": 0.2}``): missing
+        keys keep their default weight, every value must be a
+        non-negative number, and at least one weight must be > 0.
+
+        Args:
+            raw: The raw ``state_score_weights`` kwarg (dict or ``None``).
+
+        Returns:
+            The merged weights dict (always all three keys present).
+
+        Raises:
+            ConfigError: If ``raw`` is not a dict, has unknown keys, has a
+                non-numeric or negative value, or every weight is 0.
+        """
+        defaults = {"state": 0.5, "distance": 0.3, "capacity": 0.2}
+        if raw is None:
+            return dict(defaults)
+
+        if not isinstance(raw, dict):
+            raise ConfigError(
+                "state_score_weights must be a dict with keys "
+                f"{sorted(defaults)}, got {raw!r}"
+            )
+
+        unknown_keys = set(raw) - set(defaults)
+        if unknown_keys:
+            raise ConfigError(
+                f"state_score_weights has unknown keys {sorted(unknown_keys)}; "
+                f"valid keys are {sorted(defaults)}"
+            )
+
+        merged = dict(defaults)
+        for key, value in raw.items():
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError) as exc:
+                raise ConfigError(
+                    f"state_score_weights[{key!r}] must be numeric, got {value!r}"
+                ) from exc
+            if numeric_value < 0:
+                raise ConfigError(
+                    f"state_score_weights[{key!r}] must be >= 0, got {value!r}"
+                )
+            merged[key] = numeric_value
+
+        if not any(value > 0 for value in merged.values()):
+            raise ConfigError(
+                "state_score_weights must have at least one weight > 0, "
+                f"got {merged!r}"
+            )
+
+        return merged
 
     @property
     def _capacity_gate(self) -> float:
@@ -2193,6 +2321,146 @@ class MarketClustering(FlowComponent):
 
         return float(min(gate, hours_capacity))
 
+    def _reset_state_score_cache(self) -> None:
+        """Clear the per-pass state-affinity scratch cache (FEAT-247).
+
+        Dominant state and headroom are expensive to recompute per
+        candidate pair (these surfaces loop over many stores/candidates).
+        Called once at the top of each of the five scoring surfaces so
+        repeated candidates within ONE pass hit the cache, while the next
+        pass always recomputes against the current (possibly just-changed)
+        membership -- spec §7 "Market dominant state... compute once per
+        pass, not per candidate pair."
+        """
+        self._state_score_cache = {'dominant_state': {}, 'headroom': {}}
+
+    def _market_dominant_state(self, market_id: Any) -> Optional[Any]:
+        """Mode of ``state_column`` among a market's current members (FEAT-247).
+
+        Cached per pass — see ``_reset_state_score_cache``.
+
+        Args:
+            market_id: Candidate market id.
+
+        Returns:
+            The most common ``state_column`` value among the market's
+            current members, or ``None`` when unknown (missing column, no
+            members, or every member's state is null).
+        """
+        cache = self._state_score_cache['dominant_state']
+        if market_id in cache:
+            return cache[market_id]
+
+        value = None
+        if self.state_column in self._data.columns:
+            members = self._data.loc[
+                self._data[self._cluster_id] == market_id, self.state_column
+            ].dropna()
+            if not members.empty:
+                value = members.mode().iloc[0]
+
+        cache[market_id] = value
+        return value
+
+    def _market_headroom(self, market_id: Any) -> float:
+        """Free slots / ``max_cluster_size``, clamped to [0, 1] (FEAT-247).
+
+        Cached per pass — see ``_reset_state_score_cache``.
+        """
+        cache = self._state_score_cache['headroom']
+        if market_id in cache:
+            return cache[market_id]
+
+        if not self.max_cluster_size or self._cluster_id not in self._data.columns:
+            value = 0.0
+        else:
+            size = int((self._data[self._cluster_id] == market_id).sum())
+            value = max(
+                0.0,
+                min(1.0, (self.max_cluster_size - size) / self.max_cluster_size),
+            )
+
+        cache[market_id] = value
+        return value
+
+    def _dominant_state_of_indices(self, indices: Any) -> Optional[Any]:
+        """Mode of ``state_column`` over an arbitrary set of row indices.
+
+        Used to derive a sub-cluster's own "entity state" (its member
+        stores), the same way ``_market_dominant_state`` derives a
+        market's — but over an explicit index set rather than a
+        ``cluster_id`` match.
+
+        Args:
+            indices: Row indices into ``self._data``.
+
+        Returns:
+            The most common ``state_column`` value, or ``None``.
+        """
+        indices = list(indices)
+        if not indices or self.state_column not in self._data.columns:
+            return None
+        members = self._data.loc[
+            self._data.index.intersection(indices), self.state_column
+        ].dropna()
+        if members.empty:
+            return None
+        return members.mode().iloc[0]
+
+    def _state_affinity_score(
+        self, entity_state: Any, market_id: Any, distance: float, max_distance: float
+    ) -> float:
+        """Weighted state/distance/capacity score ranking a candidate market.
+
+        ::
+
+            score = w_state    * same_state(entity, market)     # 1.0 or 0.0
+                  + w_distance * (1 - distance / max_candidate)  # normalized
+                  + w_capacity * headroom(market)                # [0, 1]
+
+        Weights come from ``self.state_score_weights`` (TASK-194). A ranking
+        function ONLY — it never overrides a hard guard (size gate,
+        distance cap): callers only ever score candidates that already
+        passed those. Null/missing state on either side scores the state
+        term 0 (neutral) — distance and capacity decide (spec §2).
+
+        Args:
+            entity_state: The entity's (store's/sub-cluster's) dominant
+                ``state_column`` value, or ``None``/NaN when unknown.
+            market_id: Candidate market id.
+            distance: Distance (miles) from the entity to this candidate.
+            max_distance: Farthest candidate under consideration in this
+                same ranking — normalizes the distance term into [0, 1].
+                ``<= 0`` (or falsy) scores the distance term 0.
+
+        Returns:
+            The weighted score (state/capacity terms are in [0, 1]; the
+            distance term is exact when ``max_distance > 0``).
+        """
+        weights = self.state_score_weights
+        market_state = self._market_dominant_state(market_id)
+
+        same_state = 0.0
+        if (
+            entity_state is not None and not pd.isna(entity_state)
+            and market_state is not None and not pd.isna(market_state)
+            and str(entity_state).strip().casefold() == str(market_state).strip().casefold()
+        ):
+            same_state = 1.0
+
+        if max_distance and max_distance > 0:
+            distance_term = max(0.0, 1.0 - (float(distance) / float(max_distance)))
+        else:
+            distance_term = 0.0
+
+        headroom = self._market_headroom(market_id)
+
+        return (
+            weights.get('state', 0.0) * same_state
+            + weights.get('distance', 0.0) * distance_term
+            + weights.get('capacity', 0.0) * headroom
+        )
+
     def _layout_ceiling(self, cid: Any) -> float:
         """Size a market may reach in the final layout.
 
@@ -2209,6 +2477,47 @@ class MarketClustering(FlowComponent):
             return limit
 
         return float(min(limit, hours_capacity))
+
+    def _effective_ceiling(self, cid: Any) -> int:
+        """The ONE size ceiling every pass must agree a market has.
+
+        FEAT-248 G2: before this method, three different numbers answered
+        "how big may this market be" and passes disagreed about which one
+        to read (raw ``max_cluster_size`` in ``_enforce_max_cluster_size``;
+        ``_layout_ceiling`` -- with the hours component -- in
+        ``_capacity_shed_pass``; ``_capacity_gate`` -- WITHOUT the hours
+        component -- in ``_rescue_unassigned_clusters``). A market could be
+        "full" for one pass and "has room" for another in the same run.
+
+        Delegates to ``_layout_ceiling`` (``max_cluster_size``, tightened
+        by the market's own time budget when ``capacity_from_hours`` is
+        on) and floors the result to ``int`` -- every caller compares it
+        against an integer row count, so a float ceiling only invites
+        off-by-fraction bugs. A market with no configured
+        ``max_cluster_size`` (and no hours cap) has no ceiling at all;
+        ``sys.maxsize`` is returned instead of a float ``inf`` so `>` /
+        `>=` comparisons against row counts stay well-typed.
+
+        Every pass that DECIDES a move based on market size (enforce, shed,
+        rescue, balance, split feasibility) must read this instead of
+        ``max_cluster_size``, ``_layout_ceiling`` or ``_capacity_gate``
+        directly. Passes that merely LOG or ANNOTATE a raw
+        ``max_cluster_size`` value are unaffected -- and
+        ``_absorb_remnant_stores`` stays a documented, deliberate
+        exception: it overfills by design and does not gate on any
+        ceiling.
+
+        Args:
+            cid: The market being sized.
+
+        Returns:
+            The ceiling as a non-negative int (``sys.maxsize`` when
+            unbounded).
+        """
+        limit = self._layout_ceiling(cid)
+        if not math.isfinite(limit):
+            return sys.maxsize
+        return int(limit)
 
     def _recompute_market_capacity(self) -> None:
         """Recalculate how many stores each market's time budget allows."""
@@ -2311,12 +2620,17 @@ class MarketClustering(FlowComponent):
                 "No stores left to cluster after applying exclude_states."
             )
 
-        # Drop out-of-scope parent markets before any clustering happens
-        self._data = self._apply_market_exclusions(self._data)
+        # Drop out-of-scope regions before any clustering happens
+        self._data = self._apply_region_exclusions(self._data)
         if self._data.empty:
             raise DataNotFound(
-                "No stores left to cluster after applying excluded_markets."
+                "No stores left to cluster after applying excluded_regions."
             )
+
+        # Region hard-constraint (FEAT-247): fail fast before any
+        # clustering work. Runs after exclusions so out-of-scope rows
+        # never trip the null-region check.
+        self._validate_region_config(self._data)
 
         return True
 
@@ -2372,11 +2686,11 @@ class MarketClustering(FlowComponent):
 
         return df
 
-    def _apply_market_exclusions(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Drop stores whose ``market_column`` value is in ``excluded_markets``.
+    def _apply_region_exclusions(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Drop stores whose ``region_column`` value is in ``excluded_regions``.
 
         Excluded stores are out of scope (not rejected): they are appended to
-        ``self._excluded`` (with ``exclusion_reason='excluded_market'``) and
+        ``self._excluded`` (with ``exclusion_reason='excluded_region'``) and
         no later step reassigns them to a market. Matching is
         whitespace-insensitive and case-insensitive.
 
@@ -2387,37 +2701,107 @@ class MarketClustering(FlowComponent):
             The DataFrame without the excluded stores.
 
         Raises:
-            ComponentError: If ``excluded_markets`` is configured but the
-                ``market_column`` is missing from the input DataFrame.
+            ComponentError: If ``excluded_regions`` is configured but the
+                ``region_column`` is missing from the input DataFrame.
         """
-        if not self.excluded_markets:
+        if not self.excluded_regions:
             return df
 
-        if self.market_column not in df.columns:
+        if self.region_column not in df.columns:
             raise ComponentError(
-                f"excluded_markets is configured but column "
-                f"'{self.market_column}' is missing from the input DataFrame."
+                f"excluded_regions is configured but column "
+                f"'{self.region_column}' is missing from the input DataFrame."
             )
 
-        markets = df[self.market_column].astype(str).str.strip().str.casefold()
-        excluded_mask = markets.isin(self.excluded_markets)
+        regions = df[self.region_column].astype(str).str.strip().str.casefold()
+        excluded_mask = regions.isin(self.excluded_regions)
         if excluded_mask.any():
             dropped = df[excluded_mask].copy()
-            dropped['exclusion_reason'] = 'excluded_market'
+            dropped['exclusion_reason'] = 'excluded_region'
             self._excluded = (
                 dropped if self._excluded.empty
                 else pd.concat([self._excluded, dropped])
             )
             self._logger.info(
-                "excluded_markets: dropped %s stores in %s (%s -> %s)",
+                "excluded_regions: dropped %s stores in %s (%s -> %s)",
                 int(excluded_mask.sum()),
-                ", ".join(self.excluded_markets),
+                ", ".join(self.excluded_regions),
                 len(df),
                 int((~excluded_mask).sum()),
             )
             df = df[~excluded_mask].reset_index(drop=True)
 
         return df
+
+    def _validate_region_config(self, df: pd.DataFrame) -> None:
+        """Fail-fast validation of the FEAT-247 region hard-constraint.
+
+        A no-op when ``region_column`` is not configured. Must run AFTER
+        exclusions (``exclude_states`` / ``excluded_regions``) so
+        out-of-scope rows never trip these checks (spec §2).
+
+        Args:
+            df: The input stores DataFrame, post-exclusions.
+
+        Raises:
+            ConfigError: If ``region_column`` is missing from ``df``, any
+                row has a null/empty/whitespace region value, a
+                ``standalone_markets`` group spans more than one region,
+                or the number of distinct regions exceeds ``max_markets``
+                (each region needs at least one market of its own).
+        """
+        if not self.region_column:
+            return
+
+        if self.region_column not in df.columns:
+            raise ConfigError(
+                f"region_column is configured but column "
+                f"'{self.region_column}' is missing from the input DataFrame."
+            )
+
+        region_values = df[self.region_column]
+        is_null_or_blank = (
+            region_values.isna()
+            | (region_values.astype(str).str.strip() == '')
+        )
+        if is_null_or_blank.any():
+            raise ConfigError(
+                f"{int(is_null_or_blank.sum())} row(s) have a null/empty/"
+                f"whitespace '{self.region_column}' value; region_column "
+                "requires a value on every row (fail fast, spec §2)."
+            )
+
+        if self._standalone_groups:
+            if not self.isolation_column or self.isolation_column not in df.columns:
+                raise ConfigError(
+                    "standalone_markets is configured but isolation_column "
+                    f"'{self.isolation_column}' is missing from the input "
+                    "DataFrame."
+                )
+            isolation_values = df[self.isolation_column]
+            for group in self._standalone_groups:
+                group_mask = isolation_values.isin(group)
+                group_regions = set(df.loc[group_mask, self.region_column].unique())
+                if len(group_regions) > 1:
+                    raise ConfigError(
+                        "standalone_markets group "
+                        f"{self._format_standalone_group(group)} spans "
+                        f"more than one region ({sorted(group_regions)}); "
+                        "every standalone market must be region-pure."
+                    )
+
+        number_of_regions = int(region_values.nunique())
+        if self.max_markets is not None and number_of_regions > self.max_markets:
+            raise ConfigError(
+                f"max_markets={self.max_markets} cannot fit "
+                f"{number_of_regions} regions (each region needs at least "
+                "one market); raise max_markets or drop region_column."
+            )
+
+        self._logger.info(
+            "region_column '%s': %s distinct regions, state_score_weights=%s",
+            self.region_column, number_of_regions, self.state_score_weights,
+        )
 
     def _partition_mask(self, stores: pd.DataFrame) -> Optional[pd.Series]:
         """Return the isolation partition of each store (True = isolated).
@@ -3068,6 +3452,55 @@ class MarketClustering(FlowComponent):
             "yes" if self._budget_relaxed_round_used else "no",
         )
 
+    def _log_per_region_summary(
+        self, region_values: List[Any], undersized_regions: List[Any]
+    ) -> None:
+        """Log the FEAT-247 per-region formation summary + global totals.
+
+        One block, style of ``_log_employee_budget_summary``: markets
+        formed per region, undersized regions (spec §2: "one undersized
+        market... never merged across regions"), and capacity cessions
+        (from the additive ``ceded_from`` column TASK-198 stamps).
+        Numbers come straight from the columns/state earlier tasks
+        already produced — never re-derived independently, so this can
+        never drift from what was actually decided (spec §7 "Summary
+        numbers must come from the ledgers stamped by earlier tasks").
+
+        Args:
+            region_values: Sorted distinct region values processed by
+                ``run()``'s per-region loop (in that same order).
+            undersized_regions: Subset of ``region_values`` that formed
+                exactly one undersized market.
+        """
+        if self._data.empty:
+            return
+
+        self._logger.info("=== Per-Region Formation (FEAT-247) ===")
+        delivered = self._data[self._data[self._cluster_id] != -1]
+        total_ceded = 0
+        has_ceded_from = 'ceded_from' in self._data.columns
+
+        for region_value in region_values:
+            region_rows = delivered[delivered['region'] == region_value]
+            market_count = int(region_rows[self._cluster_id].nunique())
+            cession_count = (
+                int(region_rows['ceded_from'].notna().sum())
+                if has_ceded_from else 0
+            )
+            total_ceded += cession_count
+            self._logger.info(
+                "Region %r: %s market(s), %s store(s)%s%s",
+                region_value, market_count, len(region_rows),
+                " (undersized)" if region_value in undersized_regions else "",
+                f", {cession_count} ceded store(s)" if cession_count else "",
+            )
+
+        if total_ceded:
+            self._logger.info(
+                "Total capacity cessions: %s store(s) moved by in-region "
+                "cession passes.", total_ceded,
+            )
+
     # -------------------------------- BallTree + Haversine ----------------------------------
     # ------------------------------------------------------------------
 
@@ -3159,6 +3592,10 @@ class MarketClustering(FlowComponent):
         if not unassigned:
             return
 
+        # FEAT-248 TASK-205: this surface scores via _nearest_absorbing_market
+        # below; reset the cache at its top like every other scoring surface.
+        self._reset_state_score_cache()
+
         # Get cluster centroids and current sizes (to honour max_cluster_size)
         clusters = stores[stores[self._cluster_id] != -1].groupby(self._cluster_id)
         centroids = {
@@ -3192,9 +3629,14 @@ class MarketClustering(FlowComponent):
             # Nearby absorption first: within max_assign_distance the size
             # cap is soft, so a store next to a full market joins it instead
             # of being shipped to a distant market with room.
+            entity_state = (
+                stores.at[outlier_idx, self.state_column]
+                if self.state_column in stores.columns else None
+            )
             choice = self._nearest_absorbing_market(
                 outlier_lat, outlier_lon, eligible, cluster_sizes,
                 self._max_force_assign_distance,
+                entity_state=entity_state,
             )
             if choice is None:
                 # Fallback: nearest cluster WITH capacity within the relaxed
@@ -3230,7 +3672,11 @@ class MarketClustering(FlowComponent):
         """
         Assign the given stores to their nearest market regardless of distance,
         keeping them flagged as outliers.
+
+        FEAT-247: the receiving market is chosen by state-affinity score
+        (``_nearest_absorbing_market``), not pure distance.
         """
+        self._reset_state_score_cache()
         clusters = stores[stores[self._cluster_id] != -1].groupby(self._cluster_id)
         centroids = {
             cluster_id: cluster_df[['latitude', 'longitude']].mean().values
@@ -3276,11 +3722,16 @@ class MarketClustering(FlowComponent):
             # Nearby absorption first: within max_assign_distance the size
             # cap is soft, so the orphan overfills the market next door
             # rather than travelling to a distant market with room.
+            entity_state = (
+                stores.at[idx, self.state_column]
+                if self.state_column in stores.columns else None
+            )
             choice = self._nearest_absorbing_market(
                 store_lat, store_lon,
                 {cid: (centroids[cid][0], centroids[cid][1]) for cid in eligible},
                 cluster_sizes,
                 self._max_force_assign_distance,
+                entity_state=entity_state,
             )
             if choice is not None:
                 nearest_cluster, choice_distance, overfilled = choice
@@ -3316,10 +3767,21 @@ class MarketClustering(FlowComponent):
                     )
                     continue
                 candidates = with_capacity or eligible
-                nearest_cluster = min(
-                    candidates,
-                    key=lambda cid: self._haversine_miles(
+                candidate_distances = {
+                    cid: self._haversine_miles(
                         centroids[cid][0], centroids[cid][1], store_lat, store_lon
+                    )
+                    for cid in candidates
+                }
+                max_candidate_distance = max(candidate_distances.values())
+                nearest_cluster = max(
+                    candidate_distances,
+                    key=lambda cid: (
+                        self._state_affinity_score(
+                            entity_state, cid, candidate_distances[cid],
+                            max_candidate_distance,
+                        ),
+                        -candidate_distances[cid],
                     ),
                 )
                 if not with_capacity:
@@ -3333,6 +3795,14 @@ class MarketClustering(FlowComponent):
             stores.at[idx, self._cluster_id] = nearest_cluster
             cluster_sizes[nearest_cluster] = cluster_sizes.get(nearest_cluster, 0) + 1
             self._outlier_stores.add(idx)
+            winning_distance = self._haversine_miles(
+                centroids[nearest_cluster][0], centroids[nearest_cluster][1],
+                store_lat, store_lon,
+            )
+            stores.at[idx, 'state_affinity_score'] = self._state_affinity_score(
+                entity_state, nearest_cluster, winning_distance,
+                self._max_force_assign_distance,
+            )
 
     def _add_outlier_column_to_result(self, df: pd.DataFrame):
         """Add outlier boolean column to indicate stores that were marked as outliers."""
@@ -3415,6 +3885,244 @@ class MarketClustering(FlowComponent):
                 continue
 
             self._get_num_ghosts_for_cluster(cid, cluster_df)
+
+    def _check_market_invariants(self) -> Dict[str, int]:
+        """Report layout invariants that silently corrupted output before.
+
+        Diagnostic only — logs warnings, never raises, so a run still
+        delivers. Each check corresponds to a defect observed on the
+        Verizon layout:
+
+        - ``shared_bases``: two markets shipping one ``ghost_id``. Means
+          fewer real employees than markets, whatever ``num_employees``
+          says, and SchedulingVisits treats them as a single rep.
+        - ``shared_centroids``: two markets reporting the same centre.
+        - ``coreless``: a market made entirely of sub-cluster rows — it
+          has no seeded core, so its centre is derived from satellites.
+        - ``undersized`` / ``oversized``: markets outside the configured
+          size band, counting attached sub-cluster stores.
+
+        Returns:
+            Counts per invariant, for callers that want to assert on them.
+        """
+        report = {
+            'shared_bases': 0,
+            'shared_centroids': 0,
+            'coreless': 0,
+            'undersized': 0,
+            'oversized': 0,
+        }
+        if self._data.empty:
+            return report
+
+        assigned = self._data[self._data[self._cluster_id] != -1]
+        if assigned.empty:
+            return report
+
+        n_markets = assigned[self._cluster_id].nunique()
+
+        if 'ghost_id' in assigned.columns:
+            per_ghost = assigned.groupby('ghost_id')[self._cluster_id].nunique()
+            shared = per_ghost[per_ghost > 1]
+            report['shared_bases'] = int(len(shared))
+            if not shared.empty:
+                self._logger.warning(
+                    "%s market(s) share a base with another market: "
+                    "%s distinct ghost_id(s) for %s markets. Sample: %s",
+                    int(shared.sum()), int(per_ghost.size), n_markets,
+                    shared.head(5).to_dict(),
+                )
+
+        has_centres = {'centroid_lat', 'centroid_lon'}.issubset(assigned.columns)
+        centres = (
+            assigned.groupby(self._cluster_id)[
+                ['centroid_lat', 'centroid_lon']
+            ].first().dropna()
+            if has_centres
+            else pd.DataFrame()
+        )
+        if not centres.empty:
+            dupes = centres.groupby(['centroid_lat', 'centroid_lon']).size()
+            dupes = dupes[dupes > 1]
+            report['shared_centroids'] = int(len(dupes))
+            if not dupes.empty:
+                self._logger.warning(
+                    "%s centroid coordinate(s) are reported by more than one "
+                    "market (max %s markets on one point).",
+                    int(len(dupes)), int(dupes.max()),
+                )
+
+        if 'is_subcluster' in assigned.columns:
+            is_sc = assigned['is_subcluster'].fillna(False).astype(bool)
+            core_counts = assigned[~is_sc].groupby(self._cluster_id).size()
+            coreless = [
+                cid for cid in assigned[self._cluster_id].unique()
+                if int(core_counts.get(cid, 0)) == 0
+            ]
+            report['coreless'] = len(coreless)
+            if coreless:
+                self._logger.warning(
+                    "%s market(s) have no core stores at all — every member "
+                    "is a sub-cluster row: %s",
+                    len(coreless), coreless[:10],
+                )
+
+        sizes = assigned.groupby(self._cluster_id).size()
+        if self.min_cluster_size:
+            under = sizes[sizes < self.min_cluster_size]
+            report['undersized'] = int(len(under))
+            if not under.empty:
+                self._logger.warning(
+                    "%s market(s) below min_cluster_size=%s (smallest %s).",
+                    int(len(under)), self.min_cluster_size, int(under.min()),
+                )
+        if self.max_cluster_size:
+            over = sizes[sizes > self.max_cluster_size]
+            report['oversized'] = int(len(over))
+            if not over.empty:
+                self._logger.warning(
+                    "%s market(s) above max_cluster_size=%s (largest %s).",
+                    int(len(over)), self.max_cluster_size, int(over.max()),
+                )
+
+        return report
+
+    def _allocate_region_market_quotas(
+        self, full_data: pd.DataFrame, region_values: List[Any]
+    ) -> Dict[Any, int]:
+        """Split the global ``max_markets`` budget into per-region quotas.
+
+        ``max_markets`` is a hard target, not an advisory ceiling: the
+        layout must deliver exactly that many markets, each staffed by
+        one employee. Letting each region's count emerge from
+        ``min/max_cluster_size`` alone cannot honour that — on the Verizon
+        dataset emergent formation births 77 markets against a target of
+        122, and no amount of after-the-fact splitting closes a 45-market
+        gap. So the budget is distributed up front and each region's
+        formation pass drives to its own quota.
+
+        Every quota is clamped to the band the region can actually
+        support:
+
+        - floor: ``ceil(stores / max_cluster_size)`` — fewer markets than
+          this and the region cannot respect the size cap.
+        - ceiling: ``stores // min_cluster_size`` — more markets than this
+          and some are guaranteed to come out undersized.
+
+        Each region starts at its floor; the surplus is handed out by
+        largest remainder over each region's share of the stores, never
+        pushing a region past its ceiling. When the budget cannot cover
+        even the sum of floors, quotas are scaled down proportionally and
+        the shortfall is logged — the cap will be violated either way, and
+        an honest warning beats a silent one.
+
+        Args:
+            full_data: The post-exclusion frame, before region splitting.
+            region_values: Regions to form, in deterministic order.
+
+        Returns:
+            ``{region_value: quota}``; empty when ``max_markets`` is unset.
+        """
+        total = self.max_markets
+        if total is None or not self.region_column:
+            return {}
+
+        counts: Dict[Any, int] = {}
+        for value in region_values:
+            size = int((full_data[self.region_column] == value).sum())
+            if size:
+                counts[value] = size
+        if not counts:
+            return {}
+
+        max_size = int(self.max_cluster_size or 0)
+        min_size = int(self.min_cluster_size or 1) or 1
+
+        floors: Dict[Any, int] = {}
+        ceils: Dict[Any, int] = {}
+        for value, size in counts.items():
+            ceils[value] = max(1, size // min_size)
+            floor = math.ceil(size / max_size) if max_size else 1
+            floors[value] = max(1, min(floor, ceils[value]))
+
+        quota = dict(floors)
+        surplus = total - sum(quota.values())
+
+        if surplus < 0:
+            # The budget cannot even cover the size cap. Scale the floors
+            # down proportionally (never below 1) and say so plainly.
+            self._logger.warning(
+                "max_markets=%s is below the %s market(s) needed just to "
+                "respect max_cluster_size=%s; scaling region quotas down "
+                "proportionally -- some markets WILL exceed the cap.",
+                total, sum(floors.values()), max_size,
+            )
+            floor_total = sum(floors.values())
+            scaled = {
+                value: max(1, int(floors[value] * total / floor_total))
+                for value in floors
+            }
+            # Largest-remainder correction so the quotas sum to `total`.
+            quota = scaled
+            drift = total - sum(quota.values())
+            order = sorted(counts, key=lambda v: (-counts[v], str(v)))
+            index = 0
+            while drift != 0 and order:
+                value = order[index % len(order)]
+                if drift > 0:
+                    quota[value] += 1
+                    drift -= 1
+                elif quota[value] > 1:
+                    quota[value] -= 1
+                    drift += 1
+                index += 1
+                if index > 4 * len(order) and drift < 0:
+                    break
+            return quota
+
+        # Hand out the surplus by largest remainder over each region's
+        # share of the stores, respecting every region's ceiling.
+        grand_total = sum(counts.values())
+        shares = {
+            value: surplus * counts[value] / grand_total for value in counts
+        }
+        for value in sorted(counts, key=lambda v: str(v)):
+            headroom = ceils[value] - quota[value]
+            quota[value] += max(0, min(int(shares[value]), headroom))
+
+        remaining = total - sum(quota.values())
+        if remaining > 0:
+            # Fractional leftovers, then any slots freed by a region that
+            # hit its ceiling: give them to the regions with the largest
+            # fractional part first, then simply to whoever has headroom.
+            ranked = sorted(
+                counts,
+                key=lambda v: (-(shares[v] - int(shares[v])), -counts[v], str(v)),
+            )
+            progressed = True
+            while remaining > 0 and progressed:
+                progressed = False
+                for value in ranked:
+                    if remaining <= 0:
+                        break
+                    if quota[value] < ceils[value]:
+                        quota[value] += 1
+                        remaining -= 1
+                        progressed = True
+            if remaining > 0:
+                self._logger.warning(
+                    "%s market slot(s) of max_markets=%s cannot be placed: "
+                    "every region is at its ceiling of "
+                    "stores // min_cluster_size=%s.",
+                    remaining, total, min_size,
+                )
+
+        self._logger.info(
+            "Region market quotas for max_markets=%s: %s",
+            total,
+            {str(v): quota[v] for v in sorted(quota, key=str)},
+        )
+        return quota
 
     def _cluster_satisfies_constraints(self, info: Dict[str, Any]) -> bool:
         """Return True when the provided cluster metrics respect configured constraints."""
@@ -3566,6 +4274,10 @@ class MarketClustering(FlowComponent):
             return
 
         self._recompute_cluster_centroids()
+        # FEAT-248 TASK-205: this surface scores via _nearest_absorbing_market
+        # below; reset once at the top (not per store in the loop, which
+        # would defeat the cache).
+        self._reset_state_score_cache()
 
         while True:
             assigned = self._data[self._data[self._cluster_id] != -1]
@@ -3610,9 +4322,14 @@ class MarketClustering(FlowComponent):
                     if other_cid != cid
                     and other_cid not in self._standalone_clusters
                 }
+                entity_state = (
+                    self._data.at[idx, self.state_column]
+                    if self.state_column in self._data.columns else None
+                )
                 choice = self._nearest_absorbing_market(
                     store_lat, store_lon, candidates, cluster_sizes,
                     self._max_force_assign_distance,
+                    entity_state=entity_state,
                 )
                 nearest_cluster = None
                 if choice is not None:
@@ -3793,7 +4510,7 @@ class MarketClustering(FlowComponent):
             # with capacity_from_hours that is the market whose visits do not
             # fit its staff's month, not merely the one with most stores
             overflow = {
-                cid: int(sizes[cid]) - self._layout_ceiling(cid)
+                cid: int(sizes[cid]) - self._effective_ceiling(cid)
                 for cid in sizes.index
             }
             biggest = max(overflow, key=overflow.get)
@@ -3985,7 +4702,12 @@ class MarketClustering(FlowComponent):
                 ),
                 axis=1,
             ).sort_values()
-            ceiling = self._capacity_gate
+            # FEAT-248 TASK-201: was `_capacity_gate` (no hours component),
+            # which could stuff a market that `_capacity_shed_pass` (reads
+            # `_effective_ceiling`) would immediately try to drain again
+            # when `capacity_from_hours` is on. Routed through the single
+            # effective ceiling to close that oscillation.
+            ceiling = self._effective_ceiling(new_cid)
             taken = 0
             for idx in distances.index:
                 if taken >= ceiling:
@@ -4148,7 +4870,177 @@ class MarketClustering(FlowComponent):
             "split(s) (eps=%.1f mi, budget=%.1fh)",
             len(pockets), len(pool), splits, self.subcluster_radius, day_budget,
         )
+
+        # FEAT-247 Module 4: DBSCAN pockets maximize stores per pocket, not
+        # visit efficiency (El Paso: 2 pockets/6 stores -> 4 block-days when
+        # 3 pockets/4 stores would cover the same stores in 3). Re-partition
+        # each neighborhood of nearby pockets to minimize total days.
+        pockets = self._repartition_pocket_neighborhoods(pockets, pool)
         return pockets
+
+    def _repartition_pocket_neighborhoods(
+        self, pockets: List[dict], pool: pd.DataFrame
+    ) -> List[dict]:
+        """Re-partition neighborhoods of pockets to minimize total days.
+
+        A DBSCAN pocket maximizes stores per pocket, not visit days: 2
+        pockets of 6 stores (each ~1.5 days -> ceil 2 each = 4 days total)
+        can cover the same ground as 3 pockets of 4 (each ≤ 1 day = 3 days
+        total) — one day saved with the same store set. This pass finds
+        that better split.
+
+        Pockets whose medoids lie within ``2 * self.subcluster_radius``
+        miles form one NEIGHBORHOOD (transitive: A-B and B-C in reach group
+        A, B and C even if A-C is not). For each neighborhood with k
+        pockets, evaluates balanced k-means for k in
+        ``[max(1, k-1), k+2]`` (seeded, degenerate/empty-cluster candidates
+        skipped), each candidate part re-split under the day budget by the
+        existing recursive mechanism (``_split_pocket_to_budget``). Scores
+        each candidate partition by total days (Σ⌈hours/day_hours⌉),
+        tie-break lower total travel miles (Σ ``_pocket_travel_miles``).
+        The current (DBSCAN-formed) partition is always one of the
+        candidates, so this pass never makes a neighborhood worse.
+
+        A pocket with no neighbor within reach passes through unchanged
+        (already carries honest ``days`` from ``_split_pocket_to_budget``).
+
+        Args:
+            pockets: Pocket dicts from the DBSCAN pass (post-budget-split).
+            pool: The frame ``pockets``' indices were drawn from
+                (``_form_outlier_subclusters``'s own ``pool`` argument) —
+                looked up directly rather than via ``self._data`` so this
+                method works whether or not the caller has already
+                committed ``pool`` there.
+
+        Returns:
+            The same or fewer/more pocket dicts, days-optimized per
+            neighborhood.
+        """
+        if len(pockets) <= 1:
+            return pockets
+
+        day_budget = self.max_subcluster_days * self.day_hours
+        neighbor_reach = 2 * self.subcluster_radius
+
+        # Union-find over pocket medoids, transitive within neighbor_reach.
+        parent = list(range(len(pockets)))
+
+        def find(x: int) -> int:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a: int, b: int) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        for i in range(len(pockets)):
+            lat1, lon1 = pockets[i]['medoid']
+            for j in range(i + 1, len(pockets)):
+                lat2, lon2 = pockets[j]['medoid']
+                if self._haversine_miles(lat1, lon1, lat2, lon2) <= neighbor_reach:
+                    union(i, j)
+
+        groups: Dict[int, List[int]] = {}
+        for i in range(len(pockets)):
+            groups.setdefault(find(i), []).append(i)
+
+        # Deterministic neighborhood processing order: sort groups by their
+        # (sorted) member medoids.
+        ordered_roots = sorted(
+            groups, key=lambda root: sorted(pockets[i]['medoid'] for i in groups[root])
+        )
+
+        result: List[dict] = []
+        total_days_before = 0
+        total_days_after = 0
+        neighborhoods_improved = 0
+
+        for root in ordered_roots:
+            member_positions = groups[root]
+            member_pockets = [pockets[p] for p in member_positions]
+            days_before = sum(p['days'] for p in member_pockets)
+            total_days_before += days_before
+
+            if len(member_pockets) <= 1:
+                # Isolated pocket: no neighbor within reach, passes through
+                # unchanged except the honest `days` it already carries.
+                result.extend(member_pockets)
+                total_days_after += days_before
+                continue
+
+            all_indices = [idx for p in member_pockets for idx in p['indices']]
+            neighborhood_df = pool.loc[all_indices]
+            current_k = len(member_pockets)
+
+            def _travel_total(
+                candidate_pockets: List[dict], _frame: pd.DataFrame = neighborhood_df
+            ) -> float:
+                return sum(
+                    self._pocket_travel_miles(_frame.loc[p['indices']])
+                    for p in candidate_pockets
+                )
+
+            best_partition = member_pockets
+            best_score = (days_before, _travel_total(member_pockets))
+
+            k_min = max(1, current_k - 1)
+            k_max = current_k + 2
+            for k in range(k_min, k_max + 1):
+                if k <= 0 or k > len(neighborhood_df):
+                    continue
+                if k == current_k:
+                    # Already scored above as the DBSCAN-formed baseline.
+                    continue
+                if k == 1:
+                    candidate = self._split_pocket_to_budget(
+                        neighborhood_df, day_budget
+                    )
+                else:
+                    coords = neighborhood_df[['latitude', 'longitude']].to_numpy()
+                    labels = KMeans(
+                        n_clusters=k, random_state=self.random_seed, n_init=10
+                    ).fit_predict(coords)
+                    if len(set(labels)) < k:
+                        continue  # degenerate (empty cluster) — not a real k-partition
+                    candidate = []
+                    for label in range(k):
+                        part = neighborhood_df.iloc[labels == label]
+                        if part.empty:
+                            continue
+                        candidate.extend(self._split_pocket_to_budget(part, day_budget))
+
+                candidate_score = (
+                    sum(p['days'] for p in candidate), _travel_total(candidate)
+                )
+                if candidate_score < best_score:
+                    best_score = candidate_score
+                    best_partition = candidate
+
+            result.extend(best_partition)
+            total_days_after += best_score[0]
+            if best_score[0] < days_before:
+                neighborhoods_improved += 1
+                self._logger.debug(
+                    "Sub-cluster neighborhood (%s stores): %s pocket(s)/"
+                    "%s day(s) -> %s pocket(s)/%s day(s) (%s day(s) saved)",
+                    len(neighborhood_df), len(member_pockets), days_before,
+                    len(best_partition), best_score[0],
+                    days_before - best_score[0],
+                )
+
+        if neighborhoods_improved:
+            self._logger.info(
+                "Sub-cluster neighborhood repartition: %s neighborhood(s) "
+                "improved, %s -> %s pocket(s), %s -> %s day(s) total "
+                "(%s day(s) saved)",
+                neighborhoods_improved, len(pockets), len(result),
+                total_days_before, total_days_after,
+                total_days_before - total_days_after,
+            )
+        return result
 
     def _split_pocket_to_budget(
         self, pocket_df: pd.DataFrame, day_budget: float
@@ -4156,7 +5048,22 @@ class MarketClustering(FlowComponent):
         """Recursively split a pocket until every part fits or is a singleton."""
         hours = self._pocket_hours(pocket_df)
         if len(pocket_df) <= 1 or hours <= day_budget:
-            days = 1 if hours <= self.day_hours else self.max_subcluster_days
+            # FEAT-247: true-ceil days, not the old `1 | max_subcluster_days`
+            # binary. The pre-split under day_budget = max_subcluster_days *
+            # day_hours guarantees this never exceeds max_subcluster_days.
+            days = max(1, math.ceil(hours / self.day_hours))
+            if days > self.max_subcluster_days:
+                # Never silently ship an over-budget pocket -- a stripped
+                # `assert` (python -O) would otherwise let this through.
+                # This is a genuine invariant violation (the pre-split
+                # under day_budget is supposed to make it unreachable),
+                # not a normal validation failure, so it raises the same
+                # way every other broken-invariant path in this file does.
+                raise ComponentError(
+                    f"pocket days={days} exceeds max_subcluster_days="
+                    f"{self.max_subcluster_days} (hours={hours}, "
+                    f"day_budget={day_budget}) — budget pre-split invariant broken"
+                )
             return [{
                 "indices": pocket_df.index.tolist(),
                 "medoid": self._pocket_medoid(pocket_df),
@@ -4251,26 +5158,101 @@ class MarketClustering(FlowComponent):
     # road proximity, not straight-line proximity, picks the receiving
     # market. One RoutingService session for the whole batch.
 
+    def _subcluster_anchor_cap(self) -> Optional[float]:
+        """Hard distance cap for satellite anchoring (FEAT-248 G4).
+
+        ``unassign_distance`` when configured (matching the promise it
+        already makes for normal stores); otherwise
+        ``flyout_distance_factor * max_distance_by_day``. ``None`` when
+        BOTH are unset/non-positive — a config that opted out of both
+        never had a cap, and this task must not invent one (regression
+        guard): satellites keep anchoring anywhere, as before.
+        """
+        if self.unassign_distance:
+            return float(self.unassign_distance)
+        if self.max_distance_by_day and self.max_distance_by_day > 0:
+            return float(self.flyout_distance_factor) * float(self.max_distance_by_day)
+        return None
+
+    def _reject_subcluster_pocket(self, subcluster: dict) -> None:
+        """Deliver an unplaceable satellite pocket as UNASSIGNED (FEAT-248 G4).
+
+        Mirrors ``_unassign_orphan_pass``'s normal-store semantics: the
+        pocket's rows are already at ``cluster_id == -1`` in
+        ``self._data`` (they came from the ``_attach_outlier_subclusters``
+        pool and ``market_cid`` stays ``None``, so the caller never
+        assigns them) — this additionally stamps ``constraint_reason`` and
+        records them in ``self._rejected`` (deduplicated by index, so a
+        row already tracked there via ``_readmit_rejected_as_unassigned``
+        is re-stamped, never duplicated), the same ledger normal-store
+        rejections land in, so the delivered export/log account for them
+        under a reason distinguishable from normal-store rejections.
+        """
+        indices = [
+            idx for idx in subcluster.get('indices', [])
+            if idx in self._data.index
+        ]
+        if not indices:
+            return
+
+        reason = 'subcluster_no_candidate_within_cap'
+        if 'constraint_reason' not in self._data.columns:
+            self._data['constraint_reason'] = None
+        self._data.loc[indices, 'constraint_reason'] = reason
+        self._outlier_stores.update(indices)
+
+        rows = self._data.loc[indices].copy()
+        rows['constraint_reason'] = reason
+        if self._rejected.empty:
+            self._rejected = rows
+        else:
+            self._rejected = pd.concat(
+                [self._rejected.drop(index=indices, errors='ignore'), rows]
+            )
+
     async def _select_subcluster_market(self, subclusters: List[dict]) -> List[dict]:
-        """Pick each sub-cluster's receiving market by road miles.
+        """Pick each sub-cluster's receiving market by state-affinity score.
 
         Haversine-prefilters each sub-cluster's medoid to the nearest
         ``subcluster_market_candidates`` market centroids
         (``_centroid_points()``), then asks one shared ``RoutingService``
         session for road miles medoid<->centroid per sub-cluster (one
-        small matrix per sub-cluster, never a global N×N). The winner is
-        the candidate with the fewest road miles. On a degraded
-        (geodesic-fallback) matrix, or on any unexpected exception from
-        the service, the haversine order decides instead — this pass
-        never aborts the run on a routing failure.
+        small matrix per sub-cluster, never a global N×N). Candidates are
+        then, when a cap is configured (FEAT-248 G4, see
+        ``_subcluster_anchor_cap``), filtered BEFORE scoring to those
+        within the hard distance cap AND with positive headroom under
+        ``_effective_ceiling`` for the WHOLE pocket (a pocket anchors as
+        one atomic unit, never split across receivers) — mirroring the
+        promise ``unassign_distance`` already makes for normal stores. A
+        pocket with no feasible candidate is delivered UNASSIGNED (see
+        ``_reject_subcluster_pocket``) instead of anchored beyond the cap.
+        The winner among feasible candidates is the one with the highest
+        ``_state_affinity_score`` (FEAT-247) — state affinity, road-mile
+        distance (normalized against the absolute cap when one applies,
+        never the candidate pool's own max — a 400-mile candidate must
+        not look "close" just because every candidate was far) and
+        capacity headroom, not road miles alone — using ROAD miles as the
+        distance term. On a degraded (geodesic-fallback) matrix, or on any
+        unexpected exception from the service, the same scoring runs
+        against HAVERSINE distances instead — this pass never aborts the
+        run on a routing failure, and the FEAT-241 degraded-routing
+        fallback survives unchanged in kind.
+
+        Configs with neither ``unassign_distance`` nor a
+        ``max_distance_by_day`` fallback configured see NO behavior
+        change: ``_subcluster_anchor_cap()`` returns ``None`` and every
+        candidate is scored exactly as before (pool-max normalization).
 
         Args:
             subclusters: dicts from ``_form_outlier_subclusters()``
-                (must have ``medoid``; ``indices`` used only for logging).
+                (must have ``medoid`` and ``indices`` — the latter now
+                also used to derive the sub-cluster's own dominant state).
 
         Returns:
-            The same dicts, extended in place with ``market_cid``,
-            ``road_miles``, ``road_minutes`` and ``routing_degraded``.
+            The same dicts, extended in place with ``market_cid``
+            (``None`` when the pocket is delivered unassigned),
+            ``road_miles``, ``road_minutes``, ``routing_degraded`` and
+            ``state_affinity_score``.
         """
         if not subclusters:
             return []
@@ -4287,9 +5269,21 @@ class MarketClustering(FlowComponent):
                 subcluster['road_miles'] = None
                 subcluster['road_minutes'] = None
                 subcluster['routing_degraded'] = True
+                subcluster['state_affinity_score'] = None
             return subclusters
 
+        self._reset_state_score_cache()
+        cap = self._subcluster_anchor_cap()
+        sizes: Dict[Any, int] = (
+            self._data[self._data[self._cluster_id] != -1]
+            .groupby(self._cluster_id).size().to_dict()
+            if cap is not None and self._cluster_id in self._data.columns
+            else {}
+        )
         n_degraded = 0
+        n_unplaced = 0
+        n_beyond_cap = 0
+        stores_beyond_cap = 0
         async with RoutingService() as routing:
             for subcluster in subclusters:
                 medoid = subcluster['medoid']
@@ -4301,32 +5295,25 @@ class MarketClustering(FlowComponent):
                 )[: self.subcluster_market_candidates]
 
                 degraded = False
-                winner_cid: Any = candidates[0][0]
-                winner_centroid: Tuple[float, float] = candidates[0][1]
+                distances: Dict[Any, float] = {
+                    cid: self._haversine_miles(
+                        medoid[0], medoid[1], centroid[0], centroid[1]
+                    )
+                    for cid, centroid in candidates
+                }
+                road_minutes_map: Dict[Any, Optional[float]] = {}
                 try:
                     matrix = await routing.distance_matrix(
                         [medoid] + [centroid for _, centroid in candidates]
                     )
                     degraded = bool(matrix.degraded)
                     if not degraded:
-                        best_cid, best_centroid, best_leg = None, None, None
                         for cid, centroid in candidates:
                             leg = matrix.lookup(medoid, centroid)
-                            if (
-                                best_leg is None
-                                or leg.distance_miles < best_leg.distance_miles
-                            ):
-                                best_leg = leg
-                                best_cid, best_centroid = cid, centroid
-                        winner_cid, winner_centroid = best_cid, best_centroid
-                    leg = matrix.lookup(medoid, winner_centroid)
-                    road_miles, road_minutes = leg.distance_miles, leg.duration_minutes
+                            distances[cid] = leg.distance_miles
+                            road_minutes_map[cid] = leg.duration_minutes
                 except Exception as exc:  # noqa: BLE001 — routing must never abort the run
                     degraded = True
-                    road_miles = self._haversine_miles(
-                        medoid[0], medoid[1], winner_centroid[0], winner_centroid[1]
-                    )
-                    road_minutes = None
                     self._logger.warning(
                         "Sub-cluster market selection fell back to haversine "
                         "order after routing error: %s", exc,
@@ -4334,22 +5321,129 @@ class MarketClustering(FlowComponent):
 
                 if degraded:
                     n_degraded += 1
+
+                pocket_len = len(subcluster.get('indices', []))
+                if cap is not None:
+                    feasible = {
+                        cid: dist for cid, dist in distances.items()
+                        if dist <= cap
+                        and sizes.get(cid, 0) + pocket_len
+                        <= self._effective_ceiling(cid)
+                    }
+                else:
+                    feasible = distances
+
+                if not feasible:
+                    if self.reject_unanchorable_subclusters:
+                        # Opt-in (FEAT-248 G4 behavior): deliver UNASSIGNED.
+                        n_unplaced += 1
+                        subcluster['market_cid'] = None
+                        subcluster['road_miles'] = None
+                        subcluster['road_minutes'] = None
+                        subcluster['routing_degraded'] = degraded
+                        subcluster['state_affinity_score'] = None
+                        self._reject_subcluster_pocket(subcluster)
+                        self._logger.info(
+                            "Sub-cluster (%s store(s)) has no candidate market "
+                            "within the %.1f-mile cap / with headroom; "
+                            "delivered unassigned.",
+                            pocket_len, cap,
+                        )
+                        continue
+
+                    # Default (FEAT-249): restore the pre-FEAT-248
+                    # 100%-assignment guarantee. Score the FULL unfiltered
+                    # `distances` pool with pool-max normalization -- the
+                    # same semantics the `cap is None` path already uses --
+                    # and anchor the pocket to the winner instead of
+                    # rejecting it. Tie-break identical to
+                    # `_best_cession_receiver` (score desc, distance asc,
+                    # cid asc) for determinism.
+                    n_beyond_cap += 1
+                    stores_beyond_cap += pocket_len
+                    entity_state = self._dominant_state_of_indices(
+                        subcluster.get('indices', [])
+                    )
+                    fallback_max_distance = max(distances.values())
+                    fb_cid, fb_score, fb_distance = None, None, None
+                    for cid, dist in distances.items():
+                        score = self._state_affinity_score(
+                            entity_state, cid, dist, fallback_max_distance
+                        )
+                        if (
+                            fb_score is None
+                            or score > fb_score
+                            or (score == fb_score and dist < fb_distance)
+                            or (
+                                score == fb_score and dist == fb_distance
+                                and cid < fb_cid
+                            )
+                        ):
+                            fb_cid, fb_score, fb_distance = cid, score, dist
+
+                    winner_cid = fb_cid
+                    winner_score = fb_score
+                    road_miles = fb_distance
+                    road_minutes = road_minutes_map.get(winner_cid)
+
+                    subcluster['market_cid'] = winner_cid
+                    subcluster['road_miles'] = float(road_miles)
+                    subcluster['road_minutes'] = (
+                        float(road_minutes) if road_minutes is not None else None
+                    )
+                    subcluster['routing_degraded'] = degraded
+                    subcluster['state_affinity_score'] = winner_score
+                    subcluster['anchored_beyond_cap'] = True
+                    self._logger.info(
+                        "Sub-cluster (%s store(s)) has no candidate market "
+                        "within the %.1f-mile cap / with headroom; anchored "
+                        "beyond cap to market %s (%.1f road mi, score=%.3f).",
+                        pocket_len, cap, winner_cid, road_miles, winner_score,
+                    )
+                    continue
+
+                entity_state = self._dominant_state_of_indices(
+                    subcluster.get('indices', [])
+                )
+                max_distance = (
+                    cap if cap is not None
+                    else (max(feasible.values()) if feasible else 0.0)
+                )
+                winner_cid = max(
+                    feasible,
+                    key=lambda cid: (
+                        self._state_affinity_score(
+                            entity_state, cid, feasible[cid], max_distance
+                        ),
+                        -feasible[cid],
+                    ),
+                )
+                winner_score = self._state_affinity_score(
+                    entity_state, winner_cid, feasible[winner_cid], max_distance
+                )
+                road_miles = feasible[winner_cid]
+                road_minutes = road_minutes_map.get(winner_cid)
+
                 subcluster['market_cid'] = winner_cid
                 subcluster['road_miles'] = float(road_miles)
                 subcluster['road_minutes'] = (
                     float(road_minutes) if road_minutes is not None else None
                 )
                 subcluster['routing_degraded'] = degraded
+                subcluster['state_affinity_score'] = winner_score
                 self._logger.debug(
-                    "Sub-cluster (%s store(s)) -> market %s: %.1f road mi "
-                    "(degraded=%s)",
+                    "Sub-cluster (%s store(s)) -> market %s: %.1f road mi, "
+                    "score=%.3f (degraded=%s)",
                     len(subcluster.get('indices', [])), winner_cid, road_miles,
-                    degraded,
+                    winner_score, degraded,
                 )
 
         self._logger.info(
-            "Sub-cluster market selection: %s sub-cluster(s), %s degraded",
-            len(subclusters), n_degraded,
+            "Sub-cluster market selection: %s sub-cluster(s), %s degraded, "
+            "%s delivered unassigned (no candidate within cap/headroom), "
+            "%s pocket(s) / %s store(s) anchored beyond cap",
+            len(subclusters), n_degraded, n_unplaced,
+            n_beyond_cap, stores_beyond_cap,
         )
         return subclusters
 
@@ -4578,6 +5672,7 @@ class MarketClustering(FlowComponent):
                 )
 
             overnight = self._overnight_required(days, road_minutes)
+            uid = min(p_indices)
 
             for idx in p_indices:
                 self._data.at[idx, 'is_subcluster'] = True
@@ -4587,6 +5682,7 @@ class MarketClustering(FlowComponent):
                 self._data.at[idx, 'subcluster_days'] = days
                 self._data.at[idx, 'overnight_required'] = overnight
                 self._data.at[idx, 'subcluster_routing_degraded'] = degraded
+                self._data.at[idx, 'subcluster_uid'] = uid
 
         self._logger.debug(
             "Fly-out standalone pocketing: market %s, %s row(s) -> %s "
@@ -4633,7 +5729,7 @@ class MarketClustering(FlowComponent):
 
         Opt-in (``capacity_shedding``). For each non-standalone market
         whose total row count (satellites, i.e. ``is_subcluster`` rows,
-        included) exceeds ``_layout_ceiling(cid)``, hands
+        included) exceeds ``_effective_ceiling(cid)``, hands up to
         ``size - ceiling`` of its non-subcluster members to a neighbor
         market with room (``_capacity_for``, the hard receiving gate) at
         a similar distance (``shed_distance_tolerance * own_distance``).
@@ -4641,6 +5737,13 @@ class MarketClustering(FlowComponent):
         ``reassign_overflow_gain`` nor the 20% buffer
         (``_borderline_target_allowed``) — capacity, not distance gain,
         is the criterion, so it is never called here.
+
+        FEAT-248 TASK-203 shed floor: the amount shed is capped to
+        ``max(0, core_size - min_cluster_size)`` — this pass never drains
+        a donor's CORE (non-satellite) count below ``min_cluster_size``,
+        even when its total overload (core + satellites) is larger; a
+        market whose overage is mostly satellite load is cession's
+        (``_cede_oversize_subclusters``) territory, not this pass's.
 
         Moves are committed greedily by smallest added distance
         (deterministic: added miles, then store index), updating a live
@@ -4681,7 +5784,7 @@ class MarketClustering(FlowComponent):
             key=str,
         ):
             size = ledger.get(cid, 0)
-            ceiling = self._layout_ceiling(cid)
+            ceiling = self._effective_ceiling(cid)
             overload = size - ceiling
             if overload <= 0:
                 continue
@@ -4695,6 +5798,26 @@ class MarketClustering(FlowComponent):
             if 'is_subcluster' in source_rows.columns:
                 source_rows = source_rows[source_rows['is_subcluster'] != True]
             if source_rows.empty:
+                continue
+
+            # FEAT-248 TASK-203: shed floor -- this pass may never drain a
+            # donor's CORE below min_cluster_size. `overload` above is
+            # measured against total size (satellites included); the
+            # floor is measured against core_size (source_rows already
+            # excludes satellites) so a market carrying most of its
+            # ceiling-overage as sub-cluster load never gets its core
+            # stripped to compensate.
+            core_size = len(source_rows)
+            floor_shed = max(0, core_size - int(self.min_cluster_size or 0))
+            if floor_shed < overload:
+                self._logger.info(
+                    "Capacity shed: market %s overload=%s truncated to %s "
+                    "to keep its core (%s stores) at/above "
+                    "min_cluster_size=%s.",
+                    cid, overload, floor_shed, core_size, self.min_cluster_size,
+                )
+                overload = floor_shed
+            if overload <= 0:
                 continue
 
             candidate_moves: List[Tuple[float, Any, Any, float]] = []
@@ -4993,7 +6116,14 @@ class MarketClustering(FlowComponent):
 
         # AC-2 (TASK-187): snapshot before any reassignment so we can
         # revert if the modifications end up net-negative.
+        # FEAT-249 (TASK-208): the rejection ledger is also snapshotted --
+        # a revert that restores only `_data` leaves `_rejected`/
+        # `_outlier_stores`/`_readmitted_index_map` mutated, so the final
+        # ledger disagrees with the delivery it is supposed to describe.
         data_snapshot = self._data.copy()
+        rejected_snapshot = self._rejected.copy()
+        outliers_snapshot = set(self._outlier_stores)
+        readmitted_snapshot = dict(self._readmitted_index_map)
         pre_schedulable = self._estimate_schedulable(scheduling_kwargs)
 
         recovered = 0
@@ -5222,7 +6352,14 @@ class MarketClustering(FlowComponent):
                 pre_schedulable, post_schedulable,
                 post_schedulable - pre_schedulable,
             )
+            # FEAT-249 (TASK-208): a reverted pass must be a true no-op --
+            # restore every structure the pass mutated, not just `_data`,
+            # so the final ledger (`Total rejected stores`,
+            # `_save_rejected_stores()`) never disagrees with the delivery.
             self._data = data_snapshot
+            self._rejected = rejected_snapshot
+            self._outlier_stores = outliers_snapshot
+            self._readmitted_index_map = readmitted_snapshot
             return
 
         self._logger.info(
@@ -5267,6 +6404,16 @@ class MarketClustering(FlowComponent):
         self._data['subcluster_days'] = np.nan
         self._data['overnight_required'] = False
         self._data['subcluster_routing_degraded'] = False
+        # FEAT-247 (code review, post-TASK-198): a stable per-pocket
+        # identity, independent of the (subcluster_lat, subcluster_lon)
+        # medoid. Two genuinely distinct sub-clusters can share an exact
+        # medoid by coincidence (e.g. two singleton pockets at the same
+        # store's coordinates); grouping cession's atomic units by medoid
+        # alone would silently merge them. `min(indices)` is unique by
+        # construction: every pocket's member rows are disjoint from
+        # every other pocket's, so two different pockets can never share
+        # the same minimum row index.
+        self._data['subcluster_uid'] = np.nan
 
     async def _attach_outlier_subclusters(self) -> int:
         """Fold leftover outliers into sub-clusters of an existing market.
@@ -5276,7 +6423,10 @@ class MarketClustering(FlowComponent):
         (``_form_outlier_subclusters``), picks each pocket's receiving
         market by road miles (``_select_subcluster_market``), assigns their
         rows following the file's normal assignment convention (``cid``,
-        ``market`` label, ``ghost_id``, cleared ``constraint_reason``), and
+        ``market`` label, ``ghost_id``, cleared ``constraint_reason`` —
+        except pockets ``_select_subcluster_market`` flagged
+        ``anchored_beyond_cap`` (FEAT-249), which are instead stamped
+        ``constraint_reason='subcluster_anchored_beyond_cap'``), and
         stamps the sub-cluster column contract. ``max_cluster_size``
         overflow is annotated later, once the layout has fully settled, by
         ``_annotate_subcluster_overflow`` (called from ``run()`` after FTE
@@ -5324,13 +6474,25 @@ class MarketClustering(FlowComponent):
             road_minutes = subcluster.get('road_minutes')
             degraded = bool(subcluster.get('routing_degraded', False))
             overnight = self._overnight_required(days, road_minutes)
+            affinity_score = subcluster.get('state_affinity_score')
+            uid = min(indices)
+            # FEAT-249: a pocket _select_subcluster_market anchored past the
+            # cap (no candidate within _subcluster_anchor_cap()/headroom,
+            # reject_unanchorable_subclusters=False) keeps its annotation
+            # here instead of being cleared like a normally-anchored pocket.
+            anchored_beyond_cap = bool(subcluster.get('anchored_beyond_cap'))
+            if anchored_beyond_cap and 'constraint_reason' not in self._data.columns:
+                self._data['constraint_reason'] = None
 
             for idx in indices:
                 self._data.at[idx, self._cluster_id] = cid
                 self._data.at[idx, self._cluster_name] = f"Market-{cid}"
                 self._data.at[idx, 'ghost_id'] = f"Ghost-{cid}-1"
                 if 'constraint_reason' in self._data.columns:
-                    self._data.at[idx, 'constraint_reason'] = None
+                    self._data.at[idx, 'constraint_reason'] = (
+                        'subcluster_anchored_beyond_cap'
+                        if anchored_beyond_cap else None
+                    )
                 self._data.at[idx, 'is_subcluster'] = True
                 self._data.at[idx, 'subcluster_lat'] = medoid_lat
                 self._data.at[idx, 'subcluster_lon'] = medoid_lon
@@ -5338,6 +6500,8 @@ class MarketClustering(FlowComponent):
                 self._data.at[idx, 'subcluster_days'] = days
                 self._data.at[idx, 'overnight_required'] = overnight
                 self._data.at[idx, 'subcluster_routing_degraded'] = degraded
+                self._data.at[idx, 'state_affinity_score'] = affinity_score
+                self._data.at[idx, 'subcluster_uid'] = uid
             incorporated += len(indices)
 
         self._logger.info(
@@ -5346,15 +6510,243 @@ class MarketClustering(FlowComponent):
         )
         return incorporated
 
+    def _donor_subcluster_groups(self, donor: Any) -> Dict[Any, List[Any]]:
+        """This market's sub-clusters, grouped by stable uid (FEAT-247, Module 5).
+
+        Grouped by ``subcluster_uid`` (``min()`` of a pocket's own member
+        row indices, stamped at attachment time — see
+        ``_init_subcluster_columns``), NOT by the ``(subcluster_lat,
+        subcluster_lon)`` medoid: two genuinely distinct sub-clusters can
+        share an exact medoid by coincidence (e.g. two singleton pockets
+        at the same store's coordinates), which grouping by medoid alone
+        would silently merge into one atomic cession unit.
+
+        Args:
+            donor: Market id whose attached sub-clusters to enumerate.
+
+        Returns:
+            ``{subcluster_uid: [row indices]}`` — one entry per atomic
+            sub-cluster currently attached to ``donor``.
+        """
+        mask = (
+            (self._data[self._cluster_id] == donor)
+            & (self._data['is_subcluster'] == True)
+        )
+        groups: Dict[Any, List[Any]] = {}
+        for idx in self._data.index[mask]:
+            uid = self._data.at[idx, 'subcluster_uid']
+            groups.setdefault(uid, []).append(idx)
+        return groups
+
+    def _best_cession_receiver(
+        self, donor: Any, indices: List[Any], sizes: Dict[Any, int]
+    ) -> Optional[Tuple[Any, float]]:
+        """Best-scoring market that can absorb this WHOLE sub-cluster.
+
+        A receiver is feasible only if it can take every one of
+        ``indices`` without itself exceeding its ``_effective_ceiling``
+        (FEAT-248 G2) — the cap closed by this task never re-opens on the
+        receiving end. Same isolation partition as the donor
+        (cross-partition receivers make no sense — standalone/isolated
+        markets are exempt from this pass entirely). Same-region is
+        guaranteed by construction
+        (TASK-195: this pass runs inside one region's frame) — ``sizes``
+        never contains a cross-region market id, so no redundant check.
+
+        Args:
+            donor: Market the sub-cluster is being ceded FROM (excluded).
+            indices: Row indices of the sub-cluster's stores.
+            sizes: Current total (core + sub-cluster) store count per
+                market — the same ledger the caller's donor loop updates
+                after every cession ("recompute, don't batch stale").
+
+        Returns:
+            ``(receiver_cid, score)``, or ``None`` when no market can
+            take the whole sub-cluster.
+        """
+        subcluster_size = len(indices)
+        entity_state = self._dominant_state_of_indices(indices)
+        medoid_lat = float(self._data.at[indices[0], 'subcluster_lat'])
+        medoid_lon = float(self._data.at[indices[0], 'subcluster_lon'])
+        donor_partition = self._cluster_partition.get(donor, False)
+
+        candidates: List[Tuple[Any, float]] = []
+        for cid, size in sizes.items():
+            if cid == donor or cid in self._standalone_clusters:
+                continue
+            if self._cluster_partition.get(cid, False) != donor_partition:
+                continue
+            if size + subcluster_size > self._effective_ceiling(cid):
+                continue  # receiver must never exceed its own ceiling
+            centroid = self._cluster_centroids.get(cid)
+            if centroid is None:
+                continue
+            distance = self._haversine_miles(
+                medoid_lat, medoid_lon,
+                centroid['centroid_lat'], centroid['centroid_lon'],
+            )
+            candidates.append((cid, distance))
+
+        if not candidates:
+            return None
+
+        max_distance = max(distance for _, distance in candidates)
+        best_cid, best_score, best_distance = None, None, None
+        for cid, distance in candidates:
+            score = self._state_affinity_score(
+                entity_state, cid, distance, max_distance
+            )
+            if (
+                best_score is None
+                or score > best_score
+                or (score == best_score and distance < best_distance)
+                or (
+                    score == best_score and distance == best_distance
+                    and cid < best_cid
+                )
+            ):
+                best_cid, best_score, best_distance = cid, score, distance
+
+        return best_cid, best_score
+
+    def _apply_cession(self, donor: Any, receiver: Any, indices: List[Any]) -> None:
+        """Move a whole sub-cluster's rows from ``donor`` to ``receiver``.
+
+        Follows the file's normal assignment convention (``cid``, market
+        label, ``ghost_id`` — same fields ``_attach_outlier_subclusters``
+        and ``_merge_markets`` update) and stamps the additive
+        ``ceded_from`` column. ``sub_cluster`` labels are NOT touched here
+        — ``_label_subclusters()`` (run()'s global tail) recomputes them
+        fresh from the post-cession ``cluster_id``, so they refresh to the
+        receiver's namespace automatically.
+
+        Args:
+            donor: Market the sub-cluster is leaving.
+            receiver: Market the sub-cluster is joining.
+            indices: Row indices of the sub-cluster's stores.
+        """
+        for idx in indices:
+            self._data.at[idx, self._cluster_id] = receiver
+            self._data.at[idx, self._cluster_name] = f"Market-{receiver}"
+            self._data.at[idx, 'ghost_id'] = f"Ghost-{receiver}-1"
+            self._data.at[idx, 'ceded_from'] = donor
+        self._logger.debug(
+            "Capacity cession: market %s ceded a %s-store sub-cluster to "
+            "market %s.", donor, len(indices), receiver,
+        )
+
+    def _cede_oversize_subclusters(self) -> None:
+        """Cede whole sub-clusters from over-cap markets (FEAT-247, Module 5).
+
+        Closes the "sub-clusters attach for free" bypass: today
+        ``max_cluster_size`` is enforced on core assignment only, and
+        ``_annotate_subcluster_overflow`` merely REPORTS a market that
+        exceeds it via attached sub-clusters. This pass turns that
+        annotator from reporter into actor — a market whose TOTAL (core +
+        sub-cluster) store count exceeds its ``_effective_ceiling`` (FEAT-248
+        G2) cedes whole sub-clusters until at/under ceiling or every one of
+        its sub-clusters has been considered. Cession is atomic: a
+        sub-cluster never splits across receivers.
+
+        FEAT-248 TASK-203 (§8 fan-out resolution): each donor's sub-cluster
+        groups are processed INDEPENDENTLY, in deterministic
+        ``subcluster_uid`` order — a group with no feasible receiver is
+        SKIPPED (not a loop-terminating break), so the donor keeps fanning
+        out across its remaining pockets instead of dead-ending the moment
+        one pocket has no single roomy receiver (the old behavior, and how
+        Denver shipped 110 rows: one 40-store pocket with no receiver
+        blocked three smaller ones that each had room elsewhere). The
+        ``sizes`` ledger updates after every cession so each subsequent
+        group's feasibility check sees the current picture, never a stale
+        one. Ceding stops as soon as the donor is back at/under its
+        ceiling — a donor is never stripped of every pocket just because
+        receivers exist for all of them.
+
+        Donor order: most-over-ceiling first, tie-break lower market id.
+        A donor left over ceiling after every group has been considered —
+        overflow made of core stores alone, or no group found a receiver —
+        is flagged by ``_annotate_subcluster_overflow`` right after this
+        pass runs.
+
+        A no-op when ``subcluster_outliers`` is off, ``max_cluster_size``
+        is unset, or no market carries a sub-cluster at all.
+        """
+        if (
+            not self.subcluster_outliers
+            or not self.max_cluster_size
+            or self._data.empty
+            or 'is_subcluster' not in self._data.columns
+        ):
+            return
+        if not (self._data['is_subcluster'] == True).any():
+            return
+
+        self._reset_state_score_cache()
+
+        assigned = self._data[self._data[self._cluster_id] != -1]
+        sizes = assigned.groupby(self._cluster_id).size().to_dict()
+        donors = sorted(
+            (
+                cid for cid, size in sizes.items()
+                if size > self._effective_ceiling(cid)
+                and cid not in self._standalone_clusters
+            ),
+            key=lambda cid: (-(sizes[cid] - self._effective_ceiling(cid)), cid),
+        )
+        if not donors:
+            return
+
+        cessions = 0
+        unresolved_donors = 0
+
+        for donor in donors:
+            groups = self._donor_subcluster_groups(donor)
+            for uid in sorted(groups, key=str):
+                if sizes.get(donor, 0) <= self._effective_ceiling(donor):
+                    break  # back at/under ceiling -- stop ceding this donor
+
+                indices = groups[uid]
+                receiver_choice = self._best_cession_receiver(
+                    donor, indices, sizes
+                )
+                if receiver_choice is None:
+                    continue  # SKIP this pocket, fan out to the next one
+
+                receiver, _score = receiver_choice
+                self._apply_cession(donor, receiver, indices)
+                sizes[donor] = sizes.get(donor, 0) - len(indices)
+                sizes[receiver] = sizes.get(receiver, 0) + len(indices)
+                cessions += 1
+
+            if sizes.get(donor, 0) > self._effective_ceiling(donor):
+                unresolved_donors += 1
+
+        if cessions:
+            self._logger.info(
+                "Capacity cession: %s sub-cluster(s) ceded across %s "
+                "oversize market(s) (%s market(s) still over ceiling "
+                "after cession).",
+                cessions, len(donors), unresolved_donors,
+            )
+
     def _annotate_subcluster_overflow(self) -> None:
         """Flag markets that exceed ``max_cluster_size`` via sub-clusters.
 
         Never rejects — only annotates ``constraint_warning`` with
-        ``"subcluster_overflow: <n>/<max>"``. Runs late in ``run()``, after
-        ``_add_fte_columns_to_result()`` writes the per-cluster
-        ``constraint_warning`` column, so this row-level annotation on
-        sub-cluster rows is not immediately clobbered by that per-cluster
-        write.
+        ``"subcluster_overflow: <n>/<max>"``. Runs late in
+        ``_run_region_pipeline()``, after ``_add_fte_columns_to_result()``
+        writes the per-cluster ``constraint_warning`` column, so this
+        row-level annotation on sub-cluster rows is not immediately
+        clobbered by that per-cluster write.
+
+        FEAT-248 G6: also called a second time from ``_finalize_delivery``,
+        again right after its own ``_add_fte_columns_to_result()`` call —
+        global ``_reconcile_global_max_markets`` (merges/splits) runs
+        between the per-region call and delivery, so the per-region
+        annotation can be stale for markets it touched (audit item 1d:
+        ``subcluster_overflow: 141/52`` inherited from a pre-split parent).
+        The second call re-derives the annotation from final membership;
+        it is idempotent (re-groups and re-checks sizes from scratch).
         """
         if not self.subcluster_outliers or self._data.empty:
             return
@@ -5758,6 +7150,326 @@ class MarketClustering(FlowComponent):
         return sorted(
             cid for cid in self._data[self._cluster_id].unique() if cid != -1
         )
+
+    def _region_merge_feasible(
+        self,
+        a: Any,
+        b: Any,
+        reach: float,
+        member_index: Dict[Any, pd.Index],
+    ) -> Optional[float]:
+        """Feasibility of merging ``b`` into ``a`` for max_markets reconciliation.
+
+        Mirrors ``_merge_saving``'s geometry/policy guards (spec §2 "reusing
+        the ``_merge_saving``/``_merge_markets`` guards"): neither market is
+        a frozen standalone market, both share the same isolation partition,
+        and centroid-to-centroid distance is within ``reach``. Unlike
+        ``_merge_saving`` (FEAT-240, headcount-driven — its condition 5
+        hard-requires ``self.num_ghosts_range``, unset for the Verizon
+        config this feature targets), feasibility here is purely geometric:
+        the goal is fitting under ``max_markets``, not minimizing headcount.
+        Deliberately does NOT gate on ``max_cluster_size`` — ``max_markets``
+        is a HARD ceiling that FORCES the layout (spec §2), the same way
+        the pre-FEAT-247 pipeline already lets ``max_markets`` push stores
+        past ``max_cluster_size`` via overflow force-assignment.
+
+        Args:
+            a: Market that would survive (receives ``b``'s stores).
+            b: Market that would be absorbed.
+            reach: Maximum centroid-to-centroid distance for this pair.
+            member_index: Market id -> row-index cache (maintained by the
+                caller across the whole reconciliation loop) — avoids
+                rescanning all of ``self._data`` for membership on every
+                candidate pair evaluated.
+
+        Returns:
+            The post-merge max store distance (lower is a better/tighter
+            merge) when every condition holds, else ``None``.
+        """
+        if a in self._standalone_clusters or b in self._standalone_clusters:
+            return None
+        if self._cluster_partition.get(a, False) != self._cluster_partition.get(
+            b, False
+        ):
+            return None
+
+        centroid_a = self._cluster_centroids.get(a)
+        centroid_b = self._cluster_centroids.get(b)
+        if centroid_a is None or centroid_b is None:
+            return None
+        centroid_distance = self._haversine_miles(
+            centroid_a['centroid_lat'], centroid_a['centroid_lon'],
+            centroid_b['centroid_lat'], centroid_b['centroid_lon'],
+        )
+        if centroid_distance > reach:
+            return None
+
+        union_index = member_index.get(a, pd.Index([])).union(
+            member_index.get(b, pd.Index([]))
+        )
+        if union_index.empty:
+            return None
+        union = self._data.loc[union_index]
+
+        _, _, max_store_distance = self._union_frame_geometry(a, union)
+        if max_store_distance > self.max_cluster_distance:
+            return None
+
+        return max_store_distance
+
+    def _best_region_merge_candidate(
+        self,
+        live: List[Any],
+        region_of: Dict[Any, Any],
+        reach: float,
+        sizes: Dict[Any, int],
+        member_index: Dict[Any, pd.Index],
+    ) -> Optional[Tuple[Any, Any]]:
+        """Tightest feasible same-region market pair to merge, or ``None``.
+
+        Merges never cross regions: candidates are grouped by
+        ``region_column`` value FIRST, so pairs from different regions are
+        never even constructed — O(sum of each region's k²) instead of
+        O(M²) over every live market regardless of region. The larger
+        market (by store count) survives and absorbs the smaller —
+        ``_merge_markets``'s own convention. Deterministic: ties break on
+        the lower post-merge max-store-distance, then on the sorted
+        iteration order within each region group.
+
+        Args:
+            live: Sorted, deterministic list of currently-live market ids.
+            region_of: Market id -> region value (empty when unset).
+            reach: Maximum centroid-to-centroid distance to consider.
+            sizes: Current store count per market — maintained by the
+                caller across the loop, not recomputed here.
+            member_index: Market id -> row-index cache, see
+                ``_region_merge_feasible``.
+
+        Returns:
+            ``(a, b)`` — ``a`` survives, ``b`` is absorbed — or ``None``
+            when no feasible same-region pair remains.
+        """
+        groups: Dict[Any, List[Any]] = {}
+        for cid in live:
+            groups.setdefault(region_of.get(cid), []).append(cid)
+
+        best: Optional[Tuple[Any, Any]] = None
+        best_score: Optional[float] = None
+        for group_ids in groups.values():
+            if len(group_ids) < 2:
+                continue
+            for x, y in itertools.combinations(group_ids, 2):
+                size_x = sizes.get(x, 0)
+                size_y = sizes.get(y, 0)
+                a, b = (x, y) if size_x >= size_y else (y, x)
+                score = self._region_merge_feasible(a, b, reach, member_index)
+                if score is None:
+                    continue
+                if best_score is None or score < best_score:
+                    best, best_score = (a, b), score
+
+        return best
+
+    def _reconcile_global_max_markets(self) -> None:
+        """Enforce ``max_markets`` as an exact target after all regions run.
+
+        ``max_markets`` is both a hard ceiling AND a capacity to be consumed
+        at 100%: if the emergent count is over it, merge same-region pairs
+        down; if under, split the largest markets in the most starved
+        regions up — until the target is met or no feasible action remains.
+
+        **Merge-down** (emergent > target): identical to the pre-existing
+        logic — merge the tightest feasible same-region pairs, never across
+        regions, until count ≤ target.
+
+        **Split-up** (emergent < target): new capacity-distribution pass.
+        Each round identifies the region with the highest stores-per-market
+        ratio, picks the largest splittable (≥ 2 stores) non-standalone
+        market in that region, and splits it via KMeans
+        (``_split_market``). Standalone markets are never split. The loop
+        stops when the count reaches the target or no market can be split.
+
+        Performance: ``live``, ``sizes`` and each market's member-row-index
+        are computed ONCE up front and maintained incrementally — not
+        rescanned from ``self._data`` on every loop iteration.
+        """
+        if self.max_markets is None or self._data.empty:
+            return
+
+        live_set = set(self._live_market_ids())
+
+        region_of: Dict[Any, Any] = {}
+        if self.region_column and self.region_column in self._data.columns:
+            for cid in live_set:
+                values = self._data.loc[
+                    self._data[self._cluster_id] == cid, self.region_column
+                ]
+                if not values.empty:
+                    region_of[cid] = values.iloc[0]
+
+        assigned = self._data[self._data[self._cluster_id] != -1]
+        sizes: Dict[Any, int] = assigned.groupby(self._cluster_id).size().to_dict()
+        member_index: Dict[Any, pd.Index] = dict(
+            assigned.groupby(self._cluster_id).groups
+        )
+
+        # --- Phase 1: merge-down (emergent > target) ----------------------
+        reach = self.max_cluster_distance
+        merges_applied = 0
+        while len(live_set) > self.max_markets:
+            candidate = self._best_region_merge_candidate(
+                sorted(live_set), region_of, reach, sizes, member_index,
+            )
+            if candidate is None:
+                self._logger.warning(
+                    "max_markets=%s reconciliation stopped at %s markets: "
+                    "no feasible same-region merge remains.",
+                    self.max_markets, len(live_set),
+                )
+                break
+            a, b = candidate
+            self._merge_markets(a, b)
+            merges_applied += 1
+
+            # Maintain live_set/sizes/member_index incrementally: a merge
+            # only ever changes a (grows) and retires b -- no other market
+            # is affected, so there is no need to rescan self._data.
+            sizes[a] = sizes.get(a, 0) + sizes.pop(b, 0)
+            member_index[a] = member_index.get(a, pd.Index([])).union(
+                member_index.pop(b, pd.Index([]))
+            )
+            live_set.discard(b)
+            region_of.pop(b, None)
+
+        if merges_applied:
+            self._recompute_cluster_centroids()
+            self._logger.info(
+                "max_markets reconciliation: %s in-region merge(s) applied, "
+                "%s market(s) remain.",
+                merges_applied, len(live_set),
+            )
+
+        # --- Phase 2: split-up (emergent < target) ------------------------
+        splits_applied = 0
+        standalone_set = set(self._standalone_clusters or {})
+        # FEAT-248 TASK-204: both halves of a split must EACH be >=
+        # min_cluster_size (not min//2, which used to let a 25-store
+        # minimum "pass" a 13+12 split -- both halves below the configured
+        # minimum). With quotas (Module 1) driving formation to the
+        # target up front, this phase is a backstop only, so making many
+        # splits infeasible here is intended, not a regression: an
+        # infeasible split is logged as a count shortfall, never forced.
+        # Never below 15 either — a market that small will never justify
+        # a dedicated employee regardless of min_cluster_size.
+        split_half_floor = max(self.min_cluster_size or 25, 15)
+
+        # Markets that produced a runt half (below the floor) on a
+        # previous attempt are blacklisted for the rest of the pass so
+        # we don't retry the same hopeless split in a loop.
+        unsplittable: set = set()
+
+        while len(live_set) < self.max_markets:
+            # Per-region demand: stores-per-market ratio — highest wins the
+            # next slot. Regions are identified from region_of; when
+            # region_column is unset all markets share a single None region.
+            region_load: Dict[Any, float] = {}
+            region_markets: Dict[Any, List[Any]] = {}
+            for cid in live_set:
+                rgn = region_of.get(cid)
+                region_load[rgn] = region_load.get(rgn, 0) + sizes.get(cid, 0)
+                region_markets.setdefault(rgn, []).append(cid)
+
+            # Stores-per-market ratio — split in the most overloaded region
+            region_ratio = {
+                rgn: region_load[rgn] / len(region_markets[rgn])
+                for rgn in region_load
+            }
+            # Sort by ratio desc, then by region name for determinism
+            ranked_regions = sorted(
+                region_ratio, key=lambda r: (-region_ratio[r], str(r))
+            )
+
+            split_done = False
+            for rgn in ranked_regions:
+                # Find the largest splittable market in this region.
+                # Both halves must be able to meet split_half_floor, so the
+                # market needs at least 2 × that many stores.
+                min_splittable = 2 * split_half_floor
+                candidates = [
+                    cid for cid in region_markets[rgn]
+                    if (
+                        sizes.get(cid, 0) >= min_splittable
+                        and cid not in standalone_set
+                        and cid not in unsplittable
+                    )
+                ]
+                if not candidates:
+                    continue
+
+                # Pick the largest; tie-break on cid for determinism
+                target_cid = max(candidates, key=lambda c: (sizes.get(c, 0), -c))
+
+                new_cid = self._split_market(
+                    self._data, target_cid,
+                    reason=(
+                        f"reach max_markets={self.max_markets} "
+                        f"(region {rgn!r} has {region_ratio[rgn]:.0f} "
+                        f"stores/market)"
+                    ),
+                )
+                if new_cid is None:
+                    unsplittable.add(target_cid)
+                    continue
+
+                # Check that BOTH halves meet the floor.  KMeans can
+                # produce lopsided splits (e.g. 48+7) when a market has
+                # remote sub-cluster stores.  If either half is a runt,
+                # undo the split, blacklist the market, and try the next.
+                new_count = int(
+                    (self._data[self._cluster_id] == new_cid).sum()
+                )
+                old_remaining = sizes.get(target_cid, 0) - new_count
+
+                if new_count < split_half_floor or old_remaining < split_half_floor:
+                    # Undo: move the split stores back
+                    self._data.loc[
+                        self._data[self._cluster_id] == new_cid,
+                        self._cluster_id,
+                    ] = target_cid
+                    self._cluster_partition.pop(new_cid, None)
+                    unsplittable.add(target_cid)
+                    self._logger.debug(
+                        "Split-up reverted for cluster %s: halves %s+%s "
+                        "below floor %s — trying next candidate.",
+                        target_cid, old_remaining, new_count,
+                        split_half_floor,
+                    )
+                    continue
+
+                # Maintain bookkeeping incrementally
+                sizes[target_cid] = old_remaining
+                sizes[new_cid] = new_count
+                live_set.add(new_cid)
+                region_of[new_cid] = rgn
+                splits_applied += 1
+                split_done = True
+                break  # re-evaluate ratios after each split
+
+            if not split_done:
+                self._logger.warning(
+                    "max_markets=%s split-up stopped at %s markets: "
+                    "no splittable market remains in any region.",
+                    self.max_markets, len(live_set),
+                )
+                break
+
+        if splits_applied:
+            self._recompute_cluster_centroids()
+            self._logger.info(
+                "max_markets split-up: %s split(s) applied, "
+                "%s market(s) now formed.",
+                splits_applied, len(live_set),
+            )
 
     def _total_headcount(self) -> int:
         """Sum of ``_market_employees()`` over every live market (FEAT-240)."""
@@ -6411,7 +8123,7 @@ class MarketClustering(FlowComponent):
                         nearest_any = (distance, other)
                     has_room = (
                         other == split_target
-                        or projected[other] < self._layout_ceiling(other)
+                        or projected[other] < self._effective_ceiling(other)
                     )
                     if has_room and (
                         nearest_with_room is None or distance < nearest_with_room[0]
@@ -6438,7 +8150,17 @@ class MarketClustering(FlowComponent):
         return moves
 
     def _split_market(self, stores: pd.DataFrame, cid: int, reason: str) -> Optional[int]:
-        """Cut one market in two with KMeans over its members' coordinates.
+        """Cut one market in two with KMeans over its CORE members' coordinates.
+
+        FEAT-248 TASK-204: sub-cluster (satellite) rows are excluded from
+        the KMeans input — including them was the coreless-market factory
+        (a half could end up 100% satellites). ``cid`` is never retired by
+        this method (only the new half, ``new_cid``, is born), so every
+        excluded satellite row simply stays on the surviving parent id —
+        never hand-assigned here, never left pointing at a retired market;
+        the guarded ``_select_subcluster_market`` path (TASK-202) is the
+        only place a satellite pocket gets re-anchored or delivered
+        unassigned, and this method never duplicates that decision.
 
         Args:
             stores: DataFrame holding the cluster assignments.
@@ -6447,22 +8169,38 @@ class MarketClustering(FlowComponent):
 
         Returns:
             The id of the market born from the split, or ``None`` when the
-            market has fewer than two stores.
+            market has fewer than two CORE (non-satellite) stores.
         """
         member_idx = stores.index[stores[self._cluster_id] == cid]
-        if len(member_idx) < 2:
+        if 'is_subcluster' in stores.columns:
+            # `!= True`, not `~.astype(bool)` -- see the note in
+            # _annotate_subcluster_overflow: a comparison treats any NaN
+            # gap as False (kept in), matching the defensive pattern used
+            # throughout this file for this exact column.
+            core_idx = member_idx[stores.loc[member_idx, 'is_subcluster'] != True]
+        else:
+            core_idx = member_idx
+        if len(core_idx) < 2:
             return None
 
-        coords = stores.loc[member_idx, ['latitude', 'longitude']].to_numpy()
+        coords = stores.loc[core_idx, ['latitude', 'longitude']].to_numpy()
         labels = KMeans(n_clusters=2, n_init=10, random_state=42).fit_predict(coords)
-        moved = member_idx[labels == 1]
-        if len(moved) == 0 or len(moved) == len(member_idx):
+        moved = core_idx[labels == 1]
+        if len(moved) == 0 or len(moved) == len(core_idx):
             # Degenerate geometry (e.g. identical coordinates): split evenly
-            moved = member_idx[: len(member_idx) // 2]
+            moved = core_idx[: len(core_idx) // 2]
 
         new_cid = int(stores[self._cluster_id].max()) + 1
         stores.loc[moved, self._cluster_id] = new_cid
         self._cluster_partition[new_cid] = self._cluster_partition.get(cid, False)
+        # A market born here is a market like any other: it needs its OWN
+        # base. Without this the moved rows keep the parent's ghost_id, so
+        # two markets ship the same employee identity — SchedulingVisits
+        # then treats them as one rep, and `num_employees` reports 1 per
+        # market while fewer distinct bases actually exist. Mirrors what
+        # _merge_markets does for the receiving side.
+        if 'ghost_id' in stores.columns:
+            stores.loc[moved, 'ghost_id'] = f"Ghost-{new_cid}-1"
         # The dense core may now live in either half: drop the stale anchor so
         # both halves re-derive their centroid from their own members at the
         # next recompute
@@ -6482,9 +8220,24 @@ class MarketClustering(FlowComponent):
 
         Repeatedly takes the most over-capacity market and moves its store
         closest to another market with room (same isolation partition) until
-        every market is at or below ``max_cluster_size``. If no market has
-        room the overage stays and a warning is logged — the exact market
-        count outranks the size ceiling.
+        every market is at or below its ``_effective_ceiling`` (FEAT-248
+        G2: the single ceiling — ``max_cluster_size`` tightened by the
+        market's own time budget when ``capacity_from_hours`` is on — not
+        the raw, hours-blind ``max_cluster_size`` this pass compared
+        against before). If no market has room the overage stays and a
+        warning is logged — the exact market count outranks the size
+        ceiling.
+
+        FEAT-248 TASK-203: this pass now also runs a second time, AFTER
+        ``_attach_outlier_subclusters``, so satellite attachment can no
+        longer push a market over ceiling for free. Sizes (and therefore
+        which markets are "over") count sub-cluster rows same as before,
+        but the candidate pool of stores this pass may MOVE excludes them
+        — a sub-cluster pocket is an atomic unit that only
+        ``_cede_oversize_subclusters`` may relocate (whole pocket, never
+        one row); this pass only ever sheds CORE stores. A market whose
+        entire overage is satellite rows has nothing this pass can shed —
+        it is marked unfixable here and left to cession/annotation.
         """
         if (
             not self.enforce_max_cluster_size
@@ -6498,12 +8251,14 @@ class MarketClustering(FlowComponent):
         # shed to a market unreasonably far away — absorbed orphan stores may
         # keep a market above max_cluster_size.
         guard = self._move_distance_guard
+        has_subclusters = 'is_subcluster' in self._data.columns
         moved = 0
         unfixable: set = set()
         while True:
             assigned = self._data[self._data[self._cluster_id] != -1]
             sizes = assigned.groupby(self._cluster_id).size()
-            over = sizes[sizes > self.max_cluster_size]
+            ceilings = sizes.index.to_series().map(self._effective_ceiling)
+            over = sizes[sizes > ceilings]
             over = over[~over.index.isin(self._standalone_clusters)]
             over = over[~over.index.isin(unfixable)]
             if over.empty:
@@ -6513,7 +8268,7 @@ class MarketClustering(FlowComponent):
             cid_partition = self._cluster_partition.get(cid, False)
             receivers = [
                 other for other in sizes.index
-                if other != cid and sizes[other] < self.max_cluster_size
+                if other != cid and sizes[other] < self._effective_ceiling(other)
                 and other not in self._standalone_clusters
                 and (
                     partition is None
@@ -6536,7 +8291,20 @@ class MarketClustering(FlowComponent):
                 )
                 for other in receivers
             }
-            members = assigned.index[assigned[self._cluster_id] == cid]
+            core_mask = assigned[self._cluster_id] == cid
+            if has_subclusters:
+                core_mask &= assigned['is_subcluster'] != True
+            members = assigned.index[core_mask]
+            if members.empty:
+                # Every row of this over-cap market is a sub-cluster row --
+                # nothing here to shed; only cession may move a pocket.
+                unfixable.add(cid)
+                self._logger.warning(
+                    "Market %s keeps %s stores (max_cluster_size=%s): every "
+                    "member is a sub-cluster row -- only cession can relieve it.",
+                    cid, int(sizes[cid]), self.max_cluster_size,
+                )
+                continue
             best: Optional[Tuple[float, Any, Any]] = None
             for member in members:
                 lat = self._data.at[member, 'latitude']
@@ -6773,8 +8541,9 @@ class MarketClustering(FlowComponent):
         sizes: Dict[int, int],
         max_distance: float,
         room_reach: Optional[float] = None,
+        entity_state: Any = None,
     ) -> Optional[Tuple[int, float, bool]]:
-        """Nearest market within ``max_distance``, preferring those with room.
+        """Best-scoring market within ``max_distance``, preferring those with room.
 
         Shared policy for every orphan-absorption pass: ``max_cluster_size``
         is SOFT (a full market is overfilled when no market with room lies
@@ -6783,7 +8552,11 @@ class MarketClustering(FlowComponent):
         Room only outranks proximity inside ``room_reach`` (defaults to
         ``max_cluster_distance``). Otherwise a store next to full markets
         would be shipped across the country to the one market still below
-        the cap.
+        the cap. Within each tier (with-room / any-reachable), the WINNER
+        is the highest ``_state_affinity_score`` (FEAT-247) — state affinity
+        dominant by default, distance and headroom as tie-breakers —
+        instead of pure nearest distance; ties on score break on lower
+        distance, then lower market id (deterministic).
 
         Args:
             lat: Store latitude.
@@ -6794,6 +8567,8 @@ class MarketClustering(FlowComponent):
             max_distance: Hard cap in miles from the market centroid.
             room_reach: How far a market with room may be and still beat a
                 closer full one. Defaults to ``max_cluster_distance``.
+            entity_state: The store's dominant ``state_column`` value (or
+                ``None``), fed into the state-affinity score.
 
         Returns:
             ``(cluster_id, distance, overfilled)``, or ``None`` when no
@@ -6802,30 +8577,53 @@ class MarketClustering(FlowComponent):
         if room_reach is None:
             room_reach = self._resolved_room_reach
 
-        nearest_with_room: Optional[Tuple[float, int]] = None
-        nearest_any: Optional[Tuple[float, int]] = None
+        with_room: List[Tuple[Any, float]] = []
+        any_reachable: List[Tuple[Any, float]] = []
         for cid, (center_lat, center_lon) in centroids.items():
             distance = self._haversine_miles(center_lat, center_lon, lat, lon)
             if distance > max_distance:
                 continue
-            if nearest_any is None or distance < nearest_any[0]:
-                nearest_any = (distance, cid)
-            if (
-                distance <= room_reach
-                and sizes.get(cid, 0) < self._capacity_for(cid)
-                and (nearest_with_room is None or distance < nearest_with_room[0])
-            ):
-                nearest_with_room = (distance, cid)
+            any_reachable.append((cid, distance))
+            if distance <= room_reach and sizes.get(cid, 0) < self._capacity_for(cid):
+                with_room.append((cid, distance))
 
-        if nearest_with_room is not None:
-            return nearest_with_room[1], nearest_with_room[0], False
+        def _best_scored(
+            pool: List[Tuple[Any, float]]
+        ) -> Optional[Tuple[Any, float]]:
+            if not pool:
+                return None
+            pool_max_distance = max(distance for _, distance in pool)
+            best: Optional[Tuple[Any, float, float]] = None  # (cid, distance, score)
+            for cid, distance in pool:
+                score = self._state_affinity_score(
+                    entity_state, cid, distance, pool_max_distance
+                )
+                if best is None:
+                    best = (cid, distance, score)
+                    continue
+                best_cid, best_distance, best_score = best
+                if (
+                    score > best_score
+                    or (score == best_score and distance < best_distance)
+                    or (
+                        score == best_score and distance == best_distance
+                        and cid < best_cid
+                    )
+                ):
+                    best = (cid, distance, score)
+            return best[0], best[1]
+
+        picked = _best_scored(with_room)
+        if picked is not None:
+            return picked[0], picked[1], False
         if self.max_reassigned_stores:
             # Hard ceiling: a market never grows past max_reassigned_stores
             # while receiving. The store stays homeless and a later pass
             # decides whether it is unassigned.
             return None
-        if nearest_any is not None:
-            return nearest_any[1], nearest_any[0], True
+        picked = _best_scored(any_reachable)
+        if picked is not None:
+            return picked[0], picked[1], True
         return None
 
     def _seed_uncovered_regions(
@@ -7281,6 +9079,14 @@ class MarketClustering(FlowComponent):
         """
         # 1) Sort by latitude and longitude to ensure spatial proximity in clustering
         stores = stores.sort_values(by=['latitude', 'longitude']).reset_index(drop=True)
+        # FEAT-247: point self._data at the WIP frame for the rest of this
+        # method's execution so state-affinity scoring helpers
+        # (_market_dominant_state/_market_headroom, which read
+        # self._data) see this method's own in-progress cluster
+        # membership rather than stale pre-clustering state. The caller
+        # reassigns self._data to this same (further-mutated) object when
+        # _create_cluster returns, so this is a safe pre-commit.
+        self._data = stores
         # Isolation partitions (e.g. NYC vs rest): computed after the reset so
         # the mask is aligned with the positional indices used by the BFS.
         partition = self._partition_mask(stores)
@@ -7574,23 +9380,18 @@ class MarketClustering(FlowComponent):
                 market_idx += 1
         df[self._cluster_name] = df[self._cluster_id].map(cluster_map)
 
-    def _renumber_markets_from_one(self):
-        """Renumber final market ids sequentially starting at 1.
+    def _remap_cluster_ids(self, mapping: Dict[Any, Any]) -> None:
+        """Apply a total cluster-id remap to every id-keyed structure.
 
-        Internal cluster ids can end up sparse (splits, dissolutions) and are
-        0-based. The delivered layout uses market_id 1..N aligned with the
-        Market-1..Market-N labels; -1 (Outlier) is preserved. Internal dicts
-        keyed by cluster id and the ghost_id column are remapped to match.
+        Shared by ``_renumber_markets_from_one`` (compacts ids to 1..N) and
+        the FEAT-247 per-region orchestration's ``_shift_region_cluster_ids``
+        (offsets one region's ids into a globally-unique range before
+        concatenation). ``mapping`` must cover every id currently present in
+        ``self._data`` (including ``-1`` when outliers are present).
+
+        Args:
+            mapping: Old cluster id -> new cluster id.
         """
-        if self._data.empty:
-            return
-
-        old_ids = sorted(
-            cid for cid in self._data[self._cluster_id].unique() if cid != -1
-        )
-        mapping = {old: new for new, old in enumerate(old_ids, start=1)}
-        mapping[-1] = -1
-
         self._data[self._cluster_id] = self._data[self._cluster_id].map(mapping)
         self._cluster_centroids = {
             mapping.get(cid, cid): info for cid, info in self._cluster_centroids.items()
@@ -7627,7 +9428,111 @@ class MarketClustering(FlowComponent):
 
             self._data['ghost_id'] = self._data['ghost_id'].map(_remap_ghost)
 
+    def _renumber_markets_from_one(self):
+        """Renumber final market ids sequentially starting at 1.
+
+        Internal cluster ids can end up sparse (splits, dissolutions) and are
+        0-based. The delivered layout uses market_id 1..N aligned with the
+        Market-1..Market-N labels; -1 (Outlier) is preserved. Internal dicts
+        keyed by cluster id and the ghost_id column are remapped to match.
+        """
+        if self._data.empty:
+            return
+
+        old_ids = sorted(
+            cid for cid in self._data[self._cluster_id].unique() if cid != -1
+        )
+        mapping = {old: new for new, old in enumerate(old_ids, start=1)}
+        mapping[-1] = -1
+
+        self._remap_cluster_ids(mapping)
         self._apply_market_labels(self._data, self._data[self._cluster_id].values)
+
+    def _shift_region_cluster_ids(self, id_offset: int) -> int:
+        """Shift this region's cluster/market ids by ``id_offset`` (FEAT-247).
+
+        Every region's ``_create_cluster`` call independently mints ids
+        starting at 0, so concatenating two regions' frames without
+        shifting would collide: ``_renumber_markets_from_one`` groups by
+        numeric id VALUE, not by ``(region, id)``, and would silently merge
+        two different regions' "market 0" into one delivered market.
+        ``-1`` (Outlier) always stays ``-1``.
+
+        Args:
+            id_offset: Amount to add to every non-outlier id in this region.
+
+        Returns:
+            The offset the NEXT region must use (this region's highest
+            shifted id + 1), or ``id_offset`` unchanged when this region
+            formed no markets.
+        """
+        if self._data.empty:
+            return id_offset
+
+        ids_present = sorted(
+            cid for cid in self._data[self._cluster_id].unique() if cid != -1
+        )
+        if not ids_present:
+            return id_offset
+
+        mapping = {old: old + id_offset for old in ids_present}
+        mapping[-1] = -1
+        self._remap_cluster_ids(mapping)
+        return max(mapping[old] for old in ids_present) + 1
+
+    def _shift_region_indices(self, row_offset: int) -> int:
+        """Shift this region's row-index-keyed state by ``row_offset`` (FEAT-247).
+
+        ``_create_cluster``'s ``reset_index(drop=True)`` is NOT the only
+        index reset in the pipeline, and index growth is not bounded by
+        the region's original row count either: ``_force_assign_all_
+        rejected_stores`` re-concatenates with ``ignore_index=True``
+        (a second full reset), and ``_readmit_rejected_as_unassigned``
+        deliberately mints NEW indices starting at ``self._data.index.
+        max() + 1`` ("earlier passes rebase _data's index, so the
+        original ones may now belong to different stores" — its own
+        docstring) — which can and does exceed the region's row count on
+        real data. So the next region's offset is derived from the
+        ACTUALLY OBSERVED highest index after shifting, not assumed from
+        ``len(region_df)``.
+
+        ``self._readmitted_index_map`` (``_readmit_rejected_as_
+        unassigned``'s new-index -> original-``_rejected``-index map,
+        consulted once by ``_reconcile_rejected_ledger()`` in run()'s
+        global tail) is index-keyed on BOTH sides and must shift the same
+        way, or a readmitted-then-reassigned store from any region but
+        the last processed silently ships both assigned in ``self._data``
+        AND still counted in the rejected ledger.
+
+        Args:
+            row_offset: Amount to add to every row index in this region.
+
+        Returns:
+            The offset the NEXT region must use — this region's highest
+            index (across ``self._data`` and ``self._rejected``) + 1, or
+            ``row_offset`` unchanged when this region is entirely empty.
+        """
+        if row_offset:
+            if len(self._data):
+                self._data.index = self._data.index + row_offset
+            if not self._rejected.empty:
+                self._rejected.index = self._rejected.index + row_offset
+            if self._outlier_stores:
+                self._outlier_stores = {
+                    idx + row_offset for idx in self._outlier_stores
+                }
+            if self._readmitted_index_map:
+                self._readmitted_index_map = {
+                    new_idx + row_offset: original_idx + row_offset
+                    for new_idx, original_idx in self._readmitted_index_map.items()
+                }
+
+        max_index = -1
+        if len(self._data):
+            max_index = max(max_index, int(self._data.index.max()))
+        if not self._rejected.empty:
+            max_index = max(max_index, int(self._rejected.index.max()))
+        return max_index + 1 if max_index >= 0 else row_offset
 
     def _add_cluster_centroids_to_result(self, df: pd.DataFrame):
         """Add cluster centroid coordinates to the result DataFrame."""
@@ -8200,6 +10105,12 @@ class MarketClustering(FlowComponent):
         cannot cycle. The receiving gate is hard at every link, partitions and
         standalone markets are respected, and a market is never emptied.
 
+        FEAT-247: among a store's own gainful (``gain >= min_gain``)
+        candidate targets, the receiver is ranked by state-affinity score
+        first, distance-gain second — the strict-improvement eligibility
+        bar (``gain >= min_gain``) is unchanged, only the priority among
+        already-eligible candidates changes.
+
         Args:
             min_gain: Miles a link must save to be worth making.
 
@@ -8208,6 +10119,7 @@ class MarketClustering(FlowComponent):
         """
         if not self.ejection_chain or self._data.empty:
             return 0
+        self._reset_state_score_cache()
 
         assigned = self._data[self._data[self._cluster_id] != -1]
         if assigned.empty:
@@ -8239,6 +10151,11 @@ class MarketClustering(FlowComponent):
             lon = float(self._data.at[idx, 'longitude'])
             return self._haversine_miles(lat, lon, *centroids[cid])
 
+        def entity_state_of(idx: Any) -> Any:
+            if self.state_column not in self._data.columns:
+                return None
+            return self._data.at[idx, self.state_column]
+
         # Stranded stores first: the ones with most to gain from a market that
         # is currently out of reach because it is full.
         wishes = []
@@ -8247,16 +10164,26 @@ class MarketClustering(FlowComponent):
             if cid in self._standalone_clusters or cid not in centroids:
                 continue
             own = distance_to(idx, cid)
-            for other in centroids:
-                if other == cid or self._cluster_partition.get(other, False) != part_of(idx):
-                    continue
-                gain = own - distance_to(idx, other)
-                if gain >= min_gain:
-                    wishes.append((gain, idx, cid, other))
-        wishes.sort(key=lambda w: (-w[0], str(w[1])))
+            own_state = entity_state_of(idx)
+            own_targets = [
+                (other, own - distance_to(idx, other))
+                for other in centroids
+                if other != cid
+                and self._cluster_partition.get(other, False) == part_of(idx)
+            ]
+            own_targets = [(other, gain) for other, gain in own_targets if gain >= min_gain]
+            if not own_targets:
+                continue
+            max_gain_distance = max(distance_to(idx, other) for other, _ in own_targets)
+            for other, gain in own_targets:
+                score = self._state_affinity_score(
+                    own_state, other, distance_to(idx, other), max_gain_distance
+                )
+                wishes.append((score, gain, idx, cid, other))
+        wishes.sort(key=lambda w: (-w[0], -w[1], str(w[2])))
 
         moved = 0
-        for gain, idx, cid, target in wishes:
+        for score, gain, idx, cid, target in wishes:
             if self._data.at[idx, self._cluster_id] != cid:
                 continue  # already relocated by an earlier chain
             if sizes.get(target, 0) < self._capacity_for(target):
@@ -8265,7 +10192,10 @@ class MarketClustering(FlowComponent):
                 continue  # never empty a market
 
             # Who inside the full market is best off leaving? (sub-cluster
-            # rows excluded: they are exempt from ejection.)
+            # rows excluded: they are exempt from ejection.) Among a
+            # member's own gainful destinations, ranked by state-affinity
+            # score first, distance-gain second (FEAT-247) — same priority
+            # rule as the outer wish list.
             member_mask = self._data[self._cluster_id] == target
             if 'is_subcluster' in self._data.columns:
                 member_mask &= ~self._data['is_subcluster']
@@ -8273,22 +10203,42 @@ class MarketClustering(FlowComponent):
             best = None
             for member in members:
                 here = distance_to(member, target)
-                for nxt in centroids:
-                    if nxt in (target, cid) and nxt != cid:
-                        continue
-                    if self._cluster_partition.get(nxt, False) != part_of(member):
-                        continue
-                    if sizes.get(nxt, 0) >= self._capacity_for(nxt):
-                        continue
-                    member_gain = here - distance_to(member, nxt)
-                    if member_gain >= min_gain and (best is None or member_gain > best[0]):
-                        best = (member_gain, member, nxt)
+                member_state = entity_state_of(member)
+                member_targets = [
+                    (nxt, here - distance_to(member, nxt))
+                    for nxt in centroids
+                    if not (nxt in (target, cid) and nxt != cid)
+                    and self._cluster_partition.get(nxt, False) == part_of(member)
+                    and sizes.get(nxt, 0) < self._capacity_for(nxt)
+                ]
+                member_targets = [
+                    (nxt, member_gain) for nxt, member_gain in member_targets
+                    if member_gain >= min_gain
+                ]
+                if not member_targets:
+                    continue
+                max_member_distance = max(
+                    distance_to(member, nxt) for nxt, _ in member_targets
+                )
+                for nxt, member_gain in member_targets:
+                    member_score = self._state_affinity_score(
+                        member_state, nxt, distance_to(member, nxt),
+                        max_member_distance,
+                    )
+                    if (
+                        best is None
+                        or member_score > best[0]
+                        or (member_score == best[0] and member_gain > best[1])
+                    ):
+                        best = (member_score, member_gain, member, nxt)
             if best is None:
                 continue
 
-            member_gain, member, nxt = best
+            member_score, member_gain, member, nxt = best
             self._data.at[member, self._cluster_id] = nxt
             self._data.at[idx, self._cluster_id] = target
+            self._data.at[idx, 'state_affinity_score'] = score
+            self._data.at[member, 'state_affinity_score'] = member_score
             sizes[nxt] = sizes.get(nxt, 0) + 1
             sizes[cid] = sizes.get(cid, 0) - 1
             moved += 2
@@ -8344,9 +10294,14 @@ class MarketClustering(FlowComponent):
     def _reassign_borderline_pass(self) -> int:
         """Run a single sweep of the second assignment pass.
 
+        FEAT-247: the receiving market in both tiers below is chosen by
+        state-affinity score, not pure distance — see
+        ``_state_affinity_score``.
+
         Returns:
             The number of stores moved to a closer market.
         """
+        self._reset_state_score_cache()
         # The trigger must not scale away with a generous max_cluster_distance:
         # with a 300-mile radius the derived threshold (150 miles) silently
         # disables the pass, leaving a store 95 miles from its market while
@@ -8412,10 +10367,14 @@ class MarketClustering(FlowComponent):
                 best_market = None
                 min_distance = float('inf')
                 overfilled = False
+                entity_state = (
+                    store[self.state_column]
+                    if self.state_column in self._data.columns else None
+                )
 
                 if store_distance > self.max_cluster_distance:
                     # Misassigned: the store does not belong to its market.
-                    # First choice is the nearest market within
+                    # First choice is the best-scoring market within
                     # max_assign_distance — the size cap is soft here.
                     # If nothing is that close, the store is NOT left where
                     # it is: any strictly closer market beats a market it
@@ -8425,7 +10384,7 @@ class MarketClustering(FlowComponent):
                     for reach in (self._max_force_assign_distance, float('inf')):
                         choice = self._nearest_absorbing_market(
                             store_lat, store_lon, candidates, cluster_sizes,
-                            reach,
+                            reach, entity_state=entity_state,
                         )
                         if choice is None:
                             continue
@@ -8435,7 +10394,12 @@ class MarketClustering(FlowComponent):
                             min_distance = distance
                             break
                 else:
-                    # Borderline optimization: only markets with spare room
+                    # Borderline optimization: only markets with spare room.
+                    # Collect every feasible candidate first (hard guards
+                    # below unchanged), then the WINNER is the
+                    # highest-scoring one (FEAT-247) rather than pure
+                    # nearest distance.
+                    feasible: List[Tuple[Any, float]] = []
                     for other_cid, (center_lat, center_lon) in candidates.items():
                         # Check if target market would exceed size limit
                         # (never blocks when the cap is not enforced)
@@ -8453,10 +10417,32 @@ class MarketClustering(FlowComponent):
                         # Only reassign if significantly closer (at least 5 miles difference)
                         # and within max_cluster_distance
                         if (
-                            distance < min_distance and distance <= self.max_cluster_distance and distance < (store_distance - min_improvement)  # noqa
+                            distance <= self.max_cluster_distance and distance < (store_distance - min_improvement)  # noqa
                         ):
-                            min_distance = distance
-                            best_market = other_cid
+                            feasible.append((other_cid, distance))
+
+                    if feasible:
+                        max_feasible_distance = max(d for _, d in feasible)
+                        best_cid, best_distance, best_score = None, None, None
+                        for other_cid, distance in feasible:
+                            score = self._state_affinity_score(
+                                entity_state, other_cid, distance,
+                                max_feasible_distance,
+                            )
+                            if (
+                                best_score is None
+                                or score > best_score
+                                or (score == best_score and distance < best_distance)
+                                or (
+                                    score == best_score and distance == best_distance
+                                    and other_cid < best_cid
+                                )
+                            ):
+                                best_cid, best_distance, best_score = (
+                                    other_cid, distance, score,
+                                )
+                        best_market = best_cid
+                        min_distance = best_distance
 
                 # Reassign if we found a better market
                 if best_market is not None:
@@ -8472,6 +10458,10 @@ class MarketClustering(FlowComponent):
                     # Update centroid coordinates
                     self._data.at[idx, 'centroid_lat'] = self._cluster_centroids[best_market]['centroid_lat']
                     self._data.at[idx, 'centroid_lon'] = self._cluster_centroids[best_market]['centroid_lon']
+                    self._data.at[idx, 'state_affinity_score'] = self._state_affinity_score(
+                        entity_state, best_market, min_distance,
+                        max(min_distance, self.max_cluster_distance),
+                    )
 
                     cluster_sizes[current_cid] = cluster_sizes.get(current_cid, 1) - 1
                     cluster_sizes[best_market] = cluster_sizes.get(best_market, 0) + 1
@@ -9059,6 +11049,11 @@ class MarketClustering(FlowComponent):
             f"Force assigning {len(self._rejected)} rejected stores to nearest markets..."
         )
 
+        # FEAT-248 TASK-205: this surface scores via _nearest_absorbing_market
+        # below; reset once at the top (not per store in the loop, which
+        # would defeat the cache).
+        self._reset_state_score_cache()
+
         # Get all valid cluster centroids (excluding outliers)
         valid_clusters = self._data[self._data[self._cluster_id] != -1][self._cluster_id].unique()
 
@@ -9108,10 +11103,15 @@ class MarketClustering(FlowComponent):
                     for cid, centroid in candidate_centroids.items()
                     if self._cluster_partition.get(cid, False) == store_partition
                 }
+            entity_state = (
+                row[self.state_column]
+                if self.state_column in self._rejected.columns else None
+            )
             choice = self._nearest_absorbing_market(
                 row['latitude'], row['longitude'],
                 eligible, cluster_sizes,
                 max_assign_distance,
+                entity_state=entity_state,
             )
             if choice is not None:
                 nearest_cluster, min_distance, overfilled = choice
@@ -9204,48 +11204,128 @@ class MarketClustering(FlowComponent):
 
         df['distance_to_center'] = distances
 
-    async def run(self):
-        """
-        1) Cluster with BallTree + K-Means validation.
-        2) Calculate optimal ghost employees per cluster based on FTE
-        3) Road-based validation: assign stores to ghost employees via VRP.
-        4) Remove any stores that cannot be assigned within constraints.
-        5) Re-assign rejected stores if possible.
-        6) Global employee-budget mode (FEAT-240, opt-in via
-           ``max_employees``): greedily merge markets to minimize total
-           headcount, subject to full store coverage.
-        7) Add cluster centroids to result DataFrame.
-        8) Add FTE columns to result DataFrame
-        9) Log FTE summary
-        10) Return final assignment + rejected stores.
+    def _assign_predefined_markets(self) -> None:
+        """Adopt the markets pre-defined in ``market_column`` (no_clustering).
 
+        Each distinct non-null value of ``market_column`` becomes one market
+        holding exactly its rows — nothing is formed, moved, merged or shed.
+        Rows whose value is null/empty are delivered unassigned
+        (``market_id = -1``, the Outlier convention). Formation-related
+        options (``max_markets``, ``standalone_markets``, budget mode, ...)
+        do not apply in this mode and are ignored with one warning.
+
+        The centroid anchor is derived the same way standalone markets do
+        it: a pre-defined market takes every store of its value regardless
+        of distance, so it is just as likely to span two poles, and the
+        anchored core keeps its centre inside the metro it actually serves.
+
+        Raises:
+            ComponentError: When ``market_column`` is missing from the input.
         """
+        column = self.market_column
+        if column not in self._data.columns:
+            raise ComponentError(
+                f"no_clustering is enabled but market_column '{column}' "
+                "is missing from the input DataFrame."
+            )
+
+        ignored = [
+            name for name, value in (
+                ('max_markets', self.max_markets),
+                ('standalone_markets', self.standalone_markets),
+                ('subcluster_outliers', self.subcluster_outliers),
+                ('max_employees', self.max_employees),
+                ('optimize', self._optimize),
+            ) if value
+        ]
+        if ignored:
+            self._logger.warning(
+                "no_clustering: markets are taken as-is from column %r; "
+                "ignoring %s.",
+                column, ", ".join(ignored),
+            )
+
+        # Same per-run state reset the per-region loop performs.
+        self._rejected = pd.DataFrame()
+        self._cluster_centroids = {}
+        self._cluster_fte_info = {}
+        self._cluster_partition = {}
+        self._standalone_clusters = {}
+        self._anchored_centroids = {}
+        self._outlier_stores = set()
+        self._readmitted_index_map = {}
+
+        values = self._data[column]
+        is_null = values.isna() | (values.astype(str).str.strip() == '')
+        market_values = sorted(values[~is_null].unique(), key=str)
+        mapping = {value: cid for cid, value in enumerate(market_values)}
+
+        labels = pd.Series(-1, index=self._data.index, dtype=int)
+        labels[~is_null] = values[~is_null].map(mapping)
+        self._data[self._cluster_id] = labels.values
+
+        null_count = int(is_null.sum())
+        if null_count:
+            self._logger.warning(
+                "no_clustering: %s stores have no %r value; "
+                "delivered unassigned.",
+                null_count, column,
+            )
+
+        assigned = self._data[self._data[self._cluster_id] != -1]
+        for cid, members in assigned.groupby(self._cluster_id):
+            self._cluster_partition[cid] = False
+            anchor = self._derive_core_anchor(members, min_core=2)
+            if anchor is not None:
+                self._anchored_centroids[cid] = anchor
+            self._cluster_centroids[cid] = self._cluster_center(cid, members)
+
         self._logger.info(
-            "=== Running MarketClustering ==="
+            "no_clustering: adopted %s pre-defined markets from column %r "
+            "(%s stores assigned, %s unassigned).",
+            len(market_values), column, len(assigned), null_count,
         )
 
-        # Reset counters for this execution
-        self._constraint_removed_total = 0
-        # Employee-budget consolidation counters (FEAT-240): reset here so
-        # two consecutive run() calls on the same component never
-        # accumulate, the same reason _constraint_removed_total is reset.
-        self._budget_markets_before = None
-        self._budget_markets_after = None
-        self._budget_merges_applied = 0
-        self._budget_headcount_saved = 0
-        self._budget_relaxed_round_used = False
+        # Additive region echo column, same contract as the clustering path.
+        has_region = (
+            bool(self.region_column)
+            and self.region_column in self._data.columns
+        )
+        self._data['region'] = (
+            self._data[self.region_column] if has_region else None
+        )
 
-        if self.use_fte_constraints:
-            self._logger.info(
-                f"FTE Mode Enabled: "
-                f"monthly_target={self.fte_monthly}, "
-                f"daily_target={self.fte_daily}, "
-                f"hours_per_week={self.hours_per_week}, "
-                f"ghosts_range={self.num_ghosts_range}"
-            )
-        else:
-            self._logger.info("FTE constraints disabled; computing FTE metrics for reporting only.")
+    async def _run_region_pipeline(self) -> None:
+        """Run the existing single-partition pipeline core on ``self._data``.
 
+        FEAT-247 Module 2: this is the pipeline body ``run()`` executed
+        directly before per-region orchestration existed, extracted
+        UNCHANGED so it can run once per region frame (or once over the
+        whole input when ``region_column`` is unset — the single-partition
+        path). Everything from cluster creation through the FEAT-241
+        overflow annotation is region-local by construction: it only ever
+        sees ``self._data``, which the caller has already scoped to one
+        region.
+
+        Mutates ``self._data``, ``self._rejected``, ``self._outlier_stores``
+        and the cluster-id-keyed dicts (``self._cluster_centroids`` etc.)
+        exactly as the pre-FEAT-247 ``run()`` did. Does NOT renumber ids,
+        label sub-clusters, resolve centroid locations, or log the final
+        summary — those stay in ``run()``, run ONCE on the concatenated,
+        globally-renumbered result.
+
+        TASK-196: initializes the additive ``state_affinity_score`` column
+        (NaN by default) before clustering — the five scoring surfaces
+        stamp it as they place stores; it stays NaN elsewhere.
+
+        TASK-198: initializes the additive ``ceded_from`` column (NaN by
+        default) the same way — ``_cede_oversize_subclusters`` stamps the
+        donor market id on ceded sub-cluster rows; NaN elsewhere.
+        """
+        if 'state_affinity_score' not in self._data.columns:
+            self._data['state_affinity_score'] = np.nan
+        if 'ceded_from' not in self._data.columns:
+            self._data['ceded_from'] = np.nan
         # --- create cluster in haversine space (balltree)
         self._data = self._create_cluster(self._data)
 
@@ -9415,12 +11495,279 @@ class MarketClustering(FlowComponent):
         self._recompute_cluster_fte_info()
         self._add_fte_columns_to_result(self._data)
 
+        # FEAT-248 TASK-203: post-attach enforcement -- re-run
+        # _enforce_max_cluster_size now that sub-cluster attachment,
+        # budget-merge, capacity shed, scheduling feedback and repair have
+        # all had their say, so a market pushed over its ceiling by
+        # satellite load can no longer "attach for free". This pass only
+        # ever sheds CORE stores (see its own docstring); whatever it
+        # cannot fix -- overage made entirely of sub-cluster rows, or no
+        # receiver in reach -- falls through to cession right below.
+        self._enforce_max_cluster_size()
+
+        # FEAT-247 Module 5: close the "sub-clusters attach for free"
+        # bypass -- a market over max_cluster_size (counting attached
+        # sub-cluster stores) cedes whole sub-clusters to the
+        # best-scoring same-region receiver with room. Runs after every
+        # other pass that could shift core-store counts (budget-merge,
+        # capacity shed, scheduling feedback, repair/neighbourhood
+        # passes above, and the enforcement pass right above) so it sees
+        # the final, settled picture, and right before the overflow
+        # annotation below so whatever it could not resolve is exactly
+        # what gets flagged.
+        self._cede_oversize_subclusters()
+
         # FEAT-241: annotate (never reject) markets that exceed
         # max_cluster_size because of sub-cluster incorporation. Must run
         # after _add_fte_columns_to_result(), whose per-cluster
         # constraint_warning write would otherwise clobber this
         # row-level annotation.
         self._annotate_subcluster_overflow()
+
+    async def run(self):
+        """
+        1) Split by ``region_column`` (FEAT-247) and run the existing
+           pipeline core once per region (or once over the whole input
+           when ``region_column`` is unset — the single-partition path
+           byte-identical to the pre-FEAT-247 behaviour).
+        2) Concatenate every region's result and renumber markets
+           globally (Market-1..Market-N).
+        3) Reconcile ``max_markets`` as a hard global ceiling (in-region
+           merges only, never across regions).
+        4) Label sub-clusters, resolve centroid locations, add FTE/visit
+           columns, log summaries, and return the final assignment +
+           rejected stores.
+
+        See ``_run_region_pipeline`` for the pipeline core itself
+        (clustering, ghost employees, VRP, rebalancing, sub-cluster
+        attachment, overflow annotation — unchanged from before FEAT-247).
+        """
+        self._logger.info(
+            "=== Running MarketClustering ==="
+        )
+
+        # Reset counters for this execution
+        self._constraint_removed_total = 0
+        # Employee-budget consolidation counters (FEAT-240): reset here so
+        # two consecutive run() calls on the same component never
+        # accumulate, the same reason _constraint_removed_total is reset.
+        self._budget_markets_before = None
+        self._budget_markets_after = None
+        self._budget_merges_applied = 0
+        self._budget_headcount_saved = 0
+        self._budget_relaxed_round_used = False
+
+        if self.use_fte_constraints:
+            self._logger.info(
+                f"FTE Mode Enabled: "
+                f"monthly_target={self.fte_monthly}, "
+                f"daily_target={self.fte_daily}, "
+                f"hours_per_week={self.hours_per_week}, "
+                f"ghosts_range={self.num_ghosts_range}"
+            )
+        else:
+            self._logger.info("FTE constraints disabled; computing FTE metrics for reporting only.")
+
+        # Pre-defined markets (no_clustering): adopt market_column as-is
+        # and jump straight to the delivery tail — no formation, no
+        # movement passes, no max_markets reconciliation.
+        if self.no_clustering:
+            self._assign_predefined_markets()
+            return await self._finalize_delivery()
+
+        # --- FEAT-247: per-region orchestration (Module 2) ---------------
+        full_data = self._data
+        has_region = bool(self.region_column) and self.region_column in full_data.columns
+
+        if has_region:
+            region_values = sorted(full_data[self.region_column].dropna().unique())
+        else:
+            # Single-partition path: identical orchestration over one
+            # partition, output equivalent to the pre-FEAT-247 behaviour.
+            region_values = [None]
+
+        original_max_markets = self.max_markets
+
+        # Split the global budget before any region forms, so each region
+        # drives its own formation to a real target instead of to no limit.
+        # An undersized region resolves to a quota of exactly 1 by
+        # construction (its floor and ceiling both collapse to 1), so the
+        # max_markets=1 override below never overspends the budget.
+        region_quotas = (
+            self._allocate_region_market_quotas(full_data, region_values)
+            if has_region else {}
+        )
+
+        region_frames: List[pd.DataFrame] = []
+        region_rejected: List[pd.DataFrame] = []
+        combined_cluster_centroids: Dict[Any, Dict] = {}
+        combined_cluster_fte_info: Dict[Any, Dict] = {}
+        combined_cluster_partition: Dict[Any, bool] = {}
+        combined_standalone_clusters: Dict[Any, Tuple] = {}
+        combined_anchored_centroids: Dict[Any, Tuple] = {}
+        combined_readmitted_index_map: Dict[Any, Any] = {}
+        row_offset = 0
+        id_offset = 0
+        undersized_regions: List[Any] = []
+
+        for region_value in region_values:
+            region_df = (
+                full_data if region_value is None
+                else full_data[full_data[self.region_column] == region_value].copy()
+            )
+            if region_df.empty:
+                continue
+
+            self._data = region_df
+            self._rejected = pd.DataFrame()
+            self._cluster_centroids = {}
+            self._cluster_fte_info = {}
+            self._cluster_partition = {}
+            self._standalone_clusters = {}
+            self._anchored_centroids = {}
+            self._outlier_stores = set()
+            # Reset per region: _readmit_rejected_as_unassigned() OVERWRITES
+            # this (not accumulates), so a region that never readmits
+            # anything must not inherit a previous region's stale entries.
+            self._readmitted_index_map = {}
+
+            undersized = (
+                has_region
+                and self.min_cluster_size
+                and len(region_df) < self.min_cluster_size
+            )
+            if undersized:
+                undersized_regions.append(region_value)
+                self._logger.warning(
+                    "region %r: %s stores < min_cluster_size=%s -- forming "
+                    "ONE undersized market (reported, never merged across "
+                    "regions).",
+                    region_value, len(region_df), self.min_cluster_size,
+                )
+
+            # max_markets is a HARD TARGET, so each region forms against
+            # its own slice of the budget rather than against no limit at
+            # all. Emergent per-region counts (the original FEAT-247
+            # behaviour, max_markets=None here) cannot reach the target:
+            # formation births far fewer markets than configured and the
+            # global pass afterwards has nothing large enough left to
+            # split, so the run silently delivers under the target with
+            # the overflow pushed into sub-cluster satellites.
+            # The undersized-region case still reuses the existing,
+            # already-tested max_markets=1 behaviour. The single-partition
+            # path (region_column unset) keeps max_markets exactly as
+            # configured -- byte-identical to the pre-FEAT-247 behaviour.
+            if has_region:
+                if undersized:
+                    self.max_markets = 1
+                else:
+                    self.max_markets = region_quotas.get(
+                        region_value, original_max_markets
+                    )
+
+            await self._run_region_pipeline()
+
+            id_offset = self._shift_region_cluster_ids(id_offset)
+            row_offset = self._shift_region_indices(row_offset)
+
+            region_frames.append(self._data)
+            region_rejected.append(self._rejected)
+            combined_cluster_centroids.update(self._cluster_centroids)
+            combined_cluster_fte_info.update(self._cluster_fte_info)
+            combined_cluster_partition.update(self._cluster_partition)
+            combined_standalone_clusters.update(self._standalone_clusters)
+            combined_anchored_centroids.update(self._anchored_centroids)
+            combined_readmitted_index_map.update(self._readmitted_index_map)
+
+        self.max_markets = original_max_markets
+
+        self._data = (
+            pd.concat(region_frames) if region_frames
+            else full_data.iloc[0:0].copy()
+        )
+        self._rejected = (
+            pd.concat(region_rejected) if region_rejected
+            else pd.DataFrame()
+        )
+        self._cluster_centroids = combined_cluster_centroids
+        self._cluster_fte_info = combined_cluster_fte_info
+        self._cluster_partition = combined_cluster_partition
+        self._standalone_clusters = combined_standalone_clusters
+        self._anchored_centroids = combined_anchored_centroids
+        self._readmitted_index_map = combined_readmitted_index_map
+
+        # Additive output column (spec §2 New Public Interfaces): echo of
+        # each market's region value. None when region_column is unset.
+        self._data['region'] = (
+            self._data[self.region_column] if has_region else None
+        )
+
+        # max_markets global reconciliation (hard ceiling; in-region
+        # merges only, never across regions).
+        self._reconcile_global_max_markets()
+
+        # Global reconciliation MUTATES membership (in-region merges, and
+        # any split-up), so every geometry column stamped back at region
+        # time is now stale for the markets it touched — the delivery tail
+        # re-derives all of it from the final membership.
+        return await self._finalize_delivery(
+            has_region=has_region,
+            region_values=region_values,
+            undersized_regions=undersized_regions,
+        )
+
+    async def _finalize_delivery(
+        self,
+        has_region: bool = False,
+        region_values: Optional[List[Any]] = None,
+        undersized_regions: Optional[List[Any]] = None,
+    ) -> pd.DataFrame:
+        """Shared delivery tail of ``run()``.
+
+        Re-derives every geometry-dependent column from the FINAL
+        membership (the passes before this point mutate membership, so
+        anything stamped earlier is stale for the markets they touched:
+        stale `centroid_lat`/`centroid_lon` are how a market ends up
+        labelled "Santa Fe, NM" at Denver's coordinates. `distance_to_
+        center` and `outlier` feed SchedulingVisits, and the cadence
+        rules are distance-based, so all of them are re-derived here).
+        Then renumbers markets 1..N, labels sub-clusters, resolves
+        centroid locations, stamps visit columns, logs the summaries,
+        reconciles the rejected ledger and returns the final assignment.
+
+        Called by both paths of ``run()``: the clustering path (after
+        global max_markets reconciliation) and the no_clustering path
+        (right after ``_assign_predefined_markets``).
+
+        Args:
+            has_region: Whether region orchestration ran (clustering
+                path with ``region_column`` set).
+            region_values: Region values processed, for the per-region
+                summary log.
+            undersized_regions: Regions that formed one undersized
+                market, for the same summary.
+
+        Returns:
+            The final assignment DataFrame (also stored in ``_result``).
+        """
+        self._recompute_cluster_centroids()
+        self._add_cluster_centroids_to_result(self._data)
+        self._add_outlier_column_to_result(self._data)
+        self._add_distance_to_center_column(self._data)
+        self._apply_cadence_rules(self._data)
+        self._recompute_cluster_fte_info()
+        self._add_fte_columns_to_result(self._data)
+
+        # G6 / audit item 1d: `_add_fte_columns_to_result` just overwrote
+        # `constraint_warning` for every row with each market's per-cluster
+        # FTE warning, clobbering whatever `_annotate_subcluster_overflow`
+        # stamped per-region BEFORE global `_reconcile_global_max_markets`
+        # ran. Re-stamp it here, after the per-cluster write and after
+        # global reconciliation has settled final membership, so overflow
+        # annotations reflect the delivered sizes, not a pre-split parent's.
+        self._annotate_subcluster_overflow()
+
+        self._check_market_invariants()
 
         # Deliver 1-based, sequential market ids (Market-1..Market-N)
         self._renumber_markets_from_one()
@@ -9448,6 +11795,9 @@ class MarketClustering(FlowComponent):
             self._logger.info(
                 f"Removed {self._constraint_removed_total} stores overall due to FTE constraint violations"
             )
+
+        if has_region:
+            self._log_per_region_summary(region_values, undersized_regions)
 
         self._logger.info(
             f"Final clusters formed: {self._count_delivered_markets()} "

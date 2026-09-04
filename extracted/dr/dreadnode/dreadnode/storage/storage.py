@@ -68,8 +68,9 @@ class Storage:
           job.json                    ← terminal-only frontier hashes
     ```
 
-    When running in a sandbox, ~/.dreadnode is mounted via s3fs to the user's
-    workspace storage, with the S3 prefix already scoped to {org_id}/workspaces/{workspace_id}.
+    Remote operations use an fsspec-compatible object-storage client. In a
+    managed sandbox, the local cache remains on the sandbox filesystem; it is
+    not an object-storage mount.
     """
 
     def __init__(
@@ -419,7 +420,7 @@ class Storage:
         return self.cas_path / algo / hash_val[:2] / hash_val[2:4] / hash_val
 
     def remote_blob_path(self, oid: str) -> str:
-        """Remote path for blob (includes bucket for s3fs)."""
+        """Remote path for blob, including the provider bucket."""
         algo, hash_val = oid.split(":", 1)
         bucket = self._credentials.bucket if self._credentials else "user-data"
         return f"{bucket}/{self.remote_prefix}/cas/{algo}/{hash_val[:2]}/{hash_val[2:4]}/{hash_val}"

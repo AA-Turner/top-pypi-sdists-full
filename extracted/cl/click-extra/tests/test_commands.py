@@ -18,8 +18,11 @@ options, and how they interact with each others."""
 
 from __future__ import annotations
 
+import importlib.metadata
 import inspect
+import json
 import os
+import re
 import sys
 from contextlib import nullcontext
 from subprocess import run
@@ -31,6 +34,7 @@ import pytest
 
 import click_extra
 from click_extra import (
+    ExtraOptionGroup,
     HelpCommand,
     LazyGroup,
     LazySubcommand,
@@ -44,8 +48,17 @@ from click_extra import (
     pass_context,
     version_option,
 )
-from click_extra.commands import DEFAULT_PRIORITY, default_params
-from click_extra.parameters import iter_subcommands, make_resilient_context
+from click_extra.commands import (
+    DEFAULT_OPTION_GROUPS,
+    DEFAULT_PRIORITY,
+    default_params,
+)
+from click_extra.parameters import (
+    full_short_help,
+    iter_params_for_display,
+    iter_subcommands,
+    make_resilient_context,
+)
 from click_extra.pytest import (
     command_decorators,
     default_debug_uncolored_log_end,
@@ -522,24 +535,18 @@ def test_duplicate_option(invoke):
         pass
 
     result = invoke(cli, "--help", color=False)
-    assert result.stdout.endswith(
-        "  --verbosity LEVEL            Either CRITICAL, ERROR, WARNING, INFO, DEBUG.\n"
-        "                               [default: WARNING]\n"
-        "  -v, --verbose                Increase the default WARNING verbosity by one\n"
-        "                               level for each additional repetition of the\n"
-        "                               option.  [default: 0]\n"
-        "  -q, --quiet                  Decrease the default WARNING verbosity by one\n"
-        "                               level for each additional repetition of the\n"
-        "                               option.  [default: 0]\n"
-        "  --debug                      Shorthand for --verbosity DEBUG.\n"
-        "  --tree                       Show the tree of nested subcommands and exit.\n"
-        "  --man                        Read the command's manual page and exit.\n"
-        "  --help-format [carapace|json|json-full|man|markdown|markdown-full]\n"
-        "                               Render the command in the given format and exit.\n"
-        "  --version                    Show the version and exit.\n"
-        "  --version                    Show the version and exit.\n"
+    version_line = "  --version                    Show the version and exit.\n"
+    # The CLI's own --version opens its section, ungrouped alongside --help. The
+    # injected duplicate closes the introspection section at the far end.
+    assert result.stdout.startswith(
+        "Usage: cli [OPTIONS]\n"
+        "\n"
+        "Options:\n"
+        f"{version_line}"
         "  -h, --help                   Show this message and exit.\n"
     )
+    assert result.stdout.endswith(version_line)
+    assert result.stdout.count(version_line) == 2
     assert not result.stderr
     assert result.exit_code == 0
 
@@ -1607,6 +1614,195 @@ def test_subcommand_order_agrees_across_renderers(invoke):
 
     diverging = {name: order for name, order in renderings.items() if order != expected}
     assert not diverging, f"renderers out of order: {diverging}"
+
+
+def test_option_order_agrees_across_renderers(invoke):
+    """Every rendering of a command lists options in the same order.
+
+    Cloup draws the ungrouped section last, and Click Extra sends its own groups
+    past it, so a renderer reaching for its own accessor would let a help screen
+    disagree with its man page or its completion spec. They all resolve the
+    section order through ``split_option_groups()`` now.
+
+    Pins the taxonomy too: each rendering is filtered down to the flags
+    ``DEFAULT_OPTION_GROUPS`` declares, so the order they are declared in is the
+    order a reader sees.
+    """
+    yaml = pytest.importorskip("yaml")
+
+    @command
+    @option("--city", help="City to forecast.")
+    def forecast(city):
+        """Show the weather forecast."""
+
+    expected = ["--city", "--help"]
+    for _, flags in DEFAULT_OPTION_GROUPS:
+        expected.extend(flags)
+
+    ctx = make_resilient_context(forecast, forecast.name)
+    renderings = {
+        "iter_params_for_display": [
+            next(opt for opt in param.opts if opt.startswith("--"))
+            for param in iter_params_for_display(forecast, ctx)
+        ],
+        "--help": re.findall(
+            r"^  (?:-\w, )?(--[\w-]+)",
+            invoke(forecast, "--help", color=False).stdout,
+            re.MULTILINE,
+        ),
+        # Read as the long spelling, like the renderings above: Click 8.4
+        # collects `--help`'s names through a set, so which of `-h` and
+        # `--help` lands first there varies with the interpreter's hash seed.
+        # Click 8.5.0 keeps their declaration order.
+        "json": [
+            next(name for name in opt["names"] if name.startswith("--"))
+            for group in json.loads(
+                invoke(forecast, "--help-format", "json", color=False).stdout
+            )["option_groups"]
+            for opt in group["options"]
+        ],
+    }
+
+    # Carapace splits a CLI's own flags from the inherited ones, and gives each
+    # spelling of a boolean pair its own entry.
+    spec = yaml.safe_load(
+        invoke(forecast, "--help-format", "carapace", color=False).stdout
+    )
+    renderings["carapace"] = [
+        flag.split(", ")[-1].rstrip("=?*")
+        for section in ("flags", "persistentflags")
+        for flag in spec.get(section, {})
+    ]
+
+    diverging = {
+        name: kept
+        for name, order in renderings.items()
+        if (kept := [flag for flag in order if flag in set(expected)]) != expected
+    }
+    assert not diverging, f"renderers out of order: {diverging}"
+
+
+ARGUMENT_HELP_CLICK_VERSION = (8, 5)
+"""Click release that gave `click.Argument` a `help` parameter of its own.
+
+Below it a plain `click.argument` rejects the keyword outright, so the matrix
+cells pinning an older Click inside the supported range have nothing to render.
+Cloup and Click Extra carry their own `Argument`, which accepted a description
+all along and is checked on every cell.
+"""
+
+
+@pytest.mark.parametrize(
+    "argument_decorator",
+    (
+        pytest.param(
+            click.argument,
+            id="click",
+            marks=pytest.mark.skipif(
+                tuple(
+                    int(p) for p in importlib.metadata.version("click").split(".")[:2]
+                )
+                < ARGUMENT_HELP_CLICK_VERSION,
+                reason="`click.Argument` takes a `help` since Click 8.5.",
+            ),
+        ),
+        pytest.param(cloup.argument, id="cloup"),
+        pytest.param(argument, id="click_extra"),
+    ),
+)
+def test_argument_help_agrees_across_renderers(invoke, argument_decorator):
+    """An argument's help reaches every rendering, whatever its `Argument` class.
+
+    Click 8.5.0 gave `click.Argument` a `help` parameter of its own. Cloup reads a
+    description off a `cloup.Argument` alone, so a plain `click.argument` drew a
+    blank `Positional arguments` entry while the man page and the JSON export
+    carried its text. See https://github.com/janluke/cloup/issues/210.
+    """
+
+    @command
+    @argument_decorator("city", help="City to forecast.")
+    def forecast(city):
+        """Show the weather forecast."""
+
+    help_screen = invoke(forecast, "--help", color=False).stdout
+    assert re.search(r"^  CITY +City to forecast\.$", help_screen, re.MULTILINE)
+
+    doc = json.loads(invoke(forecast, "--help-format", "json", color=False).stdout)
+    assert doc["arguments"] == [{"metavar": "CITY", "help": "City to forecast."}]
+
+
+@pytest.mark.parametrize(
+    ("deprecated", "label"),
+    (
+        pytest.param(True, "(DEPRECATED)", id="bool"),
+        pytest.param(
+            "use `forecast` instead",
+            "(DEPRECATED: use `forecast` instead)",
+            id="reason",
+        ),
+    ),
+)
+def test_deprecated_command_label_matches_click(invoke, deprecated, label):
+    """A deprecated command carries Click's own marker, reason string included.
+
+    Cloup prefixes `(Deprecated) ` to the description, a form Click left behind in
+    8.2.0 and which has nowhere to put the reason a `deprecated` string carries.
+    See https://github.com/janluke/cloup/issues/211.
+
+    The marker is checked on the help screen and on
+    {func}`~click_extra.parameters.full_short_help`, which feeds `--tree`, the man
+    page, the JSON export and the completion specs.
+    """
+
+    @command(params=[], deprecated=deprecated)
+    def legacy():
+        """Show the weather forecast."""
+
+    @click.command(deprecated=deprecated)
+    def reference():
+        """Show the weather forecast."""
+
+    expected = f"Show the weather forecast. {label}"
+    assert expected in invoke(legacy, "--help", color=False).stdout
+    assert expected in invoke(reference, "--help", color=False).stdout
+    assert full_short_help(legacy) == expected
+
+
+def test_every_default_option_lands_in_a_section():
+    """No option `default_params()` returns escapes `DEFAULT_OPTION_GROUPS`.
+
+    An option no section claims stays ungrouped, which draws it in the command's
+    own `Options` block where it reads as one the CLI author declared. Nothing
+    else reports that: the help screen renders, and every cross-renderer check
+    still agrees, because they all read the same wrong layout.
+    """
+    ungrouped = [
+        param.opts
+        for param in default_params()
+        if not isinstance(getattr(param, "group", None), ExtraOptionGroup)
+    ]
+    assert not ungrouped, f"default options claimed by no section: {ungrouped}"
+
+
+def test_default_option_groups_name_no_stale_flag():
+    """Every flag `DEFAULT_OPTION_GROUPS` declares is one `default_params()` returns.
+
+    A renamed or dropped option otherwise leaves a dead entry behind. And a flag
+    landing in two sections is silently taken by the later one, since
+    `_assign_option_groups` writes them in order.
+    """
+    declared = [flag for _, flags in DEFAULT_OPTION_GROUPS for flag in flags]
+    available = {
+        opt
+        for param in default_params()
+        for opt in (*param.opts, *param.secondary_opts)
+    }
+    assert not set(declared) - available, (
+        f"sections name unknown flags: {sorted(set(declared) - available)}"
+    )
+
+    duplicated = sorted({flag for flag in declared if declared.count(flag) > 1})
+    assert not duplicated, f"flags claimed by more than one section: {duplicated}"
 
 
 def test_lazy_group_subcommand_order_is_stable_across_loading(tmp_path, monkeypatch):

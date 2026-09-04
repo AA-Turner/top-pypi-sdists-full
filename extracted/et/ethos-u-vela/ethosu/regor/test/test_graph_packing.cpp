@@ -420,6 +420,68 @@ TEST_CASE("test_graph_packing")
         REQUIRE(newGraph->ScheduledOrder()[2]->OFM() == newGraph->Outputs()[0].get());
     }
 
+    SECTION("NPU to NPU connection through graph output")
+    {
+        std::vector<std::unique_ptr<SchedulerOperation>> ops;
+        ops.push_back(CreateSchedulerOperation(true, TensorUsage::IFM, tens1, TensorUsage::OFM, tens2));
+        ops.push_back(CreateSchedulerOperation(false, TensorUsage::IFM, tens3, TensorUsage::OFM, tens4));
+        ops.push_back(CreateSchedulerOperation(true, TensorUsage::IFM0, tens2, TensorUsage::IFM1, tens4, TensorUsage::OFM, tens5));
+
+        auto oldGraph = std::make_unique<Graph>(GraphNotation::TFLite);
+        oldGraph->AddInput(tens1->srcTensor);
+        tens1->isGraphInput = true;
+        oldGraph->AddOutput(tens2->srcTensor);
+        tens2->isGraphOutput = true;
+        oldGraph->AddInput(tens3->srcTensor);
+        tens3->isGraphInput = true;
+        oldGraph->AddOutput(tens5->srcTensor);
+        tens5->isGraphOutput = true;
+
+        std::vector<std::pair<Operation *, std::unique_ptr<NPUOperation>>> npuOps;
+        auto newGraph = PackScheduleToGraph(npuOps, ops, tensorAddressMap, oldGraph.get());
+
+        REQUIRE(npuOps.size() == 2);
+        REQUIRE(ops.size() == 0);
+        REQUIRE(newGraph->ScheduledOrder().size() == 3);
+        REQUIRE(newGraph->Inputs().size() == 2);
+        REQUIRE(newGraph->Outputs().size() == 2);
+        REQUIRE(newGraph->Persistent().size() == 0);
+        REQUIRE(newGraph->Placeholder().size() == 0);
+
+        // Check new graph I/O
+        REQUIRE(newGraph->IsInput(newGraph->ScheduledOrder()[0]->IFM(0)));
+        REQUIRE(newGraph->IsInput(newGraph->ScheduledOrder()[1]->IFM(0)));
+        REQUIRE(newGraph->IsOutput(newGraph->ScheduledOrder()[0]->OFM()));
+        REQUIRE(newGraph->IsOutput(newGraph->ScheduledOrder()[2]->OFM()));
+        REQUIRE_FALSE(newGraph->IsPlaceholder(newGraph->ScheduledOrder()[0]->OFM()));
+
+        // Check new graph operations
+        REQUIRE(newGraph->ScheduledOrder()[0]->Type() == OpType::CustomNpuOp);
+        REQUIRE(newGraph->ScheduledOrder()[0]->Inputs().size() == 1);
+        REQUIRE(newGraph->ScheduledOrder()[0]->Inputs().contains(TensorUsage::IFM));
+        REQUIRE(newGraph->ScheduledOrder()[0]->Outputs().size() == 1);
+        REQUIRE(newGraph->ScheduledOrder()[0]->Outputs().contains(TensorUsage::OFM));
+        REQUIRE(newGraph->ScheduledOrder()[1]->Type() == OpType::AvgPool);
+        REQUIRE(newGraph->ScheduledOrder()[1]->Inputs().size() == 1);
+        REQUIRE(newGraph->ScheduledOrder()[1]->Inputs().contains(TensorUsage::IFM));
+        REQUIRE(newGraph->ScheduledOrder()[1]->Outputs().size() == 1);
+        REQUIRE(newGraph->ScheduledOrder()[1]->Outputs().contains(TensorUsage::OFM));
+        REQUIRE(newGraph->ScheduledOrder()[2]->Type() == OpType::CustomNpuOp);
+        REQUIRE(newGraph->ScheduledOrder()[2]->Inputs().size() == 2);
+        REQUIRE(newGraph->ScheduledOrder()[2]->Inputs().contains(TensorUsage::IFM0));
+        REQUIRE(newGraph->ScheduledOrder()[2]->Inputs().contains(TensorUsage::IFM1));
+        REQUIRE(newGraph->ScheduledOrder()[2]->Outputs().size() == 1);
+        REQUIRE(newGraph->ScheduledOrder()[2]->Outputs().contains(TensorUsage::OFM));
+
+        // Check new graph connections
+        REQUIRE(newGraph->ScheduledOrder()[0]->IFM(0) == newGraph->Inputs()[0].get());           // tens1
+        REQUIRE(newGraph->ScheduledOrder()[0]->OFM() == newGraph->Outputs()[0].get());           // tens2
+        REQUIRE(newGraph->ScheduledOrder()[0]->OFM() == newGraph->ScheduledOrder()[2]->IFM(0));  // tens2
+        REQUIRE(newGraph->ScheduledOrder()[1]->IFM(0) == newGraph->Inputs()[1].get());           // tens3
+        REQUIRE(newGraph->ScheduledOrder()[1]->OFM() == newGraph->ScheduledOrder()[2]->IFM(1));  // tens4
+        REQUIRE(newGraph->ScheduledOrder()[2]->OFM() == newGraph->Outputs()[1].get());           // tens5
+    }
+
     SECTION("NPU to NPU connection with variable")
     {
         std::vector<std::unique_ptr<SchedulerOperation>> ops;

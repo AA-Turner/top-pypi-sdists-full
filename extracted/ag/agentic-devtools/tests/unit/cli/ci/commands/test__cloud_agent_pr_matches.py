@@ -23,7 +23,8 @@ class TestCloudAgentPrMatches:
                     "base": {"ref": "main"},
                     "body": (
                         "<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent "
-                        "issue=7 phase=1 hierarchy=feature correlation_id=abc -->"
+                        "issue=7 phase=1 hierarchy=feature "
+                        "correlation_id=123e4567-e89b-12d3-a456-426614174000 -->"
                     ),
                 },
                 True,
@@ -35,7 +36,8 @@ class TestCloudAgentPrMatches:
                     "base": {"ref": "main"},
                     "body": (
                         "<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent "
-                        "issue=7 phase=1 hierarchy=feature correlation_id=abc -->"
+                        "issue=7 phase=1 hierarchy=feature "
+                        "correlation_id=123e4567-e89b-12d3-a456-426614174000 -->"
                     ),
                 },
                 True,
@@ -47,7 +49,8 @@ class TestCloudAgentPrMatches:
                     "base": {"ref": "wrong-base"},
                     "body": (
                         "<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent "
-                        "issue=7 phase=1 hierarchy=feature correlation_id=abc -->"
+                        "issue=7 phase=1 hierarchy=feature "
+                        "correlation_id=123e4567-e89b-12d3-a456-426614174000 -->"
                     ),
                 },
                 False,

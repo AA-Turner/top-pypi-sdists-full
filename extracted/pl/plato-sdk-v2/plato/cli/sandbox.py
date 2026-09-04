@@ -8,16 +8,31 @@ import threading
 import time
 from collections.abc import Generator
 from contextlib import contextmanager, suppress
+from datetime import datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, NoReturn
 
 import typer
+from pydantic import BaseModel
 from rich.console import Console
 from rich.table import Table
 
-from plato._generated.errors import APIError
-from plato._generated.models import ArtifactMcpConfig, SessionStateResponse
+from plato._generated.errors import APIError, NotFoundError
+from plato._generated.models import (
+    AppApiV2SchemasSessionCreateSnapshotResponse,
+    ArtifactInfoResponse,
+    ArtifactMcpConfig,
+    CreateCheckpointResult,
+    CreateSnapshotResult,
+    SessionDetailsResponse,
+    SessionStateResponse,
+)
 from plato.cli.utils import require_api_key
+from plato.v2._wait_for_ready import (
+    ARTIFACT_STATUS_FAILED,
+    ARTIFACT_STATUS_READY,
+    ARTIFACT_WAIT_TIMEOUT_SECONDS,
+)
 from plato.v2.sandbox_store import (
     NAME_ENV_VAR,
     SandboxStore,
@@ -538,6 +553,10 @@ def sandbox_context(
         with suppress(Exception):
             client.store.reconcile()
         yield client, out
+    except typer.Exit:
+        # A command that already reported its outcome; wrapping it would print
+        # the exit code as a second error (a second JSON document under --json).
+        raise
     except (SandboxStateError, Exception) as e:
         out.error(str(e))
         raise typer.Exit(1)
@@ -817,6 +836,127 @@ def mcp_config_from_flags(enabled: bool | None, port: int | None, path: str | No
     )
 
 
+SnapshotResponse = AppApiV2SchemasSessionCreateSnapshotResponse | CreateSnapshotResult | CreateCheckpointResult
+
+
+class SnapshotStatus(BaseModel):
+    """What a snapshot consumer needs to know: which artifact, and whether it can be used yet."""
+
+    artifact_id: str
+    status: str
+    archive_type: str
+    simulator_name: str
+    dataset: str
+    parent_artifact_id: str | None = None
+    snapshotted_at: datetime | None = None
+
+    @classmethod
+    def of(cls, artifact: ArtifactInfoResponse) -> "SnapshotStatus":
+        return cls.model_validate(artifact.model_dump())
+
+
+class SnapshotReport(BaseModel):
+    """One entry per job the snapshot request covered: the artifact it created, or why it refused."""
+
+    artifacts: list[SnapshotStatus]
+    errors: list[str] | None = None
+
+    @property
+    def failed(self) -> bool:
+        return bool(self.errors) or any(a.status == ARTIFACT_STATUS_FAILED for a in self.artifacts)
+
+
+class SnapshotFailed(Exception):
+    """The snapshot response is unusable (a job succeeded without an artifact id)."""
+
+
+class SandboxStatusReport(BaseModel):
+    """``plato sandbox status``: the local slot, its heartbeat, its last snapshot, the remote session."""
+
+    slot: str | None
+    local: dict[str, Any] | None
+    heartbeat: dict[str, str | int] | None
+    snapshot: SnapshotStatus | None
+    remote: SessionDetailsResponse | dict[str, Any]
+
+
+def _snapshot_results(response: SnapshotResponse) -> list[CreateSnapshotResult | CreateCheckpointResult]:
+    """The session snapshot answers one result per job; the job endpoints answer a single result."""
+    if isinstance(response, AppApiV2SchemasSessionCreateSnapshotResponse):
+        return list(response.results.values())
+    return [response]
+
+
+def _created_artifact_ids(results: list[CreateSnapshotResult | CreateCheckpointResult]) -> list[str]:
+    artifact_ids: list[str] = []
+    for result in results:
+        if not result.success:
+            continue
+        if result.artifact_id is None:
+            raise SnapshotFailed("Snapshot succeeded but the backend returned no artifact id")
+        artifact_ids.append(result.artifact_id)
+    return artifact_ids
+
+
+def _exit_failed(out: "Output", message: str) -> NoReturn:
+    """Exit 1 after the report has been printed.
+
+    Under ``--json`` the report already carries the failure (``errors`` or a
+    ``failed`` status); a second error document would corrupt stdout.
+    """
+    if not out.json_mode:
+        out.error(message)
+    raise typer.Exit(1)
+
+
+def _snapshot_status(
+    client: SandboxClient, out: "Output", artifact_id: str, *, wait: bool, timeout: float
+) -> SnapshotStatus:
+    """The artifact's current status — or, with ``wait``, its final one.
+
+    A wait timeout is not a failed snapshot — it is still uploading — so the
+    error points at ``snapshot-status`` rather than at retrying.
+    """
+    if not wait:
+        return SnapshotStatus.of(client.artifacts.get(artifact_id))
+    out.console.print(f"[dim]Waiting up to {timeout:g}s for artifact {artifact_id} to be ready...[/dim]")
+    # A wait can outlast the sandbox's idle lease; renew it like ssh/tunnel do.
+    with _renewing_lease():
+        try:
+            return SnapshotStatus.of(client.artifacts.wait_for_ready(artifact_id, timeout=timeout))
+        except TimeoutError as e:
+            raise TimeoutError(f"{e}; check again with `plato sandbox snapshot-status`") from e
+
+
+def _report_snapshot(
+    client: SandboxClient, out: "Output", response: SnapshotResponse, *, wait: bool, timeout: float
+) -> None:
+    """Report the artifact(s) a snapshot request created, with their real status.
+
+    The snapshot endpoints return once the artifact row exists — the upload
+    runs on the VM afterwards — so "created" only ever means ``creating``.
+    The status is read back from the artifact endpoint.
+    """
+    results = _snapshot_results(response)
+    errors = [result.error or "unknown error" for result in results if not result.success]
+    report = SnapshotReport(
+        artifacts=[
+            _snapshot_status(client, out, artifact_id, wait=wait, timeout=timeout)
+            for artifact_id in _created_artifact_ids(results)
+        ],
+        errors=errors or None,
+    )
+
+    out.success(report, "Snapshot requested")
+    if not out.json_mode and any(status.status != ARTIFACT_STATUS_READY for status in report.artifacts):
+        out.super_console.print(
+            "[dim]The artifact cannot be started from until its status is 'ready'. "
+            "Check with `plato sandbox snapshot-status`, or pass --wait.[/dim]"
+        )
+    if report.failed:
+        _exit_failed(out, "Snapshot failed: " + "; ".join(errors or ["the artifact is in status 'failed'"]))
+
+
 # CHECKED
 @sandbox_app.command(name="snapshot")
 def sandbox_snapshot(
@@ -857,15 +997,32 @@ def sandbox_snapshot(
             "--mcp-path", help="HTTP path the MCP endpoint is served at, e.g. /api/mcp. Implies --mcp-enabled."
         ),
     ] = None,
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait/--no-wait",
+            help="Block until the artifact is ready (or failed) instead of returning while it is still creating.",
+        ),
+    ] = False,
+    timeout: Annotated[
+        float,
+        typer.Option("--timeout", help="Seconds to wait for the artifact with --wait.", min=1),
+    ] = ARTIFACT_WAIT_TIMEOUT_SECONDS,
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):
     """Create a snapshot of the current sandbox state.
 
-    Captures VM state and database for later restoration.
+    Captures VM state and database for later restoration. Snapshotting is
+    asynchronous: the command returns as soon as the artifact exists, in
+    status ``creating``, while the VM uploads the snapshot in the background.
+    The artifact can be started from only once it is ``ready`` — pass
+    ``--wait`` to block until then, or check later with
+    ``plato sandbox snapshot-status``.
 
     Examples:
         plato sandbox snapshot                    # Uses mode from state.json
+        plato sandbox snapshot --wait             # Return only once the artifact is ready
         plato sandbox snapshot --mode config      # Override to pass local plato-config.yml, flows and login credentials to artifact
         plato sandbox snapshot --job              # Snapshot one env in a multi-env (unified) session
         plato sandbox snapshot --target grist.web.plato.so   # Record the routing domain on the artifact
@@ -888,7 +1045,7 @@ def sandbox_snapshot(
             full_response = client.snapshot_job_full(
                 job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target, mcp=mcp
             )
-            out.success(full_response, "Snapshot created")
+            _report_snapshot(client, out, full_response, wait=wait, timeout=timeout)
             return
         if job:
             if not job_id:
@@ -897,7 +1054,7 @@ def sandbox_snapshot(
             response = client.snapshot_job(
                 job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target, mcp=mcp
             )
-            out.success(response, "Snapshot created")
+            _report_snapshot(client, out, response, wait=wait, timeout=timeout)
             return
 
         out.console.print("Creating snapshot...")
@@ -908,7 +1065,7 @@ def sandbox_snapshot(
             target=target,
             mcp=mcp,
         )
-        out.success(response, "Snapshot created")
+        _report_snapshot(client, out, response, wait=wait, timeout=timeout)
 
 
 @sandbox_app.command(name="reset")
@@ -1110,11 +1267,75 @@ def sandbox_artifact(
         target = artifact_id or state_field("artifact_id")
         if not target:
             raise SandboxStateError("artifact_id")
-        info = client.artifact_info(str(target))
+        info = client.artifacts.get(str(target))
         out.success(info, "Artifact")
         if not json_output:
             out.super_console.print(f"[dim]MCP stored: {describe_mcp_config(info.mcp_config)}[/dim]")
             out.super_console.print(f"[dim]MCP resolved: {describe_mcp_config(info.mcp)}[/dim]")
+
+
+@sandbox_app.command(name="snapshot-status")
+def sandbox_snapshot_status(
+    working_dir: WorkingDirArg,
+    name: NameArg,
+    artifact_id: Annotated[
+        str | None,
+        typer.Argument(help="Artifact id. Defaults to the artifact this slot last snapshotted."),
+    ] = None,
+    wait: Annotated[
+        bool,
+        typer.Option("--wait/--no-wait", help="Poll until the artifact is ready or failed."),
+    ] = False,
+    timeout: Annotated[
+        float,
+        typer.Option("--timeout", help="Seconds to wait for the artifact with --wait.", min=1),
+    ] = ARTIFACT_WAIT_TIMEOUT_SECONDS,
+    json_output: JsonArg = False,
+    verbose: VerboseArg = False,
+):
+    """Show whether a snapshot has finished: creating, ready or failed.
+
+    ``plato sandbox snapshot`` returns while the VM is still uploading the
+    snapshot; this is the command to check on it. ``creating`` means the
+    upload is in flight, ``ready`` means the artifact can be started from
+    (``plato sandbox start -a <id>``), ``failed`` means the upload failed.
+    Exits non-zero when the artifact has failed, or when ``--wait`` runs out
+    of time. ``plato sandbox artifact`` shows the full record.
+
+    Examples:
+        plato sandbox snapshot-status                # The slot's last snapshot
+        plato sandbox snapshot-status --wait         # Block until ready/failed
+        plato sandbox snapshot-status <uuid> --json
+    """
+    with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        _renew_lease()
+        target = artifact_id or state_field("artifact_id")
+        if not target:
+            raise SandboxStateError("artifact_id", hint="Run `plato sandbox snapshot` first, or pass an artifact id")
+        status = _snapshot_status(client, out, str(target), wait=wait, timeout=timeout)
+        out.success(status, "Snapshot status")
+        if not out.json_mode and status.status == ARTIFACT_STATUS_READY:
+            out.super_console.print(f"[dim]Start from it with `plato sandbox start -a {status.artifact_id}`[/dim]")
+        if status.status == ARTIFACT_STATUS_FAILED:
+            _exit_failed(out, f"Artifact {status.artifact_id} failed to snapshot")
+
+
+def _last_snapshot_status(client: SandboxClient, out: "Output", local_state: dict | None) -> SnapshotStatus | None:
+    """Status of the slot's last snapshot, if it still exists.
+
+    The slot only remembers the artifact id; the backend may since have
+    deleted the artifact (expiry, cleanup). That is worth a warning, not a
+    failed status command.
+    """
+    artifact_id = local_state.get("artifact_id") if local_state else None
+    if not artifact_id:
+        return None
+    try:
+        return SnapshotStatus.of(client.artifacts.get(str(artifact_id)))
+    except NotFoundError:
+        if not out.json_mode:
+            out.super_console.print(f"[yellow]Last snapshot {artifact_id} no longer exists on the backend[/yellow]")
+        return None
 
 
 # CHECKED
@@ -1160,13 +1381,15 @@ def sandbox_status(
                 }
 
         details = client.status(session_id=require(session_id, "session_id"))
-        all_details = {
-            "slot": slot,
-            "local": local_state,
-            "heartbeat": heartbeat,
-            "remote": details,
-        }
-        out.success(all_details, "Sandbox Status")
+
+        # The slot remembers the last snapshot's artifact id, but not whether
+        # the (asynchronous) snapshot has finished — ask the artifact endpoint.
+        snapshot = _last_snapshot_status(client, out, local_state)
+
+        out.success(
+            SandboxStatusReport(slot=slot, local=local_state, heartbeat=heartbeat, snapshot=snapshot, remote=details),
+            "Sandbox Status",
+        )
 
 
 # CHECKED

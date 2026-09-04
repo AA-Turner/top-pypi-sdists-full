@@ -113,6 +113,10 @@ private:
     // subgraphs without copying.
     std::unordered_map<UniqueId, UniqueId> _tensorToEquivalenceID;
 
+    // Maps variable names to equivalence ID. This is used to map persistent tensors to its variable, so they are
+    // allocated on the same address.
+    std::unordered_map<std::string, UniqueId> _variableNameToEquivalenceID;
+
     // Set of compiled graph UIDs. This is used to remember which graph that has been visited so we can know which
     // graphs should be passed through to CPU.
     std::unordered_set<UniqueId> _compiledGraphs;

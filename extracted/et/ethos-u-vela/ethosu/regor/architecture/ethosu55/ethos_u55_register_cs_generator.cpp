@@ -841,10 +841,14 @@ void EthosU55RCSGenerator::GenerateActivation(const HLCStripe *stripe, MemoryAcc
     auto clipRange = activation_clip_range::OFM_PRECISION;
     if ( ofm.quantization.quantMin.size() )
     {
+        if ( ofm.dataType == DataType::Int32 && ofm.quantization.quantMin[0] >= IntegerMin(DataType::Int16) )
+            clipRange = activation_clip_range::FORCE_INT16;  // Force clipping of int32 activation
         quantizedMin = std::max(quantizedMin, ofm.quantization.quantMin[0]);
     }
     if ( ofm.quantization.quantMax.size() )
     {
+        if ( ofm.dataType == DataType::Int32 && ofm.quantization.quantMax[0] <= int64_t(IntegerMax(DataType::UInt16)) )
+            clipRange = activation_clip_range::FORCE_INT16;  // Force clipping of int32 activation
         quantizedMax = std::min(quantizedMax, ofm.quantization.quantMax[0]);
     }
 
@@ -1629,27 +1633,25 @@ void EthosU55RCSGenerator::InsertMatMulCommand(const HLCStripe *stripe, Temporar
 // Generates NPU_OP_* command
 void EthosU55RCSGenerator::GenerateOperationCode(OpType opType)
 {
-    if ( IsDepthwise(opType) )
+    auto hwOp = ArchEthosU55::GetHWOp(opType);
+
+    if ( hwOp == EthosU55NpuOp::Depthwise )
     {
         Emit(isa::npu_op_depthwise_t());
     }
-    else if ( IsConvolution(opType) || IsVectorProduct(opType) )
+    else if ( hwOp == EthosU55NpuOp::Convolution )
     {
         Emit(isa::npu_op_conv_t());
     }
-    else if ( IsElementwise(opType) )
+    else if ( hwOp == EthosU55NpuOp::Elementwise )
     {
         const auto &item = s_ElementwiseMap.find(opType);
-        if ( item == s_ElementwiseMap.end() )
-        {
-            assert(false && "Unsupported elementwise operator");
-        }
-        else
+        if ( VERIFY(item != s_ElementwiseMap.end()) )
         {
             Emit(isa::npu_op_elementwise_t(item->second));
         }
     }
-    else if ( IsPooling(opType) || _arch->UseAvgPoolNop(opType) || opType == OpType::Rescale )
+    else if ( hwOp == EthosU55NpuOp::Pooling || hwOp == EthosU55NpuOp::ReduceSum )
     {
         Emit(isa::npu_op_pool_t(GetPoolingMode(opType)));
     }
@@ -1795,7 +1797,6 @@ void EthosU55RCSGenerator::GenerateElementwiseOp(const HLCStripe *stripe, Memory
         auto opToScale = GenerateScalingForElementwise(op, ifmIndex);
         GenerateCommon(stripe, useGlobalScale, opToScale, memoryAccesses, ifmIndex);
         int ifm2Index = 1 - ifmIndex;
-        assert(!stripe->stripeAreas.empty());
         const HLCFeatureMap &ifm2 = op->ifm.at(ifm2Index);
         bool isScalar = IsScalar(ifm2, scalarValue);
         GenerateIFM2(ifm2, stripe->stripeAreas[0].ifmAreas.at(ifm2Index), isScalar, scalarValue);
@@ -1818,7 +1819,7 @@ bool EthosU55RCSGenerator::GenerateStripe(const HLCStripe *stripe, const HLCStri
     {
         GeneratePoolingOp(stripe, memoryAccesses);
     }
-    else if ( npuOp == EthosU55NpuOp::Depthwise || npuOp == EthosU55NpuOp::Convolution || npuOp == EthosU55NpuOp::VectorProduct )
+    else if ( npuOp == EthosU55NpuOp::Depthwise || npuOp == EthosU55NpuOp::Convolution )
     {
         GenerateConvolutionOp(stripe, memoryAccesses);
     }

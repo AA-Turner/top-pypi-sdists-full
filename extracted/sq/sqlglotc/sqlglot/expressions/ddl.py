@@ -345,8 +345,8 @@ class MergeTreeTTL(Expression):
 
 class Drop(Expression):
     arg_types = {
-        "this": False,
         "kind": False,
+        "tables": False,
         "expressions": False,
         "exists": False,
         "temporary": False,

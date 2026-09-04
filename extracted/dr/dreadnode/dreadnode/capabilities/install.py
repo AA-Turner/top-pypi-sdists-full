@@ -188,6 +188,22 @@ class InstallReport:
     installed: list[str] = field(default_factory=list)
     cached: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
+    durations: dict[str, float] = field(default_factory=dict)
+    """Wall-clock seconds per step: ``packages.<cap>``, ``python``, ``scripts.<cap>``."""
+
+    def time_step(self, name: str) -> "t.ContextManager[None]":
+        return _timed(self, name)
+
+
+@contextlib.contextmanager
+def _timed(report: InstallReport, name: str) -> t.Iterator[None]:
+    started = time.perf_counter()
+    try:
+        yield
+    finally:
+        report.durations[name] = round(
+            report.durations.get(name, 0.0) + time.perf_counter() - started, 3
+        )
 
 
 def install_dependencies(
@@ -321,11 +337,10 @@ def _install_packages(
             )
             continue
         logger.info("Installing apt packages for '{}': {}", name, missing)
-        err = _run([*command_prefix, apt, "update"])
-        if err:
-            report.failed[name] = f"packages: {_label_failure(err)}"
-            continue
-        err = _run([*command_prefix, apt, "install", "-y", *missing])
+        with report.time_step(f"packages.{name}"):
+            err = _run([*command_prefix, apt, "update"])
+            if err is None:
+                err = _run([*command_prefix, apt, "install", "-y", *missing])
         if err:
             report.failed[name] = f"packages: {_label_failure(err)}"
 
@@ -366,7 +381,8 @@ def _install_python_combined(
         )
     else:
         logger.info("Installing python deps (combined across {} caps): {}", len(specs), union)
-        err = _run(cmd)
+        with report.time_step("python"):
+            err = _run(cmd)
     if err is None:
         return
 
@@ -389,7 +405,8 @@ def _install_scripts(
         for script in dep.scripts:
             script_path = path / script
             logger.info("Running install script for '{}': {}", name, script)
-            err = _run(["bash", str(script_path)], cwd=path)
+            with report.time_step(f"scripts.{name}"):
+                err = _run(["bash", str(script_path)], cwd=path)
             if err:
                 report.failed[name] = f"scripts/{script}: {_label_failure(err)}"
                 break

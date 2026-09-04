@@ -1,9 +1,11 @@
 """Root cyclopts App with top-level commands (tui, login, serve)."""
 
+import importlib
 import importlib.metadata
 import os
 import secrets
 import sys
+import threading
 import time
 import typing as t
 
@@ -14,25 +16,8 @@ import cyclopts
 from loguru import logger
 from rich.panel import Panel
 
-from dreadnode.app.cli.airt import cli as airt_cli
 from dreadnode.app.cli.args import RESUME_PICK_SENTINEL, PlatformArgs, TuiArgs
-from dreadnode.app.cli.capability import cli as capability_cli
-from dreadnode.app.cli.dataset import cli as dataset_cli
-from dreadnode.app.cli.environment import cli as environment_cli
-from dreadnode.app.cli.evaluation import cli as evaluation_cli
-from dreadnode.app.cli.inference_model import cli as inference_model_cli
-from dreadnode.app.cli.judge import cli as judge_cli
-from dreadnode.app.cli.model import cli as model_cli
-from dreadnode.app.cli.optimize import cli as optimize_cli
-from dreadnode.app.cli.runtime import cli as runtime_cli
-from dreadnode.app.cli.sandbox import cli as sandbox_cli
-from dreadnode.app.cli.secret import cli as secret_cli
-from dreadnode.app.cli.session import cli as session_cli
 from dreadnode.app.cli.shared import console, print_error, print_success
-from dreadnode.app.cli.task import cli as task_cli
-from dreadnode.app.cli.task_set import cli as task_set_cli
-from dreadnode.app.cli.train import cli as train_cli
-from dreadnode.app.cli.worlds import cli as worlds_cli
 from dreadnode.app.model_catalog import resolve_model
 from dreadnode.core.tls import format_tls_error
 
@@ -68,7 +53,55 @@ def _render_profile_context(profile: t.Any) -> str:
 # Root app
 # ---------------------------------------------------------------------------
 
-cli = cyclopts.App(
+
+class _LazyCommandApp(cyclopts.App):
+    """Root app that resolves subcommands from the tokens it is handed.
+
+    Subcommands import on demand (see ``_LAZY_COMMANDS`` below), so anything
+    reaching this object directly rather than through ``run()`` would otherwise
+    see only the commands defined in this module. That failure is silent:
+    cyclopts answers an unregistered command by printing the *root* help and
+    exiting 0, so the caller gets a plausible wrong answer instead of an error.
+
+    Preparing inside the entry points covers every caller rather than the two
+    that happen to be known today — the agent's ``dreadnode_cli`` tool calls
+    ``cli(tokens)``, tests call ``parse_args``, and the next one has not been
+    written yet. Registration is idempotent, so the repeat calls cyclopts makes
+    internally cost a set lookup.
+    """
+
+    @staticmethod
+    def _as_tokens(tokens: "None | str | t.Iterable[str]") -> list[str]:
+        if tokens is None:
+            return sys.argv[1:]
+        if isinstance(tokens, str):
+            return tokens.split()
+        return list(tokens)
+
+    def __call__(self, tokens: "None | str | t.Iterable[str]" = None, **kwargs: t.Any) -> t.Any:
+        _prepare_commands(self._as_tokens(tokens))
+        return super().__call__(tokens, **kwargs)
+
+    def parse_args(  # type: ignore[override]
+        self, tokens: "None | str | t.Iterable[str]" = None, **kwargs: t.Any
+    ) -> t.Any:
+        _prepare_commands(self._as_tokens(tokens))
+        return super().parse_args(tokens, **kwargs)
+
+    def parse_known_args(  # type: ignore[override]
+        self, tokens: "None | str | t.Iterable[str]" = None, **kwargs: t.Any
+    ) -> t.Any:
+        _prepare_commands(self._as_tokens(tokens))
+        return super().parse_known_args(tokens, **kwargs)
+
+    def parse_commands(  # type: ignore[override]
+        self, tokens: "None | str | t.Iterable[str]" = None, **kwargs: t.Any
+    ) -> t.Any:
+        _prepare_commands(self._as_tokens(tokens))
+        return super().parse_commands(tokens, **kwargs)
+
+
+cli = _LazyCommandApp(
     name="dreadnode",
     help="Dreadnode CLI — agent development and platform tooling.",
     version=_get_version_safe(),
@@ -85,23 +118,99 @@ cli["--install-completion"].group = "Meta"
 # Subcommands
 # ---------------------------------------------------------------------------
 
-cli.command(airt_cli)
-cli.command(capability_cli)
-cli.command(dataset_cli)
-cli.command(environment_cli, alias="env")
-cli.command(evaluation_cli)
-cli.command(inference_model_cli, alias="llm")
-cli.command(judge_cli)
-cli.command(model_cli)
-cli.command(optimize_cli)
-cli.command(runtime_cli)
-cli.command(sandbox_cli)
-cli.command(secret_cli)
-cli.command(session_cli)
-cli.command(task_cli)
-cli.command(task_set_cli)
-cli.command(train_cli)
-cli.command(worlds_cli)
+# Subcommands are imported when one is invoked, not when the CLI loads.
+#
+# Registering them eagerly meant every invocation paid for every command:
+# `dreadnode serve` imported the AIRT tree and, under it, pandas, pyarrow,
+# numpy and optuna, none of which a running runtime uses. That was the
+# majority of a runtime's cold start (ENG-8259).
+#
+# This is the same lazy-table shape the SDK already uses for its own
+# subpackages (`__lazy_submodules__` and friends in `dreadnode/__init__.py`);
+# cyclopts has no native support for deferred subcommands, so registration is
+# driven from the invoked token instead.
+#
+# Keys are the command name as it is typed. The value is the module holding
+# the sub-app and its alias, if it has one.
+_LAZY_COMMANDS: dict[str, tuple[str, str | None]] = {
+    "airt": ("dreadnode.app.cli.airt", None),
+    "capability": ("dreadnode.app.cli.capability", None),
+    "dataset": ("dreadnode.app.cli.dataset", None),
+    "environment": ("dreadnode.app.cli.environment", "env"),
+    "evaluation": ("dreadnode.app.cli.evaluation", None),
+    "inference-model": ("dreadnode.app.cli.inference_model", "llm"),
+    "judge": ("dreadnode.app.cli.judge", None),
+    "model": ("dreadnode.app.cli.model", None),
+    "optimize": ("dreadnode.app.cli.optimize", None),
+    "runtime": ("dreadnode.app.cli.runtime", None),
+    "sandbox": ("dreadnode.app.cli.sandbox", None),
+    "secret": ("dreadnode.app.cli.secret", None),
+    "session": ("dreadnode.app.cli.session", None),
+    "task": ("dreadnode.app.cli.task", None),
+    "task-set": ("dreadnode.app.cli.task_set", None),
+    "train": ("dreadnode.app.cli.train", None),
+    "worlds": ("dreadnode.app.cli.worlds", None),
+}
+
+_COMMAND_ALIASES: dict[str, str] = {
+    alias: name for name, (_, alias) in _LAZY_COMMANDS.items() if alias
+}
+
+_registered_commands: set[str] = set()
+# `dreadnode serve` hosts concurrent sessions and the agent's CLI tool is
+# dispatched with asyncio.to_thread, so two threads can reach the same
+# unregistered command at once. cyclopts raises CommandCollisionError on a
+# duplicate name, which would fail the second caller's invocation.
+_registration_lock = threading.Lock()
+
+
+def register_command(name: str) -> bool:
+    """Register one lazy subcommand, importing its module. True if it exists.
+
+    Idempotent, so a caller may register a command that is already present.
+    """
+    primary = _COMMAND_ALIASES.get(name, name)
+    entry = _LAZY_COMMANDS.get(primary)
+    if entry is None:
+        return False
+    if primary in _registered_commands:
+        return True
+    with _registration_lock:
+        # Re-check under the lock: another thread may have registered it while
+        # this one waited, and registering twice raises.
+        if primary not in _registered_commands:
+            module_path, alias = entry
+            subapp = importlib.import_module(module_path).cli
+            if alias:
+                cli.command(subapp, alias=alias)
+            else:
+                cli.command(subapp)
+            _registered_commands.add(primary)
+    return True
+
+
+def register_all_commands() -> None:
+    """Register every subcommand, importing all of them.
+
+    Needed whenever the whole command tree has to be visible at once: help,
+    shell completion, an unrecognised command that should be reported against
+    the full list, and tests that assert on the CLI surface.
+    """
+    for name in _LAZY_COMMANDS:
+        register_command(name)
+
+
+def _prepare_commands(tokens: t.Sequence[str]) -> None:
+    """Import whatever the invocation needs, and nothing else."""
+    for token in tokens:
+        if token.startswith("-"):
+            continue  # a flag before the command, e.g. `dreadnode --version`
+        if register_command(token):
+            return
+        if token in cli:
+            return  # defined here rather than in a subcommand module
+        break  # unknown: fall through so the error lists every command
+    register_all_commands()
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +224,7 @@ def _meta(
 ) -> None:
     try:
         console.print()
+        _prepare_commands(tokens)
         cli(tokens)
     except Exception as exc:
         if DEBUG:
@@ -645,6 +755,11 @@ def run(argv: list[str] | None = None) -> None:
     try:
         tokens = argv if argv is not None else sys.argv[1:]
         tokens = _rewrite_bare_resume(list(tokens))
+        # Before dispatch, not inside the meta handler: cyclopts answers
+        # `--help` and `--version` on the meta app itself and never runs the
+        # handler body, so registering there would leave the help listing
+        # showing only the commands defined in this module.
+        _prepare_commands(tokens)
         cli.meta(tokens)
     except SystemExit as exc:
         if exc.code not in (None, 0):

@@ -83,8 +83,8 @@ NPUOperation CreateNpuOperation(std::unique_ptr<SchedulerOperation> schedOp)
     return npuOp;
 }
 
-std::unique_ptr<SchedulerOperation>
-CreateSchedulerOperation(OpType opType, Kernel kernel, Shape ifmShape, Shape ofmShape, Point2i ifmStep, Point2i ofmStep)
+std::unique_ptr<SchedulerOperation> CreateSchedulerOperation(
+    OpType opType, Kernel kernel, const Shape &ifmShape, const Shape &ofmShape, Point2i ifmStep, Point2i ofmStep)
 {
     auto ifm = CreateSchedulerTensor("ifm", ifmShape, DataType::Int8);
     auto ofm = CreateSchedulerTensor("ofm", ofmShape, DataType::Int8);

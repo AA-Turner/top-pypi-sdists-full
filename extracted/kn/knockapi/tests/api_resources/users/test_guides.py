@@ -10,10 +10,8 @@ import pytest
 from knockapi import Knock, AsyncKnock
 from tests.utils import assert_matches_type
 from knockapi.types.users import (
+    GuideActionResponse,
     GuideGetChannelResponse,
-    GuideMarkMessageAsSeenResponse,
-    GuideMarkMessageAsArchivedResponse,
-    GuideMarkMessageAsInteractedResponse,
 )
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -85,47 +83,31 @@ class TestGuides:
     def test_method_mark_message_as_archived(self, client: Knock) -> None:
         guide = client.users.guides.mark_message_as_archived(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
         )
-        assert_matches_type(GuideMarkMessageAsArchivedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_method_mark_message_as_archived_with_all_params(self, client: Knock) -> None:
         guide = client.users.guides.mark_message_as_archived(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
-            content={
-                "body": "bar",
-                "title": "bar",
-            },
-            data={
-                "next_time": "bar",
-                "spots_left": "bar",
-                "tour_id": "bar",
-            },
             is_final=False,
-            metadata={
-                "cta": "bar",
-                "theme": "bar",
-                "type": "bar",
-            },
             tenant="ingen_isla_nublar",
+            unthrottled=False,
         )
-        assert_matches_type(GuideMarkMessageAsArchivedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_raw_response_mark_message_as_archived(self, client: Knock) -> None:
         response = client.users.guides.with_raw_response.mark_message_as_archived(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
@@ -135,13 +117,12 @@ class TestGuides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         guide = response.parse()
-        assert_matches_type(GuideMarkMessageAsArchivedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_streaming_response_mark_message_as_archived(self, client: Knock) -> None:
         with client.users.guides.with_streaming_response.mark_message_as_archived(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
@@ -151,7 +132,7 @@ class TestGuides:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             guide = response.parse()
-            assert_matches_type(GuideMarkMessageAsArchivedResponse, guide, path=["response"])
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -160,17 +141,6 @@ class TestGuides:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
             client.users.guides.with_raw_response.mark_message_as_archived(
                 user_id="",
-                message_id="message_id",
-                channel_id="123e4567-e89b-12d3-a456-426614174000",
-                guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
-                guide_key="tour_notification",
-                guide_step_ref="lab_tours",
-            )
-
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `message_id` but received ''"):
-            client.users.guides.with_raw_response.mark_message_as_archived(
-                user_id="user_id",
-                message_id="",
                 channel_id="123e4567-e89b-12d3-a456-426614174000",
                 guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
                 guide_key="tour_notification",
@@ -181,33 +151,21 @@ class TestGuides:
     def test_method_mark_message_as_interacted(self, client: Knock) -> None:
         guide = client.users.guides.mark_message_as_interacted(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
         )
-        assert_matches_type(GuideMarkMessageAsInteractedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_method_mark_message_as_interacted_with_all_params(self, client: Knock) -> None:
         guide = client.users.guides.mark_message_as_interacted(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
-            content={
-                "body": "bar",
-                "title": "bar",
-            },
-            data={
-                "next_time": "bar",
-                "spots_left": "bar",
-                "tour_id": "bar",
-            },
-            is_final=False,
             metadata={
                 "cta": "bar",
                 "theme": "bar",
@@ -215,13 +173,12 @@ class TestGuides:
             },
             tenant="ingen_isla_nublar",
         )
-        assert_matches_type(GuideMarkMessageAsInteractedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_raw_response_mark_message_as_interacted(self, client: Knock) -> None:
         response = client.users.guides.with_raw_response.mark_message_as_interacted(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
@@ -231,13 +188,12 @@ class TestGuides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         guide = response.parse()
-        assert_matches_type(GuideMarkMessageAsInteractedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_streaming_response_mark_message_as_interacted(self, client: Knock) -> None:
         with client.users.guides.with_streaming_response.mark_message_as_interacted(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
@@ -247,7 +203,7 @@ class TestGuides:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             guide = response.parse()
-            assert_matches_type(GuideMarkMessageAsInteractedResponse, guide, path=["response"])
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -256,17 +212,6 @@ class TestGuides:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
             client.users.guides.with_raw_response.mark_message_as_interacted(
                 user_id="",
-                message_id="message_id",
-                channel_id="123e4567-e89b-12d3-a456-426614174000",
-                guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
-                guide_key="tour_notification",
-                guide_step_ref="lab_tours",
-            )
-
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `message_id` but received ''"):
-            client.users.guides.with_raw_response.mark_message_as_interacted(
-                user_id="user_id",
-                message_id="",
                 channel_id="123e4567-e89b-12d3-a456-426614174000",
                 guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
                 guide_key="tour_notification",
@@ -277,48 +222,47 @@ class TestGuides:
     def test_method_mark_message_as_seen(self, client: Knock) -> None:
         guide = client.users.guides.mark_message_as_seen(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
+            content={
+                "body": "bar",
+                "title": "bar",
+            },
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
         )
-        assert_matches_type(GuideMarkMessageAsSeenResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_method_mark_message_as_seen_with_all_params(self, client: Knock) -> None:
         guide = client.users.guides.mark_message_as_seen(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
-            guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
-            guide_key="tour_notification",
-            guide_step_ref="lab_tours",
             content={
                 "body": "bar",
                 "title": "bar",
             },
+            guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
+            guide_key="tour_notification",
+            guide_step_ref="lab_tours",
             data={
                 "next_time": "bar",
                 "spots_left": "bar",
                 "tour_id": "bar",
             },
-            is_final=False,
-            metadata={
-                "cta": "bar",
-                "theme": "bar",
-                "type": "bar",
-            },
             tenant="ingen_isla_nublar",
         )
-        assert_matches_type(GuideMarkMessageAsSeenResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_raw_response_mark_message_as_seen(self, client: Knock) -> None:
         response = client.users.guides.with_raw_response.mark_message_as_seen(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
+            content={
+                "body": "bar",
+                "title": "bar",
+            },
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
@@ -327,14 +271,17 @@ class TestGuides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         guide = response.parse()
-        assert_matches_type(GuideMarkMessageAsSeenResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     def test_streaming_response_mark_message_as_seen(self, client: Knock) -> None:
         with client.users.guides.with_streaming_response.mark_message_as_seen(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
+            content={
+                "body": "bar",
+                "title": "bar",
+            },
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
@@ -343,7 +290,7 @@ class TestGuides:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             guide = response.parse()
-            assert_matches_type(GuideMarkMessageAsSeenResponse, guide, path=["response"])
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -352,21 +299,116 @@ class TestGuides:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
             client.users.guides.with_raw_response.mark_message_as_seen(
                 user_id="",
-                message_id="message_id",
                 channel_id="123e4567-e89b-12d3-a456-426614174000",
+                content={
+                    "body": "bar",
+                    "title": "bar",
+                },
                 guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
                 guide_key="tour_notification",
                 guide_step_ref="lab_tours",
             )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `message_id` but received ''"):
-            client.users.guides.with_raw_response.mark_message_as_seen(
-                user_id="user_id",
-                message_id="",
-                channel_id="123e4567-e89b-12d3-a456-426614174000",
-                guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
+    @parametrize
+    def test_method_reset_guide_engagements(self, client: Knock) -> None:
+        guide = client.users.guides.reset_guide_engagements(
+            user_id="user_id",
+            guide_key="tour_notification",
+        )
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    def test_method_reset_guide_engagements_with_all_params(self, client: Knock) -> None:
+        guide = client.users.guides.reset_guide_engagements(
+            user_id="user_id",
+            guide_key="tour_notification",
+            tenant="ingen_isla_nublar",
+        )
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    def test_raw_response_reset_guide_engagements(self, client: Knock) -> None:
+        response = client.users.guides.with_raw_response.reset_guide_engagements(
+            user_id="user_id",
+            guide_key="tour_notification",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        guide = response.parse()
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    def test_streaming_response_reset_guide_engagements(self, client: Knock) -> None:
+        with client.users.guides.with_streaming_response.reset_guide_engagements(
+            user_id="user_id",
+            guide_key="tour_notification",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            guide = response.parse()
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_reset_guide_engagements(self, client: Knock) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
+            client.users.guides.with_raw_response.reset_guide_engagements(
+                user_id="",
                 guide_key="tour_notification",
-                guide_step_ref="lab_tours",
+            )
+
+    @parametrize
+    def test_method_unarchive_guide_message(self, client: Knock) -> None:
+        guide = client.users.guides.unarchive_guide_message(
+            user_id="user_id",
+            guide_key="tour_notification",
+        )
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    def test_method_unarchive_guide_message_with_all_params(self, client: Knock) -> None:
+        guide = client.users.guides.unarchive_guide_message(
+            user_id="user_id",
+            guide_key="tour_notification",
+            tenant="ingen_isla_nublar",
+        )
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    def test_raw_response_unarchive_guide_message(self, client: Knock) -> None:
+        response = client.users.guides.with_raw_response.unarchive_guide_message(
+            user_id="user_id",
+            guide_key="tour_notification",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        guide = response.parse()
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    def test_streaming_response_unarchive_guide_message(self, client: Knock) -> None:
+        with client.users.guides.with_streaming_response.unarchive_guide_message(
+            user_id="user_id",
+            guide_key="tour_notification",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            guide = response.parse()
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_unarchive_guide_message(self, client: Knock) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
+            client.users.guides.with_raw_response.unarchive_guide_message(
+                user_id="",
+                guide_key="tour_notification",
             )
 
 
@@ -438,47 +480,31 @@ class TestAsyncGuides:
     async def test_method_mark_message_as_archived(self, async_client: AsyncKnock) -> None:
         guide = await async_client.users.guides.mark_message_as_archived(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
         )
-        assert_matches_type(GuideMarkMessageAsArchivedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_method_mark_message_as_archived_with_all_params(self, async_client: AsyncKnock) -> None:
         guide = await async_client.users.guides.mark_message_as_archived(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
-            content={
-                "body": "bar",
-                "title": "bar",
-            },
-            data={
-                "next_time": "bar",
-                "spots_left": "bar",
-                "tour_id": "bar",
-            },
             is_final=False,
-            metadata={
-                "cta": "bar",
-                "theme": "bar",
-                "type": "bar",
-            },
             tenant="ingen_isla_nublar",
+            unthrottled=False,
         )
-        assert_matches_type(GuideMarkMessageAsArchivedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_raw_response_mark_message_as_archived(self, async_client: AsyncKnock) -> None:
         response = await async_client.users.guides.with_raw_response.mark_message_as_archived(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
@@ -488,13 +514,12 @@ class TestAsyncGuides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         guide = await response.parse()
-        assert_matches_type(GuideMarkMessageAsArchivedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_streaming_response_mark_message_as_archived(self, async_client: AsyncKnock) -> None:
         async with async_client.users.guides.with_streaming_response.mark_message_as_archived(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
@@ -504,7 +529,7 @@ class TestAsyncGuides:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             guide = await response.parse()
-            assert_matches_type(GuideMarkMessageAsArchivedResponse, guide, path=["response"])
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -513,17 +538,6 @@ class TestAsyncGuides:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
             await async_client.users.guides.with_raw_response.mark_message_as_archived(
                 user_id="",
-                message_id="message_id",
-                channel_id="123e4567-e89b-12d3-a456-426614174000",
-                guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
-                guide_key="tour_notification",
-                guide_step_ref="lab_tours",
-            )
-
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `message_id` but received ''"):
-            await async_client.users.guides.with_raw_response.mark_message_as_archived(
-                user_id="user_id",
-                message_id="",
                 channel_id="123e4567-e89b-12d3-a456-426614174000",
                 guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
                 guide_key="tour_notification",
@@ -534,33 +548,21 @@ class TestAsyncGuides:
     async def test_method_mark_message_as_interacted(self, async_client: AsyncKnock) -> None:
         guide = await async_client.users.guides.mark_message_as_interacted(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
         )
-        assert_matches_type(GuideMarkMessageAsInteractedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_method_mark_message_as_interacted_with_all_params(self, async_client: AsyncKnock) -> None:
         guide = await async_client.users.guides.mark_message_as_interacted(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
-            content={
-                "body": "bar",
-                "title": "bar",
-            },
-            data={
-                "next_time": "bar",
-                "spots_left": "bar",
-                "tour_id": "bar",
-            },
-            is_final=False,
             metadata={
                 "cta": "bar",
                 "theme": "bar",
@@ -568,13 +570,12 @@ class TestAsyncGuides:
             },
             tenant="ingen_isla_nublar",
         )
-        assert_matches_type(GuideMarkMessageAsInteractedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_raw_response_mark_message_as_interacted(self, async_client: AsyncKnock) -> None:
         response = await async_client.users.guides.with_raw_response.mark_message_as_interacted(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
@@ -584,13 +585,12 @@ class TestAsyncGuides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         guide = await response.parse()
-        assert_matches_type(GuideMarkMessageAsInteractedResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_streaming_response_mark_message_as_interacted(self, async_client: AsyncKnock) -> None:
         async with async_client.users.guides.with_streaming_response.mark_message_as_interacted(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
@@ -600,7 +600,7 @@ class TestAsyncGuides:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             guide = await response.parse()
-            assert_matches_type(GuideMarkMessageAsInteractedResponse, guide, path=["response"])
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -609,17 +609,6 @@ class TestAsyncGuides:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
             await async_client.users.guides.with_raw_response.mark_message_as_interacted(
                 user_id="",
-                message_id="message_id",
-                channel_id="123e4567-e89b-12d3-a456-426614174000",
-                guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
-                guide_key="tour_notification",
-                guide_step_ref="lab_tours",
-            )
-
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `message_id` but received ''"):
-            await async_client.users.guides.with_raw_response.mark_message_as_interacted(
-                user_id="user_id",
-                message_id="",
                 channel_id="123e4567-e89b-12d3-a456-426614174000",
                 guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
                 guide_key="tour_notification",
@@ -630,48 +619,47 @@ class TestAsyncGuides:
     async def test_method_mark_message_as_seen(self, async_client: AsyncKnock) -> None:
         guide = await async_client.users.guides.mark_message_as_seen(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
+            content={
+                "body": "bar",
+                "title": "bar",
+            },
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
         )
-        assert_matches_type(GuideMarkMessageAsSeenResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_method_mark_message_as_seen_with_all_params(self, async_client: AsyncKnock) -> None:
         guide = await async_client.users.guides.mark_message_as_seen(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
-            guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
-            guide_key="tour_notification",
-            guide_step_ref="lab_tours",
             content={
                 "body": "bar",
                 "title": "bar",
             },
+            guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
+            guide_key="tour_notification",
+            guide_step_ref="lab_tours",
             data={
                 "next_time": "bar",
                 "spots_left": "bar",
                 "tour_id": "bar",
             },
-            is_final=False,
-            metadata={
-                "cta": "bar",
-                "theme": "bar",
-                "type": "bar",
-            },
             tenant="ingen_isla_nublar",
         )
-        assert_matches_type(GuideMarkMessageAsSeenResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_raw_response_mark_message_as_seen(self, async_client: AsyncKnock) -> None:
         response = await async_client.users.guides.with_raw_response.mark_message_as_seen(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
+            content={
+                "body": "bar",
+                "title": "bar",
+            },
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
@@ -680,14 +668,17 @@ class TestAsyncGuides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         guide = await response.parse()
-        assert_matches_type(GuideMarkMessageAsSeenResponse, guide, path=["response"])
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
 
     @parametrize
     async def test_streaming_response_mark_message_as_seen(self, async_client: AsyncKnock) -> None:
         async with async_client.users.guides.with_streaming_response.mark_message_as_seen(
             user_id="user_id",
-            message_id="message_id",
             channel_id="123e4567-e89b-12d3-a456-426614174000",
+            content={
+                "body": "bar",
+                "title": "bar",
+            },
             guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
             guide_key="tour_notification",
             guide_step_ref="lab_tours",
@@ -696,7 +687,7 @@ class TestAsyncGuides:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             guide = await response.parse()
-            assert_matches_type(GuideMarkMessageAsSeenResponse, guide, path=["response"])
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -705,19 +696,114 @@ class TestAsyncGuides:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
             await async_client.users.guides.with_raw_response.mark_message_as_seen(
                 user_id="",
-                message_id="message_id",
                 channel_id="123e4567-e89b-12d3-a456-426614174000",
+                content={
+                    "body": "bar",
+                    "title": "bar",
+                },
                 guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
                 guide_key="tour_notification",
                 guide_step_ref="lab_tours",
             )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `message_id` but received ''"):
-            await async_client.users.guides.with_raw_response.mark_message_as_seen(
-                user_id="user_id",
-                message_id="",
-                channel_id="123e4567-e89b-12d3-a456-426614174000",
-                guide_id="7e9dc78c-b3b1-4127-a54e-71f1899b831a",
+    @parametrize
+    async def test_method_reset_guide_engagements(self, async_client: AsyncKnock) -> None:
+        guide = await async_client.users.guides.reset_guide_engagements(
+            user_id="user_id",
+            guide_key="tour_notification",
+        )
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    async def test_method_reset_guide_engagements_with_all_params(self, async_client: AsyncKnock) -> None:
+        guide = await async_client.users.guides.reset_guide_engagements(
+            user_id="user_id",
+            guide_key="tour_notification",
+            tenant="ingen_isla_nublar",
+        )
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    async def test_raw_response_reset_guide_engagements(self, async_client: AsyncKnock) -> None:
+        response = await async_client.users.guides.with_raw_response.reset_guide_engagements(
+            user_id="user_id",
+            guide_key="tour_notification",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        guide = await response.parse()
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_reset_guide_engagements(self, async_client: AsyncKnock) -> None:
+        async with async_client.users.guides.with_streaming_response.reset_guide_engagements(
+            user_id="user_id",
+            guide_key="tour_notification",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            guide = await response.parse()
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_reset_guide_engagements(self, async_client: AsyncKnock) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
+            await async_client.users.guides.with_raw_response.reset_guide_engagements(
+                user_id="",
                 guide_key="tour_notification",
-                guide_step_ref="lab_tours",
+            )
+
+    @parametrize
+    async def test_method_unarchive_guide_message(self, async_client: AsyncKnock) -> None:
+        guide = await async_client.users.guides.unarchive_guide_message(
+            user_id="user_id",
+            guide_key="tour_notification",
+        )
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    async def test_method_unarchive_guide_message_with_all_params(self, async_client: AsyncKnock) -> None:
+        guide = await async_client.users.guides.unarchive_guide_message(
+            user_id="user_id",
+            guide_key="tour_notification",
+            tenant="ingen_isla_nublar",
+        )
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    async def test_raw_response_unarchive_guide_message(self, async_client: AsyncKnock) -> None:
+        response = await async_client.users.guides.with_raw_response.unarchive_guide_message(
+            user_id="user_id",
+            guide_key="tour_notification",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        guide = await response.parse()
+        assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_unarchive_guide_message(self, async_client: AsyncKnock) -> None:
+        async with async_client.users.guides.with_streaming_response.unarchive_guide_message(
+            user_id="user_id",
+            guide_key="tour_notification",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            guide = await response.parse()
+            assert_matches_type(GuideActionResponse, guide, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_unarchive_guide_message(self, async_client: AsyncKnock) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
+            await async_client.users.guides.with_raw_response.unarchive_guide_message(
+                user_id="",
+                guide_key="tour_notification",
             )

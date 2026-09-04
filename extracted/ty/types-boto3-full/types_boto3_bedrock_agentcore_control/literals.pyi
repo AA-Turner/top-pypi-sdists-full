@@ -42,6 +42,8 @@ __all__ = (
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
     "ConfigurationBundleStatusType",
+    "ConsentPortalSourceTypeType",
+    "ConsentPortalStatusType",
     "ContentLevelType",
     "ContentTypeType",
     "CredentialProviderTypeType",
@@ -88,6 +90,7 @@ __all__ = (
     "ListCodeInterpretersPaginatorName",
     "ListConfigurationBundleVersionsPaginatorName",
     "ListConfigurationBundlesPaginatorName",
+    "ListConsentPortalsPaginatorName",
     "ListDatasetExamplesPaginatorName",
     "ListDatasetVersionsPaginatorName",
     "ListDatasetsPaginatorName",
@@ -158,6 +161,7 @@ __all__ = (
     "ResourceServiceName",
     "ResourceTypeType",
     "RestApiMethodType",
+    "ResultDestinationType",
     "SchemaTypeType",
     "SearchTypeType",
     "SecretSourceTypeType",
@@ -210,6 +214,10 @@ CodeInterpreterStatusType = Literal[
 ]
 ConfigurationBundleStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
+ConsentPortalSourceTypeType = Literal["agentcore-gateway"]
+ConsentPortalStatusType = Literal[
+    "ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATE_FAILED", "UPDATING"
 ]
 ContentLevelType = Literal["FULL_CONTENT", "METADATA_ONLY"]
 ContentTypeType = Literal["MEMORY_RECORDS"]
@@ -320,6 +328,7 @@ ListCapacityProvidersPaginatorName = Literal["list_capacity_providers"]
 ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
 ListConfigurationBundleVersionsPaginatorName = Literal["list_configuration_bundle_versions"]
 ListConfigurationBundlesPaginatorName = Literal["list_configuration_bundles"]
+ListConsentPortalsPaginatorName = Literal["list_consent_portals"]
 ListDatasetExamplesPaginatorName = Literal["list_dataset_examples"]
 ListDatasetVersionsPaginatorName = Literal["list_dataset_versions"]
 ListDatasetsPaginatorName = Literal["list_datasets"]
@@ -429,6 +438,7 @@ RegistryStatusType = Literal[
 ]
 ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
 RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+ResultDestinationType = Literal["DEDICATED_LOG_GROUP", "SOURCE_LOG_GROUP"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
 SecretSourceTypeType = Literal["EXTERNAL", "MANAGED"]
@@ -914,6 +924,7 @@ PaginatorName = Literal[
     "list_code_interpreters",
     "list_configuration_bundle_versions",
     "list_configuration_bundles",
+    "list_consent_portals",
     "list_dataset_examples",
     "list_dataset_versions",
     "list_datasets",

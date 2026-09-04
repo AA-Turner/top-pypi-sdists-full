@@ -23,6 +23,7 @@ Usage::
         ListCodeInterpretersPaginator,
         ListConfigurationBundleVersionsPaginator,
         ListConfigurationBundlesPaginator,
+        ListConsentPortalsPaginator,
         ListDatasetExamplesPaginator,
         ListDatasetVersionsPaginator,
         ListDatasetsPaginator,
@@ -79,6 +80,7 @@ Usage::
     list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
     list_configuration_bundle_versions_paginator: ListConfigurationBundleVersionsPaginator = client.get_paginator("list_configuration_bundle_versions")
     list_configuration_bundles_paginator: ListConfigurationBundlesPaginator = client.get_paginator("list_configuration_bundles")
+    list_consent_portals_paginator: ListConsentPortalsPaginator = client.get_paginator("list_consent_portals")
     list_dataset_examples_paginator: ListDatasetExamplesPaginator = client.get_paginator("list_dataset_examples")
     list_dataset_versions_paginator: ListDatasetVersionsPaginator = client.get_paginator("list_dataset_versions")
     list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
@@ -122,6 +124,7 @@ from .paginator import (
     ListCodeInterpretersPaginator,
     ListConfigurationBundlesPaginator,
     ListConfigurationBundleVersionsPaginator,
+    ListConsentPortalsPaginator,
     ListDatasetExamplesPaginator,
     ListDatasetsPaginator,
     ListDatasetVersionsPaginator,
@@ -176,6 +179,7 @@ __all__ = (
     "ListCodeInterpretersPaginator",
     "ListConfigurationBundleVersionsPaginator",
     "ListConfigurationBundlesPaginator",
+    "ListConsentPortalsPaginator",
     "ListDatasetExamplesPaginator",
     "ListDatasetVersionsPaginator",
     "ListDatasetsPaginator",

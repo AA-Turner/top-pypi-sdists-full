@@ -2,9 +2,13 @@ from .client import AsyncBrowserUse, BrowserUse
 from .._core.errors import BrowserUseError
 
 from ..generated.v4.models import (
+    BrowserSessionItemView,
+    BrowserSessionStatus,
+    BrowserSessionView,
     CustomProxy,
     InlineSecretSource,
     Model as RunModel,
+    OnePasswordSecretSource,
     ProxyCountryCode,
     QueuedMessage,
     QueueListResponse,
@@ -57,9 +61,12 @@ __all__ = [
     "RunBrowserSettings",
     "RunJudgeSettings",
     "InlineSecretSource",
+    "OnePasswordSecretSource",
     "SecretBinding",
     "SecretBindings",
     # Session models
+    "BrowserSessionItemView",
+    "BrowserSessionView",
     "SessionInfo",
     "SessionListResponse",
     "QueueMessageRequest",
@@ -81,6 +88,7 @@ __all__ = [
     "RunModel",
     "QueuedMessageStatus",
     "RunAttachmentStatus",
+    "BrowserSessionStatus",
     "ProxyCountryCode",
     "CustomProxy",
 ]

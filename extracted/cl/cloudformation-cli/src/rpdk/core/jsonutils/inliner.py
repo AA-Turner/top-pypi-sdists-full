@@ -1,7 +1,11 @@
+# pylint: disable=import-error
 import logging
 from collections.abc import Iterable, Mapping
 
-from jsonschema import RefResolutionError, RefResolver
+from jsonschema import RefResolver  # pylint: disable=no-name-in-module
+from jsonschema.exceptions import (  # pylint: disable=no-name-in-module
+    RefResolutionError,
+)
 
 from .renamer import RefRenamer
 from .utils import BASE, rewrite_ref, traverse

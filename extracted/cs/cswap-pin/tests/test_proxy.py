@@ -8,6 +8,8 @@ inference (/v1/messages) and everything else must pass through untouched.
 from __future__ import annotations
 
 import json
+import socket
+import threading
 import types
 import os
 import pathlib
@@ -1717,6 +1719,7 @@ class TestLiveRemoteControlSessions:
         # Beside `_stop` for the same reason: `__init__` is bypassed, so the
         # loop's own wait needs naming here too.
         daemon._sweep_wake = threading.Event()
+        daemon._trace_tick_stop = threading.Event()
         daemon._accept_loop = lambda: None
         ticks: list[int] = []
         daemon.sweep_titles_once = lambda: ticks.append("titles")
@@ -1767,6 +1770,7 @@ class TestLiveRemoteControlSessions:
         daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
         daemon._stop = False
         daemon._sweep_wake = threading.Event()
+        daemon._trace_tick_stop = threading.Event()
         daemon._accept_loop = lambda: None
         ticks: list[str] = []
         daemon.sweep_titles_once = lambda: ticks.append("titles")
@@ -1795,6 +1799,188 @@ class TestLiveRemoteControlSessions:
         finally:
             daemon._stop = True
         assert "titles" in ticks and "carry" in ticks, ticks
+
+    def case_a_local_rename_wakes_the_sweep_before_the_beat(self, monkeypatch,
+                                                              tmp_path):
+        """A `/rename` waited up to `_TITLE_SWEEP_S` for claude.ai to catch
+        up -- measured 204s on one fleet host. The wait must end the moment
+        a live session's registry record changes name, not on the next
+        beat -- but ordinary session churn (another session starting or
+        exiting) must NOT wake it: that changes the KEY SET of
+        `live_bridge_names()`, not a name, and used to drive the beat to
+        `_RENAME_CHECK_S` on churn nothing asked for."""
+        import subprocess
+        import sys
+        import threading
+        from cswap_pin import proxy as pin_proxy
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._stop = False
+        daemon._sweep_wake = threading.Event()
+        daemon._trace_tick_stop = threading.Event()
+        daemon._accept_loop = lambda: None
+        ticks: list[str] = []
+        daemon.sweep_titles_once = lambda: ticks.append("titles")
+        daemon.sweep_policy_once = lambda: ticks.append("policy")
+        daemon.carry_live_pointers = lambda login: ticks.append("pointers")
+        daemon._carry_on_login_change = lambda: None
+        monkeypatch.setattr(pin_proxy.PinProxy, "_TITLE_SWEEP_S", 600.0)
+        monkeypatch.setattr(pin_proxy.PinProxy, "_TITLE_SWEEP_FIRST_S", 600.0)
+        # 1.0, not 0.5: with a 0.5s inner tick, 0.5 would satisfy the
+        # `waited % _RENAME_CHECK_S == 0` gate on EVERY tick, so it never
+        # actually exercises the gate. 1.0 needs two ticks.
+        monkeypatch.setattr(pin_proxy.PinProxy, "_RENAME_CHECK_S", 1.0)
+        monkeypatch.setattr(pin_proxy, "_login_identity",
+                            lambda: ("acct", "org"))
+
+        # THE REAL SIGNAL: a registry record `live_bridge_names()` itself
+        # reads, for a pid this process can prove alive to `_pid_alive`.
+        sessions = tmp_path / "claude-home" / "sessions"
+        sessions.mkdir(parents=True, exist_ok=True)
+        record = sessions / f"{os.getpid()}.json"
+        record.write_text(json.dumps(
+            {"pid": os.getpid(), "sessionId": "s", "bridgeSessionId": "cse_1",
+             "name": "dotfiles", "nameSource": "user"}))
+
+        # ANOTHER LIVE PID, so a second record is genuinely alive to
+        # `_pid_alive` and not just another file.
+        other = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(30)"])
+        try:
+            daemon._start_accept_loop()
+            try:
+                time.sleep(0.3)
+                assert ticks == [], f"swept before any rename: {ticks}"
+
+                # A SECOND SESSION APPEARS. The key SET of
+                # `live_bridge_names()` changes; no value under a key
+                # present before AND now does.
+                other_record = sessions / f"{other.pid}.json"
+                other_record.write_text(json.dumps(
+                    {"pid": other.pid, "sessionId": "s2",
+                     "bridgeSessionId": "cse_2", "name": "other",
+                     "nameSource": "user"}))
+                time.sleep(2.5)  # several `_RENAME_CHECK_S` gates
+                assert ticks == [], (
+                    "a session appearing woke the sweep before the beat: "
+                    f"{ticks}")
+
+                # THE RENAME. Nothing here calls the daemon; a real
+                # `/rename` only ever rewrites the record the sweep loop
+                # already reads.
+                record.write_text(json.dumps(
+                    {"pid": os.getpid(), "sessionId": "s",
+                     "bridgeSessionId": "cse_1", "name": "dotfiles_wmac",
+                     "nameSource": "user"}))
+                for _ in range(400):
+                    if "titles" in ticks:
+                        break
+                    time.sleep(0.01)
+            finally:
+                daemon._stop = True
+        finally:
+            other.kill()
+            other.wait()
+        assert "titles" in ticks, (
+            "a local rename did not wake the title sweep before the next "
+            "beat, so claude.ai stays wrong for up to _TITLE_SWEEP_S")
+
+    def case_the_trace_tick_no_longer_runs_on_the_title_sweep_thread(
+            self, monkeypatch):
+        """`_trace_tick` used to run ON `_title_sweep_loop`'s own thread, the
+        same one `_carry_on_login_change` runs on every 0.5s -- a parking
+        tick (a stalled trace-file open) froze the login-change repair for
+        as long as it parked. Reusing the gate's own measurement shape: park
+        the tick, and the login-change count must keep advancing anyway."""
+        import threading
+
+        from cswap_pin import proxy as pin_proxy
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._stop = False
+        daemon._sweep_wake = threading.Event()
+        daemon._trace_tick_stop = threading.Event()
+        daemon._accept_loop = lambda: None
+        parked = threading.Event()
+        daemon._trace_tick = lambda: parked.wait()
+        monkeypatch.setattr(pin_proxy.PinProxy, "_TITLE_SWEEP_S", 600.0)
+        monkeypatch.setattr(pin_proxy.PinProxy, "_TITLE_SWEEP_FIRST_S", 600.0)
+        monkeypatch.setattr(pin_proxy, "_login_identity",
+                            lambda: ("acct", "org"))
+        ticks: list[int] = []
+        daemon._carry_on_login_change = lambda: ticks.append(1)
+        daemon.sweep_titles_once = lambda: None
+        daemon.sweep_policy_once = lambda: None
+        daemon.carry_live_pointers = lambda login: None
+        daemon._freshen_pin_identity = lambda: None
+        try:
+            daemon._start_accept_loop()
+            for _ in range(400):
+                if len(ticks) >= 3:
+                    break
+                time.sleep(0.01)
+            assert len(ticks) >= 3, (
+                "the login-change beat stalled behind a parked trace tick")
+        finally:
+            daemon._stop = True
+            parked.set()
+
+    def case_the_trace_tick_survives_a_stop(self, tmp_path):
+        """`release_listener` sets `_stop` for the accept and title-sweep
+        threads to drain by -- but a draining process still relays the
+        connections it still holds, and those still write to the trace, so
+        the tick must not end with `_stop`. Gated on process exit only, the
+        way `_watch_own_code`'s watchdog thread ends."""
+        from cswap_pin import proxy as pin_proxy
+
+        proxy = pin_proxy.PinProxy(certdir=tmp_path,
+                                   pin_token_provider=lambda: None)
+        calls: list[int] = []
+        real = proxy._trace_tick
+
+        def _counted():
+            calls.append(1)
+            real()
+
+        proxy._trace_tick = _counted
+        proxy.start()
+        try:
+            for _ in range(400):
+                if calls:
+                    break
+                time.sleep(0.01)
+            assert calls, "the trace tick never ran at all"
+
+            proxy.release_listener()
+            assert proxy._stop is True
+
+            before = len(calls)
+            time.sleep(1.2)
+            assert len(calls) > before, (
+                "the trace tick stopped ticking once `_stop` was set")
+        finally:
+            proxy._stop = True
+
+    def case_the_trace_tick_joins_after_a_real_stop(self, tmp_path):
+        """`_trace_tick_loop` is a `while True:` thread nothing ended --
+        `stop()`/`release_listener()` never touched it, and it woke twice a
+        second forever. Measured: 130 of 169 live threads at suite end were
+        this one. The full `stop()` (past the drain, not `release_listener`
+        alone) must end it, and promptly -- within one `wait(0.5)` beat."""
+        from cswap_pin import proxy as pin_proxy
+
+        proxy = pin_proxy.PinProxy(certdir=tmp_path,
+                                   pin_token_provider=lambda: None)
+        proxy.start()
+        try:
+            thread = proxy._trace_tick_thread
+            assert thread.is_alive(), "the trace tick never started"
+        finally:
+            proxy.stop()
+
+        thread.join(timeout=2.0)
+        assert not thread.is_alive(), (
+            "the trace tick thread outlived a real stop() -- nothing ends it")
 
 
 class TestRepinIsLive:
@@ -4006,6 +4192,34 @@ class TestPinStore:
             "pin's own diagnostic goes OFF and says nothing")
         assert after.get("ui") == {"theme": "dark"}, "an outer section was lost"
         assert load_pin(tmp_path) == ("other@example.com", "org-uuid-2")
+
+    def case_a_clear_then_pin_leaves_the_bytes_unchanged(self, tmp_path):
+        """A clear followed by a pin writes the same bytes as the pin alone, pair first.
+
+        Clearing pops the pinned pair; pinning again re-assigns it — and a
+        pop-then-assign appends at the end, past a neighbour that was already
+        there. That is a JSON-equal rewrite that dirties every dotdrop-linked
+        settings.json on the fleet (debugSlowMs moved ahead of the pin).
+        """
+        from cswap_pin.proxy import require, save_pin
+        settings = require("settings")
+        path = settings.settings_path(tmp_path)
+
+        save_pin(tmp_path, "pin@example.com", "org-uuid-1")
+        raw = settings._read_raw(path)
+        raw["remoteControl"]["debugSlowMs"] = 1500
+        path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+        save_pin(tmp_path, "pin@example.com", "org-uuid-1")  # re-pin: keeps order
+        before = path.read_bytes()
+
+        save_pin(tmp_path, None, None)
+        save_pin(tmp_path, "pin@example.com", "org-uuid-1")
+
+        assert path.read_bytes() == before, (
+            "a clear+pin moved debugSlowMs ahead of the pinned pair — a "
+            "JSON-equal rewrite that dirties every dotdrop-linked "
+            "settings.json on the fleet")
 
     def case_CONTROL_clearing_still_removes_the_pin(self, tmp_path):
         """What stops the fix above from becoming "never remove anything". A
@@ -9328,6 +9542,84 @@ print("OK", port)
             f"the report does not name how many attempts failed: {said[0]!r}"
         )
 
+    def case_the_teardown_does_not_leave_the_standby_running(self, tmp_path):
+        """`stop()` returning must mean the whole lineage let go — standby
+        included, not just the daemon it stubs out here.
+
+        SAME SHAPE AS THE CASE ABOVE: a daemon spawn stubbed to die on every
+        attempt, with no backoff, so `stop()` runs moments after
+        `_spawn_standby()` placed a REAL standby subprocess. Measured before
+        the fix: `send_signal(SIGHUP)` returned without raising, `stop()`
+        returned, and the standby was still alive minutes later — the signal
+        can arrive before `standby_main` has installed its own handler, and a
+        release that only fires once has no way to notice it did not land.
+        That standby outlived the whole suite and, once its parent (this
+        process) finally exited, armed as an orphaned holder — still naming
+        `--standby` in argv, because it never re-exec'd.
+        """
+        import signal
+        import time
+
+        from cswap_pin.proxy import PortHolder, ensure_ca
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        holder = PortHolder(tmp_path, "1", "a@b.c")
+        spawns = []
+
+        def _fake_spawn():
+            spawns.append(1)
+            holder._proc = _ExitedProc(1)      # dies instantly, every time
+            holder.daemon_pid = 4000 + len(spawns)
+
+        holder._spawn = _fake_spawn
+        # NO BACKOFF — this is what narrows `stop()` onto the same race
+        # window `_spawn_standby()`'s child is still starting up in.
+        holder._backoff = lambda failures: 0.0
+        # SIGHUP IGNORED IN THIS PROCESS, BEFORE start() — `Popen`'s
+        # `restore_signals` only resets SIGPIPE/SIGXFZ/SIGXFSZ, so the
+        # standby inherits whatever disposition WE hold across its exec.
+        # The default pytest gives us here is SIG_DFL, under which an early
+        # HUP (one that lands before `standby_main` installs its own
+        # handler) just kills the child — masking a `stop()` that never
+        # confirms the release, because the standby is gone either way.
+        # SIG_IGN reproduces the real supervisor's disposition: that same
+        # early HUP is discarded, the standby lives on unreleased, and only
+        # a `stop()` that resends until confirmed dead can still pass.
+        old_hup = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        try:
+            holder.start()
+            try:
+                deadline = time.time() + 5
+                while time.time() < deadline and len(spawns) < 3:
+                    time.sleep(0.01)
+            finally:
+                holder.stop()
+        finally:
+            signal.signal(signal.SIGHUP, old_hup)
+
+        # /proc, not `ps` — `ps` truncates the command line to COLUMNS (80
+        # under pytest) and this certdir is long enough to fall past that,
+        # which would make every match here silently fail. See the sibling
+        # checks elsewhere in this file that hit the same trap.
+        survivors = []
+        for entry in pathlib.Path("/proc").glob("[0-9]*"):
+            try:
+                argv = (entry / "cmdline").read_bytes().replace(b"\0", b" ")
+            except OSError:
+                continue
+            cmd = argv.decode(errors="replace")
+            if "cswap_pin.proxy" in cmd and str(tmp_path) in cmd:
+                survivors.append(f"{entry.name} {cmd.strip()}")
+
+        from conftest import _reap_pin_processes
+        try:
+            assert not survivors, (
+                "stop() returned but left a pin process still running for "
+                f"this certdir, argv naming it as a standby: {survivors}"
+            )
+        finally:
+            _reap_pin_processes(tmp_path)
+
     def case_a_mark_that_cannot_be_cleared_is_not_reported_as_cleared(
         self, tmp_path
     ):
@@ -11238,6 +11530,46 @@ class TestTheDaemonWatchesItsOwnCode:
             squat.close()
             srv2.stop(drain=0)
 
+    def case_a_resumed_title_sweep_waits_its_beat_instead_of_spinning(
+        self, tmp_path
+    ):
+        """`release_listener` sets `_sweep_wake` and never clears it, so the
+        NEW title thread `_resume_serving`'s `start()` launches inherits an
+        ALREADY-SET event: its first `wait(0.5)` returns at once, the
+        `_TITLE_SWEEP_FIRST_S` budget burns to zero in microseconds, and
+        `sweep_titles_once` fires immediately after a resume instead of
+        after the first-pass beat.
+
+        `_list_bridges` is stubbed, unlike the neighbouring resume case
+        above -- the bug this proves is about the CLOCK the beat is
+        supposed to enforce, not the network call the clock gates, and an
+        assertion racing a real HTTPS request would not discriminate.
+        """
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = self._certdir(tmp_path)
+        calls: list[str] = []
+        srv = pin_proxy.PinProxy(certdir, lambda: "tok")
+        srv._list_bridges = lambda token: calls.append(token) or []
+        srv.start()
+        srv.release_listener()
+
+        assert pin_proxy._resume_serving(srv) is True
+        tt = srv._title_thread
+        try:
+            time.sleep(1.0)
+            assert calls == [], (
+                "a resumed title sweep spun to the wire instead of "
+                f"waiting its beat: {calls}")
+            assert not srv._sweep_wake.is_set(), (
+                "the resumed title thread's wake was already set, so its "
+                "wait is a no-op")
+        finally:
+            srv.stop(drain=0)
+        assert not tt.is_alive(), (
+            "the resumed title-sweep thread was still running after "
+            "stop()'s join budget, so nobody can join it again")
+
     def case_daemon_main_starts_the_watchdog(self):
         """The watchdog must be WIRED IN, not merely defined.
 
@@ -12254,32 +12586,18 @@ class TestABlindDaemonIsNotReusedForever:
     def case_a_marked_daemon_is_not_reused(self, tmp_path):
         import json
         import os
-        import socket
 
         from cswap_pin import proxy as pin_proxy
 
         certdir = tmp_path / "pin-proxy"
         certdir.mkdir(parents=True)
-        srv = socket.socket()
-        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        srv.bind(("127.0.0.1", 0))
-        # BACKLOG BIGGER THAN THE NUMBER OF PROBES, because nothing here ever
-        # calls accept(). `_read_alive_port` connects once per call and this
-        # case calls it twice, so every completed connection stays parked in
-        # the accept queue — and how many fit there is NOT the same on both
-        # platforms. Measured, same script, listen(1) and never accepting:
-        #
-        #   Linux 6.8.0    connect #1 OK   #2 OK        #3 TimeoutError
-        #   Darwin 24.6.0  connect #1 OK   #2 Timeout   #3 TimeoutError
-        #
-        # So Linux holds two and Darwin holds one, and the second probe below
-        # timed out there. `TimeoutError` is an `OSError`, which
-        # `_read_alive_port` catches and turns into None — so the assertion
-        # failed as `None == 51504` and read like a logic bug in the function
-        # under test rather than like scaffolding running out of room. This
-        # was the first failure the macOS CI job ever reported.
-        srv.listen(8)
-        port = srv.getsockname()[1]
+        # A REAL /health ANSWER, not a socket that merely accepts:
+        # `_serving_can_pin` now retries and treats repeated silence after
+        # connect as a wedge (see `TestAWedgeIsNotTrustedForever`), so a
+        # listener that never reads or writes is no longer a stand-in for
+        # "healthy" -- it is exactly the wedge that check exists to catch.
+        stub = _HealthStub(lambda n: _health_ok({"can_pin": True}))
+        port = stub.port
         state = certdir / "proxy.json"
         state.write_text(
             json.dumps({"port": port, "pid": os.getpid(), "fingerprint": "fp"})
@@ -12297,7 +12615,7 @@ class TestABlindDaemonIsNotReusedForever:
             # monitor asking "is anything there" must not be told no.
             assert pin_proxy._read_alive_port(certdir) == port
         finally:
-            srv.close()
+            stub.close()
 
     def case_marking_a_daemon_that_is_not_ours_does_nothing(self, tmp_path):
         import json
@@ -12312,6 +12630,327 @@ class TestABlindDaemonIsNotReusedForever:
         assert "unpinnable" not in json.loads(state.read_text()), (
             "one daemon marked another's record"
         )
+
+
+class _HealthStub:
+    """A raw TCP server speaking exactly the wire format `_serving_can_pin`
+    sends: one request line, then either a `\\r\\n\\r\\n`-terminated JSON
+    body it closes the connection after, or nothing at all.
+
+    ``script(n)`` is called once per accepted connection, ``n`` counting
+    from 1, and returns the bytes to write back -- or ``None`` to accept the
+    connection and never answer it: the wedge this whole fix exists to
+    catch. A silent connection is kept referenced (never closed) so nothing
+    garbage-collects it out from under a client still waiting on it.
+    """
+
+    def __init__(self, script):
+        self._script = script
+        self._sock = socket.socket()
+        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._sock.bind(("127.0.0.1", 0))
+        self._sock.listen(8)
+        self.port = self._sock.getsockname()[1]
+        self._n = 0
+        self._parked = []
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self):
+        while True:
+            try:
+                conn, _ = self._sock.accept()
+            except OSError:
+                return
+            self._n += 1
+            threading.Thread(
+                target=self._serve, args=(conn, self._n), daemon=True
+            ).start()
+
+    def _serve(self, conn, n):
+        try:
+            conn.recv(4096)
+            payload = self._script(n)
+            if payload is None:
+                self._parked.append(conn)
+                return
+            conn.sendall(payload)
+        except OSError:
+            return
+        finally:
+            if conn not in self._parked:
+                try:
+                    conn.close()
+                except OSError:
+                    pass
+
+    def close(self):
+        try:
+            self._sock.close()
+        except OSError:
+            pass
+        for conn in self._parked:
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+
+def _health_ok(body: dict) -> bytes:
+    payload = json.dumps(body).encode()
+    return (b"HTTP/1.1 200 OK\r\nContent-Length: "
+            + str(len(payload)).encode() + b"\r\n\r\n" + payload)
+
+
+class TestAWedgeIsNotTrustedForever:
+    """A daemon that ACCEPTS TCP but never answers `/health` is not the same
+    as a busy one -- `_serving_can_pin` used to answer both with `None`
+    ("it would not say"), which `_read_alive_port` and `heal`'s recycle gate
+    both read as healthy by policy. Measured on a Mac: `cswap pin --heal`
+    printed "Nothing to heal" twice against a trio that accepted TCP and
+    never answered, and the launcher kept re-wiring the wedged port.
+    """
+
+    def test_all(self, request, tmp_path_factory):
+        run_cases(self, request, tmp_path_factory)
+
+    def case_a_socket_that_accepts_and_never_answers_is_a_wedge(self):
+        from cswap_pin import proxy as pin_proxy
+
+        stub = _HealthStub(lambda n: None)
+        try:
+            t0 = time.monotonic()
+            result = pin_proxy._serving_can_pin(stub.port, timeout=0.2)
+            elapsed = time.monotonic() - t0
+            assert result is False, (
+                "a socket that accepts TCP and never answers must read as "
+                f"a wedge, not unknown: got {result!r}")
+            assert elapsed >= 0.2, (
+                f"gave up before even one full-timeout attempt: {elapsed:.2f}s")
+        finally:
+            stub.close()
+
+    def case_nobody_listening_is_unknown_not_a_wedge(self):
+        """A connect failure is a DIFFERENT population -- the caller's own
+        dead-port check already handles it -- and must answer at once
+        rather than retrying `_PIN_PROBE_ATTEMPTS` times for no reason."""
+        import socket
+
+        from cswap_pin import proxy as pin_proxy
+
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+        s.close()  # nothing is listening now
+
+        t0 = time.monotonic()
+        result = pin_proxy._serving_can_pin(port, timeout=1.0)
+        elapsed = time.monotonic() - t0
+        assert result is None, (
+            f"a refused connection was read as a wedge: {result!r}")
+        assert elapsed < 0.5, (
+            "retried a connect failure instead of answering at once: "
+            f"{elapsed:.2f}s")
+
+    def case_an_answer_on_a_later_attempt_is_not_a_wedge(self):
+        from cswap_pin import proxy as pin_proxy
+
+        def _script(n):
+            return None if n == 1 else _health_ok({"can_pin": True})
+
+        stub = _HealthStub(_script)
+        try:
+            result = pin_proxy._serving_can_pin(stub.port, timeout=0.3)
+            assert result is not False, (
+                "a daemon that answered on a later attempt was still "
+                f"called a wedge: {result!r}")
+        finally:
+            stub.close()
+
+    def case_a_mint_stalled_120s_is_treated_as_a_wedge(self):
+        from cswap_pin import proxy as pin_proxy
+
+        stub = _HealthStub(
+            lambda n: _health_ok({"can_pin": True, "mint_stalled_s": 120.0}))
+        try:
+            result = pin_proxy._serving_can_pin(stub.port, timeout=0.3)
+            assert result is False, (
+                "a mint stalled for 120s answered can_pin=true and was "
+                f"trusted: {result!r}")
+        finally:
+            stub.close()
+
+    def case_a_mint_stalled_5s_is_not_a_wedge(self):
+        from cswap_pin import proxy as pin_proxy
+
+        stub = _HealthStub(
+            lambda n: _health_ok({"can_pin": True, "mint_stalled_s": 5.0}))
+        try:
+            result = pin_proxy._serving_can_pin(stub.port, timeout=0.3)
+            assert result is not False, (
+                "a mint stalled for only 5s -- a refresh still in flight -- "
+                f"was already treated as a wedge: {result!r}")
+        finally:
+            stub.close()
+
+    def case_read_alive_port_refuses_a_same_fingerprint_wedge(
+            self, tmp_path):
+        from cswap_pin import proxy as pin_proxy
+
+        stub = _HealthStub(lambda n: None)
+        try:
+            certdir = tmp_path / "pin-proxy"
+            certdir.mkdir(parents=True)
+            (certdir / "proxy.json").write_text(json.dumps(
+                {"port": stub.port, "pid": os.getpid(), "fingerprint": "fp"}))
+            assert pin_proxy._read_alive_port(
+                certdir, fingerprint="fp") is None, (
+                "a daemon that accepts TCP and never answers /health was "
+                "reused")
+            # THE CONTROL. A bare liveness probe still finds it -- it IS
+            # serving, just not answering, and a monitor asking "is
+            # anything there" must not be told no.
+            assert pin_proxy._read_alive_port(certdir) == stub.port
+        finally:
+            stub.close()
+
+    def case_heal_recycles_a_same_fingerprint_wedge(
+            self, tmp_path, monkeypatch):
+        """`heal`'s recycle gate required a STALE fingerprint (the code
+        watchdog's own trigger), so a daemon running CURRENT code that has
+        simply wedged -- accepts TCP, answers nothing -- never matched:
+        `stale_fp != fp` reads False and the whole recycle branch is
+        skipped, forever. `_serving_can_pin` is stubbed straight to `False`
+        here because ITS behaviour is covered above; this case is about the
+        recycle gate, not socket timing.
+        """
+        from cswap_pin import proxy
+        import claude_swap.paths as paths
+
+        fp = proxy.daemon_fingerprint()
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(8)
+        port = srv.getsockname()[1]
+
+        def _accept_until_closed():
+            while True:
+                try:
+                    conn, _ = srv.accept()
+                except OSError:
+                    return
+                conn.close()
+        threading.Thread(target=_accept_until_closed, daemon=True).start()
+
+        monkeypatch.setattr(proxy, "_serving_can_pin", lambda *a, **k: False)
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        (certdir / "proxy.json").write_text(json.dumps(
+            {"pid": os.getpid(), "port": port, "fingerprint": fp}))
+        (certdir / "ca.pem").write_bytes(b"x")
+        (tmp_path / "settings.json").write_text(json.dumps(
+            {"remoteControl": {"pinnedEmail": "c@e.com"}}))
+        (tmp_path / "sequence.json").write_text(json.dumps(
+            {"accounts": {"1": {"email": "c@e.com"}}}))
+        cfg = tmp_path / ".claude.json"
+        cfg.write_text(json.dumps({
+            "env": {"CSWAP_PIN_PORT": str(port),
+                    "HTTPS_PROXY": f"http://127.0.0.1:{port}"},
+            "_cswapPinWiredKeys": ["HTTPS_PROXY", "CSWAP_PIN_PORT"],
+        }))
+        monkeypatch.setattr(paths, "get_global_config_path", lambda: cfg)
+        monkeypatch.setattr(
+            paths, "get_default_global_config_path", lambda: cfg)
+
+        kills = []
+        monkeypatch.setattr(
+            proxy, "_pin_daemon_pids", lambda cd: [os.getpid()])
+        monkeypatch.setattr(
+            proxy, "_kill_daemon",
+            lambda pid, certdir=None: kills.append(pid))
+        monkeypatch.setattr(
+            proxy, "_spawn_daemon", lambda n, e, c, **k: port + 1)
+        try:
+            result = proxy.heal(tmp_path)
+            assert kills == [os.getpid()], (
+                "heal left a wedged, current-code daemon in place instead "
+                f"of recycling it: kills={kills!r}")
+            assert result is True, (
+                "heal killed the wedge but did not report having repaired "
+                "it")
+        finally:
+            srv.close()
+
+
+class TestAnAnswerBeforeAResetIsStillAnAnswer:
+    """`_serve_health` sends the full body and closes with the request's
+    trailing header bytes still unread -- `_handle_client` (`_read_line`)
+    reads only the request line before dispatching to `_serve_health`, which
+    answers and `conn.close()`s with `Host: 127.0.0.1\\r\\n\\r\\n` still
+    sitting unread in the kernel's receive buffer. close(2) with unread
+    receive data emits RST, not FIN, so EVERY real daemon's `/health` ends
+    this way -- and `_serving_can_pin`'s `except OSError: continue` threw the
+    complete answer away, three times, then returned False.
+
+    Measured on a live production pin, port 36301: the full 200 OK with
+    `"can_pin": true` was received in full, then `ConnectionResetError(104)`,
+    and `_serving_can_pin` returned False -- which recycles a healthy daemon
+    on every launch, fleet-wide.
+    """
+
+    def test_all(self, request, tmp_path_factory):
+        run_cases(self, request, tmp_path_factory)
+
+    def case_a_real_daemons_health_answer_survives_its_own_reset(
+            self, tmp_path):
+        """The real `_serve_health` path, over a real socket, called exactly
+        the way `_serving_can_pin` calls it -- not a stub."""
+        from cswap_pin.proxy import PinProxy, ensure_ca, _serving_can_pin
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        ensure_ca(certdir, "api.anthropic.com")
+        proxy = PinProxy(certdir=certdir, pin_token_provider=lambda: "T")
+        proxy.start()
+        try:
+            result = _serving_can_pin(proxy.port, timeout=2.0)
+            assert result is True, (
+                "a real daemon's /health answer, discarded by its own "
+                f"trailing RST, was not trusted: got {result!r}")
+        finally:
+            proxy.stop(drain=0)
+
+    def case_a_full_answer_then_a_reset_is_trusted(self):
+        """A stub that writes the complete answer and then RESETS instead of
+        closing clean (SO_LINGER{1,0} forces RST on close) -- the same wire
+        shape a real daemon produces with its unread request bytes."""
+        import struct
+
+        from cswap_pin import proxy as pin_proxy
+
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(4)
+        port = srv.getsockname()[1]
+
+        def _serve():
+            conn, _ = srv.accept()
+            conn.recv(4096)
+            conn.sendall(_health_ok({"can_pin": True}))
+            conn.setsockopt(
+                socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+            conn.close()  # SO_LINGER{1,0} makes this send RST, not FIN
+
+        threading.Thread(target=_serve, daemon=True).start()
+        try:
+            result = pin_proxy._serving_can_pin(port, timeout=1.0)
+        finally:
+            srv.close()
+        assert result is True, (
+            f"an answer received before a reset was discarded: {result!r}")
 
 
 class TestClientRegistrationIsNotSwapped:
@@ -12505,17 +13144,16 @@ class TestHealReWiresAServingDaemon:
     def _fixture(self, tmp_path, monkeypatch, wired_port=None):
         """A serving daemon + a pin record. ``wired_port`` sets what the config
         claims (None = not wired at all)."""
-        import socket
-
         from cswap_pin import proxy
 
         certdir = tmp_path / "pin-proxy"
         certdir.mkdir(parents=True, exist_ok=True)
-        srv = socket.socket()
-        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        srv.bind(("127.0.0.1", 0))
-        srv.listen(4)
-        port = srv.getsockname()[1]
+        # A REAL /health ANSWER, not a socket that merely accepts:
+        # `_serving_can_pin` now retries and treats repeated silence after
+        # connect as a wedge (see `TestAWedgeIsNotTrustedForever`), and these
+        # cases are about a daemon that IS healthy and merely unwired.
+        srv = _HealthStub(lambda n: _health_ok({"can_pin": True}))
+        port = srv.port
         # The REAL fingerprint, not a literal. These tests are about a daemon
         # that is serving CURRENT code and merely unwired; a literal made it
         # indistinguishable from one running code we no longer ship, which heal
@@ -12897,17 +13535,17 @@ class TestAnUpgradeDoesNotWaitForALaunch:
 
     def _serving_daemon(self, tmp_path, monkeypatch, fingerprint):
         """A daemon serving under ``fingerprint``, with a pin record."""
-        import socket
-
         from cswap_pin import proxy
 
         certdir = tmp_path / "pin-proxy"
         certdir.mkdir(parents=True, exist_ok=True)
-        srv = socket.socket()
-        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        srv.bind(("127.0.0.1", 0))
-        srv.listen(4)
-        port = srv.getsockname()[1]
+        # A REAL /health ANSWER, not a socket that merely accepts:
+        # `_serving_can_pin` now retries and treats repeated silence after
+        # connect as a wedge (see `TestAWedgeIsNotTrustedForever`), and a
+        # daemon here is meant to read as genuinely serving -- staleness
+        # comes from `fingerprint`, not from silence.
+        srv = _HealthStub(lambda n: _health_ok({"can_pin": True}))
+        port = srv.port
         proxy.write_daemon_state(certdir, port, os.getpid(), fingerprint)
         (tmp_path / "settings.json").write_text(
             json.dumps(
@@ -16446,6 +17084,335 @@ class TestTheSweepWillNotCloseARunningWorker:
         assert deleted == ["cse_elsewhere"]
 
 
+class TestDeadCreatorBridgeIdsIsPositiveEvidenceOnly:
+    """`_dead_creator_bridge_ids` must never condemn by SUBTRACTION.
+
+    `_live_job_ids`/`_live_bridge_ids` read a session record that is
+    absent, unparseable, or answers a signal with anything but "no such
+    process" as dead -- fine as a negative guard, wrong as the sole gate on
+    a DELETE. This keeps its own record instead (a pid it stamps into the
+    job's own `state.json` while the job is live) and only ever calls a
+    bridge dead when THAT stamped pid raises `ProcessLookupError`
+    specifically. Every other shape -- absent, torn, unstamped, or any
+    other errno -- must resolve to KEEP.
+    """
+
+    def test_all(self, request, tmp_path_factory):
+        run_cases(self, request, tmp_path_factory)
+
+    def _home(self, tmp_path, monkeypatch):
+        home = tmp_path / "cfg"
+        (home / "sessions").mkdir(parents=True)
+        (home / "jobs").mkdir(parents=True)
+        monkeypatch.setattr("claude_swap.paths.get_claude_config_home",
+                            lambda: home)
+        return home
+
+    def _job(self, home, job_id, state):
+        d = home / "jobs" / job_id
+        d.mkdir(parents=True, exist_ok=True)
+        path = d / "state.json"
+        path.write_text(json.dumps(state))
+        # SEEDED 0600, the way Claude Code itself writes this file -- the
+        # mode assertion below is meaningless against a file that started
+        # at the umask's default.
+        path.chmod(0o600)
+
+    def _session(self, home, sid, pid, job_id):
+        (home / "sessions" / f"{sid}.json").write_text(
+            json.dumps({"pid": pid, "jobId": job_id}))
+
+    def case_a_live_record_and_a_live_pid_is_not_dead(self, tmp_path,
+                                                       monkeypatch):
+        """The ordinary case: stamped and read back in the same call, on a
+        pid this test process itself is (definitely alive)."""
+        import stat
+
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        self._session(home, "s1", os.getpid(), "j1")
+        self._job(home, "j1", {"bridgeSessionId": "cse_1"})
+        dead = pin_proxy._dead_creator_bridge_ids()
+        assert "cse_1" not in dead and "session_1" not in dead, dead
+        state_path = home / "jobs" / "j1" / "state.json"
+        stamped = json.loads(state_path.read_text())
+        assert stamped[pin_proxy._CREATOR_PID_KEY] == os.getpid(), (
+            "the stamp never landed even though the job was live")
+        mode = stat.S_IMODE(state_path.stat().st_mode)
+        assert mode == 0o600, (
+            f"the stamp widened Claude Code's own file to {oct(mode)} -- "
+            "it holds bridgeOwnerAccountUuid, resumeSessionId and the "
+            "session output tail")
+
+    def case_a_failed_stamp_leaves_no_temp_file_behind(self, tmp_path,
+                                                        monkeypatch):
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        self._session(home, "s7", os.getpid(), "j7")
+        self._job(home, "j7", {"bridgeSessionId": "cse_7"})
+
+        def _boom(self, target):
+            raise OSError("ENOSPC")
+
+        monkeypatch.setattr(pin_proxy.Path, "replace", _boom)
+        pin_proxy._dead_creator_bridge_ids()
+        leftovers = list((home / "jobs" / "j7").glob(".state.json.cswap-*"))
+        assert leftovers == [], (
+            f"a failed stamp left a temp file behind: {leftovers}")
+
+    def case_an_absent_session_record_with_a_live_stamped_pid_is_not_dead(
+            self, tmp_path, monkeypatch):
+        """No registry entry names this job any more (GC'd, or never
+        re-read) -- but an EARLIER call already stamped a pid that is still
+        alive, and that stamp is what must be trusted, not the absence."""
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        self._job(home, "j2", {"bridgeSessionId": "cse_2",
+                               pin_proxy._CREATOR_PID_KEY: os.getpid()})
+        dead = pin_proxy._dead_creator_bridge_ids()
+        assert "cse_2" not in dead and "session_2" not in dead, dead
+
+    def case_torn_json_is_not_dead(self, tmp_path, monkeypatch):
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        (home / "jobs" / "j3").mkdir(parents=True)
+        (home / "jobs" / "j3" / "state.json").write_text("{not json")
+        dead = pin_proxy._dead_creator_bridge_ids()
+        assert dead == set(), dead
+
+    def case_a_permission_error_on_kill_is_not_dead(self, tmp_path,
+                                                    monkeypatch):
+        """A reused pid now owned by someone else answers `os.kill` with
+        `PermissionError`, not `ProcessLookupError` -- ambiguous, and must
+        not be read as proof of death."""
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        self._job(home, "j4", {"bridgeSessionId": "cse_4",
+                               pin_proxy._CREATOR_PID_KEY: 424242})
+
+        def _kill(pid, sig):
+            if pid == 424242:
+                raise PermissionError()
+            raise ProcessLookupError()
+
+        monkeypatch.setattr(pin_proxy.os, "kill", _kill)
+        dead = pin_proxy._dead_creator_bridge_ids()
+        assert "cse_4" not in dead and "session_4" not in dead, dead
+
+    def case_a_recorded_creator_pid_with_process_lookup_error_is_dead(
+            self, tmp_path, monkeypatch):
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        self._job(home, "j5", {"bridgeSessionId": "cse_5",
+                               pin_proxy._CREATOR_PID_KEY: 999999})
+
+        def _kill(pid, sig):
+            if pid == 999999:
+                raise ProcessLookupError()
+            raise AssertionError(f"unexpected os.kill({pid}, {sig})")
+
+        monkeypatch.setattr(pin_proxy.os, "kill", _kill)
+        dead = pin_proxy._dead_creator_bridge_ids()
+        assert {"cse_5", "session_5"} & dead, dead
+
+    def case_a_job_record_without_a_creator_pid_is_not_dead(self, tmp_path,
+                                                            monkeypatch):
+        """Never stamped (no live session named this job this call, or
+        ever) -- unknown, not dead."""
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        self._job(home, "j6", {"bridgeSessionId": "cse_6"})
+        dead = pin_proxy._dead_creator_bridge_ids()
+        assert "cse_6" not in dead and "session_6" not in dead, dead
+
+    def case_a_removed_job_dir_is_still_dead_from_the_in_process_record(
+            self, tmp_path, monkeypatch):
+        """Claude Code deletes `jobs/<id>/` when it settles the job -- often
+        within seconds of the creator dying. Once that directory is gone the
+        stamp this function wrote is gone with it, but the pid was POSITIVE
+        evidence when it was recorded, and the pin must not forget that just
+        because the file it also wrote it to is gone."""
+        import shutil
+        import subprocess
+
+        from cswap_pin import proxy as pin_proxy
+
+        monkeypatch.setattr(pin_proxy, "_creator_pid_by_bridge", {},
+                           raising=False)
+        home = self._home(tmp_path, monkeypatch)
+        proc = subprocess.Popen(["sleep", "30"])
+        self._session(home, "s8", proc.pid, "j8")
+        self._job(home, "j8", {"bridgeSessionId": "cse_8"})
+        # STAMP while the creator is still alive -- the job dir exists and
+        # `_dead_creator_bridge_ids` writes the pid into it (and, after this
+        # fix, into its own in-process record too).
+        dead = pin_proxy._dead_creator_bridge_ids()
+        assert "cse_8" not in dead and "session_8" not in dead, dead
+
+        proc.terminate()
+        proc.wait()
+        # THE JOB DIRECTORY IS REMOVED, not merely left unstamped -- the
+        # settle CC performs after killing the creator.
+        shutil.rmtree(home / "jobs" / "j8")
+
+        dead = pin_proxy._dead_creator_bridge_ids()
+        assert {"cse_8", "session_8"} & dead, (
+            f"a bridge whose creator died was not named dead once its "
+            f"job record was removed: {dead}")
+
+    def case_a_concurrent_insert_during_the_fallback_loop_does_not_raise(
+            self, tmp_path, monkeypatch):
+        """The fallback loop over `_creator_pid_by_bridge` (line 4428) is
+        what a request-thread caller (`stamp=False`) runs when a bridge's
+        job record is already gone. The sweep thread inserts into that same
+        dict at line 4384 -- unserialized, on its own thread -- so a plain
+        `.items()` iteration here can see the dict change size mid-loop and
+        raise RuntimeError, which `_report_deaf_bridges`'s own try/except
+        then swallows as a dropped report cycle rather than a crash."""
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        monkeypatch.setattr(pin_proxy, "_creator_pid_by_bridge",
+                           {"cse_A": 111111, "cse_B": 222222}, raising=False)
+
+        def _kill(pid, sig):
+            if pid == 111111:
+                # THE SWEEP THREAD, landing mid-loop: a fresh stamp changes
+                # the dict's size while this loop is still iterating it.
+                pin_proxy._creator_pid_by_bridge["cse_C"] = 333333
+            raise ProcessLookupError()
+
+        monkeypatch.setattr(pin_proxy.os, "kill", _kill)
+        dead = pin_proxy._dead_creator_bridge_ids(stamp=False)
+        assert {"cse_A", "session_A"} & dead, dead
+
+class TestTheSweepClosesADeadCreatorsTwin:
+    """A twin THIS HOST minted, whose creating process has since died, is
+    closed even while merely `disconnected` -- Claude Code may never get
+    around to archiving a session nobody is left to reconnect. Only with
+    POSITIVE local evidence: a job record naming this bridge, tied to a pid
+    that used to back it and does not any more. "No process holds it" alone
+    is not enough -- a sleeping Mac's bridge looks identical from here, and
+    the sweep must never close that one.
+    """
+
+    def test_all(self, request, tmp_path_factory):
+        run_cases(self, request, tmp_path_factory)
+
+    def _daemon(self, sessions, deleted):
+        from cswap_pin import proxy as pin_proxy
+
+        d = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        d._list_bridges = lambda tok: sessions
+        d._listing_complete = True
+        d._restore_bridge_titles = lambda s, tok: None
+        d._bridge_api = lambda m, path, tok, **kw: (
+            deleted.append(path.rsplit("/", 1)[-1]) or {"ok": True}
+        )
+        return d
+
+    def _roster(self, victim_status, victim_connection_status):
+        """One local live bridge and one older twin of the same title.
+
+        The twin's `worker_status` is `running` -- the strongest possible
+        signal of life on the OLD path -- to prove the new path ignores it:
+        a disconnected bridge whose creator is dead here carries a stale
+        flag, and only the dead-creator record may say so.
+        """
+        return [
+            {"id": "cse_local_new", "title": "cswap", "status": "active",
+             "connection_status": "connected", "worker_status": "idle",
+             "last_event_at": "2026-01-02T00:00:00Z"},
+            {"id": "cse_dead_creator", "title": "cswap",
+             "status": victim_status,
+             "connection_status": victim_connection_status,
+             "worker_status": "running",
+             "last_event_at": "2026-01-01T00:00:00Z"},
+        ]
+
+    def case_a_dead_creators_disconnected_twin_is_closed(self, monkeypatch):
+        from cswap_pin import proxy as pin_proxy
+
+        monkeypatch.setattr(pin_proxy, "_live_bridge_ids",
+                            lambda: {"cse_local_new"})
+        monkeypatch.setattr(pin_proxy, "_dead_creator_bridge_ids",
+                            lambda: {"cse_dead_creator"})
+        deleted: list[str] = []
+        closed = self._daemon(
+            self._roster("active", "disconnected"), deleted
+        ).sweep_superseded_bridges("tok")
+        assert deleted == ["cse_dead_creator"], deleted
+        assert closed == 1
+
+    def case_an_archived_twin_is_history_not_a_duplicate(self, monkeypatch):
+        """CONTROL: the identical twin, only `archived` instead of `active`
+        -- the owner's claude.ai history, kept on purpose. The dead-creator
+        path must never reach for it, whatever the local record says."""
+        from cswap_pin import proxy as pin_proxy
+
+        monkeypatch.setattr(pin_proxy, "_live_bridge_ids",
+                            lambda: {"cse_local_new"})
+        monkeypatch.setattr(pin_proxy, "_dead_creator_bridge_ids",
+                            lambda: {"cse_dead_creator"})
+        deleted: list[str] = []
+        closed = self._daemon(
+            self._roster("archived", "disconnected"), deleted
+        ).sweep_superseded_bridges("tok")
+        assert deleted == [], (
+            "an archived twin was closed by the dead-creator path -- "
+            f"archived is history, never a duplicate: {deleted}")
+        assert closed == 0
+
+    def case_without_the_local_record_nothing_closes(self, monkeypatch):
+        """The sleeping-Mac case: no process here either, but nothing local
+        says WE created it, so it must be left alone."""
+        from cswap_pin import proxy as pin_proxy
+
+        monkeypatch.setattr(pin_proxy, "_live_bridge_ids",
+                            lambda: {"cse_local_new"})
+        monkeypatch.setattr(pin_proxy, "_dead_creator_bridge_ids",
+                            lambda: set())
+        deleted: list[str] = []
+        closed = self._daemon(
+            self._roster("active", "disconnected"), deleted
+        ).sweep_superseded_bridges("tok")
+        assert deleted == [], (
+            f"closed a bridge with no local record naming it: {deleted}")
+        assert closed == 0
+
+    def case_end_to_end_through_a_real_dead_creator_bridge_ids(
+            self, tmp_path, monkeypatch):
+        """The same shape as the first case, but `_dead_creator_bridge_ids`
+        runs FOR REAL against a fake `~/.claude/jobs/<j>/state.json` instead
+        of being stubbed out -- proves the sweep is wired to the real
+        function's return value, not just to a name that happens to match."""
+        from cswap_pin import proxy as pin_proxy
+
+        home = tmp_path / "cfg"
+        (home / "jobs" / "jdead").mkdir(parents=True)
+        (home / "jobs" / "jdead" / "state.json").write_text(json.dumps({
+            "bridgeSessionId": "cse_dead_creator",
+            pin_proxy._CREATOR_PID_KEY: 999999,  # not a real pid on this box
+        }))
+        monkeypatch.setattr("claude_swap.paths.get_claude_config_home",
+                            lambda: home)
+        monkeypatch.setattr(pin_proxy, "_live_bridge_ids",
+                            lambda: {"cse_local_new"})
+        deleted: list[str] = []
+        closed = self._daemon(
+            self._roster("active", "disconnected"), deleted
+        ).sweep_superseded_bridges("tok")
+        assert deleted == ["cse_dead_creator"], deleted
+        assert closed == 1
+
+
 #: THE LONGEST BYTE-FREE WAIT IN THE FLEET WATCHER'S CORPUS -- not the longest
 #: ever seen. A 140s sample was reported before the corpus file existed, which
 #: is why the watcher banks them: the daemon log rotates and loses them. Only
@@ -17282,7 +18249,7 @@ class TestADeferredRefreshIsCounted:
         monkeypatch.setattr(pin_proxy, "load_pin",
                             lambda root: ("a@example.com", "org"))
         monkeypatch.setattr(pin_proxy, "resolve_pin_token",
-                            lambda creds, consume: (None, consume(creds)))
+                            lambda creds, consume: (None, consume(creds).credentials))
         return pin_proxy.make_pin_token_provider(_Switcher(), "1",
                                                  "a@example.com")
 
@@ -18214,6 +19181,174 @@ class TestTheSpliceHoldsTheConfigLock:
             {"bridgeSessionId": "cse_OUT"}))
         assert pin_proxy.PinProxy.deaf_bridges(me, now=now) == ["cse_IN", "cse_OUT"]
 
+    def case_an_exited_sessions_shutdown_flush_is_not_a_deaf_bridge(
+            self, tmp_path, monkeypatch):
+        """A session that exited leaves its shutdown flush in
+        `_bridge_posts` and stays in the stale `_connected_bridges` set
+        until the next listing -- but nobody is coming back to open its
+        stream. `_dead_creator_bridge_ids` already knows this positively
+        (a job record's `cswapPinCreatorPid` raising `ProcessLookupError`);
+        `deaf_bridges` must consult it, the same way it already consults
+        `_outbound_only_bridge_ids`."""
+        import subprocess
+        import time as _time
+        import types as _t
+
+        from cswap_pin import proxy as pin_proxy
+
+        # A REAL DEAD PID -- a subprocess that exited and was waited, so
+        # the number belongs to no process at all, never a guess.
+        proc = subprocess.Popen(["true"])
+        proc.wait()
+        dead_pid = proc.pid
+
+        home = tmp_path / "cfg"
+        (home / "jobs" / "j_dead").mkdir(parents=True)
+        (home / "jobs" / "j_live").mkdir(parents=True)
+        (home / "jobs" / "j_nostamp").mkdir(parents=True)
+        (home / "jobs" / "j_dead" / "state.json").write_text(json.dumps(
+            {"bridgeSessionId": "cse_DEAD",
+             pin_proxy._CREATOR_PID_KEY: dead_pid}))
+        (home / "jobs" / "j_live" / "state.json").write_text(json.dumps(
+            {"bridgeSessionId": "cse_LIVE",
+             pin_proxy._CREATOR_PID_KEY: os.getpid()}))
+        (home / "jobs" / "j_nostamp" / "state.json").write_text(json.dumps(
+            {"bridgeSessionId": "cse_NOSTAMP"}))
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: home)
+        monkeypatch.setattr("claude_swap.paths.get_claude_config_home",
+                            lambda: home)
+
+        now = _time.monotonic()
+        me = _t.SimpleNamespace(
+            _bridge_posts={"cse_DEAD": now, "cse_LIVE": now,
+                          "cse_NOSTAMP": now},
+            held_bridge_ids=lambda: set(),
+            _connected_bridges={"cse_DEAD", "cse_LIVE", "cse_NOSTAMP"})
+        assert pin_proxy.PinProxy.deaf_bridges(me, now=now) == [
+            "cse_LIVE", "cse_NOSTAMP"], (
+            "an exited session's shutdown flush was reported deaf, or a "
+            "real one was hidden with it")
+
+    def case_a_dead_creators_removed_job_dir_is_still_not_a_deaf_bridge(
+            self, tmp_path, monkeypatch):
+        """The same shape as the case above, but Claude Code has already
+        removed `jobs/<id>/` by the time `deaf_bridges` runs -- the shape
+        measured in production, where the settle that deletes the job dir
+        lands about a second after the creator dies. Only the sweep's
+        earlier stamp (still in memory) can tell this from an ordinary
+        deaf bridge now."""
+        import shutil
+        import subprocess
+        import time as _time
+        import types as _t
+
+        from cswap_pin import proxy as pin_proxy
+
+        monkeypatch.setattr(pin_proxy, "_creator_pid_by_bridge", {},
+                           raising=False)
+        home = tmp_path / "cfg"
+        (home / "jobs" / "j_dead").mkdir(parents=True)
+        (home / "jobs" / "j_dead" / "state.json").write_text(json.dumps(
+            {"bridgeSessionId": "cse_DEAD"}))
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: home)
+        monkeypatch.setattr("claude_swap.paths.get_claude_config_home",
+                            lambda: home)
+
+        # THE SWEEP'S EARLIER PASS, while the creator and its job dir were
+        # both still there -- this is where the in-process record is born.
+        proc = subprocess.Popen(["sleep", "30"])
+        (home / "sessions").mkdir()
+        (home / "sessions" / "s1.json").write_text(json.dumps(
+            {"pid": proc.pid, "jobId": "j_dead"}))
+        pin_proxy._dead_creator_bridge_ids()
+
+        proc.terminate()
+        proc.wait()
+        shutil.rmtree(home / "jobs" / "j_dead")  # the settle CC runs on kill
+
+        now = _time.monotonic()
+        me = _t.SimpleNamespace(
+            _bridge_posts={"cse_DEAD": now},
+            held_bridge_ids=lambda: set(),
+            _connected_bridges={"cse_DEAD"})
+        assert pin_proxy.PinProxy.deaf_bridges(me, now=now) == [], (
+            "a dead creator's bridge was reported deaf once its job "
+            "directory was removed")
+
+    def case_deaf_bridges_never_stamps_from_the_request_thread(
+            self, tmp_path, monkeypatch):
+        """`deaf_bridges` runs on the request thread (`_report_deaf_bridges`
+        at every sweep-worthy request), where N unserialized callers sharing
+        the sweep's one tmp filename per process would tear a live job's
+        `state.json`. It must take `_dead_creator_bridge_ids`'s read-only
+        path (`stamp=False`) and never touch disk -- even when a live job's
+        record still needs its very first stamp."""
+        import subprocess
+        import time as _time
+        import types as _t
+
+        from cswap_pin import proxy as pin_proxy
+
+        proc = subprocess.Popen(["true"])
+        proc.wait()
+        dead_pid = proc.pid
+
+        home = tmp_path / "cfg"
+        (home / "jobs" / "j_dead").mkdir(parents=True)
+        (home / "jobs" / "j_live").mkdir(parents=True)
+        (home / "jobs" / "j_nostamp").mkdir(parents=True)
+        (home / "jobs" / "j_needstamp").mkdir(parents=True)
+        (home / "sessions").mkdir()
+        (home / "jobs" / "j_dead" / "state.json").write_text(json.dumps(
+            {"bridgeSessionId": "cse_DEAD",
+             pin_proxy._CREATOR_PID_KEY: dead_pid}))
+        (home / "jobs" / "j_live" / "state.json").write_text(json.dumps(
+            {"bridgeSessionId": "cse_LIVE",
+             pin_proxy._CREATOR_PID_KEY: os.getpid()}))
+        (home / "jobs" / "j_nostamp" / "state.json").write_text(json.dumps(
+            {"bridgeSessionId": "cse_NOSTAMP"}))
+        # NEEDS a stamp: its creator pid is live (a registry record names
+        # it below) but the record has no `cswapPinCreatorPid` yet -- the
+        # exact case the write pass exists for.
+        (home / "jobs" / "j_needstamp" / "state.json").write_text(json.dumps(
+            {"bridgeSessionId": "cse_NEEDSTAMP"}))
+        (home / "sessions" / "s1.json").write_text(json.dumps(
+            {"pid": os.getpid(), "jobId": "j_needstamp"}))
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: home)
+        monkeypatch.setattr("claude_swap.paths.get_claude_config_home",
+                            lambda: home)
+
+        job_dirs = ["j_dead", "j_live", "j_nostamp", "j_needstamp"]
+        before = {j: (home / "jobs" / j / "state.json").read_bytes()
+                  for j in job_dirs}
+
+        now = _time.monotonic()
+        me = _t.SimpleNamespace(
+            _bridge_posts={"cse_DEAD": now, "cse_LIVE": now,
+                          "cse_NOSTAMP": now, "cse_NEEDSTAMP": now},
+            held_bridge_ids=lambda: set(),
+            _connected_bridges={"cse_DEAD", "cse_LIVE", "cse_NOSTAMP",
+                                 "cse_NEEDSTAMP"})
+        assert pin_proxy.PinProxy.deaf_bridges(me, now=now) == [
+            "cse_LIVE", "cse_NEEDSTAMP", "cse_NOSTAMP"], (
+            "the verdict changed when the write pass was skipped")
+
+        for j in job_dirs:
+            after = (home / "jobs" / j / "state.json").read_bytes()
+            assert after == before[j], (
+                f"deaf_bridges wrote to {j}/state.json from the request "
+                "thread")
+            tmps = list((home / "jobs" / j).glob(".state.json.cswap-*"))
+            assert tmps == [], f"a stamp tmp file was left in {j}: {tmps}"
+
+        # CONTROL: the stamping path (the sweep's, at its default) DOES
+        # stamp the needy record on the same state.
+        pin_proxy._dead_creator_bridge_ids()
+        stamped = json.loads(
+            (home / "jobs" / "j_needstamp" / "state.json").read_text())
+        assert stamped.get(pin_proxy._CREATOR_PID_KEY) == os.getpid(), (
+            "the stamping path did not stamp a record that needed it")
+
     def case_the_carry_keeps_a_field_it_does_not_know(self, tmp_path, monkeypatch):
         """`bridgeSessionGroupingId` travels with the record whatever the pin
         does to the owner fields: the carry re-reads and rewrites the whole
@@ -18466,19 +19601,29 @@ class TestABlindHolderIsRetiredAndABlindDaemonIsNotReused:
         finally:
             srv.close()
 
-    def test_a_daemon_that_will_not_answer_reads_as_healthy(self, tmp_path):
-        """None is "it would not say", and must not recycle on every launch.
-
-        A busy daemon missing the deadline is the common case; refusing it
-        would spawn a successor per launch and cut in-flight requests each
-        time — the non-convergence this file already records.
+    def test_a_daemon_that_will_not_answer_at_all_is_a_wedge(self, tmp_path):
+        """A daemon missing ONE deadline is still healthy -- `_serving_can_pin`
+        retries `_PIN_PROBE_ATTEMPTS` times before giving up, which is what
+        keeps a merely busy daemon (a slow tick, the common case) from being
+        recycled on every launch and cutting in-flight requests. But silence
+        across EVERY attempt is no longer read as "it would not say" and
+        left alone forever: on 0.1.240 `/health` answers within milliseconds
+        even under a stalled mint, so repeated silence is the request
+        handler itself, not a busy credential store. See
+        `TestAWedgeIsNotTrustedForever` for `_serving_can_pin` in isolation
+        and for the case a later attempt DOES answer.
         """
         from cswap_pin import proxy as pin_proxy
 
         srv, port = self._health_server(None)      # accepts, answers nothing
         try:
             cd = self._record(tmp_path, port)
-            assert pin_proxy._read_alive_port(cd, fingerprint="FP") == port
+            assert pin_proxy._read_alive_port(cd, fingerprint="FP") is None, (
+                "a daemon that never answers /health was reused instead of "
+                "recycled")
+            # THE CONTROL. A bare liveness probe still finds it -- it IS
+            # serving, just not answering.
+            assert pin_proxy._read_alive_port(cd) == port
         finally:
             srv.close()
 
@@ -18757,6 +19902,55 @@ class TestABlindDaemonRepairsItself:
         bare `daemon_main`."""
         signalled, exited = self._drive(monkeypatch, tmp_path, None)
         assert signalled == [] and exited == []
+
+    def test_a_daemon_with_a_stalled_mint_is_not_recycled(self, monkeypatch,
+                                                           tmp_path):
+        """A stalled refresh lock is not a verdict either way, and recycling
+        here hands a successor the exact same stuck credential store
+        (measured: a Keychain read still hung after 2d19h) -- the loop that
+        recycled a daemon every few minutes while nothing it tried could
+        help. THE CONTROL is `test_a_daemon_that_cannot_mint_replaces_itself`
+        above: only a CONFIRMED failure to mint may still trigger a replace.
+        """
+        import json
+        import threading
+        import time
+
+        from cswap_pin import proxy as pin_proxy
+
+        expired = json.dumps({"claudeAiOauth": {
+            "accessToken": "dead", "expiresAt": 1, "refreshToken": "rt"}})
+
+        class _Stuck:
+            backup_dir = tmp_path
+            def current_account_number(self): return "1"
+            def read_account_credentials(self, n, e): return expired
+            def resolve_account(self, i): return ("2", "pin@example.com", "org")
+
+        pin_proxy.save_pin(tmp_path, "pin@example.com", "org")
+        provider = pin_proxy.make_pin_token_provider(
+            _Stuck(), "2", "pin@example.com")
+        event = threading.Event()
+
+        def _hold():
+            with provider.refresh_lock:
+                event.wait()  # never set within the test: stuck forever
+
+        holder = threading.Thread(target=_hold, daemon=True)
+        holder.start()
+        while not provider.refresh_lock.locked():
+            time.sleep(0.001)
+
+        said = []
+        monkeypatch.setattr(pin_proxy, "_log_lifecycle", said.append)
+        try:
+            signalled, exited = self._drive(monkeypatch, tmp_path, provider)
+        finally:
+            event.set()
+        assert signalled == [] and exited == [], (
+            "a daemon was recycled over a stalled lock, not a confirmed "
+            f"mint failure; signals seen: {signalled}, exits: {exited}")
+        assert any("refresh lock has been held" in m for m in said), said
 
     # -- the backoff -------------------------------------------------------
 

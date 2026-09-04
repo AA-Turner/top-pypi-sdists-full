@@ -26,7 +26,6 @@ import inspect
 import json
 import os
 import re
-import sys
 import tempfile
 import threading
 from concurrent import futures
@@ -51,6 +50,8 @@ from snowflake import snowpark
 from snowflake.snowpark.types import StructType
 from snowflake.snowpark_connect.analyze_plan.map_tree_string import map_tree_string
 from snowflake.snowpark_connect.config import (
+    DEFAULT_PYTHON_RECURSION_LIMIT,
+    apply_python_recursion_limit,
     is_native_app_mode,
     route_config_proto,
     set_java_udf_creator_initialized_state,
@@ -1826,7 +1827,7 @@ def start_session(
                        explicit ``"2.12"`` / ``"2.13"`` opts into Scala-version
                        filtering. Used by ``execute_jar``.
     """
-    sys.setrecursionlimit(3000)
+    apply_python_recursion_limit(DEFAULT_PYTHON_RECURSION_LIMIT)
     _current_stack_size = threading.stack_size()
     if _current_stack_size == _DEFAULT_THREAD_STACK_SIZE:
         threading.stack_size(_MIN_THREAD_STACK_SIZE)

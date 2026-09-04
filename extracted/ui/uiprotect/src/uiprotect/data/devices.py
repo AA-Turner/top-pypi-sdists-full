@@ -1534,6 +1534,12 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
+    def can_detect(self, smart_type: SmartDetectObjectType) -> bool:
+        """Whether the camera advertises ``smart_type`` (audio types via ``audio_type``)."""
+        if smart_type.audio_type is not None:
+            return self._can_detect_audio(smart_type)
+        return smart_type in self.feature_flags.smart_detect_types
+
     # region Object Smart Detections
 
     def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
@@ -2768,6 +2774,11 @@ class Camera(ProtectMotionDeviceModel):
         self._check_ptz_public_api()
         await self._api.ptz_patrol_stop_public(self.id)
 
+    async def set_name_public(self, name: str) -> None:
+        """Set camera name via public API."""
+        updated = await self._api.update_camera_public(self.id, name=name)
+        self.name = updated.name
+
     async def set_status_light_public(self, enabled: bool) -> None:
         """Set status LED via public API."""
         if not self.feature_flags.has_led_status:
@@ -3921,6 +3932,11 @@ class Chime(ProtectAdoptableDeviceModel):
                     setting.repeat_times = cast("RepeatTimes", value)
 
         await self.queue_update(callback)
+
+    async def set_name_public(self, name: str) -> None:
+        """Set chime name via public API."""
+        updated = await self._api.update_chime_public(self.id, name=name)
+        self.name = updated.name
 
     async def set_ring_settings_public(
         self,

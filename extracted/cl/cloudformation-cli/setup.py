@@ -42,7 +42,7 @@ setup(
         "Jinja2>=3.1.2",
         "markupsafe>=2.1.0",
         "jsonpatch",
-        "jsonschema>=3.0.0,<=4.17.3",
+        "jsonschema<=4.25",
         "pytest>=4.5.0",
         "pytest-random-order>=1.0.4",
         "pytest-localserver>=0.5.0",
@@ -57,6 +57,7 @@ setup(
         "cfn_flip>=1.2.3",
         "nested-lookup",
         "botocore>=1.31.17",
+        "importlib_resources>=5.0;python_version<'3.9'",
     ],
     entry_points={
         "console_scripts": ["cfn-cli = rpdk.core.cli:main", "cfn = rpdk.core.cli:main"]

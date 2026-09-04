@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: deadline-job-attachments
-Version: 0.1.3
+Version: 0.1.4
 Summary: Library that enables file transfers between workstations and AWS Deadline Cloud using Amazon S3 buckets as content-addressed storage.
 Project-URL: Homepage, https://github.com/aws-deadline/deadline-cloud-job-attachments
 Project-URL: Source, https://github.com/aws-deadline/deadline-cloud-job-attachments

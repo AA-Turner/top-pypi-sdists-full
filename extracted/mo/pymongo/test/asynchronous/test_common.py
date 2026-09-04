@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test the pymongo common module."""
+
 from __future__ import annotations
 
 import sys
@@ -20,13 +21,12 @@ import uuid
 
 sys.path[0:0] = [""]
 
-from test.asynchronous import AsyncIntegrationTest, async_client_context, connected, unittest
-
 from bson.binary import PYTHON_LEGACY, STANDARD, Binary, UuidRepresentation
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
 from pymongo.errors import OperationFailure
 from pymongo.write_concern import WriteConcern
+from test.asynchronous import AsyncIntegrationTest, async_client_context, connected, unittest
 
 _IS_SYNC = False
 
@@ -124,11 +124,11 @@ class TestCommon(AsyncIntegrationTest):
 
         db = c.pymongo_test
         self.assertEqual(wc, db.write_concern)
-        coll = db.test
+        coll = db.coll
         self.assertEqual(wc, coll.write_concern)
 
         cwc = WriteConcern(j=True)
-        coll = db.get_collection("test", write_concern=cwc)
+        coll = db.get_collection("coll", write_concern=cwc)
         self.assertEqual(cwc, coll.write_concern)
         self.assertEqual(wc, db.write_concern)
 
@@ -174,11 +174,12 @@ class TestCommon(AsyncIntegrationTest):
         self.assertFalse(direct != direct2)
 
     async def test_validate_boolean(self):
-        await self.db.test.update_one({}, {"$set": {"total": 1}}, upsert=True)
+        self.addAsyncCleanup(self.db.coll.drop)
+        await self.db.coll.update_one({}, {"$set": {"total": 1}}, upsert=True)
         with self.assertRaisesRegex(
             TypeError, "upsert must be True or False, was: upsert={'upsert': True}"
         ):
-            await self.db.test.update_one({}, {"$set": {"total": 1}}, {"upsert": True})  # type: ignore
+            await self.db.coll.update_one({}, {"$set": {"total": 1}}, {"upsert": True})  # type: ignore
 
 
 if __name__ == "__main__":

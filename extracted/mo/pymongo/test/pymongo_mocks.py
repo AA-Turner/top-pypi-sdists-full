@@ -13,12 +13,12 @@
 # limitations under the License.
 
 """Tools for mocking parts of PyMongo to test other parts."""
+
 from __future__ import annotations
 
 import contextlib
 import weakref
 from functools import partial
-from test import client_context
 
 from pymongo import MongoClient, common
 from pymongo.errors import AutoReconnect, NetworkTimeout
@@ -26,6 +26,7 @@ from pymongo.hello import Hello, HelloCompat
 from pymongo.server_description import ServerDescription
 from pymongo.synchronous.monitor import Monitor
 from pymongo.synchronous.pool import Pool
+from test import client_context
 
 _IS_SYNC = True
 
@@ -41,7 +42,7 @@ class MockPool(Pool):
         Pool.__init__(self, (client_context.host, client_context.port), *args, **kwargs)
 
     @contextlib.contextmanager
-    def checkout(self, handler=None):
+    def checkout(self, handler=None):  # type: ignore[override]
         client = self.client
         host_and_port = f"{self.mock_host}:{self.mock_port}"
         if host_and_port in client.mock_down_hosts:

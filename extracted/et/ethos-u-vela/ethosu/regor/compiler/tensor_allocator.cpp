@@ -154,6 +154,7 @@ void AllocateTensors(const std::vector<std::unique_ptr<SchedulerOperation>> &sch
         LOG_PRINT("Allocation, memory {}, usage mask: {}\n", memArea.memory->Name(), memArea.usage.ToString());
         PrintAllocation(lrGraph, totalSize);
     }
+    assert(totalSize <= std::numeric_limits<int>::max() && "Memory usage overflow");
     schedule->memoryUsage[memArea] = int(totalSize);
 }
 

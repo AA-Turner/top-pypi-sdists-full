@@ -379,7 +379,12 @@ class Workday(FlowComponent):
         if hasattr(self, "_mask") and self._mask:
             self._logger.info("Processing masks: %s", list(self._mask.keys()))
 
-            for attr in ("start_date", "end_date", "updated_from_date", "updated_to_date"):
+            for attr in (
+                "start_date", "end_date", "updated_from_date", "updated_to_date",
+                "applied_from_date", "applied_to_date",
+                "created_from_date", "created_to_date",
+                "application_date_from", "application_date_to",
+            ):
                 val = getattr(self, attr, None)
                 if val:
                     resolved = self.mask_replacement(val)

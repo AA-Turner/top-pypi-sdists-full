@@ -1,9 +1,13 @@
-from typing import Any, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.env import Env
+
 
 T = TypeVar("T", bound="SandboxForkRequest")
 
@@ -17,6 +21,9 @@ class SandboxForkRequest:
             target_name (str): Name of the target application to create or update Example: my-app.
             target_type (str): Target resource type to fork into Example: application.
             custom_domain (Union[Unset, str]): Custom domain for the application
+            envs (Union[Unset, list['Env']]): Environment variables the fork runs with, on top of the ones the source has. A
+                variable the source already carries takes this value in the fork, one it does not is added, and every other
+                variable of the source is kept.
             port (Union[Unset, int]): Port to expose from the sandbox Example: 8080.
             prefix (Union[Unset, str]): URL prefix for the application
             snapshot_id (Union[Unset, str]): Snapshot ID to fork from. When set, the application revision references this
@@ -28,6 +35,7 @@ class SandboxForkRequest:
     target_name: str
     target_type: str
     custom_domain: Union[Unset, str] = UNSET
+    envs: Union[Unset, list["Env"]] = UNSET
     port: Union[Unset, int] = UNSET
     prefix: Union[Unset, str] = UNSET
     snapshot_id: Union[Unset, str] = UNSET
@@ -35,11 +43,22 @@ class SandboxForkRequest:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+
         target_name = self.target_name
 
         target_type = self.target_type
 
         custom_domain = self.custom_domain
+
+        envs: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.envs, Unset):
+            envs = []
+            for envs_item_data in self.envs:
+                if type(envs_item_data) is dict:
+                    envs_item = envs_item_data
+                else:
+                    envs_item = envs_item_data.to_dict()
+                envs.append(envs_item)
 
         port = self.port
 
@@ -59,6 +78,8 @@ class SandboxForkRequest:
         )
         if custom_domain is not UNSET:
             field_dict["customDomain"] = custom_domain
+        if envs is not UNSET:
+            field_dict["envs"] = envs
         if port is not UNSET:
             field_dict["port"] = port
         if prefix is not UNSET:
@@ -72,6 +93,8 @@ class SandboxForkRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T | None:
+        from ..models.env import Env
+
         if not src_dict:
             return None
         d = src_dict.copy()
@@ -80,6 +103,13 @@ class SandboxForkRequest:
         target_type = d.pop("targetType") if "targetType" in d else d.pop("target_type")
 
         custom_domain = d.pop("customDomain", d.pop("custom_domain", UNSET))
+
+        envs = []
+        _envs = d.pop("envs", UNSET)
+        for envs_item_data in _envs or []:
+            envs_item = Env.from_dict(envs_item_data)
+
+            envs.append(envs_item)
 
         port = d.pop("port", UNSET)
 
@@ -93,6 +123,7 @@ class SandboxForkRequest:
             target_name=target_name,
             target_type=target_type,
             custom_domain=custom_domain,
+            envs=envs,
             port=port,
             prefix=prefix,
             snapshot_id=snapshot_id,

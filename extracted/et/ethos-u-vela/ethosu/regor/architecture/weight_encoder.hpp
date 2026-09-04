@@ -156,14 +156,14 @@ public:
 class WeightSourceCommon : public IVolumeWeightSource
 {
 protected:
-    const void *_source;
+    const void *_source = nullptr;
     int16_t _streams = 1;
     int16_t _streamIndex = 0;
     int _ofmDepth = 0;
     int _ifmDepth = 0;
     int _kernelH = 0;
     int _kernelW = 0;
-    int _ohwiStrides[4];  // Volume strides, inner-axis first.
+    int _ohwiStrides[4] = {};  // Volume strides, inner-axis first.
 
 protected:
     void SetSourceCommon(const void *buffer, int depthOffset, const Shape &ohwiShape, const Shape &ohwiStrides, int streamIndex, bool separated)

@@ -97,9 +97,12 @@ private:
     Operation *ConvertTanhSigmoidToLUT16(Operation *const op);
 
     // Rewrite functions
+    Operation *LowerVariables(Graph *const graph, Operation *const operation);
     Operation *SupportedOperatorChecks(Graph *const graph, Operation *const operation);
     Operation *ClampActivations(Graph *const graph, Operation *const operation);
     Operation *ConvertConvolutionGroup(Graph *const graph, Operation *const operation);
+    Operation *ConvertGeluToLUT(Graph *const graph, Operation *const operation);
+    Operation *ConvertEluToLUT(Graph *const graph, Operation *const operation);
     Operation *ConvertExpToLUT(Graph *const graph, Operation *const operation);
     Operation *ConvertLogToLUT(Graph *const graph, Operation *const operation);
     Operation *RewritePack(Graph *const graph, Operation *const operation);
@@ -114,6 +117,7 @@ private:
     Operation *ConvertReduceMinMaxAnyAll(Graph *const graph, Operation *const operation);
 
     // RewriteBatchMatMul must be called before rewrite of transpose
+    Operation *CreateTileOp(const TensorConnection *ifm, const Shape &ofmShape);
     Operation *CreateTransposeForMatMul(const std::shared_ptr<Tensor> &ifm, const Shape &ofmShape);
     Operation *RewriteBatchMatMul(Graph *const, Operation *const operation);
     Operation *RewriteSpaceToBatchConvBatchToSpace(Graph *const, Operation *const operation);
@@ -213,6 +217,7 @@ public:
                 // _supportedOperators->Check(newOp)
                 // before replacing a pattern with newOp
                 &TFLiteGraphOptimiser::RewriteSpaceToBatchConvBatchToSpace,
+                &TFLiteGraphOptimiser::LowerVariables,
             }
         },
         {
@@ -225,6 +230,7 @@ public:
             {},
             {
                 &TFLiteGraphOptimiser::ClampActivations,
+                &TFLiteGraphOptimiser::FixupBias,
                 &TFLiteGraphOptimiser::ConvertConvolutionGroup,
             }
         },
@@ -254,8 +260,9 @@ public:
             {},
             {
                 &TFLiteGraphOptimiser::FixupDilationGT2,
-                &TFLiteGraphOptimiser::FixupBias,
                 &TFLiteGraphOptimiser::ConvertReduceMinMaxAnyAll,
+                &TFLiteGraphOptimiser::ConvertGeluToLUT,
+                &TFLiteGraphOptimiser::ConvertEluToLUT,
                 &TFLiteGraphOptimiser::ConvertExpToLUT,
                 &TFLiteGraphOptimiser::ConvertLogToLUT,
                 &TFLiteGraphOptimiser::ConvertTanhSigmoidToLUT,

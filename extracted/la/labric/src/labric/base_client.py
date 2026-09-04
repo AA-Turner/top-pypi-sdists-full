@@ -13,6 +13,7 @@ from .environment import LabricEnvironment
 
 if typing.TYPE_CHECKING:
     from .agent.client import AgentClient, AsyncAgentClient
+    from .files.client import AsyncFilesClient, FilesClient
     from .jobs.client import AsyncJobsClient, JobsClient
     from .models.client import AsyncModelsClient, ModelsClient
     from .tools.client import AsyncToolsClient, ToolsClient
@@ -106,10 +107,19 @@ class BaseLabric:
             max_stream_reconnection_attempts=max_stream_reconnection_attempts,
             logging=logging,
         )
+        self._files: typing.Optional[FilesClient] = None
         self._agent: typing.Optional[AgentClient] = None
         self._jobs: typing.Optional[JobsClient] = None
         self._tools: typing.Optional[ToolsClient] = None
         self._models: typing.Optional[ModelsClient] = None
+
+    @property
+    def files(self):
+        if self._files is None:
+            from .files.client import FilesClient  # noqa: E402
+
+            self._files = FilesClient(client_wrapper=self._client_wrapper)
+        return self._files
 
     @property
     def agent(self):
@@ -253,10 +263,19 @@ class AsyncBaseLabric:
             max_stream_reconnection_attempts=max_stream_reconnection_attempts,
             logging=logging,
         )
+        self._files: typing.Optional[AsyncFilesClient] = None
         self._agent: typing.Optional[AsyncAgentClient] = None
         self._jobs: typing.Optional[AsyncJobsClient] = None
         self._tools: typing.Optional[AsyncToolsClient] = None
         self._models: typing.Optional[AsyncModelsClient] = None
+
+    @property
+    def files(self):
+        if self._files is None:
+            from .files.client import AsyncFilesClient  # noqa: E402
+
+            self._files = AsyncFilesClient(client_wrapper=self._client_wrapper)
+        return self._files
 
     @property
     def agent(self):

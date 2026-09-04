@@ -50,6 +50,7 @@ import cloup
 from wcwidth import wcswidth
 
 from . import context
+from .highlight import DEPRECATED_RE, highlight, style_choice_metavar
 from .parameters import (
     ExtraOption,
     full_short_help,
@@ -138,14 +139,24 @@ def _command_labels(
     if aliases:
         plain += f" ({', '.join(aliases)})"
         styled += " " + cloup.Group.format_subcommand_aliases(aliases, theme)
-    operands = " ".join(
-        param.make_metavar(ctx=ctx)
-        for param in command.params
-        if isinstance(param, click.Argument)
-    )
+    # Styled one operand at a time, so an argument enumerating what it accepts
+    # paints each value with the `choice` slot, like the help screen does. A
+    # single span over the whole run would draw them as one metavar.
+    operands: list[str] = []
+    drawn: list[str] = []
+    for param in command.params:
+        if not isinstance(param, click.Argument):
+            continue
+        metavar = param.make_metavar(ctx=ctx)
+        operands.append(metavar)
+        choices = getattr(param.type, "choices", None)
+        drawn.append(
+            (style_choice_metavar(metavar, choices, theme) if choices else None)
+            or theme.metavar(metavar)
+        )
     if operands:
-        plain += f" {operands}"
-        styled += " " + theme.metavar(operands)
+        plain += " " + " ".join(operands)
+        styled += " " + " ".join(drawn)
     return plain, styled
 
 
@@ -198,12 +209,12 @@ def render_command_tree(
     Each node carries the command name, its aliases, its operand metavars
     (mirroring the usage line) and a column-aligned description from
     {func}`~click_extra.parameters.full_short_help`, so deprecated commands
-    carry their `(Deprecated)` marker. Everything is styled with the same
+    carry Click's own `(DEPRECATED)` label. Everything is styled with the same
     theme slots as help screens (`invoked_command` for the root,
-    `subcommand` and `alias` for children, `metavar` for operands), so
-    the tree follows `--theme` and `--color`. The rail switches from
-    box-drawing to ASCII when accessibility mode is active on the context
-    (see {data}`~click_extra.context.ACCESSIBLE`).
+    `subcommand` and `alias` for children, `metavar` for operands,
+    `deprecated` for that label), so the tree follows `--theme` and `--color`.
+    The rail switches from box-drawing to ASCII when accessibility mode is
+    active on the context (see {data}`~click_extra.context.ACCESSIBLE`).
 
     Descriptions wrap at `width`, resolved like help screens when not given
     (`ctx.make_formatter()`, honoring the `terminal_width` and
@@ -261,6 +272,12 @@ def render_command_tree(
         line = rail + styled
         row_width = max(wcswidth(rail + plain), 0)
         wrapped = textwrap.wrap(help_text, width=desc_width) if help_text else []
+        # Painted after wrapping, so the escapes never count toward the column
+        # width, and a marker the wrap split across two lines keeps its own
+        # halves rather than gaining a stray escape in the middle.
+        wrapped = [
+            highlight(part, [DEPRECATED_RE], theme.deprecated) for part in wrapped
+        ]
         cont_pad = " " * (desc_column - max(wcswidth(cont), 0))
         if wrapped and row_width + COLUMN_GAP > desc_column:
             # Label wider than the description column: keep it on its own

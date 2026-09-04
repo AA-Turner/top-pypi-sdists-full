@@ -81,6 +81,7 @@ __all__ = (
     "RegistryRecordStatusType",
     "ResourceContentTypeType",
     "ResourceServiceName",
+    "ResultDestinationType",
     "RetrieveMemoryRecordsPaginatorName",
     "RoleType",
     "ScreenshotFormatType",
@@ -245,6 +246,7 @@ RegistryRecordStatusType = Literal[
     "APPROVED", "DEPRECATED", "DRAFT", "PENDING_APPROVAL", "REJECTED"
 ]
 ResourceContentTypeType = Literal["blob", "text"]
+ResultDestinationType = Literal["DEDICATED_LOG_GROUP", "SOURCE_LOG_GROUP"]
 RetrieveMemoryRecordsPaginatorName = Literal["retrieve_memory_records"]
 RoleType = Literal["ASSISTANT", "OTHER", "TOOL", "USER"]
 ScreenshotFormatType = Literal["PNG"]

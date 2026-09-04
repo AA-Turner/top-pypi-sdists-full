@@ -18,6 +18,13 @@ import icalendar
 from caldav.jmap.convert._utils import _format_local_dt, _timedelta_to_duration
 from caldav.lib import vcal
 
+# RFC 5545 STATUS -> RFC 8984 status; module-level constant (cf. _CLASS_MAP etc.)
+_STATUS_ICAL_TO_JSCAL = {
+    "CONFIRMED": "confirmed",
+    "TENTATIVE": "tentative",
+    "CANCELLED": "cancelled",
+}
+
 _CLASS_MAP = {
     "PRIVATE": "private",
     "CONFIDENTIAL": "secret",
@@ -68,11 +75,14 @@ def _dtstart_to_jscal(dtstart_prop) -> tuple[str, str | None, bool]:
     return dt.strftime("%Y-%m-%dT%H:%M:%S"), None, False
 
 
-def _rrule_to_jscal(rrule_prop) -> dict:
+def _rrule_to_jscal(rrule_prop, tzinfo=None) -> dict:
     """Convert an iCalendar RRULE property to a JSCalendar RecurrenceRule dict.
 
     Always emits @type, interval, rscale, skip, firstDayOfWeek to match the
     fields Cyrus returns — makes round-trip comparison predictable.
+
+    ``tzinfo`` is the event's timezone; ``until`` is a LocalDateTime in that
+    zone, so a UTC ``UNTIL`` off the wire has to be converted, not truncated.
     """
     rule: dict = {
         "@type": "RecurrenceRule",
@@ -97,7 +107,7 @@ def _rrule_to_jscal(rrule_prop) -> dict:
 
     until_list = rrule_prop.get("UNTIL", [])
     if until_list:
-        rule["until"] = _format_local_dt(until_list[0])
+        rule["until"] = _format_local_dt(until_list[0], tzinfo)
 
     byday_list = rrule_prop.get("BYDAY", [])
     if byday_list:
@@ -145,8 +155,10 @@ def _rrule_to_jscal(rrule_prop) -> dict:
     return rule
 
 
-def _exdate_to_overrides(exdate_prop) -> dict:
+def _exdate_to_overrides(exdate_prop, tzinfo=None) -> dict:
     """Convert an EXDATE property (single or list) to recurrenceOverrides entries.
+
+    ``tzinfo`` is the event's timezone — see :func:`_format_local_dt`.
 
     Returns:
         Dict mapping LocalDateTime/UTCDateTime string → {"excluded": True}
@@ -160,7 +172,7 @@ def _exdate_to_overrides(exdate_prop) -> dict:
         dts = getattr(ex, "dts", [ex])
         for dt_prop in dts:
             dt = getattr(dt_prop, "dt", dt_prop)
-            overrides[_format_local_dt(dt)] = {"excluded": True}
+            overrides[_format_local_dt(dt, tzinfo)] = {"excluded": True}
     return overrides
 
 
@@ -302,15 +314,13 @@ def ical_to_jscal(ical_str: str, calendar_id: str | None = None) -> dict:
 
     # Split subcomponents into master VEVENTs and override VEVENTs
     master: icalendar.Event | None = None
-    overrides_by_recurrence_id: dict[str, icalendar.Event] = {}
+    override_components: list[icalendar.Event] = []
 
     for component in cal.subcomponents:
         if not isinstance(component, icalendar.Event):
             continue
         if component.get("RECURRENCE-ID") is not None:
-            # Override instance — key by its recurrence-id datetime
-            rid = _format_local_dt(component["RECURRENCE-ID"].dt)
-            overrides_by_recurrence_id[rid] = component
+            override_components.append(component)
         elif master is None:
             master = component
 
@@ -322,6 +332,17 @@ def ical_to_jscal(ical_str: str, calendar_id: str | None = None) -> dict:
     title = str(summary) if summary else ""
     dtstart_prop = master["DTSTART"]
     start, time_zone, show_without_time = _dtstart_to_jscal(dtstart_prop)
+
+    ## The event's own timezone.  Every LocalDateTime slot below (RRULE
+    ## until, EXDATE keys, RECURRENCE-ID keys) is expressed in it, so it has
+    ## to be known before any of them can be formatted — which is why the
+    ## override keys cannot be built in the loop above.
+    event_tzinfo = getattr(getattr(dtstart_prop, "dt", None), "tzinfo", None)
+
+    overrides_by_recurrence_id: dict[str, icalendar.Event] = {
+        _format_local_dt(component["RECURRENCE-ID"].dt, event_tzinfo): component
+        for component in override_components
+    }
 
     if master.get("DURATION"):
         duration = _timedelta_to_duration(master["DURATION"].dt)
@@ -386,6 +407,12 @@ def ical_to_jscal(ical_str: str, calendar_id: str | None = None) -> dict:
     if location:
         jscal["locations"] = _location_str_to_jscal(str(location))
 
+    status = master.get("STATUS")
+    if status:
+        jscal_status = _STATUS_ICAL_TO_JSCAL.get(str(status).upper())
+        if jscal_status:
+            jscal["status"] = jscal_status
+
     participants: dict = {}
     organizer = master.get("ORGANIZER")
     if organizer is not None:
@@ -411,19 +438,19 @@ def ical_to_jscal(ical_str: str, calendar_id: str | None = None) -> dict:
     if rrules is not None:
         if not isinstance(rrules, list):
             rrules = [rrules]
-        jscal["recurrenceRules"] = [_rrule_to_jscal(r) for r in rrules]
+        jscal["recurrenceRules"] = [_rrule_to_jscal(r, event_tzinfo) for r in rrules]
 
     exrules = master.get("EXRULE")
     if exrules is not None:
         if not isinstance(exrules, list):
             exrules = [exrules]
-        jscal["excludedRecurrenceRules"] = [_rrule_to_jscal(r) for r in exrules]
+        jscal["excludedRecurrenceRules"] = [_rrule_to_jscal(r, event_tzinfo) for r in exrules]
 
     recurrence_overrides: dict = {}
 
     exdate = master.get("EXDATE")
     if exdate is not None:
-        recurrence_overrides.update(_exdate_to_overrides(exdate))
+        recurrence_overrides.update(_exdate_to_overrides(exdate, event_tzinfo))
 
     for rid_key, child in overrides_by_recurrence_id.items():
         # Build a patch: only fields that differ from the master

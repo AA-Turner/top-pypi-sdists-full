@@ -110,6 +110,13 @@ class TestPoliciesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_delete_policy_assignments(self) -> None:
+        """Test case for delete_policy_assignments
+
+        Remove Policy Assignments In View
+        """
+        pass
+
     def test_delete_policy_attestation_rule(self) -> None:
         """Test case for delete_policy_attestation_rule
 

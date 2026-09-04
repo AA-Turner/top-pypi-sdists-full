@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test the read_concern module."""
+
 from __future__ import annotations
 
 import sys
@@ -20,12 +21,11 @@ import unittest
 
 sys.path[0:0] = [""]
 
-from test.asynchronous import AsyncIntegrationTest, async_client_context
-from test.utils_shared import OvertCommandListener
-
 from bson.son import SON
 from pymongo.errors import OperationFailure
 from pymongo.read_concern import ReadConcern
+from test.asynchronous import AsyncIntegrationTest, async_client_context
+from test.utils_shared import OvertCommandListener
 
 _IS_SYNC = False
 
@@ -39,10 +39,11 @@ class TestReadConcern(AsyncIntegrationTest):
         self.listener = OvertCommandListener()
         self.client = await self.async_rs_or_single_client(event_listeners=[self.listener])
         self.db = self.client.pymongo_test
-        await async_client_context.client.pymongo_test.create_collection("coll")
+        await self.db.create_collection("coll")
+        self.listener.reset()
 
     async def asyncTearDown(self):
-        await async_client_context.client.pymongo_test.drop_collection("coll")
+        await self.db.drop_collection("coll")
 
     def test_read_concern(self):
         rc = ReadConcern()
@@ -111,11 +112,7 @@ class TestReadConcern(AsyncIntegrationTest):
             await coll.aggregate([{"$match": {"field": "value"}}, {"$out": "output_collection"}])
         ).to_list()
 
-        # Aggregate with $out supports readConcern MongoDB 4.2 onwards.
-        if async_client_context.version >= (4, 1):
-            self.assertIn("readConcern", self.listener.started_events[0].command)
-        else:
-            self.assertNotIn("readConcern", self.listener.started_events[0].command)
+        self.assertIn("readConcern", self.listener.started_events[0].command)
 
 
 if __name__ == "__main__":

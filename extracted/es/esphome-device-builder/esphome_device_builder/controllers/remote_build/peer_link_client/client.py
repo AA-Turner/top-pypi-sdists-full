@@ -19,15 +19,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import ipaddress
 import logging
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, Literal
 
 import aiohttp
 from yarl import URL
-from zeroconf import RecordUpdateListener, Zeroconf
-from zeroconf.const import _TYPE_A, _TYPE_AAAA
+from zeroconf import Zeroconf
 
 from ....helpers import json as _json
 from ....helpers.async_ import drain_tasks
@@ -60,6 +58,7 @@ from ..peer_link import (
     run_peer_link_heartbeat,
 )
 from . import _dispatch, _submit
+from ._wake import _mdns_record_name, _ReceiverWakeListener
 from .one_shot import (
     _DEFAULT_TIMEOUT_SECONDS,
     _drive_initiator_handshake_and_read_response,
@@ -131,32 +130,6 @@ _LOCAL_CLOSE_RECEIVER_REJECTED = "receiver_rejected"
 _LOCAL_CLOSE_PIN_MISMATCH = "pin_mismatch"
 
 
-def _mdns_record_name(hostname: str) -> str | None:
-    """Return the lowercase trailing-dot record name, or ``None`` for an IP."""
-    bare = hostname.rstrip(".")
-    with contextlib.suppress(ValueError):
-        ipaddress.ip_address(bare)
-        return None
-    return f"{bare.lower()}."
-
-
-class _ReceiverWakeListener(RecordUpdateListener):
-    """One-shot wake on an A/AAAA record for the receiver's hostname."""
-
-    def __init__(self, record_name: str, wake: asyncio.Event) -> None:
-        self._record_name = record_name
-        self._wake = wake
-
-    def async_update_records(self, zc: Zeroconf, now: float, records: list[Any]) -> None:
-        if self._wake.is_set():
-            return
-        for update in records:
-            new = update.new
-            if new.type in (_TYPE_A, _TYPE_AAAA) and new.name.lower() == self._record_name:
-                self._wake.set()
-                return
-
-
 class PeerLinkClient:
     """
     Long-lived offloader-side peer-link Noise WS session.
@@ -190,6 +163,7 @@ class PeerLinkClient:
         resolver: AbstractResolver | None = None,
         get_zeroconf: Callable[[], Zeroconf | None] | None = None,
         get_display_identity: Callable[[], tuple[str, bool]] | None = None,
+        get_connect_back_port: Callable[[], int | None] | None = None,
     ) -> None:
         self._hostname = receiver_hostname
         # Lazy reader for this offloader's own ``(friendly_name,
@@ -197,6 +171,9 @@ class PeerLinkClient:
         # can show a human name; lazy because the advertiser may
         # come up after the client spawns.
         self._get_display_identity = get_display_identity
+        # Lazy reader for our bound peer-link listener port; sent
+        # in msg3 as ``connect_back_port`` so the receiver can dial back.
+        self._get_connect_back_port = get_connect_back_port
         # mDNS fast-reconnect inputs: the shared zeroconf (``None``
         # getter or return skips the optimisation) and the A/AAAA
         # record name that signals the receiver came back (``None``
@@ -473,13 +450,19 @@ class PeerLinkClient:
                     if self._get_display_identity is not None
                     else ("", False)
                 )
-                msg3_payload = _json.dumps(
-                    {
-                        "dashboard_id": self._dashboard_id,
-                        "friendly_name": own_friendly,
-                        "ha_addon": own_ha_addon,
-                    }
+                msg3: dict[str, Any] = {
+                    "dashboard_id": self._dashboard_id,
+                    "friendly_name": own_friendly,
+                    "ha_addon": own_ha_addon,
+                }
+                connect_back_port = (
+                    self._get_connect_back_port()
+                    if self._get_connect_back_port is not None
+                    else None
                 )
+                if connect_back_port is not None:
+                    msg3["connect_back_port"] = connect_back_port
+                msg3_payload = _json.dumps(msg3)
                 response_ct = await _drive_initiator_handshake_and_read_response(
                     ws=ws,
                     sess=session,

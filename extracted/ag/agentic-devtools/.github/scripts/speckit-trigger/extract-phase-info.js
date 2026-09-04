@@ -6,7 +6,11 @@ const path = require('path');
 const SUPPORTED_LEVELS = new Set(['epic', 'feature', 'task']);
 const HIERARCHY_LEVEL_PATTERN = /^level:[ \t]*(?:"([^"]*)"|'([^']*)'|([^#\n]*?))(?:[ \t]+#.*)?[ \t]*$/;
 const CLOUD_MARKER_PATTERN = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=(\d+) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
+const CLOUD_AGENT_LOGINS = new Set(['copilot-swe-agent', 'copilot-swe-agent[bot]']);
 const TRUSTED_MARKER_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+function isCloudAgentLogin(login) {
+  return typeof login === 'string' && CLOUD_AGENT_LOGINS.has(login.toLowerCase());
+}
 function expectedCloudBaseRef(issueNumber, phase, hierarchyLevel) {
   if (phase === 2) {
     return `speckit/${issueNumber}/phase-1-specify`;
@@ -350,7 +354,7 @@ async function run({ github, context, core, workflowDispatchPhase, workflowDispa
   const labels = pr.labels.map(label => label.name);
   const cloudMarkerMatch = (pr.body || '').match(CLOUD_MARKER_PATTERN);
   let trustedCloudMarker = null;
-  if (cloudMarkerMatch && pr.user?.login === 'copilot-swe-agent[bot]') {
+  if (cloudMarkerMatch && isCloudAgentLogin(pr.user?.login)) {
     const markerIssue = parseInt(cloudMarkerMatch[1], 10);
     const markerPhase = parseInt(cloudMarkerMatch[2], 10);
     const markerHierarchy = String(cloudMarkerMatch[3] || '').toLowerCase();

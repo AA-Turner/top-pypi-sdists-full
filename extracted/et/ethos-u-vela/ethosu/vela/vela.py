@@ -838,6 +838,25 @@ def get_compiler_config(
     return config
 
 
+def warn_arena_cache_size_interaction(args, arch) -> None:
+    """Warn about --arena-cache-size interactions that are easy to misread."""
+    if args.arena_cache_size is None:
+        return
+    if args.optimise != scheduler.OptimizationStrategy.Size:
+        return
+
+    if arch.fast_storage_mem_area != arch.feature_map_storage_mem_area:
+        print(
+            "Warning: In Dedicated SRAM mode, --arena-cache-size remains the hard cache/staging limit even with "
+            "--optimise=Size. Setting it below the available SRAM may reduce feature-map staging and leave part of "
+            "the dedicated SRAM unused."
+        )
+    else:
+        print(
+            "Warning: For SRAM Only and Shared SRAM memory modes with --optimise=Size, --arena-cache-size is ignored."
+        )
+
+
 def get_format(in_data: mmap.mmap) -> str:
     """Infere format based on input file."""
     ret = "UNDEFINED"
@@ -1055,9 +1074,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=scheduler.OptimizationStrategy.Performance,
         choices=list(scheduler.OptimizationStrategy),
         help=(
-            "Set the optimisation strategy. The Size strategy results in minimal SRAM usage (does not use"
-            " arena-cache-size). The Performance strategy results in maximal performance (uses the arena-cache-size"
-            " if specified) (default: %(default)s)"
+            "Set the optimisation strategy. The Size strategy prioritises lower memory usage. The Performance"
+            " strategy prioritises inference speed and uses --arena-cache-size as a memory target for performance"
+            " optimisations, if specified (default: %(default)s)"
         ),
     )
     parser.add_argument(
@@ -1065,7 +1084,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         type=int,
         help=(
             "Set the size of the arena cache memory area, in bytes. If specified, this option overrides the memory"
-            " mode attribute with the same name in a Vela configuration file"
+            " mode attribute with the same name in a Vela configuration file. Its exact behaviour depends on the"
+            " optimisation strategy specified by --optimise and the selected memory mode."
         ),
     )
     parser.add_argument(
@@ -1225,6 +1245,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         verbose_config=args.verbose_config,
         arena_cache_size=args.arena_cache_size,
     )
+    warn_arena_cache_size_interaction(args, arch)
 
     model_reader_options = model_reader.ModelReaderOptions()
 

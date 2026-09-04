@@ -106,8 +106,10 @@ from snowflake.snowpark_connect.relation.iceberg_branch_ddl import (
 )
 from snowflake.snowpark_connect.relation.iceberg_branch_dml import (
     IcebergRefDmlTarget,
+    _validate_iceberg_branch_name,
     relation_identifier_parts,
     resolve_iceberg_ref_dml_target_from_parts,
+    snowflake_fast_forward_sql,
     snowpark_table_for_ref_dml,
 )
 from snowflake.snowpark_connect.relation.iceberg_sql_branch_tag_suffix import (
@@ -182,6 +184,7 @@ from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_sessi
 from snowflake.snowpark_connect.utils.sql_quoting import escape_sql_comment
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
+    iceberg_wap_unsupported_proc_detail,
     telemetry,
 )
 from snowflake.snowpark_connect.utils.udf_helper import (
@@ -630,21 +633,32 @@ def _parts_to_snowflake(parts: list[str]) -> str:
     return _multipart_parts_to_snowflake(parts)
 
 
-def _resolve_sql_dml_target(name_obj, *, is_multi_part: bool) -> IcebergRefDmlTarget:
+def _resolve_sql_dml_target(
+    name_obj, *, is_multi_part: bool, dml_op: str | None = None
+) -> IcebergRefDmlTarget:
     parts = relation_identifier_parts(name_obj, is_multi_part=is_multi_part)
     spark_table = ".".join(parts)
     return resolve_iceberg_ref_dml_target_from_parts(
         parts,
         spark_table_name=spark_table,
         parts_to_snowflake_fn=_parts_to_snowflake,
+        dml_op=dml_op,
     )
+
+
+def _dml_target_from_relation(
+    target_rel, *, dml_op: str | None = None
+) -> IcebergRefDmlTarget:
+    """Resolve branch DML targets, unwrapping table aliases (e.g. ``UPDATE t AS alias``)."""
+    rel = target_rel
+    while rel.getClass().getSimpleName() != "UnresolvedRelation":
+        rel = rel.child()
+    return _resolve_sql_dml_target(rel, is_multi_part=True, dml_op=dml_op)
 
 
 def _merge_dml_target(target_rel) -> IcebergRefDmlTarget:
     """Resolve MERGE target identifiers via the same parts-based path as other DML."""
-    if target_rel.getClass().getSimpleName() == "UnresolvedRelation":
-        return _resolve_sql_dml_target(target_rel, is_multi_part=True)
-    return _resolve_sql_dml_target(target_rel.child(), is_multi_part=True)
+    return _dml_target_from_relation(target_rel, dml_op="merge")
 
 
 def _iceberg_call_literal_value(expr: object) -> object:
@@ -772,27 +786,76 @@ def _ancestors_of_cld_unsupported(table_name: str) -> AnalysisException:
     )
 
 
-def _resolve_ancestors_of_procedure(proc_name_parts: list[str]) -> None:
-    """Validate that a parsed CALL targets the Iceberg `system.ancestors_of`
-    procedure.     A `CallStatement` node is only produced by the Iceberg SQL
-    extension parser (core Spark SQL has no CALL), but the same node shape is
-    reused for any procedure namespace, so gate on the Iceberg `system`
-    namespace and the trailing procedure name. Iceberg only allows
-    `[catalog.]system.<proc>`, so require `system` to be the *immediate* parent
-    rather than merely present (rejects e.g. `system.evil.ancestors_of`).
-    Anything else raises `SnowparkConnectNotImplementedError` (only
-    `system.ancestors_of` is implemented).
-    """
+def _resolve_iceberg_system_procedure(proc_name_parts: list[str]) -> str:
+    """Validate CALL targets the Iceberg ``system`` namespace; return proc name."""
     proc = proc_name_parts[-1].lower() if proc_name_parts else ""
     immediate_namespace = (
         proc_name_parts[-2].lower() if len(proc_name_parts) >= 2 else ""
     )
-    if immediate_namespace != "system" or proc != "ancestors_of":
+    if immediate_namespace != "system":
         exception = SnowparkConnectNotImplementedError(
             f"Iceberg procedure '{'.'.join(proc_name_parts)}' is not supported."
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
+    supported = {"ancestors_of", "fast_forward"}
+    if proc not in supported:
+        # Sizes PrPr demand for unimplemented WAP publish procedures
+        # (notably ``cherrypick_snapshot``) and any other system proc.
+        telemetry.report_iceberg_wap(
+            op="unsupported",
+            surface="sql_call",
+            outcome="rejected",
+            error_code="UNSUPPORTED_OPERATION",
+            detail=iceberg_wap_unsupported_proc_detail(proc),
+        )
+        exception = SnowparkConnectNotImplementedError(
+            f"Iceberg procedure '{'.'.join(proc_name_parts)}' is not supported."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+    return proc
+
+
+def _resolve_ancestors_of_procedure(proc_name_parts: list[str]) -> None:
+    """Validate that a parsed CALL targets the Iceberg `system.ancestors_of`
+    procedure."""
+    if _resolve_iceberg_system_procedure(proc_name_parts) != "ancestors_of":
+        exception = SnowparkConnectNotImplementedError(
+            f"Iceberg procedure '{'.'.join(proc_name_parts)}' is not supported."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+
+def _parse_fast_forward_args(logical_plan: object) -> tuple[str, str, str]:
+    """Extract (table, branch, to) from ``system.fast_forward``."""
+    positional: list = []
+    named: dict = {}
+    for arg in as_java_list(logical_plan.args()):
+        value = _iceberg_call_literal_value(arg.expr())
+        if str(arg.getClass().getSimpleName()) == "NamedArgument":
+            named[str(arg.name()).lower()] = value
+        else:
+            positional.append(value)
+
+    table_val = named.get("table", positional[0] if positional else None)
+    branch_val = named.get("branch", positional[1] if len(positional) > 1 else None)
+    to_val = named.get("to", positional[2] if len(positional) > 2 else None)
+
+    if table_val is None or branch_val is None or to_val is None:
+        exception = AnalysisException(
+            "Iceberg procedure `system.fast_forward` requires `table`, `branch`, "
+            "and `to` arguments."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    branch = str(branch_val)
+    to_branch = str(to_val)
+    _validate_iceberg_branch_name(branch)
+    _validate_iceberg_branch_name(to_branch)
+    return str(table_val), branch, to_branch
 
 
 def _raise_mapped_ancestors_of_error(
@@ -1309,7 +1372,9 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
 
-    dml_target = _resolve_sql_dml_target(logical_plan.table(), is_multi_part=True)
+    dml_target = _resolve_sql_dml_target(
+        logical_plan.table(), is_multi_part=True, dml_op="insert"
+    )
     name = dml_target.dml_snowflake_sql
     schema_table_name = dml_target.base_snowflake_sql
 
@@ -2465,15 +2530,28 @@ def map_sql_to_pandas_df(
         match class_name:
             case "CallStatement":
                 # SNOW-3527695: Iceberg `CALL [<catalog>.]system.<proc>(...)`.
-                # A `CallStatement` node is only produced by the Iceberg SQL
-                # extension parser (core Spark SQL has no CALL), but the same
-                # node shape is reused for any procedure namespace, so we gate
-                # on the Iceberg `system` namespace and dispatch on the trailing
-                # procedure name. Only `system.ancestors_of` is implemented.
                 proc_name_parts = [
                     str(part) for part in as_java_list(logical_plan.name())
                 ]
-                _resolve_ancestors_of_procedure(proc_name_parts)
+                proc = _resolve_iceberg_system_procedure(proc_name_parts)
+
+                if proc == "fast_forward":
+                    table_sql, branch, to_branch = _parse_fast_forward_args(
+                        logical_plan
+                    )
+                    table_name = _spark_table_sql_to_snowflake(table_sql)
+                    _refresh_iceberg_table_metadata(session, table_name)
+                    ff_sql = snowflake_fast_forward_sql(
+                        table_name, branch=branch, from_branch=to_branch
+                    )
+                    session.sql(ff_sql).collect()
+                    telemetry.report_iceberg_wap(
+                        op="publish",
+                        surface="sql_call",
+                        ref_type="branch",
+                        detail="fast_forward",
+                    )
+                    return pandas.DataFrame(), '{"type": "struct", "fields": []}'
 
                 table_sql, snapshot_id = _parse_ancestors_of_args(logical_plan)
                 table_name = _spark_table_sql_to_snowflake(table_sql)
@@ -2629,9 +2707,9 @@ def map_sql_to_pandas_df(
                 #       [RETAIN <N> DAYS]
                 # Translated to Snowflake ``CREATE [OR REPLACE] VERSION_TAG
                 # [IF NOT EXISTS] … AS OF VERSION|TIMESTAMP …`` on
-                # ``ALTER ICEBERG TABLE``. Bare REPLACE and RETAIN raise
-                # ``UNSUPPORTED_OPERATION``; bare CREATE (no AS OF binding)
-                # also raises — see ``iceberg_tag_ddl``. ``AS OF TIMESTAMP``
+                # ``ALTER ICEBERG TABLE``. Bare REPLACE (no snapshot binding)
+                # raises ``UNSUPPORTED_OPERATION`` — see ``iceberg_tag_ddl``.
+                # ``AS OF TIMESTAMP``
                 # is handled by the pre-parse hook when the Iceberg parser
                 # does not model the binding. Gated on ``spark.sql.extensions``.
                 _require_iceberg_sql_extensions_for_tag_ddl()
@@ -3398,8 +3476,8 @@ def map_sql_to_pandas_df(
                 df_container = map_relation(
                     map_logical_plan_relation(logical_plan.table())
                 )
-                dml_target = _resolve_sql_dml_target(
-                    logical_plan.table(), is_multi_part=True
+                dml_target = _dml_target_from_relation(
+                    logical_plan.table(), dml_op="delete"
                 )
                 name = dml_target.dml_snowflake_sql
                 table = snowpark_table_for_ref_dml(session, dml_target)
@@ -3442,8 +3520,8 @@ def map_sql_to_pandas_df(
                 df_container = map_relation(
                     map_logical_plan_relation(logical_plan.table())
                 )
-                dml_target = _resolve_sql_dml_target(
-                    logical_plan.table(), is_multi_part=True
+                dml_target = _dml_target_from_relation(
+                    logical_plan.table(), dml_op="update"
                 )
                 tbl = snowpark_table_for_ref_dml(session, dml_target)
                 table_columns = tbl.columns

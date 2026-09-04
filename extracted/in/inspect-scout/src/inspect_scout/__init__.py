@@ -18,6 +18,7 @@ from ._observe import ObserveEmit, ObserveProvider, observe, observe_update
 from ._project import ProjectConfig
 from ._query.condition import Condition
 from ._recorder.recorder import (
+    HEAVY_COLUMNS,
     ScanResultsArrow,
     ScanResultsDF,
     Status,
@@ -47,6 +48,7 @@ from ._scanner.scorer import as_scorer
 from ._scanner.types import ScannerInput
 from ._scanresults import (
     scan_results_arrow,
+    scan_results_batches,
     scan_results_df,
     scan_status,
 )
@@ -93,6 +95,7 @@ from ._validation import (
     ValidationCase,
     ValidationPredicate,
     ValidationSet,
+    validation_predicate,
     validation_set,
 )
 
@@ -132,6 +135,8 @@ __all__ = [
     "ScanResultsDF",
     "scan_results_arrow",
     "ScanResultsArrow",
+    "scan_results_batches",
+    "HEAVY_COLUMNS",
     "Summary",
     # transcript
     "transcripts_db",
@@ -198,6 +203,7 @@ __all__ = [
     "ValidationPredicate",
     "PredicateType",
     "PredicateFn",
+    "validation_predicate",
     "validation_set",
     # version
     "__version__",

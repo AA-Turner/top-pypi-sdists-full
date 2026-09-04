@@ -33,6 +33,8 @@ def expand_config_section(config, section="default", blacklist=None):
 
     ## If it's not a glob-pattern ...
     if set(section).isdisjoint(set("[*?")):
+        if section not in config:
+            return []
         ## If it's referring to a "meta section" with the "contains" keyword
         if "contains" in config[section]:
             results = []
@@ -47,7 +49,7 @@ def expand_config_section(config, section="default", blacklist=None):
             return results
         else:
             ## Disabled sections should be ignored
-            if config.get("section", {}).get("disable", False):
+            if config.get(section, {}).get("disable", False):
                 return []
 
             ## NORMAL CASE - return [ section ]
@@ -112,9 +114,13 @@ def read_config(fn, interactive_error=False):
                     f"config file {fn} is not valid JSON, and pyyaml is not installed"
                 ) from None
 
-    except FileNotFoundError:
-        ## File not found
-        logging.debug(f"config file {fn} not found")
+    except OSError as e:
+        ## Optional config file is unusable (missing, a directory, no
+        ## permission, ...).  Treat any of these as "no config here" rather
+        ## than letting e.g. IsADirectoryError propagate out of an optional
+        ## config-file probe (happens when HOME is unset and the path expands
+        ## to something like '//.config//caldav/calendar.conf').
+        logging.debug(f"config file {fn} not usable: {e}")
         return {}
     except ValueError:
         # Re-raise ValueError so caller can handle config errors
@@ -177,7 +183,7 @@ def resolve_features(features):
         feature_name = features
         if feature_name.startswith("compatibility_hints."):
             feature_name = feature_name[len("compatibility_hints.") :]
-        return getattr(caldav.compatibility_hints, feature_name)
+        return copy.deepcopy(getattr(caldav.compatibility_hints, feature_name))
     if isinstance(features, dict) and "base" in features:
         base_name = features["base"]
         if isinstance(base_name, str):
@@ -258,16 +264,24 @@ def get_connection_params(
         Dict with connection parameters (url, username, password, etc.)
         or None if no configuration found.
     """
-    # 1. Explicit parameters take highest priority
-    if explicit_params:
-        # Filter to valid connection keys
-        conn_params = {k: v for k, v in explicit_params.items() if k in CONNKEYS}
-        if conn_params.get("url") or conn_params.get("features"):
-            # Return when URL is given, or when features are given (the
-            # client constructor resolves URL from auto-connect.url hints
-            # via _auto_url()).  Don't fall through to env vars/config
-            # files when the caller explicitly provided connection info.
-            return conn_params
+    # 1. Explicit parameters take highest priority.
+    # A kwarg whose value is None counts as "not supplied" rather than
+    # "unset it" - the common CLI wrapper get_davclient(url=args.url,
+    # username=args.user, password=args.password) passes None for every
+    # option the user left out, and overlaying those on the winning source
+    # would wipe CALDAV_URL and friends.  An empty string is kept: it is
+    # meaningful for servers with no authentication.
+    explicit_conn = (
+        {k: v for k, v in explicit_params.items() if k in CONNKEYS and v is not None}
+        if explicit_params
+        else {}
+    )
+    if explicit_conn.get("url") or explicit_conn.get("features"):
+        # Return when URL is given, or when features are given (the
+        # client constructor resolves URL from auto-connect.url hints
+        # via _auto_url()).  Don't fall through to env vars/config
+        # files when the caller explicitly provided connection info.
+        return explicit_conn
 
     # Check for config file path from environment early (needed for test server config too)
     if environment:
@@ -280,6 +294,9 @@ def get_connection_params(
     if testconfig or (environment and os.environ.get("PYTHON_CALDAV_USE_TEST_SERVER")):
         conn = _get_test_server_config(name, environment, config_file)
         if conn is not None:
+            # Explicit kwargs outrank the discovered test server, same as for
+            # the environment and config-file sources below.
+            conn.update(explicit_conn)
             return conn
         # In test mode, don't fall through to regular config - return None
         # This prevents accidentally using personal/production servers for testing
@@ -293,14 +310,19 @@ def get_connection_params(
     if environment:
         conn_params = _get_env_config()
         if conn_params:
+            conn_params.update(explicit_conn)
             return conn_params
 
     # 4. Config file
     if check_config_file:
         conn_params = _get_file_config(config_file, config_section)
         if conn_params:
+            conn_params.update(explicit_conn)
             return conn_params
 
+    # No env/config source matched.  At this point explicit_conn has neither
+    # 'url' nor 'features' (those return early above), so it cannot produce a
+    # connectable client — treat it as "no configuration found".
     return None
 
 
@@ -330,7 +352,7 @@ def _get_file_config(file_path: str | None, section_name: str | None) -> dict[st
         return None
 
     section_data = config_section(cfg, section_name)
-    return _extract_conn_params_from_section(section_data)
+    return extract_conn_params_from_section(section_data)
 
 
 def _get_test_server_config(
@@ -492,14 +514,22 @@ def _test_server_to_params(server: Any, was_already_started: bool) -> dict[str, 
     return params
 
 
-def _extract_conn_params_from_section(section_data: dict[str, Any]) -> dict[str, Any] | None:
+def extract_conn_params_from_section(section_data: dict[str, Any]) -> dict[str, Any] | None:
     """Extract connection parameters from a config section dict.
 
-    Returns a dict containing only CONNKEYS entries.  Returns ``None`` if no
-    server URL is present.  Calendar filter keys (``calendar_name``,
-    ``calendar_url``) are intentionally excluded — callers that need them
-    (e.g. :func:`get_all_file_connection_params`) read ``section_data``
-    directly.
+    Keys prefixed with ``caldav_`` are mapped to client constructor parameters
+    (with ``caldav_user``/``caldav_pass`` accepted as aliases for
+    username/password), environment variable references are expanded, and a
+    ``features`` key is resolved through :func:`resolve_features`.  Public so
+    that downstream tools (e.g. plann) can reuse it on plann-style config
+    sections.
+
+    Returns a dict containing only CONNKEYS entries.  Returns ``None`` if
+    neither a server URL nor features are present (with features, the client
+    constructor can resolve the URL from auto-connect.url hints).  Calendar
+    filter keys (``calendar_name``, ``calendar_url``) are intentionally
+    excluded — callers that need them (e.g.
+    :func:`get_all_file_connection_params`) read ``section_data`` directly.
     """
     conn_params: dict[str, Any] = {}
     for k in section_data:
@@ -518,7 +548,7 @@ def _extract_conn_params_from_section(section_data: dict[str, Any]) -> dict[str,
         elif k == "features" and section_data[k]:
             conn_params["features"] = resolve_features(section_data[k])
 
-    return conn_params if conn_params.get("url") else None
+    return conn_params if (conn_params.get("url") or conn_params.get("features")) else None
 
 
 def get_all_file_connection_params(
@@ -536,7 +566,7 @@ def get_all_file_connection_params(
     ``calendar_url`` calendar-filter keys read from the config section.
 
     Returns an empty list when the config file is absent or the section has
-    no usable URL.
+    neither a usable URL nor features to derive one from.
     """
     if not section_name:
         section_name = "default"
@@ -549,7 +579,7 @@ def get_all_file_connection_params(
     result: list[dict[str, Any]] = []
     for s in sections:
         section_data = config_section(cfg, s)
-        params = _extract_conn_params_from_section(section_data)
+        params = extract_conn_params_from_section(section_data)
         if params:
             # Add calendar filter keys — these must NOT flow into DAVClient()
             for k in ("calendar_name", "calendar_url"):
@@ -584,7 +614,7 @@ def get_all_test_servers(
     for section_name in cfg:
         section_data = config_section(cfg, section_name)
         if section_data.get("testing_allowed"):
-            conn_params = _extract_conn_params_from_section(section_data)
+            conn_params = extract_conn_params_from_section(section_data)
             if conn_params:
                 # Also copy the raw section data for keys not in CONNKEYS
                 # (e.g., testing_allowed itself, or custom keys)

@@ -694,7 +694,7 @@ class RealtimeASRSession:
         spk_tracker=None,
         sample_rate=16000,
         chunk_ms=960,
-        partial_window_sec=15.0,
+        partial_window_sec=8.0,
         audio_lookback_sec=5.0,
         endpoint_mode="server",
     ):
@@ -1333,6 +1333,7 @@ def load_models(args):
             tensor_parallel_size=getattr(args, 'tensor_parallel_size', 1),
             gpu_memory_utilization=getattr(args, 'gpu_memory_utilization', 0.8),
             max_model_len=getattr(args, 'max_model_len', 2048),
+            enforce_eager=getattr(args, 'enforce_eager', False),
         )
         _vllm_engine = RealtimeBatchingEngine(
             engine,
@@ -1454,7 +1455,7 @@ async def handle_client(websocket, args):
         asr_kwargs,
         vad,
         spk_tracker=spk_tracker,
-        partial_window_sec=getattr(args, 'partial_window_sec', 15.0),
+        partial_window_sec=getattr(args, 'partial_window_sec', 8.0),
         endpoint_mode=endpoint_mode,
     )
     logger.info(f"Client connected: {websocket.remote_address}")
@@ -1649,11 +1650,11 @@ def build_arg_parser():
             "without loading the VAD model."
         ),
     )
-    parser.add_argument("--partial-window-sec", type=float, default=15.0,
+    parser.add_argument("--partial-window-sec", type=float, default=8.0,
                         help="Cap the interim partial re-decode window to the most recent N seconds. "
                              "A long ongoing speech segment is otherwise re-encoded from its start on "
                              "every chunk (O(L^2)), which saturates the GPU under concurrency and times "
-                             "out long-segment requests. Lower it (e.g. 8-10) for high-concurrency "
+                             "out long-segment requests. Raise it only after measuring headroom for your "
                              "self-hosting; <=0 disables (legacy behaviour). Final transcripts are unaffected.")
     parser.add_argument("--enable-spk", action="store_true", help="Enable streaming speaker diarization.")
     parser.add_argument("--spk-model", type=str, default="iic/speech_eres2netv2_sv_zh-cn_16k-common")
@@ -1679,6 +1680,11 @@ def build_arg_parser():
     parser.add_argument("--tensor-parallel-size", type=int, default=1)
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.8)
     parser.add_argument("--max-model-len", type=int, default=2048)
+    parser.add_argument(
+        "--enforce-eager",
+        action="store_true",
+        help="Disable vLLM compilation and CUDA graphs.",
+    )
     parser.add_argument("--ws-ping-interval", type=float, default=20.0,
                         help="WebSocket ping interval in seconds; <=0 disables keepalive pings.")
     parser.add_argument(

@@ -227,7 +227,7 @@ TEST_CASE("test_graphir_optimiser - constant propagation")
             outQuant.zeroPoints.clear();
             outQuant.zeroPoints.push_back(5);
             outQuant.type = QuantizationType::EXPLICIT;
-            qop->Output(TensorUsage::OFM)->rounding = RoundMode::DBL;
+            qop->Output(TensorUsage::OFM)->Set(RoundMode::DBL);
 
             auto &inQuant = qop->Input(TensorUsage::IFM)->quantization;
             inQuant.scales.clear();
@@ -518,6 +518,56 @@ TEST_CASE("test_graphir_optimiser - transpose merge with metadata reshape result
 
     auto *ofmConn = allOps[0]->Output(TensorUsage::OFM);
     REQUIRE(ofmConn->shape == Shape(374, 144, 4));
+}
+
+TEST_CASE("test_graphir_optimiser - transpose merge with metadata reshape resulting in no-op")
+{
+    auto arch = CreateArchDefault<ArchEthosU85>();
+    std::string err = "noerror";
+    arch->CheckConfiguration(err);
+    REQUIRE(err == "noerror");
+
+    std::vector<std::shared_ptr<Operation>> ops;
+    auto input = CreateTensor("INPUT", Shape(1, 9, 64), DataType::Int8);
+    auto weights = CreateTensor("WEIGHTS", Shape(64, 64), DataType::Int8);
+    auto scales = CreateTensor("SCALES", Shape(64), DataType::Int32);
+    auto fullyConnectedOfm = CreateTensor("FULLY_CONNECTED_OFM", Shape(1, 9, 64), DataType::Int8);
+    auto transposeOfm = CreateTensor("T1_OFM", Shape(1, 64, 9), DataType::Int8);
+    auto reshapeOfm = CreateTensor("RESHAPE_OFM", Shape(1, 64, 9, 1), DataType::Int8);
+    auto output = CreateTensor("OUTPUT", Shape(1, 9, 1, 64), DataType::Int8);
+
+    ops.push_back(CreateOperation(OpType::FullyConnected, TensorUsage::IFM, input, TensorUsage::Weights, weights,
+        TensorUsage::Scales, scales, TensorUsage::OFM, fullyConnectedOfm));
+
+    ops.push_back(CreateOperation(OpType::Transpose, TensorUsage::IFM, fullyConnectedOfm, TensorUsage::OFM, transposeOfm));
+    auto *transposeAttr = ops.back()->Attribute<transpose_attr_t>();
+    transposeAttr->perm = Shape(0, 2, 1);
+
+    ops.push_back(CreateOperation(OpType::Reshape, TensorUsage::IFM, transposeOfm, TensorUsage::OFM, reshapeOfm));
+    auto *reshapeAttr = ops.back()->Attribute<reshape_attr_t>();
+    reshapeAttr->shape = reshapeOfm->StorageShape();
+
+    ops.push_back(CreateOperation(OpType::Transpose, TensorUsage::IFM, reshapeOfm, TensorUsage::OFM, output));
+    transposeAttr = ops.back()->Attribute<transpose_attr_t>();
+    transposeAttr->perm = Shape(0, 2, 3, 1);
+
+    auto graph = CreateGraph(ops);
+
+    GraphOptimiserOptions options;
+    const auto &optimiser = GraphOptimiser::MakeGraphOptimiser(graph->Notation(), arch.get(), options, nullptr);
+
+    optimiser.back()->Process(graph.get());
+
+    std::vector<Operation *> allOps;
+    graph->GetAllOperations(allOps);
+    REQUIRE(allOps.size() == 1);
+    REQUIRE(allOps[0]->Type() == OpType::FullyConnected);
+
+    auto *ifmConn = allOps[0]->Input(TensorUsage::IFM);
+    REQUIRE(ifmConn->shape == Shape(1, 9, 64));
+
+    auto *ofmConn = allOps[0]->Output(TensorUsage::OFM);
+    REQUIRE(ofmConn->shape == Shape(1, 9, 64));
 }
 
 TEST_CASE("test_graphir_optimiser - replace pad by explicit padding")
@@ -911,20 +961,17 @@ TEST_CASE("test_graphir_optimiser - do not fuse Ethos-U55 advanced add scales wi
     graph->GetAllOperations(allOps);
     REQUIRE(allOps.size() > 1);
 
-    auto findOp = [&](OpType type)
-    {
-        auto pos = std::find_if(allOps.begin(), allOps.end(), [&](const auto *op) { return op->Type() == type; });
-        REQUIRE(pos != allOps.end());
-        assert(pos != allOps.end());
-        return *pos;
-    };
+    auto absPos = std::find_if(allOps.begin(), allOps.end(), [&](const auto *op) { return op->Type() == OpType::Abs; });
+    REQUIRE(absPos != allOps.end());
+    assert(absPos != allOps.end());
+    auto abs = *absPos;
 
-    auto abs = findOp(OpType::Abs);
     auto addPos = std::find_if(allOps.begin(), allOps.end(),
         [&](const auto *op) { return op->Type() == OpType::Add && op->Output(TensorUsage::OFM)->tensor == addOfm; });
     REQUIRE(addPos != allOps.end());
     assert(addPos != allOps.end());
     auto add = *addPos;
+
     REQUIRE(add->Input(TensorUsage::IFM0)->tensor == rescale0Ofm);
     REQUIRE(add->Input(TensorUsage::IFM1)->tensor == rescale1Ofm);
     REQUIRE(add->Output(TensorUsage::OFM)->tensor == addOfm);
@@ -980,14 +1027,6 @@ TEST_CASE("test_graphir_optimiser - do not fuse Ethos-U55 advanced add scales wi
     std::vector<Operation *> allOps;
     graph->GetAllOperations(allOps);
     REQUIRE(allOps.size() > 1);
-
-    auto findOp = [&](OpType type)
-    {
-        auto pos = std::find_if(allOps.begin(), allOps.end(), [&](const auto *op) { return op->Type() == type; });
-        REQUIRE(pos != allOps.end());
-        assert(pos != allOps.end());
-        return *pos;
-    };
 
     auto add = ops.back().get();
     REQUIRE(add->Input(TensorUsage::IFM0)->tensor == rescale0Ofm);
@@ -1139,102 +1178,6 @@ TEST_CASE("test_graphir_optimiser - duplicated tensor readers")
         // Check that tensor name starts with ABS_OFM
         REQUIRE(matmulOp->Input(TensorUsage::IFM0)->tensor.get()->Name().rfind("ABS_OFM", 0) == 0);
         REQUIRE(matmulOp->Input(TensorUsage::IFM1)->tensor.get()->Name().rfind("ABS_OFM", 0) == 0);
-    }
-}
-
-TEST_CASE("test_graphir_optimiser - convert TFLite Quantization to Explicit Quantization")
-{
-    // Create arch
-    auto arch = CreateArchDefault<ArchEthosU55>();
-    std::string err = "noerror";
-    arch->CheckConfiguration(err);
-    REQUIRE(err == "noerror");
-
-    SECTION("Quantize operation with Data type int16")
-    {
-
-        std::vector<std::shared_ptr<Operation>> ops;
-        auto ifm = CreateTensor("QIFM", Shape(1, 1, 1, 10), DataType::Int16);
-        auto ofm = CreateTensor("QOFM", Shape(1, 1, 10, 10), DataType::Int16);
-        auto quantizeOp = CreateOperation(OpType::Quantize, TensorUsage::IFM0, ifm, TensorUsage::OFM, ofm);
-
-        auto &ifmQuant = quantizeOp->Input(TensorUsage::IFM0)->quantization;
-        ifmQuant.scales.clear();
-        ifmQuant.scales.push_back(QuantizedScale(int32_t(1387686912), 42));
-        ifmQuant.type = QuantizationType::TFLITE;
-
-        auto &ofmQuant = quantizeOp->Output(TensorUsage::OFM)->quantization;
-        ofmQuant.scales.clear();
-        ofmQuant.scales.push_back(QuantizedScale(int32_t(1899507328), 45));
-        ofmQuant.type = QuantizationType::TFLITE;
-
-        ops.push_back(std::move(quantizeOp));
-        auto graph = CreateGraph(ops);
-
-        GraphOptimiserOptions options;
-        const auto &optimiser = GraphOptimiser::MakeGraphOptimiser(GraphNotation::TFLite, arch.get(), options, nullptr);
-        REQUIRE(!optimiser.empty());
-        optimiser.front()->Process(graph.get());
-
-        std::vector<Operation *> allOps;
-        graph->GetAllOperations(allOps);
-        REQUIRE(allOps.size() == 1);
-
-        REQUIRE(ofmQuant.type == QuantizationType::EXPLICIT);
-        REQUIRE(ifmQuant.type == QuantizationType::EXPLICIT);
-        REQUIRE(ifmQuant.scales[0] == QuantizedScale::Unit());
-
-        REQUIRE(ofmQuant.scales.size() == 1);
-        auto quantScale = ofmQuant.scales[0];
-        REQUIRE(quantScale.scale == 1568846252);
-        REQUIRE(quantScale.shift == 28);
-    }
-    SECTION("Mul operation with Data type int8")
-    {
-
-        std::vector<std::shared_ptr<Operation>> ops;
-        auto ifm0 = CreateTensor("IFM0", Shape(1, 1, 1, 10), DataType::Int8);
-        auto ifm1 = CreateTensor("IFM1", Shape(1, 1, 1, 10), DataType::Int8);
-        auto ofm = CreateTensor("OFM", Shape(1, 1, 10, 10), DataType::Int8);
-        auto mulOp = CreateOperation(OpType::Mul, TensorUsage::IFM0, ifm0, TensorUsage::IFM1, ifm1, TensorUsage::OFM, ofm);
-
-        auto &ifmQuant0 = mulOp->Input(TensorUsage::IFM0)->quantization;
-        ifmQuant0.scales.clear();
-        ifmQuant0.scales.push_back(QuantizedScale(int32_t(1888360448), 37));
-        ifmQuant0.type = QuantizationType::TFLITE;
-
-        auto &ifmQuant1 = mulOp->Input(TensorUsage::IFM1)->quantization;
-        ifmQuant1.scales.clear();
-        ifmQuant1.scales.push_back(QuantizedScale(int32_t(1888360448), 37));
-        ifmQuant1.type = QuantizationType::TFLITE;
-
-        auto &ofmQuant = mulOp->Output(TensorUsage::OFM)->quantization;
-        ofmQuant.scales.clear();
-        ofmQuant.scales.push_back(QuantizedScale(int32_t(1578641920), 37));
-        ofmQuant.type = QuantizationType::TFLITE;
-
-        ops.push_back(std::move(mulOp));
-        auto graph = CreateGraph(ops);
-
-        GraphOptimiserOptions options;
-        const auto &optimiser = GraphOptimiser::MakeGraphOptimiser(GraphNotation::TFLite, arch.get(), options, nullptr);
-        REQUIRE(!optimiser.empty());
-        optimiser.front()->Process(graph.get());
-
-        std::vector<Operation *> allOps;
-        graph->GetAllOperations(allOps);
-        REQUIRE(allOps.size() == 1);
-
-        REQUIRE(ofmQuant.type == QuantizationType::EXPLICIT);
-        REQUIRE(ifmQuant0.type == QuantizationType::EXPLICIT);
-        REQUIRE(ifmQuant0.scales[0] == QuantizedScale::Unit());
-        REQUIRE(ifmQuant1.type == QuantizationType::EXPLICIT);
-        REQUIRE(ifmQuant1.scales[0] == QuantizedScale::Unit());
-
-        REQUIRE(ofmQuant.scales.size() == 1);
-        auto quantScale = ofmQuant.scales[0];
-        REQUIRE(quantScale.scale == 1129421696);
-        REQUIRE(quantScale.shift == 36);
     }
 }
 

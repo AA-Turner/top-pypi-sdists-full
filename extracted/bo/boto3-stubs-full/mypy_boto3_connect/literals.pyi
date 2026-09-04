@@ -220,6 +220,9 @@ __all__ = (
     "PhoneNumberWorkflowStatusType",
     "PhoneTypeType",
     "PolicyType",
+    "PreEvaluationFilterOperatorType",
+    "PreEvaluationFilterResourceTypeType",
+    "PreEvaluationFilterTypeType",
     "QuestionRuleCategoryAutomationConditionType",
     "QueueStatusType",
     "QueueTypeType",
@@ -1017,6 +1020,9 @@ PhoneNumberTypeType = Literal[
 PhoneNumberWorkflowStatusType = Literal["CLAIMED", "FAILED", "IN_PROGRESS"]
 PhoneTypeType = Literal["DESK_PHONE", "SOFT_PHONE"]
 PolicyType = Literal["None", "RedactedAndOriginal", "RedactedOnly"]
+PreEvaluationFilterOperatorType = Literal["EQUALS"]
+PreEvaluationFilterResourceTypeType = Literal["CONTACT"]
+PreEvaluationFilterTypeType = Literal["TAG"]
 QuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 QueueStatusType = Literal["DISABLED", "ENABLED"]
 QueueTypeType = Literal["AGENT", "STANDARD"]

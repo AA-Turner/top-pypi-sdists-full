@@ -300,6 +300,7 @@ def responses(
     prompt_cache_key: str | None = None,
     prompt_cache_retention: str | None = None,
     conversation: str | dict[str, Any] | None = None,
+    timeout: float | None = None,
     extra_body: dict[str, Any] | None = None,
     client_args: dict[str, Any] | None = None,
     **kwargs: Any,
@@ -354,6 +355,11 @@ def responses(
         prompt_cache_key: A key to use when reading from or writing to the prompt cache.
         prompt_cache_retention: How long to retain a prompt cache entry created by this request.
         conversation: The conversation to associate this response with (ID string or ConversationParam object).
+        timeout: Per-request timeout in seconds, passed through to the provider's client/SDK.
+            An explicit ``None`` is treated the same as omitting it (the provider's default
+            applies), so it cannot request an unbounded timeout. Providers that have no
+            per-request timeout raise `UnsupportedParameterError`; set a timeout on their
+            client via `client_args` instead.
         extra_body: Additional fields to merge into an OpenAI-compatible Responses request body.
         client_args: Additional provider-specific arguments that will be passed to the provider's client instantiation.
         **kwargs: Additional provider-specific arguments that will be passed to the provider's API call.
@@ -410,6 +416,7 @@ def responses(
         prompt_cache_key=prompt_cache_key,
         prompt_cache_retention=prompt_cache_retention,
         conversation=conversation,
+        timeout=timeout,
         extra_body=extra_body,
         **kwargs,
     )
@@ -449,6 +456,7 @@ async def aresponses(
     prompt_cache_key: str | None = None,
     prompt_cache_retention: str | None = None,
     conversation: str | dict[str, Any] | None = None,
+    timeout: float | None = None,  # noqa: ASYNC109  # forwarded to the provider SDK, which owns the timeout
     extra_body: dict[str, Any] | None = None,
     client_args: dict[str, Any] | None = None,
     **kwargs: Any,
@@ -503,6 +511,11 @@ async def aresponses(
         prompt_cache_key: A key to use when reading from or writing to the prompt cache.
         prompt_cache_retention: How long to retain a prompt cache entry created by this request.
         conversation: The conversation to associate this response with (ID string or ConversationParam object).
+        timeout: Per-request timeout in seconds, passed through to the provider's client/SDK.
+            An explicit ``None`` is treated the same as omitting it (the provider's default
+            applies), so it cannot request an unbounded timeout. Providers that have no
+            per-request timeout raise `UnsupportedParameterError`; set a timeout on their
+            client via `client_args` instead.
         extra_body: Additional fields to merge into an OpenAI-compatible Responses request body.
         client_args: Additional provider-specific arguments that will be passed to the provider's client instantiation.
         **kwargs: Additional provider-specific arguments that will be passed to the provider's API call.
@@ -559,6 +572,7 @@ async def aresponses(
         prompt_cache_key=prompt_cache_key,
         prompt_cache_retention=prompt_cache_retention,
         conversation=conversation,
+        timeout=timeout,
         extra_body=extra_body,
         **kwargs,
     )
@@ -585,6 +599,7 @@ def messages(
     service_tier: str | None = None,
     context_management: dict[str, Any] | None = None,
     betas: list[str] | None = None,
+    container: str | None = None,
     output_format: type | dict[str, Any] | None = None,
     timeout: float | None = None,
     api_key: str | None = None,
@@ -617,6 +632,7 @@ def messages(
             strategy requires a supported model. Its `input_tokens` trigger value must be at
             least 50,000 when provided; see [Anthropic's compaction documentation](https://platform.claude.com/docs/en/build-with-claude/compaction).
         betas: Anthropic beta identifiers.
+        container: Container identifier for continuing a previous top-level container.
         output_format: Structured output, mirroring Anthropic's ``messages.parse``/``output_config``.
             Either a Pydantic ``BaseModel``/dataclass **type** (typed ``parsed_output``) or a raw
             Anthropic ``output_config`` **dict** for non-Pydantic JSON schemas (``parsed_output``
@@ -663,6 +679,7 @@ def messages(
         service_tier=service_tier,
         context_management=context_management,
         betas=betas,
+        container=container,
         output_format=output_format,
         timeout=timeout,
         **kwargs,
@@ -690,6 +707,7 @@ async def amessages(
     service_tier: str | None = None,
     context_management: dict[str, Any] | None = None,
     betas: list[str] | None = None,
+    container: str | None = None,
     output_format: type | dict[str, Any] | None = None,
     timeout: float | None = None,  # noqa: ASYNC109  # forwarded to the provider SDK, which owns the timeout
     api_key: str | None = None,
@@ -722,6 +740,7 @@ async def amessages(
             strategy requires a supported model. Its `input_tokens` trigger value must be at
             least 50,000 when provided; see [Anthropic's compaction documentation](https://platform.claude.com/docs/en/build-with-claude/compaction).
         betas: Anthropic beta identifiers.
+        container: Container identifier for continuing a previous top-level container.
         output_format: Structured output, mirroring Anthropic's ``messages.parse``/``output_config``.
             Either a Pydantic ``BaseModel``/dataclass **type** (typed ``parsed_output``) or a raw
             Anthropic ``output_config`` **dict** for non-Pydantic JSON schemas (``parsed_output``
@@ -768,6 +787,7 @@ async def amessages(
         service_tier=service_tier,
         context_management=context_management,
         betas=betas,
+        container=container,
         output_format=output_format,
         timeout=timeout,
         **kwargs,
@@ -1572,7 +1592,7 @@ def list_batches(
     Args:
         provider: Provider name to use for the request (e.g., 'openai', 'mistral')
         after: A cursor for pagination. Returns batches after this batch ID.
-        limit: Maximum number of batches to return (default: 20)
+        limit: Maximum number of batches to return. When omitted, the provider's own default applies.
         api_key: API key for the provider
         api_base: Base URL for the provider API
         client_args: Additional provider-specific arguments for client instantiation
@@ -1601,7 +1621,7 @@ async def alist_batches(
     Args:
         provider: Provider name to use for the request (e.g., 'openai', 'mistral')
         after: A cursor for pagination. Returns batches after this batch ID.
-        limit: Maximum number of batches to return (default: 20)
+        limit: Maximum number of batches to return. When omitted, the provider's own default applies.
         api_key: API key for the provider
         api_base: Base URL for the provider API
         client_args: Additional provider-specific arguments for client instantiation

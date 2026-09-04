@@ -32,6 +32,14 @@ from agentic_devtools.cli.ci.logging_config import setup_logging
 from agentic_devtools.cli.ci.pipeline.command import run_ai_pr_loop_v2
 from agentic_devtools.cli.ci.retry import RetryableError
 from agentic_devtools.cli.ci.speckit_trigger import DEPRECATION_MESSAGE
+from agentic_devtools.cli.shared.retry import ProviderRateLimitError
+from agentic_devtools.cli.speckit.cloud_agent_guard import (
+    _cloud_agent_pr_matches as _shared_cloud_agent_pr_matches,
+)
+from agentic_devtools.cli.speckit.cloud_agent_guard import (
+    check_cloud_agent_in_flight,
+    derive_speckit_base_branch,
+)
 
 
 def _python_orchestrator_enabled() -> bool:
@@ -197,14 +205,9 @@ def assign_implementation_agent_command() -> None:
 
 
 _SPECKIT_AGENT_BY_PHASE = {1: "speckit.specify", 2: "speckit.clarify", 3: "speckit.plan"}
-_DEFAULT_SPECKIT_BASE_BRANCH = "main"
 _SPECKIT_PHASE_LABEL_COLOR = "5319E7"
 _SPECKIT_PROCESSING_LABEL_COLOR = "0366D6"
 _SPECKIT_SPEC_DIR_PART_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
-_SPECKIT_MARKER_PATTERN = re.compile(
-    r"<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent "
-    r"issue=(\d+) phase=(\d+) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->"
-)
 
 
 def _cloud_agent_result(
@@ -252,19 +255,14 @@ def _parse_paginated_documents(payload_text: str) -> list[object]:
 def _derive_speckit_base_branch(*, phase: int, hierarchy_level: str, issue_number: int) -> str:
     """Return the expected cloud-agent base branch for the given SpecKit phase.
 
-    Mirrors the ``expectedCloudBaseRef`` function in
-    ``extract-phase-info.js`` — both must be kept in sync.
+    Delegates to the canonical Cloud Agent guard implementation.
 
     Phase 2 targets the phase-1 output branch so the clarify agent has
     access to the specify artifacts. Non-task phase 3 targets the phase-2
     output branch for the same reason. All other phases (phase 1, and task
     phase 3) target ``main``.
     """
-    if phase == 2:
-        return f"speckit/{issue_number}/phase-1-specify"
-    if phase == 3 and hierarchy_level != "task":
-        return f"speckit/{issue_number}/phase-2-clarify"
-    return _DEFAULT_SPECKIT_BASE_BRANCH
+    return derive_speckit_base_branch(phase, hierarchy_level, issue_number)
 
 
 def _ensure_speckit_tracking_labels(*, repo: str, phase: int, token: str) -> None:
@@ -310,55 +308,20 @@ def _ensure_speckit_tracking_labels(*, repo: str, phase: int, token: str) -> Non
 
 
 def _cloud_agent_pr_matches(pr: object, *, issue_number: int, phase: int) -> bool:
-    if not isinstance(pr, dict):
-        return False
-    user = pr.get("user")
-    if not isinstance(user, dict) or user.get("login") not in {"copilot-swe-agent", "copilot-swe-agent[bot]"}:
-        return False
-    body = pr.get("body")
-    if not isinstance(body, str):
-        return False
-    match = _SPECKIT_MARKER_PATTERN.search(body)
-    if not match:
-        return False
-    marker_issue_number = int(match.group(1))
-    marker_phase = int(match.group(2))
-    marker_hierarchy_level = str(match.group(3)).lower()
-    if marker_issue_number != issue_number or marker_phase != phase:
-        return False
-    expected_base = _derive_speckit_base_branch(
-        phase=marker_phase,
-        hierarchy_level=marker_hierarchy_level,
-        issue_number=marker_issue_number,
-    )
-    base = pr.get("base")
-    base_ref = base.get("ref") if isinstance(base, dict) else None
-    return base_ref == expected_base
+    return _shared_cloud_agent_pr_matches(pr, issue_number=issue_number, phase=phase)
 
 
-def _cloud_agent_in_flight(*, repo: str, issue_number: int, phase: int, token: str) -> bool:
-    labels_payload = _parse_paginated_documents(
-        _gh_api_call(
-            f"/repos/{repo}/issues/{issue_number}/labels",
-            method="GET",
-            paginate=True,
-            token=token,
-        )
-    )
-    if any(
-        isinstance(label, dict) and label.get("name") == f"speckit:agent-assigned-phase-{phase}"
-        for label in labels_payload
-    ):
-        return True
-    pulls_payload = _parse_paginated_documents(
-        _gh_api_call(
-            f"/repos/{repo}/pulls?state=open&per_page=100",
-            method="GET",
-            paginate=True,
-            token=token,
-        )
-    )
-    return any(_cloud_agent_pr_matches(pr, issue_number=issue_number, phase=phase) for pr in pulls_payload)
+def _cloud_agent_in_flight(
+    *, repo: str, issue_number: int, phase: int, token: str, hierarchy_level: str = "feature"
+) -> bool:
+    return check_cloud_agent_in_flight(
+        repo=repo,
+        issue_number=issue_number,
+        phase=phase,
+        hierarchy_level=hierarchy_level,
+        token=token,
+        api_call=_gh_api_call,
+    ).in_flight
 
 
 def _post_cloud_agent_issue_mutation(*, repo: str, issue_number: int, body: str, token: str) -> None:
@@ -492,7 +455,13 @@ def assign_speckit_agent_command() -> None:
         sys.exit(1)
 
     try:
-        if _cloud_agent_in_flight(repo=repo, issue_number=args.issue_number, phase=phase, token=token):
+        if _cloud_agent_in_flight(
+            repo=repo,
+            issue_number=args.issue_number,
+            phase=phase,
+            hierarchy_level=hierarchy_level,
+            token=token,
+        ):
             result = AgentAssignmentResult(
                 success=True,
                 method="already_in_flight",
@@ -510,7 +479,7 @@ def assign_speckit_agent_command() -> None:
                 )
             )
             sys.exit(0)
-    except (RetryableError, RuntimeError, json.JSONDecodeError) as exc:
+    except (RetryableError, ProviderRateLimitError, RuntimeError, json.JSONDecodeError) as exc:
         result = AgentAssignmentResult(
             success=False,
             method="",

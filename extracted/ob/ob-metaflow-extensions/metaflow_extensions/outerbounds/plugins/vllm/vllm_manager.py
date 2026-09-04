@@ -38,6 +38,7 @@ class VLLMPyManager:
     def __init__(
         self,
         model,
+        model_path=None,
         debug=False,
         **engine_args,
     ):
@@ -52,6 +53,11 @@ class VLLMPyManager:
         else:
             self.model = model
 
+        # `model_path`, when provided, is a local path that should be handed to
+        # the vLLM engine instead of the HuggingFace repo id in `model`.
+        # `model` is still kept around for logging/status purposes.
+        self.model_path = model_path
+
         self.debug = debug
         self.engine_args = engine_args
         self.engine = None
@@ -60,6 +66,7 @@ class VLLMPyManager:
         if self.debug:
             print(
                 f"[@vllm-native] Initializing native vLLM engine for model: {self.model}"
+                + (f" (local path: {self.model_path})" if self.model_path else "")
             )
 
         self._validate_vllm_installation()
@@ -127,8 +134,10 @@ class VLLMPyManager:
             if self.debug:
                 print(f"[@vllm] Initializing LLM with params: {llm_params}")
 
-            # Initialize the native vLLM engine
-            self.engine = LLM(model=self.model, **llm_params)
+            # Initialize the native vLLM engine. When a local model_path is
+            # available (e.g. resolved from the Anaconda model catalog), use
+            # it in place of the HuggingFace repo id.
+            self.engine = LLM(model=self.model_path or self.model, **llm_params)
 
             if self.debug:
                 print(f"[@vllm] LLM engine initialized successfully")
@@ -186,6 +195,7 @@ class VLLMOpenAIManager:
     def __init__(
         self,
         model,
+        model_path=None,
         backend="local",
         debug=False,
         status_card=None,
@@ -207,6 +217,11 @@ class VLLMOpenAIManager:
             self.model = model[0]
         else:
             self.model = model
+
+        # `model_path`, when provided, is a local path that should be passed as the
+        # server's `--model` argument instead of the HuggingFace repo id in `model`.
+        # `model` is still kept around for logging/status purposes.
+        self.model_path = model_path
 
         self.processes = {}
         self.debug = debug
@@ -320,9 +335,17 @@ class VLLMOpenAIManager:
         self._update_server_status("Starting")
         self._log_event("info", f"Starting vLLM server with model: {self.model}")
 
-        # Check if the model is cached
+        if self.model_path:
+            self._log_event(
+                "info", f"Using locally resolved model path: {self.model_path}"
+            )
+
+        # Check if the model is cached (only relevant when we're relying on
+        # vLLM's own HuggingFace download/cache, i.e. no local model_path).
         hf_home = os.environ.get("HF_HOME")
-        if hf_home:
+        if self.model_path:
+            pass
+        elif hf_home:
             # Construct the expected cache path for the model
             model_path_id = f"models--{self.model.replace('/', '--')}"
             model_cache_path = os.path.join(hf_home, model_path_id)
@@ -364,7 +387,7 @@ class VLLMOpenAIManager:
                 "-m",
                 "vllm.entrypoints.openai.api_server",
                 "--model",
-                self.model,
+                self.model_path or self.model,
                 "--host",
                 self.host,
                 "--port",
@@ -372,6 +395,10 @@ class VLLMOpenAIManager:
             ]
 
             vllm_args_copy = self.vllm_args.copy()
+            # Ensure the model is served under a stable, predictable name
+            # (self.model) even when --model points at a local path, so that
+            # clients can always refer to it via current.vllm.model_name.
+            vllm_args_copy.setdefault("served_model_name", self.model)
             if self.debug or self.stream_logs_to_card:
                 # Note: This is an undocumented argument for the vLLM OpenAI server entrypoint.
                 # It was useful for debugging the vLLM server startup,

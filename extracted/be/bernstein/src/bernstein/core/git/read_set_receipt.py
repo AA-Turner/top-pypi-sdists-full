@@ -15,13 +15,12 @@ import hashlib
 import json
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from bernstein.core.lineage.identity import AgentCard, sign_detached, verify_detached
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from bernstein.core.security.audit import AuditEvent
     from bernstein.core.security.audit_chain import AuditChainStore
 
@@ -345,11 +344,9 @@ def verify_receipt_offline(receipt_bytes: bytes, chain_path: str) -> bool:
 
     # Step 3: Load and verify the audit chain
     try:
-        from bernstein.core.security.audit import AuditLog
         from bernstein.core.security.audit_chain import AuditChainStore
 
-        audit_log = AuditLog.load_from_file(chain_path)
-        chain = AuditChainStore(audit_log)
+        chain = AuditChainStore(Path(chain_path).parent)
         chain_ok, _ = chain.verify()
         if not chain_ok:
             return False

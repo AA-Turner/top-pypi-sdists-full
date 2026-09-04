@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: env_canada
-Version: 0.19.1
+Version: 0.19.2
 Summary: A package to access meteorological data from Environment Canada
 Author-email: Michael Davie <michael.davie@gmail.com>
 Maintainer-email: Michael Davie <michael.davie@gmail.com>

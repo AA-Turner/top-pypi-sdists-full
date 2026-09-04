@@ -20,8 +20,9 @@
 //! `canonical_smiles_exhaustive_oracle` cross-check.
 
 use chematic_core::{AtomIdx, Molecule};
+use smallvec::{SmallVec, smallvec};
 
-use crate::canonical::{CanonicalWriter, group_by_rank, individualize, refine_ranks};
+use crate::canonical::{CanonicalWriter, individualize, refine_ranks};
 use crate::canonical_automorphism::has_colored_automorphism_mapping;
 use crate::canonical_partition::{
     CanonicalColoredGraph, Partition, exact_refine, initial_partition,
@@ -218,10 +219,33 @@ struct Incumbent {
     string: String,
 }
 
+struct SearchNode {
+    ranks: Vec<u64>,
+    target_cell: Option<SmallVec<[usize; 8]>>,
+    depth: usize,
+}
+
 #[derive(Default)]
 struct SearchBudget {
     nodes_visited: usize,
     automorphism_tests: usize,
+}
+
+/// Lowest-ranked non-singleton cell, without constructing a `Vec` for every
+/// rank class. Search only ever branches on this one cell.
+fn first_non_singleton_cell(ranks: &[u64]) -> Option<SmallVec<[usize; 8]>> {
+    let mut counts: SmallVec<[usize; 64]> = smallvec![0; ranks.len()];
+    for &rank in ranks {
+        counts[rank as usize] += 1;
+    }
+    let target = counts.iter().position(|&count| count > 1)?;
+    let mut members = SmallVec::with_capacity(counts[target]);
+    for (atom, &rank) in ranks.iter().enumerate() {
+        if rank as usize == target {
+            members.push(atom);
+        }
+    }
+    Some(members)
 }
 
 /// Return the canonical SMILES for `mol`, respecting `limits`. `Err` on
@@ -243,11 +267,37 @@ pub(crate) fn winning_individualized_ranks_with_limits(
     mol: &Molecule,
     limits: &CanonicalizationLimits,
 ) -> Result<(Vec<u64>, String), CanonicalizationError> {
-    let graph = CanonicalColoredGraph::new(mol);
     let ranks = crate::canonical::morgan_ranks(mol);
+
+    // Most drug-like molecules have no Morgan-rank plateau after iterative
+    // refinement.  In that case individualization cannot change the order,
+    // so constructing the writer-visible colored graph and running the
+    // automorphism machinery is redundant.  Keep the exact same writer and
+    // rank vector, but skip that setup entirely.  This is a correctness
+    // preserving fast path: branching is only required when two atoms share
+    // a rank, and the existing exhaustive/orbit-pruned paths remain the
+    // authority for tied molecules.
+    let root_cell = first_non_singleton_cell(&ranks);
+    if root_cell.is_none() {
+        let string = crate::canonical::CanonicalWriter::new(mol, &ranks).write_all();
+        return Ok((ranks, string));
+    }
+
+    let graph = CanonicalColoredGraph::new(mol);
     let mut budget = SearchBudget::default();
     let mut incumbent: Option<Incumbent> = None;
-    search_canonical(mol, &graph, ranks, 0, limits, &mut budget, &mut incumbent)?;
+    search_canonical(
+        mol,
+        &graph,
+        SearchNode {
+            ranks,
+            target_cell: root_cell,
+            depth: 0,
+        },
+        limits,
+        &mut budget,
+        &mut incumbent,
+    )?;
     match incumbent {
         Some(Incumbent { ranks, string }) => Ok((ranks, string)),
         None => Err(CanonicalizationError::InvalidInternalMapping {
@@ -259,12 +309,16 @@ pub(crate) fn winning_individualized_ranks_with_limits(
 fn search_canonical(
     mol: &Molecule,
     graph: &CanonicalColoredGraph,
-    ranks: Vec<u64>,
-    depth: usize,
+    node: SearchNode,
     limits: &CanonicalizationLimits,
     budget: &mut SearchBudget,
     incumbent: &mut Option<Incumbent>,
 ) -> Result<(), CanonicalizationError> {
+    let SearchNode {
+        ranks,
+        target_cell,
+        depth,
+    } = node;
     budget.nodes_visited += 1;
     stats::record_node(depth);
     if let Some(max) = limits.max_search_nodes
@@ -277,10 +331,9 @@ fn search_canonical(
         });
     }
 
-    let cells = group_by_rank(&ranks);
     // Same heuristic as the legacy enumeration (section 10: unchanged in
     // this PR): the lowest-ranked non-singleton cell.
-    let Some(members) = cells.iter().find(|m| m.len() > 1) else {
+    let Some(members) = target_cell.or_else(|| first_non_singleton_cell(&ranks)) else {
         let s = CanonicalWriter::new(mol, &ranks).write_all();
         stats::record_leaf();
         let is_better = incumbent.as_ref().is_none_or(|c| s < c.string);
@@ -295,14 +348,35 @@ fn search_canonical(
     // fixpoint. Used only to decide which members of `members` are provably
     // in the same automorphism orbit -- NEVER used to alter `ranks` itself
     // (see module docs).
-    let partition = exact_refine(graph, initial_partition(graph, &ranks));
-    let representatives = exact_orbit_representatives(graph, &partition, members, limits, budget)?;
+    let representatives = if members[1..].iter().all(|&other| {
+        local_twins_without_partition(graph, AtomIdx(members[0] as u32), AtomIdx(other as u32))
+    }) {
+        // Every member is related to the first by an independently proven
+        // fixed-point swap automorphism.  The entire target cell is
+        // therefore one orbit, without needing exact partition refinement
+        // or the general automorphism backtracker.
+        vec![members[0]]
+    } else {
+        let partition = exact_refine(graph, initial_partition(graph, &ranks));
+        exact_orbit_representatives(graph, &partition, &members, limits, budget)?
+    };
     stats::record_target_cell(members.len(), representatives.len());
 
     for rep in representatives {
         let individualized = individualize(&ranks, rep);
         let re_refined = refine_ranks(mol, individualized);
-        search_canonical(mol, graph, re_refined, depth + 1, limits, budget, incumbent)?;
+        search_canonical(
+            mol,
+            graph,
+            SearchNode {
+                ranks: re_refined,
+                target_cell: None,
+                depth: depth + 1,
+            },
+            limits,
+            budget,
+            incumbent,
+        )?;
     }
     Ok(())
 }
@@ -385,6 +459,22 @@ fn exact_orbit_representatives(
             if ri == rj {
                 continue;
             }
+            // A local-twin swap is an exact automorphism: both vertices have
+            // the same writer-visible color, and fixing every other vertex
+            // while swapping this pair preserves the complete edge-colored
+            // graph. This avoids invoking the much more expensive general
+            // automorphism search for repeated terminal groups such as the
+            // methyl arms of tBu/Boc. It is deliberately stricter than a
+            // Morgan/WL rank comparison and rejects asymmetric dative edges.
+            if local_twins(
+                graph,
+                coloring,
+                AtomIdx(members[i] as u32),
+                AtomIdx(members[j] as u32),
+            ) {
+                parent[ri] = rj;
+                continue;
+            }
             budget.automorphism_tests += 1;
             if let Some(max) = limits.max_automorphism_tests
                 && budget.automorphism_tests > max
@@ -427,6 +517,57 @@ fn exact_orbit_representatives(
     Ok(reps)
 }
 
+/// Return whether swapping `a` and `b` while fixing every other vertex is an
+/// automorphism of the current colored graph. This is a sufficient, exact
+/// test for local (true or false) twins, not a heuristic equivalence test.
+fn local_twins(
+    graph: &CanonicalColoredGraph,
+    coloring: &Partition,
+    a: AtomIdx,
+    b: AtomIdx,
+) -> bool {
+    if a == b || coloring.cell_of[a.0 as usize] != coloring.cell_of[b.0 as usize] {
+        return false;
+    }
+
+    local_twins_without_partition(graph, a, b)
+}
+
+/// Exact fixed-point swap automorphism, independent of a search partition.
+/// If this succeeds, every other vertex is literally left in place, so no
+/// partition refinement can invalidate the mapping.
+fn local_twins_without_partition(graph: &CanonicalColoredGraph, a: AtomIdx, b: AtomIdx) -> bool {
+    if a == b || graph.vertex_color(a) != graph.vertex_color(b) {
+        return false;
+    }
+
+    let mut a_edges: SmallVec<[(AtomIdx, crate::canonical_partition::EdgeColor); 4]> = graph
+        .neighbors(a)
+        .filter(|&(neighbor, _)| neighbor != b)
+        .map(|(neighbor, bond)| (neighbor, graph.edge_color(a, bond)))
+        .collect();
+    let mut b_edges: SmallVec<[(AtomIdx, crate::canonical_partition::EdgeColor); 4]> = graph
+        .neighbors(b)
+        .filter(|&(neighbor, _)| neighbor != a)
+        .map(|(neighbor, bond)| (neighbor, graph.edge_color(b, bond)))
+        .collect();
+    a_edges.sort_unstable();
+    b_edges.sort_unstable();
+    if a_edges != b_edges {
+        return false;
+    }
+
+    // If the pair is adjacent, its edge must be invariant under reversal.
+    // This rejects a dative bond whose donor/acceptor direction would flip.
+    let Some((_, a_to_b)) = graph.neighbors(a).find(|&(neighbor, _)| neighbor == b) else {
+        return true;
+    };
+    let Some((_, b_to_a)) = graph.neighbors(b).find(|&(neighbor, _)| neighbor == a) else {
+        return false;
+    };
+    graph.edge_color(a, a_to_b) == graph.edge_color(b, b_to_a)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -455,6 +596,29 @@ mod tests {
             let oracle = canonical_smiles_exhaustive_oracle(&mol);
             assert_eq!(got, oracle, "mismatch for {smi}");
         }
+    }
+
+    #[test]
+    fn local_twins_are_exact_but_dative_direction_is_not_symmetric() {
+        let tbu = parse("CC(C)(C)C").unwrap();
+        let graph = CanonicalColoredGraph::new(&tbu);
+        let partition = initial_partition(&graph, &vec![0; graph.n()]);
+        assert!(local_twins(&graph, &partition, AtomIdx(0), AtomIdx(2)));
+
+        let mut b = chematic_core::MoleculeBuilder::new();
+        let donor = b.add_atom(chematic_core::Atom::organic(chematic_core::Element::N));
+        let acceptor = b.add_atom(chematic_core::Atom::organic(chematic_core::Element::N));
+        b.add_bond(donor, acceptor, chematic_core::BondOrder::Dative)
+            .unwrap();
+        let dative = b.build();
+        let dative_graph = CanonicalColoredGraph::new(&dative);
+        let dative_partition = initial_partition(&dative_graph, &vec![0; dative_graph.n()]);
+        assert!(!local_twins(
+            &dative_graph,
+            &dative_partition,
+            donor,
+            acceptor
+        ));
     }
 
     /// Section 14 chemical fixtures: a molecule whose otherwise-symmetric
@@ -591,8 +755,11 @@ mod tests {
             search_canonical(
                 &e,
                 &graph,
-                ranks,
-                0,
+                SearchNode {
+                    ranks,
+                    target_cell: None,
+                    depth: 0,
+                },
                 &CanonicalizationLimits::unbounded(),
                 &mut budget,
                 &mut incumbent,

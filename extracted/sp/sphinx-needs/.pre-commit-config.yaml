@@ -6,7 +6,7 @@ repos:
       - id: taplo-format
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.8
+    rev: v0.16.5
     hooks:
       - id: ruff-check
         args: [--fix]
@@ -20,25 +20,24 @@ repos:
         # its own manifest, so a formatter local to this repository must not rewrite it
         exclude: ^tests/conformance/
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
+  - repo: local
     hooks:
-      - id: mypy
-        files: sphinx_needs/.*
-        args: []
-        additional_dependencies:
-          - sphinx==7.4.7
-          - docutils==0.20
-          - jsonschema-rs==0.37.1
-          - types-docutils==0.20.0.20240201
-          - types-requests
-          - minijinja~=2.15
+      - id: ty
+        name: ty
+        language: system
+        # runs the poe task, so this, `uv run poe typecheck` and CI check the same locked
+        # environment (.venvs/typing): the `typing` dependency group, which pins the oldest
+        # supported sphinx and docutils and ty itself
+        entry: uv run --frozen --no-sync poe typecheck
+        pass_filenames: false
+        files: ^(sphinx_needs/|pyproject\.toml$|uv\.lock$)
 
-  # TODO this does not work on pre-commit.ci
-  # - repo: https://github.com/astral-sh/uv-pre-commit
-  #   rev: 0.5.5
-  #   hooks:
-  #     - id: uv-lock  # Update the uv lockfile
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.9
+    hooks:
+      # keeps the committed uv.lock in step with pyproject.toml;
+      # it only runs when pyproject.toml, uv.lock or uv.toml changes
+      - id: uv-lock
 
   - repo: local
     hooks:

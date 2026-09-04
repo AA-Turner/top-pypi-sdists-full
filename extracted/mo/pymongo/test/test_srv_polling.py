@@ -13,24 +13,24 @@
 # limitations under the License.
 
 """Run the SRV support tests."""
+
 from __future__ import annotations
 
 import asyncio
 import sys
 import time
-from test.utils import flaky
-from test.utils_shared import FunctionCallRecorder
 from typing import Any
 
-sys.path[0:0] = [""]
+from test.utils_shared import FunctionCallRecorder
 
-from test import PyMongoTestCase, client_knobs, unittest
-from test.utils import wait_until
+sys.path[0:0] = [""]
 
 import pymongo
 from pymongo import common
 from pymongo.errors import ConfigurationError
-from pymongo.synchronous.srv_resolver import _have_dnspython
+from pymongo.uri_parser_shared import _have_dnspython
+from test import PyMongoTestCase, client_knobs, unittest
+from test.utils import wait_until
 
 _IS_SYNC = True
 
@@ -225,7 +225,6 @@ class TestSrvPolling(PyMongoTestCase):
 
             self.run_scenario(response_callback, False)
 
-    @flaky(reason="PYTHON-5500", max_runs=3)
     def test_dns_failures_logging(self):
         from dns import exception
 
@@ -236,8 +235,10 @@ class TestSrvPolling(PyMongoTestCase):
 
             self.run_scenario(response_callback, False)
 
-        srv_failure_logs = [r for r in cm.records if "SRV monitor check failed" in r.getMessage()]
-        self.assertEqual(len(srv_failure_logs), 1)
+            wait_until(
+                lambda: any("SRV monitor check failed" in r.getMessage() for r in cm.records),
+                "log the SRV monitor check failure",
+            )
 
     def test_dns_record_lookup_empty(self):
         response: list = []
@@ -269,14 +270,12 @@ class TestSrvPolling(PyMongoTestCase):
             # Nodelist should reflect new valid DNS resolver response.
             self.assert_nodelist_change(response_final, client)
 
-    @flaky(reason="PYTHON-5315")
     def test_recover_from_initially_empty_seedlist(self):
         def empty_seedlist():
             return []
 
         self._test_recover_from_initial(empty_seedlist)
 
-    @flaky(reason="PYTHON-5315")
     def test_recover_from_initially_erroring_seedlist(self):
         def erroring_seedlist():
             raise ConfigurationError

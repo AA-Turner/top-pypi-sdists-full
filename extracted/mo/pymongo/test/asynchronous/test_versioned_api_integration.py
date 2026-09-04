@@ -16,14 +16,14 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+
 from test.asynchronous.unified_format import generate_test_classes, get_test_path
 
 sys.path[0:0] = [""]
 
+from pymongo.server_api import ServerApi
 from test.asynchronous import AsyncIntegrationTest, async_client_context, unittest
 from test.utils_shared import OvertCommandListener
-
-from pymongo.server_api import ServerApi
 
 _IS_SYNC = False
 
@@ -48,7 +48,7 @@ class TestServerApiIntegration(AsyncIntegrationTest):
         client = await self.async_rs_or_single_client(
             server_api=ServerApi("1"), event_listeners=[listener]
         )
-        coll = client.test.test
+        coll = client.db.coll
         await coll.insert_many([{} for _ in range(100)])
         self.addAsyncCleanup(coll.delete_many, {})
         await coll.find(batch_size=25).to_list()
@@ -62,7 +62,7 @@ class TestServerApiIntegration(AsyncIntegrationTest):
         client = await self.async_rs_or_single_client(
             server_api=ServerApi("1"), event_listeners=[listener]
         )
-        coll = client.test.test
+        coll = client.db.coll
         await coll.insert_many([{} for _ in range(100)])
         self.addAsyncCleanup(coll.delete_many, {})
 
@@ -70,7 +70,7 @@ class TestServerApiIntegration(AsyncIntegrationTest):
         async with client.start_session() as s, await s.start_transaction():
             await coll.insert_many([{} for _ in range(100)], session=s)
             await coll.find(batch_size=25, session=s).to_list()
-            await client.test.command("find", "test", session=s)
+            await client.db.command("find", "coll", session=s)
             self.assertServerApiInAllCommands(listener.started_events)
 
 

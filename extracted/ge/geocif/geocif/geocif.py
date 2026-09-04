@@ -465,6 +465,28 @@ class Geocif:
         ):
             if self.parser.has_option("ML", _opt):
                 self.gsa_params[_opt.replace("tabpfn_gsa_", "")] = _cast("ML", _opt)
+        # Optional BNN (model='bnn', Ma et al. 2021 RSE) overrides. Absent
+        # keys keep trainers' defaults (epochs=700, kl_weight=0.05 -- NOT the
+        # paper's 1.0, which collapses the sigma head to a constant). Keys
+        # map bnn_<x> -> <x>. The calibration toggle is deliberately named
+        # bnn_calibrate_sigma, not bnn_calibrate: the wrapper must never grow
+        # a `calibrate` attribute because _add_confidence_intervals_if_needed
+        # probes hasattr(model, 'calibrate') and would call it with in-sample
+        # training data.
+        self.bnn_params: dict = {}
+        for _opt, _cast in (
+            ("bnn_epochs", self.parser.getint),
+            ("bnn_batch_size", self.parser.getint),
+            ("bnn_lr", self.parser.getfloat),
+            ("bnn_prior_sigma", self.parser.getfloat),
+            ("bnn_kl_weight", self.parser.getfloat),
+            ("bnn_warmup_epochs", self.parser.getint),
+            ("bnn_n_mc", self.parser.getint),
+            ("bnn_calibrate_sigma", self.parser.getboolean),
+            ("bnn_device", self.parser.get),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.bnn_params[_opt.replace("bnn_", "")] = _cast("ML", _opt)
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -482,6 +504,14 @@ class Geocif:
                 f"Detrended {self.target}" if self.check_yield_trend else self.target
             )
         elif self.model_type == "CLASSIFICATION":
+            # target_class is otherwise only assigned inside the per-region
+            # fe.classify_target() call during data prep — thousands of lines
+            # after __post_init__ — so CLASSIFICATION crashed here on every
+            # project with AttributeError: no attribute 'target_class'.
+            # The name is deterministic (fe.classify_target returns
+            # f"{target_col}_class", and _prepare_train_test_split already
+            # creates that column), so derive it up front.
+            self.target_class = f"{self.target}_class"
             self.target_column = self.target_class
         
         self.combined_dict = {
@@ -4947,9 +4977,60 @@ class Geocif:
                 y_pred[positions] = float(
                     intercept + slope * float(self.forecast_season)
                 )
+        elif self.model_name in ("null_class", "persistence_class"):
+            # CLASSIFICATION-mode baselines. Every other baseline here predicts
+            # on the raw self.target scale, which is meaningless once the
+            # models emit class labels — null/trend scored 0.0% accuracy in the
+            # first poppy classification run because they returned yields
+            # (39.8) that can never equal a class (0/1/2). These two return
+            # CLASS labels so they are comparable to a real classifier.
+            #
+            #   null_class        -> per-unit MAJORITY training class. Direct
+            #                        analogue of `null` (per-unit mean).
+            #   persistence_class -> the unit's most recent PRIOR observed
+            #                        class. Analogue of `last_year`.
+            #
+            # Same two invariants as the other baselines: computed strictly
+            # within each spatial unit (never pooled), and off _leakfree rows
+            # so a promoted region's own forecast-year label cannot seed its
+            # own prediction.
+            if self.model_type != "CLASSIFICATION":
+                raise ValueError(
+                    f"model = '{self.model_name}' requires [ML] model_type = "
+                    "CLASSIFICATION (and classify_target = True). It predicts "
+                    "class labels, not yields."
+                )
+            cls_col = self.target_class
+            _dtr_cls = _leakfree(self.df_train)
+            if cls_col not in _dtr_cls.columns:
+                raise ValueError(
+                    f"model = '{self.model_name}': class column {cls_col!r} is "
+                    "absent from df_train — classify_target did not run."
+                )
+            y_pred = np.full(len(X_test), np.nan, dtype=float)
+            for region_name, sub in df_region.groupby("Region", observed=True):
+                past = (
+                    _dtr_cls.loc[
+                        _dtr_cls["Region"] == region_name,
+                        ["Harvest Year", cls_col],
+                    ]
+                    .dropna()
+                )
+                positions = sub.index.to_numpy()
+                if past.empty:
+                    continue
+                if self.model_name == "null_class":
+                    # mode() can tie; take the lowest class for determinism.
+                    y_pred[positions] = float(past[cls_col].mode().min())
+                else:
+                    past = past.sort_values("Harvest Year")
+                    for pos, yr in zip(positions, sub["Harvest Year"].to_numpy()):
+                        prior = past[past["Harvest Year"].astype(float) < float(yr)]
+                        if not prior.empty:
+                            y_pred[pos] = float(prior[cls_col].iloc[-1])
         else:
             raise ValueError(f"Unknown baseline model: {self.model_name}")
-        
+
         return y_pred, None, np.nan
 
     def _preprocess_test_data(self, X_test: pd.DataFrame, scaler) -> pd.DataFrame:
@@ -5066,6 +5147,8 @@ class Geocif:
             return self._predict_tabpfn_with_quantiles(X_test)
         elif self.dispatch_name == "tabicl":
             return self._predict_tabicl_with_quantiles(X_test)
+        elif self.dispatch_name == "bnn":
+            return self._predict_bnn_with_ci(X_test)
         elif self.dispatch_name in ["logistic", "catboost"] and self.model_type == "CLASSIFICATION":
             return self._predict_classification_with_proba(X_test)
         else:
@@ -5091,6 +5174,29 @@ class Geocif:
             y_pred_ci = np.vstack([y_pred_proba[:, 0], y_pred, y_pred_proba[:, 1]]).T
         
         return y_pred, y_pred_ci, {}
+
+    def _predict_bnn_with_ci(self, X_test: pd.DataFrame) -> Tuple:
+        """BNN native predictive interval: mu ± z(alpha)·sigma_total, where
+        sigma_total is the calibrated sqrt(aleatoric² + epistemic²) from MC
+        weight sampling (ml/bnn.py). Emits the (n, 2, 1) CI shape used by
+        the tabpfn/tabicl paths -- _retrend_predictions and
+        _re_add_region_mean_to_predictions index y_pred_ci[ri, 0, 0] /
+        [ri, 1, 0], so the ngboost (n, 3) layout must NOT be copied here."""
+        mu, sd_total, _sd_alea, _sd_epis = self.model.predict(X_test, return_std=True)
+        mu = np.asarray(mu, dtype=float).ravel()
+        sd_total = np.asarray(sd_total, dtype=float).ravel()
+
+        z_value = utils.get_z_value(self.alpha)
+        lower = mu - z_value * sd_total
+        upper = mu + z_value * sd_total
+        y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
+
+        try:
+            best_hyperparameters = self.model.get_params().copy()
+        except AttributeError:
+            best_hyperparameters = {}
+
+        return mu, y_pred_ci, best_hyperparameters
 
     def _predict_tabpfn_with_quantiles(self, X_test: pd.DataFrame) -> Tuple:
         """TabPFN native quantile regression for prediction intervals.
@@ -5384,6 +5490,7 @@ class Geocif:
         )
         
         self._add_median_yield_columns(df, df_region)
+        self._add_observed_class_columns(df, df_region)
         self._add_confidence_intervals(df, y_pred_ci)
         self._add_trend_info(df, df_region)
         self._add_feature_columns(df, df_region)
@@ -5451,6 +5558,51 @@ class Geocif:
             f"Predicted {self.target}": np.around(y_pred, 3).ravel(),
             "APE": np.around(ape, 3).ravel(),
         })
+
+    def _add_observed_class_columns(self, df: pd.DataFrame, df_region: pd.DataFrame):
+        """Persist the OBSERVED class and the per-region qcut bin edges.
+
+        CLASSIFICATION stores the predicted class in ``Predicted <target>`` but
+        used to store neither the observed class nor the bins, so accuracy could
+        not be recomputed from the DB at all — the labelling had to be guessed by
+        re-running qcut over all years, which is NOT what the model saw (bins are
+        fitted per region on each fold's TRAINING rows only). Writing both makes
+        the results self-describing.
+        """
+        if self.model_type != "CLASSIFICATION":
+            return
+        cls_col = getattr(self, "target_class", f"{self.target}_class")
+        bins = getattr(self, "target_bins", {}) or {}
+
+        # classify_target() writes the class onto df_train only, so TEST rows
+        # have no label — reading df_region[cls_col] yields all-None. Assign it
+        # by applying that region's own fitted bin edges to the test row's
+        # observed yield, which is exactly the labelling the model was trained
+        # against (bins come from the fold's training rows).
+        obs = pd.to_numeric(df_region.get(self.target), errors="coerce")
+        regions = df_region["Region"].values
+        labels, edges = [], []
+        for i, region_name in enumerate(regions):
+            b = bins.get(region_name)
+            y = obs.iloc[i] if obs is not None and i < len(obs) else np.nan
+            if b is None:
+                labels.append(np.nan)
+                edges.append(None)
+                continue
+            b = np.asarray(b, dtype=float).ravel()
+            # Edges describe the region's class scheme and do NOT depend on the
+            # observation — emit them even for the forecast year, which has no
+            # observed yield. They are what makes a predicted class readable
+            # ("class 2 = > 33.5 kg/ha") in the summary table.
+            edges.append(", ".join(f"{e:.4g}" for e in b))
+            if pd.isna(y):
+                labels.append(np.nan)      # no ground truth for the forecast year
+                continue
+            # qcut returns k+1 edges; the interior ones are the cut points.
+            labels.append(float(np.digitize(float(y), b[1:-1], right=True)))
+        df.loc[:, f"Observed {cls_col}"] = labels
+        if any(e is not None for e in edges):
+            df.loc[:, "Class Bins"] = edges
 
     def _compute_ape(
         self, 
@@ -6264,8 +6416,32 @@ class ModelTrainer:
         self._add_confidence_intervals_if_needed(X_for_cal)
     
     def _prepare_training_data(self, df_region: pd.DataFrame) -> pd.DataFrame:
-        """Extract and prepare features for training."""
-        return df_region[self.obj.selected_features + self.obj.cat_features]
+        """Extract and prepare features for training, aligned to y_train.
+
+        ``_setup_training_data`` drops rows whose TARGET is NaN, but X is built
+        here from the full ``df_region``. In REGRESSION the target is the yield
+        and training rows are already non-NaN, so the two always matched. In
+        CLASSIFICATION the target is the qcut CLASS, which is NaN for any region
+        whose bins collapsed (a region with 1-2 training rows under
+        ml_year_range_per_region). X then had one more row than y and the whole
+        fold died in CatBoostFitter's train_test_split with "Found input
+        variables with inconsistent numbers of samples: [47, 46]" — which
+        silently removed the 2019 and 2021 folds from poppy classification.
+        Align X to y's index so a collapsed region costs its own rows, not the
+        entire fold.
+        """
+        X = df_region[self.obj.selected_features + self.obj.cat_features]
+        y = getattr(self.obj, "y_train", None)
+        if y is not None and len(X) != len(y):
+            common = X.index.intersection(y.index)
+            if len(common):
+                self.obj.logger.warning(
+                    f"  X_train ({len(X)}) / y_train ({len(y)}) length mismatch "
+                    f"for {self.obj.model_name} — aligning to {len(common)} "
+                    f"shared rows (NaN target, e.g. a collapsed class scheme)."
+                )
+                X = X.loc[common]
+        return X
     
     def _save_training_data(
         self,
@@ -6335,6 +6511,7 @@ class ModelTrainer:
             george_params=getattr(self.obj, "george_params", None),
             pygrf_params=getattr(self.obj, "pygrf_params", None),
             gsa_params=getattr(self.obj, "gsa_params", None),
+            bnn_params=getattr(self.obj, "bnn_params", None),
         )
 
     def _add_confidence_intervals_if_needed(self, X_train=None):

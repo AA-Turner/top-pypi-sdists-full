@@ -3,6 +3,8 @@
 import asyncio
 import datetime
 import json
+import threading
+from collections import OrderedDict
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
 
@@ -437,6 +439,12 @@ def make_sync_session(responses, **session_kwargs):
     session._resolve = session_kwargs.get("resolve", None) or {}
     session._proxy = None
     session._proxy_url = None
+    session._aia_extra_pems = []
+    session._aia_cert_store = None
+    session._aia_generation = 0
+    session._aia_expires_at = None
+    session._aia_attempted = OrderedDict()
+    session._aia_lock = threading.RLock()
     session._rotate_every = session_kwargs.get("rotate_every", None)
     session._request_count = 0
     profile = session_kwargs.get("profile", None)
@@ -539,6 +547,12 @@ def make_async_session(responses, **session_kwargs):
     session._resolve = session_kwargs.get("resolve", None) or {}
     session._proxy = None
     session._proxy_url = None
+    session._aia_extra_pems = []
+    session._aia_cert_store = None
+    session._aia_generation = 0
+    session._aia_expires_at = None
+    session._aia_attempted = OrderedDict()
+    session._aia_lock = threading.RLock()
     session._rotate_every = session_kwargs.get("rotate_every", None)
     session._request_count = 0
     session._rotate_lock = asyncio.Lock()

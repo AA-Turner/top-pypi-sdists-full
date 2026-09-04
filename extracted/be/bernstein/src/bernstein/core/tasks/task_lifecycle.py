@@ -73,6 +73,7 @@ from bernstein.core.tick_pipeline import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from bernstein.core.git_ops import MergeResult
@@ -189,7 +190,7 @@ def _get_active_agent_files(orch: Any) -> set[str]:
     """Return the set of files currently being edited by active agents.
 
     Inspects the git diff in each active agent's worktree to discover which
-    files have uncommitted changes.  Falls back to ``_file_ownership`` entries
+    files have uncommitted changes.  Falls back to ``FileLockManager`` entries
     for agents whose worktree cannot be inspected.
 
     Args:
@@ -200,6 +201,7 @@ def _get_active_agent_files(orch: Any) -> set[str]:
     """
     active_files: set[str] = set()
     spawner = getattr(orch, "_spawner", None)
+    lock_manager = getattr(orch, "_lock_manager", None)
 
     for agent_id, session in orch._agents.items():
         if session.status == "dead":
@@ -212,17 +214,17 @@ def _get_active_agent_files(orch: Any) -> set[str]:
         if worktree_path is not None:
             changed = _get_changed_files_in_worktree(worktree_path)
             active_files.update(changed)
-        # Also include statically declared owned_files from file_ownership
-        for fpath, owner in orch._file_ownership.items():
-            if owner == agent_id:
-                active_files.add(fpath)
+        # Also include statically declared owned_files from the lock manager
+        if lock_manager is not None:
+            for lock in lock_manager.locks_for_agent(agent_id):
+                active_files.add(lock.file_path)
 
     return active_files
 
 
 def check_file_overlap(
     batch: list[Task],
-    file_ownership: dict[str, str],
+    file_ownership: Mapping[str, str],
     agents: dict[str, AgentSession],
 ) -> bool:
     """Check if any file in the batch is owned by an active agent.
@@ -3574,7 +3576,19 @@ def _evaluate_approval_gate(
             timeout_s=timeout_s,
         )
         if approval_result.rejected:
-            logger.warning("Approval gate: task %s rejected -- skipping merge for agent %s", task.id, session.id)
+            if approval_result.resolution == "timed_out":
+                logger.warning(
+                    "Approval gate: task %s rejected on timeout (no decision within the review window) "
+                    "-- skipping merge for agent %s",
+                    task.id,
+                    session.id,
+                )
+            else:
+                logger.warning(
+                    "Approval gate: task %s rejected -- skipping merge for agent %s",
+                    task.id,
+                    session.id,
+                )
             return True
         if not approval_result.approved:
             _create_approval_pr(orch, task, session, completion_data)
@@ -3684,8 +3698,9 @@ def _write_task_resume_checkpoint(
     session: AgentSession | None,
     worktree_path: Path | None,
     adapter_name: str | None = None,
+    stall_reason: str | None = None,
 ) -> None:
-    """Write a task resume checkpoint for a completed task.
+    """Write a task resume checkpoint for a completed or stall-killed task.
 
     This checkpoint captures the state after a successful step transition
     (agent spawn -> task completion) so the task can be resumed later if
@@ -3703,6 +3718,10 @@ def _write_task_resume_checkpoint(
         adapter_name: Adapter that ran the session. ``bernstein resume`` reads
             its resume strategy off this name (``resume_cmd.py``), so a
             checkpoint written without one is readable but not resumable.
+        stall_reason: When set, this checkpoint was written at an automatic
+            stall-kill boundary (issue #3376) rather than after a normal step
+            completion. Passed straight through onto the checkpoint's own
+            ``stall_reason`` field.
     """
     adapter = adapter_name or ""
     adapter_session_id = session.id if session is not None else ""
@@ -3735,6 +3754,7 @@ def _write_task_resume_checkpoint(
         worktree_path=str(worktree_path) if worktree_path is not None else None,
         scratchpad_path=scratchpad_path,
         scratchpad_sha256=scratchpad_sha,
+        stall_reason=stall_reason,
         meta=({"adapter_name": adapter} if adapter else {}),
     )
     save_checkpoint(workdir, checkpoint)
@@ -5475,8 +5495,9 @@ def _get_git_diff_text_in_worktree(worktree_path: Path) -> str:
 def _claim_file_ownership(orch: Any, agent_id: str, tasks: list[Task]) -> None:
     """Register file ownership for files in the given tasks.
 
-    Uses :class:`~bernstein.core.file_locks.FileLockManager` when available,
-    falling back to the legacy ``_file_ownership`` dict for compatibility.
+    Uses :class:`~bernstein.core.file_locks.FileLockManager` as the single
+    source of truth.  The legacy ``_file_ownership`` attribute is a read-only
+    projection of it; there is no longer a fallback path.
 
     Also claims ownership for paths inferred from the task title/description
     (CRITICAL-007) so that subsequent ``check_file_overlap`` calls detect
@@ -5501,9 +5522,6 @@ def _claim_file_ownership(orch: Any, agent_id: str, tasks: list[Task]) -> None:
                 task_id=task.id,
                 task_title=task.title,
             )
-        # Keep legacy dict in sync so existing code that reads _file_ownership still works
-        for fpath in all_files:
-            orch._file_ownership[fpath] = agent_id
 
 
 # ---------------------------------------------------------------------------

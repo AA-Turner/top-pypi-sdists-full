@@ -38,7 +38,13 @@ def _get_cli_commands() -> str:
     its internals, the CLI section will be omitted from the system prompt.
     """
     try:
-        from dreadnode.app.cli.main import cli
+        from dreadnode.app.cli.main import cli, register_all_commands
+
+        # Subcommands import on demand (ENG-8259), and this listing is built
+        # once per process behind a cache. Under `dreadnode serve` nothing else
+        # would have registered them, so the agent's system prompt would name
+        # only the handful of commands defined in main.py, permanently.
+        register_all_commands()
 
         # Access internal command registry — guarded by try/except
         command_registry = getattr(cli, "_commands", None)

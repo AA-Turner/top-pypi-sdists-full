@@ -275,8 +275,17 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
             # The admin_2 county export resolves FIPS from
             # level2_to_fips_crosswalk.csv instead; see _load_county_lookup.
             c for c in ("lower CI", "upper CI", "alpha", "Area (ha)",
-                        "Stage Window Display", "Season", "Region_ID")
+                        "Stage Window Display", "Season", "Region_ID",
+                        # CLASSIFICATION: the observed class label, its qcut
+                        # bin edges, and the flattened predict_proba. Without
+                        # these the diagnostics frame has no ground truth, so
+                        # accuracy / confusion silently cannot be produced
+                        # even though the DB holds them.
+                        "Class Bins", "CI")
             if c in table_cols
+        ] + [
+            c for c in table_cols
+            if c.startswith("Observed ") and c.endswith("_class")
         ]
         extra_select = (
             ("," + ",".join(f'"{c}"' for c in optional_cols))
@@ -453,6 +462,8 @@ _BMA_BIC_DEFAULT_PARAMS = {
     "catboost": 50,  # boosted trees; effective params << total leaf count
     "tabpfn":  100,  # foundation model, in-context few-shot ≈ context width
     "cubist":   30,  # rules × committees (n_committees=10, ~3 rules each)
+    "bnn":      50,  # mean-field variational net; posterior over weights
+                     # regularizes hard, effective params << raw weight count
 }
 
 
@@ -821,6 +832,93 @@ def _plot_within_r_comparison(df_wr, summary, dir_out, fname, base_title):
         plt.close(fig)
 
 
+def _is_classification_frame(df):
+    """True when the results frame carries class labels, not yields.
+
+    Detected from the data rather than the parser so every caller of
+    ``_generate_diagnostics_for_stage`` is covered without threading
+    ``model_type`` through: CLASSIFICATION persists an
+    ``Observed <target>_class`` column (0.4.965+), and its Predicted column
+    holds small non-negative integers.
+    """
+    if df is None or getattr(df, "empty", True):
+        return False
+    if any(c.startswith("Observed ") and c.endswith("_class") for c in df.columns):
+        return True
+    pred = [c for c in df.columns if c.startswith("Predicted ")]
+    if not pred:
+        return False
+    vals = pd.to_numeric(df[pred[0]], errors="coerce").dropna()
+    if vals.empty or len(vals) < 3:
+        return False
+    # class indices: whole numbers, 0-based, few distinct levels
+    return bool(
+        (vals % 1 == 0).all() and vals.min() >= 0
+        and vals.max() <= 20 and vals.nunique() <= 10
+    )
+
+
+def _classification_table_columns(df_plot):
+    """Per-region 'Class Range' and 'Class Probability' for the summary table.
+
+    Both come from columns geocif persists in CLASSIFICATION mode:
+
+    * ``Class Bins``  — that region's qcut edges, e.g. "16.1, 24.1, 39.8".
+      The predicted class k spans edges[k]..edges[k+1], rendered as a closed
+      interval so a reader can see what "class 2" actually means in kg/ha.
+    * ``CI``          — flattened predict_proba, e.g. "0.289, 0.711". The
+      probability reported is the one for the class the model CHOSE, which is
+      what tells you whether a call was confident or a coin flip.
+
+    Returns a frame with Region + whichever of the two could be built.
+    """
+    out = {"Region": [], "Class Range": [], "Class Probability": []}
+    pred_cols = [c for c in df_plot.columns if c.startswith("Predicted ")]
+    if not pred_cols:
+        return pd.DataFrame({"Region": []})
+    pcol = pred_cols[0]
+
+    def _nums(s):
+        try:
+            return [float(x) for x in str(s).split(",") if str(x).strip() != ""]
+        except (TypeError, ValueError):
+            return []
+
+    for _, r in df_plot.iterrows():
+        k = pd.to_numeric(r.get(pcol), errors="coerce")
+        out["Region"].append(r.get("Region"))
+
+        edges = _nums(r.get("Class Bins")) if "Class Bins" in df_plot.columns else []
+        rng = None
+        if edges and pd.notna(k):
+            ki = int(k)
+            if 0 <= ki < len(edges) - 1:
+                lo, hi = edges[ki], edges[ki + 1]
+                # Open-ended on the outside so the extremes read honestly:
+                # the top class is not capped at the observed maximum.
+                if ki == 0:
+                    rng = f"≤ {hi:.1f}"
+                elif ki == len(edges) - 2:
+                    rng = f"> {lo:.1f}"
+                else:
+                    rng = f"{lo:.1f}–{hi:.1f}"
+        out["Class Range"].append(rng)
+
+        probs = _nums(r.get("CI")) if "CI" in df_plot.columns else []
+        p = None
+        if probs and pd.notna(k) and 0 <= int(k) < len(probs):
+            p = f"{100 * probs[int(k)]:.0f}%"
+        out["Class Probability"].append(p)
+
+    res = pd.DataFrame(out)
+    # Drop a column entirely when nothing could be resolved, so the table does
+    # not carry an all-blank column.
+    for c in ("Class Range", "Class Probability"):
+        if res[c].isna().all():
+            res = res.drop(columns=[c])
+    return res
+
+
 def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
                                     stage_name="", forecast_year=None,
                                     admin_level="admin_1", yield_units="Mg/ha"):
@@ -839,6 +937,10 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
 
     obs_col = "Observed Yield (tn per ha)"
     pred_col = "Predicted Yield (tn per ha)"
+    # Keep the unfiltered frame: the forecast year has no observed yield, so
+    # the dropna below removes it — but the categorical class map is drawn FOR
+    # the forecast year and needs those rows.
+    df_all = df
     df = df.dropna(subset=[obs_col, pred_col]) if obs_col in df.columns else pd.DataFrame()
     if df.empty:
         return
@@ -862,6 +964,25 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
     title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} — {model}"
     if stage_name:
         title += f" ({diag.friendly_stage_label(stage_name)})"
+
+    # CLASSIFICATION emits class labels in the Predicted column. Every
+    # diagnostic below (obs-vs-pred scatter, MAPE box, MAPE/RMSE/R² maps)
+    # computes a continuous error between a raw yield and a class index —
+    # not merely uninformative but wrong. Swap the whole block for
+    # accuracy + confusion + a categorical class map, and return.
+    if _is_classification_frame(df):
+        _cd_lower_c = {c.lower() for c in countries_display}
+        dg_cls = dg[dg["ADM0_NAME"].str.lower().isin(_cd_lower_c)].copy()
+        diag.classification_outputs(
+            dg_cls, df_all, countries_display, dir_maps, dir_csvs,
+            country=country, crop=crop, model=model, suffix=stage_suffix,
+            pred_col=pred_col, forecast_year=forecast_year,
+        )
+        logger.info(
+            f"  classification diagnostics for {country} {crop} {model}: "
+            f"accuracy + confusion + class map → {dir_maps}"
+        )
+        return
 
     with plt.style.context(["science", "no-latex"]):
         diag.scatter_obs_pred(df, title, dir_plots,
@@ -5011,11 +5132,33 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_table["lower CI"].notna().any()
                     or df_table["upper CI"].notna().any()
                 )
+                # CLASSIFICATION: the "Predicted Yield" column actually holds a
+                # class index, so render it as an int and add the two columns
+                # that make it interpretable — the yield range the class covers
+                # (from the per-region qcut edges) and the model's probability
+                # for the class it chose (from the flattened predict_proba).
+                is_cls = _is_classification_frame(df_plot)
+                if is_cls:
+                    _cls_cols = _classification_table_columns(df_plot)
+                    df_table = df_table.merge(_cls_cols, on="Region", how="left")
+                    df_table["Predicted Yield"] = (
+                        pd.to_numeric(df_table["Predicted Yield"], errors="coerce")
+                        .astype("Int64")
+                    )
+                    df_table = df_table.rename(
+                        columns={"Predicted Yield": "Predicted Class"}
+                    )
                 cols_order = []
                 if prod_pct and _show_prod_share:
                     cols_order.append("% of Production")
-                cols_order += ["Predicted Yield"]
-                if ci_has_values:
+                if is_cls:
+                    cols_order += ["Predicted Class"]
+                    for _c in ("Class Range", "Class Probability"):
+                        if _c in df_table.columns:
+                            cols_order.append(_c)
+                else:
+                    cols_order += ["Predicted Yield"]
+                if ci_has_values and not is_cls:
                     cols_order += ["lower CI", "upper CI"]
                 cols_order += ["Last Obs Yield", "Last Obs Year"]
                 for _c in ["Mean 5yr Obs Yield", "5yr Obs Years"]:

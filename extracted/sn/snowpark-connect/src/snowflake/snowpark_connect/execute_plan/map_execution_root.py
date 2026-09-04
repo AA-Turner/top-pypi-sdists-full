@@ -17,7 +17,14 @@ from snowflake.snowpark._internal.analyzer.snowflake_plan import PlanQueryType
 from snowflake.snowpark._internal.utils import (
     create_or_update_statement_params_with_query_tag,
 )
-from snowflake.snowpark.types import DayTimeIntervalType
+from snowflake.snowpark.types import (
+    ArrayType,
+    DataType,
+    DayTimeIntervalType,
+    MapType,
+    StructType,
+    TimestampType,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.execute_plan.utils import (
     _is_agg_function_with_single_row_result,
@@ -93,6 +100,63 @@ def _widen_second_only_interval_columns(
     for name, widen in zip(snowpark_schema.names, needs_widening):
         col = result_df.col(name)
         projection.append(col.cast(day_to_second).alias(name) if widen else col)
+    return result_df.select(projection)
+
+
+def _contains_timestamp(datatype: DataType) -> bool:
+    """True if ``datatype`` is, or nests, a ``TimestampType``."""
+    if isinstance(datatype, TimestampType):
+        return True
+    if isinstance(datatype, MapType):
+        return _contains_timestamp(datatype.key_type) or _contains_timestamp(
+            datatype.value_type
+        )
+    if isinstance(datatype, ArrayType):
+        return _contains_timestamp(datatype.element_type)
+    if isinstance(datatype, StructType):
+        return any(_contains_timestamp(f.datatype) for f in datatype.fields)
+    return False
+
+
+def _widen_nested_timestamp_scale_columns(
+    result_df: snowpark.DataFrame,
+    snowpark_schema: snowpark.types.StructType,
+) -> snowpark.DataFrame:
+    """Work around a Snowflake structured-type Arrow-encoder bug for timestamps
+    nested inside a ``MAP`` / ``ARRAY`` / ``OBJECT``.
+
+    A timestamp nested in a structured column and declared with scale <= 6 is
+    encoded with a saturated ``int64`` (``INT64_MAX``) in the Arrow batch the
+    Snowflake connector returns, so the client's pyarrow raises ``OverflowError``
+    ("date value out of range") on fetch. The value in Snowflake is correct — only
+    the nested-child Arrow payload is corrupt, and only at scale <= 6 (top-level
+    timestamps and scale-9 nested timestamps are fine). Parquet Direct hits this
+    because a loose-parquet Iceberg table must declare INT96 timestamps at scale 6
+    (scale 9 is rejected with 100514), whereas the normal COPY path defaults nested
+    timestamps to scale 9.
+
+    Casting the structured column to its own resolved datatype re-emits the nested
+    timestamp at the default scale 9 (Snowpark renders a bare ``TIMESTAMP_LTZ``),
+    which the encoder handles correctly. The caller keeps the reported schema from
+    the original DataFrame, so widening only affects the fetched Arrow data and is
+    invisible to the client (Spark timestamps are scale-agnostic). Mirrors
+    ``_widen_second_only_interval_columns``.
+
+    Only **structured** columns that nest a timestamp are widened — bare top-level
+    timestamp columns are left untouched (they are not affected). ``result_df`` is
+    returned unchanged (no extra projection) when no such column is present.
+    """
+    needs_widening = [
+        not isinstance(f.datatype, TimestampType) and _contains_timestamp(f.datatype)
+        for f in snowpark_schema.fields
+    ]
+    if not any(needs_widening):
+        return result_df
+
+    projection = []
+    for field, widen in zip(snowpark_schema.fields, needs_widening):
+        col = result_df.col(field.name)
+        projection.append(col.cast(field.datatype).alias(field.name) if widen else col)
     return result_df.select(projection)
 
 
@@ -191,6 +255,23 @@ def map_execution_root(
         fetch_df = _widen_second_only_interval_columns(
             filtered_result_df, snowpark_schema
         )
+        # SNOW-3748550: a timestamp nested in a MAP/ARRAY/OBJECT declared at scale <= 6
+        # is fetched as a saturated int64 (client OverflowError). Parquet Direct declares
+        # INT96 timestamps at scale 6, so widen nested timestamps to scale 9 for the fetch
+        # only; the reported schema above is kept, so this is invisible to the client.
+        # No-op (returns the same DataFrame) when no structured column nests a timestamp.
+        #
+        # Gated on the Parquet Direct config: only PD declares nested timestamps at scale 6, so
+        # the normal COPY/INFER path (scale 9) never hits the encoder bug. Gating keeps the fetch
+        # path byte-for-byte identical to the prior behavior when PD is OFF — the production
+        # default — instead of adding a cast projection on the universal execute path for every
+        # user whose result nests a timestamp (Choden review).
+        from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+            parquet_direct_enabled,
+        )
+
+        if parquet_direct_enabled():
+            fetch_df = _widen_nested_timestamp_scale_columns(fetch_df, snowpark_schema)
 
         # SNOW-3242008: Performance optimization for DDL sql_command results.
         # When a DDL statement (USE DATABASE, ALTER SESSION SET, etc.) is executed,

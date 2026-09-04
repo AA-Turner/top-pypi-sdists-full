@@ -182,6 +182,10 @@ protected:
     // - fromStart: if true, the first jobs are added, if false, the last jobs are added
     //   (in that case, the very last job is added last)
     void GetJobs(const Box &area, const Shape &block, int nrJobsToGet, bool fromStart, std::vector<Box> &jobs);
+
+    // Finds the highest BLOCKDEP from previous/current job overlap
+    int CheckOverlap(const std::vector<Box> &lastPrevJobs, const std::vector<Box> &firstCurrJobs, int maxJobs);
+
     // Calculates the value for the BLOCKDEP register
     int CalcBlockDep(HLCStripe *prevStripe, HLCStripe *stripe);
 

@@ -10,12 +10,14 @@ Disclaimer: AI-generated tests
 
 from datetime import datetime, timezone
 from unittest import mock
+from urllib.parse import quote
 
 import icalendar
 import pytest
 
-from caldav import Event, Journal, Todo
+from caldav import Calendar, Event, Journal, Todo
 from caldav.davclient import DAVClient
+from caldav.lib import error
 from caldav.lib.url import URL
 from caldav.search import CalDAVSearcher
 
@@ -137,6 +139,31 @@ DTSTART:20240615T140000Z
 DTEND:20240615T150000Z
 SUMMARY:Team Building
 CATEGORIES:WORK,SOCIAL
+END:VEVENT
+END:VCALENDAR"""
+
+# Two events for §2.6 combined-is-logical-and tests
+SPECIAL_EVENT = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:special-event@example.com
+DTSTAMP:20240101T120000Z
+DTSTART:20240615T140000Z
+DTEND:20240615T150000Z
+SUMMARY:My Special Event
+END:VEVENT
+END:VCALENDAR"""
+
+UNRELATED_EVENT = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:unrelated-event@example.com
+DTSTAMP:20240101T120000Z
+DTSTART:20240615T160000Z
+DTEND:20240615T170000Z
+SUMMARY:Unrelated Meeting
 END:VEVENT
 END:VCALENDAR"""
 
@@ -867,3 +894,627 @@ class TestSearchWithCompTypesFullXML:
 
         assert result == [event]
         calendar._request_report_build_resultlist.assert_called_once_with(full_xml, None, None)
+
+
+class TestCompTypeLessSearchSplit:
+    """Gate findings F10 and F11: the comp-type split path.
+
+    Since `search.time-range.comp-type-optional` and
+    `search.text.comp-type-optional` both default to `unsupported`, this
+    split now fires on essentially every server, so everything it gets wrong
+    is a common bug rather than an exotic one.
+    """
+
+    @staticmethod
+    def _split_client(mock_client: DAVClient) -> DAVClient:
+        def mock_is_supported(feat, type_=bool):
+            if feat == "search.comp-type.optional":
+                return False
+            if type_ is str:
+                return "full"
+            return True
+
+        mock_client.features.is_supported = mock.Mock(side_effect=mock_is_supported)
+        mock_client.features.backward_compatibility_mode = False
+        return mock_client
+
+    def _calendar(self, mock_client: DAVClient, objects: list) -> mock.Mock:
+        calendar = mock.Mock()
+        calendar.client = self._split_client(mock_client)
+        calendar._request_report_build_resultlist.return_value = (mock.Mock(), objects)
+        return calendar
+
+    def test_event_false_does_not_raise_assertionerror(
+        self, mock_client: DAVClient, mock_url: str
+    ) -> None:
+        """F10: `search(event=False, ...)` tripped a bare, message-less
+        `AssertionError` -- on a perfectly legal call to a public API."""
+        event = Event(client=mock_client, url=mock_url, data=SIMPLE_EVENT)
+        calendar = self._calendar(mock_client, [event])
+
+        searcher = CalDAVSearcher(event=False)
+        result = searcher.search(calendar)
+
+        assert result == [event]
+
+    def test_results_are_deduplicated_by_url(self, mock_client: DAVClient, mock_url: str) -> None:
+        """F11: one query per component type is sent, and a resource that
+        legally holds both a VEVENT and a VTODO comes back from more than one
+        of them.  The `include_completed` split deduplicates by URL; this one
+        did not, so the object was returned twice."""
+        event = Event(client=mock_client, url=mock_url, data=SIMPLE_EVENT)
+        calendar = self._calendar(mock_client, [event])
+
+        searcher = CalDAVSearcher()
+        result = searcher.search(calendar)
+
+        assert calendar._request_report_build_resultlist.call_count > 1, (
+            "expected one REPORT per component type"
+        )
+        assert [o.url for o in result] == [event.url]
+
+    def test_searcher_is_not_mutated_by_the_split(
+        self, mock_client: DAVClient, mock_url: str
+    ) -> None:
+        """F11: the split set `include_completed` on the caller's searcher --
+        the issue-#650 class of bug, where a reused searcher silently changes
+        meaning between calls."""
+        event = Event(client=mock_client, url=mock_url, data=SIMPLE_EVENT)
+        calendar = self._calendar(mock_client, [event])
+
+        searcher = CalDAVSearcher()
+        assert searcher.include_completed is None
+        searcher.search(calendar)
+
+        assert searcher.include_completed is None, "search() mutated the caller's searcher"
+
+
+class TestCompTypeOptionalTimeRange:
+    """Regression tests for https://github.com/python-caldav/caldav/issues/681.
+
+    A CALDAV:time-range filter is only valid inside a comp-filter for
+    VEVENT/VTODO/VJOURNAL/VFREEBUSY/VALARM (RFC 4791 section 9.7), never
+    directly under the VCALENDAR comp-filter.  When no component type is
+    specified, the library must NOT emit a <time-range> under VCALENDAR -
+    it must split the search into one query per component type instead.
+
+    SabreDAV-based servers (Baikal, Nextcloud, ...) reject the illegal query
+    with HTTP 400 "You cannot add time-range filters on the VCALENDAR
+    component".
+    """
+
+    _NS = {"C": "urn:ietf:params:xml:ns:caldav"}
+
+    def _vcalendar_timerange_children(self, xml):
+        """Return any <time-range> elements that are direct children of the
+        VCALENDAR comp-filter (i.e. the RFC-illegal placement)."""
+        from lxml import etree
+
+        x = xml.xmlelement() if hasattr(xml, "xmlelement") else None
+        if x is None:
+            return []
+        return x.xpath('//C:comp-filter[@name="VCALENDAR"]/C:time-range', namespaces=self._NS)
+
+    def test_untyped_timerange_search_splits_per_comptype(
+        self, mock_client: DAVClient, mock_url: str
+    ) -> None:
+        """Backward-compat mode: an untyped time-range search must split into
+        per-component queries rather than placing <time-range> under VCALENDAR."""
+        from caldav.compatibility_hints import FeatureSet
+
+        mock_client.features = FeatureSet(None)  # default / backward-compat (what end users get)
+
+        calls = []
+        calendar = mock.Mock()
+        calendar.client = mock_client
+
+        def rep(xml, comp_cls, props=None):
+            calls.append(xml)
+            return (mock.Mock(), [])
+
+        calendar._request_report_build_resultlist.side_effect = rep
+
+        searcher = CalDAVSearcher(
+            start=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end=datetime(2024, 2, 1, tzinfo=timezone.utc),
+        )
+        searcher.search(calendar)
+
+        assert calls, "no REPORT was issued"
+        for xml in calls:
+            assert not self._vcalendar_timerange_children(xml), (
+                "time-range must not be placed directly under VCALENDAR"
+            )
+        ## split into one query per component type (VEVENT/VTODO/VJOURNAL)
+        assert len(calls) == 3
+
+    def test_reactive_workaround_on_vcalendar_timerange_rejection(
+        self, mock_client: DAVClient, mock_url: str
+    ) -> None:
+        """If the feature is (mis)configured as supported and the server rejects
+        the comp-type-less time-range query with a 400, the library must retry
+        by splitting into per-component queries."""
+        from caldav.compatibility_hints import FeatureSet
+
+        ## Feature explicitly configured as supported, so the library optimistically
+        ## sends the comp-type-less time-range query that SabreDAV rejects.
+        mock_client.features = FeatureSet(
+            {"search.time-range.comp-type-optional": {"support": "full"}}
+        )
+
+        event = Event(client=mock_client, url=mock_url, data=SIMPLE_EVENT)
+        calendar = mock.Mock()
+        calendar.client = mock_client
+
+        def rep(xml, comp_cls, props=None):
+            if self._vcalendar_timerange_children(xml):
+                raise error.ReportError(
+                    "400 Bad Request - You cannot add time-range filters on the VCALENDAR component"
+                )
+            return (mock.Mock(), [event] if comp_cls is Event else [])
+
+        calendar._request_report_build_resultlist.side_effect = rep
+
+        searcher = CalDAVSearcher(
+            start=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end=datetime(2024, 2, 1, tzinfo=timezone.utc),
+        )
+        result = searcher.search(calendar)
+
+        assert result == [event]
+
+    def test_compatibility_workarounds_false_sends_raw_query(
+        self, mock_client: DAVClient, mock_url: str
+    ) -> None:
+        """compatibility_workarounds=False must disable the comp-type split and send
+        the comp-type-less time-range query verbatim (single REPORT), so the
+        compatibility checker can observe the raw server behaviour."""
+        from caldav.compatibility_hints import FeatureSet
+
+        mock_client.features = FeatureSet(None)
+
+        calls = []
+        calendar = mock.Mock()
+        calendar.client = mock_client
+
+        def rep(xml, comp_cls, props=None):
+            calls.append(xml)
+            return (mock.Mock(), [])
+
+        calendar._request_report_build_resultlist.side_effect = rep
+
+        searcher = CalDAVSearcher(
+            start=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end=datetime(2024, 2, 1, tzinfo=timezone.utc),
+        )
+        searcher.search(calendar, post_filter=False, compatibility_workarounds=False)
+
+        ## exactly one report, sent verbatim with the (RFC-questionable) time-range
+        ## directly under VCALENDAR - no splitting
+        assert len(calls) == 1
+        assert self._vcalendar_timerange_children(calls[0])
+
+
+class TestCompTypeOptionalPropFilter:
+    """Regression tests for https://github.com/python-caldav/caldav/issues/681.
+
+    A CALDAV:prop-filter (CATEGORIES, SUMMARY, ...) placed directly under the
+    VCALENDAR comp-filter filters on VCALENDAR's own properties, which do not
+    include component properties like CATEGORIES.  Servers (e.g. Xandikos, and
+    SabreDAV-based servers) therefore match nothing.  When no component type is
+    specified, the library must split the search into one query per component
+    type so the prop-filter lands inside a VEVENT/VTODO/VJOURNAL comp-filter.
+    """
+
+    _NS = {"C": "urn:ietf:params:xml:ns:caldav"}
+
+    def _vcalendar_propfilter_children(self, xml):
+        """Return any <prop-filter> elements that are direct children of the
+        VCALENDAR comp-filter (i.e. filtering on a non-existent VCALENDAR prop)."""
+        x = xml.xmlelement() if hasattr(xml, "xmlelement") else None
+        if x is None:
+            return []
+        return x.xpath('//C:comp-filter[@name="VCALENDAR"]/C:prop-filter', namespaces=self._NS)
+
+    def test_untyped_propfilter_search_splits_per_comptype(
+        self, mock_client: DAVClient, mock_url: str
+    ) -> None:
+        """Backward-compat mode: an untyped property-filter search must split into
+        per-component queries rather than placing <prop-filter> under VCALENDAR."""
+        from caldav.compatibility_hints import FeatureSet
+
+        mock_client.features = FeatureSet(None)  # default / backward-compat
+
+        calls = []
+        calendar = mock.Mock()
+        calendar.client = mock_client
+
+        def rep(xml, comp_cls, props=None):
+            calls.append(xml)
+            return (mock.Mock(), [])
+
+        calendar._request_report_build_resultlist.side_effect = rep
+
+        searcher = CalDAVSearcher()
+        searcher.add_property_filter("SUMMARY", "meeting")
+        searcher.search(calendar)
+
+        assert calls, "no REPORT was issued"
+        for xml in calls:
+            assert not self._vcalendar_propfilter_children(xml), (
+                "prop-filter must not be placed directly under VCALENDAR"
+            )
+        ## split into one query per component type (VEVENT/VTODO/VJOURNAL)
+        assert len(calls) == 3
+
+
+class TestSearchDriverExceptionHandling:
+    """The search() driver runs the generator's yielded actions and must feed any
+    exception raised by an action back INTO the generator (via gen.throw()) so the
+    search logic's own try/except blocks can act on it.  Without this, the
+    generator's error-handling branches (issue #681 fallback, per-object load
+    error handling, ...) would be dead code.
+    """
+
+    def _mock_features_all_supported(self, mock_client):
+        def mock_is_supported(feat, type_=bool):
+            if type_ is str:
+                return "full"
+            return True
+
+        mock_client.features.is_supported = mock.Mock(side_effect=mock_is_supported)
+        mock_client.features.backward_compatibility_mode = False
+
+    def test_unloaded_object_not_returned_by_batch_is_excluded(
+        self, mock_client: DAVClient, mock_url: str
+    ) -> None:
+        """Objects that remain unloaded after _batch_load_objects are excluded from results.
+
+        With the old per-object LOAD_OBJECT loop, exceptions were thrown into the generator
+        to skip objects.  With the new LOAD_OBJECTS_BATCH approach, _batch_load_objects
+        handles errors internally; objects it cannot populate remain unloaded and are
+        filtered out by the post-batch is_loaded()/has_component() check.
+        """
+        self._mock_features_all_supported(mock_client)
+
+        good = Event(client=mock_client, url=mock_url + "/good", data=SIMPLE_EVENT)
+        bad = Event(client=mock_client, url=mock_url + "/bad")  # unloaded: server skipped it
+
+        calendar = mock.Mock()
+        calendar.client = mock_client
+        calendar._request_report_build_resultlist.return_value = (mock.Mock(), [good, bad])
+        # Default mock._batch_load_objects does nothing: bad remains unloaded
+
+        searcher = CalDAVSearcher(event=True)
+        result = searcher.search(calendar)
+
+        assert good in result
+        assert bad not in result
+
+    def test_unhandled_action_exception_propagates(
+        self, mock_client: DAVClient, mock_url: str
+    ) -> None:
+        """An exception the generator does NOT catch must still propagate out of
+        search() (gen.throw re-raises it) rather than being swallowed."""
+        self._mock_features_all_supported(mock_client)
+
+        calendar = mock.Mock()
+        calendar.client = mock_client
+        calendar._request_report_build_resultlist.side_effect = RuntimeError("boom")
+
+        searcher = CalDAVSearcher(event=True)
+        with pytest.raises(RuntimeError, match="boom"):
+            searcher.search(calendar)
+
+
+class TestCombinedIsLogicalAndWorkaround:
+    """§2.6: combined-is-logical-and workaround must apply property filters client-side.
+
+    When search.combined-is-logical-and is False, the workaround strips all
+    property filters from the server query (sending only the time range) and
+    must apply them client-side afterward.  The bug passed the ambient
+    post_filter=None instead of True, so _filter_search_results short-circuited
+    and returned all objects in the time range unfiltered.
+    """
+
+    def _make_calendar_with_features(self) -> "tuple":
+        """Return (client, calendar) with combined-is-logical-and: unsupported."""
+        from caldav import Calendar
+        from caldav.compatibility_hints import FeatureSet
+
+        features = FeatureSet(
+            {
+                "search.combined-is-logical-and": "unsupported",
+                "search.text": "full",
+                "search.text.substring": "full",
+                "search.text.case-sensitive": "full",
+                "search.time-range.accurate": "full",
+                "search.unlimited-time-range": "full",
+            }
+        )
+        from caldav.davclient import DAVClient
+
+        client = DAVClient(url="https://cal.example.com/")
+        client.features = features
+        cal = Calendar(client=client, url="https://cal.example.com/cal/")
+        return client, cal
+
+    def test_summary_filter_applied_client_side(self) -> None:
+        """Time-range + SUMMARY filter on combined-is-logical-and:unsupported server
+        must return only events whose SUMMARY matches — not every event in the range."""
+        client, cal = self._make_calendar_with_features()
+
+        special = Event(
+            client=client,
+            url="https://cal.example.com/cal/special.ics",
+            data=SPECIAL_EVENT,
+            parent=cal,
+        )
+        unrelated = Event(
+            client=client,
+            url="https://cal.example.com/cal/unrelated.ics",
+            data=UNRELATED_EVENT,
+            parent=cal,
+        )
+
+        mock_response = mock.MagicMock()
+        cal._request_report_build_resultlist = mock.Mock(
+            return_value=(mock_response, [special, unrelated])
+        )
+
+        start = datetime(2024, 6, 15, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2024, 6, 16, 0, 0, tzinfo=timezone.utc)
+        searcher = CalDAVSearcher(event=True, start=start, end=end)
+        searcher.add_property_filter("SUMMARY", "Special", operator="contains")
+
+        results = searcher.search(cal)
+
+        summaries = [str(r.icalendar_component["SUMMARY"]) for r in results]
+        assert len(results) == 1, f"Expected 1 result, got {len(results)}: {summaries}"
+        assert "Special" in summaries[0]
+
+
+class TestExactMatchOperator:
+    """§2.8: operator='==' must be enforced client-side via post-filtering.
+
+    The docstring documents that '==' means exact match enforced client-side,
+    but no code path inspected the '==' operator — post_filter was never set
+    for '==' searches, so server substring semantics leaked through.
+    """
+
+    _exact_match_event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:exact-event@example.com
+DTSTAMP:20240101T120000Z
+DTSTART:20240615T140000Z
+DTEND:20240615T150000Z
+SUMMARY:rain
+END:VEVENT
+END:VCALENDAR"""
+
+    _substring_event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:substring-event@example.com
+DTSTAMP:20240101T120000Z
+DTSTART:20240615T160000Z
+DTEND:20240615T170000Z
+SUMMARY:Training session
+END:VEVENT
+END:VCALENDAR"""
+
+    def _make_calendar_with_features(self):
+        from caldav.lib.url import URL
+
+        client = mock.Mock(spec=DAVClient)
+        client.url = URL("https://cal.example.com/")
+        features = mock.Mock()
+        features.is_supported = mock.Mock(return_value=False)
+        client.features = features
+        cal = mock.Mock()
+        cal.client = client
+        cal.url = URL("https://cal.example.com/cal/")
+        return client, cal
+
+    def test_exact_match_excludes_substrings(self):
+        """operator='==' must exclude events where the value is a substring of the summary."""
+        client, cal = self._make_calendar_with_features()
+
+        exact_ev = Event(
+            client=client,
+            url="https://cal.example.com/cal/exact.ics",
+            data=self._exact_match_event,
+            parent=cal,
+        )
+        substring_ev = Event(
+            client=client,
+            url="https://cal.example.com/cal/substring.ics",
+            data=self._substring_event,
+            parent=cal,
+        )
+
+        cal._request_report_build_resultlist = mock.Mock(
+            return_value=(mock.MagicMock(), [exact_ev, substring_ev])
+        )
+
+        searcher = CalDAVSearcher(event=True)
+        searcher.add_property_filter("SUMMARY", "rain", operator="==")
+        results = searcher.search(cal)
+
+        summaries = [str(r.icalendar_component["SUMMARY"]) for r in results]
+        assert len(results) == 1, f"Expected 1 result (exact), got {len(results)}: {summaries}"
+        assert results[0].icalendar_component["SUMMARY"] == "rain"
+
+
+class TestBatchLoadObjects:
+    """Calendar._batch_load_objects fetches N objects with one _multiget REPORT.
+
+    Replaces the per-object LOAD_OBJECT loop in search post-processing (issue #5.4).
+    Before this fix, a 200-event search triggered 200 individual GET requests;
+    after, one batched calendar-multiget REPORT is sent.
+    """
+
+    CAL_URL = "https://cal.example.com/cal/"
+
+    def _make_calendar(self) -> Calendar:
+        client = mock.Mock(spec=DAVClient)
+        client.url = URL("https://cal.example.com/")
+        return Calendar(client=client, url=self.CAL_URL)
+
+    def test_batch_load_calls_multiget_once(self) -> None:
+        """_batch_load_objects calls _multiget exactly once for N unloaded objects."""
+        cal = self._make_calendar()
+        ev1 = Event(client=cal.client, url=self.CAL_URL + "ev1.ics")
+        ev2 = Event(client=cal.client, url=self.CAL_URL + "ev2.ics")
+
+        cal._multiget = mock.Mock(
+            return_value=iter([("/cal/ev1.ics", SIMPLE_EVENT), ("/cal/ev2.ics", SIMPLE_EVENT)])
+        )
+
+        cal._batch_load_objects([ev1, ev2])
+
+        assert cal._multiget.call_count == 1
+
+    def test_batch_load_populates_object_data(self) -> None:
+        """_batch_load_objects sets data on matched unloaded objects."""
+        cal = self._make_calendar()
+        ev = Event(client=cal.client, url=self.CAL_URL + "ev1.ics")
+        assert not ev.is_loaded()
+
+        cal._multiget = mock.Mock(return_value=iter([("/cal/ev1.ics", SIMPLE_EVENT)]))
+
+        cal._batch_load_objects([ev])
+
+        assert ev.is_loaded()
+
+    def test_batch_load_skips_already_loaded_in_multiget_request(self) -> None:
+        """Already-loaded objects are not included in the multiget URL list."""
+        cal = self._make_calendar()
+        loaded = Event(client=cal.client, url=self.CAL_URL + "loaded.ics", data=SIMPLE_EVENT)
+        unloaded = Event(client=cal.client, url=self.CAL_URL + "unloaded.ics")
+
+        cal._multiget = mock.Mock(return_value=iter([("/cal/unloaded.ics", SIMPLE_EVENT)]))
+
+        cal._batch_load_objects([loaded, unloaded])
+
+        assert cal._multiget.called
+        urls_passed = [str(u) for u in cal._multiget.call_args[0][0]]
+        assert not any("loaded.ics" in u and "unloaded" not in u for u in urls_passed)
+
+    def test_batch_load_matches_href_with_at_sign(self) -> None:
+        """UIDs are conventionally `<something>@<domain>` and the resource is
+        conventionally named `<uid>.ics`, so an "@" in the href is the common
+        case.  The result keys were normalised with `safe="/:@"` (literal "@")
+        while the object URLs come out of `quote()` with the default
+        `safe="/"` (percent-encoded "%40"), so nothing matched, nothing was
+        assigned, and the objects were then silently dropped by the
+        `has_component()` filter -- `search()` returned [] with no exception
+        and no log line."""
+        cal = self._make_calendar()
+        href = "/cal/" + quote("20200516T060000Z-123401@example.com.ics")
+        assert "%40" in href
+        ev = Event(client=cal.client, url=cal.url.join(href))
+
+        cal._multiget = mock.Mock(return_value=iter([(href, SIMPLE_EVENT)]))
+
+        cal._batch_load_objects([ev])
+
+        assert ev.is_loaded()
+
+    def test_batch_load_matches_unencoded_at_sign_in_href(self) -> None:
+        """The same, for a server that echoes the "@" back unencoded."""
+        cal = self._make_calendar()
+        ev = Event(
+            client=cal.client,
+            url=cal.url.join("/cal/" + quote("20200516T060000Z-123401@example.com.ics")),
+        )
+
+        cal._multiget = mock.Mock(
+            return_value=iter([("/cal/20200516T060000Z-123401@example.com.ics", SIMPLE_EVENT)])
+        )
+
+        cal._batch_load_objects([ev])
+
+        assert ev.is_loaded()
+
+    def test_batch_load_fallback_on_multiget_error(self) -> None:
+        """When _multiget raises, _batch_load_objects falls back to individual obj.load()."""
+        cal = self._make_calendar()
+        ev = Event(client=cal.client, url=self.CAL_URL + "ev1.ics")
+        ev.load = mock.Mock()
+        cal._multiget = mock.Mock(side_effect=RuntimeError("network error"))
+
+        cal._batch_load_objects([ev])
+
+        ev.load.assert_called()
+
+
+class TestSearchBatchLoadIntegration:
+    """search() must use one batched _multiget call instead of N individual load() calls.
+
+    The fix replaces the per-object LOAD_OBJECT loops in _search_impl with a single
+    LOAD_OBJECTS_BATCH action that delegates to Calendar._batch_load_objects.
+    """
+
+    def _make_calendar_all_supported(self) -> "tuple[mock.Mock, Calendar]":
+        """Return (client, calendar) with all features marked supported."""
+        client = mock.Mock(spec=DAVClient)
+        client.url = URL("https://cal.example.com/")
+
+        def mock_is_supported(feat: str, type_: type = bool):
+            return "full" if type_ is str else True
+
+        client.features.is_supported = mock.Mock(side_effect=mock_is_supported)
+        client.features.backward_compatibility_mode = False
+
+        cal = Calendar(client=client, url="https://cal.example.com/cal/")
+        return client, cal
+
+    def test_search_calls_multiget_once_not_n_individual_loads(self) -> None:
+        """For N unloaded search results, search() must call _multiget once, not load() N times.
+
+        With the old per-object LOAD_OBJECT loop, 2 unloaded objects caused 2 GET requests.
+        With the new LOAD_OBJECTS_BATCH action, a single calendar-multiget REPORT is issued.
+        """
+        client, cal = self._make_calendar_all_supported()
+
+        ev1 = Event(client=client, url="https://cal.example.com/cal/ev1.ics", parent=cal)
+        ev2 = Event(client=client, url="https://cal.example.com/cal/ev2.ics", parent=cal)
+        ev1.load = mock.Mock(return_value=ev1)
+        ev2.load = mock.Mock(return_value=ev2)
+
+        cal._request_report_build_resultlist = mock.Mock(return_value=(mock.Mock(), [ev1, ev2]))
+        cal._multiget = mock.Mock(
+            return_value=iter(
+                [
+                    ("/cal/ev1.ics", SIMPLE_EVENT),
+                    ("/cal/ev2.ics", SIMPLE_EVENT),
+                ]
+            )
+        )
+
+        searcher = CalDAVSearcher(event=True)
+        searcher.search(cal)
+
+        assert cal._multiget.call_count == 1, (
+            f"Expected one batched _multiget call, got {cal._multiget.call_count}. "
+            "search() is still loading unloaded objects one-by-one."
+        )
+
+    def test_search_results_populated_after_batch_load(self) -> None:
+        """search() returns populated objects when batch-loading succeeds."""
+        client, cal = self._make_calendar_all_supported()
+
+        ev = Event(client=client, url="https://cal.example.com/cal/ev1.ics", parent=cal)
+        ev.load = mock.Mock(return_value=ev)
+
+        cal._request_report_build_resultlist = mock.Mock(return_value=(mock.Mock(), [ev]))
+        cal._multiget = mock.Mock(return_value=iter([("/cal/ev1.ics", SIMPLE_EVENT)]))
+
+        searcher = CalDAVSearcher(event=True)
+        results = searcher.search(cal)
+
+        assert len(results) == 1

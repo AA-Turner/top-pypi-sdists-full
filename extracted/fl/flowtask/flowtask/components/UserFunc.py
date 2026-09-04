@@ -1,10 +1,8 @@
 from typing import Union
-import importlib
 import asyncio
-import logging
 from collections.abc import Callable, Awaitable
 from ..exceptions import ComponentError
-from settings.settings import TASK_STORAGES
+from ..utils.executor import get_program_function
 from ..interfaces.flow import FlowComponent
 
 
@@ -24,20 +22,7 @@ def getFunction(program, function):
         ```
 
     """
-    ## TODO: detect TaskStorage of the task
-    storage = TASK_STORAGES["default"]
-    fn_path = storage.path.joinpath(program, "functions", f"{function}.py")
-    try:
-        spec = importlib.util.spec_from_file_location(function, fn_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        obj = getattr(module, function)
-        return obj
-    except ImportError as e:
-        logging.error(f"UserFunc: No Function {function} was Found")
-        raise ComponentError(
-            f"UserFunc: No Python Function {function} was Found on {fn_path}"
-        ) from e
+    return get_program_function(program, function)
 
 
 class UserFunc(FlowComponent):

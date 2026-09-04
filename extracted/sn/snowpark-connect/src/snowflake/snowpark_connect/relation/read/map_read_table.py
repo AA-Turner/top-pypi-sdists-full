@@ -23,23 +23,17 @@ from snowflake.snowpark_connect.column_name_handler import (
     make_column_names_snowpark_compatible,
 )
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
-from snowflake.snowpark_connect.config import (
-    global_config,
-    is_iceberg_sql_extensions_enabled,
-    sessions_config,
-)
+from snowflake.snowpark_connect.config import is_iceberg_sql_extensions_enabled
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.relation.iceberg_branch_dml import get_spark_wap_branch
 from snowflake.snowpark_connect.relation.read.utils import (
     rename_columns_as_snowflake_standard,
 )
 from snowflake.snowpark_connect.type_support import emulate_integral_types
 from snowflake.snowpark_connect.typed_column import FieldType
-from snowflake.snowpark_connect.utils.context import (
-    get_processed_views,
-    get_spark_session_id,
-)
+from snowflake.snowpark_connect.utils.context import get_processed_views
 from snowflake.snowpark_connect.utils.identifiers import (
     is_backtick_quoted,
     split_fully_qualified_spark_name,
@@ -50,6 +44,7 @@ from snowflake.snowpark_connect.utils.session import _get_current_snowpark_sessi
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
+    telemetry,
 )
 from snowflake.snowpark_connect.utils.temporary_view_helper import get_temp_view
 
@@ -474,8 +469,6 @@ ICEBERG_METADATA_TABLE_BIND_COUNTS = {
     "all_delete_files": 2,
 }
 
-WAP_BRANCH_SPARK_CONFIG = "spark.wap.branch"
-
 UNSUPPORTED_ICEBERG_METADATA_TABLES = {
     "position_deletes",
 }
@@ -755,6 +748,9 @@ def _read_iceberg_metadata_table(
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
+
+    # Per-customer usage telemetry; one call covers all metadata-table variants.
+    telemetry.report_iceberg_metadata_table_usage(metadata_table_name)
 
     base_table_name = ".".join(
         transform_identifier_for_snowflake(part, is_backtick_quoted=flag)
@@ -1643,18 +1639,6 @@ def _require_iceberg_sql_extensions_for_branch_read() -> None:
         raise _iceberg_branch_read_extensions_disabled_exception()
 
 
-def _get_spark_wap_branch() -> str | None:
-    """Return the session ``spark.wap.branch`` value when set."""
-    session_config = sessions_config[get_spark_session_id()]
-    raw = session_config.get(WAP_BRANCH_SPARK_CONFIG) or global_config.get(
-        WAP_BRANCH_SPARK_CONFIG
-    )
-    if raw is None:
-        return None
-    branch = str(raw).strip()
-    return branch or None
-
-
 def _resolve_iceberg_branch(
     options: dict[str, str],
     *,
@@ -1670,12 +1654,22 @@ def _resolve_iceberg_branch(
     explicit_branch = _extract_iceberg_branch(options)
     if explicit_branch is not None:
         _require_iceberg_sql_extensions_for_branch_read()
+        telemetry.report_iceberg_wap(
+            op="read",
+            surface="read_option",
+            ref_type="branch",
+        )
         return explicit_branch
     if skip_session_wap_fallback:
         return None
-    branch = _get_spark_wap_branch()
+    branch = get_spark_wap_branch()
     if branch is not None:
         _require_iceberg_sql_extensions_for_branch_read()
+        telemetry.report_iceberg_wap(
+            op="read",
+            surface="wap_branch_conf",
+            ref_type="branch",
+        )
     return branch
 
 
@@ -1748,6 +1742,21 @@ def get_table_from_name(
         attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
         raise exception
 
+    # WAP audit reads via an explicit ref. Branch reads are counted upstream in
+    # ``_resolve_iceberg_branch`` (where option-vs-session surface is known); here
+    # we count the tag / version-ref reads that funnel through this common path.
+    if iceberg_version_tag is not None:
+        telemetry.report_iceberg_wap(
+            op="read",
+            surface="read_option",
+            ref_type="tag",
+        )
+    elif iceberg_version_ref is not None:
+        telemetry.report_iceberg_wap(
+            op="read",
+            surface="version_as_of",
+            ref_type="ref",
+        )
     # Reject any combination of the three time-travel inputs together.
     # We do this as a single check (rather than three pairwise checks)
     # so the customer-visible message lists *all* the conflicting

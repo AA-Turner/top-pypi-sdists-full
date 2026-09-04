@@ -37,7 +37,6 @@ from .models import (
 from .runtime import (
     RequestSpec,
     ResponseData,
-    error_for_response,
     format_time_param,
     json_array,
     json_object,
@@ -79,7 +78,7 @@ def parse_list_images(response: ResponseData) -> ImageListResponse:
     """Parse the response of `GET /images`."""
     if 200 <= response.status < 300:
         return ImageListResponse.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_delete_image_tag(image_uuid: str, *, tag: str | None = None) -> RequestSpec:
@@ -95,7 +94,7 @@ def parse_delete_image_tag(response: ResponseData) -> None:
     """Parse the response of `DELETE /images/{imageUUID}/tag`."""
     if 200 <= response.status < 300:
         return
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_update_image_tag(image_uuid: str, tag: str) -> RequestSpec:
@@ -116,7 +115,7 @@ def parse_update_image_tag(response: ResponseData) -> Image:
     """Parse the response of `PATCH /images/{imageUUID}/tag`."""
     if 200 <= response.status < 300:
         return Image.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_import_image(
@@ -141,7 +140,7 @@ def parse_import_image(response: ResponseData) -> str:
     """Parse the response of `POST /images/import`."""
     if 200 <= response.status < 300:
         return str(json_object(response)["uuid"])
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_list_files(
@@ -169,7 +168,7 @@ def parse_list_files(response: ResponseData) -> FilesListResponse:
     """Parse the response of `GET /files`."""
     if 200 <= response.status < 300:
         return FilesListResponse.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_upload_file(content: bytes | IO[bytes]) -> RequestSpec:
@@ -188,7 +187,7 @@ def parse_upload_file(response: ResponseData) -> FileResponse:
     """Parse the response of `POST /files`."""
     if 200 <= response.status < 300:
         return FileResponse.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_get_file(sha256: str) -> RequestSpec:
@@ -201,7 +200,7 @@ def parse_get_file(response: ResponseData) -> File:
     """Parse the response of `GET /files/{sha256}`."""
     if 200 <= response.status < 300:
         return File.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_check_file_exists(sha256: str) -> RequestSpec:
@@ -216,7 +215,7 @@ def parse_check_file_exists(response: ResponseData) -> bool:
         return True
     if response.status == 404:
         return False
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_spawn_instance(
@@ -273,7 +272,7 @@ def parse_spawn_instance(response: ResponseData) -> InstanceSpawnResponse:
     """Parse the response of `POST /instances`."""
     if 200 <= response.status < 300:
         return InstanceSpawnResponse.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_list_operations(
@@ -307,7 +306,7 @@ def parse_list_operations(response: ResponseData) -> list[OperationSummary]:
     """Parse the response of `GET /operations`."""
     if 200 <= response.status < 300:
         return [OperationSummary.from_dict(item) for item in json_array(response)]
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_get_operation_status(
@@ -325,7 +324,7 @@ def parse_get_operation_status(response: ResponseData) -> OperationResponse:
     """Parse the response of `GET /operations/{operationId}`."""
     if 200 <= response.status < 300:
         return OperationResponse.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_cancel_operation(operation_id: str) -> RequestSpec:
@@ -338,7 +337,7 @@ def parse_cancel_operation(response: ResponseData) -> None:
     """Parse the response of `DELETE /operations/{operationId}`."""
     if 200 <= response.status < 300:
         return
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_iter_operation_events(
@@ -410,7 +409,7 @@ def parse_operation_subprocess_create(response: ResponseData) -> int:
     """Parse the response of `POST /operations/{operationId}/subprocesses`."""
     if 200 <= response.status < 300:
         return int(json_object(response)["spid"])
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_operation_subprocess(operation_id: str, spid: int) -> RequestSpec:
@@ -429,7 +428,7 @@ def parse_operation_subprocess(response: ResponseData) -> InstanceResult:
     """
     if 200 <= response.status < 300:
         return InstanceResult.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_operation_subprocess_kill(
@@ -453,7 +452,7 @@ def parse_operation_subprocess_kill(response: ResponseData) -> None:
     """
     if 200 <= response.status < 300:
         return
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_operation_subprocess_stdin(
@@ -486,7 +485,7 @@ def parse_operation_subprocess_stdin(response: ResponseData) -> None:
     """
     if 200 <= response.status < 300:
         return
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_inspect_find_image_by_tag(tag: str) -> RequestSpec:
@@ -502,7 +501,7 @@ def parse_inspect_find_image_by_tag(response: ResponseData) -> str:
     if response.status == 302:
         location = response.headers["location"]
         return location.rstrip("/").rsplit("/", 1)[-1]
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_inspect_image(image_uuid: str) -> RequestSpec:
@@ -515,7 +514,7 @@ def parse_inspect_image(response: ResponseData) -> Image:
     """Parse the response of `GET /inspect/{image_uuid}/`."""
     if 200 <= response.status < 300:
         return Image.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_inspect_image_download(image_uuid: str, path: str) -> RequestSpec:
@@ -530,7 +529,7 @@ def parse_inspect_image_download(response: ResponseData) -> bytes:
     """Parse the response of `GET /inspect/{image_uuid}/download`."""
     if 200 <= response.status < 300:
         return response.body
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_check_image_file(image_uuid: str, path: str) -> RequestSpec:
@@ -547,7 +546,7 @@ def parse_check_image_file(response: ResponseData) -> bool:
         return True
     if response.status == 404:
         return False
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_inspect_image_archive(image_uuid: str, path: str) -> RequestSpec:
@@ -572,7 +571,7 @@ def parse_check_image_archive(response: ResponseData) -> bool:
         return True
     if response.status == 404:
         return False
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_inspect_image_list(image_uuid: str, path: str) -> RequestSpec:
@@ -587,7 +586,7 @@ def parse_inspect_image_list(response: ResponseData) -> DirectoryList:
     """Parse the response of `GET /inspect/{image_uuid}/list`."""
     if 200 <= response.status < 300:
         return DirectoryList.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_inspect_image_grep(
@@ -627,7 +626,7 @@ def parse_inspect_image_grep(response: ResponseData) -> GrepResult:
     """Parse the response of `GET /inspect/{image_uuid}/grep`."""
     if 200 <= response.status < 300:
         return GrepResult.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")
 
 
 def build_whoami() -> RequestSpec:
@@ -640,4 +639,4 @@ def parse_whoami(response: ResponseData) -> WhoAmIResponse:
     """Parse the response of `GET /whoami`."""
     if 200 <= response.status < 300:
         return WhoAmIResponse.from_dict(json_object(response))
-    raise error_for_response(response)
+    raise ValueError(f"unexpected HTTP status {response.status}")

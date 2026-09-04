@@ -208,6 +208,53 @@ END:VCALENDAR</C:calendar-data>
         assert result.deleted[0] == "/cal/deleted.ics"
         assert result.sync_token == "new-token"
 
+    def test_parse_sync_collection_generic_responsedescription(self):
+        """A 404 <response> may carry an arbitrary <responsedescription>.
+
+        Per RFC 4918 <responsedescription> is an optional child of
+        <response>; its text is server-defined.  We must not hardcode
+        any particular server's wording (e.g. Stalwart's "No resources
+        found").
+        """
+        xml = b"""<?xml version="1.0"?>
+        <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+            <D:response>
+                <D:href>/cal/gone.ics</D:href>
+                <D:status>HTTP/1.1 404 Not Found</D:status>
+                <D:responsedescription>The thing you asked for is not here anymore</D:responsedescription>
+            </D:response>
+            <D:sync-token>tok</D:sync-token>
+        </D:multistatus>"""
+
+        result = DAVResponse.from_bytes(xml).parse_sync_collection()
+
+        assert result.deleted == ["/cal/gone.ics"]
+        assert result.changed == []
+
+    def test_parse_sync_collection_generic_error(self):
+        """A 404 <response> may carry an arbitrary <error> element.
+
+        Per RFC 4918 <error> is an optional child of <response> and its
+        children are server-defined.  We must not hardcode any
+        particular server's error condition (e.g. purelymail's
+        {https://purelymail.com}does-not-exist).
+        """
+        xml = b"""<?xml version="1.0"?>
+        <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"
+                       xmlns:X="https://example.com/ns">
+            <D:response>
+                <D:href>/cal/gone.ics</D:href>
+                <D:status>HTTP/1.1 404 Not Found</D:status>
+                <D:error><X:resource-must-be-null/></D:error>
+            </D:response>
+            <D:sync-token>tok</D:sync-token>
+        </D:multistatus>"""
+
+        result = DAVResponse.from_bytes(xml).parse_sync_collection()
+
+        assert result.deleted == ["/cal/gone.ics"]
+        assert result.changed == []
+
     def test_parse_complex_properties(self):
         """Parse complex properties like supported-calendar-component-set."""
         xml = b"""<?xml version="1.0"?>
@@ -252,3 +299,48 @@ END:VCALENDAR</C:calendar-data>
         # calendar-home-set - extracted href
         home_set = props["{urn:ietf:params:xml:ns:caldav}calendar-home-set"]
         assert home_set == "/calendars/user/"
+
+
+class TestParserStackEquivalence:
+    """Guard the shared propstat-collection logic (code-review §5.7).
+
+    The dataclass parsers (parse_propfind -> _extract_properties) and the
+    legacy _find_objects_and_props path must agree on the duplicated quirks
+    that used to be implemented twice: the "a 404 propstat means the property
+    is absent" skip and which prop elements get collected per href.
+    """
+
+    # one href with a found prop (200) and an absent prop (404 propstat),
+    # plus a second href that 404s entirely.
+    _xml = b"""<?xml version="1.0"?>
+    <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+        <D:response>
+            <D:href>/cal/a/</D:href>
+            <D:propstat>
+                <D:prop><D:displayname>A</D:displayname></D:prop>
+                <D:status>HTTP/1.1 200 OK</D:status>
+            </D:propstat>
+            <D:propstat>
+                <D:prop><C:calendar-color/></D:prop>
+                <D:status>HTTP/1.1 404 Not Found</D:status>
+            </D:propstat>
+        </D:response>
+        <D:response>
+            <D:href>/cal/missing/</D:href>
+            <D:status>HTTP/1.1 404 Not Found</D:status>
+        </D:response>
+    </D:multistatus>"""
+
+    def test_404_propstat_skipped_in_both_stacks(self):
+        dataclass_props = DAVResponse.from_bytes(self._xml).parse_propfind()
+        legacy = DAVResponse.from_bytes(self._xml)._find_objects_and_props()
+
+        # dataclass stack: /cal/a/ keeps displayname, drops the 404 color prop
+        a_result = next(r for r in dataclass_props if r.href == "/cal/a/")
+        assert "{DAV:}displayname" in a_result.properties
+        assert "{http://apple.com/ns/ical/}calendar-color" not in a_result.properties
+
+        # legacy stack: same set of collected prop tags for the same href
+        assert set(legacy["/cal/a/"].keys()) == set(a_result.properties.keys())
+        # the entirely-404 href is present but carries no props in either stack
+        assert legacy["/cal/missing/"] == {}

@@ -866,6 +866,41 @@ class TestOptimizer(unittest.TestCase):
             "IN ((`produce`.`q1`, `produce`.`q2`) AS 'h1', (`produce`.`q3`, `produce`.`q4`) AS 'h2')) AS `produce`",
         )
 
+    def test_unpivot_unknown_schema(self):
+        self.assertEqual(
+            qualify(
+                parse_one(
+                    "SELECT i.other_col FROM my_table AS i UNPIVOT(v FOR k IN (a, b))",
+                    dialect="snowflake",
+                ),
+                dialect="snowflake",
+            ).sql(dialect="snowflake"),
+            'SELECT "I"."OTHER_COL" AS "OTHER_COL" FROM "MY_TABLE" AS "I" '
+            'UNPIVOT("V" FOR "K" IN ("A", "B")) AS "I"',
+        )
+        self.assertEqual(
+            qualify(
+                parse_one(
+                    "SELECT i.a FROM my_table AS i UNPIVOT(v FOR k IN (a, b))",
+                    dialect="snowflake",
+                ),
+                dialect="snowflake",
+            ).sql(dialect="snowflake"),
+            'SELECT "I"."A" AS "A" FROM "MY_TABLE" AS "I" '
+            'UNPIVOT("V" FOR "K" IN ("A", "B")) AS "I"',
+        )
+        self.assertEqual(
+            qualify(
+                parse_one(
+                    "SELECT i.z FROM my_table AS i UNPIVOT(v FOR k IN (a, b)) AS i(w, x, y, z)",
+                    dialect="snowflake",
+                ),
+                dialect="snowflake",
+            ).sql(dialect="snowflake"),
+            'SELECT "I"."Z" AS "Z" FROM "MY_TABLE" AS "I" '
+            'UNPIVOT("V" FOR "K" IN ("A", "B")) AS "I"("W", "X", "Y", "Z")',
+        )
+
     def test_multiple_pivots_annotate_types(self):
         # NOTE: the value column takes the type of the first IN-list entry, so the columns
         # folded by a single operator are kept uniformly typed here
@@ -1105,6 +1140,61 @@ class TestOptimizer(unittest.TestCase):
             ["INT64", "STRING"],
         )
         self.assertEqual(qualified.selects[0].type.sql("bigquery"), "INT64")
+
+    def test_qualify_snowflake_positional_column_with_visible_schema(self):
+        visible_schema = MappingSchema(
+            {"t": {"hidden": "INT", "HAS SPACE": "INT"}},
+            visible={"T": {"HAS SPACE"}},
+            dialect="snowflake",
+        )
+        self.assertEqual(
+            qualify(
+                parse_one("SELECT t.$1 FROM t", dialect="snowflake"),
+                dialect="snowflake",
+                quote_identifiers=False,
+                schema=visible_schema,
+            ).sql("snowflake"),
+            'SELECT T."HAS SPACE" AS "HAS SPACE" FROM T AS T',
+        )
+
+    def test_qualify_positional_columns_is_snowflake_only(self):
+        expression = parse_one(
+            "WITH t AS (SELECT 1 AS a) SELECT t.$1 FROM t",
+            dialect="postgres",
+        )
+
+        self.assertEqual(
+            qualify(
+                expression,
+                dialect="postgres",
+                allow_partial_qualification=True,
+                quote_identifiers=False,
+            ).sql("postgres"),
+            "WITH t AS (SELECT 1 AS a) SELECT t.$1 AS _col_0 FROM t AS t",
+        )
+
+    def test_qualify_snowflake_positional_column_out_of_range(self):
+        sql = "WITH t AS (SELECT 1 AS a) SELECT t.$2 FROM t"
+
+        with self.assertRaisesRegex(
+            OptimizeError, r"Positional reference \$2 is out of range for source 'T'"
+        ):
+            qualify(
+                parse_one(sql, dialect="snowflake"),
+                dialect="snowflake",
+            )
+
+        expression = qualify(
+            parse_one(sql, dialect="snowflake"),
+            dialect="snowflake",
+            allow_partial_qualification=True,
+            quote_identifiers=False,
+        )
+
+        self.assertEqual(
+            expression.sql("snowflake"),
+            "WITH T AS (SELECT 1 AS A) SELECT T.$2 AS _COL_0 FROM T AS T",
+        )
 
     def test_qualify_columns__with_invisible(self):
         schema = MappingSchema(self.schema, {"x": {"a"}, "y": {"b"}, "z": {"b"}})
@@ -2090,6 +2180,18 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             level="warning",
         )
 
+    def test_traverse_union_invalid_operand(self):
+        for invalid_side, expression in (
+            ("left", exp.Union(this=exp.column("a"), expression=exp.select("1"))),
+            ("right", exp.Union(this=exp.select("1"), expression=exp.column("a"))),
+        ):
+            with self.subTest(invalid_side=invalid_side):
+                with patch("sqlglot.optimizer.scope.logger"):
+                    with self.assertRaisesRegex(
+                        OptimizeError, "Cannot build a scope for set operation operand"
+                    ):
+                        qualify(expression)
+
     def test_annotate_types(self):
         for i, (meta, sql, expected) in enumerate(
             load_sql_fixture_pairs("optimizer/annotate_types.sql"), start=1
@@ -2141,6 +2243,66 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             sql[identifier.meta["start"] : identifier.meta["end"] + 1], "CaseSensitive"
         )
 
+    def test_annotate_semi_structured_dot_parts(self):
+        # Dot access into semi-structured values is a case sensitive data lookup, unlike
+        # struct field access, which the engines resolve like any other identifier
+        schema = {
+            "t": {"m": "MAP(VARCHAR, INT)", "v": "VARIANT", "j": "JSON", "s": "STRUCT(Foo INT)"}
+        }
+
+        for sql, expected in (
+            ("SELECT m.Foo FROM t", 'SELECT "t"."m"."Foo" AS "foo" FROM "t" AS "t"'),
+            ("SELECT v.Foo FROM t", 'SELECT "t"."v"."Foo" AS "foo" FROM "t" AS "t"'),
+            ("SELECT j.Foo.Bar FROM t", 'SELECT "t"."j"."Foo"."Bar" AS "bar" FROM "t" AS "t"'),
+            ("SELECT s.Foo FROM t", 'SELECT "t"."s"."foo" AS "foo" FROM "t" AS "t"'),
+            # Roots that are already qualified drop a different number of leading dot parts
+            ("SELECT t.m.Foo FROM t", 'SELECT "t"."m"."Foo" AS "foo" FROM "t" AS "t"'),
+            ("SELECT t.j.Foo.Bar FROM t", 'SELECT "t"."j"."Foo"."Bar" AS "bar" FROM "t" AS "t"'),
+            ("SELECT x.j.Foo FROM t AS x", 'SELECT "x"."j"."Foo" AS "foo" FROM "t" AS "x"'),
+        ):
+            with self.subTest(sql):
+                qualified = qualify(
+                    parse_one(sql, dialect="duckdb"), schema=schema, dialect="duckdb"
+                )
+                annotated = annotate_types(qualified, schema=schema, dialect="duckdb")
+                self.assertEqual(annotated.sql("duckdb"), expected)
+
+    def test_annotate_dot_parts_of_non_column_roots(self):
+        # Dot access is also restored when the chain is rooted at an arbitrary expression
+        for sql, dialect, expected in (
+            (
+                "SELECT PARSE_JSON('{\"Foo\":1}').Foo",
+                "bigquery",
+                "SELECT PARSE_JSON('{\"Foo\":1}').`Foo` AS `foo`",
+            ),
+            (
+                "SELECT ('{\"Foo\":1}'::JSON).Foo",
+                "duckdb",
+                'SELECT (CAST(\'{"Foo":1}\' AS JSON))."Foo" AS "foo"',
+            ),
+            # Every part of the chain is restored, not just the innermost one
+            (
+                'SELECT PARSE_JSON(\'{"Foo":{"Bar":1}}\').Foo.Bar',
+                "bigquery",
+                'SELECT PARSE_JSON(\'{"Foo":{"Bar":1}}\').`Foo`.`Bar` AS `bar`',
+            ),
+            (
+                'SELECT (\'{"Foo":{"Bar":{"Baz":1}}}\'::JSON).Foo.Bar.Baz',
+                "duckdb",
+                'SELECT (CAST(\'{"Foo":{"Bar":{"Baz":1}}}\' AS JSON))."Foo"."Bar"."Baz" AS "baz"',
+            ),
+            # Dot access that doesn't name a key is left alone
+            (
+                "SELECT ('{\"Foo\":1}'::JSON).*",
+                "duckdb",
+                "SELECT (CAST('{\"Foo\":1}' AS JSON)).*",
+            ),
+        ):
+            with self.subTest(sql):
+                qualified = qualify(parse_one(sql, dialect=dialect), dialect=dialect)
+                annotated = annotate_types(qualified, dialect=dialect)
+                self.assertEqual(annotated.sql(dialect), expected)
+
     def test_annotate_types_caches_schema_lookups(self):
         schema = MappingSchema({"t": {"a": "INT"}})
         qualified = qualify(parse_one("SELECT a, a FROM t"), schema=schema)
@@ -2160,6 +2322,8 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
                 "timestamp_col": "TIMESTAMP",
                 "double_col": "DOUBLE",
                 "bigint_col": "BIGINT",
+                "smallint_col": "SMALLINT",
+                "bit_col": "BIT",
                 "obj_col": "OBJECT",
                 "int_col": "INT",
                 "bool_col": "BOOLEAN",

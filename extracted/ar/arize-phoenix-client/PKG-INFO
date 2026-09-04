@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix-client
-Version: 3.3.0
+Version: 3.4.0
 Summary: LLM Observability
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -26,6 +26,8 @@ Requires-Dist: tqdm
 Requires-Dist: typing-extensions
 Provides-Extra: evals
 Requires-Dist: arize-phoenix-evals; extra == 'evals'
+Provides-Extra: harbor
+Requires-Dist: harbor>=0.21.0; (python_version >= '3.12') and extra == 'harbor'
 Provides-Extra: pytest
 Requires-Dist: pytest>=7; extra == 'pytest'
 Description-Content-Type: text/markdown
@@ -67,7 +69,7 @@ Phoenix Client provides an interface for interacting with the Phoenix platform v
 
 ## Installation
 
-Install the Phoenix Client using pip:
+Install the Phoenix Client with pip:
 
 ```bash
 pip install arize-phoenix-client

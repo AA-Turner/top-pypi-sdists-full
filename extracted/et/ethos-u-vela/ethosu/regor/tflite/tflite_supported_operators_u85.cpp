@@ -79,6 +79,8 @@ static const std::set<OpType> s_supportedOpTypes = {
     OpType::ReduceMax,
     OpType::Pack,
     OpType::Unpack,
+    OpType::Gelu,
+    OpType::Elu,
     OpType::ReduceMin,
     OpType::ReduceAny,
     OpType::LogicalOr,
@@ -101,6 +103,8 @@ static const std::set<OpType> s_supportedOpTypes = {
     OpType::Log,
     OpType::UnidirectionalSequenceLstm,
     OpType::Neg,
+    OpType::VariableRead,
+    OpType::VariableWrite,
 };
 
 static const std::set<DataType> s_supportedDataTypes = {

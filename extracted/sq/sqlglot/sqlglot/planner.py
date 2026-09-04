@@ -13,6 +13,8 @@ from collections.abc import Iterator, Sequence, Iterable
 class Plan:
     def __init__(self, expression: exp.Expr) -> None:
         self.expression: exp.Expr = expression.copy()
+        with_: exp.With | None = self.expression.args.get("with_")
+        self.ctes: exp.With | None = with_.copy() if with_ is not None else None
         self.root: Step = Step.from_expression(self.expression)
         self._dag: dict[Step, set[Step]] = {}
 
@@ -239,6 +241,11 @@ class Step:
         if limit is not None:
             step.limit = int(limit.text("expression"))
 
+        offset: exp.Offset | None = expression.args.get("offset")
+
+        if offset is not None:
+            step.offset = int(offset.text("expression"))
+
         return step
 
     def __init__(self) -> None:
@@ -247,6 +254,7 @@ class Step:
         self.dependents: set[Step] = set()
         self.projections: Sequence[exp.Expr] = []
         self.limit: float = math.inf
+        self.offset: int = 0
         self.condition: exp.Expr | None = None
 
     def add_dependency(self, dependency: Step) -> None:
@@ -279,6 +287,9 @@ class Step:
 
         if self.limit is not math.inf:
             lines.append(f"{nested}Limit: {self.limit}")
+
+        if self.offset:
+            lines.append(f"{nested}Offset: {self.offset}")
 
         if self.dependencies:
             lines.append(f"{nested}Dependencies:")
@@ -435,11 +446,6 @@ class SetOperation(Step):
 
         step.add_dependency(left)
         step.add_dependency(right)
-
-        limit: exp.Limit | None = expression.args.get("limit")
-
-        if limit is not None:
-            step.limit = int(limit.text("expression"))
 
         return step
 

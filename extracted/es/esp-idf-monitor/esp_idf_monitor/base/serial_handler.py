@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
 import hashlib
@@ -7,21 +7,23 @@ import queue  # noqa: F401
 import re
 import subprocess
 from typing import Callable  # noqa: F401
+from typing import Dict  # noqa: F401
 from typing import List  # noqa: F401
 from typing import Optional  # noqa: F401
 from typing import Union  # noqa: F401
 
 import serial  # noqa: F401
 from esp_idf_panic_decoder import PanicOutputDecoder
+from esp_pylib.logger import log
 from serial.tools import miniterm  # noqa: F401
 
 from .binlog import BinaryLog
 from .console_parser import ConsoleParser  # noqa: F401
 from .console_parser import key_description  # noqa: F401
 from .console_parser import prompt_next_action  # noqa: F401
-from .console_reader import ConsoleReader  # noqa: F401
 from .constants import CMD_APP_FLASH
 from .constants import CMD_ENTER_BOOT
+from .constants import CMD_FLASH_ALL
 from .constants import CMD_MAKE
 from .constants import CMD_OUTPUT_TOGGLE
 from .constants import CMD_RESET
@@ -37,10 +39,8 @@ from .constants import PANIC_READING_STACK
 from .constants import PANIC_STACK_DUMP
 from .constants import PANIC_START
 from .coredump import CoreDump  # noqa: F401
-from .exceptions import SerialStopException
 from .gdbhelper import GDBHelper  # noqa: F401
 from .key_config import CHIP_RESET_KEY
-from .key_config import EXIT_KEY
 from .key_config import MENU_KEY
 from .line_matcher import LineMatcher  # noqa: F401
 from .logger import Logger  # noqa: F401
@@ -50,10 +50,9 @@ from .output_helpers import ANSI_NORMAL_B
 from .output_helpers import ANSI_RED_B
 from .output_helpers import ANSI_YELLOW_B
 from .output_helpers import AUTO_COLOR_REGEX
-from .output_helpers import note_print
-from .output_helpers import warning_print
 from .reset import Reset
 from .serial_reader import Reader  # noqa: F401
+from .stoppable_thread import StoppableThread  # noqa: F401
 
 
 def get_sha256(filename, block_size=65536):  # type: (str, int) -> str
@@ -64,20 +63,37 @@ def get_sha256(filename, block_size=65536):  # type: (str, int) -> str
     return sha256.hexdigest()
 
 
-def run_make(target, make, console, console_parser, event_queue, cmd_queue, logger):
-    # type: (str, Union[str, List[str]], miniterm.Console, ConsoleParser, queue.Queue, queue.Queue, Logger) -> None
+def run_make(
+    target,
+    make,
+    console,
+    console_parser,
+    event_queue,
+    cmd_queue,
+    logger,
+    non_interactive=False,
+    env_extra=None,
+):
+    # type: (str, Union[str, List[str]], miniterm.Console, ConsoleParser, queue.Queue, queue.Queue, Logger, bool, Optional[Dict[str, str]]) -> None
     if isinstance(make, list):
         popen_args = make + [target]
     else:
         popen_args = [make, target]
-    note_print(f'Running {" ".join(popen_args)}...')
-    p = subprocess.Popen(popen_args, env=os.environ)
+    log.note(f'Running {" ".join(popen_args)}...')
+    env = os.environ.copy()
+    if env_extra:
+        env.update(env_extra)
+    p = subprocess.Popen(popen_args, env=env)
     try:
         p.wait()
     except KeyboardInterrupt:
         p.wait()
     if p.returncode != 0:
-        prompt_next_action('Build failed', console, console_parser, event_queue, cmd_queue)
+        if non_interactive:
+            # cannot prompt for the next action without a TTY on stdin
+            log.err('Build failed')
+        else:
+            prompt_next_action('Build failed', console, console_parser, event_queue, cmd_queue)
     else:
         logger.output_enabled = True
 
@@ -90,7 +106,6 @@ class SerialHandler:
     def __init__(
         self,
         last_line_part,
-        serial_check_exit,
         logger,
         decode_panic,
         reading_panic,
@@ -103,10 +118,10 @@ class SerialHandler:
         elf_files,
         toolchain_prefix,
         disable_auto_color,
+        line_observer=None,
     ):
-        # type: (bytes, bool, Logger, str, int, bytes, str, bool, bool, serial.Serial, bool, List[str], str, bool) -> None
+        # type: (bytes, Logger, str, int, bytes, str, bool, bool, serial.Serial, bool, List[str], str, bool, Optional[Callable[[str], None]]) -> None
         self._last_line_part = last_line_part
-        self._serial_check_exit = serial_check_exit
         self.logger = logger
         self._decode_panic = decode_panic
         self._reading_panic = reading_panic
@@ -125,6 +140,13 @@ class SerialHandler:
         self.binlog = BinaryLog(elf_files)
         self.binary_log_detected = False
         self.monitor_cmd_executor = SecureMonitorCommandExecutor(self.logger)
+        # called with every decoded line (even when filtered out by the print
+        # filter), used e.g. by the CommandReader 'expect' command
+        self._line_observer = line_observer
+
+    def _observe_line(self, line):  # type: (Union[bytes, str]) -> None
+        if self._line_observer is not None:
+            self._line_observer(line.decode(errors='ignore') if isinstance(line, bytes) else line)
 
     def splitdata(self, data):  # type: (bytes) -> List[bytes]
         """
@@ -204,27 +226,27 @@ class SerialHandler:
 
         sp = self.splitdata(data)
         if self.binary_log_detected:
-            try:
-                text_lines, self._last_line_part = self.binlog.convert_to_text(sp[0])
-                for line in text_lines:
+            text_lines, self._last_line_part, leaked_text = self.binlog.convert_to_text(sp[0])
+            for line in text_lines:
+                self.print_colored(line)
+                self.logger.handle_possible_pc_address_in_line(line)
+                self.monitor_cmd_executor.execute_from_log_line(line)
+                self._observe_line(line)
+            if leaked_text:
+                leaked_lines = leaked_text.splitlines(keepends=True) or [b'']
+                if leaked_lines and not (leaked_lines[-1].endswith(b'\n') or leaked_lines[-1].endswith(b'\r')):
+                    incomplete = leaked_lines.pop()
+                    if not self._last_line_part:
+                        self._last_line_part = incomplete
+                for line in leaked_lines:
                     self.print_colored(line)
                     self.logger.handle_possible_pc_address_in_line(line)
                     self.monitor_cmd_executor.execute_from_log_line(line)
-                return
-            except ValueError:
-                # If no valid binary log frames were found, or if we have too much accumulated data
-                # without valid frames, exit binary log mode
-                self.binary_log_detected = False
-                # Process the accumulated data as regular text instead
-                accumulated_data = sp[0] if sp else b''
-                if accumulated_data:
-                    self._last_line_part = accumulated_data
-                    sp = self.splitdata(b'')  # Re-split the data normally
+                    self._observe_line(line)
+            return
 
         for line in sp:
             line_strip = line.strip()
-            if self._serial_check_exit and line_strip == EXIT_KEY.encode('latin-1'):
-                raise SerialStopException()
             if self.target != 'linux':
                 self.check_panic_decode_trigger(line_strip)
             with coredump.check(line_strip):
@@ -235,7 +257,7 @@ class SerialHandler:
                     decoded_line = line_strip.decode(errors='ignore')
                     self.decode_error_cnt += 1
                     if self.decode_error_cnt >= 3:
-                        warning_print(
+                        log.warn(
                             'Failed to decode multiple lines in a row. Try checking the baud rate and '
                             'XTAL frequency setting in menuconfig'
                         )
@@ -247,6 +269,7 @@ class SerialHandler:
                     self.monitor_cmd_executor.execute_from_log_line(line)
             check_gdb_stub_and_run(line_strip)
             self._force_line_print = False
+            self._observe_line(decoded_line)
 
         if self._last_line_part.startswith(CONSOLE_STATUS_QUERY):
             self.logger.print(CONSOLE_STATUS_QUERY)
@@ -268,6 +291,9 @@ class SerialHandler:
             self.logger.handle_possible_pc_address_in_line(self._last_line_part, insert_new_line=True)
             self.monitor_cmd_executor.execute_from_log_line(self._last_line_part)
             check_gdb_stub_and_run(self._last_line_part)
+            # let the observer see finalized partial lines as well, e.g. a
+            # prompt without a line ending
+            self._observe_line(self._last_line_part)
             # It is possible that the incomplete line cuts in half the PC
             # address. A small buffer is kept and will be used the next time
             # handle_possible_pc_address_in_line is invoked to avoid this problem.
@@ -288,7 +314,7 @@ class SerialHandler:
 
         if self._reading_panic == PANIC_IDLE and re.search(PANIC_START, line.decode('ascii', errors='ignore')):
             self._reading_panic = PANIC_READING
-            note_print('Stack dump detected')
+            self.logger.print('[yellow]Stack dump detected[/yellow]')
 
         if self._reading_panic == PANIC_READING and PANIC_STACK_DUMP in line:
             self._reading_panic = PANIC_READING_STACK
@@ -303,10 +329,13 @@ class SerialHandler:
             try:
                 out = self.panic_handler.process_panic_output(self._panic_buffer)
                 if out:
-                    note_print('Backtrace:\n\n', prefix='\n')
+                    self.logger.print('[yellow]Backtrace:[/yellow]\n\n')
                     self.logger.print(out)
             except subprocess.CalledProcessError as e:
-                warning_print(f'Failed to run gdb_panic_server.py script: {e}\n{e.output}\n\n')
+                output = e.output
+                if isinstance(output, bytes):
+                    output = output.decode('utf-8', errors='replace')
+                log.warn(f'Failed to run gdb_panic_server.py script: {e}\n{output}\n\n')
                 # in case of error, print the rest of panic buffer that wasn't logged yet
                 # we stopped logging with PANIC_STACK_DUMP and re-enabled logging with PANIC_END
                 l_idx = self._panic_buffer.find(PANIC_STACK_DUMP)
@@ -327,7 +356,7 @@ class SerialHandler:
         if not file_sha256_flashed:
             return
         if not all([os.path.exists(file) for file in self.elf_files]):
-            warning_print(
+            log.warn(
                 'ELF file not found. '
                 "You need to build & flash the project before running 'monitor', "
                 'and the binary on the device must match the one in the build directory exactly. '
@@ -338,17 +367,17 @@ class SerialHandler:
                 if file_sha256_flashed in f'{file_sha256_build}':
                     break
             else:
-                warning_print(
+                log.warn(
                     f'Checksum mismatch between flashed and built applications. '
                     f'Checksum of built application is {file_sha256_build}'
                 )
 
     def handle_commands(self, cmd, chip, run_make_func, console_reader, serial_reader):
-        # type: (int, str, Callable, ConsoleReader, Reader) -> None
+        # type: (int, str, Callable, StoppableThread, Reader) -> None
 
         if chip == 'linux':
-            if cmd in [CMD_RESET, CMD_MAKE, CMD_APP_FLASH, CMD_ENTER_BOOT]:
-                warning_print('Linux target does not support this command')
+            if cmd in [CMD_RESET, CMD_MAKE, CMD_APP_FLASH, CMD_FLASH_ALL, CMD_ENTER_BOOT]:
+                log.warn('Linux target does not support this command')
                 return
 
         if cmd == CMD_STOP:
@@ -361,6 +390,17 @@ class SerialHandler:
             run_make_func('encrypted-flash' if self.encrypted else 'flash')
         elif cmd == CMD_APP_FLASH:
             run_make_func('encrypted-app-flash' if self.encrypted else 'app-flash')
+        elif cmd == CMD_FLASH_ALL:
+            # Full flash: disable fast reflashing by exporting IDF_FLASH_FULL=1 for
+            # the build system (run_serial_tool.cmake reads it at flash time). This
+            # is what "idf.py flash -a/--all" does internally, so it works for both
+            # make and idf.py, and is ignored by pre-6.1 ESP-IDF (which always does
+            # a full flash anyway). Encrypted flash needs nothing extra: esptool
+            # detects encrypted binaries and forces a full flash itself.
+            if self.encrypted:
+                run_make_func('encrypted-flash')
+            else:
+                run_make_func('flash', env_extra={'IDF_FLASH_FULL': '1'})
         elif cmd == CMD_OUTPUT_TOGGLE:
             self.logger.output_toggle()
         elif cmd == CMD_TOGGLE_LOGGING:
@@ -368,7 +408,7 @@ class SerialHandler:
         elif cmd == CMD_TOGGLE_TIMESTAMPS:
             self.logger.toggle_timestamps()
         elif cmd == CMD_ENTER_BOOT:
-            note_print(
+            log.note(
                 'Pause app (enter bootloader mode), press '
                 f'{key_description(MENU_KEY)} {key_description(CHIP_RESET_KEY)} to restart'
             )
@@ -393,13 +433,12 @@ class SerialHandlerNoElf(SerialHandler):
 
         sp = self.splitdata(data)
         for line in sp:
-            if self._serial_check_exit and line.strip() == EXIT_KEY.encode('latin-1'):
-                raise SerialStopException()
-
-            if self._force_line_print or line_matcher.match(line.decode(errors='ignore')):
+            decoded_line = line.decode(errors='ignore')
+            if self._force_line_print or line_matcher.match(decoded_line):
                 self.print_colored(line)
                 self.monitor_cmd_executor.execute_from_log_line(line)
                 self._force_line_print = False
+            self._observe_line(decoded_line)
 
         if self._last_line_part.startswith(CONSOLE_STATUS_QUERY):
             self.logger.print(CONSOLE_STATUS_QUERY)
@@ -416,4 +455,7 @@ class SerialHandlerNoElf(SerialHandler):
             self._force_line_print = True
             self.print_colored(self._last_line_part)
             self.monitor_cmd_executor.execute_from_log_line(self._last_line_part)
+            # let the observer see finalized partial lines as well, e.g. a
+            # prompt without a line ending
+            self._observe_line(self._last_line_part)
             self._last_line_part = b''

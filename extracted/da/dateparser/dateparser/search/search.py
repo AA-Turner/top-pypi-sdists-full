@@ -3,7 +3,7 @@ from datetime import datetime
 
 import regex as re
 
-from dateparser.conf import Settings, apply_settings, check_settings
+from dateparser.conf import apply_settings, check_settings
 from dateparser.custom_language_detection.language_mapping import map_languages
 from dateparser.date import DateDataParser
 from dateparser.languages.loader import LocaleDataLoader
@@ -34,15 +34,13 @@ def _add_time_span_results(results, text, settings):
 class _ExactLanguageSearch:
     def __init__(self, loader):
         self.loader = loader
-        self.language = None
 
     def get_current_language(self, shortname):
-        if self.language is None or self.language.shortname != shortname:
-            self.language = self.loader.get_locale(shortname)
+        return self.loader.get_locale(shortname)
 
     def search(self, shortname, text, settings):
-        self.get_current_language(shortname)
-        result = self.language.translate_search(text, settings=settings)
+        language = self.get_current_language(shortname)
+        result = language.translate_search(text, settings=settings)
         return result
 
     @staticmethod
@@ -125,7 +123,7 @@ class _ExactLanguageSearch:
             item, relative_base = self.set_relative_base(item, parsed)
 
         if relative_base:
-            parser._settings.RELATIVE_BASE = relative_base
+            parser._settings = parser._settings.replace(RELATIVE_BASE=relative_base)
             parsed_item = parser.get_date_data(item)
         return parsed_item, is_relative
 
@@ -206,7 +204,6 @@ class _ExactLanguageSearch:
 
         _add_time_span_results(results, text, settings)
 
-        parser._settings = Settings()
         return results
 
 
@@ -271,13 +268,13 @@ class DateSearchWithDetection:
             )
 
         if languages:
-            self.language_detector = FullTextLanguageDetector(languages=languages)
+            language_detector = FullTextLanguageDetector(languages=languages)
         else:
-            self.language_detector = FullTextLanguageDetector(
+            language_detector = FullTextLanguageDetector(
                 list(self.available_language_map.values())
             )
 
-        detected_language = self.language_detector._best_language(text) or (
+        detected_language = language_detector._best_language(text) or (
             settings.DEFAULT_LANGUAGES[0] if settings.DEFAULT_LANGUAGES else None
         )
         return detected_language

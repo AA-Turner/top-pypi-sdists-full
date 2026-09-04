@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-foundry
-Version: 1.11.0
+Version: 1.12.0
 Summary: Microsoft Foundry integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,11 +16,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.13.0,<2
+Requires-Dist: agent-framework-core>=1.17.0,<2
 Requires-Dist: agent-framework-openai>=1.10.0,<2
 Requires-Dist: aiohttp>=3.9,<4
 Requires-Dist: azure-ai-inference>=1.0.0b9,<1.0.0b10
 Requires-Dist: azure-ai-projects>=2.2.0,<2.4.0
+Requires-Dist: httpx>=0.28,<1
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -29,6 +30,16 @@ Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/pyth
 # Agent Framework Foundry
 
 This package contains the Microsoft Foundry integrations for Microsoft Agent Framework, including Foundry chat clients, preconfigured Foundry agents, Foundry embedding clients, and Foundry memory providers.
+
+## Concurrent reuse
+
+A `FoundryChatClient` instance can be shared by concurrent asynchronous calls on the same event loop. Streaming,
+non-streaming, and mixed calls are supported. Keep mutable run state isolated by creating a separate `Agent` and
+`AgentSession` for each concurrent run and by passing separate messages and options.
+
+This guarantee does not extend to user-supplied middleware, tools, or callbacks unless those implementations are
+also safe for concurrent use. Do not share one client across OS threads or event loops, and do not mutate its
+configuration while calls are active.
 
 ## Toolboxes
 

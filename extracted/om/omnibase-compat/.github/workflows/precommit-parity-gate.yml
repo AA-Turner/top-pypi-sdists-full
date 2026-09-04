@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# OMN-14669 (WS7 fan-out #6, canary OMN-14655 / omnimarket#1783 /
+# omnibase_infra#2318 / omniclaude#1904): CI mirror of the two local pre-commit
+# meta-gates over .pre-commit-config.yaml:
+#
+#   1. Fail-loud meta-gate — hard-rejects the exit-0-on-missing-path /
+#      WARN-SKIP-degrade shape (a skipped gate must be byte-indistinguishable
+#      from a failing gate), plus any hook `stages:` value that
+#      `default_install_hook_types` does not install (DRIFT-2 / DRIFT-2a).
+#   2. Pin-parity check — fails closed if the pre-commit omnibase_core SHA for a
+#      shared validator (no-noncanonical-lifecycle-classes, OMN-14350) diverges
+#      from the SHA ci.yml's own no-noncanonical job pins for the same validator
+#      (DRIFT-3).
+#
+# UNCONDITIONAL BY DESIGN (OMN-14666/14668 lesson). This is a STANDALONE
+# workflow, NOT a job inside ci.yml, and it has NO `needs:` of any kind and NO
+# `paths:` filter. On omnimarket#1783 the parity gate shared a run with
+# occ-preflight and `needs:`-ed it, so an occ-preflight failure SKIPPED the
+# byte-match proof on attempt 1 — a skip-then-vacuous-green window in the very
+# gate meant to kill false-greens; only a manual rerun made it fire. Living in
+# its own workflow file makes a cross-job `needs: occ-preflight` structurally
+# impossible: the gate fires on EVERY PR to main/dev and passes/fails purely on
+# its own byte-match evidence, never conditioned on another job's result.
+#
+# Enforcement, not detection (CLAUDE.md Rule #5): wired as the CI counterpart of
+# the precommit-fail-loud-meta-gate + precommit-pin-parity pre-commit hooks
+# added in the SAME PR, so the checks it encodes cannot regress silently.
+
+name: Precommit Parity Gate
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.8.3"
+
+jobs:
+  precommit-parity-gate:
+    name: Precommit Parity Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Fail-loud meta-gate (exit-0-on-missing / stages coverage)
+        run: |
+          uv run --no-project --with pyyaml \
+            python3 scripts/validation/validate_precommit_fail_loud.py
+
+      - name: Pin-parity check (pre-commit vs CI-pinned SHA)
+        run: |
+          uv run --no-project --with pyyaml \
+            python3 scripts/validation/validate_precommit_pin_parity.py

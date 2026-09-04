@@ -295,6 +295,7 @@ class ActorNotice(Enum):
     NONE = 'NONE'
     RESIDENTIAL_PROXY_REQUIRED = 'RESIDENTIAL_PROXY_REQUIRED'
     UNDER_MAINTENANCE = 'UNDER_MAINTENANCE'
+    NONE_TYPE_NONE = None
 
 
 @docs_group('Models')
@@ -735,9 +736,10 @@ class CommonActorPricingInfo(BaseModel):
         populate_by_name=True,
         alias_generator=to_camel,
     )
-    apify_margin_percentage: float
+    apify_margin_percentage: Annotated[float, Field(examples=[0.2])]
     """
-    In [0, 1], fraction of pricePerUnitUsd that goes to Apify
+    Apify's share of the revenue generated under this pricing info record, as a fraction between 0 and 1. Set by the Apify platform.
+
     """
     created_at: AwareDatetime
     """
@@ -792,18 +794,6 @@ class CreateActorRequest(BaseModel):
     """
     An array of `Version` objects. Each object represents a specific version of the Actor's source code: its location, builds, and environment configuration.
     """
-    pricing_infos: (
-        list[
-            Annotated[
-                PayPerEventActorPricingInfo
-                | PricePerDatasetItemActorPricingInfo
-                | FlatPricePerMonthActorPricingInfo
-                | FreeActorPricingInfo,
-                Field(discriminator='pricing_model'),
-            ]
-        ]
-        | None
-    ) = None
     categories: Annotated[list[str] | None, Field(examples=[['SOCIAL_MEDIA']])] = None
     """
     A list of categories that best define the Actor. Reflected in Apify Store's search and filtering options.
@@ -880,9 +870,16 @@ class CreateTaskRequest(BaseModel):
     act_id: Annotated[str, Field(examples=['asADASadYvn4mBZmm'])]
     name: Annotated[str | None, Field(examples=['my-task'])] = None
     options: TaskOptions | None = None
-    input: TaskInput | None = None
+    input: TaskInput | list[TaskInput] | None = None
     title: str | None = None
+    description: str | None = None
     actor_standby: ActorStandby | None = None
+    public_config: TaskPublicConfig | None = None
+    """
+    Configuration that controls how the published task appears on its public landing page.
+    Editing this object requires write permission to the Actor that the task belongs to.
+
+    """
 
 
 @docs_group('Models')
@@ -914,6 +911,10 @@ class CurrentPricingInfo(BaseModel):
     )
     pricing_model: Annotated[str, Field(examples=['FREE'])]
     apify_margin_percentage: Annotated[float | None, Field(examples=[0.2])] = None
+    """
+    Apify's share of the revenue generated under this pricing info record, as a fraction between 0 and 1. Set by the Apify platform.
+
+    """
     created_at: Annotated[AwareDatetime | None, Field(examples=['2023-01-01T00:00:00.000Z'])] = None
     started_at: Annotated[AwareDatetime | None, Field(examples=['2023-01-01T00:00:00.000Z'])] = None
     notified_about_change_at: Annotated[AwareDatetime | None, Field(examples=[None])] = None
@@ -941,7 +942,7 @@ class DailyServiceUsages(BaseModel):
         populate_by_name=True,
         alias_generator=to_camel,
     )
-    date: Annotated[str, Field(examples=['2022-10-02T00:00:00.000Z'])]
+    date: Annotated[AwareDatetime, Field(examples=['2022-10-02T00:00:00.000Z'])]
     service_usage: dict[str, UsageItem]
     total_usage_credits_usd: Annotated[float, Field(examples=[0.0474385791970591])]
 
@@ -2424,11 +2425,11 @@ class RequestBase(BaseModel):
         populate_by_name=True,
         alias_generator=to_camel,
     )
-    unique_key: Annotated[str | None, Field(examples=['GET|60d83e70|e3b0c442|https://apify.com'])] = None
+    unique_key: Annotated[str, Field(examples=['GET|60d83e70|e3b0c442|https://apify.com'])]
     """
     A unique key used for request de-duplication. Requests with the same unique key are considered identical.
     """
-    url: Annotated[str | None, Field(examples=['https://apify.com'])] = None
+    url: Annotated[str, Field(examples=['https://apify.com'])]
     """
     The URL of the request.
     """
@@ -2833,6 +2834,17 @@ class RequestUserData(BaseModel):
 
 
 @docs_group('Models')
+class RequestWithoutId(RequestBase):
+    """A request stored in the request queue, including its metadata and processing state, without the assigned ID."""
+
+    model_config = ConfigDict(
+        extra='allow',
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+
+
+@docs_group('Models')
 class Run(BaseModel):
     """Represents an Actor run and its associated data."""
 
@@ -2914,7 +2926,7 @@ class Run(BaseModel):
     """
     Exit code of the Actor run process.
     """
-    general_access: GeneralAccess
+    general_access: GeneralAccess | None = None
     """
     General access level for the Actor run.
     """
@@ -3427,7 +3439,7 @@ class StoreListActor(BaseModel):
     description: Annotated[str | None, Field(examples=['My public actor!'])] = None
     categories: Annotated[list[str] | None, Field(examples=[['MARKETING', 'LEAD_GENERATION']])] = None
     notice: ActorNotice | None = None
-    picture_url: Annotated[AnyUrl | None, Field(examples=['https://...'])] = None
+    picture_url: Annotated[str | None, Field(examples=['https://...'])] = None
     user_picture_url: Annotated[AnyUrl | None, Field(examples=['https://...'])] = None
     url: Annotated[AnyUrl | None, Field(examples=['https://...'])] = None
     stats: ActorStats
@@ -3492,10 +3504,17 @@ class Task(BaseModel):
     removed_at: AwareDatetime | None = None
     stats: TaskStats | None = None
     options: TaskOptions | None = None
-    input: TaskInput | None = None
+    input: TaskInput | list[TaskInput] | None = None
     title: str | None = None
+    description: str | None = None
     actor_standby: ActorStandby | None = None
     standby_url: AnyUrl | None = None
+    is_public: Annotated[bool | None, Field(examples=[False])] = None
+    """
+    Whether the task is published. Based on the `publicConfig.publishedAt` field.
+
+    """
+    public_config: TaskPublicConfig | None = None
 
 
 @docs_group('Models')
@@ -3525,6 +3544,57 @@ class TaskOptions(BaseModel):
     max_items: Annotated[int | None, Field(examples=[1000])] = None
     max_total_charge_usd: Annotated[float | None, Field(examples=[5])] = None
     restart_on_error: Annotated[bool | None, Field(examples=[False])] = None
+
+
+@docs_group('Models')
+class TaskPublicConfig(BaseModel):
+    """Public-facing configuration of a published task, used by the task's public landing page.
+    The task's publication state is determined by `publishedAt` - a task is published when
+    `publishedAt` is set and unpublished when it is `null`.
+
+    """
+
+    model_config = ConfigDict(
+        extra='allow',
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+    published_at: Annotated[AwareDatetime | None, Field(examples=['2025-06-16T09:20:45.777Z'])] = None
+    """
+    Time when the task was published, or `null` if the task isn't published.
+    This field is server-controlled. To publish or unpublish a task, use the
+    [Update task](https://docs.apify.com/api/v2/actor-task-put) endpoint and set `isPublic`.
+
+    """
+    seo_title: Annotated[str | None, Field(examples=['Scrape data from a website'], max_length=60)] = None
+    """
+    Name of the Actor task to display by search engines such as Google. Defaults to the task
+    title. At most 60 characters.
+
+    """
+    seo_description: Annotated[str | None, Field(max_length=160)] = None
+    """
+    Description of the Actor task to display by search engines such as Google. Defaults to the
+    task description. At most 160 characters.
+
+    """
+    input_schema_fields: list[str] | None = None
+    """
+    Names of the task input fields displayed on the public task page.
+    """
+    dataset_name: str | None = None
+    """
+    Name of the dataset from the Actor's dataset schema whose results are displayed. When
+    `null`, the Actor's default dataset is used. That is, the only dataset the Actor declares,
+    or the one named `default` when it declares several.
+
+    """
+    dataset_view: str | None = None
+    """
+    Key of the dataset view from the Actor's dataset schema used to display results. Must be
+    one of the views declared on the resolved dataset. You can't publish a task without it.
+
+    """
 
 
 @docs_group('Models')
@@ -3799,9 +3869,26 @@ class UpdateTaskRequest(BaseModel):
     )
     name: Annotated[str | None, Field(examples=['my-task'])] = None
     options: TaskOptions | None = None
-    input: TaskInput | None = None
+    input: TaskInput | list[TaskInput] | None = None
     title: str | None = None
+    description: str | None = None
     actor_standby: ActorStandby | None = None
+    public_config: TaskPublicConfig | None = None
+    """
+    Configuration that controls how the published task appears on its public landing page.
+    Editing this object requires write permission to the Actor that the task belongs to.
+
+    The fields you send are merged into the stored configuration, so you only need to include
+    the ones you're changing. To clear a field, set it to `null`. Sending `publicConfig: null`
+    is rejected, so the object as a whole can't be cleared.
+
+    """
+    is_public: Annotated[bool | None, Field(examples=[True])] = None
+    """
+    Set to `true` to publish the task on its public landing page, or `false` to unpublish it.
+    Sending the value the task already has does nothing.
+
+    """
 
 
 @docs_group('Models')
@@ -3841,10 +3928,10 @@ class UserPrivateInfo(BaseModel):
     profile: Profile | None = None
     email: Annotated[EmailStr | None, Field(examples=['bob@example.com'])] = None
     proxy: Proxy | None = None
-    plan: Plan
-    effective_platform_features: EffectivePlatformFeatures
+    plan: Plan | None = None
+    effective_platform_features: EffectivePlatformFeatures | None = None
     created_at: Annotated[AwareDatetime | None, Field(examples=['2022-11-29T14:48:29.381Z'])] = None
-    is_paying: Annotated[bool, Field(examples=[True])]
+    is_paying: Annotated[bool | None, Field(examples=[True])] = None
 
 
 @docs_group('Models')

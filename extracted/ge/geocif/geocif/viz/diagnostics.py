@@ -2006,3 +2006,135 @@ def cid_vs_yield_scatters(
         f"  cid_vs_yield_scatters: wrote {n_plotted} CID scatters → {out_dir}"
     )
     return n_plotted
+
+
+# ---------------------------------------------------------------------------
+# CLASSIFICATION outputs
+# ---------------------------------------------------------------------------
+def classification_outputs(dg, df, countries, dir_maps, dir_csvs, *,
+                           country, crop, model, suffix="",
+                           obs_class_col=None, pred_col=None,
+                           annotate_regions=False, forecast_year=None):
+    """Accuracy / confusion outputs + two PyGMT maps for CLASSIFICATION runs.
+
+    The regression diagnostics (MAPE / RMSE / R² maps, obs-vs-pred scatters)
+    are meaningless once the model emits class labels: they compute a
+    continuous error between a raw yield and a class index. This is the
+    classification-shaped replacement.
+
+    Writes
+        <dir_csvs>/confusion_<...>.csv        confusion matrix (obs x pred)
+        <dir_csvs>/accuracy_by_region_<...>.csv  per-region accuracy + n
+        <dir_maps>/accuracy_map_<...>.png     per-region accuracy choropleth
+        <dir_maps>/class_map_<...>.png        predicted class, forecast year
+
+    Args:
+        dg: GeoDataFrame of boundaries carrying a "Country Region" merge key.
+        df: results rows for one (country, crop, model, stage).
+        countries: display-format country names.
+        obs_class_col: observed-class column. Defaults to the first column
+            starting with "Observed " and ending "_class".
+        pred_col: predicted-class column (the class label lives in
+            "Predicted <target>").
+        forecast_year: year to draw on the categorical class map.
+    """
+    from . import plot
+
+    if df is None or df.empty:
+        return
+    if obs_class_col is None:
+        cands = [c for c in df.columns
+                 if c.startswith("Observed ") and c.endswith("_class")]
+        obs_class_col = cands[0] if cands else None
+    if pred_col is None:
+        cands = [c for c in df.columns if c.startswith("Predicted ")]
+        pred_col = cands[0] if cands else None
+    if pred_col is None:
+        return
+
+    Path(dir_maps).mkdir(parents=True, exist_ok=True)
+    Path(dir_csvs).mkdir(parents=True, exist_ok=True)
+    stem = f"{country}_{crop}_{model}{suffix}"
+
+    # ---- scored rows: need BOTH observed and predicted class ----
+    if obs_class_col is not None and obs_class_col in df.columns:
+        d = df.dropna(subset=[obs_class_col, pred_col]).copy()
+    else:
+        d = df.iloc[0:0].copy()
+
+    if not d.empty:
+        obs = d[obs_class_col].astype(int)
+        pred = d[pred_col].astype(int)
+
+        conf = pd.crosstab(obs, pred, rownames=["observed"], colnames=["predicted"])
+        conf.to_csv(Path(dir_csvs) / f"confusion_{stem}.csv")
+
+        d["_correct"] = (obs.to_numpy() == pred.to_numpy())
+        acc = (d.groupby("Region", as_index=False)
+                 .agg(n=("_correct", "size"), Accuracy=("_correct", "mean")))
+        acc["Accuracy"] = 100.0 * acc["Accuracy"]
+        acc["Country Region"] = (
+            country.lower().replace("_", " ") + " " + acc["Region"].str.lower()
+        )
+        acc.to_csv(Path(dir_csvs) / f"accuracy_by_region_{stem}.csv", index=False)
+
+        # Accuracy choropleth. Higher is better, fixed 0-100 so runs and
+        # models are visually comparable rather than each self-scaling.
+        metric_choropleth(
+            dg, acc, countries, annotate_regions, dir_maps,
+            f"accuracy_map_{stem}.png",
+            col="Accuracy", label="Accuracy (%)",
+            vmin=0.0, vmax=100.0, higher_is_better=True, value_fmt="{:.0f}",
+        )
+
+    # ---- categorical map of the predicted class for the forecast year ----
+    dfy = df
+    if forecast_year is not None and "Harvest Year" in df.columns:
+        _yr = pd.to_numeric(df["Harvest Year"], errors="coerce")
+        sel = df[_yr == int(forecast_year)]
+        if not sel.empty:
+            dfy = sel
+    dfy = dfy.dropna(subset=[pred_col]).copy()
+    if dfy.empty:
+        return
+    dfy["Predicted class"] = dfy[pred_col].astype(int)
+    dfy["Country Region"] = (
+        country.lower().replace("_", " ") + " " + dfy["Region"].str.lower()
+    )
+    dfy[["Region", "Country Region", "Predicted class"]].to_csv(
+        Path(dir_csvs) / f"class_map_{stem}.csv", index=False
+    )
+    # series="qualitative" needs a {key: legend label} lookup — plot._draw_regions
+    # iterates dict_lup.items() and raises on None. Keys must be INTEGERS
+    # matching the plotted column (use_key=True compares them directly) and
+    # 1-BASED, because _draw_regions indexes cmap.colors[(key - 1) % n].
+    # Classes are ordered low->high yield, so name them rather than showing
+    # bare indices. Plot on a shifted column; the CSV above keeps the true
+    # 0-based label.
+    levels = sorted(int(v) for v in dfy["Predicted class"].unique())
+    n_lv = len(levels)
+    if n_lv == 2:
+        names = ["Low", "High"]
+    elif n_lv == 3:
+        names = ["Low", "Medium", "High"]
+    else:
+        names = [f"Class {lv}" for lv in levels]
+    dfy["_class_plot"] = dfy["Predicted class"].map(
+        {lv: i + 1 for i, lv in enumerate(levels)}
+    )
+    dict_lup = {i + 1: nm for i, nm in enumerate(names)}
+
+    plot.plot_map(
+        dg, dfy,
+        dict_lup=dict_lup,
+        merge_col="Country Region",
+        name_country=countries,
+        name_col="_class_plot",
+        dir_out=dir_maps,
+        fname=f"class_map_{stem}.png",
+        label="Predicted class",
+        series="qualitative",
+        continuous_colorbar=False,
+        use_key=True,
+        annotate_regions=annotate_regions,
+    )

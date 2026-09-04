@@ -20,6 +20,9 @@ from snowflake.snowpark_connect.utils.concurrent import (
 )
 from snowflake.snowpark_connect.utils.scos_query_tag import inject_query_tag_kwargs
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.table_metadata_cache import (
+    invalidate_table_metadata_cache_for_query,
+)
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 
 USE_DESCRIBE_QUERY_CACHE = True
@@ -295,6 +298,7 @@ def instrument_session_for_describe_cache(session: snowpark.Session):
             try:
                 result = wrapped_fn(query, **kwargs)
                 telemetry.report_query(result, **kwargs)
+                invalidate_table_metadata_cache_for_query(session, query)
             except Exception as e:
                 telemetry.report_query(e, **kwargs)
                 attach_custom_error_code(e, ErrorCodes.INTERNAL_ERROR)

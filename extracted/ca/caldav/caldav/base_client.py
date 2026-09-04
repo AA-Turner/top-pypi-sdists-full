@@ -255,6 +255,99 @@ class BaseDAVClient(ABC):
             reason = "None given"
         raise error.AuthorizationError(url=url_str, reason=reason)
 
+    # ── Rate-limit handling ─────────────────────────────────────────────────
+    # Shared by the sync (DAVClient) and async (AsyncDAVClient) __init__ and
+    # request() retry loops, which are otherwise byte-identical apart from
+    # time.sleep vs asyncio.sleep.
+
+    def _init_rate_limit_config(
+        self,
+        rate_limit_handle: bool | None,
+        rate_limit_default_sleep: int | None,
+        rate_limit_max_sleep: int | None,
+    ) -> None:
+        """Resolve and store rate-limit settings on self.
+
+        When ``rate_limit_handle`` is None it is auto-detected from the
+        ``rate-limit`` feature; an enabled feature may also supply default and
+        max sleep durations (explicit constructor arguments are not overridden
+        because the feature values only fill in the auto-detected branch).
+        """
+        rate_limit = self.features.is_supported("rate-limit", dict)
+        if rate_limit_handle is None:
+            if rate_limit and rate_limit.get("enable"):
+                rate_limit_handle = True
+                if "default_sleep" in rate_limit:
+                    rate_limit_default_sleep = rate_limit["default_sleep"]
+                if "max_sleep" in rate_limit:
+                    rate_limit_max_sleep = rate_limit["max_sleep"]
+            else:
+                rate_limit_handle = False
+        self.rate_limit_handle = rate_limit_handle
+        self.rate_limit_default_sleep = rate_limit_default_sleep
+        self.rate_limit_max_sleep = rate_limit_max_sleep
+
+    def _rate_limit_sleep_seconds(
+        self,
+        exc: error.RateLimitError,
+        rate_limit_time_slept: float,
+    ) -> float:
+        """Decide how long to sleep before retrying a rate-limited request.
+
+        Returns the sleep duration in seconds.  Re-raises ``exc`` when no retry
+        should happen (rate-limit handling disabled, no usable duration, or the
+        accumulated sleep already exceeds ``rate_limit_max_sleep``).  The caller
+        is responsible for actually sleeping (time.sleep vs asyncio.sleep) and
+        retrying with ``rate_limit_time_slept + <returned value>``.
+        """
+        if not self.rate_limit_handle:
+            raise exc
+        sleep_seconds = error.compute_sleep_seconds(
+            exc.retry_after_seconds,
+            self.rate_limit_default_sleep,
+            self.rate_limit_max_sleep,
+        )
+        if sleep_seconds is None or (
+            self.rate_limit_max_sleep is not None
+            and rate_limit_time_slept > self.rate_limit_max_sleep
+        ):
+            raise exc
+        if rate_limit_time_slept:
+            sleep_seconds += rate_limit_time_slept / 2
+        return sleep_seconds
+
+    # ── Calendar discovery post-processing ──────────────────────────────────
+    # Pure result-handling shared by sync/async get_calendars; only the two
+    # awaited PROPFIND calls and the principal lookup differ between the twins.
+
+    def _calendar_home_url(self, home_set_response: Any, principal: Any) -> str:
+        """Extract the calendar-home-set URL from a PROPFIND response.
+
+        Falls back to the principal URL when the server does not advertise a
+        calendar-home-set (e.g. GMX), then makes the result absolute.
+        """
+        from caldav.collection import (
+            _extract_calendar_home_set_from_results as extract_home_set,
+        )
+
+        calendar_home_url = extract_home_set(home_set_response.results, features=self.features)
+        if not calendar_home_url:
+            calendar_home_url = str(principal.url)
+        return self._make_absolute_url(calendar_home_url)
+
+    def _build_calendars_from_propfind(self, list_response: Any) -> list:
+        """Build Calendar objects from a calendar-home PROPFIND response."""
+        from caldav.collection import Calendar
+        from caldav.collection import (
+            _extract_calendars_from_propfind_results as extract_calendars,
+        )
+
+        calendar_infos = extract_calendars(list_response.results, features=self.features)
+        return [
+            Calendar(client=self, url=info.url, name=info.name, id=info.cal_id)
+            for info in calendar_infos
+        ]
+
     # ── XML builders ──────────────────────────────────────────────────────────
     # All methods are static: no I/O, no server interaction, pure data
     # transformation.  Both DAVClient and AsyncDAVClient inherit these so
@@ -645,6 +738,32 @@ def _normalize_to_list(obj: Any) -> list:
     return list(obj)
 
 
+def _warn_unreadable_display_name(client: Any, calendar: Any, name: Any, exc: Exception) -> None:
+    """Log a warning when a calendar's display name couldn't be read during a
+    lookup by name -- unless the failure is expected per the compatibility matrix.
+
+    Shared by the sync (:meth:`caldav.collection.CalendarSet.calendar`) and async
+    (:func:`caldav.async_davclient.get_calendars`) name-matching loops so the
+    warn-or-suppress decision lives in one place.
+
+    The failure is treated as expected (and silently skipped) only when we
+    positively know the server doesn't support reading the DAV:displayname
+    property via PROPFIND (``propfind.displayname`` non-supported -- which falls
+    back to the ``propfind`` parent when not probed explicitly).  When the
+    feature is supported, or when we have no feature matrix to consult, the
+    failure is unexpected and is warned about.
+
+    The caller is responsible for continuing the loop afterwards, so that one
+    unreadable calendar never aborts the whole name lookup.
+    """
+    features = getattr(client, "features", None)
+    if features is None or features.is_supported("propfind.displayname"):
+        log.warning(
+            f"Could not read display name for calendar "
+            f"{getattr(calendar, 'url', calendar)} while matching name '{name}': {exc}"
+        )
+
+
 def _fetch_calendars_for_client(
     client: Any,
     calendar_url: Any | None,
@@ -686,7 +805,7 @@ def _fetch_calendars_for_client(
             calendar = principal.calendar(cal_url=cal_url)
         else:
             calendar = principal.calendar(cal_id=cal_url)
-        if _try(calendar.get_display_name, {}, f"calendar {cal_url}"):
+        if _try(calendar.get_display_name, {}, f"calendar {cal_url}") is not None:
             calendars.append(calendar)
 
     for cal_name in calendar_names:

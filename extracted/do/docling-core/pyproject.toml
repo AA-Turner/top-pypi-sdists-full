@@ -1,6 +1,6 @@
 [project]
 name = "docling-core"
-version = "2.93.0"  # DO NOT EDIT, updated automatically
+version = "2.94.1"  # DO NOT EDIT, updated automatically
 description = "A python library to define and validate data types in Docling."
 license = "MIT"
 license-files = ["LICENSE"]
@@ -84,9 +84,7 @@ chunking = [
     'tree-sitter-typescript >=0.23.2',
 
     # specific:
-    # temporary solution until huggingface/transformers#46159 is resolved
-    'transformers (>=4.34.0,<5.9.0,!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*) ; sys_platform == "darwin"',
-    'transformers (>=4.34.0,<6.0.0,!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*) ; sys_platform != "darwin"',
+    'transformers (>=4.42.0,<6.0.0)',
 ]
 chunking-openai = [
     # common:

@@ -1,37 +1,53 @@
 [project]
 name = "connectrpc"
-version = "0.11.1"
+version = "0.12.0"
 description = "Server and client runtime library for Connect RPC"
 readme = "README.md"
 requires-python = ">= 3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-maintainers = [
-  { name = "Anuraag Agrawal", email = "anuraaga@gmail.com" },
-  { name = "Spencer Nelson", email = "spencer@firetiger.com" },
-  { name = "Stefan VanBuren", email = "stefan@vanburen.xyz" },
-  { name = "Yasushi Itoh", email = "i2y.may.roku@gmail.com" },
+keywords = [
+    "connect",
+    "grpc",
+    "http",
+    "protobuf",
+    "rpc",
 ]
-keywords = ["connect", "grpc", "http", "protobuf", "rpc"]
 classifiers = [
-  "Development Status :: 4 - Beta",
-  "Intended Audience :: Developers",
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Topic :: Internet :: WWW/HTTP",
-  "Topic :: Software Development :: Libraries :: Python Modules",
-  "Typing :: Typed",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = [
-  "protobuf-py==0.1.1",
-  "pyqwest>=0.5.1",
+    "protobuf-py>=0.3.0",
+    "pyqwest>=0.5.1",
 ]
+
+[[project.maintainers]]
+name = "Anuraag Agrawal"
+email = "anuraaga@gmail.com"
+
+[[project.maintainers]]
+name = "Spencer Nelson"
+email = "spencer@firetiger.com"
+
+[[project.maintainers]]
+name = "Stefan VanBuren"
+email = "stefan@vanburen.xyz"
+
+[[project.maintainers]]
+name = "Yasushi Itoh"
+email = "i2y.may.roku@gmail.com"
 
 [project.urls]
 Documentation = "https://connectrpc.com/docs/python/getting-started/"
@@ -41,217 +57,146 @@ Repository = "https://github.com/connectrpc/connect-py"
 
 [dependency-groups]
 dev = [
-  # Install all packages to be available in docs building, etc.
-  "connectrpc-grpcreflect",
-  "connectrpc-otel",
-  "example",
-  "protoc-gen-connectrpc",
-
-  "asgiref==3.11.1",
-  "brotli==1.2.0",
-  "buf-bin==1.71.0",
-  "granian==2.7.9",
-  "grpcio-tools==1.82.1",
-  "gunicorn==26.0.0",
-  "hypercorn==0.18.0",
-  "poethepoet==0.48.0",
-  "pytest==9.1.1",
-  "pytest-asyncio==1.4.0",
-  "pytest-cov==7.1.0",
-  "pytest-timeout==2.4.0",
-  "pyvoy==0.4.2",
-  "ruff==0.15.21",
-  "tombi==1.2.0",
-  "ty==0.0.59",
-  "types-grpcio==1.82.1.20260711",
-  "types-protobuf==7.34.1.20260518",
-  "typing_extensions==4.16.0",
-  "uvicorn==0.51.0",
-  "zstandard==0.25.0",
-
-  # dev dependencies only used in subprojects. Optimal structure would include these
-  # in the subproject itself, but then `uv sync` does not install them from the
-  # workspace root. We strategically keep them here instead so the entire workspace
-  # is ready for editing in an IDE with a simple sync command.
-  # If the below issue is resolved, we can move them back to subprojects and configure
-  # our default sync setting as --all-packages.
-  # https://github.com/astral-sh/uv/issues/5737
-  "opentelemetry-instrumentation-asgi==0.64b0",
-  "opentelemetry-instrumentation-wsgi==0.64b0",
-  "opentelemetry-sdk==1.43.0",
-  "protobuf>=5.28",
-  "protoc-gen-grpc-py==0.1.1",
-  "protoc-gen-py==0.1.1",
+    "connectrpc-grpcreflect",
+    "connectrpc-otel",
+    "example",
+    "protoc-gen-connectrpc",
+    "asgiref==3.12.1",
+    "brotli==1.2.0",
+    "buf-bin==1.72.0",
+    "granian==2.8.2",
+    "grpcio-tools==1.83.1",
+    "gunicorn==26.2.0",
+    "hypercorn==0.18.0",
+    "poethepoet==0.48.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-cov==7.1.0",
+    "pytest-timeout==2.5.0",
+    "pyvoy==1.0.1",
+    "ruff==0.16.5",
+    "tombi==1.5.0",
+    "ty==0.0.75",
+    "types-grpcio==1.83.0.20260730",
+    "types-protobuf==7.35.1.20260827",
+    "typing_extensions==4.16.0",
+    "uvicorn==0.52.4",
+    "zstandard==0.25.0",
+    "opentelemetry-instrumentation-asgi==0.65b0",
+    "opentelemetry-instrumentation-wsgi==0.65b0",
+    "opentelemetry-sdk==1.44.0",
+    "protobuf>=5.28",
+    "protoc-gen-grpc-py==0.3.0",
+    "protoc-gen-py==0.3.0",
+]
+docs = [
+    "mkdocstrings-python==2.0.7",
+    "zensical==0.0.57",
 ]
 
-docs = ["mkdocstrings-python==2.0.5", "zensical==0.0.50"]
-
 [build-system]
-requires = ["uv_build>=0.11.0,<0.12.0"]
+requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.pytest]
-# Turn all warnings into errors
 filterwarnings = [
-  "error",
-  # Workaround https://github.com/open-telemetry/opentelemetry-python/issues/5231
-  "ignore:SelectableGroups dict interface is deprecated. Use select.",
+    "error",
+    "ignore:SelectableGroups dict interface is deprecated. Use select.",
 ]
 strict = true
 testpaths = ["test"]
-timeout = "1800"  # 30 min
+timeout = 1800
 
 [tool.ruff]
-# Don't run ruff on generated code from external plugins.
-extend-exclude = ["*_pb2.py", "*_pb2.pyi"]
+extend-exclude = [
+    "*_pb2.py",
+    "*_pb2.pyi",
+]
 
 [tool.ruff.format]
 skip-magic-trailing-comma = true
 docstring-code-format = true
 
 [tool.ruff.lint]
-extend-select = [
-  # Same order as listed on https://docs.astral.sh/ruff/rules/
-  "YTT",
-  "ANN",
-  "ASYNC",
-  "S",
-  "FBT",
-  "B",
-  "A",
-  "COM818",  # Other comma rules are handled by formatting
-  "C4",
-  "DTZ",
-  "T10",
-  "EM",
-  "EXE",
-  "FA",
-  "ISC",
-  "ICN",
-  "LOG",
-  "G",
-  "INP",
-  "PIE",
-  "T20",
-  "PYI",
-  "PT",
-  "Q004",  # Other quote rules are handled by formatting
-  "RSE",
-  "RET",
-  # This rule is a bit strict since accessing private members within this package can be
-  # useful to reduce public API exposure. But it is important to not access private members
-  # of external dependencies so we enable it and ignore the locations where we need to.
-  "SLF",
-  "SIM",
-  "SLOT",
-  "TID",
-  # TODO: Update TODOs then enable
-  # "TD",
-  "TC",
-  "ARG",
-  "PTH",
-  "FLY",
-  "I",
-  "N",
-  "PERF",
-  "E",
-  "W",
-  # TODO: Flesh out docs and enable
-  # "DOC"
-  # "D",
-  "F",
-  "PGH",
-  "PLC",
-  "PLE",
-  "PLW",
-  "UP",
-  "FURB",
-  "RUF",
-  # TODO: See if it makes sense to enable after a pass at reducing code duplication
-  # "TRY",
-]
-
-# Document reasons for ignoring specific linting errors
-ignore = [
-  # Not applicable
-  "AIR",
-  # Dangerous false positives https://github.com/astral-sh/ruff/issues/4845
-  "ERA",
-  # Not Applicable
-  "FAST",
-  # Important to call user callbacks safely
-  "BLE",
-  # stdlib includes a module named code. This is less of an issue since users need to import a module so allow it
-  "A005",
-  # TODO: Consider using copyright headers
-  "CPY",
-  # Not Applicable
-  "DJ",
-  # It's fine to have TODOs
-  "FIX",
-  # Not Applicable
-  "INT",
-  # Even prevents pytest.raises around an iteration which is too strict
-  "PT012",
-  # Triggers for protocol implementations that don't need the arg too
-  "ARG002",
-  # Complexity checks usually reduce readability
-  "C90",
-  # Not Applicable
-  "NPY",
-  # Not Applicable
-  "PD",
-  # We use the Exception suffix instead
-  "N818",
-  # Handled by formatting
-  "E111",
-  "E114",
-  "E117",
-  "E501",
-  "W191",
-  # Low signal-to-noise ratio
-  "PLR",
-]
-
 typing-extensions = false
+select = ["ALL"]
+ignore = [
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "E501",
+    "D206",
+    "D300",
+    "Q",
+    "COM812",
+    "COM819",
+    "CPY001",
+    "TRY301",
+    "SLF001",
+    "ANN401",
+    "PLR2004",
+    "C901",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0914",
+    "PLR0915",
+    "PLR0916",
+    "PLR0917",
+    "PLR1702",
+    "PT012",
+    "TD",
+    "FIX002",
+]
 
 [tool.ruff.lint.per-file-ignores]
-"conformance/test/**" = ["ANN", "INP", "SLF", "SIM115", "S101", "D"]
+"conformance/test/**" = [
+    "ANN",
+    "BLE",
+    "INP",
+    "SLF",
+    "SIM115",
+    "S101",
+    "D",
+]
 "example/**" = [
-  "ANN",
-  "S",  # Keep examples simpler, e.g. allow normal random
-  "T20",
-  "D",
+    "ANN",
+    "S",
+    "T20",
+    "D",
 ]
-"**/test_*.py" = [
-  "ANN",
-  "S101",
-  "S603",
-  "S607",
-  "FBT",
-  "EM",
-  "INP",
-  "SLF",
-  "PERF",
-  "D",
+"**/test/*.py" = [
+    "ANN",
+    "S101",
+    "S603",
+    "S607",
+    "FBT",
+    "EM",
+    "INP",
+    "SLF",
+    "PERF",
+    "D",
 ]
-"**/*_grpc.py" = ["N", "FBT"]
+"**/*_grpc.py" = [
+    "N",
+    "FBT",
+]
 
 [tool.ruff.lint.isort]
+combine-as-imports = true
 required-imports = ["from __future__ import annotations"]
 split-on-trailing-comma = false
 
 [tool.ty.src]
 exclude = [
-  # gRPC generated code references `grpc.experimental`, which is not exposed by the
-  # `grpc` package's public API. See https://github.com/grpc/grpc/issues/39555.
-  "**/*_pb2_grpc.py",
+    "**/*_pb2_grpc.py",
+    "connectrpc-grpcreflect",
+    "connectrpc-otel",
+    "example",
 ]
 
 [tool.ty.environment]
-# Conformance test files import generated code as `from gen.connectrpc...` and
-# sibling modules like `_util`/`_cov_embed`. Pytest and the launched server/client
-# subprocesses put `conformance/test/` on sys.path; teach ty to do the same.
 extra-paths = ["conformance/test"]
 
 [tool.uv.build-backend]
@@ -259,16 +204,23 @@ module-name = "connectrpc"
 
 [tool.uv.workspace]
 members = [
-  "connectrpc-grpcreflect",
-  "connectrpc-otel",
-  "example",
-  "protoc-gen-connectrpc"
+    "connectrpc-grpcreflect",
+    "connectrpc-otel",
+    "example",
+    "protoc-gen-connectrpc",
 ]
 
-[tool.uv.sources]
-connectrpc = { workspace = true }
-connectrpc-grpcreflect = { workspace = true }
-connectrpc-otel = { workspace = true }
-protoc-gen-connectrpc = { workspace = true }
+[tool.uv.sources.connectrpc]
+workspace = true
 
-example = { workspace = true }
+[tool.uv.sources.connectrpc-grpcreflect]
+workspace = true
+
+[tool.uv.sources.connectrpc-otel]
+workspace = true
+
+[tool.uv.sources.protoc-gen-connectrpc]
+workspace = true
+
+[tool.uv.sources.example]
+workspace = true

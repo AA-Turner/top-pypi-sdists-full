@@ -13,15 +13,14 @@ from trilogy.core.processing.condition_utility import (
     condition_proves_non_null,
     is_scalar_condition,
 )
+from trilogy.core.processing.discovery_utility import check_if_group_required
+from trilogy.core.processing.grain_utility import is_identity_group
 from trilogy.core.processing.nodes.base_node import (
     StrategyNode,
     resolve_concept_map,
     resolve_existence_map,
 )
-from trilogy.core.processing.utility import (
-    GroupRequiredResponse,
-    find_nullable_concepts,
-)
+from trilogy.core.processing.utility import find_nullable_concepts
 from trilogy.utility import unique
 
 LOGGER_PREFIX = "[CONCEPT DETAIL - GROUP NODE]"
@@ -35,7 +34,6 @@ class GroupNode(StrategyNode):
         output_concepts: list[BuildConcept],
         input_concepts: list[BuildConcept],
         environment: BuildEnvironment,
-        whole_grain: bool = False,
         parents: list["StrategyNode"] | None = None,
         depth: int = 0,
         partial_concepts: list[BuildConcept] | None = None,
@@ -47,13 +45,11 @@ class GroupNode(StrategyNode):
         existence_concepts: list[BuildConcept] | None = None,
         hidden_concepts: set[str] | None = None,
         ordering: BuildOrderBy | None = None,
-        required_outputs: list[BuildConcept] | None = None,
     ):
         super().__init__(
             input_concepts=input_concepts,
             output_concepts=output_concepts,
             environment=environment,
-            whole_grain=whole_grain,
             parents=parents,
             depth=depth,
             partial_concepts=partial_concepts,
@@ -66,36 +62,29 @@ class GroupNode(StrategyNode):
             hidden_concepts=hidden_concepts,
             ordering=ordering,
         )
-        # the set of concepts required to preserve grain
-        # set by group by node generation with aggregates
-        self.required_outputs = required_outputs
-
-    @classmethod
-    def check_if_required(
-        cls,
-        downstream_concepts: list[BuildConcept],
-        parents: list[QueryDatasource | BuildDatasource],
-        environment: BuildEnvironment,
-        depth: int = 0,
-    ) -> GroupRequiredResponse:
-        from trilogy.core.processing.discovery_utility import check_if_group_required
-
-        return check_if_group_required(downstream_concepts, parents, environment, depth)
 
     def _resolve(self) -> QueryDatasource:
         parent_sources: list[QueryDatasource | BuildDatasource] = [
             p.resolve() for p in self.parents
         ]
 
-        grains = self.check_if_required(
+        grains = check_if_group_required(
             self.output_concepts, parent_sources, self.environment, self.depth
         )
         target_grain = grains.target
         comp_grain = grains.upstream
-        # dynamically select if we need to group
-        # because sometimes, we are already at required grain
-        if not grains.required and self.force_group is not True:
-            # otherwise if no group by, just treat it as a select
+        # skip the group when parents already sit at the target grain
+        if not grains.required and (
+            self.force_group is not True
+            or is_identity_group(
+                parent_sources,
+                [],
+                target_grain,
+                self.conditions,
+                self.output_concepts,
+                self.rollup_concepts,
+            )
+        ):
             source_type = SourceType.SELECT
         else:
             logger.info(
@@ -122,35 +111,28 @@ class GroupNode(StrategyNode):
         input_addresses = {c.address for c in self.input_concepts}
         for concept in self.output_concepts:
             if concept.is_aggregate and concept.address not in rollup_addresses:
-                # An aggregate that arrives via input_concepts is being
-                # passed through from an upstream node (e.g. a wrapper
-                # GroupNode added by group_if_required_v2 over a node that
-                # already aggregated). Keep its parent source so we project
-                # the precomputed value instead of re-rendering the lineage
-                # against inputs that may no longer be available.
+                # An aggregate arriving via input_concepts is passed through from
+                # an upstream node; keep its parent source so the precomputed
+                # value is projected rather than the lineage re-rendered.
                 if concept.address in input_addresses:
                     continue
                 source_map[concept.address] = set()
         nullable_addresses = find_nullable_concepts(
             source_map=source_map, joins=[], datasources=parent_sources
         )
-        # A scalar condition already applied at/below this group (e.g.
-        # ``store.id IS NOT NULL``, often pushed into an upstream scan so it
-        # only shows up here as a preexisting condition) filters the rows, so
-        # any concept it proves non-null must not be re-marked nullable by the
-        # parent-derived recompute above — otherwise the join scorer emits an
-        # OUTER ``is not distinct from`` (defeats hash joins). Consumers that
-        # judge the condition itself must not trust the resulting absence —
-        # see StrategyNode._refine_nullable_for_conditions.
+        # A scalar condition applied at or below this group (often only visible
+        # here as a preexisting condition) filters the rows, so concepts it
+        # proves non-null must not be re-marked nullable by the recompute above;
+        # otherwise the join scorer emits a null-safe OUTER comparison. See
+        # StrategyNode._refine_nullable_for_conditions for the consumer caveat.
         applied = self.preexisting_conditions or self.conditions
         proven_non_null = (
             condition_proves_non_null(applied)
             if applied and is_scalar_condition(applied)
             else set()
         )
-        # union the source-analysis nullables with node-level nullables — the
-        # latter carry inferred nullability for concepts COMPUTED in this
-        # subtree (e.g. a derived join key over a nullable column)
+        # node-level nullables carry inferred nullability for concepts COMPUTED
+        # in this subtree (e.g. a derived join key over a nullable column)
         node_nullable = {x.address for x in self.nullable_concepts}
         nullable_concepts = [
             x
@@ -160,11 +142,9 @@ class GroupNode(StrategyNode):
                 {x.address, x.canonical_address, *x.pseudonyms}
             )
         ]
-        # A ROLLUP/CUBE/GROUPING SETS injects NULLs into its grouping-key dims at
-        # the subtotal/grand-total rows. Mark those dims — and any dim derived
-        # from them (e.g. ``concat('x', txt)``, which propagates the NULL) —
-        # nullable, so downstream joins on them use null-safe (OUTER) semantics
-        # and preserve the rollup rows instead of dropping or doubling them.
+        # ROLLUP/CUBE/GROUPING SETS inject NULLs into grouping-key dims on the
+        # subtotal rows. Mark those dims, and any dim derived from them,
+        # nullable so downstream joins use null-safe semantics.
         rollup_by_addresses: set[str] = set()
         for c in self.output_concepts:
             if (wrapper := nonstandard_grouping_lineage(c)) is not None:
@@ -184,8 +164,7 @@ class GroupNode(StrategyNode):
                     or rollup_by_addresses & get_upstream_concepts(x)
                 )
             ]
-        # Merge partial concepts from parent resolved sources
-        # so partial keys from upstream datasources propagate through grouping.
+        # partial keys from upstream datasources propagate through grouping
         output_addresses = {c.address for c in self.output_concepts}
         inherited_partials = unique(
             self.partial_concepts
@@ -227,66 +206,6 @@ class GroupNode(StrategyNode):
             condition=self.conditions,
             ordering=self.ordering,
         )
-        # if there is a condition on a group node and it's not scalar
-        # inject an additional CTE
-        if self.conditions and not is_scalar_condition(self.conditions):
-            base.condition = None
-            # Existence feeders (membership ``in <derived>`` subselects) only
-            # feed the lifted condition, not the group itself. They sit as
-            # datasources on ``base``; relocate them onto this wrapper SELECT —
-            # the node that actually renders the condition — so the subselect
-            # can resolve them (tracked in ``existence_source_map``, separate
-            # from row source resolution).
-            existence_addrs = {c.address for c in self.existence_concepts}
-            existence_sources = [
-                ds
-                for ds in base.datasources
-                if isinstance(ds, QueryDatasource)
-                and ds.output_concepts
-                and all(c.address in existence_addrs for c in ds.output_concepts)
-            ]
-            if existence_sources:
-                base.datasources = [
-                    ds for ds in base.datasources if ds not in existence_sources
-                ]
-                for addr in existence_addrs:
-                    base.source_map.pop(addr, None)
-            base.output_concepts = unique(
-                list(base.output_concepts) + list(self.conditions.row_arguments),
-                "address",
-            )
-            # re-visible any hidden concepts
-            base.hidden_concepts = {
-                x for x in base.hidden_concepts if x not in base.output_concepts
-            }
-            source_map = resolve_concept_map(
-                [base],
-                targets=self.output_concepts,
-                inherited_inputs=base.output_concepts,
-            )
-            return QueryDatasource(
-                input_concepts=base.output_concepts,
-                output_concepts=self.output_concepts,
-                datasources=[base, *existence_sources],
-                source_type=SourceType.SELECT,
-                source_map=source_map,
-                # Resolve existence concepts against the wrapper's actual
-                # datasources (the relocated feeders), not the feeder-stripped
-                # ``base`` — otherwise the membership subselect can't find its
-                # source CTE and renders an INVALID_REFERENCE_BUG (bug B2).
-                existence_source_map=resolve_existence_map(
-                    [base, *existence_sources], self.existence_concepts
-                ),
-                joins=[],
-                grain=target_grain,
-                nullable_concepts=base.nullable_concepts,
-                partial_concepts=self.partial_concepts,
-                rollup_concepts=self.rollup_concepts,
-                condition=self.conditions,
-                hidden_concepts=self.hidden_concepts,
-                ordering=self.ordering,
-                base_datasource=base,
-            )
         return base
 
     def copy(self) -> "GroupNode":
@@ -294,7 +213,6 @@ class GroupNode(StrategyNode):
             input_concepts=list(self.input_concepts),
             output_concepts=list(self.output_concepts),
             environment=self.environment,
-            whole_grain=self.whole_grain,
             parents=self.parents,
             depth=self.depth,
             partial_concepts=list(self.partial_concepts),
@@ -306,7 +224,4 @@ class GroupNode(StrategyNode):
             existence_concepts=list(self.existence_concepts),
             hidden_concepts=set(self.hidden_concepts),
             ordering=self.ordering,
-            required_outputs=(
-                list(self.required_outputs) if self.required_outputs else None
-            ),
         )

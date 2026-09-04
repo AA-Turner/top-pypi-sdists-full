@@ -38,6 +38,7 @@ from .paginator import (
     ListCodeInterpretersPaginator,
     ListConfigurationBundlesPaginator,
     ListConfigurationBundleVersionsPaginator,
+    ListConsentPortalsPaginator,
     ListDatasetExamplesPaginator,
     ListDatasetsPaginator,
     ListDatasetVersionsPaginator,
@@ -87,6 +88,8 @@ from .type_defs import (
     CreateCodeInterpreterResponseTypeDef,
     CreateConfigurationBundleRequestTypeDef,
     CreateConfigurationBundleResponseTypeDef,
+    CreateConsentPortalRequestTypeDef,
+    CreateConsentPortalResponseTypeDef,
     CreateDatasetRequestTypeDef,
     CreateDatasetResponseTypeDef,
     CreateDatasetVersionRequestTypeDef,
@@ -142,6 +145,7 @@ from .type_defs import (
     DeleteCodeInterpreterResponseTypeDef,
     DeleteConfigurationBundleRequestTypeDef,
     DeleteConfigurationBundleResponseTypeDef,
+    DeleteConsentPortalRequestTypeDef,
     DeleteDatasetExamplesRequestTypeDef,
     DeleteDatasetExamplesResponseTypeDef,
     DeleteDatasetRequestTypeDef,
@@ -197,6 +201,8 @@ from .type_defs import (
     GetConfigurationBundleResponseTypeDef,
     GetConfigurationBundleVersionRequestTypeDef,
     GetConfigurationBundleVersionResponseTypeDef,
+    GetConsentPortalRequestTypeDef,
+    GetConsentPortalResponseTypeDef,
     GetDatasetRequestTypeDef,
     GetDatasetResponseTypeDef,
     GetEvaluatorRequestTypeDef,
@@ -269,6 +275,8 @@ from .type_defs import (
     ListConfigurationBundlesResponseTypeDef,
     ListConfigurationBundleVersionsRequestTypeDef,
     ListConfigurationBundleVersionsResponseTypeDef,
+    ListConsentPortalsRequestTypeDef,
+    ListConsentPortalsResponseTypeDef,
     ListDatasetExamplesRequestTypeDef,
     ListDatasetExamplesResponseTypeDef,
     ListDatasetsRequestTypeDef,
@@ -347,6 +355,8 @@ from .type_defs import (
     UpdateCapacityProviderOutputTypeDef,
     UpdateConfigurationBundleRequestTypeDef,
     UpdateConfigurationBundleResponseTypeDef,
+    UpdateConsentPortalRequestTypeDef,
+    UpdateConsentPortalResponseTypeDef,
     UpdateDatasetExamplesRequestTypeDef,
     UpdateDatasetExamplesResponseTypeDef,
     UpdateDatasetRequestTypeDef,
@@ -561,6 +571,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_configuration_bundle.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_configuration_bundle)
+        """
+
+    def create_consent_portal(
+        self, **kwargs: Unpack[CreateConsentPortalRequestTypeDef]
+    ) -> CreateConsentPortalResponseTypeDef:
+        """
+        Creates a new consent portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_consent_portal.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_consent_portal)
         """
 
     def create_dataset(
@@ -845,6 +865,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_configuration_bundle.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_configuration_bundle)
+        """
+
+    def delete_consent_portal(
+        self, **kwargs: Unpack[DeleteConsentPortalRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a consent portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_consent_portal.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_consent_portal)
         """
 
     def delete_dataset(
@@ -1145,6 +1175,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_configuration_bundle_version.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_configuration_bundle_version)
+        """
+
+    def get_consent_portal(
+        self, **kwargs: Unpack[GetConsentPortalRequestTypeDef]
+    ) -> GetConsentPortalResponseTypeDef:
+        """
+        Retrieves information about a consent portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_consent_portal.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_consent_portal)
         """
 
     def get_dataset(self, **kwargs: Unpack[GetDatasetRequestTypeDef]) -> GetDatasetResponseTypeDef:
@@ -1505,6 +1545,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_configuration_bundles.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_configuration_bundles)
+        """
+
+    def list_consent_portals(
+        self, **kwargs: Unpack[ListConsentPortalsRequestTypeDef]
+    ) -> ListConsentPortalsResponseTypeDef:
+        """
+        Lists all of the consent portals in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_consent_portals.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_consent_portals)
         """
 
     def list_dataset_examples(
@@ -1916,6 +1966,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_configuration_bundle)
         """
 
+    def update_consent_portal(
+        self, **kwargs: Unpack[UpdateConsentPortalRequestTypeDef]
+    ) -> UpdateConsentPortalResponseTypeDef:
+        """
+        Updates an existing consent portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_consent_portal.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_consent_portal)
+        """
+
     def update_dataset(
         self, **kwargs: Unpack[UpdateDatasetRequestTypeDef]
     ) -> UpdateDatasetResponseTypeDef:
@@ -2242,6 +2302,17 @@ class BedrockAgentCoreControlClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_configuration_bundles"]
     ) -> ListConfigurationBundlesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_consent_portals"]
+    ) -> ListConsentPortalsPaginator:
         """
         Create a paginator for an operation.
 

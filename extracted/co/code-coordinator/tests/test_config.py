@@ -357,6 +357,85 @@ def test_config_cmd_surfaces_unknown_repo_key(tmp_path: Path) -> None:
     assert "api" in result.output
 
 
+def test_store_backend_cmd_defaults_to_sqlite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#3085: `coord store-backend` -- the accessor `deploy/coord-db-backup.sh`
+    consumes -- must answer "sqlite" when no `store:` block is configured at
+    all, same fail-open contract as `coord.db.resolve_store_backend()`."""
+    from click.testing import CliRunner  # noqa: PLC0415
+
+    from coord.cli import main  # noqa: PLC0415
+
+    monkeypatch.setenv("COORD_CONFIG", str(tmp_path / "no-such-coordinator.yml"))
+    result = CliRunner().invoke(main, ["store-backend"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "sqlite"
+
+
+def test_store_backend_cmd_reports_postgres_with_redacted_dsn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A configured postgres backend prints its name plus a host/dbname-only
+    target -- never the raw DSN (the password must not leak into a log a
+    shell script might echo)."""
+    from click.testing import CliRunner  # noqa: PLC0415
+
+    from coord.cli import main  # noqa: PLC0415
+
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos: []\nmachines: []\n"
+        "store:\n  backend: postgres\n  dsn: postgresql://user:sekret@dbhost:5432/coord\n"
+    )
+    monkeypatch.setenv("COORD_CONFIG", str(p))
+    result = CliRunner().invoke(main, ["store-backend"])
+    assert result.exit_code == 0
+    assert result.output.startswith("postgres")
+    assert "sekret" not in result.output
+    assert "dbhost" in result.output
+
+
+def test_store_backend_cmd_fails_loud_on_malformed_store_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An explicit-but-invalid `store:` block must exit non-zero rather than
+    silently answering "sqlite" -- the one config problem
+    `resolve_store_backend()` deliberately lets raise. This is what makes
+    `deploy/coord-db-backup.sh` refuse instead of guessing when the config is
+    simply broken."""
+    from click.testing import CliRunner  # noqa: PLC0415
+
+    from coord.cli import main  # noqa: PLC0415
+
+    p = tmp_path / "coordinator.yml"
+    p.write_text("repos: []\nmachines: []\nstore:\n  backend: not-a-real-backend\n")
+    monkeypatch.setenv("COORD_CONFIG", str(p))
+    result = CliRunner().invoke(main, ["store-backend"])
+    assert result.exit_code != 0
+
+
+def test_store_backend_cmd_prints_curated_message_not_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#3085 fix-review: a malformed `store:` block must still exit
+    non-zero (see the test above), but the failure a shell script's `fail()`
+    embeds verbatim should be one curated line, not a raw Python traceback --
+    a `deploy/coord-db-backup.sh` failure ends up in the systemd journal an
+    on-call engineer reads."""
+    from click.testing import CliRunner  # noqa: PLC0415
+
+    from coord.cli import main  # noqa: PLC0415
+
+    p = tmp_path / "coordinator.yml"
+    p.write_text("repos: []\nmachines: []\nstore:\n  backend: not-a-real-backend\n")
+    monkeypatch.setenv("COORD_CONFIG", str(p))
+    result = CliRunner().invoke(main, ["store-backend"])
+    assert result.exit_code != 0
+    assert "Traceback (most recent call last)" not in result.output
+    assert "store-backend" in result.output
+
+
 _EXAMPLE_CONFIG = Path(__file__).resolve().parents[1] / "coordinator.yml"
 
 
@@ -519,6 +598,42 @@ def test_uat_preview_default_none(tmp_path: Path) -> None:
     assert cfg.repo("api").uat_preview is None
 
 
+def test_uat_live_preview_parsed(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n    uat_live_preview: true\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    assert cfg.repo("api").uat_live_preview is True
+
+
+def test_uat_live_preview_default_false(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    assert cfg.repo("api").uat_live_preview is False
+
+
+def test_uat_live_preview_non_bool_rejected(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n    uat_live_preview: 'yes'\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="uat_live_preview must be a boolean"):
+        load(p)
+
+
 def test_uat_preview_non_string_rejected(tmp_path: Path) -> None:
     p = tmp_path / "coordinator.yml"
     p.write_text(
@@ -547,7 +662,16 @@ def test_uat_preview_empty_string_rejected(tmp_path: Path) -> None:
         load(p)
 
 
-def test_uat_preview_resolve_url_substitutes_branch_slug() -> None:
+def test_uat_preview_resolve_url_pr_branch_slug_no_longer_substituted() -> None:
+    """#2948: `{pr_branch_slug}` was removed as a substitution variable —
+    confirmed live against natal-chart that Cloudflare Pages publishes no
+    branch-alias URL at all (not even for `main`), so no algorithm on the
+    branch name alone could ever produce a working link. It is now just an
+    unknown placeholder, left verbatim like any other typo (see
+    ``test_uat_preview_resolve_url_unknown_placeholder_left_verbatim``) —
+    a template author who still has it in `coordinator.yml` gets a visibly
+    broken URL rather than a silently dead one.
+    """
     from coord.models import Repo
 
     repo = Repo(
@@ -555,21 +679,7 @@ def test_uat_preview_resolve_url_substitutes_branch_slug() -> None:
         uat_preview="https://{pr_branch_slug}.natal-chart-3ew.pages.dev/",
     )
     url = repo.resolve_uat_preview_url(branch="issue-42-fix-chart-colors")
-    assert url == "https://issue-42-fix-chart-colors.natal-chart-3ew.pages.dev/"
-
-
-def test_uat_preview_resolve_url_slugifies_branch_for_cloudflare() -> None:
-    from coord.models import Repo
-
-    repo = Repo(
-        name="natal-chart", github="acme/natal-chart",
-        uat_preview="https://{pr_branch_slug}.example.pages.dev/",
-    )
-    # Slashes and uppercase must fold into Cloudflare's lowercase-hyphen
-    # branch-alias shape (see Repo.resolve_uat_preview_url's docstring for
-    # the caveat that this is UNVERIFIED against a live deployment).
-    url = repo.resolve_uat_preview_url(branch="Issue/42_Fix-Chart")
-    assert url == "https://issue-42-fix-chart.example.pages.dev/"
+    assert url == "https://{pr_branch_slug}.natal-chart-3ew.pages.dev/"
 
 
 def test_uat_preview_resolve_url_returns_none_when_unset() -> None:

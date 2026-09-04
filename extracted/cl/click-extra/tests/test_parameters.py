@@ -29,6 +29,7 @@ import click
 import pytest
 from boltons.iterutils import flatten, unique
 from boltons.strutils import strip_ansi
+from click.parser import _split_opt
 from extra_platforms import is_windows
 
 from click_extra import (
@@ -66,6 +67,7 @@ from click_extra import (
 )
 from click_extra.config import NO_CONFIG
 from click_extra.parameters import (
+    canonical_param_name,
     iter_params_for_display,
     iter_subcommands,
     make_resilient_context,
@@ -104,6 +106,64 @@ class Custom(ParamType):
 
     def convert(self, value, param, ctx):
         return value
+
+
+@pytest.mark.parametrize(
+    "decl",
+    (
+        # Plain spellings, and the case variants folding onto them.
+        "--foo-bar",
+        "--Foo-Bar",
+        "--FOO-BAR",
+        "-f",
+        # Underscores survive, and a dash past the prefix becomes one.
+        "--foo__bar",
+        "--foo--bar",
+        "--_foo",
+        "--__foo",
+        "---foo",
+        "--foo-0",
+        # The fold reaches every script, and is not length-preserving.
+        "--Ω",
+        "--İ",
+        "--ΟΔΟΣ",
+        "--ẞ",
+        "--\N{KELVIN SIGN}",
+        "--ﬁ",
+        "--foo-٣",
+    ),
+)
+def test_canonical_param_name_matches_click(decl):
+    """The fold answers what Click names a parameter declared that way.
+
+    Click derives the name in `Option._parse_decls`, which splits the prefix
+    then applies this same fold. Pinning the two together is what keeps the
+    helper honest when Click moves.
+    """
+    assert canonical_param_name(_split_opt(decl)[1]) == click.Option([decl]).name
+
+
+def test_canonical_param_name_is_many_to_one():
+    """The fold identifies a name, and cannot reconstruct a spelling."""
+    assert (
+        canonical_param_name("foo-bar")
+        == canonical_param_name("Foo_Bar")
+        == canonical_param_name("FOO-BAR")
+        == "foo_bar"
+    )
+    # The Kelvin sign is its own code point, and folds onto a plain ASCII k.
+    assert canonical_param_name("\N{KELVIN SIGN}") == canonical_param_name("k") == "k"
+
+
+def test_canonical_param_name_never_answers_an_identifier_decl():
+    """Click takes an identifier declaration verbatim, so no fold produces it.
+
+    This is why a resolved spelling has to come back from the names a CLI
+    declares, rather than from what the fold returns.
+    """
+    param = click.Option(["--foo-bar", "Explicit_Name"])
+    assert param.name == "Explicit_Name"
+    assert canonical_param_name("Explicit_Name") != param.name
 
 
 def test_factory_decorators_expose_option_signature():
@@ -436,7 +496,7 @@ def test_integrated_show_params_option(invoke, create_config):
         ),
         (
             "show-params-cli.config",
-            "--config CONFIG_PATH",
+            "--config LOCATION",
             "click_extra.config.option.ConfigOption",
             "click.types.UnprocessedParamType",
             "str",
@@ -760,7 +820,7 @@ def test_integrated_show_params_option(invoke, create_config):
         ),
         (
             "show-params-cli.table_format",
-            "--table-format [aligned|asciidoc|colon-grid|csv|csv-excel|csv-excel-tab|csv-unix|double-grid|double-outline|fancy-grid|fancy-outline|github|grid|heavy-grid|heavy-outline|hjson|html|jira|json|json5|jsonc|latex|latex-booktabs|latex-longtable|latex-raw|mediawiki|mixed-grid|mixed-outline|moinmoin|orgtbl|outline|pipe|plain|presto|pretty|psql|rounded-grid|rounded-outline|rst|simple|simple-grid|simple-outline|textile|toml|tsv|unsafehtml|vertical|xml|yaml|youtrack]",
+            "--table-format FORMAT",
             "click_extra.table.TableFormatOption",
             "click_extra.types.EnumChoice",
             "str",
@@ -844,9 +904,9 @@ def test_integrated_show_params_option(invoke, create_config):
         ),
         (
             "show-params-cli.validate_config",
-            "--validate-config FILE",
+            "--validate-config LOCATION",
             "click_extra.config.option.ValidateConfigOption",
-            "click.types.Path",
+            "click.types.UnprocessedParamType",
             "str",
             "✘",
             "✘",
@@ -1544,7 +1604,7 @@ def test_standalone_table_rendering(invoke, opt1, opt2, table_format):
         ],
         [
             "show-params.table_format",
-            "--table-format [aligned|asciidoc|colon-grid|csv|csv-excel|csv-excel-tab|csv-unix|double-grid|double-outline|fancy-grid|fancy-outline|github|grid|heavy-grid|heavy-outline|hjson|html|jira|json|json5|jsonc|latex|latex-booktabs|latex-longtable|latex-raw|mediawiki|mixed-grid|mixed-outline|moinmoin|orgtbl|outline|pipe|plain|presto|pretty|psql|rounded-grid|rounded-outline|rst|simple|simple-grid|simple-outline|textile|toml|tsv|unsafehtml|vertical|xml|yaml|youtrack]",
+            "--table-format FORMAT",
             "click_extra.table.TableFormatOption",
             "click_extra.types.EnumChoice",
             "str",
@@ -1770,7 +1830,7 @@ def test_standalone_no_color_rendering(invoke, opt1, opt2, opt3, table_format):
         ],
         [
             "show-params.table_format",
-            "--table-format [aligned|asciidoc|colon-grid|csv|csv-excel|csv-excel-tab|csv-unix|double-grid|double-outline|fancy-grid|fancy-outline|github|grid|heavy-grid|heavy-outline|hjson|html|jira|json|json5|jsonc|latex|latex-booktabs|latex-longtable|latex-raw|mediawiki|mixed-grid|mixed-outline|moinmoin|orgtbl|outline|pipe|plain|presto|pretty|psql|rounded-grid|rounded-outline|rst|simple|simple-grid|simple-outline|textile|toml|tsv|unsafehtml|vertical|xml|yaml|youtrack]",
+            "--table-format FORMAT",
             "click_extra.table.TableFormatOption",
             "click_extra.types.EnumChoice",
             "str",
@@ -2065,6 +2125,38 @@ def test_help_column_is_opt_in(invoke):
     assert rows["weather.city"] == "Where to look up the forecast."
     # Dynamically-computed help resolves here too, not just in the man page.
     assert rows["weather.verbose"].startswith("Increase the default")
+
+
+def test_help_column_paints_the_deprecation_marker(invoke):
+    """The marker takes the slot the help screen paints it with.
+
+    Every other column of the rendered table is themed, and the marker is the
+    one part of this one Click Extra writes rather than the CLI author.
+    """
+    theme = get_current_theme()
+
+    @command
+    @columns_option
+    @option("--city", help="Where to look up.", deprecated=True)
+    def weather(city):
+        echo(city)
+
+    result = invoke(weather, "--columns", "id,help", "--params", color=True)
+    assert result.exit_code == 0
+    assert theme.deprecated("(DEPRECATED)") in result.stdout
+    # A structured render stays clean: escapes there would corrupt the value.
+    structured = invoke(
+        weather,
+        "--table-format",
+        "json",
+        "--columns",
+        "id,help",
+        "--params",
+        color=True,
+    )
+    assert structured.exit_code == 0
+    rows = {row["ID"]: row["Help"] for row in json.loads(structured.stdout)}
+    assert rows["weather.city"] == "Where to look up. (DEPRECATED)"
 
 
 def test_help_column_is_documented():

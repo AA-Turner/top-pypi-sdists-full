@@ -6,10 +6,42 @@ import uuid
 
 import icalendar
 
+from caldav.lib import error
 from caldav.lib.python_utilities import to_normal_str
 
 ## Global counter.  We don't want to be too verbose on the users, ref https://github.com/home-assistant/core/issues/86938
 fixup_error_loggings = 0
+
+
+def parse_ical(data, context: str | None = None) -> icalendar.Calendar:
+    """icalendar.Calendar.from_ical(), with a usable error for a body that
+    holds no iCalendar at all.
+
+    Servers do send such bodies: an empty object in a scheduling inbox, an HTML
+    error page delivered with a 200, a notification carrying only headers.
+    from_ical() answers with `ValueError: Found no components where exactly one
+    is required`, which names neither the object the data came from nor the fact
+    that it came off the wire - so the traceback tells you almost nothing.
+
+    The guard is deliberately narrow.  Data that does contain a component is
+    handed to icalendar unchanged, whatever it then makes of it: reclassifying
+    every parse failure as a server error would hide client-side bugs.
+
+    Args:
+        data: the body, str or bytes.
+        context: where it came from, typically a URL.  Included in the error.
+
+    Raises:
+        error.ResponseError: when the body contains no iCalendar component.
+    """
+    text = to_normal_str(data) if data is not None else ""
+    if "BEGIN:" not in text.upper():
+        where = f" from {context}" if context else ""
+        raise error.ResponseError(
+            f"no iCalendar data{where}: the body holds no BEGIN: line, got {text.strip()[:200]!r}"
+        )
+    return icalendar.Calendar.from_ical(data)
+
 
 ## Fixups to the icalendar data to work around compatibility issues.
 
@@ -77,20 +109,28 @@ def fix(event):
 
     ## TODO: add ^ before COMPLETED and CREATED?
     ## 1) Add an arbitrary time if completed is given as date
-    fixed = re.sub(r"COMPLETED(?:;VALUE=DATE)?:(\d+)\s", r"COMPLETED:\g<1>T120000Z", event)
+    fixed = re.sub(r"COMPLETED(?:;VALUE=DATE)?:(\d+)(?=\s)", r"COMPLETED:\g<1>T120000Z", event)
 
     ## 2) CREATED timestamps prior to epoch does not make sense,
     ## change from year 0001 to epoch.
     fixed = re.sub("CREATED:00001231T000000Z", "CREATED:19700101T000000Z", fixed)
-    fixed = re.sub(r"\\+('\")", r"\1", fixed)
+    fixed = re.sub(r"\\+(['\"])", r"\1", fixed)
 
-    ## 4) trailing whitespace probably never makes sense
-    fixed = re.sub(" *$", "", fixed)
+    ## 4) trailing whitespace probably never makes sense -- but only on a
+    ## line that is not continued by a folded line.  RFC 5545 3.1 folds
+    ## blind at 75 octets, so the fold may land right after a space that is
+    ## part of the value; stripping it would join two words together.  The
+    ## negative lookahead is what keeps that whitespace alone.
+    fixed = re.sub(r"[ \t]+$(?!\n[ \t])", "", fixed, flags=re.MULTILINE)
 
     ## 6) add DTSTAMP if not given
     ## (corner case that DTSTAMP is given in one but not all the recurrences is ignored)
     if "\nDTSTAMP:" not in fixed:
-        assert "\nEND" in fixed
+        if "\nEND" not in fixed:
+            logging.getLogger(__name__).warning(
+                "vcal.fix(): truncated iCalendar data (no END: line) — skipping DTSTAMP fixup"
+            )
+            return fixed
         dtstamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         fixed = re.sub("(\nEND:(VTODO|VEVENT|VJOURNAL))", f"\nDTSTAMP:{dtstamp}\\1", fixed)
 
@@ -240,8 +280,8 @@ def create_ical(ical_fragment=None, objtype=None, language="en_DK", **props):
     ret = to_normal_str(my_instance.to_ical())
     if ical_fragment and ical_fragment.strip():
         ret = re.sub(
-            "^END:V",
-            ical_fragment.strip() + "\nEND:V",
+            "^(END:V(?:EVENT|TODO|JOURNAL))",
+            ical_fragment.strip() + "\n\\1",
             ret,
             flags=re.MULTILINE,
             count=1,

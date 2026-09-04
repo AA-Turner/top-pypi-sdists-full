@@ -11,7 +11,7 @@ from textual.binding import Binding
 from textual.message import Message
 from textual.widgets import RichLog, Static
 
-from dreadnode.app.paths import LOGS_DIR
+from dreadnode.app import paths
 from dreadnode.app.tui.screens.base import DreadnodeScreen
 from dreadnode.app.tui.theme import (
     ERROR,
@@ -43,9 +43,6 @@ _LEVELS = ["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
 # Cap per-entry rendered length so cycling to TRACE doesn't freeze the UI on
 # full LLM request/response payloads. Buffer + saved log still keep the full text.
 _MAX_DISPLAY_CHARS = 2000
-# Exports share the central dreadnode logs directory alongside worker logs
-# (and, eventually, MCP + TUI/SDK self-logs).
-_LOG_EXPORT_DIR = LOGS_DIR
 
 
 class ConsoleScreen(DreadnodeScreen):
@@ -180,8 +177,11 @@ class ConsoleScreen(DreadnodeScreen):
             for e in self._log_buffer.snapshot()
             if e.level_no >= self._min_level_no
         ]
-        _LOG_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = _LOG_EXPORT_DIR / filename
+        # Exports share the central dreadnode logs directory with worker logs.
+        # Read at call time: a by-name import would freeze the path at import.
+        export_dir = paths.LOGS_DIR
+        export_dir.mkdir(parents=True, exist_ok=True)
+        output_path = export_dir / filename
         output_path.write_text("\n".join(lines), encoding="utf-8", errors="replace")
         self.notify(f"Saved to {output_path}")
 

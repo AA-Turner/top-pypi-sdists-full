@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cryptographic-material-providers
-Version: 1.11.2
+Version: 1.11.3
 Summary: AWS Cryptographic Material Providers Library for Python
 Author: AWS Crypto Tools
 Author-email: aws-crypto-tools@amazon.com
@@ -8,10 +8,10 @@ Requires-Python: >=3.11.0,<4.0.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: aws-cryptography-internal-dynamodb (==1.11.2)
-Requires-Dist: aws-cryptography-internal-kms (==1.11.2)
-Requires-Dist: aws-cryptography-internal-primitives (==1.11.2)
-Requires-Dist: aws-cryptography-internal-standard-library (==1.11.2)
+Requires-Dist: aws-cryptography-internal-dynamodb (==1.11.3)
+Requires-Dist: aws-cryptography-internal-kms (==1.11.3)
+Requires-Dist: aws-cryptography-internal-primitives (==1.11.3)
+Requires-Dist: aws-cryptography-internal-standard-library (==1.11.3)
 Description-Content-Type: text/x-rst
 
 ####################################################

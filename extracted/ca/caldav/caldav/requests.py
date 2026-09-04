@@ -1,7 +1,4 @@
-try:
-    from niquests.auth import AuthBase
-except ImportError:
-    from requests.auth import AuthBase
+from caldav.lib.http_sync import AuthBase
 
 
 class HTTPBearerAuth(AuthBase):

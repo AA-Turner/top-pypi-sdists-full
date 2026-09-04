@@ -1,4 +1,4 @@
-"""Models for batch operations."""
+"""What a bulk method reports back about the requests it made."""
 
 from __future__ import annotations
 
@@ -14,19 +14,45 @@ from pinecone.models.response_info import BatchResponseInfo
 
 
 class BatchError(Struct, kw_only=True):
-    """Details about a single failed batch within a batch operation.
+    """One batch that did not land, and everything needed to retry it.
+
+    A bulk method captures per-batch failures instead of raising, so one bad
+    batch does not abandon the rest. Every failure arrives as one of these in
+    :attr:`BatchResult.errors`, still holding its own items.
+
+    Check :attr:`retryable` before resending anything: a deterministic failure
+    resent unchanged fails again, and a retry loop that ignores the flag spins
+    forever on it.
 
     Attributes:
-        batch_index: Zero-based position of this batch in the original sequence.
-        items: The items that were in this batch (for retry).
-        error: The exception that caused the failure.
-        error_message: Human-readable description of the error.
+        batch_index: Where this batch sat in the list you passed, counting
+            from zero.
+        items: The items this batch was carrying, ready to be resent.
+        error: The exception that ended the attempt — the thing to log or
+            re-raise when you want the underlying cause.
+        error_message: The same failure as a readable string, which is what
+            :class:`BatchResult` groups and counts by.
+        disposition: How far this batch got before failing, which is what
+            tells you whether a retry could double-write. ``"rejected"`` means
+            the attempt reached the server and came back with an error, so the
+            write may have landed anyway; ``"unsent"`` means a deadline
+            expired before it was submitted; ``"abandoned"`` means the backend
+            looked down and the rest of the operation was dropped without
+            sending. Treat the set as open — match the values you care about
+            and let the rest fall through, because new ones can appear in a
+            minor release.
+        retryable: Whether resending these items could plausibly work.
+            ``False`` marks a deterministic failure — a validation error, a
+            4xx rejection — that would fail identically every time. Filter on
+            it before any retry loop.
     """
 
     batch_index: int
     items: list[dict[str, Any]]
     error: Exception
     error_message: str
+    disposition: str = "rejected"
+    retryable: bool = True
 
     def __repr__(self) -> str:
         return (
@@ -36,70 +62,98 @@ class BatchError(Struct, kw_only=True):
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, with exception converted to string.
+        """Return the failure as a plain dict, for logging or JSON.
 
-        Returns:
-            Dictionary with all fields, where the error field is converted
-            to its string representation for serializability.
+        ``error`` becomes ``str(error)``, since an exception is not
+        serializable; reach for the attribute itself when you need the real
+        exception.
         """
         return {
             "batch_index": self.batch_index,
             "items": self.items,
             "error": str(self.error),
             "error_message": self.error_message,
+            "disposition": self.disposition,
+            "retryable": self.retryable,
         }
 
     def to_json(self) -> str:
-        """Convert to JSON string, with exception converted to string.
-
-        Returns:
-            JSON string with all fields, where the error field is converted
-            to its string representation for serializability.
-        """
+        """Return the failure as a JSON string, with ``error`` stringified."""
         return msgspec.json.encode(self.to_dict()).decode("utf-8")
 
 
 class BatchResult(Struct, kw_only=True):
-    """Aggregated result of a batch operation.
+    """What a bulk method returns instead of raising.
 
-    Tracks how many items and batches succeeded or failed, and provides
-    access to the failed items for easy retry.
+    A bulk method splits your items into batches and reports the outcome of
+    all of them here, so a partial failure is a value you inspect rather than
+    an exception that loses the successes. Start with :attr:`has_errors`; if
+    it is ``True``, :attr:`errors` holds one
+    :class:`BatchError` per failed batch, each carrying its own items back.
+
+    The last five attributes are backpressure telemetry rather than results.
+    Read them when a bulk write was slower than expected: they say whether the
+    backend was throttling you, and whether the SDK gave up on it.
 
     Attributes:
-        total_item_count: Total number of items submitted.
-        successful_item_count: Number of items in successful batches.
-        failed_item_count: Number of items in failed batches.
-        total_batch_count: Total number of batches executed.
-        successful_batch_count: Number of batches that succeeded.
-        failed_batch_count: Number of batches that failed.
-        errors: List of ``BatchError`` objects describing each failure.
-        response_info: Aggregate durability signal (``lsn_reconciled`` /
-            ``lsn_committed``) across successful sub-batches, or ``None``
-            when no sub-batch reported these headers. See
-            :class:`BatchResponseInfo`.
+        total_item_count: How many items you passed in.
+        successful_item_count: How many were in batches that landed.
+        failed_item_count: How many were in batches that did not.
+        total_batch_count: How many batches the items were split into.
+        successful_batch_count: How many of those landed.
+        failed_batch_count: How many did not.
+        errors: One :class:`BatchError` per failed batch.
+        response_info: A :class:`BatchResponseInfo` carrying the log position
+            the batch is durable through, or ``None`` when no batch reported
+            one. Use it to check that a later read sees these writes.
+        timed_out: Whether a ``total_timeout`` expired with work left unsent. The
+            batches that were never attempted appear in ``errors``, so
+            ``failed_items`` is what remains to be sent. A deadline that elapses
+            while the last batches are in flight, all of which then land, does not
+            set this — there would be nothing to retry.
+        throttle_event_count: Throttle signals the host's adaptive gate heard
+            during this operation. Host-level, not call-level: concurrent
+            operations against the same host share the gate, so their
+            throttles are counted here too.
+        final_limit: The adaptive concurrency limit when this operation
+            finished, or ``None`` when the operation did not run through the
+            gate. A value far below your ``max_concurrency`` means the
+            backend was pushing back.
+        peak_inflight: The most batches this operation had in flight at once.
+        stalled: Whether the host gate's stall detector fired during this
+            operation — the adaptive limit was at the floor with consecutive
+            all-failed settles, so the remainder was abandoned rather than
+            queued against an apparently-dead backend. Abandoned batches
+            appear in ``errors`` with ``disposition="abandoned"``; the gate
+            itself re-probes after a cool-down.
 
     Examples:
-        >>> from pinecone import Pinecone
-        >>> pc = Pinecone(api_key="your-api-key")
-        >>> index = pc.preview.index(name="articles-en-preview")
+        >>> index = pc.index(name="product-search")
         >>> documents = [
-        ...     {
-        ...         "_id": f"article-{i:05d}",
-        ...         "content": f"Article {i}",
-        ...         "embedding": [0.012, -0.087, 0.153],  # 1536-dim in practice
-        ...     }
+        ...     {"_id": f"article-{i:05d}", "chunk_text": f"Paragraph {i}"}
         ...     for i in range(1000)
         ... ]
         >>> result = index.documents.batch_upsert(
-        ...     namespace="articles-en",
-        ...     documents=documents,
+        ...     namespace="published", documents=documents
         ... )
-        >>> if result.has_errors:
-        ...     print(f"{result.failed_item_count} items failed, retrying...")
-        ...     retry = index.documents.batch_upsert(
-        ...         namespace="articles-en",
-        ...         documents=result.failed_items,
-        ...     )
+        >>> result.successful_item_count, result.has_errors
+        (1000, False)
+
+        Resend only the batches a retry could actually help, which is not the
+        same set as :attr:`failed_items`:
+
+        .. code-block:: python
+
+            worth_retrying = [
+                item
+                for error in result.errors
+                if error.retryable
+                for item in error.items
+            ]
+            if worth_retrying:
+                index.documents.batch_upsert(
+                    namespace="published", documents=worth_retrying
+                )
     """
 
     total_item_count: int
@@ -110,31 +164,38 @@ class BatchResult(Struct, kw_only=True):
     failed_batch_count: int
     errors: list[BatchError]
     response_info: BatchResponseInfo | None = None
+    timed_out: bool = False
+    throttle_event_count: int = 0
+    final_limit: int | None = None
+    peak_inflight: int = 0
+    stalled: bool = False
 
     @property
     def has_errors(self) -> bool:
-        """Whether any batches failed."""
+        """Whether any batch failed — the first thing to check on a result."""
         return len(self.errors) > 0
 
     @property
     def error_count(self) -> int:
-        """Alias for failed_item_count."""
+        """Alias for :attr:`failed_item_count`; counts items, not batches."""
         return self.failed_item_count
 
     @property
     def success_count(self) -> int:
-        """Alias for successful_item_count."""
+        """Alias for :attr:`successful_item_count`; counts items, not batches."""
         return self.successful_item_count
 
     @property
     def failed_items(self) -> list[dict[str, Any]]:
-        """All items from failed batches, flattened for retry.
+        """Every item from every failed batch, flattened into one list.
 
-        Pass directly back to the same batch method to retry only the
-        items that failed on the previous attempt.
+        Convenient to resend, but it includes batches whose
+        :attr:`BatchError.retryable` is ``False`` — those fail identically on
+        every attempt. Filter :attr:`errors` on that flag instead when the
+        retry is in a loop.
 
         Returns:
-            list[dict[str, Any]]: Flat list of all items from failed batches.
+            A flat list of the items that did not land.
         """
         items: list[dict[str, Any]] = []
         for error in self.errors:
@@ -142,7 +203,7 @@ class BatchResult(Struct, kw_only=True):
         return items
 
     def _error_summary(self) -> list[tuple[str, int]]:
-        """Deduplicated error messages with counts, ordered by frequency."""
+        """Distinct error messages with batch counts, most frequent first."""
         counts: Counter[str] = Counter()
         for err in self.errors:
             counts[err.error_message] += 1
@@ -166,11 +227,10 @@ class BatchResult(Struct, kw_only=True):
         return header + "\n  Errors:\n" + "\n".join(lines) + "\n)"
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, with exceptions in errors converted to strings.
+        """Return the whole result as nested plain dicts, for logging or JSON.
 
-        Returns:
-            Dictionary with all fields, where error exceptions in the errors
-            list are converted to their string representations for serializability.
+        Each failure's ``error`` becomes ``str(error)``, since an exception is
+        not serializable.
         """
         return {
             "total_item_count": self.total_item_count,
@@ -183,15 +243,15 @@ class BatchResult(Struct, kw_only=True):
             "response_info": (
                 self.response_info.to_dict() if self.response_info is not None else None
             ),
+            "timed_out": self.timed_out,
+            "throttle_event_count": self.throttle_event_count,
+            "final_limit": self.final_limit,
+            "peak_inflight": self.peak_inflight,
+            "stalled": self.stalled,
         }
 
     def to_json(self) -> str:
-        """Convert to JSON string, with exceptions in errors converted to strings.
-
-        Returns:
-            JSON string with all fields, where error exceptions in the errors
-            list are converted to their string representations for serializability.
-        """
+        """Return the whole result as a JSON string, with errors stringified."""
         return msgspec.json.encode(self.to_dict()).decode("utf-8")
 
     def _repr_html_(self) -> str:

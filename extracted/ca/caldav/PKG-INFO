@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: caldav
-Version: 3.2.1
+Version: 3.3.0
 Summary: CalDAV (RFC4791) client library
 Project-URL: Repository, https://github.com/python-caldav/caldav
 Project-URL: Issues, https://github.com/python-caldav/caldav/issues
@@ -31,6 +31,8 @@ Requires-Dist: python-dateutil
 Requires-Dist: pyyaml
 Requires-Dist: recurring-ical-events>=2.0.0
 Requires-Dist: typing-extensions; python_version < '3.11'
+Provides-Extra: niquests
+Requires-Dist: niquests; extra == 'niquests'
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: deptry>=0.24.0; (python_version >= '3.10') and extra == 'test'
@@ -111,7 +113,7 @@ The package is published at [Pypi](https://pypi.org/project/caldav)
 
 ## HTTP Libraries
 
-The sync client uses [niquests](https://github.com/jawah/niquests) by default (with fallback to [requests](https://requests.readthedocs.io/)). The async client uses [httpx](https://www.python-httpx.org/) if installed, otherwise falls back to niquests. See [HTTP Library Configuration](docs/source/http-libraries.rst) for details.
+The sync client uses [niquests](https://github.com/jawah/niquests) by default (with fallback to [requests](https://requests.readthedocs.io/)). The async client prefers niquests as well, falling back to the [httpx](https://www.python-httpx.org/) family (httpx2, httpxyz, httpx) - the first one installed wins. See [HTTP Library Configuration](docs/source/http-libraries.rst) for details.
 
 ## Licences
 

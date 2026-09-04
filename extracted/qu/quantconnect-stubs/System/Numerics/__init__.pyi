@@ -3434,7 +3434,7 @@ class _Decimal64_CreateTruncating:
         ...
 
 
-class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable[System_Numerics_Decimal64], System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal64], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
+class Decimal64(System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal64
@@ -4476,7 +4476,7 @@ class _Decimal32_CreateTruncating:
         ...
 
 
-class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable[System_Numerics_Decimal32], System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal32], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
+class Decimal32(System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal32
@@ -5325,7 +5325,7 @@ class _BFloat16_CreateTruncating:
         ...
 
 
-class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormattable, System.IEquatable[System_Numerics_BFloat16], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[System_Numerics_BFloat16]):
+class BFloat16(System.IBinaryFloatParseAndFormatInfo[System_Numerics_BFloat16]):
     """This class has no documentation."""
 
     EPSILON: System.Numerics.BFloat16
@@ -6273,7 +6273,7 @@ class _Decimal128_CreateTruncating:
         ...
 
 
-class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatable[System_Numerics_Decimal128], System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal128], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
+class Decimal128(System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal128

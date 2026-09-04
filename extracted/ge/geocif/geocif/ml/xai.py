@@ -11,7 +11,7 @@ from geocif.progress import pbar as _pbar
 logger = logging.getLogger(__name__)
 
 # Models that need a model-agnostic SHAP explainer (no TreeExplainer support).
-_MODEL_AGNOSTIC_XAI = {"tabpfn", "tabicl"}
+_MODEL_AGNOSTIC_XAI = {"tabpfn", "tabicl", "bnn"}
 
 # TabPFN-family models get the shapiq path (faster + supports k-SII
 # interactions + PDP via the new xai_shapiq module). Falls back to
@@ -183,7 +183,12 @@ def explain(df_train, df_test, **kwargs):
             )
 
     if not shapiq_used:
-        if model_name in _MODEL_AGNOSTIC_XAI:
+        # Strip curated_/top<N>_/auto_/last<N>m_ so variants of the
+        # model-agnostic models (e.g. curated_bnn, curated_tabpfn) don't
+        # fall through to TreeExplainer, which rejects non-tree models.
+        from .trainers import strip_variant_prefix
+
+        if strip_variant_prefix(model_name) in _MODEL_AGNOSTIC_XAI:
             # PermutationExplainer perturbs the feature matrix by subtraction,
             # which crashes on object/string columns (e.g. the categorical
             # "Region" — cat_features = ["Harvest Year", "Region_ID", "Region"]).

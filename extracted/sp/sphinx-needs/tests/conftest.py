@@ -273,11 +273,21 @@ def plantuml_command(sphinx_test_tempdir) -> str:
     )
 
 
+# node classes from extensions outside sphinx-needs are exempt from the parent check:
+# sphinx-design installs its tab nodes by assigning ``children`` directly, so they never get
+# a parent (#1757), and the invariant guarded here (#1564) is about sphinx-needs' own nodes
+_PARENT_CHECK_EXEMPT_MODULES = ("sphinx_design.",)
+
+
 def _check_parent_child(app: Sphinx, doctree: document, docname: str):
     for idx, node in enumerate(doctree.findall()):
         if idx == 0:
             continue
-        assert node.parent is not None
+        if type(node).__module__.startswith(_PARENT_CHECK_EXEMPT_MODULES):
+            continue
+        assert node.parent is not None, (
+            f"{docname}: <{type(node).__name__}> has no parent"
+        )
 
 
 @pytest.fixture(scope="function")
@@ -373,7 +383,7 @@ def test_app(make_app, sphinx_test_tempdir, plantuml_command, request):
 
 class DoctreeSnapshotExtension(SingleFileSnapshotExtension):
     _write_mode = WriteMode.TEXT
-    _file_extension = "doctree.xml"
+    file_extension = "doctree.xml"
 
     def serialize(self, data, **kwargs):
         if not isinstance(data, document):
@@ -408,7 +418,7 @@ THIS_DIR = Path(__file__).parent
 
 
 def create_parameters(
-    *rel_paths: str, skip_files: None | list[str] = None
+    *rel_paths: str, skip_files: list[str] | None = None
 ) -> list[ParameterSet]:
     """Create parameters for a pytest param_file decorator."""
     paths: list[Path] = []

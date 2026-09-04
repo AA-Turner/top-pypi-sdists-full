@@ -7,6 +7,8 @@ For sync usage, see the davclient.py wrapper.
 """
 
 import asyncio
+import importlib
+import inspect
 import logging
 import sys
 from collections.abc import Mapping
@@ -18,11 +20,46 @@ if TYPE_CHECKING:
     from caldav.calendarobjectresource import CalendarObjectResource
     from caldav.collection import Calendar, Principal
 
-# Try niquests first (preferred), then httpxyz, then httpx
+from caldav.lib.http_libraries import ASYNC_HTTPX_CANDIDATES, no_http_library_error
+
+## Async HTTP libraries, in order of preference.  niquests is the default and
+## the one this project depends on; it is also the only one of these with HTTP/3.
+## The rest are the httpx family and share a single API, so one code path covers
+## all of them.  httpx2 is Pydantic's continuation of httpx under a new name and
+## comes first of the three; httpxyz is a maintained community fork of httpx;
+## plain httpx is last.  Note that httpxyz registers itself in sys.modules as
+## "httpx" while httpx2 does not, so code must go through the module object
+## below rather than importing httpx by name.
+## ref https://github.com/python-caldav/caldav/issues/611
+_ASYNC_HTTPX_CANDIDATES = ASYNC_HTTPX_CANDIDATES
+
+_NO_ASYNC_LIBRARY_ERROR = no_http_library_error(
+    ("niquests", *_ASYNC_HTTPX_CANDIDATES), mode="async"
+)
+
 _USE_HTTPX = False
-_USE_HTTPXYZ = False
 _USE_NIQUESTS = False
 _H2_AVAILABLE = False
+_HTTPX_FLAVOUR: str | None = None
+
+
+def _import_first_available(
+    candidates: tuple[str, ...],
+    importer: Any = importlib.import_module,
+) -> tuple[str | None, Any]:
+    """Import the first importable module named in candidates.
+
+    Returns (name, module), or (None, None) when none of them is installed.
+    The importer is injectable so the ordering can be tested without having to
+    install or uninstall anything.
+    """
+    for name in candidates:
+        try:
+            return name, importer(name)
+        except ImportError:
+            continue
+    return None, None
+
 
 try:
     import niquests
@@ -34,10 +71,8 @@ except ImportError:
     pass
 
 if not _USE_NIQUESTS:
-    try:
-        import httpxyz as httpx
-
-        _USE_HTTPXYZ = True
+    _HTTPX_FLAVOUR, httpx = _import_first_available(_ASYNC_HTTPX_CANDIDATES)
+    if _HTTPX_FLAVOUR is not None:
         _USE_HTTPX = True
         try:
             import h2  # noqa: F401
@@ -47,7 +82,7 @@ if not _USE_NIQUESTS:
             pass
 
         class _HttpxBearerAuth(httpx.Auth):
-            """httpx/httpxyz-compatible bearer token auth."""
+            """Bearer token auth for the httpx family (httpx, httpxyz, httpx2)."""
 
             def __init__(self, password: str) -> None:
                 self.password = password
@@ -56,49 +91,17 @@ if not _USE_NIQUESTS:
                 request.headers["Authorization"] = f"Bearer {self.password}"
                 yield request
 
-    except ImportError:
-        pass
-
-if not _USE_NIQUESTS and not _USE_HTTPXYZ:
-    try:
-        import httpx
-
-        _USE_HTTPX = True
-        try:
-            import h2  # noqa: F401
-
-            _H2_AVAILABLE = True
-        except ImportError:
-            pass
-
-        class _HttpxBearerAuth(httpx.Auth):  # type: ignore[no-redef]
-            """httpx-compatible bearer token auth."""
-
-            def __init__(self, password: str) -> None:
-                self.password = password
-
-            def auth_flow(self, request):
-                request.headers["Authorization"] = f"Bearer {self.password}"
-                yield request
-
-    except ImportError:
-        pass
 
 if not _USE_HTTPX and not _USE_NIQUESTS:
-    raise ImportError(
-        "An async HTTP library is required for async_davclient. "
-        "Install with: pip install niquests  (or: pip install httpxyz  or: pip install httpx)"
-    )
-
+    raise ImportError(_NO_ASYNC_LIBRARY_ERROR)
 
 from caldav import __version__
 from caldav.base_client import BaseDAVClient
 from caldav.base_client import get_davclient as _base_get_davclient
-from caldav.compatibility_hints import FeatureSet
+from caldav.compatibility_hints import FeatureSet, at_spellings_are_aliased
 from caldav.lib import error
 from caldav.lib.python_utilities import to_wire
 from caldav.lib.url import URL
-from caldav.requests import HTTPBearerAuth
 from caldav.response import CalendarQueryResult, DAVResponse, PropfindResult
 
 log = logging.getLogger("caldav")
@@ -163,6 +166,9 @@ class AsyncDAVClient(BaseDAVClient):
             features: FeatureSet for server compatibility workarounds.
             enable_rfc6764: Enable RFC6764 DNS-based service discovery.
             require_tls: Require TLS for discovered services (security consideration).
+                Only gates the RFC6764 discovery path; it does NOT reject an
+                explicitly-passed http:// URL. Global enforcement is deferred to
+                4.0 — see https://github.com/python-caldav/caldav/issues/687
             rate_limit_handle: When True, automatically sleep and retry on 429/503
                 responses. When None (default), auto-detected from server features.
                 When False, raise RateLimitError immediately.
@@ -222,19 +228,27 @@ class AsyncDAVClient(BaseDAVClient):
 
         # Parse and store URL
         self.url = URL.objectify(url_str)
+        ## Whether this server aliases the two "@" spellings travels with the
+        ## URL, and every URL the library builds is joined onto this one, so
+        ## setting it here reaches canonical(), __eq__ and __hash__ everywhere
+        ## without threading the feature set through them.
+        self.url = self.url.with_alias_at(at_spellings_are_aliased(self.features))
 
-        # Extract auth from URL if present
-        url_username = None
-        url_password = None
-        if self.url.username:
-            url_username = unquote(self.url.username)
-        if self.url.password:
-            url_password = unquote(self.url.password)
-
-        # Combine credentials (explicit params take precedence)
-        # Use explicit None check to preserve empty strings (needed for servers with no auth)
-        self.username = username if username is not None else url_username
-        self.password = password if password is not None else url_password
+        # Combine credentials (explicit params take precedence).
+        # An explicit username discards the URL credentials wholesale: they
+        # belong to a different account, and merging them field by field would
+        # let AsyncDAVClient(url="https://bob:hunter2@cal.example.com/",
+        # username="alice") ship alice's login with bob's password.  Overriding
+        # only the password is a different thing - the username still comes
+        # from the URL, so the pair stays coherent.
+        # Use explicit None checks to preserve empty strings (needed for
+        # servers with no auth).
+        if self.url.username and username is None:
+            username = unquote(self.url.username)
+            if password is None and self.url.password:
+                password = unquote(self.url.password)
+        self.username = username
+        self.password = password
         # Strip credentials from stored URL to avoid leaking them in log messages
         self.url = self.url.unauth()
 
@@ -258,19 +272,9 @@ class AsyncDAVClient(BaseDAVClient):
         }
         self.headers.update(headers)
 
-        rate_limit = self.features.is_supported("rate-limit", dict)
-        if rate_limit_handle is None:
-            if rate_limit and rate_limit.get("enable"):
-                rate_limit_handle = True
-                if "default_sleep" in rate_limit:
-                    rate_limit_default_sleep = rate_limit["default_sleep"]
-                if "max_sleep" in rate_limit:
-                    rate_limit_max_sleep = rate_limit["max_sleep"]
-            else:
-                rate_limit_handle = False
-        self.rate_limit_handle = rate_limit_handle
-        self.rate_limit_default_sleep = rate_limit_default_sleep
-        self.rate_limit_max_sleep = rate_limit_max_sleep
+        self._init_rate_limit_config(
+            rate_limit_handle, rate_limit_default_sleep, rate_limit_max_sleep
+        )
 
     def _create_session(self) -> None:
         """Create or recreate the async HTTP client with current settings."""
@@ -365,20 +369,7 @@ class AsyncDAVClient(BaseDAVClient):
         try:
             return await self._async_request(url, method, body, headers)
         except error.RateLimitError as e:
-            if not self.rate_limit_handle:
-                raise
-            sleep_seconds = error.compute_sleep_seconds(
-                e.retry_after_seconds,
-                self.rate_limit_default_sleep,
-                self.rate_limit_max_sleep,
-            )
-            if rate_limit_time_slept:
-                sleep_seconds += rate_limit_time_slept / 2
-            if sleep_seconds is None or (
-                self.rate_limit_max_sleep is not None
-                and rate_limit_time_slept > self.rate_limit_max_sleep
-            ):
-                raise
+            sleep_seconds = self._rate_limit_sleep_seconds(e, rate_limit_time_slept)
             await asyncio.sleep(sleep_seconds)
             return await self.request(
                 url, method, body, headers, rate_limit_time_slept + sleep_seconds
@@ -432,7 +423,7 @@ class AsyncDAVClient(BaseDAVClient):
             log.debug(f"server responded with {r.status_code} {reason}")
             if (
                 r.status_code == 401
-                and "text/html" in self.headers.get("Content-Type", "")
+                and "text/html" in r.headers.get("Content-Type", "")
                 and not self.auth
             ):
                 msg = (
@@ -484,7 +475,11 @@ class AsyncDAVClient(BaseDAVClient):
                 # Retry original request with auth
                 request_kwargs["auth"] = self.auth
                 r = await self.session.request(**request_kwargs)
-            response = DAVResponse(r, self)
+                response = DAVResponse(r, self)
+            else:
+                # Probe GET did not give us a 401+WWW-Authenticate challenge —
+                # auth negotiation failed; re-raise the original connection error
+                raise
 
         # Handle 429/503 rate-limit responses
         error.raise_if_rate_limited(r.status_code, str(url_obj), r.headers.get("Retry-After"))
@@ -538,12 +533,24 @@ class AsyncDAVClient(BaseDAVClient):
             depth: Maximum recursion depth.
             headers: Additional headers.
             props: List of property names to request (uses protocol layer).
+                A raw XML body belongs in ``body``, not here.
 
         Returns:
             DAVResponse with results attribute containing parsed PropfindResult list.
         """
         # Use protocol layer to build XML if props provided
         if props is not None and not body:
+            ## Guard the one mistake this signature invites.  A raw XML body
+            ## handed to _build_propfind_body() would be iterated character by
+            ## character and quietly produce an empty <D:prop/>, which most
+            ## servers answer with a well-formed but useless multistatus - so
+            ## the bug hides.  The sync client accepts a body here for
+            ## backward compatibility; this one is new and has ``body``.
+            if isinstance(props, str):
+                raise TypeError(
+                    "propfind(props=...) takes a list of property names; "
+                    "pass a raw XML request as propfind(body=...) instead"
+                )
             body = self._build_propfind_body(props).decode("utf-8")
 
         final_headers = self._build_method_headers("PROPFIND", depth, headers)
@@ -856,6 +863,11 @@ class AsyncDAVClient(BaseDAVClient):
             if _USE_HTTPX:
                 self.auth = _HttpxBearerAuth(self.password)
             else:
+                ## Imported here rather than at module level: it subclasses
+                ## the sync library's AuthBase, and an httpx-only install has
+                ## no sync library to subclass.  Only niquests reaches this.
+                from caldav.requests import HTTPBearerAuth
+
                 self.auth = HTTPBearerAuth(self.password)
         elif auth_type == "digest":
             if _USE_HTTPX:
@@ -936,14 +948,6 @@ class AsyncDAVClient(BaseDAVClient):
             for cal in calendars:
                 print(f"Calendar: {cal.get_display_name()}")
         """
-        from caldav.collection import Calendar
-        from caldav.collection import (
-            _extract_calendar_home_set_from_results as extract_home_set,
-        )
-        from caldav.collection import (
-            _extract_calendars_from_propfind_results as extract_calendars,
-        )
-
         if principal is None:
             principal = await self.get_principal()
 
@@ -953,12 +957,7 @@ class AsyncDAVClient(BaseDAVClient):
             props=self.CALENDAR_HOME_SET_PROPS,
             depth=0,
         )
-        calendar_home_url = extract_home_set(response.results)
-        if not calendar_home_url:
-            return []
-
-        # Make URL absolute if relative
-        calendar_home_url = self._make_absolute_url(calendar_home_url)
+        calendar_home_url = self._calendar_home_url(response, principal)
 
         # Fetch calendars via PROPFIND
         response = await self.propfind(
@@ -967,14 +966,7 @@ class AsyncDAVClient(BaseDAVClient):
             depth=1,
         )
 
-        # Process results using shared helper
-        calendar_infos = extract_calendars(response.results)
-
-        # Convert CalendarInfo objects to Calendar objects
-        return [
-            Calendar(client=self, url=info.url, name=info.name, id=info.cal_id)
-            for info in calendar_infos
-        ]
+        return self._build_calendars_from_propfind(response)
 
     async def search_calendar(
         self,
@@ -1222,7 +1214,11 @@ async def get_calendars(
                 for cal in calendars:
                     print(await cal.get_display_name())
     """
-    from caldav.base_client import CalendarCollection, _normalize_to_list
+    from caldav.base_client import (
+        CalendarCollection,
+        _normalize_to_list,
+        _warn_unreadable_display_name,
+    )
 
     def _try(coro_result, errmsg):
         """Handle errors based on raise_errors flag."""
@@ -1256,6 +1252,12 @@ async def get_calendars(
                 calendar = principal.calendar(cal_url=cal_url)
             else:
                 calendar = principal.calendar(cal_id=cal_url)
+            ## A bare cal_id has to resolve the calendar home set first, so
+            ## principal.calendar() hands back a coroutine here.  Without the
+            ## await the AttributeError below was caught by the broad except
+            ## and the calendar was silently dropped from the collection.
+            if inspect.isawaitable(calendar):
+                calendar = await calendar
 
             try:
                 display_name = await calendar.get_display_name()
@@ -1267,13 +1269,31 @@ async def get_calendars(
                     raise
 
         # Fetch specific calendars by name
-        for cal_name in calendar_names:
+        if calendar_names:
             try:
-                calendar = await principal.calendar(name=cal_name)
-                if calendar:
-                    calendars.append(calendar)
+                all_cals_for_name = await principal.get_calendars()
+                for cal_name in calendar_names:
+                    for cal in all_cals_for_name:
+                        try:
+                            display_name = await cal.get_display_name()
+                            if display_name == cal_name:
+                                calendars.append(cal)
+                                break
+                        except Exception as e:
+                            # Skip calendars whose display name can't be read; warn
+                            # only when the failure is unexpected (see helper).
+                            # Continuing ensures one unreadable calendar doesn't abort
+                            # the whole name lookup.
+                            _warn_unreadable_display_name(client, cal, cal_name, e)
+                            continue
+                    else:
+                        log.error(f"No calendar with name '{cal_name}' found")
+                        if raise_errors:
+                            raise error.NotFoundError(f"No calendar with name '{cal_name}' found")
+            except error.NotFoundError:
+                raise
             except Exception as e:
-                log.error(f"Problems fetching calendar by name '{cal_name}': {e}")
+                log.error(f"Problems fetching calendars by name: {e}")
                 if raise_errors:
                     raise
 

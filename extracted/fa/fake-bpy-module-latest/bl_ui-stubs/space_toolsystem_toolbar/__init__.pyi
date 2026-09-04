@@ -423,6 +423,7 @@ class _defs_view3d_add:
     cube_add: typing.Any
     cylinder_add: typing.Any
     ico_sphere_add: typing.Any
+    quad_sphere_add: typing.Any
     sculpt_tool_defaults: typing.Any
     uv_sphere_add: typing.Any
 

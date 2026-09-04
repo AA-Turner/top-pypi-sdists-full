@@ -31,6 +31,8 @@ struct EthosU85PerfInfo
 {
     float outputCycles[6];
     float activationCycles[2];
+    float resizeLow[2];   // 8-bit, 16-bit
+    float resizeHigh[2];  // 8-bit, 16-bit
 };
 
 enum class MemChannel
@@ -86,8 +88,8 @@ public:
         ArchitectureMemory *weightsMemory) override;
     void InitDatabase(Database *optDB) override;
     void RecordToDB(int opId) override;
-    int64_t MinReadCycles(ArchitectureMemory *mem, int64_t size, TensorUsage usage, OpType type, bool fastWeights) override;
-    int64_t MinWriteCycles(ArchitectureMemory *mem, int64_t size) override;
+    int64_t MinReadCycles(const ArchitectureMemory *mem, int64_t size, TensorUsage usage, OpType type, bool fastWeights) override;
+    int64_t MinWriteCycles(const ArchitectureMemory *mem, int64_t size) override;
     std::unordered_map<const ArchitectureMemory *, AccessCycles>
     MeasureAccessCycles(const PerformanceQuery &query, const ElementAccess &byteAccess) override;
 
@@ -95,7 +97,8 @@ private:
     EthosU85Cycles EstimateMacOpCycles(const PerformanceQuery &query);
     EthosU85Cycles EstimateElementwiseCycles(const PerformanceQuery &query);
     int64_t EstimateMacCyclesPerBlock(const PerformanceQuery &query);
-    double GetOutputCyclesPerElement(OpType opType, DataType ifmType, DataType ofmType, bool writesToCB);
+    double GetOutputCyclesPerElement(OpType opType, DataType ifmType, const Shape &ifmShape, DataType ofmType,
+        const Shape &ofmShape, bool writesToCB);
     double GetActivationCyclesPerElement(ReverseType reverse, TransposeType transpose);
     double EstimateAOCyclesPerElement(const PerformanceQuery &query);
     int64_t EstimateMinimumMemoryCycles(const PerformanceQuery &query);

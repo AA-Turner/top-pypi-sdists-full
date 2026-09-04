@@ -33,6 +33,11 @@ from snowflake.snowpark_connect.native_function_target import (
     parse_conf_value as parse_native_function_conf_value,
 )
 from snowflake.snowpark_connect.type_support import set_integral_types_conversion
+from snowflake.snowpark_connect.utils.cache import (
+    analyze_memo_clear_session,
+    df_cache_map_clear_session,
+    sql_plan_cache_clear_session,
+)
 from snowflake.snowpark_connect.utils.concurrent import SynchronizedDict
 from snowflake.snowpark_connect.utils.context import (
     get_jpype_jclass_lock,
@@ -183,6 +188,24 @@ def spark_max_partition_bytes_to_target_file_size(value: str | None) -> str | No
 # SNOW-3969691: Spark exposes this as static metadata, but each Connect session
 # needs an independent runtime overlay so one client's setting cannot leak to another.
 CASE_SENSITIVE_CONFIG = "spark.sql.caseSensitive"
+PYTHON_RECURSION_LIMIT_CONFIG = "snowpark.connect.python.recursionLimit"
+DEFAULT_PYTHON_RECURSION_LIMIT = 2000
+
+
+def get_python_recursion_limit() -> int:
+    value = global_config.get(
+        PYTHON_RECURSION_LIMIT_CONFIG, DEFAULT_PYTHON_RECURSION_LIMIT
+    )
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_PYTHON_RECURSION_LIMIT
+
+
+def apply_python_recursion_limit(value: int | None = None) -> None:
+    if value is None:
+        value = get_python_recursion_limit()
+    sys.setrecursionlimit(value)
 
 
 def _case_sensitive_session_override() -> str | None:
@@ -308,6 +331,7 @@ class GlobalConfig:
         "spark.sql.parser.quotedRegexColumnNames": "false",
         # custom configs
         "snowpark.connect.version": ".".join(map(str, sas_version)),
+        PYTHON_RECURSION_LIMIT_CONFIG: str(DEFAULT_PYTHON_RECURSION_LIMIT),
         "snowpark.connect.temporary.views.create_in_snowflake": "false",
         # Control whether repartition(n) on a DataFrame forces splitting into n files during writes
         # This matches spark behavior more closely, but introduces overhead.
@@ -332,6 +356,20 @@ class GlobalConfig:
         # Default false to preserve current behavior (fast path for native
         # structured types, slow path otherwise).
         "snowpark.connect.parquet.useServerInferredSchemaOnly": "false",
+        # Parquet Direct: when enabled, external ``@stage`` parquet reads are served
+        # from a loose-parquet Iceberg table created with PARQUET_DIRECT_EXTERNAL_STAGE
+        # (backend auto-provisions the catalog integration + hidden external volume, so
+        # no user-created catalog/volume and no ACCOUNTADMIN — SNOW-3748549/SNOW-3748550).
+        # Default OFF in production while the feature rolls out; the SCOS test suite turns it
+        # ON (see tests/conftest_base.py::spark_conf and tests/sas_tests/conftest.py) so the
+        # read-path coverage keeps exercising Parquet Direct. When enabled, eligible sources are
+        # named external ``@stage`` paths (any cloud) and raw AWS ``s3://`` reads backed by
+        # role-based credentials; every other source (local files, azure://, gcs://,
+        # key-based/no-cred s3://) transparently falls back to the normal read path (see
+        # ``can_use_parquet_direct``).
+        # TODO(SNOW-3748550): flip this default to "true" once Parquet Direct is fully
+        # rolled out and validated across accounts.
+        "snowpark.connect.parquet_direct.enabled": "false",
         "spark.sql.legacy.dataset.nameNonStructGroupingKeyAsValue": "false",
         "snowpark.connect.handleIntegralOverflow": "false",
         "snowpark.connect.scala.version": "2.12",
@@ -476,6 +514,7 @@ class GlobalConfig:
         "snowpark.connect.localRelation.optimizeSmallData",
         "snowpark.connect.parquet.useLogicalType",
         "snowpark.connect.parquet.useServerInferredSchemaOnly",
+        "snowpark.connect.parquet_direct.enabled",
         "spark.sql.ansi.enabled",
         "spark.sql.ansi.doubleQuotedIdentifiers",
         "spark.sql.legacy.allowHashOnMapType",
@@ -542,6 +581,7 @@ class GlobalConfig:
         "snowpark.connect.native_app_mode": lambda session, value: _force_python_udxf_inline_on_native_app_mode(
             session, value
         ),
+        PYTHON_RECURSION_LIMIT_CONFIG: lambda session, value: apply_python_recursion_limit(),
     }
 
     float_config_list = []
@@ -663,6 +703,15 @@ class GlobalConfig:
 # literal in any of those three would drift silently and make the key unsettable.
 NSS_ENABLED_SESSION_CONFIG = "snowflake.file.nextGenReader.enabled"
 
+# TVF names, overridable per session for named/test deployments. Same reason as above for
+# naming them: each is read from more than one call site in the read path, and a literal
+# that drifts from the session-defaults spelling reads back as "" and silently produces an
+# unqualified TVF reference.
+NSS_STAGE_FILE_READER_FQN_CONFIG = "snowpark.connect.nss.stage_file_reader_fqn"
+NSS_INFER_STAGE_FILE_SCHEMA_FQN_CONFIG = (
+    "snowpark.connect.nss.infer_stage_file_schema_fqn"
+)
+
 SESSION_CONFIG_KEY_WHITELIST = {
     "spark.hadoop.fs.s3a.access.key",
     "spark.hadoop.fs.s3a.secret.key",
@@ -671,6 +720,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.tvf.allowMultipleTableArguments.enabled",
     "snowpark.connect.sql.passthrough",
     "snowpark.connect.cte.optimization_enabled",
+    "snowpark.connect.parquet_direct.enabled",
     "snowpark.connect.iceberg.external_volume",
     "snowpark.connect.iceberg.base_location",
     "snowpark.connect.sql.partition.external_table_location",
@@ -760,6 +810,14 @@ SESSION_CONFIG_KEY_WHITELIST = {
 }
 
 SESSION_SCOPED_RUNTIME_CONFIGS = {CASE_SENSITIVE_CONFIG}
+
+
+def _clear_session_plan_caches(session_id: str) -> None:
+    """Invalidate plan memoization after a session-scoped runtime config change."""
+    df_cache_map_clear_session(session_id)
+    analyze_memo_clear_session(session_id)
+    sql_plan_cache_clear_session(session_id)
+
 
 # Static Spark configs that nonetheless accept a *per-session* override at
 # runtime. Kept separate from SESSION_CONFIG_KEY_WHITELIST because the two drive
@@ -1003,10 +1061,10 @@ class SessionConfig:
         # Off by default.
         NSS_ENABLED_SESSION_CONFIG: "",
         # Official TVF names (overridable for named/test deployments).
-        "snowpark.connect.nss.stage_file_reader_fqn": os.environ.get(
+        NSS_STAGE_FILE_READER_FQN_CONFIG: os.environ.get(
             "NSS_STAGE_FILE_READER_FQN", "STAGE_FILE_READER"
         ),
-        "snowpark.connect.nss.infer_stage_file_schema_fqn": os.environ.get(
+        NSS_INFER_STAGE_FILE_SCHEMA_FQN_CONFIG: os.environ.get(
             "NSS_INFER_STAGE_FILE_SCHEMA_FQN", "INFER_STAGE_FILE_SCHEMA"
         ),
         # FILE FORMAT for the NSS read call. Empty (default) => SCOS creates a
@@ -1320,16 +1378,36 @@ def _load_spark_jars(jars_value: str) -> None:
             raise exception
 
 
+def _normalize_case_sensitive_config_value(val: bool | str) -> str:
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    return str(val).lower()
+
+
+def _effective_session_scoped_config(session_id: str, key: str) -> str:
+    overlay = sessions_config[session_id].get(key)
+    if overlay != "":
+        return overlay
+    return str(global_config.global_config[key])
+
+
 def set_config_param(
     session_id: str, key, val, snowpark_session: snowpark.Session
 ) -> None:
     if key in SESSION_SCOPED_RUNTIME_CONFIGS:
         _verify_is_not_readonly_config(key)
-        normalized_value = val.lower() if isinstance(val, str) else val
+        normalized_value = (
+            _normalize_case_sensitive_config_value(val)
+            if key == CASE_SENSITIVE_CONFIG
+            else (val.lower() if isinstance(val, str) else val)
+        )
         _verify_is_valid_config_value(key, normalized_value)
+        if _effective_session_scoped_config(session_id, key) == normalized_value:
+            return
         # SessionConfig.set silently ignores keys outside the whitelist; the
         # case-sensitivity unit test pins this dependency.
         sessions_config[session_id][key] = normalized_value
+        _clear_session_plan_caches(session_id)
         return
 
     # Session-overridable static configs (e.g. ``spark.sql.extensions``): record
@@ -1364,6 +1442,7 @@ def unset_config_param(
 ) -> None:
     if key in SESSION_SCOPED_RUNTIME_CONFIGS:
         sessions_config[session_id].set(key, "")
+        _clear_session_plan_caches(session_id)
         return
 
     # Clear the per-session overlay for session-overridable static configs; the
@@ -1447,6 +1526,21 @@ def _verify_is_valid_config_value(key: str, value: Any) -> None:
         raise exception
     _verify_max_partition_bytes_config_value(key, value)
     _verify_native_function_config_value(key, value)
+    _verify_python_recursion_limit_config_value(key, value)
+
+
+def _verify_python_recursion_limit_config_value(key: str, value: Any) -> None:
+    if key != PYTHON_RECURSION_LIMIT_CONFIG:
+        return
+    try:
+        if int(value) <= 0:
+            raise ValueError
+    except (TypeError, ValueError) as parse_error:
+        exception = ValueError(
+            f"Invalid value '{value}' for '{key}'. Expected a positive integer."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception from parse_error
 
 
 def _verify_native_function_config_value(key: str, value: Any) -> None:

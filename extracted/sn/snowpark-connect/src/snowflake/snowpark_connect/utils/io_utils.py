@@ -1,7 +1,6 @@
 #
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
-import contextlib
 import dataclasses
 import functools
 import json
@@ -16,18 +15,20 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     create_file_format_statement,
     unquote_if_quoted,
 )
-from snowflake.snowpark._internal.utils import ttl_cache
 from snowflake.snowpark.functions import col, date_trunc, equal_null, lit
 from snowflake.snowpark.types import StructType
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.utils.identifiers import FQN, spark_to_sf_single_id
+from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.table_metadata_cache import (
+    get_or_create_table_metadata_cache,
+)
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
 
 _MINUS_AT_THE_BEGINNING_REGEX = re.compile(r"^-")
-_TTL_CACHE_EXIPRATION_TIME_SECONDS = 15
 
 
 def db_schema_from_stage_path(path: str) -> str | None:
@@ -152,25 +153,41 @@ def file_format(
     return format_name_sql
 
 
-# caches table type with a time-to-live (TTL) expiration
-@ttl_cache(ttl_seconds=_TTL_CACHE_EXIPRATION_TIME_SECONDS)
-def get_table_type(
+def _lookup_table_type(
     snowpark_table_name: str,
     snowpark_session: Session,
 ) -> str:
     fqn = FQN.from_string(snowpark_table_name)
-    with contextlib.suppress(Exception):
-        if fqn.database is not None:
-            return snowpark_session.catalog.getTable(
-                table_name=fqn.name, schema=fqn.schema, database=fqn.database
-            ).table_type
-        elif fqn.schema is not None:
-            return snowpark_session.catalog.getTable(
-                table_name=fqn.name, schema=fqn.schema
-            ).table_type
-        else:
-            return snowpark_session.catalog.getTable(table_name=fqn.name).table_type
-    return "TABLE"
+    if fqn.database is not None:
+        return snowpark_session.catalog.getTable(
+            table_name=fqn.name, schema=fqn.schema, database=fqn.database
+        ).table_type
+    if fqn.schema is not None:
+        return snowpark_session.catalog.getTable(
+            table_name=fqn.name, schema=fqn.schema
+        ).table_type
+    return snowpark_session.catalog.getTable(table_name=fqn.name).table_type
+
+
+def get_table_type(
+    snowpark_table_name: str,
+    snowpark_session: Session,
+) -> str:
+    cache = get_or_create_table_metadata_cache(snowpark_session)
+    try:
+        return cache.get_table_type(
+            snowpark_table_name,
+            lambda: _lookup_table_type(snowpark_table_name, snowpark_session),
+        )
+    except Exception as e:
+        # Preserve legacy fallback without caching transient catalog failures.
+        logger.debug(
+            "get_table_type could not resolve %s (%s: %s); defaulting to 'TABLE'",
+            snowpark_table_name,
+            type(e).__name__,
+            e,
+        )
+        return "TABLE"
 
 
 @dataclasses.dataclass

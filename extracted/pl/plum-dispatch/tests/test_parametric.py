@@ -1,4 +1,5 @@
 import abc
+import typing
 from numbers import Number
 from typing import Union
 
@@ -6,7 +7,6 @@ import numpy as np
 import pytest
 
 import plum
-from plum import Val
 from plum._parametric import is_concrete, is_type
 
 
@@ -524,35 +524,6 @@ def test_kind():
     assert issubclass(Kind2[1], object)
 
 
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-def test_val():
-    # Check some cases.
-    for T, v in [
-        (Val[3], Val(3)),
-        (Val[3, 4], Val((3, 4))),
-        (Val[(3, 4)], Val((3, 4))),
-    ]:
-        assert type(v) is T
-        assert T() == v
-
-    # Test all checks for numbers of arguments and the like.
-    with pytest.raises(ValueError):
-        Val()
-    with pytest.raises(ValueError):
-        Val(1, 2, 3)
-    with pytest.raises(ValueError):
-        Val[1](2)
-
-    # Check that `__init__` can only be called for a concrete instance.
-    class MockVal:
-        concrete = False
-
-    with pytest.raises(ValueError):
-        Val[1].__init__(MockVal())
-
-    assert repr(Val[1]()) == "plum.Val[1]()"
-
-
 def test_init_subclass_correct_args():
     # See the following issue:
     #
@@ -617,3 +588,44 @@ def test_type_nonparametric():
     assert plum.type_nonparametric(pobj) is not Obj[int]
     assert plum.type_nonparametric(pobj) is not Obj
     assert plum.type_nonparametric(pobj) is NonParametricObj
+
+
+@pytest.mark.parametrize("register_any_first", [True, False])
+def test_type_parameter_any_never_collides_with_concrete(register_any_first):
+    """Regression test for https://github.com/beartype/plum/issues/295.
+
+    A type parameter of `Any` must stay distinct from a concrete one. Under
+    `beartype>=0.23` the two collide, so `P[Any]` is silently overwritten by
+    `P[int]` and any other parameterisation stops resolving.
+    """
+    dispatch = plum.Dispatcher()
+
+    @plum.parametric
+    class P:
+        def __init__(self, x):
+            self.x = x
+
+    if register_any_first:
+
+        @dispatch
+        def k(x: P[typing.Any]):
+            return "any"
+
+        @dispatch
+        def k(x: P[int]):
+            return "int"
+    else:
+
+        @dispatch
+        def k(x: P[int]):
+            return "int"
+
+        @dispatch
+        def k(x: P[typing.Any]):
+            return "any"
+
+    assert k(P[int](1)) == "int"
+    assert k(P[str]("a")) == "any"
+
+    assert issubclass(P[int], P[typing.Any])
+    assert not issubclass(P[typing.Any], P[int])

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify"
-version = "4.0.1"
+version = "4.0.2"
 description = "Apify SDK for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -189,7 +189,7 @@ quote-style = "single"
 indent-style = "space"
 
 [tool.pytest.ini_options]
-addopts = "-r a --verbose"
+addopts = "-r a --verbose --dist worksteal"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 timeout = 1800

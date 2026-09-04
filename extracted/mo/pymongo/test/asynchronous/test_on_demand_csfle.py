@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test client side encryption with on demand credentials."""
+
 from __future__ import annotations
 
 import os
@@ -23,14 +24,13 @@ import pytest
 
 sys.path[0:0] = [""]
 
-from test.asynchronous import AsyncIntegrationTest, async_client_context
-
 from bson.codec_options import CodecOptions
 from pymongo.asynchronous.encryption import (
     _HAVE_PYMONGOCRYPT,
     AsyncClientEncryption,
     EncryptionError,
 )
+from test.asynchronous import AsyncIntegrationTest, async_client_context
 
 _IS_SYNC = False
 
@@ -39,7 +39,6 @@ pytestmark = pytest.mark.kms
 
 class TestonDemandGCPCredentials(AsyncIntegrationTest):
     @unittest.skipUnless(_HAVE_PYMONGOCRYPT, "pymongocrypt is not installed")
-    @async_client_context.require_version_min(4, 2, -1)
     async def asyncSetUp(self):
         await super().asyncSetUp()
         self.master_key = {
@@ -77,7 +76,6 @@ class TestonDemandGCPCredentials(AsyncIntegrationTest):
 
 class TestonDemandAzureCredentials(AsyncIntegrationTest):
     @unittest.skipUnless(_HAVE_PYMONGOCRYPT, "pymongocrypt is not installed")
-    @async_client_context.require_version_min(4, 2, -1)
     async def asyncSetUp(self):
         await super().asyncSetUp()
         self.master_key = {

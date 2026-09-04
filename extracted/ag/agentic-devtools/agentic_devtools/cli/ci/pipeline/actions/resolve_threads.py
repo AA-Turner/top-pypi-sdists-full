@@ -127,6 +127,7 @@ class ResolveThreadsAction:
         unresolved = 0
         suppressed = 0
         skipped_reviews: list[str] = []
+        skipped_review_reasons: dict[str, int] = {}
         finalization_errors: list[str] = []
         hard_failures: list[tuple[int, str]] = []
 
@@ -151,12 +152,17 @@ class ResolveThreadsAction:
             finalization_errors.extend(result.errors)
 
             if result.skipped or result.reason == "no_comments":
-                skipped_reviews.append(f"#{prior_review.id}:{result.reason or 'unknown'}")
+                skip_reason = result.reason or "unknown"
+                skipped_reviews.append(f"#{prior_review.id}:{skip_reason}")
+                skipped_review_reasons[skip_reason] = skipped_review_reasons.get(skip_reason, 0) + 1
                 continue
 
             resolved += result.resolved_count
             unresolved += result.unresolved_count
             suppressed += result.suppressed_count
+
+        derived.set("finalization_skipped_reviews_count", len(skipped_reviews))
+        derived.set("finalization_skipped_reviews_by_reason", dict(sorted(skipped_review_reasons.items())))
 
         if len(hard_failures) == len(prior_reviews):
             failure_msgs = [f"#{rid}: {err}" for rid, err in hard_failures]

@@ -703,6 +703,7 @@ def _discover_parquet_column_types(
     rows_to_infer: int,
     snowpark_options: dict[str, Any],
     main_uses_vs: bool,
+    pd_read: bool = False,
 ) -> list[DataType]:
     """Resolve column types for a no-schema parquet read.
 
@@ -758,7 +759,20 @@ def _discover_parquet_column_types(
     # slow path is not desirable. Note: SAS-written parquet (which serialises
     # complex types to JSON STRING columns) will not have its structured shape
     # recovered with this flag on — the columns will surface as STRING.
-    if str_to_bool(
+    # Parquet Direct read path: variant schema discovery (the FLATTEN-based
+    # JSON-string->struct/variant promotion in the slow path below) is write-path
+    # compensation for SCOS's classic writer, which stores complex types as
+    # JSON-encoded STRING columns and re-promotes them to structured types on read.
+    # The PD read path has no such write coupling: running that promotion over a
+    # standard parquet file over-infers plain STRING columns as struct/variant and
+    # then rejects the physically-primitive column (100497 PRIMITIVE vs GROUP /
+    # 100496), reproducible off standard parquet. So on PD we rely solely on
+    # INFER_SCHEMA's physical types (``df.schema``) — which still returns structured
+    # types for real ARRAY/MAP/STRUCT parquet (the fast path below), and StringType
+    # for JSON-text string columns, matching vanilla Spark. This is the existing
+    # ``useServerInferredSchemaOnly`` behavior, forced for the PD path ONLY;
+    # non-PD SCOS-classic keeps its FLATTEN-based promotion unchanged.
+    if pd_read or str_to_bool(
         global_config.get(
             "snowpark.connect.parquet.useServerInferredSchemaOnly", "false"
         )
@@ -1470,6 +1484,8 @@ def map_read_parquet(
     options: ReaderWriterConfig,
     *,
     skip_partition_discovery: bool = False,
+    pd_direct=None,
+    pd_read_reason: str = "ELIGIBLE",
 ) -> DataFrameContainer:
     """Read Parquet file into a Snowpark DataFrame."""
 
@@ -1487,6 +1503,35 @@ def map_read_parquet(
     file_format_options = _parse_parquet_snowpark_options(converted_snowpark_options)
     raw_options = rel.read.data_source.options
     assert len(paths) > 0, "Read PARQUET expects at least one path"
+
+    # PD read-path telemetry: emit exactly one event per parquet read recording whether it went
+    # through Parquet Direct and, if not, why. Emitted at the point where the effective path is
+    # known (here for the non-PD case; at the external-table branch / pd_direct_container below).
+    from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+        PdReadReason,
+    )
+    from snowflake.snowpark_connect.utils.telemetry import telemetry as _scos_telemetry
+
+    _pd_telemetry_sent = False
+
+    def _emit_pd_path(used: bool, reason: str) -> None:
+        # Observability: emit exactly one telemetry event per parquet read recording which path it
+        # took (Parquet Direct vs the normal COPY/INFER path) and, when not PD, why.
+        nonlocal _pd_telemetry_sent
+        if _pd_telemetry_sent:
+            return
+        _pd_telemetry_sent = True
+        _scos_telemetry.send_parquet_read_path_telemetry(
+            used=used,
+            reason=reason,
+            data={"n_paths": len(paths)},
+            plan_id=rel.common.plan_id if rel.common is not None else None,
+        )
+
+    if pd_direct is None:
+        # Not Parquet Direct (config off / ineligible source / creds / prepare declined): the read
+        # falls through to the normal COPY/INFER path below. Record why.
+        _emit_pd_path(used=False, reason=pd_read_reason)
     # Use canonicalized reader config (lowercase keys) so .option("mergeSchema"|"mergeschema"|"MERGESCHEMA", ...)
     # all work; raw protobuf options keep Spark casing and miss lowercased keys.
     merge_schema = str_to_bool(str(options.config.get("mergeschema", "false")))
@@ -1525,6 +1570,10 @@ def map_read_parquet(
     # partitioned directories or files, it always falls through to Branch B (COPY INTO).
     # This has always been a single-path-only path — multiple paths were never supported.
     if len(paths) == 1 and use_external_table(session, paths[0]):
+        # Single-path external-table read (this branch predates the pd_direct_container path). The
+        # caller (map_read) classifies external-table reads as EXTERNAL_TABLE_BRANCH up front, so PD
+        # is never prepared for them — pd_direct is None here. Record the non-PD path for telemetry.
+        _emit_pd_path(used=False, reason=PdReadReason.EXTERNAL_TABLE_BRANCH)
         ext_reader = add_filename_metadata_to_reader(reader, raw_options)
         df, partition_columns, _ = _read_parquet_with_partitions(
             session, ext_reader, paths[0], schema, snowpark_options, raw_options
@@ -1568,6 +1617,7 @@ def map_read_parquet(
             rows_to_infer,
             snowpark_options,
             main_uses_vs,
+            pd_read=pd_direct is not None,
         )
         return _build_no_schema_result(
             df=renamed_df,
@@ -1606,6 +1656,55 @@ def map_read_parquet(
         user_part_names, user_part_types, file_part_names = _remap_partition_columns(
             partition_columns, partition_types, schema
         )
+        # Parquet Direct: source rows from PD, projected onto the user schema + partition/
+        # metadata columns (partitions remapped above, so this handles partitioned reads too).
+        # Option B: create the PD table with EXPLICIT columns from the user schema (no
+        # INFER_SCHEMA) so PD coerces/validates each column on read and multi-file INFER
+        # conflicts are avoided. Partition columns are excluded (path-derived, not in files).
+        if pd_direct is not None:
+            # Parquet Direct read (user-schema path).
+            _emit_pd_path(used=True, reason=PdReadReason.PD_USED)
+            from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+                _quote,
+                pd_direct_container,
+                type_to_pd_ddl,
+            )
+
+            # Exclude partition columns (path-derived, not in the file) from the PD
+            # table's data columns. Key with _norm (caseSensitive-aware) — NOT an
+            # unconditional .lower() — so that under spark.sql.caseSensitive=true a
+            # data column like "Country" is NOT dropped by a partition column
+            # "country" that differs only in case. This mirrors pd_direct_container's
+            # own caseSensitive-aware keying and partition_col_name_set above.
+            _part_norm = (
+                {_norm(analyzer_utils.unquote_if_quoted(p)) for p in user_part_names}
+                if partition_columns
+                else set()
+            )
+            data_col_defs = ", ".join(
+                f"{_quote(analyzer_utils.unquote_if_quoted(f.name))} "
+                f"{type_to_pd_ddl(f.datatype)}"
+                for f in schema.fields
+                if _norm(analyzer_utils.unquote_if_quoted(f.name)) not in _part_norm
+            )
+            return pd_direct_container(
+                session,
+                pd_direct,
+                rel.common.plan_id if rel.common is not None else None,
+                [analyzer_utils.unquote_if_quoted(f.name) for f in schema.fields],
+                [f.datatype for f in schema.fields],
+                partition_columns=list(user_part_names) if partition_columns else None,
+                partition_types=user_part_types if partition_columns else None,
+                partition_file_col_names=(
+                    list(file_part_names) if partition_columns else None
+                ),
+                needs_metadata=needs_metadata,
+                explicit_columns=data_col_defs,
+                replace_invalid_characters=bool(
+                    file_format_options.get("REPLACE_INVALID_CHARACTERS", True)
+                ),
+                infer_ntz=infer_ntz,
+            )
         if len(paths) == 1:
             # Single-path optimization: skip the COPY-INTO-into-temp-table
             # round-trip and read via reader.parquet().select(transforms).
@@ -1708,6 +1807,7 @@ def map_read_parquet(
         rows_to_infer,
         snowpark_options,
         main_uses_vs,
+        pd_read=pd_direct is not None,
     )
 
     # When mergeSchema is enabled and there are multiple paths, use INFER_SCHEMA
@@ -1760,6 +1860,68 @@ def map_read_parquet(
             for name, dt in zip(merged_col_names, merged_types)
         ]
     )
+
+    # Parquet Direct: source rows from PD, projected onto SCOS's discovered final schema
+    # (merged_col_names/merged_types already reflect the mergeSchema decision). The PD table is
+    # created with EXPLICIT columns from this discovered schema — SCOS's own inference is the source
+    # of truth; Parquet Direct's INFER_SCHEMA is never used. Partition columns (path-derived) are
+    # excluded from the table definition and parsed from METADATA$FILENAME by the helper.
+    if pd_direct is not None:
+        # Parquet Direct read (no-schema / inferred path).
+        _emit_pd_path(used=True, reason=PdReadReason.PD_USED)
+        from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+            _quote,
+            pd_direct_container,
+            type_to_pd_ddl,
+        )
+
+        # SNOW-3836200 follow-up: a single directory can hold files whose columns collide only by
+        # case (e.g. part1=[ID, Name], part2=[id, name]). With caseSensitive=false the loose-parquet
+        # table is created MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE, so its declared columns must be
+        # case-insensitively distinct -- declaring both "ID" and "id" is rejected by the server
+        # (099213). The multi-path discovery already dedups case-collisions (_infer_merged_file_schema
+        # -> _merge_inferred_fields), but the single-directory path (len(paths)==1) used base_df.schema
+        # raw. Dedup here (first-seen casing wins) so PD declares one column per case-group;
+        # CASE_INSENSITIVE matching then maps every file's casing onto it, matching Spark's
+        # case-insensitive merge. (caseSensitive=true is left as-is: PD cannot represent two
+        # case-distinct columns, and that is a separate limitation.)
+        if not global_config.spark_sql_caseSensitive:
+            _seen_norm: set[str] = set()
+            _dd_names, _dd_types = [], []
+            for _name, _dt in zip(merged_col_names, merged_types):
+                _k = _norm(analyzer_utils.unquote_if_quoted(_name))
+                if _k in _seen_norm:
+                    continue
+                _seen_norm.add(_k)
+                _dd_names.append(_name)
+                _dd_types.append(_dt)
+            merged_col_names, merged_types = _dd_names, _dd_types
+
+        _part_norm = (
+            {_norm(analyzer_utils.unquote_if_quoted(p)) for p in partition_columns}
+            if partition_columns
+            else set()
+        )
+        data_col_defs = ", ".join(
+            f"{_quote(analyzer_utils.unquote_if_quoted(name))} " f"{type_to_pd_ddl(dt)}"
+            for name, dt in zip(merged_col_names, merged_types)
+            if _norm(analyzer_utils.unquote_if_quoted(name)) not in _part_norm
+        )
+        return pd_direct_container(
+            session,
+            pd_direct,
+            rel.common.plan_id if rel.common is not None else None,
+            merged_col_names,
+            merged_types,
+            partition_columns=list(partition_columns) if partition_columns else None,
+            partition_types=partition_types,
+            needs_metadata=needs_metadata,
+            explicit_columns=data_col_defs,
+            replace_invalid_characters=bool(
+                file_format_options.get("REPLACE_INVALID_CHARACTERS", True)
+            ),
+            infer_ntz=infer_ntz,
+        )
 
     no_schema_partition_col_name_set = (
         {_norm(analyzer_utils.unquote_if_quoted(c)) for c in partition_columns}

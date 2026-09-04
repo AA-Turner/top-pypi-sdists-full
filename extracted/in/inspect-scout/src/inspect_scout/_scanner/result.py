@@ -1,38 +1,40 @@
 import json
 from logging import getLogger
-from typing import Any, Literal, Sequence, cast
+from typing import Any, Generic, Sequence, cast
 
 from inspect_ai._util.json import jsonable_python
 from inspect_ai.event._event import Event
 from inspect_ai.log import condense_events
 from inspect_ai.model import ModelUsage
+from inspect_ai.scorer import Reference
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic.json_schema import SkipJsonSchema
 from shortuuid import uuid
+from typing_extensions import TypeVar
 
 from inspect_scout._scanner.types import ScannerInput, ScannerInputNames
 from inspect_scout._transcript.types import Transcript
 from inspect_scout._util._json import to_json_str_compact
 
+# Reference comes from inspect_ai; __all__ marks it re-exported for strict mypy.
+__all__ = [
+    "Error",
+    "ParsedT",
+    "Reference",
+    "Result",
+    "ResultReport",
+    "ResultValidation",
+    "as_resultset",
+]
+
 logger = getLogger(__name__)
 
 
-class Reference(BaseModel):
-    """Reference to scanned content."""
-
-    type: Literal["message", "event"]
-    """Reference type."""
-
-    cite: str | None = Field(default=None)
-    """Cite text used when the entity was referenced (optional).
-
-    For example, a model may have pointed to a message using something like [M22], which is the cite.
-    """
-
-    id: str
-    """Reference id (message or event id)"""
+ParsedT = TypeVar("ParsedT", default=Any)
+"""Type of `Result.parsed` (defaults to `Any` so bare `Result` annotations remain valid)."""
 
 
-class Result(BaseModel):
+class Result(BaseModel, Generic[ParsedT]):
     """Scan result."""
 
     uuid: str | None = Field(default_factory=uuid)
@@ -58,6 +60,21 @@ class Result(BaseModel):
 
     type: str | None = Field(default=None)
     """Type to designate contents of 'value' (used in `value_type` field in result data frames)."""
+
+    parsed: SkipJsonSchema[ParsedT | None] = Field(default=None, exclude=True)
+    """Typed parsed answer set by `generate_answer()`/`parse_answer()`
+    (unaffected by `value_to_float`; `None` when parsing failed or the result
+    was built elsewhere). In-memory only: excluded from serialization and
+    dropped when pickled, so it survives neither storage nor process boundaries."""
+
+    def __getstate__(self) -> dict[Any, Any]:
+        # parsed is in-memory only and may hold instances of classes that
+        # pickle cannot resolve by reference (e.g. defined in __main__ or in
+        # a function body). Drop it so results always survive pickling —
+        # notably the multiprocess scan queues, whose feeder threads would
+        # otherwise silently discard the whole result.
+        state = super().__getstate__()
+        return {**state, "__dict__": {**state["__dict__"], "parsed": None}}
 
 
 def as_resultset(results: list[Result]) -> Result:

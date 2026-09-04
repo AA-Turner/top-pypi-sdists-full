@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: iamdata
-Version: 0.1.202609031
+Version: 0.1.202609041
 Summary: IAM data for AWS actions, resources, and conditions based on IAM policy documents. Checked for updates daily.
 Project-URL: Homepage, https://github.com/cloud-copilot/iam-data-python
 Project-URL: Issues, https://github.com/cloud-copilot/iam-data-python/issues

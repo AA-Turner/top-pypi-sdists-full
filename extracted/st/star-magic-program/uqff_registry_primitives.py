@@ -173,3 +173,8 @@ DELTA_M2_32_EV2 = 2.517e-3
 # Physical definition [UA] = v_UA/c = 1e-4 (PAPER_104); 4-paper provenance
 # (PAPER_064/068/075/104). Distinct from F_TRZ (0.1) and rho_UA.
 UA_VELOCITY_RATIO = 1.0e-4
+
+# RULED B27 (Batch 4, 2026-09-01): SCm correlation length canonized (PAPER_154 L103).
+# Joint identity with the E_react routes: LAMBDA_SCM = RHO_A * V_SCM numerically
+# (1e-23 * 1e8 = 1e-15), linking rho*v/rho_A (B14) and rho*v^2/lambda (B27) at 1e46.
+LAMBDA_SCM = 1.0e-15

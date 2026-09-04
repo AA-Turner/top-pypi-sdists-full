@@ -904,6 +904,7 @@ class DaemonAlarmConfigurationTypeDef(TypedDict):
 class DaemonCapacityProviderTypeDef(TypedDict):
     arn: NotRequired[str]
     runningCount: NotRequired[int]
+    withoutDaemonCount: NotRequired[int]
 
 
 class DaemonCircuitBreakerTypeDef(TypedDict):
@@ -927,6 +928,7 @@ class DaemonDeploymentAlarmsTypeDef(TypedDict):
 class DaemonDeploymentCapacityProviderTypeDef(TypedDict):
     arn: NotRequired[str]
     runningInstanceCount: NotRequired[int]
+    withoutDaemonInstanceCount: NotRequired[int]
     drainingInstanceCount: NotRequired[int]
 
 
@@ -2130,6 +2132,7 @@ class DaemonRevisionDetailTypeDef(TypedDict):
     arn: NotRequired[str]
     capacityProviders: NotRequired[list[DaemonCapacityProviderTypeDef]]
     totalRunningCount: NotRequired[int]
+    totalWithoutDaemonCount: NotRequired[int]
 
 
 class DaemonRevisionTypeDef(TypedDict):
@@ -2142,12 +2145,14 @@ class DaemonRevisionTypeDef(TypedDict):
     propagateTags: NotRequired[DaemonPropagateTagsType]
     enableECSManagedTags: NotRequired[bool]
     enableExecuteCommand: NotRequired[bool]
+    critical: NotRequired[bool]
 
 
 class DaemonDeploymentRevisionDetailTypeDef(TypedDict):
     arn: NotRequired[str]
     capacityProviders: NotRequired[list[DaemonDeploymentCapacityProviderTypeDef]]
     totalRunningInstanceCount: NotRequired[int]
+    totalWithoutDaemonInstanceCount: NotRequired[int]
     totalDrainingInstanceCount: NotRequired[int]
 
 
@@ -3096,6 +3101,7 @@ class CreateDaemonRequestTypeDef(TypedDict):
     enableECSManagedTags: NotRequired[bool]
     enableExecuteCommand: NotRequired[bool]
     clientToken: NotRequired[str]
+    critical: NotRequired[bool]
 
 
 class UpdateDaemonRequestTypeDef(TypedDict):
@@ -3106,6 +3112,7 @@ class UpdateDaemonRequestTypeDef(TypedDict):
     propagateTags: NotRequired[DaemonPropagateTagsType]
     enableECSManagedTags: NotRequired[bool]
     enableExecuteCommand: NotRequired[bool]
+    critical: NotRequired[bool]
 
 
 class DescribeDaemonResponseTypeDef(TypedDict):

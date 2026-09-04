@@ -6551,7 +6551,9 @@ class TestDrainReportsWhatItCut:
             + repr(srv.deaf_bridges(window=60.0, now=past_grace)))
 
         # (b) a bridge whose stream WAS held and then dropped, inside its
-        # own grace -- the grace must not shield a real loss.
+        # own dwell -- a fresh loss is not yet judged (a sweep can land in
+        # the ordinary close/reopen gap), and the SAME loss still there past
+        # the dwell is judged exactly as before.
         LOST = "/v1/code/sessions/cse_LOST/worker/messages"
         LOST_STREAM = "/v1/code/sessions/cse_LOST/worker/events/stream"
         conn = object()
@@ -6567,10 +6569,15 @@ class TestDrainReportsWhatItCut:
         # negative instead of the 2.0s this loss actually aged.
         srv._stream_lost["cse_LOST"] = 2003.0
         srv._note_bridge_traffic(LOST, now=2005.0)
-        assert srv.deaf_bridges(window=60.0, now=2005.0) == ["cse_LOST"], (
-            "the startup grace shielded a bridge whose stream this daemon "
-            "watched go, which is exactly the loss the check exists to name: "
+        assert srv.deaf_bridges(window=60.0, now=2005.0) == [], (
+            "a loss only 2s old was already named deaf -- the sweep that "
+            "lands in the ordinary close/reopen gap must stay silent: "
             + repr(srv.deaf_bridges(window=60.0, now=2005.0)))
+        past_dwell = 2003.0 + pp._DEAF_STARTUP_GRACE_S + 1.0
+        srv._note_bridge_traffic(LOST, now=past_dwell)
+        assert srv.deaf_bridges(window=60.0, now=past_dwell) == ["cse_LOST"], (
+            "a loss still there past the dwell was never named: "
+            + repr(srv.deaf_bridges(window=60.0, now=past_dwell)))
 
         # (c) THE SUCCESSOR SHAPE: no create ever passed through this
         # daemon (`_last_create` stays None, as on a handover), so the
@@ -6612,6 +6619,173 @@ class TestDrainReportsWhatItCut:
             "as though it had just registered, backdating a grace that had "
             "nothing to do with it: "
             + repr(old.deaf_bridges(window=60.0, now=202.0)))
+
+    def case_a_bridge_reregistered_through_bridge_is_not_yet_deaf(self):
+        """A pin-brokered re-registration is a birth too, not only a create.
+
+        Measured after the 0.1.245 fix above: `pin=cse_X`'s worker POST hit
+        `deaf_bridges` a second after `POST .../<id>/bridge 200`, because
+        `/bridge` matches neither `_WORKER_SUBTREE` nor `_EVENT_STREAM` and
+        was dropped by `_note_bridge_traffic`'s own guard before it ever
+        reached the accounting -- no create had run in this daemon's life
+        either, so the startup grace (case above) never applied. The fix
+        must record `/bridge` as a birth of its own.
+        """
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        srv = pp.PinProxy.__new__(pp.PinProxy)
+        srv._reset_bridge_traffic()
+        srv._live_lock = threading.Lock()
+        srv._stream_conns = set()
+        srv._open_conns = set()
+        srv._stream_lost = {}
+        srv._connected_bridges = {"cse_X"}
+
+        REGISTER = "/v1/code/sessions/cse_X/bridge"
+        EVENTS = "/v1/code/sessions/cse_X/worker/events"
+
+        # NO CREATE EVER SERVED: `_last_create` stays None, so the only
+        # thing that can shield cse_X is the `/bridge` registration itself.
+        srv._note_bridge_traffic(REGISTER, now=100.0)
+        srv._note_bridge_traffic(EVENTS, now=100.5)
+        assert srv.deaf_bridges(now=101.0) == [], (
+            "a bridge re-registered through the pin's own /bridge route "
+            "was named deaf before its stream GET had a chance to arrive: "
+            + repr(srv.deaf_bridges(now=101.0)))
+        past_grace = 100.0 + pp._DEAF_STARTUP_GRACE_S + 1.0
+        assert srv.deaf_bridges(now=past_grace) == ["cse_X"], (
+            "the grace never expires, so a re-registered bridge that truly "
+            "never opened its ear is never reported: "
+            + repr(srv.deaf_bridges(now=past_grace)))
+
+        # THE 409 INTERACTION. A worker POST superseded by a 409 pops both
+        # `_bridge_posts` and `_bridge_first_post` (`_note_bridge_superseded`).
+        # A re-registration AFTER that pop must still earn a fresh grace; a
+        # 409 with no re-registration must never resurrect the id.
+        srv2 = pp.PinProxy.__new__(pp.PinProxy)
+        srv2._reset_bridge_traffic()
+        srv2._live_lock = threading.Lock()
+        srv2._stream_conns = set()
+        srv2._open_conns = set()
+        srv2._stream_lost = {}
+        srv2._connected_bridges = {"cse_Y"}
+        REGISTER_Y = "/v1/code/sessions/cse_Y/bridge"
+        WORKER_Y = "/v1/code/sessions/cse_Y/worker/events"
+
+        srv2._note_bridge_traffic(REGISTER_Y, now=200.0)
+        srv2._note_bridge_traffic(WORKER_Y, now=200.5)
+        srv2._note_bridge_superseded(WORKER_Y, b"HTTP/1.1 409 Conflict")
+        assert srv2.deaf_bridges(now=201.0) == [], (
+            "a 409 with no re-registration must not resurrect the id: "
+            + repr(srv2.deaf_bridges(now=201.0)))
+        assert "cse_Y" not in srv2._bridge_first_post, (
+            "the 409 must clear the birth stamp along with the post, or a "
+            "later unrelated post inherits a grace that is not its own")
+
+        # NOW RE-REGISTER, and the fresh `/bridge` must earn a fresh grace
+        # rather than staying judged from the stale, popped birth.
+        srv2._note_bridge_traffic(REGISTER_Y, now=202.0)
+        srv2._note_bridge_traffic(WORKER_Y, now=202.5)
+        assert srv2.deaf_bridges(now=203.0) == [], (
+            "a re-registration after a 409 was not graced: "
+            + repr(srv2.deaf_bridges(now=203.0)))
+        past_grace_y = 202.0 + pp._DEAF_STARTUP_GRACE_S + 1.0
+        assert srv2.deaf_bridges(now=past_grace_y) == ["cse_Y"], (
+            "the re-registration's own grace never expired: "
+            + repr(srv2.deaf_bridges(now=past_grace_y)))
+
+    def case_a_stream_that_reopens_within_the_dwell_is_never_marked_deaf(
+            self, monkeypatch):
+        """`daemon.log` line 300 on a mac: `1 of 3 bridge(s) post but hold no
+        inbound stream ... (deaf 0s)`, followed 11 minutes later by a plain
+        clear -- the sweep landed in the ordinary gap between a stream
+        closing and Claude Code reopening it on the same connection
+        (`trace.log`: two `GET .../stream` calls ~250 of the bridge's own
+        posts apart). `deaf_for` answered a real, momentary age and the
+        report named it at once; only the dwell this case pins stops that.
+
+        A loss STILL there once the dwell has passed is reported exactly as
+        before -- the dwell delays a verdict, it does not withhold one.
+        """
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+            srv._stream_lost = {}
+
+            FLICKER = "/v1/code/sessions/cse_FLICKER/worker/messages"
+            FLICKER_STREAM = (
+                "/v1/code/sessions/cse_FLICKER/worker/events/stream")
+            conn = object()
+            srv._note_bridge_traffic(FLICKER, now=1000.0)
+            srv._note_bridge_traffic(FLICKER_STREAM, now=1000.5, conn=conn)
+            srv._stream_conns.add(conn)
+            srv._open_conns.add(conn)
+            srv._forget_stream(conn)
+            # EXPLICIT, as the create-grace case above does: the rest of
+            # this case runs on the fake timeline above, not the real clock
+            # `_forget_stream` just stamped.
+            srv._stream_lost["cse_FLICKER"] = 2000.0
+            srv._note_bridge_traffic(FLICKER, now=2002.0)
+            srv._connected_bridges = {"cse_FLICKER"}
+
+            # 2s INTO THE LOSS -- the ordinary close/reopen gap, measured at
+            # age 0 on the mac. The report must claim nothing either way.
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 2002.0)
+            srv._report_deaf_bridges()
+            assert lines == [], (
+                "a loss only 2s old was already named deaf: " + repr(lines))
+
+            # THE STREAM REOPENS inside the gap the sweep must not have
+            # marked -- the pair is healthy, with no false record behind it.
+            conn2 = object()
+            srv._note_bridge_traffic(FLICKER_STREAM, now=2003.0, conn=conn2)
+            srv._stream_conns.add(conn2)
+            srv._open_conns.add(conn2)
+            assert srv.deaf_bridges(now=2004.0) == [], (
+                "the reopened bridge was still carrying a false deaf record")
+
+            # A SECOND BRIDGE, whose loss is STILL there once the dwell has
+            # passed -- the check must still name it, same as before this
+            # round.
+            STILL = "/v1/code/sessions/cse_STILLGONE/worker/messages"
+            STILL_STREAM = (
+                "/v1/code/sessions/cse_STILLGONE/worker/events/stream")
+            conn3 = object()
+            srv._note_bridge_traffic(STILL, now=3000.0)
+            srv._note_bridge_traffic(STILL_STREAM, now=3000.5, conn=conn3)
+            srv._stream_conns.add(conn3)
+            srv._open_conns.add(conn3)
+            srv._forget_stream(conn3)
+            srv._stream_lost["cse_STILLGONE"] = 3010.0
+            srv._note_bridge_traffic(STILL, now=3012.0)
+            srv._connected_bridges = {"cse_FLICKER", "cse_STILLGONE"}
+
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 3012.0)
+            srv._report_deaf_bridges()
+            assert lines == [], (
+                "a loss only 2s old was named deaf on its own bridge too: "
+                + repr(lines))
+
+            monkeypatch.setattr(
+                pp.time, "monotonic",
+                lambda: 3010.0 + pp._DEAF_STARTUP_GRACE_S + 1.0)
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_MARK in lines[-1], lines
+            assert "cse_STILLGONE" in lines[-1], lines[-1]
+        finally:
+            pp._log_lifecycle = real_log
 
     def case_the_owner_map_is_pruned_wherever_the_stream_set_is(self):
         """`_stream_owner` is keyed on the connection object, so it must be
@@ -7760,6 +7934,99 @@ class TestDrainReportsWhatItCut:
                 "exactly as silent as it was")
         finally:
             pp._log_lifecycle = real_log
+
+    def case_a_409_on_a_worker_post_clears_the_bridge_from_deaf_state(
+            self, certdir):
+        """A bridge the server superseded is not the same as one gone deaf.
+
+        Measured on a linux host after the 0.1.240 rollout (`daemon.log` +
+        `trace.log` of one generation): four of six ids named in DEAF lines
+        had ended with `<- HTTP/1.1 409 Conflict  POST
+        .../worker/events/delivery` and `... 409 Conflict  POST
+        .../worker/events`, then nothing more. They stayed in
+        `_bridge_posts` for the full `_DEAF_WINDOW_S` and were reported at
+        ages 54-244s, with a line whose claims ("messages reach the
+        server", "only a NEW PROCESS clears it") are false for a bridge the
+        server already refused every message from.
+        `sweep_superseded_bridges` clears the same id eventually, but a full
+        listing poll later than the 409 that already told us. The relay
+        sees the worker POST's path and its response status at the same
+        site (`_forward`'s `on_status`), so that is where this clears it.
+        """
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        def _srv():
+            s = pp.PinProxy.__new__(pp.PinProxy)
+            s._live_lock = threading.Lock()
+            s._stream_conns = set()
+            s._open_conns = set()
+            s._reset_bridge_traffic()
+            s._stream_lost = {}
+            return s
+
+        WORKER = "/v1/code/sessions/cse_SUPERSEDED/worker/events/delivery"
+        # A BRIDGE-ID-BEARING PATH, so this is a real test of the worker-
+        # subtree guard rather than the "no bridge id at all" guard next to
+        # it: a path with no trailing segment (bare "/sessions/<id>") never
+        # matches `_BRIDGE_ID` either, and would pass this control even with
+        # the worker-subtree check deleted.
+        NON_WORKER = "/v1/code/sessions/cse_SUPERSEDED/rename"
+
+        srv = _srv()
+        srv._note_bridge_traffic(WORKER, now=100.0)
+        # PAST THE DWELL, or the setup itself is shielded as a fresh loss.
+        srv._stream_lost["cse_SUPERSEDED"] = 100.0 - pp._DEAF_STARTUP_GRACE_S
+        assert srv.deaf_bridges(window=60.0, now=101.0) == [
+            "cse_SUPERSEDED"], (
+            "setup: a bridge that posted and holds no stream starts out "
+            "deaf")
+
+        srv._note_bridge_superseded(WORKER, b"HTTP/1.1 409 Conflict")
+        assert srv.deaf_bridges(window=60.0, now=101.0) == [], (
+            "a 409 to its own worker POST means the server already "
+            "superseded this bridge; `deaf_bridges` must stop naming it")
+        assert "cse_SUPERSEDED" not in srv._stream_lost, (
+            "its stream-loss record must go with it, or a create retried "
+            "under the same id inherits a loss that was never its own")
+
+        # CONTROL: a 200 on the same route leaves the bridge exactly posted.
+        srv = _srv()
+        srv._note_bridge_traffic(WORKER, now=100.0)
+        srv._note_bridge_superseded(WORKER, b"HTTP/1.1 200 OK")
+        assert srv.deaf_bridges(window=60.0, now=101.0) == [
+            "cse_SUPERSEDED"], (
+            "a 200 must not touch the bridge's posting record")
+
+        # CONTROL: a 409 on a route that is not a worker POST changes
+        # nothing -- only the worker POST itself is authoritative that the
+        # server rejected THIS bridge.
+        srv = _srv()
+        srv._note_bridge_traffic(WORKER, now=100.0)
+        srv._note_bridge_superseded(NON_WORKER, b"HTTP/1.1 409 Conflict")
+        assert srv.deaf_bridges(window=60.0, now=101.0) == [
+            "cse_SUPERSEDED"], (
+            "a 409 on a non-worker route must not clear the bridge")
+
+        # `_posting_now` is `_report_deaf_bridges`'s own denominator, and it
+        # reads real wall time rather than an injected `now`.
+        srv = _srv()
+        srv._note_bridge_traffic(WORKER, now=time.monotonic())
+        assert srv._posting_now() == 1
+        srv._note_bridge_superseded(WORKER, b"HTTP/1.1 409 Conflict")
+        assert srv._posting_now() == 0, (
+            "the superseded bridge still counted toward the denominator "
+            "`_report_deaf_bridges` divides by")
+
+        # AND SOMETHING MUST WIRE IT: `_forward`'s `on_status` is the only
+        # site that sees the worker POST's path and its response status
+        # together.
+        import inspect
+        wired = inspect.getsource(pp.PinProxy._forward)
+        assert "_note_bridge_superseded" in wired, (
+            "nothing calls the notifier, so a superseded bridge is still "
+            "reported deaf until the window or a sweep clears it")
 
     def case_the_carry_is_reachable_without_a_daemon(self, certdir):
         """A switch must be able to carry pointers with no daemon running.
@@ -9411,6 +9678,31 @@ class TestTheKillGateIdentifiesItsTarget:
         assert pids == [], "a daemon for another backup dir was selected"
 
 
+def test_mint_lock_bound_covers_the_real_in_lock_ceiling():
+    """`_MINT_LOCK_BOUND_S` bounds a WAITER; the work the holder does inside
+    the lock belongs to the HOST, not this module -- a cold keychain read,
+    then (should the held token be expired) `consume_backup_grant`'s own
+    file lock, the switcher's file lock, a keychain re-read and the refresh
+    POST. Below their sum, a legitimate contended refresh gets cut off as
+    if it were stalled."""
+    import inspect
+
+    from claude_swap import locking, macos_keychain, oauth
+    from cswap_pin import proxy as pp
+
+    keychain = macos_keychain._TIMEOUT
+    filelock = inspect.signature(
+        locking.FileLock.__init__).parameters["timeout"].default
+    post = inspect.signature(
+        oauth.try_refresh_oauth_credentials).parameters["timeout_s"].default
+
+    ceiling = 2 * keychain + 2 * filelock + post
+    assert pp._MINT_LOCK_BOUND_S >= ceiling, (
+        f"_MINT_LOCK_BOUND_S={pp._MINT_LOCK_BOUND_S} is below the host's own "
+        f"in-lock ceiling {ceiling} (keychain={keychain}, filelock={filelock}, "
+        f"post={post})")
+
+
 class TestFailOpenIsNotSilent:
     """The token swap fails OPEN by design — a pin that cannot resolve must
     never block work. The cost is that nothing marks it: requests keep
@@ -9788,6 +10080,734 @@ class TestFailOpenIsNotSilent:
             assert _json.loads(body)["can_pin"] is False
         finally:
             p.stop()
+
+    def _stalled_provider(self, certdir):
+        """A REAL provider whose `refresh_lock` is held forever by a helper
+        thread stuck exactly the way a stalled Keychain read is: never
+        raises, never returns, and unkillable from here (measured: `security
+        find-generic-password -w` still hung after 2d19h). The caller must
+        `event.set()` in a `finally` so the thread does not outlive the test.
+        """
+        import json as _json
+        import threading
+
+        from cswap_pin import proxy as pp
+
+        expired = _json.dumps({"claudeAiOauth": {
+            "accessToken": "dead", "expiresAt": 1, "refreshToken": "rt"}})
+
+        class _Stuck:
+            backup_dir = certdir
+            def current_account_number(self): return "1"
+            def read_account_credentials(self, n, e): return expired
+            def resolve_account(self, i): return ("2", "pin@example.com", "org")
+
+        pp.save_pin(certdir, "pin@example.com", "org")
+        provider = pp.make_pin_token_provider(_Stuck(), "2", "pin@example.com")
+        event = threading.Event()
+
+        def _hold():
+            with provider.refresh_lock:
+                event.wait()  # never set within the test: stuck forever
+
+        holder = threading.Thread(target=_hold, daemon=True)
+        holder.start()
+        while not provider.refresh_lock.locked():
+            import time as _time
+            _time.sleep(0.001)
+        return provider, event
+
+    def case_health_never_waits_on_a_stalled_mint(self, certdir):
+        """/health must answer well inside a 5s probe even when the mint's
+        refresh lock is genuinely stuck, and say so rather than reading as a
+        dead daemon -- see `_mint_lock_busy`."""
+        import json as _json
+        import socket as _s
+        import time as _time
+
+        provider, event = self._stalled_provider(certdir)
+        try:
+            p = self._proxy(certdir, provider)
+            p.start()
+            try:
+                c = _s.create_connection(("127.0.0.1", p.port), timeout=10)
+                c.sendall(b"GET /health HTTP/1.1\r\nHost: x\r\n\r\n")
+                started = _time.monotonic()
+                buf = b""
+                while b"\r\n\r\n" not in buf:
+                    d = c.recv(4096)
+                    if not d:
+                        break
+                    buf += d
+                body = buf.partition(b"\r\n\r\n")[2]
+                while not body.endswith(b"}"):
+                    d = c.recv(4096)
+                    if not d:
+                        break
+                    body += d
+                elapsed = _time.monotonic() - started
+                c.close()
+                assert elapsed < 1.0, (
+                    f"/health waited {elapsed:.2f}s on a stalled mint")
+                doc = _json.loads(body)
+                assert doc["mint_stalled"] is True, doc
+                assert doc["can_pin"] is True, (
+                    "busy is unknown, not a failure — reporting it broken "
+                    "is the false alarm `can_pin` exists to avoid")
+            finally:
+                p.stop()
+        finally:
+            event.set()
+
+    def case_a_pinned_request_fails_fast_on_a_stalled_mint(self, certdir,
+                                                            monkeypatch):
+        """A pinned route must not queue behind a refresh lock a stalled
+        credential store may never release. Measured: 104 requests held
+        'before headers' with a live socket answering nobody."""
+        import time as _time
+
+        from cswap_pin import proxy as pp
+
+        monkeypatch.setattr(pp, "_MINT_LOCK_BOUND_S", 0.1)
+        provider, event = self._stalled_provider(certdir)
+        try:
+            proxy = pp.PinProxy(certdir=certdir, pin_token_provider=provider,
+                                upstream=("127.0.0.1", 1))
+
+            class _FakeTLS:
+                def __init__(self):
+                    self._in = (
+                        b"POST /v1/code/sessions HTTP/1.1\r\n"
+                        b"Host: api.anthropic.com\r\n"
+                        b"Authorization: Bearer disk-bearer\r\n"
+                        b"Content-Length: 0\r\n\r\n"
+                    )
+                    self.sent = b""
+
+                def recv(self, n):
+                    out, self._in = self._in[:n], self._in[n:]
+                    return out
+
+                def sendall(self, b):
+                    self.sent += b
+
+                def close(self):
+                    pass
+
+            tls = _FakeTLS()
+            started = _time.monotonic()
+            proxy._handle_one_request(tls)
+            elapsed = _time.monotonic() - started
+            assert elapsed < 1.0, (
+                f"the pinned request waited {elapsed:.2f}s on a stalled mint")
+            assert tls.sent.startswith(b"HTTP/1.1 503"), tls.sent
+        finally:
+            event.set()
+
+    def _cold_wedged_provider(self, certdir):
+        """A REAL provider whose credential store hangs on the very FIRST
+        read -- the COLD-CACHE case (`_cred_cache` starts empty on every
+        daemon start), not the already-cached-then-stuck-refresh case
+        `_stalled_provider` drives. Never raises, never returns."""
+        from cswap_pin import proxy as pp
+
+        class _Wedged:
+            backup_dir = certdir
+            def current_account_number(self): return "1"
+            def read_account_credentials(self, n, e):
+                event.wait()  # never set within the test: stuck forever
+                return None
+            def resolve_account(self, i): return ("2", "pin@example.com", "org")
+
+        pp.save_pin(certdir, "pin@example.com", "org")
+        provider = pp.make_pin_token_provider(_Wedged(), "2", "pin@example.com")
+        event = threading.Event()
+        return provider, event
+
+    def case_health_never_calls_the_provider_directly(self, certdir):
+        """`_serve_health` must never call `provider()` itself: a FREE lock
+        does not mean the provider is cheap to call, and with a cold, wedged
+        store the /health-handling thread would become the unkillable holder
+        (nobody bounds the HOLDER, only a waiter -- see `_MINT_LOCK_BOUND_S`).
+        Built without `.start()` so nothing else can race to the lock first
+        -- this isolates `_serve_health`'s own behaviour from the daemon-
+        start warm thread."""
+        import socket as _s
+        import time as _time
+
+        from cswap_pin import proxy as pp
+
+        provider, event = self._cold_wedged_provider(certdir)
+        try:
+            proxy = pp.PinProxy(certdir=certdir, pin_token_provider=provider,
+                                upstream=("127.0.0.1", 1))
+            server, client = _s.socketpair()
+            t = threading.Thread(target=proxy._serve_health, args=(server,),
+                                 daemon=True)
+            started = _time.monotonic()
+            t.start()
+            client.settimeout(2.0)
+            buf = b""
+            try:
+                while b"\r\n\r\n" not in buf:
+                    d = client.recv(4096)
+                    if not d:
+                        break
+                    buf += d
+            except OSError:
+                pass
+            elapsed = _time.monotonic() - started
+            client.close()
+            assert elapsed < 1.0, (
+                f"/health waited {elapsed:.2f}s -- it called the provider "
+                "directly instead of reading only what is cached")
+        finally:
+            event.set()
+
+    def case_a_cold_read_is_bounded_by_the_mint_lock(self, certdir, monkeypatch):
+        """The COLD credential read used to run OUTSIDE `refresh_lock` --
+        unbounded, and invisible to `_mint_lock_busy` -- so a wedged store on
+        a fresh daemon (every handover, recycle and heal successor starts
+        cold) blocked `/health` and every pinned request right along with it,
+        forever. The FIRST caller becomes the holder and gets stuck inside
+        the read; a SECOND caller must not queue behind it past the bound."""
+        import time as _time
+
+        from cswap_pin import proxy as pp
+
+        monkeypatch.setattr(pp, "_MINT_LOCK_BOUND_S", 0.3)
+        provider, event = self._cold_wedged_provider(certdir)
+        holder = None
+        try:
+            assert pp._mint_lock_busy(provider) is None, (
+                "the lock reads busy before anything has tried to mint")
+
+            holder = threading.Thread(target=provider, daemon=True)
+            holder.start()
+            deadline = _time.monotonic() + 2.0
+            while (pp._mint_lock_busy(provider) is None
+                   and _time.monotonic() < deadline):
+                _time.sleep(0.01)
+            assert pp._mint_lock_busy(provider) is not None, (
+                "a cold read in progress did not show up as the lock being "
+                "held -- it used to run outside `refresh_lock` entirely")
+
+            started = _time.monotonic()
+            result = provider()
+            elapsed = _time.monotonic() - started
+            assert result is None
+            assert elapsed < 1.0, (
+                f"a waiter behind a cold read waited {elapsed:.2f}s")
+            assert provider.mint_stalled() is True
+        finally:
+            event.set()
+            if holder is not None:
+                holder.join(timeout=2.0)
+
+    def case_health_and_a_pinned_request_survive_a_cold_wedged_store(
+            self, certdir, monkeypatch):
+        """End to end: a fresh daemon's cold cache read is exactly the store
+        access `/health` and a pinned request must never wait on unbounded."""
+        import json as _json
+        import socket as _s
+        import time as _time
+
+        from cswap_pin import proxy as pp
+
+        monkeypatch.setattr(pp, "_MINT_LOCK_BOUND_S", 0.3)
+        provider, event = self._cold_wedged_provider(certdir)
+        try:
+            p = self._proxy(certdir, provider)
+            p.start()
+            try:
+                # Let the daemon-start warm engage the store before probing,
+                # so this measures the bound, not a startup race.
+                deadline = _time.monotonic() + 2.0
+                while (pp._mint_lock_busy(p._pin_token_provider) is None
+                       and _time.monotonic() < deadline):
+                    _time.sleep(0.01)
+                assert pp._mint_lock_busy(p._pin_token_provider) is not None, (
+                    "the daemon-start warm never touched the store")
+
+                c = _s.create_connection(("127.0.0.1", p.port), timeout=10)
+                c.settimeout(2.0)
+                c.sendall(b"GET /health HTTP/1.1\r\nHost: x\r\n\r\n")
+                started = _time.monotonic()
+                buf = b""
+                while b"\r\n\r\n" not in buf:
+                    d = c.recv(4096)
+                    if not d:
+                        break
+                    buf += d
+                body = buf.partition(b"\r\n\r\n")[2]
+                while not body.endswith(b"}"):
+                    d = c.recv(4096)
+                    if not d:
+                        break
+                    body += d
+                elapsed = _time.monotonic() - started
+                c.close()
+                assert elapsed < 1.0, (
+                    f"/health waited {elapsed:.2f}s on a cold, wedged store")
+                doc = _json.loads(body)
+                assert doc["mint_stalled"] is True, doc
+
+                class _FakeTLS:
+                    def __init__(self):
+                        self._in = (
+                            b"POST /v1/code/sessions HTTP/1.1\r\n"
+                            b"Host: api.anthropic.com\r\n"
+                            b"Authorization: Bearer disk-bearer\r\n"
+                            b"Content-Length: 0\r\n\r\n"
+                        )
+                        self.sent = b""
+                    def recv(self, n):
+                        out, self._in = self._in[:n], self._in[n:]
+                        return out
+                    def sendall(self, b):
+                        self.sent += b
+                    def close(self):
+                        pass
+
+                tls = _FakeTLS()
+                started = _time.monotonic()
+                p._handle_one_request(tls)
+                elapsed = _time.monotonic() - started
+                assert elapsed < 1.0, (
+                    f"the pinned request waited {elapsed:.2f}s on a cold, "
+                    "wedged store")
+                assert tls.sent.startswith(b"HTTP/1.1 503"), tls.sent
+            finally:
+                p.stop()
+        finally:
+            event.set()
+
+    def case_a_slow_cold_read_does_not_wedge_the_daemon(self, certdir):
+        """`_serving_can_pin` probes `/health` up to `_PIN_PROBE_ATTEMPTS`
+        times at `timeout` seconds each; the unlocked cold read used to pay
+        its own cost on EVERY probe (measured: 2.5s hid behind all three), so
+        a healthy but merely slow store read wedged and recycled a daemon
+        that was fine. Driven here as `/health` itself must answer it --
+        `_serving_can_pin`'s own wedge-vs-busy classification of that answer
+        is `TestAWedgeIsNotTrustedForever`'s (test_proxy.py), and a real
+        socket read past this daemon's response RSTs in this sandbox for
+        ANY provider, healthy or not -- reproduced on baseline fb874da with
+        an immediate `lambda: "TOK"` -- so this reads the safe way every
+        other case in this class already does, not through that probe."""
+        import json as _json
+        import socket as _s
+        import time as _time
+
+        from cswap_pin import proxy as pp
+
+        live = _json.dumps({"claudeAiOauth": {
+            "accessToken": "TOK", "expiresAt": 4102444800000,
+            "refreshToken": "rt"}})
+
+        class _Slow:
+            backup_dir = certdir
+            def current_account_number(self): return "1"
+            def read_account_credentials(self, n, e):
+                _time.sleep(2.5)
+                return live
+            def resolve_account(self, i): return ("2", "pin@example.com", "org")
+
+        pp.save_pin(certdir, "pin@example.com", "org")
+        provider = pp.make_pin_token_provider(_Slow(), "2", "pin@example.com")
+        p = self._proxy(certdir, provider)
+        p.start()
+        try:
+            # Let the daemon-start warm engage the store before probing, so
+            # this measures the read's own cost, not a startup race against
+            # the warm thread.
+            deadline = _time.monotonic() + 2.0
+            while (pp._mint_lock_busy(p._pin_token_provider) is None
+                   and _time.monotonic() < deadline):
+                _time.sleep(0.01)
+            assert pp._mint_lock_busy(p._pin_token_provider) is not None, (
+                "the daemon-start warm never touched the store")
+
+            c = _s.create_connection(("127.0.0.1", p.port), timeout=10)
+            c.settimeout(1.0)
+            c.sendall(b"GET /health HTTP/1.1\r\nHost: x\r\n\r\n")
+            started = _time.monotonic()
+            buf = b""
+            while b"\r\n\r\n" not in buf:
+                d = c.recv(4096)
+                if not d:
+                    break
+                buf += d
+            body = buf.partition(b"\r\n\r\n")[2]
+            while not body.endswith(b"}"):
+                d = c.recv(4096)
+                if not d:
+                    break
+                body += d
+            elapsed = _time.monotonic() - started
+            c.close()
+            assert elapsed < 1.0, (
+                f"/health waited {elapsed:.2f}s behind a healthy 2.5s cold "
+                "read -- the same cost `_serving_can_pin` used to pay on "
+                "every one of its probes")
+            doc = _json.loads(body)
+            assert doc["can_pin"] is True, (
+                f"a healthy daemon with a 2.5s cold read was called a wedge: "
+                f"{doc}")
+        finally:
+            p.stop()
+
+    def case_mint_stalled_does_not_leak_across_threads(self, certdir,
+                                                        monkeypatch):
+        """`_stalled` used to be one flag shared by every request thread:
+        cleared on entry by whoever calls `provider()` next, and read by
+        whichever thread asks -- so a stall THIS thread caused could read as
+        cleared by an unrelated caller, or an unrelated caller's stall could
+        read as this thread's own."""
+        import json as _json
+
+        from cswap_pin import proxy as pp
+
+        monkeypatch.setattr(pp, "_MINT_LOCK_BOUND_S", 0.05)
+
+        expired = _json.dumps({"claudeAiOauth": {
+            "accessToken": "dead", "expiresAt": 1, "refreshToken": "rt"}})
+
+        class _Switcher:
+            def current_account_number(self):
+                # Thread "B" IS the pinned account already: a no-op, no lock.
+                return "2" if threading.current_thread().name == "B" else "1"
+            def read_account_credentials(self, n, e): return expired
+            def resolve_account(self, i): return ("2", "pin@example.com", "org")
+
+        pp.save_pin(certdir, "pin@example.com", "org")
+        provider = pp.make_pin_token_provider(_Switcher(), "2",
+                                              "pin@example.com")
+        event = threading.Event()
+
+        def _hold():
+            with provider.refresh_lock:
+                event.wait()
+
+        holder = threading.Thread(target=_hold, daemon=True)
+        holder.start()
+        while not provider.refresh_lock.locked():
+            time.sleep(0.001)
+
+        try:
+            result = {}
+            a_stalled = threading.Event()
+            b_done = threading.Event()
+
+            def _a():
+                provider()  # cold, contends for the held lock, times out
+                a_stalled.set()
+                # Let B run its own call+check to completion BEFORE this
+                # thread reads its own verdict -- the interleaving that
+                # exposed a shared flag.
+                b_done.wait(timeout=5)
+                result["a"] = provider.mint_stalled()
+
+            def _b():
+                a_stalled.wait(timeout=5)
+                provider()  # no-op: pin IS the live login, no lock touched
+                result["b"] = provider.mint_stalled()
+                b_done.set()
+
+            ta = threading.Thread(target=_a, name="A")
+            tb = threading.Thread(target=_b, name="B")
+            ta.start()
+            tb.start()
+            ta.join(timeout=6)
+            tb.join(timeout=6)
+
+            assert result.get("b") is False, (
+                "thread B's own call read a stall it never caused")
+            assert result.get("a") is True, (
+                "thread A's own stall was cleared by an unrelated thread's "
+                f"call -- `_stalled` is shared, not per-call: {result}")
+        finally:
+            event.set()
+            holder.join(timeout=2.0)
+
+    def case_a_refresh_updates_the_cache_can_pin_stays_true(self, certdir):
+        """`provider()` wrote the pre-refresh (expired) credential into
+        `_cred_cache` and never wrote the rotated one back, so
+        `can_pin_cached()` -- and therefore `/health`'s `can_pin` -- kept
+        reading a permanently-expired cache after every successful mint.
+        Drives a REAL refresh through a switcher whose gate persists the
+        rotated credential the way the host's does, then checks the CACHED
+        read, not `provider()` again -- `can_pin_cached()` must never touch
+        the store."""
+        import json as _json
+        import socket as _s
+
+        from claude_swap.oauth import RefreshOutcome
+        from cswap_pin import proxy as pp
+
+        expired = _json.dumps({"claudeAiOauth": {
+            "accessToken": "dead", "expiresAt": 1, "refreshToken": "rt"}})
+        rotated = _json.dumps({"claudeAiOauth": {
+            "accessToken": "new", "expiresAt": 4102444800000,
+            "refreshToken": "rt2"}})
+
+        class _Switcher:
+            backup_dir = certdir
+            def current_account_number(self): return "1"
+            def read_account_credentials(self, n, e): return expired
+            def resolve_account(self, i): return ("2", "pin@example.com", "org")
+            def consume_backup_grant(self, n, e, snap):
+                # The gate persists internally, the way the host's does; the
+                # mock only has to hand back what it rotated to.
+                return RefreshOutcome(rotated, None)
+
+        pp.save_pin(certdir, "pin@example.com", "org")
+        provider = pp.make_pin_token_provider(_Switcher(), "2",
+                                              "pin@example.com")
+
+        assert provider() == "new", "the refresh did not hand back the rotated token"
+        assert provider.can_pin_cached() is True, (
+            "the cache still held the expired blob after a successful refresh")
+
+        p = self._proxy(certdir, provider)
+        p.start()
+        try:
+            c = _s.create_connection(("127.0.0.1", p.port), timeout=10)
+            c.sendall(b"GET /health HTTP/1.1\r\nHost: x\r\n\r\n")
+            buf = b""
+            while b"\r\n\r\n" not in buf:
+                d = c.recv(4096)
+                if not d:
+                    break
+                buf += d
+            body = buf.partition(b"\r\n\r\n")[2]
+            while not body.endswith(b"}"):
+                d = c.recv(4096)
+                if not d:
+                    break
+                body += d
+            c.close()
+            doc = _json.loads(body)
+            assert doc["can_pin"] is True, doc
+            assert doc["mint_stalled"] is False, doc
+        finally:
+            p.stop()
+
+
+class TestTheRequestPathNeverOpensTheTraceFile:
+    """The shared trace handle used to be opened FROM the request thread.
+
+    Measured on a live daemon: 342 `_serve_client` threads sharing one
+    identical stack, all parked in the SAME `open(path, "a", ...)` call while
+    a stalled filesystem let the accept loop and the trace's own already-open
+    writer keep working. `self._debug` is ONE handle every request thread
+    shares; re-arming the trace (or crossing its cap) used to null it and
+    every thread then raced into `open(2)` at once.
+
+    `PinProxy._trace_tick` (off `_title_sweep_loop`'s beat, never the request
+    path) is now the only place that opens, rotates or re-targets it;
+    `_write_capped_line` on the request path only ever writes to whatever is
+    already open, or drops the line.
+    """
+
+    def test_all(self, request, tmp_path_factory):
+        run_cases(self, request, tmp_path_factory)
+
+    def _proxy(self, certdir, provider=None):
+        from cswap_pin.proxy import PinProxy
+        return PinProxy(
+            certdir=certdir,
+            pin_token_provider=provider or (lambda: None),
+            upstream=("127.0.0.1", 1),
+        )
+
+    class _FakeTLS:
+        """One GET on an unpinned route — reaches the trace append without
+        touching any bearer-swap machinery (`/v1/messages` is explicitly
+        never pinned, and a non-POST never triggers the bridge sweep)."""
+
+        def __init__(self):
+            self._in = (
+                b"GET /v1/messages HTTP/1.1\r\n"
+                b"Host: api.anthropic.com\r\n"
+                b"Content-Length: 0\r\n\r\n"
+            )
+            self.sent = b""
+
+        def recv(self, n):
+            out, self._in = self._in[:n], self._in[n:]
+            return out
+
+        def sendall(self, b):
+            self.sent += b
+
+        def close(self):
+            pass
+
+    def _drive_one(self, proxy):
+        try:
+            proxy._handle_one_request(self._FakeTLS())
+        except Exception:
+            pass  # the relay to the dead upstream (127.0.0.1:1) fails; unrelated
+
+    def _arm(self, certdir):
+        import cswap_pin.proxy as pp
+        trace = certdir / "armed-trace.log"
+        (certdir / pp._TRACE_SWITCH_FILE).write_text(str(trace))
+        pp._TRACE_CACHE.clear()
+        return trace
+
+    def case_a_request_answers_within_2s_even_when_open_would_block(
+            self, certdir, monkeypatch):
+        """RED without the fix: the trace is armed, `self._debug` is unopened
+        (the ordinary state right after an arm, or after the tick drops it at
+        the cap), and `open()` on that path blocks forever. The old code
+        opened it FROM this thread; the new code must never call it, so the
+        request has to answer regardless of what `open()` on that path does.
+        """
+        import builtins
+
+        trace = self._arm(certdir)
+        never = threading.Event()
+        real_open = builtins.open
+
+        def _blocking_open(path, *a, **kw):
+            if str(path) == str(trace):
+                never.wait()  # never set: this IS the parked open(2)
+            return real_open(path, *a, **kw)
+
+        monkeypatch.setattr(builtins, "open", _blocking_open)
+
+        proxy = self._proxy(certdir)
+        proxy._debug = None
+
+        t = threading.Thread(target=self._drive_one, args=(proxy,), daemon=True)
+        t.start()
+        t.join(2.0)
+        assert not t.is_alive(), (
+            "the request thread is still parked after 2s — the trace append "
+            "called open(2) on the request path")
+
+    def case_the_tick_opens_the_handle_and_requests_then_write_their_line(
+            self, certdir):
+        """Control: once `_trace_tick` has run, a request DOES write."""
+        trace = self._arm(certdir)
+        proxy = self._proxy(certdir)
+        assert proxy._debug is None, "nothing has opened it yet"
+
+        proxy._trace_tick()
+        assert proxy._debug is not None, "the tick did not open the handle"
+
+        self._drive_one(proxy)
+        body = trace.read_text()
+        assert "GET /v1/messages" in body, (
+            f"the request did not reach the handle the tick opened: {body!r}")
+
+    def case_at_the_cap_the_request_nulls_and_the_tick_rotates(
+            self, certdir, monkeypatch):
+        """The write side notices the cap and drops the reference — never
+        closes it, never reopens it — and the NEXT tick is what rotates.
+
+        Also covers the tick's OTHER trigger: a handle that crossed the cap
+        without any request thread ever writing past it (so nothing nulled
+        it) still gets rotated, because the tick checks the cap itself too.
+        """
+        import cswap_pin.proxy as pp
+
+        trace = self._arm(certdir)
+        monkeypatch.setattr(pp, "_TRACE_MAX_BYTES", 200)
+
+        proxy = self._proxy(certdir)
+        proxy._trace_tick()
+        assert proxy._debug is not None
+
+        crossed = False
+        for _ in range(50):
+            self._drive_one(proxy)
+            if proxy._debug is None:
+                crossed = True
+                break
+        assert crossed, "50 requests never crossed a 200-byte cap"
+        rotated = trace.with_suffix(trace.suffix + ".1")
+        assert not rotated.exists(), (
+            "the request thread rotated the file itself — it must only drop "
+            "the handle and leave rotation to the tick")
+
+        proxy._trace_tick()
+        assert proxy._debug is not None, "the tick did not reopen after the cap"
+        assert rotated.exists(), "the tick did not rotate the over-cap file"
+
+        # AND REQUESTS KEEP ANSWERING THROUGH ALL OF IT.
+        for _ in range(5):
+            self._drive_one(proxy)
+        assert trace.exists()
+
+        # THE TICK'S OWN CAP CHECK, independent of a write ever nulling the
+        # handle first: hand it a handle that is already over cap. Retick
+        # first so we hold a known-fresh handle rather than one the loop
+        # above may already have nulled.
+        proxy._trace_tick()
+        handle = proxy._debug
+        assert handle is not None
+        handle.write("x" * 300 + "\n")
+        assert not handle.closed
+        proxy._trace_tick()
+        assert proxy._debug is not handle, (
+            "the tick kept serving an over-cap handle nobody nulled")
+
+    def case_an_open_failure_on_the_tick_warns_once_and_never_raises(
+            self, certdir, monkeypatch):
+        """`_append_capped`'s own contract: "a trace that cannot be written is
+        a diagnostic that is missing, not a proxy that stops relaying" —
+        `_reopen_trace` holds to it, and does not spam a warning every 0.5s
+        tick either."""
+        import builtins
+        import io
+        import sys as _sys
+
+        trace = self._arm(certdir)
+        real_open = builtins.open
+
+        def _raising_open(path, *a, **kw):
+            if str(path) == str(trace):
+                raise OSError("no space left on device")
+            return real_open(path, *a, **kw)
+
+        monkeypatch.setattr(builtins, "open", _raising_open)
+        buf = io.StringIO()
+        monkeypatch.setattr(_sys, "stderr", buf)
+
+        proxy = self._proxy(certdir)
+        proxy._trace_tick()
+        assert proxy._debug is None, "an open() that raised left a handle"
+        proxy._trace_tick()
+        assert proxy._debug is None
+
+        self._drive_one(proxy)  # must not raise into the request
+
+        warnings = buf.getvalue().count("could not be")
+        assert warnings == 1, (
+            f"expected exactly one warning across two failing ticks, got "
+            f"{warnings}: {buf.getvalue()!r}")
+
+    def case_a_write_that_races_a_close_does_not_reach_the_request(self):
+        """`_write_capped_line`'s own null-safety, direct: a handle another
+        thread let go of and closed between the caller's ``is not None``
+        check and this call raises ValueError on ``write``, not OSError —
+        the same race `_append_capped` already guards against."""
+        import cswap_pin.proxy as pp
+
+        class _ClosedUnderUs:
+            closed = False
+
+            def write(self, _):
+                raise ValueError("I/O operation on closed file")
+
+            def tell(self):
+                return 0
+
+        assert pp._write_capped_line(_ClosedUnderUs(), "x\n") is None, (
+            "a handle that went away mid-write raised out of the trace and "
+            "into the relay")
 
 
 class TestProxyRequiresACredential:

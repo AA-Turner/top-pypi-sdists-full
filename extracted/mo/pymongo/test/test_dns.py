@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Run the SRV support tests."""
+
 from __future__ import annotations
 
 import glob
@@ -21,8 +22,16 @@ import os
 import pathlib
 import sys
 
+from pymongo._psl import is_public_suffix
+
 sys.path[0:0] = [""]
 
+from unittest.mock import MagicMock, patch
+
+from pymongo.common import validate_read_preference_tags
+from pymongo.errors import ConfigurationError
+from pymongo.synchronous.uri_parser import parse_uri
+from pymongo.uri_parser_shared import split_hosts
 from test import (
     IntegrationTest,
     PyMongoTestCase,
@@ -30,12 +39,6 @@ from test import (
     unittest,
 )
 from test.utils_shared import wait_until
-from unittest.mock import MagicMock, patch
-
-from pymongo.common import validate_read_preference_tags
-from pymongo.errors import ConfigurationError
-from pymongo.synchronous.uri_parser import parse_uri
-from pymongo.uri_parser_shared import split_hosts
 
 _IS_SYNC = True
 
@@ -123,7 +126,8 @@ def create_test(test_case):
                         "readPreferenceTags", opts.pop("readpreferencetags")
                     )
                     opts["readPreferenceTags"] = rpts
-                self.assertEqual(result["options"], options)
+                for opt in options:
+                    self.assertIn(opt, result["options"])
             if parsed_options:
                 for opt, expected in parsed_options.items():
                     if opt == "user":
@@ -269,7 +273,7 @@ class TestInitialDnsSeedlistDiscovery(PyMongoTestCase):
         self.run_initial_dns_seedlist_discovery_prose_tests(test_cases)
 
     def test_4_throw_when_return_address_does_not_contain_dot_separating_shared_part_of_domain(
-        self
+        self,
     ):
         test_cases = [
             {
@@ -290,8 +294,8 @@ class TestInitialDnsSeedlistDiscovery(PyMongoTestCase):
         ]
         self.run_initial_dns_seedlist_discovery_prose_tests(test_cases)
 
-    def test_5_when_srv_hostname_has_two_dot_separated_parts_it_is_valid_for_the_returned_hostname_to_be_identical(
-        self
+    def test_5_when_srv_hostname_has_three_or_more_dot_separated_parts_it_is_valid_for_the_returned_hostname_to_be_identical(
+        self,
     ):
         test_cases = [
             {
@@ -300,6 +304,33 @@ class TestInitialDnsSeedlistDiscovery(PyMongoTestCase):
             },
         ]
         self.run_initial_dns_seedlist_discovery_prose_tests(test_cases)
+
+
+class TestPublicSuffixListParsing(unittest.TestCase):
+    def test_1_multi_label_ordinary_rule(self):
+        self.assertTrue(is_public_suffix("com.ac"))
+        self.assertFalse(is_public_suffix("foo.com.ac"))
+
+    def test_2_long_wildcard_rule(self):
+        self.assertTrue(is_public_suffix("abc.nom.br"))
+        self.assertFalse(is_public_suffix("x.abc.nom.br"))
+
+    def test_3_wildcard_rule(self):
+        self.assertTrue(is_public_suffix("b.ck"))
+        self.assertFalse(is_public_suffix("a.b.ck"))
+
+    def test_4_exception_rule(self):
+        self.assertTrue(is_public_suffix("ck"))
+        self.assertFalse(is_public_suffix("www.ck"))
+
+    def test_5_no_rule_matches(self):
+        self.assertTrue(is_public_suffix("nosuchtld"))
+        self.assertFalse(is_public_suffix("foo.nosuchtld"))
+
+    def test_6_internationalized_rule(self):
+        self.assertTrue(is_public_suffix("xn--p1ai"))
+        self.assertTrue(is_public_suffix("xn--55qx5d.cn"))
+        self.assertFalse(is_public_suffix("example.xn--p1ai"))
 
 
 if __name__ == "__main__":

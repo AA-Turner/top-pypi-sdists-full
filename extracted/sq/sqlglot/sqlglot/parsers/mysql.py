@@ -239,6 +239,7 @@ class MySQLParser(parser.Parser):
 
     CONSTRAINT_PARSERS = {
         **parser.Parser.CONSTRAINT_PARSERS,
+        "BINARY": lambda self: self.expression(exp.BinaryColumnConstraint()),
         "FULLTEXT": lambda self: self._parse_index_constraint(kind="FULLTEXT"),
         "INDEX": lambda self: self._parse_index_constraint(),
         "KEY": lambda self: self._parse_index_constraint(),
@@ -299,6 +300,12 @@ class MySQLParser(parser.Parser):
     STRING_ALIASES = True
     VALUES_FOLLOWED_BY_PAREN = False
     SUPPORTS_PARTITION_SELECTION = True
+
+    def _parse_column_constraint(self) -> exp.Expr | None:
+        if self._match(TokenType.KEY):
+            return self.expression(exp.ColumnConstraint(kind=self._parse_primary_key()))
+
+        return super()._parse_column_constraint()
 
     def _parse_range(self, this: exp.Expr | None = None) -> exp.Expr | None:
         this = this or self._parse_bitwise()

@@ -197,6 +197,130 @@ def _action_visual(name: str, arguments: dict[str, Any]) -> "dict[str, Any] | No
     return None
 
 
+_STATUS_LINE_MAX_CHARACTERS = 90
+# The activity window scrolls, so an entry is not truncated to a glance the way the
+# menu caption is; the cap only keeps a runaway reasoning block out of the host.
+_TRANSCRIPT_TEXT_MAX_CHARACTERS = 4000
+
+
+_ACTION_ICONS = {
+    "left_click": "click",
+    "click": "click",
+    "double_click": "click",
+    "right_click": "click",
+    "middle_click": "click",
+    "triple_click": "click",
+    "mouse_move": "move",
+    "move": "move",
+    "drag": "drag",
+    "scroll": "scroll",
+    "type": "type",
+    "key_press": "key",
+    "key": "key",
+    "wait": "wait",
+}
+
+
+def _action_text(event: dict[str, Any]) -> str:
+    """One line naming an action and where it lands: "left click at (100, 20)"."""
+    name = str(event.get("name") or "action").replace("_", " ")
+    arguments = event.get("arguments") if isinstance(event.get("arguments"), dict) else {}
+    point = _point(arguments, "coordinates", "coordinate", "start_coordinate")
+    if point is not None:
+        return f"{name} at ({round(point[0])}, {round(point[1])})"
+    text = arguments.get("text") or arguments.get("key") or arguments.get("key_comb")
+    return f"{name} {text}" if isinstance(text, str) and text.strip() else name
+
+
+def _status_line(event: dict[str, Any]) -> "str | None":
+    """The one-line caption a status-mode menu shows for a presentation event."""
+    event_type = event.get("type")
+    text: "str | None" = None
+    if event_type == "task":
+        value = event.get("text")
+        text = f"Task: {value.strip()}" if isinstance(value, str) and value.strip() else None
+    elif event_type == "status":
+        value = event.get("text")
+        text = value.strip() if isinstance(value, str) and value.strip() else None
+    elif event_type == "reasoning":
+        value = event.get("text")
+        text = f"Thinking: {value.strip()}" if isinstance(value, str) and value.strip() else None
+    elif event_type in {"action", "batch_member"}:
+        text = _action_text(event)
+    elif event_type == "final":
+        text = "Finished"
+    elif event_type == "shell":
+        shell_event = event.get("event")
+        if isinstance(shell_event, ShellPresentationEvent):
+            text = f"Shell ({shell_event.state}): {shell_event.command}"
+    if text is None:
+        return None
+    if len(text) > _STATUS_LINE_MAX_CHARACTERS:
+        text = text[: _STATUS_LINE_MAX_CHARACTERS - 1] + "\u2026"
+    return text
+
+
+def _clamp(value: Any) -> "str | None":
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    if len(text) <= _TRANSCRIPT_TEXT_MAX_CHARACTERS:
+        return text
+    return text[: _TRANSCRIPT_TEXT_MAX_CHARACTERS - 1] + "\u2026"
+
+
+def _transcript_entry(event: dict[str, Any], sequence: int) -> "dict[str, Any] | None":
+    """One activity-window row for a presentation event, or None when it has nothing to show.
+
+    Shell entries are keyed by task id rather than by sequence, so a command is revised in
+    place as it moves from running to its exit code instead of stacking a card per lifecycle
+    event -- the same identity the desktop shell rail keys on.
+    """
+    event_type = event.get("type")
+    if event_type == "shell":
+        shell_event = event.get("event")
+        if not isinstance(shell_event, ShellPresentationEvent):
+            return None
+        return {
+            "id": f"shell-{shell_event.task_id}",
+            "kind": "shell",
+            "command": shell_event.command,
+            "state": shell_event.state,
+            "exitCode": shell_event.exit_code,
+            "background": shell_event.run_in_background,
+        }
+    identity = f"entry-{sequence}"
+    if event_type == "task":
+        text = _clamp(event.get("text"))
+        return {"id": identity, "kind": "task", "text": text} if text else None
+    if event_type == "reasoning":
+        text = _clamp(event.get("text"))
+        return {"id": identity, "kind": "thinking", "text": text} if text else None
+    if event_type in {"action", "batch_member"}:
+        name = str(event.get("name") or "").lower()
+        return {
+            "id": identity,
+            "kind": "action",
+            "text": _action_text(event),
+            "icon": _ACTION_ICONS.get(name, "click"),
+        }
+    if event_type == "action_done":
+        # A step that failed while the run carried on: a refused click, a tool error.
+        error = _clamp(event.get("error"))
+        if error is not None:
+            return {"id": identity, "kind": "error", "text": error}
+        if event.get("refused") is True:
+            return {"id": identity, "kind": "error", "text": "The action was refused."}
+        return None
+    if event_type == "final":
+        text = _clamp(event.get("text"))
+        return {"id": identity, "kind": "final", "text": text} if text else None
+    if event_type == "status":
+        text = _clamp(event.get("text"))
+        return {"id": identity, "kind": "system", "text": text} if text else None
+    return None
+
+
 def _queue_item(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     action = name.lower()
     if action == "scroll":
@@ -229,13 +353,22 @@ class MacOSPresentationController:
         requested: bool = True,
         show_stop_button: bool = True,
         restore_native_cursor: "Callable[[], Awaitable[str]] | None" = None,
+        mode: str = "overlay",
+        title: "str | None" = None,
     ) -> None:
+        if mode not in {"overlay", "status"}:
+            raise ValueError("mode must be 'overlay' or 'status'")
         self.native_width = native_width
         self.native_height = native_height
         self.cancellation = cancellation or CancellationLatch()
         self._prepared = prepared
         self._cache_directory = cache_directory
         self._show_stop_button = show_stop_button
+        # "status": a menu bar item with the latest frame and Stop, the shell rail, and the
+        # activity window's transcript -- no full-screen page. Used for window-scope runs, where
+        # the model's frame is one window and the user keeps working next to it.
+        self._mode = mode
+        self._title = title
         self._restore_native_cursor = restore_native_cursor
         self._status = MacOSPresentationStatus(requested, False, "unavailable", "current")
         self._process: "asyncio.subprocess.Process | None" = None
@@ -257,13 +390,26 @@ class MacOSPresentationController:
         self._batch_is_last = False
         self._capture_id = 0
         self._shell_started_at: dict[str, float] = {}
+        self._transcript_sequence = 0
         self._shell_rail: dict[str, ShellPresentationEvent] = {}
         self._shell_rail_removals: set[asyncio.Task[None]] = set()
         self._telemetry: list[dict[str, Any]] = []
+        # Status mode: the host reports whether anyone is looking (menu open or activity window shown);
+        # the owner streams preview frames only while that is true.
+        self._preview_demand = False
+        self.on_preview_demand: "Callable[[bool], None] | None" = None
 
     @property
     def status(self) -> MacOSPresentationStatus:
         return self._status
+
+    @property
+    def mode(self) -> str:
+        return self._mode
+
+    @property
+    def preview_demand(self) -> bool:
+        return self._preview_demand
 
     @property
     def telemetry(self) -> tuple[dict[str, Any], ...]:
@@ -289,14 +435,20 @@ class MacOSPresentationController:
             return
         self._status = replace(self._status, state="starting")
         prepared = self._prepared or load_prepared_macos_overlay(self._cache_directory)
-        config = json.dumps({"showStopButton": self._show_stop_button, "enableHotkey": True}, separators=(",", ":"))
+        settings: dict[str, Any] = {"showStopButton": self._show_stop_button, "enableHotkey": True, "mode": self._mode}
+        if self._title is not None:
+            settings["title"] = self._title
+        # The activity window's page. Both modes show the conversation with the model; only a
+        # window-scope run also has frames of its own to put above it.
+        settings["activityHtml"] = str(prepared.activity_html)
+        config = json.dumps(settings, separators=(",", ":"))
         try:
             self._process = await spawn_rpc_subprocess(str(prepared.binary), str(prepared.html), config)
             self._ready = asyncio.get_running_loop().create_future()
             self._reader_task = asyncio.create_task(self._read_host())
             self._stderr_task = asyncio.create_task(self._drain_stderr())
             reply = await asyncio.wait_for(self._ready, timeout=_READY_TIMEOUT_SECONDS)
-            capabilities = self._validate_ready(reply)
+            capabilities = self._validate_status_ready(reply) if self._mode == "status" else self._validate_ready(reply)
             self._viewport = (capabilities.viewport_width, capabilities.viewport_height)
             self._status = MacOSPresentationStatus(
                 requested=True,
@@ -306,17 +458,18 @@ class MacOSPresentationController:
                 capabilities=capabilities,
                 degradation_reason=None if capabilities.hotkey else "hotkey_unavailable",
             )
-            await self._send_operation(
-                {
-                    "op": "mount",
-                    "snapshot": {
-                        "cursor": {"x": capabilities.viewport_width / 2, "y": capabilities.viewport_height / 2},
-                        "thought": None,
-                        "badge": {"type": "loop"},
-                        "hidden": False,
-                    },
-                }
-            )
+            if self._mode == "overlay":
+                await self._send_operation(
+                    {
+                        "op": "mount",
+                        "snapshot": {
+                            "cursor": {"x": capabilities.viewport_width / 2, "y": capabilities.viewport_height / 2},
+                            "thought": None,
+                            "badge": {"type": "loop"},
+                            "hidden": False,
+                        },
+                    }
+                )
             armed = await self._send_command({"op": "arm"})
             if armed.get("state") != "armed":
                 raise MacOSPresentationError("Overlay did not arm.")
@@ -329,7 +482,26 @@ class MacOSPresentationController:
         reply = await self._send_command({"op": "reveal"})
         if reply.get("state") != "visible":
             raise MacOSPresentationError("Overlay did not reveal.")
-        self._status = replace(self._status, available=True, state="active", cursor="yutori")
+        cursor = "hidden" if self._mode == "status" else "yutori"
+        self._status = replace(self._status, available=True, state="active", cursor=cursor)
+
+    async def show_thumbnail(self, image_bytes: bytes, *, caption: "str | None" = None) -> bool:
+        """Status mode: put the latest frame of the driven window in the menu bar item's menu."""
+        if self._mode != "status" or not self._status.available or self._stopping:
+            return False
+        try:
+            command: dict[str, Any] = {"op": "thumbnail", "data": base64.b64encode(image_bytes).decode("ascii")}
+            if caption is not None:
+                command["caption"] = caption
+            reply = await self._send_command(command)
+            if reply.get("state") != "shown":
+                raise MacOSPresentationError("Status item did not show the thumbnail.")
+            if caption is not None:
+                self._last_render["status"] = caption
+            return True
+        except Exception as error:  # noqa: BLE001 - presentation is fail-soft
+            await self._degrade("thumbnail_failed", error)
+            return False
 
     def blocks_point(self, point: tuple[float, float]) -> bool:
         if not self._status.available:
@@ -356,7 +528,13 @@ class MacOSPresentationController:
     async def present(self, event: dict[str, Any]) -> None:
         if not self._status.available or self._stopping:
             return
+        if self._mode == "status":
+            await self._present_status(event)
+            return
         try:
+            # The transcript is the same conversation in either mode; only the desktop
+            # surfaces below differ.
+            await self._present_transcript(event)
             event_type = event.get("type")
             if event_type == "reasoning":
                 text = event.get("text")
@@ -385,8 +563,59 @@ class MacOSPresentationController:
         except Exception as error:  # noqa: BLE001 - presentation is fail-soft
             await self._degrade(f"presentation_failed:{type(error).__name__}", error)
 
+    async def show_preview_frame(self, image_bytes: bytes) -> bool:
+        """Status mode: refresh the live frame (menu thumbnail and activity window) with a streamed frame.
+
+        Unlike ``show_thumbnail`` this never degrades the status item: a dropped preview frame
+        costs nothing, and the host reader degrades on its own when the host is gone.
+        """
+        if self._mode != "status" or not self._status.available or self._stopping:
+            return False
+        try:
+            reply = await self._send_command(
+                {"op": "previewFrame", "data": base64.b64encode(image_bytes).decode("ascii")}
+            )
+        except (MacOSPresentationError, asyncio.TimeoutError):
+            return False
+        return reply.get("state") == "shown"
+
+    async def _present_status(self, event: dict[str, Any]) -> None:
+        """Status mode: the menu's caption, the activity window's transcript, and the shell rail.
+
+        A background run draws no cursor capsule and owns no desktop, so this is everything
+        the operator can see: a glanceable line in the menu, the same step as a row in the
+        activity window's conversation, and -- for a shell command -- the same click-through
+        rail under the menu bar a foreground run shows, because a command running on their
+        Mac should not require opening a window to notice.
+        """
+        try:
+            if event.get("type") == "shell":
+                shell_event = event.get("event")
+                if isinstance(shell_event, ShellPresentationEvent):
+                    self._record_shell(shell_event)
+                    await self._track_shell_rail(shell_event)
+            await self._present_transcript(event)
+            text = _status_line(event)
+            if text is not None and self._last_render.get("status") != text:
+                self._last_render["status"] = text
+                reply = await self._send_command({"op": "status", "text": text})
+                if reply.get("state") != "shown":
+                    raise MacOSPresentationError("Status item did not accept the caption.")
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # noqa: BLE001 - presentation is fail-soft
+            await self._degrade(f"presentation_failed:{type(error).__name__}", error)
+
+    async def _present_transcript(self, event: dict[str, Any]) -> None:
+        """Append this event to the activity window's conversation, if it has a row to show."""
+        entry = _transcript_entry(event, self._transcript_sequence)
+        if entry is None:
+            return
+        self._transcript_sequence += 1
+        await self._send_command({"op": "transcript", "entry": entry})
+
     async def before_capture(self, capture_id: int) -> bool:
-        if not self._status.available:
+        if not self._status.available or self._mode == "status":
             return False
         try:
             if capture_id <= self._capture_id:
@@ -414,7 +643,7 @@ class MacOSPresentationController:
             return False
 
     async def encode_observation(self, png_bytes: bytes) -> "tuple[bytes, str] | None":
-        if not self._status.available:
+        if not self._status.available or self._mode == "status":
             return None
         try:
             reply = await self._send_command(
@@ -446,7 +675,8 @@ class MacOSPresentationController:
         await cancel_and_drain(*self._shell_rail_removals)
         if self._process is not None and self._process.returncode is None and self._fatal_error is None:
             try:
-                await self._send_operation({"op": "destroy"}, allow_stopping=True)
+                if self._mode == "overlay":
+                    await self._send_operation({"op": "destroy"}, allow_stopping=True)
                 await self._send_command({"op": "retire"}, allow_stopping=True)
             except Exception:
                 pass
@@ -470,6 +700,12 @@ class MacOSPresentationController:
                     return
                 if reply.get("event") == "stop":
                     self.cancellation.request("operator_stop")
+                    continue
+                if reply.get("event") == "previewDemand":
+                    self._preview_demand = bool(reply.get("menuOpen")) or bool(reply.get("activityOpen"))
+                    self._telemetry.append({"type": "preview_demand", "active": self._preview_demand})
+                    if self.on_preview_demand is not None:
+                        self.on_preview_demand(self._preview_demand)
                     continue
                 if reply.get("ready") is True and self._ready is not None and not self._ready.done():
                     self._ready.set_result(reply)
@@ -536,13 +772,25 @@ class MacOSPresentationController:
                 future.cancel()
 
     async def _send_operation(self, operation: dict[str, Any], *, allow_stopping: bool = False) -> dict[str, Any]:
-        signature = json.dumps(operation, separators=(",", ":"), sort_keys=True)
         dedupe_key = str(operation.get("op"))
-        if dedupe_key in {"showThought", "clearThought", "previewAction", "moveCursor"}:
-            if self._last_render.get(dedupe_key) == signature:
-                return {"ok": True}
-            self._last_render[dedupe_key] = signature
+        if dedupe_key in {"showThought", "clearThought", "previewAction", "moveCursor"} and not self._render_changed(
+            dedupe_key, operation
+        ):
+            return {"ok": True}
         return await self._send_envelope({"operation": operation}, allow_stopping=allow_stopping)
+
+    def _render_changed(self, key: str, payload: Any) -> bool:
+        """Return whether `payload` differs from the last render cached under `key`, updating the cache.
+
+        Shared by `_send_operation` (deduping showThought/clearThought/previewAction/moveCursor) and
+        `_render_shell_rail` (deduping the shell rail's commands/overflow payload) -- both compare a
+        canonical JSON signature against `self._last_render` before sending.
+        """
+        signature = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+        if self._last_render.get(key) == signature:
+            return False
+        self._last_render[key] = signature
+        return True
 
     async def _send_command(
         self,
@@ -645,13 +893,17 @@ class MacOSPresentationController:
                 await self._send_operation({"op": "previewAction", "presentation": presentation})
                 await self._send_operation({"op": "moveCursor", "point": destination})
 
-    async def _present_shell(self, event: ShellPresentationEvent) -> None:
+    def _record_shell(self, event: ShellPresentationEvent) -> None:
+        """Log one shell lifecycle event as telemetry; both modes count the same commands."""
         self._telemetry.append(
             {
                 "type": "background_command" if event.run_in_background else "shell_command",
                 **asdict(event),
             }
         )
+
+    async def _present_shell(self, event: ShellPresentationEvent) -> None:
+        self._record_shell(event)
         await self._track_shell_rail(event)
         if event.run_in_background:
             return
@@ -710,10 +962,8 @@ class MacOSPresentationController:
         events = list(reversed(self._shell_rail.values()))
         commands = [asdict(event) for event in events[:_SHELL_RAIL_ROWS]]
         overflow = max(0, len(events) - _SHELL_RAIL_ROWS)
-        signature = json.dumps([commands, overflow], separators=(",", ":"), sort_keys=True)
-        if self._last_render.get("shellCommands") == signature:
+        if not self._render_changed("shellCommands", [commands, overflow]):
             return
-        self._last_render["shellCommands"] = signature
         await self._send_command({"op": "shellCommands", "commands": commands, "overflow": overflow})
 
     async def _remove_from_shell_rail_after_hold(self, task_id: str, terminal: ShellPresentationEvent) -> None:
@@ -731,6 +981,22 @@ class MacOSPresentationController:
             return False
         sleeper, _cancelled, done = await race_sleep_against_cancellation(seconds, self.cancellation)
         return sleeper in done
+
+    def _validate_status_ready(self, reply: dict[str, Any]) -> MacOSPresentationCapabilities:
+        """The status-mode handshake: no page, so no viewport geometry and never a Stop region."""
+        if reply.get("protocol_version") != OVERLAY_PROTOCOL_VERSION:
+            raise MacOSPresentationError("Overlay returned an incompatible protocol version.")
+        if reply.get("mode") != "status" or reply.get("stop_control") != "menu_bar":
+            raise MacOSPresentationError("Overlay host did not start in status mode.")
+        scale = reply.get("backing_scale")
+        return MacOSPresentationCapabilities(
+            protocol_version=OVERLAY_PROTOCOL_VERSION,
+            viewport_width=0,
+            viewport_height=0,
+            backing_scale=float(scale) if _positive_finite(scale) else 1.0,
+            hotkey=reply.get("hotkey") is True,
+            stop_region=None,
+        )
 
     def _validate_ready(self, reply: dict[str, Any]) -> MacOSPresentationCapabilities:
         if reply.get("protocol_version") != OVERLAY_PROTOCOL_VERSION:

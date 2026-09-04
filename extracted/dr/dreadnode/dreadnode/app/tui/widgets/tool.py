@@ -31,6 +31,7 @@ from dreadnode.app.tui.theme import (
     FG_MUTED,
     FG_SUBTLE,
     LINK,
+    SYNTAX_THEME,
     WARNING,
 )
 
@@ -208,7 +209,7 @@ class ThemedMarkdown(Markdown):
     def __init__(
         self,
         markup: str,
-        code_theme: str = "monokai",
+        code_theme: str = SYNTAX_THEME,
         justify: JustifyMethod | None = None,
         style: str | Style = "none",
         hyperlinks: bool = True,

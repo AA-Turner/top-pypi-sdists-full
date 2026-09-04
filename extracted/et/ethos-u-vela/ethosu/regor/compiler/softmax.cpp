@@ -51,13 +51,7 @@ Operation *Softmax::ConvertOp(Operation *const operation)
         if ( ifm->Type() == ofm->Type() || (ifm->Type() == DataType::Int8 && ofm->Type() == DataType::Int16) )
         {
             // Reshape if needed
-            auto fullShape = Shape::PadAxes(ifmConn->shape, 4, 1);
-            if ( fullShape.Batch() > 1 )
-            {
-                fullShape = fullShape.WithHeight(fullShape.Batch() * fullShape.Height()).WithBatch(1);
-            }
-            ifmConn->shape = fullShape;
-            ofmConn->shape = std::move(fullShape);
+            ifmConn->shape = ofmConn->shape = ReshapeToHWC(ifmConn->shape);
 
             if ( ifm->Type() == DataType::Int8 || ifm->Type() == DataType::UInt8 )
             {
@@ -135,8 +129,6 @@ Operation *Softmax::GetGraph8Bit(Operation *const operation, TensorConnection *i
     const auto &tensorBaseName = ifmConn->tensor->Name();
     int tensorIdx = 0;
 
-    const Shape ifmShape3D = ReshapeTo3D(ifmConn->shape, {2, 1, 1}, 1);
-
     // PASS 0 - Depthwise Maxpool
     Operation *op;
     auto queryResult = _constraints->OperatorQuery(OpType::Transpose);
@@ -145,22 +137,22 @@ Operation *Softmax::GetGraph8Bit(Operation *const operation, TensorConnection *i
     Shape transposePerm;
     Shape maxPoolOFMStorageShape;
     // Determine transpose candidates and corresponding shapes
-    if ( ifmShape3D.Width() > 1 )
+    if ( ifmConn->shape.Width() > 1 )
     {
         transposePerm = {2, 0, 1};
-        transposeOFMShape = ifmShape3D.Extract(2, 0, 1);
+        transposeOFMShape = ifmConn->shape.Extract(2, 0, 1);
         maxPoolOFMStorageShape = Shape(1, transposeOFMShape.Width(), transposeOFMShape.Depth(), 1);
     }
     else
     {
         transposePerm = {2, 1, 0};
-        transposeOFMShape = ifmShape3D.Extract(2, 1, 0);
+        transposeOFMShape = ifmConn->shape.Extract(2, 1, 0);
         maxPoolOFMStorageShape = Shape(1, transposeOFMShape.Depth(), 1, 1);
     }
     // Insert transpose when it has native support if not a no-op and depth becomes large enough to benefit
     if ( hasFastTransposeSupport && ifmConn->shape.Depth() != ifmConn->shape.Elements() && transposeOFMShape.Depth() >= 16 )
     {
-        op = CreateTransposeMaxpool(operation, ifmConn, ifmShape3D, transposePerm, transposeOFMShape, maxPoolOFMStorageShape, noScaleQuant);
+        op = CreateTransposeMaxpool(operation, ifmConn, ifmConn->shape, transposePerm, transposeOFMShape, maxPoolOFMStorageShape, noScaleQuant);
     }
     else
     {

@@ -43,12 +43,6 @@ static const std::unordered_map<EthosU55NpuOp, std::unordered_map<DataType, read
             {DataType::Int8, s_defaultAllTypes},
             {DataType::Int16, s_defaultAllTypes},
         }},
-    {EthosU55NpuOp::VectorProduct,
-        {
-            {DataType::UInt8, s_defaultAllTypes},
-            {DataType::Int8, s_defaultAllTypes},
-            {DataType::Int16, s_defaultAllTypes},
-        }},
     {EthosU55NpuOp::Pooling,
         {
             {DataType::UInt8, s_defaultUInt8Only},
@@ -72,27 +66,6 @@ bool EthosU55Constraints::SupportsElementwiseLeakyRelu(bool quantized, DataType 
 {
     return quantized == false && type == DataType::Int16;
 }
-
-TransposeSupport EthosU55Constraints::SupportsFusedTranspose(OpType opType, TransposeType transposeType)
-{
-    if ( IsNone(transposeType) ) return TransposeSupport::Any;
-
-    if ( opType == OpType::Transpose )
-    {
-        if ( transposeType == TransposeType::NWHC || transposeType == TransposeType::NHCW || transposeType == TransposeType::NCWH )
-        {
-            return TransposeSupport::NHWC;
-        }
-    }
-    return TransposeSupport::None;
-}
-
-bool EthosU55Constraints::SupportsFusedReverse(OpType opType, ReverseType reverseTypeMask)
-{
-    UNUSED(opType);
-    return reverseTypeMask == ReverseType::None;
-}
-
 
 // Helpers for SupportsQuantization
 namespace
@@ -159,7 +132,8 @@ bool SupportedIFMQuant(OpType opType, const Quantization &ifmQuant, const Quanti
 bool SupportedOFMQuant(OpType opType, EthosU55NpuOp npuOp, const Quantization &ofmQuant, DataType ifmType, DataType ofmType)
 {
     // Reject per-channel scaling for opTypes that do not support it
-    if ( IsElementwise(opType) || opType == OpType::ReduceSum || opType == OpType::AvgPool || opType == OpType::Table || opType == OpType::MatMul )
+    if ( IsElementwise(opType) || opType == OpType::ReduceSum || opType == OpType::AvgPool ||
+         opType == OpType::MaxPool || opType == OpType::ReduceMax || opType == OpType::Table || opType == OpType::MatMul )
     {
         if ( ofmQuant.scales.size() > 1 )
         {
@@ -178,8 +152,9 @@ bool SupportedOFMQuant(OpType opType, EthosU55NpuOp npuOp, const Quantization &o
     {
         return false;
     }
-    if ( npuOp == EthosU55NpuOp::Convolution || npuOp == EthosU55NpuOp::Depthwise || npuOp == EthosU55NpuOp::VectorProduct ||
-         npuOp == EthosU55NpuOp::ReduceSum || (npuOp == EthosU55NpuOp::Pooling && opType != OpType::AvgPool) || opType == OpType::MatMul )
+    if ( npuOp == EthosU55NpuOp::Convolution || npuOp == EthosU55NpuOp::Depthwise || npuOp == EthosU55NpuOp::ReduceSum ||
+         (npuOp == EthosU55NpuOp::Pooling && opType != OpType::AvgPool && opType != OpType::MaxPool && opType != OpType::ReduceMax) ||
+         opType == OpType::MatMul )
     {
         return true;
     }

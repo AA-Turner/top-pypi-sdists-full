@@ -10,16 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlparse, urlunparse
 
-try:
-    import niquests as requests
-    from niquests import AsyncSession
-except ImportError:
-    import requests  # type: ignore[no-redef]
-
-    AsyncSession = None  # type: ignore[assignment,misc]  # async_fetch_session requires niquests
-
 from caldav.jmap.constants import CALENDAR_CAPABILITY
 from caldav.jmap.error import JMAPAuthError, JMAPCapabilityError
+from caldav.lib.http_sync import AsyncSession, requests
 
 
 @dataclass

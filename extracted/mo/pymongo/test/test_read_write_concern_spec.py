@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Run the read and write concern tests."""
+
 from __future__ import annotations
 
 import json
@@ -22,10 +23,6 @@ import warnings
 from pathlib import Path
 
 sys.path[0:0] = [""]
-
-from test import IntegrationTest, client_context, unittest
-from test.unified_format import generate_test_classes, get_test_path
-from test.utils_shared import OvertCommandListener
 
 from pymongo import DESCENDING
 from pymongo.errors import (
@@ -39,6 +36,9 @@ from pymongo.operations import IndexModel, InsertOne
 from pymongo.read_concern import ReadConcern
 from pymongo.synchronous.mongo_client import MongoClient
 from pymongo.write_concern import WriteConcern
+from test import IntegrationTest, client_context, unittest
+from test.unified_format import generate_test_classes, get_test_path
+from test.utils_shared import OvertCommandListener
 
 _IS_SYNC = True
 
@@ -108,7 +108,7 @@ class TestReadWriteConcernSpec(IntegrationTest):
             w=wc["w"], wTimeoutMS=wc["wtimeout"], socketTimeoutMS=30000
         )
         db = client.get_database("pymongo_test")
-        coll = db.test
+        coll = db.coll
 
         def insert_command():
             coll.database.command(
@@ -192,12 +192,12 @@ class TestReadWriteConcernSpec(IntegrationTest):
         with self.fail_point(cause_wce):
             # Write concern error on insert includes errInfo.
             with self.assertRaises(WriteConcernError) as ctx:
-                self.db.test.insert_one({})
+                self.db.coll.insert_one({})
             self.assertEqual(ctx.exception.details, expected_wce)
 
             # Test bulk_write as well.
             with self.assertRaises(BulkWriteError) as ctx:
-                self.db.test.bulk_write([InsertOne({})])
+                self.db.coll.bulk_write([InsertOne({})])
             expected_details = {
                 "writeErrors": [],
                 "writeConcernErrors": [expected_wce],
@@ -219,9 +219,9 @@ class TestReadWriteConcernSpec(IntegrationTest):
         db = client.errinfotest
         self.addCleanup(client.drop_database, "errinfotest")
         validator = {"x": {"$type": "string"}}
-        db.create_collection("test", validator=validator)
+        db.create_collection("coll", validator=validator)
         with self.assertRaises(WriteError) as ctx:
-            db.test.insert_one({"x": 1})
+            db.coll.insert_one({"x": 1})
         self.assertEqual(ctx.exception.code, 121)
         self.assertIsNotNone(ctx.exception.details)
         assert ctx.exception.details is not None

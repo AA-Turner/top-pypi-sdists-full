@@ -114,23 +114,30 @@
 //! - `machine_hood_of(name: str, known_machines: list[str]) -> str | None`
 //! - `validate_agent_name(name: str) -> None`
 //! - `validate_agent_username(username: str) -> None`
+//! - `validate_owner_root(root: str) -> None`
 //! - `validate_agent_owner(username: str, machine_name: str) -> None`
+//! - `validate_owned_agent_name(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> None`
 //! - `classify_agent_ownership(source_machine_name: str, target_username: str, target_machine_name: str, source_username: str | None = None) -> str`
 //! - `classify_legacy_v1_group_ownership(group_machine_name: str, target_username: str, target_machine_name: str, v2_hood_published: bool, proven_entry_count: int, total_entry_count: int) -> str`
 //! - `commit_shas_equivalent(left: str, right: str) -> bool`
 //! - `normalize_agent_archive_name(name: str) -> str`
+//! - `normalize_owned_agent_name(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> str`
 //! - `globalize_agent_name(local_name: str, username: str, machine_name: str) -> str`
+//! - `globalize_owned_agent_name(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> str`
 //! - `globalize_legacy_agent_name(legacy_name: str, username: str, machine_name: str) -> str`
+//! - `foreign_agent_owner_root(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> str | None`
 //! - `strip_global_agent_name(global_name: str, username: str, machine_name: str) -> str`
 //! - `localize_agent_name(global_name: str, source_machine_name: str, target_username: str, target_machine_name: str, source_username: str | None = None) -> str`
 //! - `parse_agent_family_name(name: str) -> dict`
-//! - `agent_local_hood(name: str) -> str`
-//! - `agent_name_in_hood(name: str, hood: str) -> bool`
-//! - `agent_name_ancestors(name: str) -> list[str]`
-//! - `agent_link_target(name: str, username: str, machine_name: str) -> dict`
+//! - `parse_owned_agent_name(name: str, known_owner_roots: list[str] | None = None) -> dict`
+//! - `agent_local_hood(name: str, known_owner_roots: list[str] | None = None) -> str`
+//! - `agent_name_in_hood(name: str, hood: str, known_owner_roots: list[str] | None = None) -> bool`
+//! - `agent_name_ancestors(name: str, known_owner_roots: list[str] | None = None) -> list[str]`
+//! - `agent_link_target(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> dict`
 //! - `agent_relationship_schema_version() -> int`
 //! - `validate_agent_relationship_batch(batch: dict) -> dict`
 //! - `rewrite_agent_relationship_batch(batch: dict, destination_ids: dict[str, str]) -> dict`
+//! - `project_agent_relationship_graph(batch: dict, destination_ids: dict[str, str], source_username: str, source_machine_name: str, destination_username: str, destination_machine_name: str, known_owner_roots: list[str] | None = None) -> dict`
 //! - `agent_launch_wire_schema_version() -> int`
 //! - `prepare_agent_launch(request: dict, python_executable: str, runner_script: str, output_root: str, sase_tmpdir: str | None = None, preallocated_env: dict | None = None) -> dict`
 //! - `spawn_prepared_agent_process(prepared: dict, env: dict, claim_callback: Callable[[int], bool] | None = None) -> int`
@@ -349,6 +356,11 @@
 //! - `referenced_by_block_remove(document: str) -> str`
 //! - `referenced_by_block_strip(document: str) -> str`
 //! - `artifact_link_row_schema_version() -> int`
+//! - `artifact_row_resolution_wire_schema_version() -> int`
+//! - `artifact_link_ref_parts(value: str) -> dict | None`
+//! - `artifact_row_index_keys(identities: list[dict]) -> list[list[list[str]]]`
+//! - `artifact_row_ref_lookup_keys(query: dict) -> list[list[str]]`
+//! - `artifact_row_resolve(query: dict, candidates: list[dict]) -> dict | None`
 //! - `artifact_link_canonicalize(value: str) -> str`
 //! - `artifact_link_validate_row(row: dict) -> dict`
 //! - `artifact_link_upsert_row(rows: list[dict], row: dict) -> dict`
@@ -436,22 +448,33 @@ use sase_core::agent_group_archive::{
 };
 use sase_core::agent_identity::{
     agent_link_target as core_agent_link_target,
+    agent_link_target_with_owner_roots as core_agent_link_target_with_owner_roots,
     agent_local_hood as core_agent_local_hood,
+    agent_local_hood_with_owner_roots as core_agent_local_hood_with_owner_roots,
     agent_name_ancestors as core_agent_name_ancestors,
+    agent_name_ancestors_with_owner_roots as core_agent_name_ancestors_with_owner_roots,
     agent_name_in_hood as core_agent_name_in_hood,
+    agent_name_in_hood_with_owner_roots as core_agent_name_in_hood_with_owner_roots,
     classify_agent_ownership as core_classify_agent_ownership,
     classify_legacy_v1_group_ownership as core_classify_legacy_v1_group_ownership,
+    foreign_agent_owner_root as core_foreign_agent_owner_root,
     globalize_agent_name as core_globalize_agent_name,
     globalize_legacy_agent_name as core_globalize_legacy_agent_name,
+    globalize_owned_agent_name as core_globalize_owned_agent_name,
     localize_agent_name as core_localize_agent_name,
     normalize_agent_archive_name as core_normalize_agent_archive_name,
+    normalize_owned_agent_name as core_normalize_owned_agent_name,
     parse_agent_family_name as core_parse_agent_family_name,
+    parse_owned_agent_name as core_parse_owned_agent_name,
+    project_agent_relationship_graph as core_project_agent_relationship_graph,
     rewrite_agent_relationship_batch as core_rewrite_agent_relationship_batch,
     strip_global_agent_name as core_strip_global_agent_name,
     validate_agent_name as core_validate_agent_name,
     validate_agent_relationship_batch as core_validate_agent_relationship_batch,
     validate_agent_username as core_validate_agent_username,
-    AgentOwnerIdentity, AgentRelationshipBatchWire, AgentSourceOwnerIdentity,
+    validate_owned_agent_name as core_validate_owned_agent_name,
+    validate_owner_root as core_validate_owner_root, AgentOwnerIdentity,
+    AgentRelationshipBatchWire, AgentSourceOwnerIdentity,
     LegacyV1GroupOwnershipEvidence, AGENT_RELATIONSHIP_SCHEMA_VERSION,
 };
 use sase_core::agent_launch::{
@@ -572,22 +595,28 @@ use sase_core::artifact_file::{
 };
 use sase_core::artifact_link::{
     artifact_md_path as core_artifact_md_path,
+    artifact_row_index_keys as core_artifact_row_index_keys,
+    artifact_row_ref_lookup_keys as core_artifact_row_ref_lookup_keys,
     builtin_artifact_relations as core_builtin_artifact_relations,
     canonicalize_artifact_link_ref as core_canonicalize_artifact_link_ref,
     companion_md_path as core_companion_md_path,
     lookup_artifact_relation as core_lookup_artifact_relation,
     parse_artifact_link_frontmatter_inlet as core_parse_artifact_link_frontmatter_inlet,
+    parse_artifact_link_ref_parts as core_parse_artifact_link_ref_parts,
     parse_links_block as core_parse_links_block,
     relation_label_from_perspective as core_relation_label_from_perspective,
     remove_links_block as core_remove_links_block,
     render_links_block as core_render_links_block,
+    resolve_artifact_row_identity as core_resolve_artifact_row_identity,
     strip_links_block as core_strip_links_block,
     upsert_artifact_link_row as core_upsert_artifact_link_row,
     upsert_links_block as core_upsert_links_block,
     validate_artifact_link_row as core_validate_artifact_link_row,
     ArtifactLinkError, ArtifactLinkOriginWire, ArtifactLinkRowWire,
-    ArtifactMdPathRequestWire, BeadLinkDirectionWire, ManagedTableTableWire,
+    ArtifactMdPathRequestWire, ArtifactRowIdentityWire,
+    ArtifactRowRefQueryWire, BeadLinkDirectionWire, ManagedTableTableWire,
     ARTIFACT_LINK_ROW_SCHEMA_VERSION,
+    ARTIFACT_ROW_RESOLUTION_WIRE_SCHEMA_VERSION,
 };
 use sase_core::artifact_object_store::{
     artifact_object_prompt_link as core_artifact_object_prompt_link,
@@ -1282,6 +1311,10 @@ fn identity_wire_to_py<'py, T: serde::Serialize>(
     json_value_to_py(py, &value)
 }
 
+fn optional_owner_roots(known_owner_roots: Option<Vec<String>>) -> Vec<String> {
+    known_owner_roots.unwrap_or_default()
+}
+
 #[pyfunction]
 #[pyo3(name = "validate_agent_username")]
 fn py_validate_agent_username(username: &str) -> PyResult<()> {
@@ -1290,10 +1323,37 @@ fn py_validate_agent_username(username: &str) -> PyResult<()> {
 }
 
 #[pyfunction]
+#[pyo3(name = "validate_owner_root")]
+fn py_validate_owner_root(root: &str) -> PyResult<()> {
+    core_validate_owner_root(root)
+        .map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
+#[pyfunction]
 #[pyo3(name = "validate_agent_name")]
 fn py_validate_agent_name(name: &str) -> PyResult<()> {
     core_validate_agent_name(name)
         .map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "validate_owned_agent_name",
+    signature = (name, username, machine_name, known_owner_roots = None)
+)]
+fn py_validate_owned_agent_name(
+    name: &str,
+    username: &str,
+    machine_name: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<()> {
+    let roots = optional_owner_roots(known_owner_roots);
+    core_validate_owned_agent_name(
+        name,
+        &explicit_owner(username, machine_name)?,
+        &roots,
+    )
+    .map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
 #[pyfunction]
@@ -1364,6 +1424,26 @@ fn py_normalize_agent_archive_name(name: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
+#[pyo3(
+    name = "normalize_owned_agent_name",
+    signature = (name, username, machine_name, known_owner_roots = None)
+)]
+fn py_normalize_owned_agent_name(
+    name: &str,
+    username: &str,
+    machine_name: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<String> {
+    let roots = optional_owner_roots(known_owner_roots);
+    core_normalize_owned_agent_name(
+        name,
+        &explicit_owner(username, machine_name)?,
+        &roots,
+    )
+    .map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
+#[pyfunction]
 #[pyo3(name = "globalize_agent_name")]
 fn py_globalize_agent_name(
     local_name: &str,
@@ -1378,6 +1458,26 @@ fn py_globalize_agent_name(
 }
 
 #[pyfunction]
+#[pyo3(
+    name = "globalize_owned_agent_name",
+    signature = (name, username, machine_name, known_owner_roots = None)
+)]
+fn py_globalize_owned_agent_name(
+    name: &str,
+    username: &str,
+    machine_name: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<String> {
+    let roots = optional_owner_roots(known_owner_roots);
+    core_globalize_owned_agent_name(
+        name,
+        &explicit_owner(username, machine_name)?,
+        &roots,
+    )
+    .map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
+#[pyfunction]
 #[pyo3(name = "globalize_legacy_agent_name")]
 fn py_globalize_legacy_agent_name(
     legacy_name: &str,
@@ -1387,6 +1487,26 @@ fn py_globalize_legacy_agent_name(
     core_globalize_legacy_agent_name(
         legacy_name,
         &explicit_owner(username, machine_name)?,
+    )
+    .map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "foreign_agent_owner_root",
+    signature = (name, username, machine_name, known_owner_roots = None)
+)]
+fn py_foreign_agent_owner_root(
+    name: &str,
+    username: &str,
+    machine_name: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<Option<String>> {
+    let roots = optional_owner_roots(known_owner_roots);
+    core_foreign_agent_owner_root(
+        name,
+        &explicit_owner(username, machine_name)?,
+        &roots,
     )
     .map_err(|error| PyValueError::new_err(error.to_string()))
 }
@@ -1443,37 +1563,83 @@ fn py_parse_agent_family_name(
 }
 
 #[pyfunction]
-#[pyo3(name = "agent_local_hood")]
-fn py_agent_local_hood(name: &str) -> PyResult<String> {
-    core_agent_local_hood(name)
-        .map_err(|error| PyValueError::new_err(error.to_string()))
+#[pyo3(name = "parse_owned_agent_name", signature = (name, known_owner_roots = None))]
+fn py_parse_owned_agent_name(
+    py: Python<'_>,
+    name: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<PyObject> {
+    let roots = optional_owner_roots(known_owner_roots);
+    let parsed = core_parse_owned_agent_name(name, &roots)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    identity_wire_to_py(py, &parsed)
 }
 
 #[pyfunction]
-#[pyo3(name = "agent_name_in_hood")]
-fn py_agent_name_in_hood(name: &str, hood: &str) -> PyResult<bool> {
-    core_agent_name_in_hood(name, hood)
-        .map_err(|error| PyValueError::new_err(error.to_string()))
+#[pyo3(name = "agent_local_hood", signature = (name, known_owner_roots = None))]
+fn py_agent_local_hood(
+    name: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<String> {
+    match known_owner_roots {
+        Some(roots) => core_agent_local_hood_with_owner_roots(name, &roots),
+        None => core_agent_local_hood(name),
+    }
+    .map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
 #[pyfunction]
-#[pyo3(name = "agent_name_ancestors")]
-fn py_agent_name_ancestors(name: &str) -> PyResult<Vec<String>> {
-    core_agent_name_ancestors(name)
-        .map_err(|error| PyValueError::new_err(error.to_string()))
+#[pyo3(
+    name = "agent_name_in_hood",
+    signature = (name, hood, known_owner_roots = None)
+)]
+fn py_agent_name_in_hood(
+    name: &str,
+    hood: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<bool> {
+    match known_owner_roots {
+        Some(roots) => {
+            core_agent_name_in_hood_with_owner_roots(name, hood, &roots)
+        }
+        None => core_agent_name_in_hood(name, hood),
+    }
+    .map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
 #[pyfunction]
-#[pyo3(name = "agent_link_target")]
+#[pyo3(name = "agent_name_ancestors", signature = (name, known_owner_roots = None))]
+fn py_agent_name_ancestors(
+    name: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<Vec<String>> {
+    match known_owner_roots {
+        Some(roots) => core_agent_name_ancestors_with_owner_roots(name, &roots),
+        None => core_agent_name_ancestors(name),
+    }
+    .map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "agent_link_target",
+    signature = (name, username, machine_name, known_owner_roots = None)
+)]
 fn py_agent_link_target(
     py: Python<'_>,
     name: &str,
     username: &str,
     machine_name: &str,
+    known_owner_roots: Option<Vec<String>>,
 ) -> PyResult<PyObject> {
-    let target =
-        core_agent_link_target(name, &explicit_owner(username, machine_name)?)
-            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    let owner = explicit_owner(username, machine_name)?;
+    let target = match known_owner_roots {
+        Some(roots) => {
+            core_agent_link_target_with_owner_roots(name, &owner, &roots)
+        }
+        None => core_agent_link_target(name, &owner),
+    }
+    .map_err(|error| PyValueError::new_err(error.to_string()))?;
     identity_wire_to_py(py, &target)
 }
 
@@ -1524,6 +1690,49 @@ fn py_rewrite_agent_relationship_batch(
         core_rewrite_agent_relationship_batch(&batch, &destination_ids)
             .map_err(|error| PyValueError::new_err(error.to_string()))?;
     identity_wire_to_py(py, &rewritten)
+}
+
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+#[pyo3(
+    name = "project_agent_relationship_graph",
+    signature = (
+        batch,
+        destination_ids,
+        source_username,
+        source_machine_name,
+        destination_username,
+        destination_machine_name,
+        known_owner_roots = None
+    )
+)]
+fn py_project_agent_relationship_graph(
+    py: Python<'_>,
+    batch: &Bound<'_, PyDict>,
+    destination_ids: &Bound<'_, PyDict>,
+    source_username: &str,
+    source_machine_name: &str,
+    destination_username: &str,
+    destination_machine_name: &str,
+    known_owner_roots: Option<Vec<String>>,
+) -> PyResult<PyObject> {
+    let batch = relationship_batch_from_pydict(batch)?;
+    let destination_ids = serde_json::from_value::<BTreeMap<String, String>>(
+        py_to_json_value(destination_ids.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!("invalid destination ID map: {error}"))
+    })?;
+    let roots = optional_owner_roots(known_owner_roots);
+    let projection = core_project_agent_relationship_graph(
+        &batch,
+        &destination_ids,
+        &explicit_owner(source_username, source_machine_name)?,
+        &explicit_owner(destination_username, destination_machine_name)?,
+        &roots,
+    )
+    .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    identity_wire_to_py(py, &projection)
 }
 
 #[pyfunction]
@@ -5123,11 +5332,125 @@ fn managed_table_from_pydict(
     })
 }
 
+fn artifact_row_identity_from_py(
+    value: &Bound<'_, PyAny>,
+    label: &str,
+) -> PyResult<ArtifactRowIdentityWire> {
+    serde_json::from_value(py_to_json_value(value)?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "{label} is not a valid ArtifactRowIdentityWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_row_identities_from_py_list(
+    list: &Bound<'_, PyList>,
+    label: &str,
+) -> PyResult<Vec<ArtifactRowIdentityWire>> {
+    let mut identities = Vec::with_capacity(list.len());
+    for (idx, item) in list.iter().enumerate() {
+        identities.push(artifact_row_identity_from_py(
+            &item,
+            &format!("{label}[{idx}]"),
+        )?);
+    }
+    Ok(identities)
+}
+
+fn artifact_row_ref_query_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactRowRefQueryWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "query is not a valid ArtifactRowRefQueryWire dict: {error}"
+        ))
+    })
+}
+
 /// Return the v2 artifact-link row schema version.
 #[pyfunction]
 #[pyo3(name = "artifact_link_row_schema_version")]
 fn py_artifact_link_row_schema_version() -> u64 {
     ARTIFACT_LINK_ROW_SCHEMA_VERSION
+}
+
+/// Return the artifact-row ref-resolution wire schema version.
+#[pyfunction]
+#[pyo3(name = "artifact_row_resolution_wire_schema_version")]
+fn py_artifact_row_resolution_wire_schema_version() -> u64 {
+    ARTIFACT_ROW_RESOLUTION_WIRE_SCHEMA_VERSION
+}
+
+/// Split an artifact-link ref string into canonical kind and payload.
+#[pyfunction]
+#[pyo3(name = "artifact_link_ref_parts")]
+fn py_artifact_link_ref_parts<'py>(
+    py: Python<'py>,
+    value: &str,
+) -> PyResult<Option<PyObject>> {
+    let Some(parsed) = core_parse_artifact_link_ref_parts(value) else {
+        return Ok(None);
+    };
+    let value = serde_json::to_value(parsed).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value).map(Some)
+}
+
+/// Return batched row-index lookup keys for frontend row identities.
+#[pyfunction]
+#[pyo3(name = "artifact_row_index_keys")]
+fn py_artifact_row_index_keys<'py>(
+    py: Python<'py>,
+    identities: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let identities =
+        artifact_row_identities_from_py_list(identities, "identities")?;
+    let batches: Vec<Vec<Vec<String>>> = identities
+        .iter()
+        .map(core_artifact_row_index_keys)
+        .collect();
+    let value = serde_json::to_value(batches).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return ordered lookup keys for one artifact-link ref query.
+#[pyfunction]
+#[pyo3(name = "artifact_row_ref_lookup_keys")]
+fn py_artifact_row_ref_lookup_keys<'py>(
+    py: Python<'py>,
+    query: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let query = artifact_row_ref_query_from_pydict(query)?;
+    let keys = core_artifact_row_ref_lookup_keys(&query);
+    let value = serde_json::to_value(keys).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Resolve one artifact-link ref query against candidate row identities.
+#[pyfunction]
+#[pyo3(name = "artifact_row_resolve")]
+fn py_artifact_row_resolve<'py>(
+    py: Python<'py>,
+    query: &Bound<'py, PyDict>,
+    candidates: &Bound<'py, PyList>,
+) -> PyResult<Option<PyObject>> {
+    let query = artifact_row_ref_query_from_pydict(query)?;
+    let candidates =
+        artifact_row_identities_from_py_list(candidates, "candidates")?;
+    let Some(resolved) =
+        core_resolve_artifact_row_identity(&query, &candidates)
+    else {
+        return Ok(None);
+    };
+    let value = serde_json::to_value(resolved).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value).map(Some)
 }
 
 /// Canonicalize one artifact-link ref, stripping `@` and rewriting aliases.
@@ -11312,6 +11635,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_machine_hood_of, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_agent_username, m)?)?;
+    m.add_function(wrap_pyfunction!(py_validate_owner_root, m)?)?;
+    m.add_function(wrap_pyfunction!(py_validate_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_agent_owner, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_agent_ownership, m)?)?;
     m.add_function(wrap_pyfunction!(
@@ -11320,11 +11645,15 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     m.add_function(wrap_pyfunction!(py_commit_shas_equivalent, m)?)?;
     m.add_function(wrap_pyfunction!(py_normalize_agent_archive_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_normalize_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_globalize_agent_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_globalize_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_globalize_legacy_agent_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_foreign_agent_owner_root, m)?)?;
     m.add_function(wrap_pyfunction!(py_strip_global_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_localize_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_agent_family_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_parse_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_local_hood, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_name_in_hood, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_name_ancestors, m)?)?;
@@ -11332,6 +11661,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_agent_relationship_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_agent_relationship_batch, m)?)?;
     m.add_function(wrap_pyfunction!(py_rewrite_agent_relationship_batch, m)?)?;
+    m.add_function(wrap_pyfunction!(py_project_agent_relationship_graph, m)?)?;
     m.add_function(wrap_pyfunction!(py_compose_snippet_catalog, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_snippet_trigger, m)?)?;
     m.add_function(wrap_pyfunction!(py_load_editor_snippet_catalog, m)?)?;
@@ -11645,6 +11975,14 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_referenced_by_block_remove, m)?)?;
     m.add_function(wrap_pyfunction!(py_referenced_by_block_strip, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_link_row_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_row_resolution_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_ref_parts, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_row_index_keys, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_row_ref_lookup_keys, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_row_resolve, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_link_canonicalize, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_link_validate_row, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_link_upsert_row, m)?)?;
@@ -12953,16 +13291,22 @@ mod tests {
             for name in [
                 "validate_agent_name",
                 "validate_agent_username",
+                "validate_owner_root",
+                "validate_owned_agent_name",
                 "validate_agent_owner",
                 "classify_agent_ownership",
                 "classify_legacy_v1_group_ownership",
                 "commit_shas_equivalent",
                 "normalize_agent_archive_name",
+                "normalize_owned_agent_name",
                 "globalize_agent_name",
+                "globalize_owned_agent_name",
                 "globalize_legacy_agent_name",
+                "foreign_agent_owner_root",
                 "strip_global_agent_name",
                 "localize_agent_name",
                 "parse_agent_family_name",
+                "parse_owned_agent_name",
                 "agent_local_hood",
                 "agent_name_in_hood",
                 "agent_name_ancestors",
@@ -12970,14 +13314,31 @@ mod tests {
                 "agent_relationship_schema_version",
                 "validate_agent_relationship_batch",
                 "rewrite_agent_relationship_batch",
+                "project_agent_relationship_graph",
             ] {
                 assert!(module.getattr(name).is_ok(), "missing {name}");
             }
 
             py_validate_agent_username("alice").unwrap();
             assert!(py_validate_agent_username("Alice").is_err());
+            py_validate_owner_root("alice.athena").unwrap();
+            assert!(py_validate_owner_root("bad/root").is_err());
             py_validate_agent_name("foo.bar--code").unwrap();
             assert!(py_validate_agent_name("foo--code.bar").is_err());
+            py_validate_owned_agent_name(
+                "athena.foo",
+                "alice",
+                "athena",
+                Some(vec!["zeus".to_string()]),
+            )
+            .unwrap();
+            assert!(py_validate_owned_agent_name(
+                "zeus.foo",
+                "alice",
+                "athena",
+                Some(vec!["zeus".to_string()]),
+            )
+            .is_err());
             py_validate_agent_owner("alice", "athena").unwrap();
             assert!(py_validate_agent_owner("alice", "athena1").is_err());
             assert_eq!(
@@ -13013,6 +13374,16 @@ mod tests {
                 "d7e06b77b42d89ecf4bb1538c6f89c6fe700124e",
             ));
             assert_eq!(
+                py_normalize_owned_agent_name(
+                    "alice.athena.foo",
+                    "alice",
+                    "athena",
+                    Some(vec!["alice.athena".to_string()]),
+                )
+                .unwrap(),
+                "foo"
+            );
+            assert_eq!(
                 py_globalize_agent_name(
                     "260722.foo.bar--code",
                     "alice",
@@ -13020,6 +13391,26 @@ mod tests {
                 )
                 .unwrap(),
                 "alice.athena.foo.bar--code"
+            );
+            assert_eq!(
+                py_globalize_owned_agent_name(
+                    "260722.athena.foo",
+                    "alice",
+                    "athena",
+                    Some(vec!["athena".to_string()]),
+                )
+                .unwrap(),
+                "260722.alice.athena.foo"
+            );
+            assert_eq!(
+                py_foreign_agent_owner_root(
+                    "bob.athena.foo",
+                    "alice",
+                    "athena",
+                    Some(vec!["bob.athena".to_string()]),
+                )
+                .unwrap(),
+                Some("bob.athena".to_string())
             );
             assert_eq!(
                 py_localize_agent_name(
@@ -13053,15 +13444,49 @@ mod tests {
                     "member_role": "plan"
                 })
             );
-            assert_eq!(py_agent_local_hood("4x--epic.f-0").unwrap(), "4x");
-            assert!(py_agent_name_in_hood("fi--code.f0--code", "fi").unwrap());
+            let owned = py_parse_owned_agent_name(
+                py,
+                "athena.4x--epic.f-0",
+                Some(vec!["athena".to_string()]),
+            )
+            .unwrap();
             assert_eq!(
-                py_agent_name_ancestors("fi--code.f0--code").unwrap(),
+                py_to_json_value(owned.bind(py)).unwrap(),
+                json!({
+                    "owner_root": "athena",
+                    "local_name": "4x--epic.f-0",
+                    "hood": "4x",
+                    "family_name": "4x--epic.f-0",
+                    "member_role": null
+                })
+            );
+            assert_eq!(
+                py_agent_local_hood("4x--epic.f-0", None).unwrap(),
+                "4x"
+            );
+            assert_eq!(
+                py_agent_local_hood(
+                    "athena.4x--epic.f-0",
+                    Some(vec!["athena".to_string()])
+                )
+                .unwrap(),
+                "4x"
+            );
+            assert!(
+                py_agent_name_in_hood("fi--code.f0--code", "fi", None).unwrap()
+            );
+            assert_eq!(
+                py_agent_name_ancestors("fi--code.f0--code", None).unwrap(),
                 ["fi", "fi--code.f0"]
             );
-            let link =
-                py_agent_link_target(py, "foo.bar--code", "alice", "athena")
-                    .unwrap();
+            let link = py_agent_link_target(
+                py,
+                "foo.bar--code",
+                "alice",
+                "athena",
+                None,
+            )
+            .unwrap();
             assert_eq!(
                 py_to_json_value(link.bind(py)).unwrap(),
                 json!({
@@ -13153,6 +13578,27 @@ mod tests {
             assert_eq!(
                 rewritten["relationships"][0]["target"]["destination_run_id"],
                 json!("dest-1")
+            );
+            let projected = py_project_agent_relationship_graph(
+                py,
+                batch,
+                mapping,
+                "alice",
+                "athena",
+                "alice",
+                "hera",
+                Some(vec!["athena".to_string()]),
+            )
+            .unwrap();
+            let projected = py_to_json_value(projected.bind(py)).unwrap();
+            assert_eq!(projected["registry_namespace_root"], json!("athena"));
+            assert_eq!(
+                projected["runs"][1]["localized_name"],
+                json!("athena.foo--code")
+            );
+            assert_eq!(
+                projected["relationships"][0]["target"]["localized_name"],
+                json!("athena.foo")
             );
 
             let malformed_obj = json_value_to_py(
@@ -15520,6 +15966,11 @@ MENTORS:
 
             for name in [
                 "artifact_link_row_schema_version",
+                "artifact_row_resolution_wire_schema_version",
+                "artifact_link_ref_parts",
+                "artifact_row_index_keys",
+                "artifact_row_ref_lookup_keys",
+                "artifact_row_resolve",
                 "artifact_link_canonicalize",
                 "artifact_link_validate_row",
                 "artifact_link_upsert_row",
@@ -15538,6 +15989,56 @@ MENTORS:
                 assert!(module.getattr(name).is_ok(), "missing {name}");
             }
             assert_eq!(py_artifact_link_row_schema_version(), 2);
+            assert_eq!(py_artifact_row_resolution_wire_schema_version(), 1);
+            let ref_parts =
+                py_artifact_link_ref_parts(py, "@plans:202609/a.md#section")
+                    .unwrap()
+                    .unwrap();
+            let ref_parts = py_to_json_value(ref_parts.bind(py)).unwrap();
+            assert_eq!(ref_parts["schema_version"], json!(1));
+            assert_eq!(ref_parts["kind"], json!("plan"));
+            assert_eq!(ref_parts["payload"], json!("202609/a.md"));
+
+            let identities_value = json!([
+                {"pane_id": "patches", "parts": ["alpha", "same"]},
+                {"pane_id": "patches", "parts": ["beta", "same"]},
+                {"pane_id": "files", "parts": ["doc", "v1"]}
+            ]);
+            let identities_object =
+                json_value_to_py(py, &identities_value).unwrap();
+            let identities =
+                identities_object.bind(py).downcast::<PyList>().unwrap();
+            let index_keys =
+                py_artifact_row_index_keys(py, identities).unwrap();
+            let index_keys = py_to_json_value(index_keys.bind(py)).unwrap();
+            assert!(index_keys[2]
+                .as_array()
+                .unwrap()
+                .contains(&json!(["files.id", "doc"])));
+
+            let row_query_value = json!({
+                "schema_version": 1,
+                "kind": "patch",
+                "payload": "same",
+                "project_hint": "beta"
+            });
+            let row_query_object =
+                json_value_to_py(py, &row_query_value).unwrap();
+            let row_query =
+                row_query_object.bind(py).downcast::<PyDict>().unwrap();
+            let lookup_keys =
+                py_artifact_row_ref_lookup_keys(py, row_query).unwrap();
+            let lookup_keys = py_to_json_value(lookup_keys.bind(py)).unwrap();
+            assert_eq!(
+                lookup_keys[0],
+                json!(["patches.project.name", "beta", "same"])
+            );
+            let resolved = py_artifact_row_resolve(py, row_query, identities)
+                .unwrap()
+                .unwrap();
+            let resolved = py_to_json_value(resolved.bind(py)).unwrap();
+            assert_eq!(resolved["pane_id"], json!("patches"));
+            assert_eq!(resolved["parts"], json!(["beta", "same"]));
             assert_eq!(
                 py_artifact_link_canonicalize("plans:202608/report.md")
                     .unwrap(),

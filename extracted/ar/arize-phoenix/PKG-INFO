@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix
-Version: 20.6.0
+Version: 20.7.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -30,7 +30,7 @@ Requires-Dist: bashkit!=0.14.2,>=0.10.0
 Requires-Dist: cachetools
 Requires-Dist: email-validator
 Requires-Dist: fastapi>=0.137.0
-Requires-Dist: fastmcp-slim[client,server]<4,>=3.4.2
+Requires-Dist: fastmcp-slim[client,server]<5,>=4
 Requires-Dist: grpc-interceptor
 Requires-Dist: grpcio
 Requires-Dist: httpx[http2]
@@ -42,8 +42,8 @@ Requires-Dist: jsonschema
 Requires-Dist: ldap3
 Requires-Dist: numpy
 Requires-Dist: openinference-instrumentation-openai>=0.1.41
-Requires-Dist: openinference-instrumentation>=0.1.44
-Requires-Dist: openinference-semantic-conventions>=0.1.26
+Requires-Dist: openinference-instrumentation>=0.1.60
+Requires-Dist: openinference-semantic-conventions>=0.1.34
 Requires-Dist: opentelemetry-exporter-otlp
 Requires-Dist: opentelemetry-proto>=1.12.0
 Requires-Dist: opentelemetry-sdk
@@ -53,7 +53,7 @@ Requires-Dist: prometheus-client
 Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic-ai-slim[anthropic,bedrock,google,mcp,openai,ui]<3,>=2.34.0
-Requires-Dist: pydantic-monty==0.0.19
+Requires-Dist: pydantic-monty==0.0.21
 Requires-Dist: pydantic>=2.1.0
 Requires-Dist: pystache
 Requires-Dist: python-dateutil

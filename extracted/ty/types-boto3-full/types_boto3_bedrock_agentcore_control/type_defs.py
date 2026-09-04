@@ -41,6 +41,7 @@ from .literals import (
     CodeInterpreterNetworkModeType,
     CodeInterpreterStatusType,
     ConfigurationBundleStatusType,
+    ConsentPortalStatusType,
     ContentLevelType,
     CredentialProviderTypeType,
     CredentialProviderVendorTypeType,
@@ -106,6 +107,7 @@ from .literals import (
     RegistryStatusType,
     ResourceTypeType,
     RestApiMethodType,
+    ResultDestinationType,
     SchemaTypeType,
     SecretSourceTypeType,
     ServerProtocolType,
@@ -224,6 +226,11 @@ __all__ = (
     "ConnectorSourceTypeDef",
     "ConnectorTargetConfigurationOutputTypeDef",
     "ConnectorTargetConfigurationTypeDef",
+    "ConsentPortalIdpConfigOutputTypeDef",
+    "ConsentPortalIdpConfigTypeDef",
+    "ConsentPortalIdpConfigUnionTypeDef",
+    "ConsentPortalSourceTypeDef",
+    "ConsentPortalSummaryTypeDef",
     "ConsolidationConfigurationTypeDef",
     "ContainerConfigurationTypeDef",
     "ContentConfigurationTypeDef",
@@ -244,6 +251,8 @@ __all__ = (
     "CreateCodeInterpreterResponseTypeDef",
     "CreateConfigurationBundleRequestTypeDef",
     "CreateConfigurationBundleResponseTypeDef",
+    "CreateConsentPortalRequestTypeDef",
+    "CreateConsentPortalResponseTypeDef",
     "CreateDatasetRequestTypeDef",
     "CreateDatasetResponseTypeDef",
     "CreateDatasetVersionRequestTypeDef",
@@ -330,6 +339,7 @@ __all__ = (
     "DeleteCodeInterpreterResponseTypeDef",
     "DeleteConfigurationBundleRequestTypeDef",
     "DeleteConfigurationBundleResponseTypeDef",
+    "DeleteConsentPortalRequestTypeDef",
     "DeleteDatasetExamplesRequestTypeDef",
     "DeleteDatasetExamplesResponseTypeDef",
     "DeleteDatasetRequestTypeDef",
@@ -435,6 +445,8 @@ __all__ = (
     "GetConfigurationBundleResponseTypeDef",
     "GetConfigurationBundleVersionRequestTypeDef",
     "GetConfigurationBundleVersionResponseTypeDef",
+    "GetConsentPortalRequestTypeDef",
+    "GetConsentPortalResponseTypeDef",
     "GetDatasetRequestTypeDef",
     "GetDatasetResponseTypeDef",
     "GetEvaluatorRequestTypeDef",
@@ -647,6 +659,9 @@ __all__ = (
     "ListConfigurationBundlesRequestPaginateTypeDef",
     "ListConfigurationBundlesRequestTypeDef",
     "ListConfigurationBundlesResponseTypeDef",
+    "ListConsentPortalsRequestPaginateTypeDef",
+    "ListConsentPortalsRequestTypeDef",
+    "ListConsentPortalsResponseTypeDef",
     "ListDatasetExamplesRequestPaginateTypeDef",
     "ListDatasetExamplesRequestTypeDef",
     "ListDatasetExamplesResponseTypeDef",
@@ -981,6 +996,8 @@ __all__ = (
     "UpdateCapacityProviderOutputTypeDef",
     "UpdateConfigurationBundleRequestTypeDef",
     "UpdateConfigurationBundleResponseTypeDef",
+    "UpdateConsentPortalRequestTypeDef",
+    "UpdateConsentPortalResponseTypeDef",
     "UpdateDatasetExamplesRequestTypeDef",
     "UpdateDatasetExamplesResponseTypeDef",
     "UpdateDatasetRequestTypeDef",
@@ -1289,17 +1306,21 @@ class ClaimMatchValueTypeTypeDef(TypedDict):
 
 
 class CloudWatchLogsInputConfigOutputTypeDef(TypedDict):
-    logGroupNames: list[str]
     serviceNames: list[str]
+    logGroupNames: NotRequired[list[str]]
+    logGroupNamePrefixes: NotRequired[list[str]]
 
 
 class CloudWatchLogsInputConfigTypeDef(TypedDict):
-    logGroupNames: Sequence[str]
     serviceNames: Sequence[str]
+    logGroupNames: NotRequired[Sequence[str]]
+    logGroupNamePrefixes: NotRequired[Sequence[str]]
 
 
 class CloudWatchOutputConfigTypeDef(TypedDict):
-    logGroupName: str
+    logGroupName: NotRequired[str]
+    metricsNamespace: NotRequired[str]
+    resultDestination: NotRequired[ResultDestinationType]
 
 
 class ClusteringConfigOutputTypeDef(TypedDict):
@@ -1376,6 +1397,25 @@ class ConnectorSourceTypeDef(TypedDict):
     version: NotRequired[str]
 
 
+class ConsentPortalIdpConfigOutputTypeDef(TypedDict):
+    credentialProviderArn: str
+    scopes: list[str]
+    audience: NotRequired[str]
+
+
+class ConsentPortalIdpConfigTypeDef(TypedDict):
+    credentialProviderArn: str
+    scopes: Sequence[str]
+    audience: NotRequired[str]
+
+
+ConsentPortalSourceTypeDef = TypedDict(
+    "ConsentPortalSourceTypeDef",
+    {
+        "identifier": str,
+        "type": Literal["agentcore-gateway"],
+    },
+)
 ContentConfigurationTypeDef = TypedDict(
     "ContentConfigurationTypeDef",
     {
@@ -1677,6 +1717,10 @@ class DeleteConfigurationBundleRequestTypeDef(TypedDict):
     bundleId: str
 
 
+class DeleteConsentPortalRequestTypeDef(TypedDict):
+    consentPortalIdentifier: str
+
+
 class DeleteDatasetExamplesRequestTypeDef(TypedDict):
     datasetId: str
     exampleIds: Sequence[str]
@@ -1935,6 +1979,10 @@ class GetConfigurationBundleRequestTypeDef(TypedDict):
 class GetConfigurationBundleVersionRequestTypeDef(TypedDict):
     bundleId: str
     versionId: str
+
+
+class GetConsentPortalRequestTypeDef(TypedDict):
+    consentPortalIdentifier: str
 
 
 class GetDatasetRequestTypeDef(TypedDict):
@@ -2373,6 +2421,11 @@ class VersionFilterTypeDef(TypedDict):
 class ListConfigurationBundlesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+
+class ListConsentPortalsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ListDatasetExamplesRequestTypeDef(TypedDict):
@@ -3869,6 +3922,71 @@ class ConnectorConfigurationTypeDef(TypedDict):
     parameterOverrides: NotRequired[Sequence[ConnectorParameterOverrideTypeDef]]
 
 
+ConsentPortalIdpConfigUnionTypeDef = Union[
+    ConsentPortalIdpConfigTypeDef, ConsentPortalIdpConfigOutputTypeDef
+]
+
+
+class ConsentPortalSummaryTypeDef(TypedDict):
+    sources: list[ConsentPortalSourceTypeDef]
+    consentPortalArn: str
+    consentPortalId: str
+    createdAt: datetime
+    name: str
+    status: ConsentPortalStatusType
+    updatedAt: datetime
+    description: NotRequired[str]
+    portalUrl: NotRequired[str]
+
+
+class CreateConsentPortalResponseTypeDef(TypedDict):
+    sources: list[ConsentPortalSourceTypeDef]
+    consentPortalArn: str
+    consentPortalId: str
+    createdAt: datetime
+    description: str
+    executionRoleArn: str
+    idpConfig: ConsentPortalIdpConfigOutputTypeDef
+    name: str
+    portalUrl: str
+    status: ConsentPortalStatusType
+    statusReason: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetConsentPortalResponseTypeDef(TypedDict):
+    sources: list[ConsentPortalSourceTypeDef]
+    consentPortalArn: str
+    consentPortalId: str
+    createdAt: datetime
+    description: str
+    executionRoleArn: str
+    idpConfig: ConsentPortalIdpConfigOutputTypeDef
+    name: str
+    portalUrl: str
+    status: ConsentPortalStatusType
+    statusReason: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateConsentPortalResponseTypeDef(TypedDict):
+    sources: list[ConsentPortalSourceTypeDef]
+    consentPortalArn: str
+    consentPortalId: str
+    createdAt: datetime
+    description: str
+    executionRoleArn: str
+    idpConfig: ConsentPortalIdpConfigOutputTypeDef
+    name: str
+    portalUrl: str
+    status: ConsentPortalStatusType
+    statusReason: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class KinesisResourceOutputTypeDef(TypedDict):
     dataStreamArn: str
     contentConfigurations: list[ContentConfigurationTypeDef]
@@ -4402,6 +4520,10 @@ ListCodeInterpretersRequestPaginateTypeDef = TypedDict(
 
 
 class ListConfigurationBundlesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListConsentPortalsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -4975,6 +5097,28 @@ class ConnectorTargetConfigurationTypeDef(TypedDict):
     source: ConnectorSourceTypeDef
     enabled: NotRequired[Sequence[str]]
     configurations: NotRequired[Sequence[ConnectorConfigurationTypeDef]]
+
+
+class CreateConsentPortalRequestTypeDef(TypedDict):
+    executionRoleArn: str
+    idpConfig: ConsentPortalIdpConfigUnionTypeDef
+    name: str
+    sources: Sequence[ConsentPortalSourceTypeDef]
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateConsentPortalRequestTypeDef(TypedDict):
+    consentPortalIdentifier: str
+    executionRoleArn: NotRequired[str]
+    idpConfig: NotRequired[ConsentPortalIdpConfigUnionTypeDef]
+    description: NotRequired[str]
+
+
+class ListConsentPortalsResponseTypeDef(TypedDict):
+    consentPortals: list[ConsentPortalSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class StreamDeliveryResourceOutputTypeDef(TypedDict):
@@ -6070,6 +6214,7 @@ class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     evaluators: NotRequired[Sequence[EvaluatorReferenceTypeDef]]
     insights: NotRequired[Sequence[InsightTypeDef]]
     clusteringConfig: NotRequired[ClusteringConfigUnionTypeDef]
+    outputConfig: NotRequired[OutputConfigTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -6082,6 +6227,7 @@ class UpdateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     evaluators: NotRequired[Sequence[EvaluatorReferenceTypeDef]]
     insights: NotRequired[Sequence[InsightTypeDef]]
     clusteringConfig: NotRequired[ClusteringConfigUnionTypeDef]
+    outputConfig: NotRequired[OutputConfigTypeDef]
     evaluationExecutionRoleArn: NotRequired[str]
     executionStatus: NotRequired[OnlineEvaluationExecutionStatusType]
 

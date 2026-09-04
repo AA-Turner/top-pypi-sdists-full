@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibmmq
-Version: 2.1.0
+Version: 2.1.1
 Summary: Python Extension for IBM MQ
 Home-page: https://ibm.com/software/products/en/ibm-mq
 Download-URL: https://github.com/ibm-messaging/mq-mqi-python

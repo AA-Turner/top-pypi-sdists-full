@@ -10,13 +10,13 @@ from hypothesis.stateful import Bundle
 from hypothesis.stateful import RuleBasedStateMachine
 from hypothesis.stateful import rule
 
-import vdirsyncer.vobject as vobject
 from tests import BARE_EVENT_TEMPLATE
 from tests import EVENT_TEMPLATE
 from tests import EVENT_WITH_TIMEZONE_TEMPLATE
 from tests import VCARD_TEMPLATE
 from tests import normalize_item
 from tests import uid_strategy
+from vdirsyncer import vobject
 
 _simple_split = [
     VCARD_TEMPLATE.format(r=123, uid=123),
@@ -25,7 +25,7 @@ _simple_split = [
 ]
 
 _simple_joined = "\r\n".join(
-    ["BEGIN:VADDRESSBOOK"] + _simple_split + ["END:VADDRESSBOOK\r\n"]
+    ["BEGIN:VADDRESSBOOK", *_simple_split, "END:VADDRESSBOOK\r\n"]
 )
 
 
@@ -124,13 +124,11 @@ def test_split_collection_timezones():
         "END:VTIMEZONE"
     )
 
-    full = "\r\n".join(["BEGIN:VCALENDAR"] + items + [timezone, "END:VCALENDAR"])
+    full = "\r\n".join(["BEGIN:VCALENDAR", *items, timezone, "END:VCALENDAR"])
 
     given = {normalize_item(item) for item in vobject.split_collection(full)}
     expected = {
-        normalize_item(
-            "\r\n".join(("BEGIN:VCALENDAR", item, timezone, "END:VCALENDAR"))
-        )
+        normalize_item(f"BEGIN:VCALENDAR\r\n{item}\r\n{timezone}\r\nEND:VCALENDAR")
         for item in items
     }
 
@@ -305,6 +303,14 @@ value_strategy = st.text(
 ).filter(lambda x: x.strip() == x)
 
 
+def _is_valid_prop_key(key: str) -> bool:
+    """Excluse keys that look like a component boundary."""
+    return key not in ("BEGIN", "END") and not key.startswith(("BEGIN:", "END:"))
+
+
+prop_key_strategy = uid_strategy.filter(_is_valid_prop_key)
+
+
 class VobjectMachine(RuleBasedStateMachine):
     Unparsed = Bundle("unparsed")
     Parsed = Bundle("parsed")
@@ -328,18 +334,19 @@ class VobjectMachine(RuleBasedStateMachine):
     def serialize(self, parsed):
         return list(parsed.dump_lines())
 
-    @rule(c=Parsed, key=uid_strategy, value=uid_strategy)
+    @rule(c=Parsed, key=prop_key_strategy, value=uid_strategy)
     def add_prop(self, c, key, value):
         c[key] = value
         assert c[key] == value
         assert key in c
         assert c.get(key) == value
         dump = "\r\n".join(c.dump_lines())
-        assert key in dump and value in dump
+        assert key in dump
+        assert value in dump
 
     @rule(
         c=Parsed,
-        key=uid_strategy,
+        key=prop_key_strategy,
         value=uid_strategy,
         params=st.lists(st.tuples(value_strategy, value_strategy)),
     )
@@ -382,4 +389,4 @@ def test_component_contains():
     assert "BAZ" not in item
 
     with pytest.raises(ValueError):
-        42 in item  # noqa: B015
+        42 in item  # noqa: B015, this check raises.

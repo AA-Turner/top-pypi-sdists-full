@@ -2652,6 +2652,66 @@ class primitive_plane_add(bpy.ops._BPyOpsSubModOp):
                 :return: Result of the operator call.
         """
 
+class primitive_quad_sphere_add(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+        *,
+        segments: int | None = 4,
+        method: typing.Literal["EVEN_AREA", "EVEN_ANGLE"] | None = "EVEN_AREA",
+        radius: float | None = 1.0,
+        calc_uvs: bool | None = True,
+        enter_editmode: bool | None = False,
+        align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
+        location: collections.abc.Sequence[float] | mathutils.Vector | None = (
+            0.0,
+            0.0,
+            0.0,
+        ),
+        rotation: collections.abc.Sequence[float] | mathutils.Euler | None = (
+            0.0,
+            0.0,
+            0.0,
+        ),
+        scale: collections.abc.Sequence[float] | mathutils.Vector | None = (
+            0.0,
+            0.0,
+            0.0,
+        ),
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Construct a spherical mesh from a subdivided cube, consisting entirely of four-sided faces
+
+                :param execution_context:
+                :param undo:
+                :param segments: Segments, (in [1, 500], optional)
+                :param method: Method, Mapping from the cube onto the sphere (optional)
+
+        EVEN_AREA
+        Even Area -- Distribute the area evenly between faces.
+
+        EVEN_ANGLE
+        Even Angle -- Distribute vertices at an even angle, spacing each axis as an exact circle.
+                :param radius: Radius, (in [0, inf], optional)
+                :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+                :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+                :param align: Align, The alignment of the new object (optional)
+
+        WORLD
+        World -- Align the new object to the world.
+
+        VIEW
+        View -- Align the new object to the view.
+
+        CURSOR
+        3D Cursor -- Use the 3D cursor orientation for the new object.
+                :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+                :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+                :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+                :return: Result of the operator call.
+        """
+
 class primitive_torus_add(bpy.ops._BPyOpsSubModOp):
     def __new__(
         cls,

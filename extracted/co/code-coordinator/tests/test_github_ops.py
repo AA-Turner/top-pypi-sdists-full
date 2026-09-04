@@ -2524,6 +2524,71 @@ class TestGetPrHeadRef:
             assert github_ops.get_pr_head_ref("acme/api", 42) is None
 
 
+class TestGetPrDeploymentUrl:
+    """#2948: the live GitHub-Deployment lookup that replaced the
+    ``{pr_branch_slug}`` Cloudflare-Pages template placeholder — confirmed
+    live to never resolve for a real project (see docs/CUSTOMER_FACING_APPS.md
+    §1 and coord.models.Repo.uat_preview's docstring)."""
+
+    def test_matches_preview_environment_not_recency(self) -> None:
+        # A production deployment (id 2) is newer/first in the list — must
+        # be skipped in favour of the "(Preview)" one, not picked for being
+        # first.
+        deployments = json.dumps([
+            {"id": 2, "environment": "natal-chart (Production)"},
+            {"id": 1, "environment": "natal-chart (Preview)"},
+        ])
+        statuses = json.dumps([
+            {"environment_url": "https://abc123.natal-chart-3ew.pages.dev"},
+        ])
+        with patch(
+            "coord.github_ops._gh", side_effect=[deployments, statuses],
+        ) as mock_gh:
+            url = github_ops.get_pr_deployment_url("acme/natal-chart", "issue-1-x")
+        assert url == "https://abc123.natal-chart-3ew.pages.dev"
+        assert mock_gh.call_count == 2
+        assert mock_gh.call_args_list[0].args[1] == (
+            "repos/acme/natal-chart/deployments?ref=issue-1-x"
+        )
+        assert mock_gh.call_args_list[1].args[1] == (
+            "repos/acme/natal-chart/deployments/1/statuses"
+        )
+
+    def test_skips_non_preview_environment_deployments(self) -> None:
+        deployments = json.dumps([{"id": 5, "environment": "natal-chart (Production)"}])
+        with patch("coord.github_ops._gh", return_value=deployments):
+            assert github_ops.get_pr_deployment_url("acme/natal-chart", "main") is None
+
+    def test_returns_none_when_no_deployments(self) -> None:
+        with patch("coord.github_ops._gh", return_value="[]"):
+            assert github_ops.get_pr_deployment_url("acme/api", "issue-1-x") is None
+
+    def test_returns_none_on_gh_failure(self) -> None:
+        with patch("coord.github_ops._gh", side_effect=RuntimeError("gh boom")):
+            assert github_ops.get_pr_deployment_url("acme/api", "issue-1-x") is None
+
+    def test_returns_none_when_matched_deployment_has_no_status_url_yet(self) -> None:
+        deployments = json.dumps([{"id": 1, "environment": "api (Preview)"}])
+        statuses = json.dumps([{"state": "pending"}])  # no environment_url yet
+        with patch("coord.github_ops._gh", side_effect=[deployments, statuses]):
+            assert github_ops.get_pr_deployment_url("acme/api", "issue-1-x") is None
+
+    def test_falls_through_to_next_preview_deployment_on_malformed_statuses(self) -> None:
+        deployments = json.dumps([
+            {"id": 1, "environment": "api (Preview)"},
+            {"id": 2, "environment": "api (Preview)"},
+        ])
+        with patch(
+            "coord.github_ops._gh",
+            side_effect=[
+                deployments, "not json",
+                json.dumps([{"environment_url": "https://ok.example"}]),
+            ],
+        ):
+            url = github_ops.get_pr_deployment_url("acme/api", "issue-1-x")
+        assert url == "https://ok.example"
+
+
 class TestGetRepoWorkflowCount:
     """#1904: backs `GitHubCi.expects_checks` — the signal that tells "no CI
     configured for this repo" apart from "CI exists but never triggered"
@@ -2938,3 +3003,88 @@ class TestDiffPureRenames:
     def test_no_renames_in_a_plain_diff(self) -> None:
         diff = "diff --git a/src/foo.py b/src/foo.py\n"
         assert github_ops.diff_pure_renames(diff) == []
+
+
+class TestGetRepoMilestonesWithCounts:
+    """#3072: the roster projection — milestones plus GitHub's own open/closed
+    issue counters, backing ``GET /api/milestones`` on ``coord web``."""
+
+    def test_parses_the_jq_output_and_keeps_githubs_counts(self) -> None:
+        jq_output = (
+            '{"number": 4, "title": "ms-4", "state": "open", '
+            '"open_issues": 3, "closed_issues": 1, "description": ""}\n'
+            '{"number": 9, "title": "ms-9", "state": "closed", '
+            '"open_issues": 0, "closed_issues": 7, "description": ""}\n'
+        )
+        fake_result = MagicMock(returncode=0, stdout=jq_output, stderr="")
+        with patch("subprocess.run", return_value=fake_result) as mock_run:
+            results = github_ops.get_repo_milestones_with_counts("acme/api")
+
+        assert results == [
+            {"number": 4, "title": "ms-4", "state": "open",
+             "open_issues": 3, "closed_issues": 1, "description": ""},
+            {"number": 9, "title": "ms-9", "state": "closed",
+             "open_issues": 0, "closed_issues": 7, "description": ""},
+        ]
+        args = mock_run.call_args[0][0]
+        assert "repos/acme/api/milestones?state=open" in " ".join(args)
+        assert args[args.index("--jq") + 1] == github_ops.MILESTONE_COUNTS_JQ
+
+    def test_returns_the_superset_get_repo_milestones_returns(self) -> None:
+        """`coord.plans.aggregate_repo_plans` takes this list directly, so
+        every key `get_repo_milestones` promises must still be present —
+        otherwise the roster silently aggregates against a different shape
+        than `coord plans` does."""
+        jq_output = (
+            '{"number": 4, "title": "ms-4", "state": "open", '
+            '"open_issues": 3, "closed_issues": 1, "description": ""}\n'
+        )
+        fake_result = MagicMock(returncode=0, stdout=jq_output, stderr="")
+        with patch("subprocess.run", return_value=fake_result):
+            (row,) = github_ops.get_repo_milestones_with_counts("acme/api")
+
+        assert {"number", "title"} <= set(row)
+
+    def test_skips_a_single_malformed_line(self) -> None:
+        """#1353's rule, inherited from `get_repo_milestones`: one bad line
+        must not discard every well-formed milestone alongside it."""
+        jq_output = (
+            '{"number": 4, "title": "ms-4", "state": "open", '
+            '"open_issues": 3, "closed_issues": 1, "description": ""}\n'
+            'not json at all\n'
+        )
+        fake_result = MagicMock(returncode=0, stdout=jq_output, stderr="")
+        with patch("subprocess.run", return_value=fake_result):
+            results = github_ops.get_repo_milestones_with_counts("acme/api")
+
+        assert [r["number"] for r in results] == [4]
+
+    def test_no_milestones_is_an_empty_list_not_an_error(self) -> None:
+        fake_result = MagicMock(returncode=0, stdout="", stderr="")
+        with patch("subprocess.run", return_value=fake_result):
+            assert github_ops.get_repo_milestones_with_counts("acme/api") == []
+
+    def test_forwards_state_query_param(self) -> None:
+        fake_result = MagicMock(returncode=0, stdout="", stderr="")
+        with patch("subprocess.run", return_value=fake_result) as mock_run:
+            github_ops.get_repo_milestones_with_counts("acme/api", state="all")
+
+        assert "state=all" in " ".join(mock_run.call_args[0][0])
+
+    def test_jq_filter_is_valid_jq_syntax(self) -> None:
+        """The #967 guard, for this filter: `.[].{...}` (no pipe) is invalid
+        jq and fails the whole call end to end — a class of bug every
+        mocked-`subprocess.run` test above is blind to. Runs the ACTUAL
+        pinned filter through a real jq engine.
+        """
+        jq = pytest.importorskip("jq")
+
+        sample = [
+            {"number": 4, "title": "ms-4", "state": "open", "open_issues": 3,
+             "closed_issues": 1, "description": "d", "html_url": "ignored"},
+        ]
+        result = jq.compile(github_ops.MILESTONE_COUNTS_JQ).input_value(sample).all()
+        assert result == [
+            {"number": 4, "title": "ms-4", "state": "open",
+             "open_issues": 3, "closed_issues": 1, "description": "d"},
+        ]

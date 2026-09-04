@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-squarelet
-Version: 0.5.1
+Version: 0.6.0
 Summary: Python library that handles token authentication for MuckRock and DocumentCloud
 Project-URL: Homepage, https://github.com/MuckRock/python-squarelet
 Project-URL: Bug Tracker, https://github.com/MuckRock/python-squarelet/issues
@@ -9,7 +9,7 @@ License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: <3.13,>=3.8
+Requires-Python: <3.14,>=3.8
 Requires-Dist: ratelimit
 Requires-Dist: requests
 Requires-Dist: urllib3

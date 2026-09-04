@@ -29,6 +29,7 @@ class TestTSQL(Validator):
         self.validate_identity("SELECT go").selects[0].assert_is(exp.Column)
         self.validate_identity("CREATE view a.b.c", "CREATE VIEW b.c")
         self.validate_identity("DROP view a.b.c", "DROP VIEW b.c")
+        self.validate_identity("DROP VIEW a.b.c, a.b.d", "DROP VIEW b.c, b.d")
         self.validate_identity("ROUND(x, 1, 0)")
         self.validate_identity(
             "EXEC MyProc @id = 7, @name = 'Lochristi'",
@@ -1558,23 +1559,54 @@ WHERE
         self.validate_all("ISNULL(x, y)", write={"spark": "COALESCE(x, y)"})
 
     def test_json(self):
+        # JSON_QUERY and JSON_VALUE round-trip as themselves. Only an extraction
+        # whose subtype is unknown needs the ISNULL(JSON_QUERY, JSON_VALUE) form,
+        # and that form is itself stable across a round-trip.
+        self.validate_identity("JSON_QUERY(x, '$.a')")
+        self.validate_identity("JSON_VALUE(x, '$.a')")
+        self.validate_identity("ISNULL(JSON_QUERY(x, '$.a'), JSON_VALUE(x, '$.a'))")
+        self.validate_all(
+            "JSON_EXTRACT(x, '$.a')",
+            write={"tsql": "ISNULL(JSON_QUERY(x, '$.a'), JSON_VALUE(x, '$.a'))"},
+        )
+
+        # A scalar-only extraction maps to JSON_VALUE; one that also returns
+        # non-scalar values as text (e.g. SQLite's ->>) needs to try both
+        self.validate_all(
+            "JSON_VALUE(x, '$.a')",
+            read={"bigquery": "JSON_EXTRACT_SCALAR(x, '$.a')"},
+            write={"duckdb": "JSON_VALUE(x, '$.a') ->> '$'"},
+        )
+        self.validate_all(
+            "ISNULL(JSON_QUERY(x, '$.a'), JSON_VALUE(x, '$.a'))",
+            read={
+                "sqlite": "x ->> '$.a'",
+                "spark": "GET_JSON_OBJECT(x, '$.a')",
+            },
+        )
+        self.validate_all(
+            "JSON_QUERY(x, '$.a')",
+            read={"tsql": "JSON_QUERY(x, '$.a')"},
+            write={"trino": "JSON_QUERY(x, '$.a')"},
+        )
+
         self.validate_identity(
             """JSON_QUERY(REPLACE(REPLACE(x , '''', '"'), '""', '"'))""",
-            """ISNULL(JSON_QUERY(REPLACE(REPLACE(x, '''', '"'), '""', '"'), '$'), JSON_VALUE(REPLACE(REPLACE(x, '''', '"'), '""', '"'), '$'))""",
+            """JSON_QUERY(REPLACE(REPLACE(x, '''', '"'), '""', '"'), '$')""",
         )
 
         self.validate_all(
             "JSON_QUERY(r.JSON, '$.Attr_INT')",
             write={
                 "spark": "GET_JSON_OBJECT(r.JSON, '$.Attr_INT')",
-                "tsql": "ISNULL(JSON_QUERY(r.JSON, '$.Attr_INT'), JSON_VALUE(r.JSON, '$.Attr_INT'))",
+                "tsql": "JSON_QUERY(r.JSON, '$.Attr_INT')",
             },
         )
         self.validate_all(
             "JSON_VALUE(r.JSON, '$.Attr_INT')",
             write={
                 "spark": "GET_JSON_OBJECT(r.JSON, '$.Attr_INT')",
-                "tsql": "ISNULL(JSON_QUERY(r.JSON, '$.Attr_INT'), JSON_VALUE(r.JSON, '$.Attr_INT'))",
+                "tsql": "JSON_VALUE(r.JSON, '$.Attr_INT')",
             },
         )
 
@@ -1660,25 +1692,25 @@ WHERE
             },
         )
         self.validate_all(
-            "SELECT DATEPART(month, CAST('2017-03-01' AS DATE))",
+            "SELECT DATEPART(MONTH, CAST('2017-03-01' AS DATE))",
             read={
                 "postgres": "SELECT DATE_PART('month', '2017-03-01'::DATE)",
             },
             write={
-                "postgres": "SELECT EXTRACT(month FROM CAST('2017-03-01' AS DATE))",
-                "spark": "SELECT EXTRACT(month FROM CAST('2017-03-01' AS DATE))",
-                "tsql": "SELECT DATEPART(month, CAST('2017-03-01' AS DATE))",
+                "postgres": "SELECT EXTRACT(MONTH FROM CAST('2017-03-01' AS DATE))",
+                "spark": "SELECT EXTRACT(MONTH FROM CAST('2017-03-01' AS DATE))",
+                "tsql": "SELECT DATEPART(MONTH, CAST('2017-03-01' AS DATE))",
             },
         )
         self.validate_all(
-            "SELECT DATEPART(day, CAST('2017-01-02' AS DATE))",
+            "SELECT DATEPART(DAY, CAST('2017-01-02' AS DATE))",
             read={
                 "postgres": "SELECT DATE_PART('day', '2017-01-02'::DATE)",
             },
             write={
-                "postgres": "SELECT EXTRACT(day FROM CAST('2017-01-02' AS DATE))",
-                "spark": "SELECT EXTRACT(day FROM CAST('2017-01-02' AS DATE))",
-                "tsql": "SELECT DATEPART(day, CAST('2017-01-02' AS DATE))",
+                "postgres": "SELECT EXTRACT(DAY FROM CAST('2017-01-02' AS DATE))",
+                "spark": "SELECT EXTRACT(DAY FROM CAST('2017-01-02' AS DATE))",
+                "tsql": "SELECT DATEPART(DAY, CAST('2017-01-02' AS DATE))",
             },
         )
         self.validate_identity(

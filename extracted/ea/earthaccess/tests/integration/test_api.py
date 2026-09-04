@@ -163,7 +163,7 @@ def test_dataset_search_returns_valid_results(kwargs):
 def test_dataset_search_summary_missing_file_dist_info():
     results = earthaccess.search_datasets(short_name="AIRS_CPR_IND", daac="GES_DISC")
     collection_with_no_file_distribution_information = results[0]
-    assert collection_with_no_file_distribution_information.summary()["file-type"] == ""
+    assert collection_with_no_file_distribution_information.summary["file-type"] == ""
 
 
 @pytest.mark.parametrize("kwargs", granules_valid_params)
@@ -224,8 +224,9 @@ def test_force_download(tmp_path, force: bool, cmp: Callable[[float, float], boo
     )
 
 
-def fail_to_download_file(*args, **kwargs):
-    raise OSError("Download failed")
+def fail_to_download_file(*args, **kwargs):  # noqa: ARG001
+    msg = "Download failed"
+    raise OSError(msg)
 
 
 def test_download_immediate_failure(tmp_path: Path):

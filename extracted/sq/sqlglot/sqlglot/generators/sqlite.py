@@ -173,6 +173,7 @@ class SQLiteGenerator(generator.Generator):
         exp.LogicalAnd: rename_func("MIN"),
         exp.Pivot: no_pivot_sql,
         exp.Rand: rename_func("RANDOM"),
+        exp.RegexpLike: lambda self, e: self.binary(e, "REGEXP"),
         exp.Select: transforms.preprocess(
             [
                 _offset_to_limit,
@@ -372,6 +373,7 @@ class SQLiteGenerator(generator.Generator):
         if (
             expression.text("kind").upper() == "RANGE"
             and expression.text("start").upper() == "CURRENT ROW"
+            and expression.args.get("end") is None
         ):
             return "RANGE CURRENT ROW"
 

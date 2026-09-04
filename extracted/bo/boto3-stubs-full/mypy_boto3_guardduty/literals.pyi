@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_guardduty.literals import AdminStatusType
+    from mypy_boto3_guardduty.literals import ActivityTypeType
 
-    data: AdminStatusType = "DISABLE_IN_PROGRESS"
+    data: ActivityTypeType = "API_CALL"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ActivityTypeType",
     "AdminStatusType",
     "AssociationModeType",
     "AutoEnableMembersType",
@@ -132,6 +133,7 @@ __all__ = (
     "UsageStatisticTypeType",
 )
 
+ActivityTypeType = Literal["API_CALL"]
 AdminStatusType = Literal["DISABLE_IN_PROGRESS", "ENABLED"]
 AssociationModeType = Literal["DRY_RUN", "LIVE"]
 AutoEnableMembersType = Literal["ALL", "NEW", "NONE"]

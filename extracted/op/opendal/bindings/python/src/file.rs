@@ -24,14 +24,14 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 
 use asyncband::mutex::Mutex;
-use futures::AsyncReadExt;
 use futures::AsyncSeekExt;
 use futures::AsyncWriteExt;
 use pyo3::IntoPyObjectExt;
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::PyIOError;
 use pyo3::exceptions::PyValueError;
-use pyo3::prelude::*;
+use pyo3::pybacked::PyBackedBytes;
+use pyo3::types::PyBytes;
 use pyo3_async_runtimes::tokio::future_into_py;
 
 use crate::*;
@@ -98,24 +98,12 @@ impl File {
         };
 
         let buffer = match size {
-            Some(size) => {
-                let mut bs = vec![0; size];
-                let n = reader
-                    .read(&mut bs)
-                    .map_err(|err| PyIOError::new_err(err.to_string()))?;
-                bs.truncate(n);
-                bs
-            }
-            None => {
-                let mut buffer = Vec::new();
-                reader
-                    .read_to_end(&mut buffer)
-                    .map_err(|err| PyIOError::new_err(err.to_string()))?;
-                buffer
-            }
-        };
+            Some(size) => reader.read_buffer(size),
+            None => reader.read_to_end_buffer(),
+        }
+        .map_err(|err| PyIOError::new_err(err.to_string()))?;
 
-        Buffer::new(buffer).into_bytes_ref(py)
+        buffer_into_py_bytes(py, buffer).map(Bound::into_any)
     }
 
     /// Read one line from this file.
@@ -165,17 +153,16 @@ impl File {
                 buffer
             }
             Some(size) => {
-                let mut bs = vec![0; size];
+                let mut buffer = Vec::new();
                 let mut reader = reader.take(size as u64);
-                let n = reader
-                    .read_until(b'\n', &mut bs)
+                reader
+                    .read_until(b'\n', &mut buffer)
                     .map_err(|err| PyIOError::new_err(err.to_string()))?;
-                bs.truncate(n);
-                bs
+                buffer
             }
         };
 
-        Buffer::new(buffer).into_bytes_ref(py)
+        buffer_into_py_bytes(py, buffer.into()).map(Bound::into_any)
     }
 
     /// Read bytes into a pre-allocated buffer.
@@ -266,6 +253,13 @@ impl File {
     /// whence : int, optional
     ///     The reference point for the offset.
     ///     0: start of file (default); 1: current position; 2: end of file.
+    ///
+    /// Notes
+    /// -----
+    /// Unbounded readable files allow non-negative positions beyond EOF. Reads
+    /// from those positions return empty bytes when the backing service reports
+    /// an unsatisfied unbounded range. Other service errors propagate. Explicit
+    /// bounded views reject positions beyond their range.
     ///
     /// Returns
     /// -------
@@ -492,27 +486,12 @@ impl AsyncFile {
             };
 
             let buffer = match size {
-                Some(size) => {
-                    // TODO: optimize here by using uninit slice.
-                    let mut bs = vec![0; size];
-                    let n = reader
-                        .read(&mut bs)
-                        .await
-                        .map_err(|err| PyIOError::new_err(err.to_string()))?;
-                    bs.truncate(n);
-                    bs
-                }
-                None => {
-                    let mut buffer = Vec::new();
-                    reader
-                        .read_to_end(&mut buffer)
-                        .await
-                        .map_err(|err| PyIOError::new_err(err.to_string()))?;
-                    buffer
-                }
-            };
+                Some(size) => reader.read_buffer(size).await,
+                None => reader.read_to_end_buffer().await,
+            }
+            .map_err(|err| PyIOError::new_err(err.to_string()))?;
 
-            Python::attach(|py| Buffer::new(buffer).into_bytes(py))
+            Python::attach(|py| buffer_into_py_bytes(py, buffer).map(Bound::unbind))
         })
     }
 
@@ -528,11 +507,13 @@ impl AsyncFile {
     /// coroutine
     ///     An awaitable that returns the number of bytes written.
     #[pyo3(signature = (bs: "bytes") -> "collections.abc.Awaitable[int]")]
-    pub fn write<'p>(&'p mut self, py: Python<'p>, bs: &'p [u8]) -> PyResult<Bound<'p, PyAny>> {
+    pub fn write<'p>(
+        &'p mut self,
+        py: Python<'p>,
+        bs: &Bound<PyBytes>,
+    ) -> PyResult<Bound<'p, PyAny>> {
         let state = self.0.clone();
-
-        // FIXME: can we avoid this clone?
-        let bs = bs.to_vec();
+        let bs = PyBackedBytes::from(bs.clone());
 
         future_into_py(py, async move {
             let mut guard = state.lock().await;
@@ -568,6 +549,13 @@ impl AsyncFile {
     /// whence : int, optional
     ///     The reference point for the offset.
     ///     0: start of file (default); 1: current position; 2: end of file.
+    ///
+    /// Notes
+    /// -----
+    /// Unbounded readable files allow non-negative positions beyond EOF. Reads
+    /// from those positions return empty bytes when the backing service reports
+    /// an unsatisfied unbounded range. Other service errors propagate. Explicit
+    /// bounded views reject positions beyond their range.
     ///
     /// Returns
     /// -------

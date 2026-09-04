@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright 2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -90,6 +90,19 @@ test-pre-commit-hooks:
     # Skip pytest since it's run as a separate job below
     -   SKIP=pytest pre-commit run --all-files
 
+test-cppcheck:
+    stage: test
+    needs: []
+    variables:
+        GIT_DEPTH: '0'
+    script:
+    -   |
+        if [ -n "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}" ]; then
+            python3 ethosu/regor/tools/cppcheck.py --revision "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+        else
+            python3 ethosu/regor/tools/cppcheck.py
+        fi
+
 test-linux-aarch64:
     stage: test
     parallel:
@@ -99,6 +112,8 @@ test-linux-aarch64:
     -   build-unit-tests-clang
     -   build-unit-tests-gcc
     script:
+    # The following line is a workaround for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=120475
+    -   if [ "$BUILD_JOB_PROVIDER" == "gcc" ]; then export ASAN_OPTIONS="detect_stack_use_after_return=0"; fi
     -   ./unit_tests-${BUILD_JOB_PROVIDER} --reporter JUnit --out results-${BUILD_JOB_PROVIDER}.xml
     artifacts:
         when: always

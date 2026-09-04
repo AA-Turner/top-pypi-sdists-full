@@ -1040,6 +1040,17 @@ class LiveSpan(Span):
                 INVALID_PARAMETER_VALUE,
             )
 
+        # Span links are not supported for Unity Catalog (V4) traces. Warn and skip rather than
+        # silently normalizing the V4 trace ID to raw OTel hex (see #25080); this matches how
+        # V4-trace links are dropped at span construction.
+        if link.trace_id is not None and link.trace_id.startswith(TRACE_ID_V4_PREFIX):
+            _logger.warning(
+                "Span links are not currently supported for Unity Catalog traces. "
+                "The link to trace '%s' will be skipped.",
+                link.trace_id,
+            )
+            return
+
         # Validate and forward to the underlying OTel span so external exporters can see links
         try:
             link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
@@ -1050,7 +1061,7 @@ class LiveSpan(Span):
             trace_id_int.to_bytes(16, "big")
             span_id_int.to_bytes(8, "big")
             otel_context = build_otel_context(trace_id_int, span_id_int)
-        except (ValueError, OverflowError, MlflowException) as e:
+        except (ValueError, OverflowError, AttributeError, MlflowException) as e:
             raise MlflowException(
                 f"Invalid link: trace_id={link.trace_id!r}, span_id={link.span_id!r}. "
                 "trace_id must be a valid MLflow trace ID or hex string, and "
@@ -1130,6 +1141,42 @@ class LiveSpan(Span):
             # to OK if it is not ERROR.
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
+
+            try:
+                # Tracking configuration applies to the whole trace regardless
+                # of this span's type or final status.
+                from mlflow.agent.hint import maybe_warn_local_tracking_for_databricks
+
+                maybe_warn_local_tracking_for_databricks()
+            except Exception:
+                # Agent hints are advisory and must never prevent span finalization.
+                pass
+
+            if self.status.status_code != SpanStatusCode.ERROR and self.span_type in (
+                SpanType.LLM,
+                SpanType.TOOL,
+                SpanType.RETRIEVER,
+            ):
+                try:
+                    # Import lazily: most MLflow users never create GenAI spans, and
+                    # agent hints must not add work to their span lifecycle.
+                    from mlflow.agent.hint import maybe_warn_agent
+
+                    if self.inputs is None:
+                        maybe_warn_agent(
+                            "genai-span-missing-inputs",
+                            f"The successful {self.span_type} span {self.name!r} has no recorded "
+                            "inputs.",
+                        )
+                    if self.outputs is None:
+                        maybe_warn_agent(
+                            "genai-span-missing-outputs",
+                            f"The successful {self.span_type} span {self.name!r} has no recorded "
+                            "outputs.",
+                        )
+                except Exception:
+                    # Agent hints are advisory and must never prevent span finalization.
+                    pass
 
             if should_compute_cost_client_side():
                 set_span_cost_attribute(self)

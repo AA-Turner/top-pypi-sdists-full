@@ -273,6 +273,7 @@ impl Service for WebdavBackend {
     type Lister = oio::PageLister<WebdavLister>;
     type Deleter = oio::OneShotDeleter<WebdavDeleter>;
     type Copier = oio::OneShotCopier;
+    type Composer = ();
 
     fn info(&self) -> ServiceInfo {
         self.core.info.clone()
@@ -351,27 +352,43 @@ impl Service for WebdavBackend {
         ctx: &OperationContext,
         from: &str,
         to: &str,
-        _args: OpCopy,
-        _opts: OpCopier,
+        args: OpCopy,
     ) -> Result<Self::Copier> {
+        let backend = self.clone();
         let core = self.core.clone();
         let ctx = ctx.clone();
         let from = from.to_string();
         let to = to.to_string();
+        let source_content_length_hint = args.source_content_length_hint();
 
         Ok(oio::OneShotCopier::new_with(move || {
+            let backend = backend.clone();
             let core = core.clone();
             let ctx = ctx.clone();
             let from = from.clone();
             let to = to.clone();
 
             async move {
+                let source_size = match source_content_length_hint {
+                    Some(size) => size,
+                    None => backend
+                        .stat(&ctx, &from, OpStat::default())
+                        .await?
+                        .into_metadata()
+                        .content_length(),
+                };
+
                 let resp = core.webdav_copy(&ctx, &from, &to).await?;
                 let status = resp.status();
 
                 match status {
-                    StatusCode::CREATED | StatusCode::NO_CONTENT => Ok(Metadata::default()),
-                    _ => Err(parse_error(resp)),
+                    StatusCode::CREATED | StatusCode::NO_CONTENT => {
+                        Ok(MetadataBuilder::file(source_size).build())
+                    }
+                    _ => Err(parse_error(
+                        ErrorContext::new(ServiceOperation("Copy")),
+                        resp,
+                    )),
                 }
             }
         }))
@@ -391,7 +408,10 @@ impl Service for WebdavBackend {
             StatusCode::CREATED | StatusCode::NO_CONTENT | StatusCode::OK => {
                 Ok(RpRename::default())
             }
-            _ => Err(parse_error(resp)),
+            _ => Err(parse_error(
+                ErrorContext::new(ServiceOperation("Move")),
+                resp,
+            )),
         }
     }
 

@@ -430,6 +430,7 @@ TEST_CASE("passthrough")
     std::vector<flatbuffers::Offset<tflite::OperatorCode>> operatorCodes;
     std::vector<flatbuffers::Offset<tflite::SubGraph>> subgraphs;
     std::vector<flatbuffers::Offset<tflite::Buffer>> buffers;
+    std::vector<flatbuffers::Offset<tflite::SignatureDef>> signatureDefs;
 
     // Per subgraph
     std::vector<flatbuffers::Offset<tflite::Operator>> operations;
@@ -579,10 +580,21 @@ TEST_CASE("passthrough")
         subgraphs.push_back(tflite::CreateSubGraphDirect(fbb, &tensors, &inputs, &outputs, &operations, name));
     }
 
-    // TODO: add metadata_buffer, metadata and signature_defs
+    {
+        // Generate 1 signature_def and 1 tensor map for each input and output
+        const std::vector<flatbuffers::Offset<tflite::TensorMap>> inputs = {
+            tflite::CreateTensorMapDirect(fbb, "signature_input", 0 /* ifm0 */),
+        };
+        const std::vector<flatbuffers::Offset<tflite::TensorMap>> outputs = {
+            tflite::CreateTensorMapDirect(fbb, "signature_output", 5 /* ofm */),
+        };
+        signatureDefs.push_back(tflite::CreateSignatureDefDirect(fbb, &inputs, &outputs, "signature_key", 0));
+    }
+
+    // TODO: add metadata_buffer
     // Generate 1 model
     const auto model1 = tflite::CreateModelDirect(
-        fbb, 3 /* Version */, &operatorCodes, &subgraphs, "description1", &buffers, nullptr, &metadata);
+        fbb, 3 /* Version */, &operatorCodes, &subgraphs, "description1", &buffers, nullptr, &metadata, &signatureDefs);
 
     // Create TFLite flatbuffer
     tflite::FinishModelBuffer(fbb, model1);

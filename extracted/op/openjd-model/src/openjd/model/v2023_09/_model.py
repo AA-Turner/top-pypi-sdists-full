@@ -31,6 +31,7 @@ from pydantic.fields import ModelPrivateAttr
 
 from .._format_strings import FormatString
 from .._errors import ExpressionError, TokenError
+from .._bool_coercion import _coerce_bool_value
 from .._capabilities import (
     validate_amount_capability_name,
     validate_attribute_capability_name,
@@ -921,6 +922,11 @@ class ScriptInterpreter(str, Enum):
 LET_MAX_BINDINGS = 50
 _LET_NAME_RE = re.compile(r"^[a-z_][A-Za-z0-9_]*$")
 
+# §3.6.1: maximum length of a `let` binding's `<UserIdentifier>`. Flat, so not
+# the §7.1 cap NameIdentifierLengthMixin applies: that one is 64 without
+# FEATURE_BUNDLE_1, and a 512-character name must be accepted with EXPR alone.
+LET_MAX_IDENTIFIER_LEN = 512
+
 
 def parse_let_bindings(value: Any) -> list[tuple[str, str]]:
     """Parse a ``let`` field value (list of ``"name = expression"`` strings)
@@ -941,6 +947,14 @@ def parse_let_bindings(value: Any) -> list[tuple[str, str]]:
         expr = expr.strip()
         if not _LET_NAME_RE.match(name):
             raise ValueError(f"A 'let' binding name must be a valid identifier: {name!r}")
+        # Truncated rather than omitted: the caller is a field_validator on the
+        # whole list, so the error path is `let` with no index to identify which
+        # binding is over.
+        if len(name) > LET_MAX_IDENTIFIER_LEN:
+            raise ValueError(
+                f"A 'let' binding name must be at most {LET_MAX_IDENTIFIER_LEN} "
+                f"characters long: {name[:32]!r}... ({len(name)} characters)"
+            )
         if not expr:
             raise ValueError(f"A 'let' binding must define an expression: {binding!r}")
         result.append((name, expr))
@@ -1208,7 +1222,10 @@ FloatRangeList = Annotated[
     list[Union[Decimal, TaskParameterStringValue]], Field(min_length=1, max_length=1024)
 ]
 StringRangeList = Annotated[list[TaskParameterStringValue], Field(min_length=1, max_length=1024)]
-TaskParameterStringValueAsJob = Annotated[str, StringConstraints(min_length=0, max_length=1024)]
+_MAX_TASK_PARAM_VALUE_LEN = 1024
+TaskParameterStringValueAsJob = Annotated[
+    str, StringConstraints(min_length=0, max_length=_MAX_TASK_PARAM_VALUE_LEN)
+]
 
 TaskRangeList = list[Union[TaskParameterStringValueAsJob, int, float, Decimal]]
 
@@ -1242,6 +1259,46 @@ class TaskChunksDefinition(OpenJDModel_v2023_09):
         return validate_int_fmtstring_field(value, ge=0, context=context)
 
 
+# '02.50' -> '2.50', '007' -> '7', '000' -> '0'. The lookahead leaves the last
+# digit, so '0.50' keeps the zero that is its integer part.
+_REDUNDANT_LEADING_ZEROS = re.compile(r"^([+-]?)0+(?=[0-9])")
+
+# An all-zero mantissa, whatever the exponent: '0.00', '-0.0' and '0e5' spell zero,
+# '1e-400' does not. Mirrors openjd_expr::value::text_spells_zero.
+_SPELLS_ZERO = re.compile(r"^[+-]?[0.]*[0][0.]*(?:[eE][+-]?[0-9]+)?$")
+
+
+def _spells_zero(text: str) -> bool:
+    return _SPELLS_ZERO.match(text) is not None
+
+
+def _normalized_range_element(elem: str, to_int: bool) -> Any:
+    """The value an ``<intstring>``/``<floatstring>`` range element denotes.
+
+    An ``<intstring>`` becomes an ``int``. A ``<floatstring>`` keeps its text less
+    redundant leading zeros, so the decimal places it was written with survive
+    (§7.5). Returns the element unchanged when it does not denote a number.
+    """
+    try:
+        if to_int:
+            return int(elem)  # int() already drops leading zeros
+        # Parsed only to check it is a number; the text is what renders. Not a
+        # Decimal -- re-rendering one is context-sensitive and unbounded (§7.5).
+        float(elem)
+    except ValueError:
+        # A resolved format string can be non-numeric. Literals are checked at
+        # template parse time, so carry it through rather than rejecting here.
+        return elem
+    # Trimmed because the text reaches a command line and float() ignores
+    # surrounding whitespace; openjd-rs trims here too.
+    text = _REDUNDANT_LEADING_ZEROS.sub(r"\1", elem.strip())
+    # Zero has no sign, so drop one without dropping the decimal places: '-0.00'
+    # renders `0.00`. Decided from the text, not from `value` -- the parse
+    # underflows to 0.0 below ~5e-324, and a tiny value's digits are exactly what
+    # a <floatstring> is for.
+    return text.lstrip("+-") if _spells_zero(text) else text
+
+
 # Target model for task parameters when instantiating a job.
 class RangeListTaskParameterDefinition(OpenJDModel_v2023_09):
     # element type of items in the range
@@ -1250,6 +1307,30 @@ class RangeListTaskParameterDefinition(OpenJDModel_v2023_09):
     range: TaskRangeList
     # has a value when type is CHUNK[INT], which is only possible from the TASK_CHUNKING extension
     chunks: Optional[TaskChunksDefinition] = None
+
+    @field_validator("range", mode="before")
+    @classmethod
+    def _normalize_numeric_range_elements(cls, value: Any, info: ValidationInfo) -> Any:
+        # §7.5: a string-form range element loses redundant leading zeros and
+        # keeps its decimal places, so '02' is the value 2 and '02.50' renders
+        # `2.50`. Numeric literals carry no such request and are left as parsed;
+        # STRING and PATH ranges have no numeric form at all.
+        #
+        # On the instantiation target so all three inbound paths are covered: a
+        # literal list, a range-expression expansion, and RFC 0006 whole-field
+        # resolution.
+        param_type = info.data.get("type")
+        if not isinstance(value, list) or param_type not in (
+            TaskParameterType.INT,
+            TaskParameterType.CHUNK_INT,
+            TaskParameterType.FLOAT,
+        ):
+            return value
+        to_int = param_type != TaskParameterType.FLOAT
+        return [
+            _normalized_range_element(elem, to_int) if isinstance(elem, str) else elem
+            for elem in value
+        ]
 
     @field_validator("range")
     @classmethod
@@ -3388,8 +3469,9 @@ class Step(OpenJDModel_v2023_09):
     # RFC 0007 (EXPR): the step-level `let` bindings, preserved from the
     # StepTemplate so the runtime can seed them when entering the step's
     # environments — a step environment's variables and actions may reference
-    # them. The step's own script carries a merged copy (step bindings first)
-    # for the task-run path.
+    # them. Their *values* are already resolved at job creation and travel in
+    # the step's symbol table (see create_job_with_symbol_tables), so they are
+    # not merged into the script's own `let` for the runtime to re-evaluate.
     let: Optional[list[str]] = None
 
 
@@ -3447,6 +3529,15 @@ class StepTemplate(OpenJDModel_v2023_09):
         them. Script-level ``let`` bindings are *not* evaluated here — they
         resolve at session time.
 
+        Template scope renders PATH-typed values with ``PathFormat.POSIX``,
+        matching openjd-rs, whose job instantiation hardcodes POSIX
+        (``create_job/instantiate.rs``) and uses the host's format only inside
+        sessions. Without it a binding's create-time value would depend on the
+        host that created the job: on Windows ``startswith(path("/foo/bar"),
+        "/foo")`` is false against a backslash rendering but true against a
+        POSIX one, so the job would behave differently depending on where it
+        was created.
+
         ``Step.Name`` and ``let`` references only pass template validation
         with the EXPR extension enabled, so seeding them unconditionally does
         not change the behavior of non-EXPR templates.
@@ -3454,9 +3545,16 @@ class StepTemplate(OpenJDModel_v2023_09):
         step_symtab = SymbolTable(source=symtab)
         step_symtab["Step.Name"] = str(self.name)
         if self.let:
+            # Both imports are deferred: `openjd.expr` is the native extension,
+            # and importing openjd.model must not load it. Only an EXPR template
+            # reaches this branch, so the load is conditional on EXPR use.
+            from openjd.expr import PathFormat
+
             from .._let_bindings import evaluate_let_bindings
 
-            evaluate_let_bindings(symtab=step_symtab, let_bindings=self.let)
+            evaluate_let_bindings(
+                symtab=step_symtab, let_bindings=self.let, path_format=PathFormat.POSIX
+            )
         return step_symtab
 
     _template_variable_sources = {
@@ -3573,17 +3671,13 @@ class StepTemplate(OpenJDModel_v2023_09):
             StepTemplate: A new StepTemplate with de-sugared script, or self if no sugar.
         """
         if self.script:
-            # Step-level `let` (RFC 0007) is excluded from the instantiated Step
-            # by the job-creation metadata, so fold it into the script's own
-            # `let` (step bindings first, then the script's) so it survives into
-            # the Job and the runtime resolves it. The model has already
-            # validated reference/shadowing rules across both scopes at decode.
-            if self.let:
-                # The step's own `let` is preserved too (Step.let): the
-                # runtime seeds it when entering the step's environments.
-                merged_let = [*self.let, *(self.script.let or [])]
-                new_script = self.script.model_copy(update={"let": merged_let})
-                return self.model_copy(update={"script": new_script})
+            # The step-level `let` (RFC 0007) is *not* folded into the script's
+            # own `let`. It is evaluated in template scope at job creation and
+            # its resolved values travel in the step's symbol table
+            # (create_job_with_symbol_tables().step_symbol_tables[name]), which
+            # the runtime seeds the session with. Merging it here would have the
+            # session re-evaluate those bindings in host scope, re-rendering
+            # PATH values and overwriting the correctly formatted seeded value.
             return self
 
         for name, (command, ext, arg_prefix) in _INTERPRETER_MAP.items():
@@ -3608,32 +3702,33 @@ class StepTemplate(OpenJDModel_v2023_09):
             args.extend(simple_action.args)
 
         # Construct directly - inputs are already validated
+        new_script = StepScript.model_construct(
+            actions=StepActions.model_construct(
+                onRun=Action.model_construct(
+                    command=CommandString(command),
+                    args=args,
+                    timeout=simple_action.timeout,
+                    cancelation=simple_action.cancelation,
+                )
+            ),
+            # Only the SimpleAction's own `let` (RFC 0007) — the step-level one
+            # is resolved at job creation and travels in the step's symbol
+            # table, as in the `script:` branch above.
+            let=simple_action.let,
+            embeddedFiles=[
+                EmbeddedFileText.model_construct(
+                    name=embedded_name,
+                    type=EmbeddedFileTypes.TEXT,
+                    filename=f"{embedded_name}{ext}",
+                    runnable=True,
+                    data=simple_action.script,
+                )
+            ],
+        )
         return StepTemplate.model_construct(
             name=self.name,
             description=self.description,
-            script=StepScript.model_construct(
-                actions=StepActions.model_construct(
-                    onRun=Action.model_construct(
-                        command=CommandString(command),
-                        args=args,
-                        timeout=simple_action.timeout,
-                        cancelation=simple_action.cancelation,
-                    )
-                ),
-                # Carry step-level `let` (RFC 0007) and the SimpleAction's own
-                # `let` onto the de-sugared script (step bindings first) so they
-                # are preserved into the Job and resolved at runtime.
-                let=([*(self.let or []), *(simple_action.let or [])] or None),
-                embeddedFiles=[
-                    EmbeddedFileText.model_construct(
-                        name=embedded_name,
-                        type=EmbeddedFileTypes.TEXT,
-                        filename=f"{embedded_name}{ext}",
-                        runnable=True,
-                        data=simple_action.script,
-                    )
-                ],
-            ),
+            script=new_script,
             stepEnvironments=self.stepEnvironments,
             parameterSpace=self.parameterSpace,
             hostRequirements=self.hostRequirements,
@@ -3659,40 +3754,6 @@ class JobBoolParameterDefinitionUserInterface(OpenJDModel_v2023_09):
     control: Optional[BoolUserInterfaceControl] = None
     label: Optional[UserInterfaceLabelStringValue] = None
     groupLabel: Optional[UserInterfaceLabelStringValue] = None  # noqa: N815
-
-
-# Accepted string spellings for boolean defaults/values (case-insensitive),
-# per RFC 0007 (BOOL parameter type).
-_BOOL_TRUE_STRINGS = frozenset({"true", "yes", "on", "1"})
-_BOOL_FALSE_STRINGS = frozenset({"false", "no", "off", "0"})
-
-
-def _coerce_bool_value(value: Any) -> bool:
-    """Coerce an RFC 0007 BOOL value to a Python bool, raising ValueError for
-    anything outside the accepted set (bool, int 0/1, float 0.0/1.0, or a
-    case-insensitive true/false/yes/no/on/off/1/0 string).
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, int):  # bool already handled above
-        if value in (0, 1):
-            return bool(value)
-        raise ValueError("BOOL value as an integer must be 0 or 1.")
-    if isinstance(value, float):
-        if value in (0.0, 1.0):
-            return bool(value)
-        raise ValueError("BOOL value as a float must be 0.0 or 1.0.")
-    if isinstance(value, str):
-        low = value.lower()
-        if low in _BOOL_TRUE_STRINGS:
-            return True
-        if low in _BOOL_FALSE_STRINGS:
-            return False
-        raise ValueError(
-            "BOOL value as a string must be one of (case-insensitive): "
-            "true, false, yes, no, on, off, 1, 0."
-        )
-    raise ValueError("BOOL value must be a boolean, 0/1, 0.0/1.0, or a boolean string.")
 
 
 class JobBoolParameterDefinition(NameIdentifierLengthMixin, OpenJDModel_v2023_09):

@@ -13,15 +13,17 @@
 # limitations under the License.
 
 """Test connections to various Atlas cluster types."""
+
 from __future__ import annotations
 
 import os
 import sys
 import unittest
 from collections import defaultdict
-from test import PyMongoTestCase
 
 import pytest
+
+from test import PyMongoTestCase
 
 sys.path[0:0] = [""]
 
@@ -54,7 +56,7 @@ class TestAtlasConnect(PyMongoTestCase):
         # No TLS error
         client.admin.command("ping")
         # No auth error
-        client.test.test.count_documents({})
+        client.db.coll.count_documents({})
 
     @unittest.skipUnless(_has_sni(True), "Free tier requires SNI support")
     def test_free_tier(self):

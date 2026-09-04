@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2021-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2021-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -42,6 +42,7 @@ class Tensor : public GraphApi::GraphTensor, public std::enable_shared_from_this
 {
 private:
     std::string _name;
+    std::vector<std::pair<std::string, std::string>> _alternative_names;
     DataType _type;
     UniqueId _uid;
     class Shape _storageShape;
@@ -57,7 +58,12 @@ public:
     Tensor(const std::string &name, DataType type, Shape shape, const std::shared_ptr<class Buffer> &buffer);
 
     const std::string &Name() const { return _name; }
+    const std::vector<std::pair<std::string, std::string>> &AlternativeNames() { return _alternative_names; }
     void SetName(const std::string &name) { _name = name; }
+    void AddAlternativeName(const std::string &key, const std::string &name)
+    {
+        _alternative_names.emplace_back(key, name);
+    }
     DataType Type() const { return _type; }
     UniqueId Uid() const { return _uid; }
 

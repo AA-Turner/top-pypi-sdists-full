@@ -241,11 +241,12 @@ class EventSourceResponse(Response):
         headers: Additional HTTP headers.
         media_type: Response media type. Default: "text/event-stream".
         background: Background task to run after response completes.
-        ping: Ping interval in seconds (0 to disable). Default: 15.
+        ping: Ping interval in seconds. Default: 15. Set to 0 to disable
+            keep-alive pings entirely (no ping task is started).
         sep: Line separator for SSE messages ("\\r\\n", "\\r", or "\\n").
         ping_message_factory: Callable returning custom ping ServerSentEvent.
         data_sender_callable: Async callable for push-based data sending.
-        send_timeout: Timeout in seconds for individual send operations.
+        send_timeout: Timeout in seconds for individual data or heartbeat sends.
         client_close_handler_callable: Async callback on client disconnect.
         shutdown_event: Optional ``anyio.Event`` set by the library when server
             shutdown is detected. Generators can watch this event to send farewell
@@ -266,7 +267,7 @@ class EventSourceResponse(Response):
         headers: Optional[Mapping[str, str]] = None,
         media_type: str = "text/event-stream",
         background: Optional[BackgroundTask] = None,
-        ping: Optional[int] = None,
+        ping: Optional[Union[int, float]] = None,
         sep: Optional[str] = None,
         ping_message_factory: Optional[Callable[[], ServerSentEvent]] = None,
         data_sender_callable: Optional[
@@ -339,13 +340,21 @@ class EventSourceResponse(Response):
     @ping_interval.setter
     def ping_interval(self, value: Union[int, float]) -> None:
         if not isinstance(value, (int, float)):
-            raise TypeError("ping interval must be int")
+            raise TypeError("ping interval must be int or float")
         if value < 0:
-            raise ValueError("ping interval must be greater than 0")
+            raise ValueError("ping interval must be >= 0 (0 disables ping)")
         self._ping_interval = value
 
     def enable_compression(self, force: bool = False) -> None:
         raise NotImplementedError("Compression is not supported for SSE streams.")
+
+    async def _send_with_timeout(self, send: Send, message: Message) -> None:
+        """Send one ASGI message, applying the response's per-send timeout."""
+        with anyio.move_on_after(self.send_timeout) as cancel_scope:
+            await send(message)
+
+        if cancel_scope and cancel_scope.cancel_called:
+            raise SendTimeoutError()
 
     async def _stream_response(self, send: Send) -> None:
         """Send out SSE data to the client as it becomes available in the iterator."""
@@ -360,16 +369,16 @@ class EventSourceResponse(Response):
         async for data in self.body_iterator:
             chunk = ensure_bytes(data, self.sep)
             logger.debug("chunk: %s", chunk)
-            with anyio.move_on_after(self.send_timeout) as cancel_scope:
-                await send(
-                    {"type": "http.response.body", "body": chunk, "more_body": True}
+            try:
+                await self._send_with_timeout(
+                    send,
+                    {"type": "http.response.body", "body": chunk, "more_body": True},
                 )
-
-            if cancel_scope and cancel_scope.cancel_called:
+            except SendTimeoutError:
                 aclose = getattr(self.body_iterator, "aclose", None)
                 if aclose is not None:
                     await aclose()
-                raise SendTimeoutError()
+                raise
 
         async with self._send_lock:
             self.active = False
@@ -434,8 +443,15 @@ class EventSourceResponse(Response):
 
     async def _ping(self, send: Send) -> None:
         """Periodically send ping messages to keep the connection alive on proxies.
-        - frequenccy ca every 15 seconds.
+        - frequency ca every 15 seconds.
         - Alternatively one can send periodically a comment line (one starting with a ':' character)
+
+        Invariant (Issue #206): must NOT be started when ``ping_interval == 0``
+        (ping disabled), because ``anyio.sleep(0)`` is a bare checkpoint and the
+        loop would busy-spin, flooding the client with pings and contending for
+        ``_send_lock`` with the data stream. ``__call__`` skips the task instead
+        of returning early here, since ``_ping`` runs under ``cancel_on_finish``
+        and any return would tear down the whole response.
         """
         while self.active:
             await anyio.sleep(self._ping_interval)
@@ -451,12 +467,23 @@ class EventSourceResponse(Response):
 
             async with self._send_lock:
                 if self.active:
-                    await send(
+                    # A SendTimeoutError raised here deliberately does NOT
+                    # aclose() the body iterator, unlike _stream_response. When a
+                    # heartbeat times out, _stream_response is normally suspended
+                    # inside body_iterator.__anext__(), where ag_running_async is
+                    # set, so aclose() would raise "RuntimeError: aclose():
+                    # asynchronous generator is already running" (verified).
+                    # Propagating instead lets the task group cancel
+                    # _stream_response, which throws into the suspended
+                    # __anext__ and runs the generator's finally block -- see
+                    # test_ping_whenSendTimesOut_thenTearsDownResponseAndRunsCleanup.
+                    await self._send_with_timeout(
+                        send,
                         {
                             "type": "http.response.body",
                             "body": ping_bytes,
                             "more_body": True,
-                        }
+                        },
                     )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -485,7 +512,9 @@ class EventSourceResponse(Response):
                 task_group.start_soon(
                     cancel_on_finish, lambda: self._stream_response(send)
                 )
-                task_group.start_soon(cancel_on_finish, lambda: self._ping(send))
+                # ping_interval == 0 disables keep-alive pings entirely (#206)
+                if self._ping_interval > 0:
+                    task_group.start_soon(cancel_on_finish, lambda: self._ping(send))
                 task_group.start_soon(
                     cancel_on_finish, self._listen_for_exit_signal_with_grace
                 )

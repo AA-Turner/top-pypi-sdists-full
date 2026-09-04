@@ -53,6 +53,9 @@ class Credential(BaseModel):
     created_at: Optional[StrictStr] = Field(
         default=None, description="When the credential was created in the source system."
     )
+    updated_at: Optional[StrictStr] = Field(
+        default=None, description="When the credential was last updated in the source system."
+    )
     last_used_at: Optional[StrictStr] = Field(
         default=None, description="When the credential was last used."
     )
@@ -83,6 +86,7 @@ class Credential(BaseModel):
         "grants_access_to_account_id",
         "grants_access_to_non_human_account_id",
         "created_at",
+        "updated_at",
         "last_used_at",
         "expires_at",
         "last_rotated_at",
@@ -143,6 +147,7 @@ class Credential(BaseModel):
                     "grants_access_to_non_human_account_id"
                 ),
                 "created_at": obj.get("created_at"),
+                "updated_at": obj.get("updated_at"),
                 "last_used_at": obj.get("last_used_at"),
                 "expires_at": obj.get("expires_at"),
                 "last_rotated_at": obj.get("last_rotated_at"),

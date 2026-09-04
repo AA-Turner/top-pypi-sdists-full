@@ -8,7 +8,7 @@ import copy
 import json
 import re
 from collections import defaultdict
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Mapping, MutableMapping, Sequence
 from datetime import datetime
 from itertools import chain
 from secrets import token_hex
@@ -113,6 +113,7 @@ from weblate.utils.forms import (
     QueryField,
     SearchableSelect,
     SearchField,
+    SortedSearchableSelect,
     SortedSelect,
     SortedSelectMultiple,
     UserField,
@@ -141,6 +142,7 @@ from weblate.utils.validators import (
 from weblate.utils.views import get_sort_name
 from weblate.vcs.git import GitMergeRequestBase
 from weblate.vcs.models import VCS_REGISTRY
+from weblate.vcs.params import VCS_PARAMS, strip_unused_vcs_params
 from weblate.workspaces.models import Workspace
 
 REPOSITORY_REDIRECT_PROOF_SALT = "weblate.component.repository-redirect"
@@ -160,6 +162,7 @@ if TYPE_CHECKING:
         Translation,
     )
     from weblate.trans.models.translation import NewUnitParams
+    from weblate.utils.params import BaseParam
     from weblate.utils.stats import CategoryLanguage, ProjectLanguage
 
 
@@ -1628,6 +1631,21 @@ class UserManageForm(forms.Form):
     )
 
 
+class ProjectMemberManageForm(UserManageForm):
+    def __init__(self, project: Project, *args, **kwargs) -> None:
+        self.project = project
+        super().__init__(*args, **kwargs)
+
+    def clean_user(self) -> User:
+        user = self.cleaned_data["user"]
+        if (
+            user.is_internal
+            or not user.groups.filter(defining_project=self.project).exists()
+        ):
+            raise ValidationError(gettext("Could not find any such user."))
+        return user
+
+
 class TeamAssignableUserMixin:
     allow_bot_user = False
     cleaned_data: dict[str, Any]
@@ -2141,20 +2159,23 @@ class SelectChecksField(forms.JSONField):
 
 class FormParamsWidget(forms.MultiWidget):
     template_name = "bootstrap5/labelled_multiwidget.html"
-    subwidget_class = "file-format-param"
 
     def __init__(
         self,
         widgets: dict[str, forms.Widget | type[forms.Widget]],
         fields_order: list[str],
+        params: Sequence[type[BaseParam]],
+        subwidget_class: str,
         attrs=None,
     ) -> None:
         self.fields_order = fields_order
+        self.params = params
+        self.subwidget_class = subwidget_class
         super().__init__(widgets, attrs)
 
     def decompress(self, value: dict) -> list[Any]:
         initial_params: dict[str, Any] = {}
-        for param_class in FILE_FORMATS_PARAMS:
+        for param_class in self.params:
             param = param_class()
             initial_params[param.get_identifier()] = param.get_field_kwargs().get(
                 "initial"
@@ -2179,18 +2200,25 @@ class FormParamsWidget(forms.MultiWidget):
 
 
 class FormParamsField(forms.MultiValueField):
+    """Edits a dictionary of scoped parameters as one field per parameter."""
+
+    params: Sequence[type[BaseParam]] = ()
+    subwidget_class: str = "param"
+
     def __init__(self, encoder=None, decoder=None, **kwargs) -> None:
         fields: list[forms.Field] = []
         subwidgets: dict[str, forms.Widget | type[forms.Widget]] = {}
 
         self.fields_order: list[str] = []
-        for file_param in FILE_FORMATS_PARAMS:
-            field = file_param().get_field()
+        for param in self.params:
+            field = param().get_field()
             fields.append(field)
-            subwidgets[file_param.get_identifier()] = field.widget
-            self.fields_order.append(file_param.get_identifier())
+            subwidgets[param.get_identifier()] = field.widget
+            self.fields_order.append(param.get_identifier())
 
-        widget = FormParamsWidget(subwidgets, self.fields_order)
+        widget = FormParamsWidget(
+            subwidgets, self.fields_order, self.params, self.subwidget_class
+        )
         super().__init__(fields, widget=widget, require_all_fields=False, **kwargs)
 
     def compress(self, data_list) -> dict:
@@ -2203,6 +2231,16 @@ class FormParamsField(forms.MultiValueField):
             }
             compressed_value.update(update_data)
         return compressed_value
+
+
+class FileFormatParamsField(FormParamsField):
+    params = FILE_FORMATS_PARAMS
+    subwidget_class = "file-format-param"
+
+
+class VCSParamsField(FormParamsField):
+    params = VCS_PARAMS
+    subwidget_class = "vcs-param"
 
 
 class ComponentDocsMixin(FieldDocsMixin):
@@ -2224,6 +2262,22 @@ class ProjectDocsMixin(FieldDocsMixin):
         if field.name in INHERITABLE_COMPONENT_FLAGS:
             return ("admin/workspaces", "workspace-inherited-settings")
         return ("admin/projects", f"project-{field.name.replace('_', '-')}")
+
+
+class HiddenFieldErrorsMixin(forms.Form):
+    """Surface validation errors attached to hidden fields."""
+
+    def full_clean(self) -> None:
+        super().full_clean()
+        # Hidden fields are rendered without their errors, show them on the
+        # form level instead of failing with no visible explanation.
+        errors = self.errors
+        for name in list(errors):
+            if name == NON_FIELD_ERRORS or not self[name].is_hidden:
+                continue
+            label = self[name].label
+            messages = errors.pop(name)
+            self.add_error(None, [f"{label}: {message}" for message in messages])
 
 
 class SpamCheckMixin(forms.Form):
@@ -2305,6 +2359,7 @@ class ComponentSettingsForm(
             "inherit_pull_message",
             "pull_message",
             "vcs",
+            "vcs_params",
             "repo",
             "branch",
             "push",
@@ -2348,7 +2403,8 @@ class ComponentSettingsForm(
         # ruff: ignore[mutable-class-default]
         field_classes = {
             "enforced_checks": SelectChecksField,
-            "file_format_params": FormParamsField,
+            "file_format_params": FileFormatParamsField,
+            "vcs_params": VCSParamsField,
             "check_flags": FlagField,
         }
 
@@ -2440,6 +2496,7 @@ class ComponentSettingsForm(
                     ),
                     Fieldset(
                         gettext("Version control settings"),
+                        "vcs_params",
                         "push_on_commit",
                         "commit_pending_age",
                         "merge_style",
@@ -2574,10 +2631,15 @@ class ComponentSettingsForm(
             data["file_format_params"] = strip_unused_file_format_params(
                 data["file_format"], data["file_format_params"]
             )
+        if "vcs_params" in data:
+            data["vcs_params"] = strip_unused_vcs_params(
+                data.get("vcs") or self.instance.vcs, data["vcs_params"]
+            )
         self.preserve_inherited_values()
 
 
 class ComponentCreateForm(
+    HiddenFieldErrorsMixin,
     InheritedSettingsFormMixin,
     SettingsBaseForm,
     ComponentDocsMixin,
@@ -2611,6 +2673,7 @@ class ComponentCreateForm(
             "name",
             "slug",
             "vcs",
+            "vcs_params",
             "repo",
             "branch",
             "push",
@@ -2642,7 +2705,8 @@ class ComponentCreateForm(
         }
         # ruff: ignore[mutable-class-default]
         field_classes = {
-            "file_format_params": FormParamsField,
+            "file_format_params": FileFormatParamsField,
+            "vcs_params": VCSParamsField,
         }
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
@@ -2699,6 +2763,7 @@ class ComponentCreateForm(
                 template="trans/vcs_push_help.html",
                 context={"vcs_push_categories": get_vcs_push_categories()},
             ),
+            "vcs_params",
             "repoweb",
             "file_format",
             "file_format_params",
@@ -2805,6 +2870,10 @@ class ComponentCreateForm(
             data["file_format_params"] = strip_unused_file_format_params(
                 data["file_format"], data["file_format_params"]
             )
+        if "vcs_params" in data:
+            data["vcs_params"] = strip_unused_vcs_params(
+                data.get("vcs") or self.instance.vcs, data["vcs_params"]
+            )
         self.preserve_inherited_values()
         repository_redirect_change = get_repository_redirect_change(
             self.request,
@@ -2817,7 +2886,9 @@ class ComponentCreateForm(
                 setattr(self.instance, get_inherit_field_name(field), False)
 
 
-class ComponentNameForm(ComponentDocsMixin, ComponentAntispamMixin):
+class ComponentNameForm(
+    HiddenFieldErrorsMixin, ComponentDocsMixin, ComponentAntispamMixin
+):
     name = forms.CharField(
         label=Component.name.field.verbose_name,
         max_length=COMPONENT_NAME_LENGTH,
@@ -2953,7 +3024,7 @@ class ComponentScratchCreateForm(ComponentProjectForm):
             )
         ),
     )
-    file_format_params = FormParamsField()
+    file_format_params = FileFormatParamsField()
 
     def __init__(self, *args, **kwargs) -> None:
         kwargs["auto_id"] = "id_scratchcreate_%s"
@@ -3207,6 +3278,11 @@ class ComponentRenameForm(SettingsBaseForm, ComponentDocsMixin):
         model = Component
         # ruff: ignore[mutable-class-default]
         fields = ["name", "slug", "project", "category"]
+        # ruff: ignore[mutable-class-default]
+        widgets = {
+            "project": SortedSearchableSelect,
+            "category": SortedSearchableSelect,
+        }
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
         super().__init__(request, *args, **kwargs)
@@ -3293,6 +3369,11 @@ class CategoryRenameForm(SettingsBaseForm):
         model = Category
         # ruff: ignore[mutable-class-default]
         fields = ["name", "slug", "project", "category"]
+        # ruff: ignore[mutable-class-default]
+        widgets = {
+            "project": SortedSearchableSelect,
+            "category": SortedSearchableSelect,
+        }
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
         super().__init__(request, *args, **kwargs)
@@ -3888,7 +3969,6 @@ class ReplaceForm(forms.Form):
             Field("path"),
             Field("search"),
             Field("replacement"),
-            Div(template="snippets/replace-help.html"),
         )
 
 
@@ -4300,6 +4380,13 @@ class TranslationDeleteForm(BaseDeleteForm):
 
 
 class ComponentDeleteForm(BaseDeleteForm):
+    delete_memory = forms.BooleanField(
+        label=gettext_lazy("Delete translation memory created from this component"),
+        help_text=gettext_lazy(
+            "Project, workspace, and shared translation memory entries will be deleted. Personal and uploaded entries will be preserved."
+        ),
+        required=False,
+    )
     confirm = forms.CharField(
         label=gettext_lazy("Removal confirmation"),
         help_text=gettext_lazy(
@@ -4308,6 +4395,10 @@ class ComponentDeleteForm(BaseDeleteForm):
         required=True,
     )
     warning_template = "trans/delete-component.html"
+
+    def __init__(self, obj, *args, **kwargs) -> None:
+        super().__init__(obj, *args, **kwargs)
+        self.helper.layout.insert(1, Field("delete_memory"))
 
 
 class ProjectDeleteForm(BaseDeleteForm):
@@ -4327,12 +4418,25 @@ class ProjectDeleteForm(BaseDeleteForm):
 
 
 class CategoryDeleteForm(BaseDeleteForm):
+    delete_memory = forms.BooleanField(
+        label=gettext_lazy(
+            "Delete translation memory created from components in this category"
+        ),
+        help_text=gettext_lazy(
+            "Project, workspace, and shared translation memory entries will be deleted. Personal and uploaded entries will be preserved."
+        ),
+        required=False,
+    )
     confirm = forms.CharField(
         label=gettext_lazy("Removal confirmation"),
         help_text=gettext_lazy("Please type in the slug of the category to confirm."),
         required=True,
     )
     warning_template = "trans/delete-category.html"
+
+    def __init__(self, obj, *args, **kwargs) -> None:
+        super().__init__(obj, *args, **kwargs)
+        self.helper.layout.insert(1, Field("delete_memory"))
 
 
 class ProjectLanguageDeleteForm(BaseDeleteForm):
@@ -4497,7 +4601,7 @@ class ProjectGroupDeleteForm(forms.Form):
         self.fields["group"].queryset = project.defined_groups.all()
 
 
-class ProjectUserGroupForm(UserManageForm):
+class ProjectUserGroupForm(ProjectMemberManageForm):
     groups = forms.ModelMultipleChoiceField(
         Group.objects.none(),
         widget=forms.CheckboxSelectMultiple,
@@ -4513,8 +4617,7 @@ class ProjectUserGroupForm(UserManageForm):
         limit_language_choices: list[tuple[str, str]] | None = None,
         **kwargs,
     ) -> None:
-        self.project = project
-        super().__init__(*args, **kwargs)
+        super().__init__(project, *args, **kwargs)
         self.fields["user"].widget = forms.HiddenInput()
         groups_queryset = (
             group_queryset
@@ -4549,6 +4652,12 @@ class ProjectUserGroupForm(UserManageForm):
             }
             for index, group in enumerate(groups)
         ]
+
+    def clean_user(self) -> User:
+        user = self.cleaned_data["user"]
+        if not user.groups.filter(defining_project=self.project).exists():
+            validate_team_assignable_user(user, allow_bot=True)
+        return super().clean_user()
 
     def get_selected_group_ids(self) -> set[str]:
         if self.is_bound:

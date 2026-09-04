@@ -13,6 +13,7 @@ from agentic_devtools.cli.ci.commands import (
     assign_speckit_agent_command,
 )
 from agentic_devtools.cli.ci.retry import RetryableError
+from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 
 
 def _invoke(argv: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[dict, int]:
@@ -167,7 +168,8 @@ class TestAssignSpeckitAgentCommand:
                             "base": {"ref": "main"},
                             "body": (
                                 "<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent "
-                                "issue=7 phase=1 hierarchy=feature correlation_id=abc -->"
+                                "issue=7 phase=1 hierarchy=feature "
+                                "correlation_id=123e4567-e89b-12d3-a456-426614174000 -->"
                             ),
                         }
                     ]
@@ -243,7 +245,14 @@ class TestAssignSpeckitAgentCommand:
 
     @patch("agentic_devtools.cli.ci.commands.assign_issue_to_agent")
     @patch("agentic_devtools.cli.ci.commands._gh_api_call")
-    @pytest.mark.parametrize("error", [RuntimeError("API unavailable"), RetryableError("rate limit")])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            RuntimeError("API unavailable"),
+            RetryableError("rate limit"),
+            ProviderRateLimitError(30),
+        ],
+    )
     def test_in_flight_check_failure_is_reported(self, mock_api, mock_assign, monkeypatch, capsys, error) -> None:
         monkeypatch.setenv("SPECKIT_PR_TOKEN", "secret")
         mock_api.side_effect = error

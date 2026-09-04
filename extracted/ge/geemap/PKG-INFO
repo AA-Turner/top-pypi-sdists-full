@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: geemap
-Version: 0.38.4
+Version: 0.38.5
 Summary: A Python package for interactive mapping using Google Earth Engine and ipyleaflet
 Project-URL: Homepage, https://github.com/gee-community/geemap
 Author-email: Qiusheng Wu <giswqs@gmail.com>
@@ -32,6 +32,7 @@ Requires-Dist: python-box
 Requires-Dist: requests
 Requires-Dist: scooby
 Requires-Dist: xarray
+Requires-Dist: xee>=0.1.0
 Provides-Extra: ai
 Requires-Dist: google-api-core; extra == 'ai'
 Requires-Dist: google-cloud-aiplatform; extra == 'ai'
@@ -42,6 +43,7 @@ Requires-Dist: langchain; extra == 'ai'
 Requires-Dist: langchain-community; extra == 'ai'
 Requires-Dist: langchain-google-genai; extra == 'ai'
 Provides-Extra: all
+Requires-Dist: cartopy; extra == 'all'
 Requires-Dist: ee-extra>=0.0.15; extra == 'all'
 Requires-Dist: ffmpeg-python; extra == 'all'
 Requires-Dist: gdown; extra == 'all'
@@ -53,12 +55,12 @@ Requires-Dist: google-api-core; extra == 'all'
 Requires-Dist: google-cloud-aiplatform; extra == 'all'
 Requires-Dist: google-cloud-storage; extra == 'all'
 Requires-Dist: google-generativeai; extra == 'all'
+Requires-Dist: googledrivedownloader; extra == 'all'
 Requires-Dist: gradio; extra == 'all'
 Requires-Dist: h3; extra == 'all'
 Requires-Dist: ipygany; extra == 'all'
 Requires-Dist: ipynb-py-convert; extra == 'all'
 Requires-Dist: ipytree; extra == 'all'
-Requires-Dist: ipyvtklink; extra == 'all'
 Requires-Dist: ipyvuetify; extra == 'all'
 Requires-Dist: iso8601; extra == 'all'
 Requires-Dist: jupyterlab; extra == 'all'
@@ -76,17 +78,19 @@ Requires-Dist: maplibre; extra == 'all'
 Requires-Dist: mss; extra == 'all'
 Requires-Dist: netcdf4; extra == 'all'
 Requires-Dist: oeel; extra == 'all'
+Requires-Dist: opencv-python; extra == 'all'
 Requires-Dist: osmnx; extra == 'all'
 Requires-Dist: owslib; extra == 'all'
 Requires-Dist: palettable; extra == 'all'
 Requires-Dist: panel; extra == 'all'
 Requires-Dist: pmtiles; extra == 'all'
-Requires-Dist: psycopg2; extra == 'all'
+Requires-Dist: psycopg2-binary; extra == 'all'
 Requires-Dist: pycrs; extra == 'all'
 Requires-Dist: pydeck; extra == 'all'
 Requires-Dist: pyntcloud[las]; extra == 'all'
 Requires-Dist: pyvista; extra == 'all'
 Requires-Dist: pyvista-xarray; extra == 'all'
+Requires-Dist: rasterio; extra == 'all'
 Requires-Dist: rio-cogeo; extra == 'all'
 Requires-Dist: rioxarray; extra == 'all'
 Requires-Dist: sankee>=0.1.0; extra == 'all'
@@ -109,27 +113,30 @@ Provides-Extra: dev
 Requires-Dist: jupyterlab; extra == 'dev'
 Requires-Dist: watchfiles; extra == 'dev'
 Provides-Extra: extra
+Requires-Dist: cartopy; extra == 'extra'
 Requires-Dist: ee-extra>=0.0.15; extra == 'extra'
 Requires-Dist: ffmpeg-python; extra == 'extra'
 Requires-Dist: gdown; extra == 'extra'
 Requires-Dist: geeadd>=0.5.1; extra == 'extra'
 Requires-Dist: geojson; extra == 'extra'
 Requires-Dist: geopandas; extra == 'extra'
+Requires-Dist: googledrivedownloader; extra == 'extra'
 Requires-Dist: ipynb-py-convert; extra == 'extra'
 Requires-Dist: ipytree; extra == 'extra'
 Requires-Dist: jupyterlab>=3; extra == 'extra'
 Requires-Dist: mapclassify>=2.4.0; extra == 'extra'
 Requires-Dist: mss; extra == 'extra'
 Requires-Dist: oeel; extra == 'extra'
+Requires-Dist: opencv-python; extra == 'extra'
 Requires-Dist: owslib; extra == 'extra'
 Requires-Dist: palettable; extra == 'extra'
 Requires-Dist: pycrs; extra == 'extra'
+Requires-Dist: rasterio; extra == 'extra'
 Requires-Dist: sankee>=0.1.0; extra == 'extra'
 Requires-Dist: whiteboxgui>=0.6.0; extra == 'extra'
 Requires-Dist: xee; extra == 'extra'
 Provides-Extra: lidar
 Requires-Dist: ipygany; extra == 'lidar'
-Requires-Dist: ipyvtklink; extra == 'lidar'
 Requires-Dist: laspy[lazrs]; extra == 'lidar'
 Requires-Dist: panel; extra == 'lidar'
 Requires-Dist: pyntcloud[las]; extra == 'lidar'
@@ -153,7 +160,7 @@ Requires-Dist: pyvista-xarray; extra == 'raster'
 Requires-Dist: rio-cogeo; extra == 'raster'
 Requires-Dist: rioxarray; extra == 'raster'
 Provides-Extra: sql
-Requires-Dist: psycopg2; extra == 'sql'
+Requires-Dist: psycopg2-binary; extra == 'sql'
 Requires-Dist: sqlalchemy; extra == 'sql'
 Provides-Extra: tests
 Requires-Dist: beautifulsoup4; extra == 'tests'

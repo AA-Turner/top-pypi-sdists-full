@@ -40,6 +40,7 @@ class GraphIrOptimiser : public GraphOptimiser
     using GraphOptStepArray = std::vector<RewriteFunctions<GraphIrOptimiser>>;
 
 private:
+    Operation *LowerVariables(Graph *const graph, Operation *const operation);
     Operation *ConstPropagation(Graph *const graph, Operation *const operation);
     Operation *RewriteConst(Graph *const graph, Operation *const operation);
     Operation *RewriteIdentityTranspose(Graph *const graph, Operation *const operation);
@@ -75,7 +76,6 @@ private:
     Operation *CanonicaliseReshapeTransposePattern(Graph *const graph, Operation *const operation);
     Operation *RearrangeTranspose(Graph *const graph, Operation *const operation);
     Operation *ReshapeReverse(Graph *const graph, Operation *const operation);
-    void MoveToConsumer(const Operation *const operation, Operation *const cons);
     Operation *MoveSplitSliceToConsumer(Graph *const, Operation *const operation);
     Operation *MoveConcatSliceToProducer(Graph *const graph, Operation *const operation);
     Operation *UnrollKernelStrides(Graph *const, Operation *const operation);
@@ -85,18 +85,21 @@ private:
     Operation *RewriteConv3D(Graph *const, Operation *const operation);
     Operation *ReplaceBroadcastWithAdd(Graph *const, Operation *const operation);
     Operation *RealiseKernelPadding(Graph *const, Operation *const operation);
-    // Utility/Helper methods
-    Operation *MakeFillOperation(TensorConnection *const ofmConn, const Shape &ofmShape, const TensorSlice &ofmSlice,
-        std::shared_ptr<Tensor> padTensor);
+    Tensor *RemoveUnusedConsumers(Graph *graph, Tensor *tensor);
+    Operation *MakeSinglePathRescale(Graph *const, Operation *const operation);
     // Checks for unary IFM-fusing
-    bool CanFuseRescaleOnConsumer(Operation *const consumer, TensorUsage usage, Quantization &newQuant, DataType newType);
+    bool CanFuseRescaleOnConsumer(Operation *const consumer, TensorUsage usage, const Quantization &newQuant, DataType newType);
     // Checks for binary IFM-fusing
     bool CanFuseMultipleRescalesOnConsumer(Operation *const consumer, Operation *const rescale1,
         Operation *const rescale2, const Quantization &q1, const Quantization &q2);
     // Checks for OFM-fusing
-    bool CanFuseRescaleOnProducer(Operation *const producer, Quantization &newQuant, DataType newType,
-        const Quantization *newIFMQuant = nullptr, DataType newIFMType = DataType::None,
-        const Quantization *newIFM2Quant = nullptr, DataType newIFM2Type = DataType::None);
+    bool CanFuseRescaleOnProducer(Operation *const producer, const Quantization &newQuant, DataType newType);
+    // Checks compound fusing
+    bool CanFuseRescalesOnOperation(Operation *const producer, const Quantization &newOfmQuant, DataType newOfmType,
+        TensorUsage ifmUsage, const Quantization &newIfmQuant, DataType newIfmType);
+    // Checks binary-compound fusing
+    bool CanFuseRescalesOnOperation(Operation *const producer, const Quantization &newOfmQuant, DataType newOfmType,
+        const Quantization &newIfmQuant, DataType newIfmType, const Quantization &newIfm2Quant, DataType newIfm2Type);
 
 
 
@@ -121,6 +124,7 @@ private:
         {
             {},
             {
+                &GraphIrOptimiser::LowerVariables,
                 &GraphIrOptimiser::RewriteConst,
                 &GraphIrOptimiser::RewriteIdentityTranspose,
             },
@@ -154,20 +158,13 @@ private:
         {
             {},
             {
-                &GraphIrOptimiser::FuseRescale,  // First pass fuse all possible ifm and ofm rescales
-            }
-        },
-        {
-            {},
-            {
-                &GraphIrOptimiser::FuseRescale, // Second pass, fuse any remaining ofm rescales after ifm fusing in first pass
+                &GraphIrOptimiser::FuseRescale,
             }
         },
         {
             {},
             {
                 &GraphIrOptimiser::ConvertAttributes,
-                &GraphIrOptimiser::RewriteRescale,
                 &GraphIrOptimiser::RewriteIdentityResize,  // Must run after ConvertAttributeTensors and before ConvertResizeOffsets
                 &GraphIrOptimiser::ConvertResizeOffsets,
                 &GraphIrOptimiser::RewriteFullyConnected,
@@ -201,11 +198,29 @@ private:
         // MoveSplitSliceToConsumer need to be done after any other optimisation that can affect the ifm/ofm shapes
         // has been performed, since the ifm/ofm shapes are of importance to this function.
         {
-            {},
+            {
+                &GraphIrOptimiser::RemoveUnusedConsumers,
+            },
             {
                 &GraphIrOptimiser::MergeTransposes,
                 &GraphIrOptimiser::MoveSplitSliceToConsumer,
                 &GraphIrOptimiser::MoveConcatSliceToProducer
+            }
+        },
+        {
+            {
+                &GraphIrOptimiser::RemoveUnusedConsumers,
+            },
+            {
+                &GraphIrOptimiser::MakeSinglePathRescale,
+            }
+        },
+        {
+            {},
+            {
+                &GraphIrOptimiser::FuseRescale,
+                &GraphIrOptimiser::RewriteRescale,
+                &GraphIrOptimiser::RewriteCast,
             }
         },
         {

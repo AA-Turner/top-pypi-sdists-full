@@ -1367,9 +1367,9 @@ class PipelineConfig:
         label's gate list like any other gate. Ordered between ``"review"``
         and ``"merge"`` when present. Unlike the other three, its
         *enforcement* additionally requires the specific repo to have
-        ``Repo.uat_preview`` configured (see
-        ``coord.merge_queue.requires_uat``) — so listing ``"uat"`` here is
-        necessary but not sufficient; it is the fleet-wide half of a
+        ``Repo.uat_preview`` or ``Repo.uat_live_preview`` configured (#2948;
+        see ``coord.merge_queue.requires_uat``) — so listing ``"uat"`` here
+        is necessary but not sufficient; it is the fleet-wide half of a
         two-part per-repo opt-in.
         """
         if label and label in self.labels:
@@ -1567,8 +1567,13 @@ class StoreConfig:
     engine is live is a deployment property, not something an individual
     client negotiates per request, so every machine pointed at the same
     ``coord serve`` daemon's database must set the same ``store:`` block (or
-    none). Nothing in this repo currently cross-checks that across machines
-    (#829 territory).
+    none). ``coord doctor`` (#3084) cross-checks THIS machine's own
+    resolved backend (:func:`coord.db.resolve_store_backend`) against the
+    daemon's live ``GET /healthz`` ``store_backend`` when a ``board_service``
+    is configured at all -- it does not (yet) sweep every OTHER machine in
+    the fleet the way its per-machine ``/health`` loop does for
+    capabilities, so a mismatch between two thin clients that never proxy
+    through each other is still invisible (#829 territory).
 
     Setting this block chooses the connection target only — it says nothing
     about whether the schema has actually been migrated to Postgres (#828)
@@ -2082,6 +2087,18 @@ class HealthConfig:
         default_factory=lambda: list(_DEFAULT_SPAWNED_COORD_UNITS)
     )
 
+    # ── PR churn — a branch whose PRs open and close in a loop (#3064) ─────
+    # The #3063 incident opened and closed 102 PRs for a single branch over
+    # ~10h while every other health signal (disk, unit drift, one transient
+    # stalled-pipeline row) reported clean — every existing check is keyed to
+    # a row *sitting still*, and a self-undoing loop never stalls. A normal
+    # branch gets exactly one PR; a legitimately re-opened/rebased one a
+    # handful at most, so any more than `pr_churn_crit_count` `merge_opened`
+    # audit rows for one (repo, branch) inside a rolling
+    # `pr_churn_window_hours` window is never legitimate.
+    pr_churn_window_hours: float = 24.0
+    pr_churn_crit_count: int = 3
+
 
 @dataclass
 class NotificationsConfig:
@@ -2467,6 +2484,7 @@ _KNOWN_REPO_KEYS = frozenset(
         "artifact_paths",
         "provider",
         "uat_preview",
+        "uat_live_preview",
     }
 )
 
@@ -2597,6 +2615,15 @@ def _parse_repos(raw: Any) -> tuple[list[Repo], list[str]]:
                 "the key entirely to leave the UAT gate off for this repo)"
             )
 
+        # #2948: uat_live_preview — the other half of the UAT gate's per-repo
+        # opt-in, for a repo whose preview host has no templatable URL at all
+        # (the common case — see `Repo.uat_live_preview`'s docstring). Either
+        # this OR `uat_preview` alone is a full opt-in; a repo can also set
+        # both (the `uat_preview` override then wins at evaluation time).
+        uat_live_preview_raw = entry.get("uat_live_preview", False)
+        if not isinstance(uat_live_preview_raw, bool):
+            raise ConfigError(f"repos[{i}].uat_live_preview must be a boolean")
+
         repos.append(
             Repo(
                 name=name,
@@ -2616,6 +2643,7 @@ def _parse_repos(raw: Any) -> tuple[list[Repo], list[str]]:
                 artifact_paths=artifact_paths,
                 provider=repo_provider,
                 uat_preview=uat_preview,
+                uat_live_preview=uat_live_preview_raw,
             )
         )
     return repos, warnings
@@ -3621,12 +3649,14 @@ _HEALTH_FLOAT_FIELDS: dict[str, float] = {
     "plan_usage_crit_pct": 0.0,
     "webapp_build_heartbeat_warn_minutes": 0.0,
     "webapp_build_heartbeat_crit_minutes": 0.0,
+    "pr_churn_window_hours": 0.0,
 }
 _HEALTH_INT_FIELDS: tuple[str, ...] = (
     "worktree_warn_count",
     "worktree_crit_count",
     "agent_version_warn_behind",
     "agent_version_crit_behind",
+    "pr_churn_crit_count",
 )
 _HEALTH_STR_LIST_FIELDS: tuple[str, ...] = (
     "disabled_checks",

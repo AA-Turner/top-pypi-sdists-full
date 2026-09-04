@@ -337,3 +337,103 @@ def test_machine_stats_route_returns_503_on_board_read_failure(cli, monkeypatch)
     resp = cli.get("/machines/stats")
     assert resp.status_code == 503
     assert resp.json()["error"] == "board read failed"
+
+
+# ── GET /healthz store_backend (#3084) ───────────────────────────────────────
+#
+# `/healthz` must stay a pure liveness probe -- no DB access, never
+# auth-gated (see `coord/serve_app.py`'s module docstring) -- so
+# `store_backend` is sourced from `coord.db.resolve_store_backend()`, a
+# config read, not a connection attempt. These tests exercise the REAL
+# `resolve_store_backend()` (only the config resolution underneath it is
+# monkeypatched via `_resolve_store_target`), so a regression that let a raw
+# DSN slip past the redaction wrapper would show up here, not just in
+# `tests/test_db.py`'s narrower unit coverage of the wrapper itself.
+
+
+def test_healthz_reports_sqlite_backend_by_default(cli, monkeypatch, tmp_path: Path):
+    # #3084: hermetic against whatever `~/.coord/coordinator.yml` (or a CWD
+    # one) might exist on the machine running this test -- same pattern
+    # `tests/test_db.py::TestResolveStoreTarget` uses for the identical
+    # underlying resolution.
+    monkeypatch.setenv("COORD_CONFIG", str(tmp_path / "does-not-exist.yml"))
+    resp = cli.get("/healthz")
+    assert resp.status_code == 200
+    assert resp.json()["store_backend"] == "sqlite"
+
+
+def test_healthz_reports_configured_postgres_backend(cli, monkeypatch):
+    import coord.db as db_mod
+    from coord import sql
+
+    monkeypatch.setattr(
+        db_mod,
+        "_resolve_store_target",
+        lambda: db_mod._StoreTarget(
+            backend=sql.DIALECT_POSTGRES, dsn="postgresql://admin:s3cret@dbhost:5432/coorddb"
+        ),
+    )
+    resp = cli.get("/healthz")
+    assert resp.status_code == 200
+    assert resp.json()["store_backend"] == "postgres"
+
+
+def test_healthz_survives_broken_store_block(cli, monkeypatch):
+    """Review fix (#3084): an explicit-but-invalid `store:` block makes
+    `resolve_store_backend()` -> `_resolve_store_target()` raise `ConfigError`
+    "LOUD" by design (see that function's docstring in coord/db.py) -- correct
+    for a caller about to *use* the backend, but /healthz is a liveness probe
+    the issue requires to stay unconditional. Before this fix the handler had
+    no try/except around the call, so this exact config shape (`backend:
+    postgres` with no `dsn`, or a typo'd `backend:`) turned the probe into an
+    unhandled 500 instead of its usual `{"status": "ok", ...}` -- worst case
+    during a live #829 cutover edit. It must still answer 200, with
+    `store_backend` degraded to "unknown" rather than the request failing."""
+    import coord.db as db_mod
+    from coord.config import ConfigError
+
+    def _boom():
+        raise ConfigError("store.backend must be one of ('sqlite', 'postgres'), got 'bogus'")
+
+    monkeypatch.setattr(db_mod, "_resolve_store_target", _boom)
+    resp = cli.get("/healthz")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["store_backend"] == "unknown"
+
+
+def test_healthz_never_leaks_a_raw_dsn(cli, monkeypatch):
+    """#3084 acceptance: no raw DSN (password included) reaches /healthz --
+    only the redacted host/dbname does. Drives the real
+    `resolve_store_backend()` -> `sql.redact_dsn()` path end-to-end rather
+    than asserting on a mocked response, so a redaction regression would
+    fail this test even if it left the mocked-value test above green."""
+    import coord.db as db_mod
+    from coord import sql
+
+    monkeypatch.setattr(
+        db_mod,
+        "_resolve_store_target",
+        lambda: db_mod._StoreTarget(
+            backend=sql.DIALECT_POSTGRES,
+            dsn="postgresql://admin:s3cret-password@dbhost:5432/coorddb",
+        ),
+    )
+    resp = cli.get("/healthz")
+    assert resp.status_code == 200
+    assert "s3cret-password" not in resp.text
+    assert "admin:" not in resp.text
+    assert resp.json()["store_backend"] == "postgres"
+
+
+def test_healthz_still_auth_exempt_and_no_db_access_with_store_backend(cli):
+    """The `store_backend` addition must not change `/healthz`'s two
+    load-bearing properties (#3084's own design constraint): it stays
+    reachable with no bearer token (this fixture's app has none configured,
+    same as every other test in this file) and it still never opens a DB
+    connection -- `resolve_store_backend()` only ever reads config."""
+    resp = cli.get("/healthz")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body) >= {"status", "schema_version", "schema_min", "schema_max", "store_backend"}

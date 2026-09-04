@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from bernstein.core import heartbeat as heartbeat_protocol
+from bernstein.core import heartbeat as heartbeat_protocol  # type: ignore[attr-defined]  # meta-path redirect
 from bernstein.core.cost import price_model_usage
 from bernstein.core.lifecycle import transition_agent
 from bernstein.core.metrics import get_collector
@@ -2965,8 +2965,9 @@ def send_shutdown_signals(orch: Any, reason: str, stagger_delay_s: float = 0.0) 
 def _release_file_ownership(orch: Any, agent_id: str) -> None:
     """Release all files owned by the given agent.
 
-    Uses :class:`~bernstein.core.file_locks.FileLockManager` when available,
-    falling back to the legacy ``_file_ownership`` dict for compatibility.
+    Uses :class:`~bernstein.core.file_locks.FileLockManager` as the single
+    source of truth.  The legacy ``_file_ownership`` attribute is a read-only
+    projection of it; there is no longer a fallback path.
 
     Args:
         orch: Orchestrator instance.
@@ -2975,10 +2976,6 @@ def _release_file_ownership(orch: Any, agent_id: str) -> None:
     lock_manager = getattr(orch, "_lock_manager", None)
     if lock_manager is not None:
         lock_manager.release(agent_id)
-    # Always clean the legacy dict so tests and code that write to it directly stay consistent
-    to_remove = [fp for fp, owner in orch._file_ownership.items() if owner == agent_id]
-    for fp in to_remove:
-        del orch._file_ownership[fp]
 
 
 def _release_task_to_session(orch: Any, task_ids: list[str]) -> None:

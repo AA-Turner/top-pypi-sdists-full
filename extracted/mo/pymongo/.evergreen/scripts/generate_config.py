@@ -97,11 +97,14 @@ def create_standard_nonlinux_variants() -> list[BuildVariant]:
             tasks = [
                 f".test-standard !.pypy .server-{version}" for version in get_versions_from("6.0")
             ]
+        if host_name == "win64":
+            tasks.append(".test-no-orchestration !.pypy")
         host = HOSTS[host_name]
         tags = ["standard-non-linux"]
         expansions = dict()
         if host_name == "win32":
             expansions["IS_WIN32"] = "1"
+            tasks = [".test-standard !.pypy !.free-threaded"]
         display_name = get_variant_name(base_display_name, host)
         variant = create_variant(tasks, display_name, host=host, tags=tags, expansions=expansions)
         variants.append(variant)
@@ -128,9 +131,17 @@ def create_encryption_variants() -> list[BuildVariant]:
     ):
         expansions = get_encryption_expansions(encryption)
         display_name = get_variant_name(encryption, host, **expansions)
-        tasks = [".test-non-standard"]
+        tasks = [".test-non-standard", ".test-string-query-preview"]
         if host != "rhel8":
-            tasks = [".test-non-standard !.pypy"]
+            # Exclude PyPy (not tested with encryption on macOS/win64) and coverage tasks
+            # (encryption suites exceed the 60-min timeout with coverage overhead on macOS/win64).
+            # Also include the non-coverage companion tasks (test-non-standard-no-cov) which
+            # carry the "latest" server tasks without COVERAGE=1.
+            tasks = [
+                ".test-non-standard !.pypy !.cov",
+                ".test-non-standard-no-cov !.pypy",
+                ".test-string-query-preview",
+            ]
         variant = create_variant(
             tasks,
             display_name,
@@ -181,10 +192,7 @@ def create_compression_variants():
     variants = []
     for compressor in "snappy", "zlib", "zstd":
         expansions = dict(COMPRESSOR=compressor)
-        if compressor == "zstd":
-            tasks = [".test-standard !.server-4.2"]
-        else:
-            tasks = [".test-standard"]
+        tasks = [".test-standard"]
         display_name = get_variant_name(f"Compression {compressor}", host)
         variants.append(
             create_variant(
@@ -198,8 +206,8 @@ def create_compression_variants():
     host = HOSTS["ubuntu22"]
     expansions = dict(COMPRESSOR="ztsd")
     tasks = [
-        ".test-standard !.server-4.2 !.server-4.4 !.server-5.0 .python-3.14",
-        ".test-standard !.server-4.2 !.server-4.4 !.server-5.0 .python-3.14t",
+        ".test-standard !.server-4.4 !.server-5.0 .python-3.14",
+        ".test-standard !.server-4.4 !.server-5.0 .python-3.14t",
     ]
     display_name = get_variant_name(f"Compression {compressor}", host)
     variants.append(
@@ -245,6 +253,7 @@ def create_pyopenssl_variants():
             create_variant(
                 tasks,
                 display_name,
+                host=host,
                 expansions=expansions,
                 batchtime=batchtime,
             )
@@ -458,6 +467,19 @@ def create_atlas_connect_variants():
     ]
 
 
+def create_sfp_variants():
+    host = DEFAULT_HOST
+    return [
+        create_variant(
+            [".test-no-orchestration"],
+            get_variant_name("SFP", host),
+            tags=["pr"],
+            host=host,
+            expansions=dict(TEST_NAME="sfp"),
+        )
+    ]
+
+
 def create_coverage_report_variants():
     return [create_variant(["coverage-report"], "Coverage Report", host=DEFAULT_HOST)]
 
@@ -642,8 +664,9 @@ def create_test_non_standard_tasks():
     tasks = []
     task_combos = set()
     # For each version and topology, rotate through the CPythons.
+    # Only the sharded_cluster topology runs on PRs to keep patch build size manageable.
     for (version, topology), python in zip_cycle(list(product(ALL_VERSIONS, TOPOLOGIES)), CPYTHONS):
-        pr = version == "latest"
+        pr = version == "latest" and topology == "sharded_cluster"
         task_combos.add((version, topology, python, pr))
     # For each PyPy and topology, rotate through the MongoDB versions.
     for (python, topology), version in zip_cycle(list(product(PYPYS, TOPOLOGIES)), ALL_VERSIONS):
@@ -668,13 +691,62 @@ def create_test_non_standard_tasks():
             expansions["TEST_MIN_DEPS"] = "1"
         elif pr:
             expansions["COVERAGE"] = "1"
+            tags.append("cov")
         name = get_task_name("test-non-standard", python=python, **expansions)
         server_func = FunctionCall(func="run server", vars=expansions)
         test_vars = expansions.copy()
         test_vars["TOOLCHAIN_VERSION"] = python
         test_func = FunctionCall(func="run tests", vars=test_vars)
         tasks.append(EvgTask(name=name, tags=tags, commands=[server_func, test_func]))
+        # For each coverage task, also emit a non-coverage companion so that
+        # macOS/Win64 encryption variants (which filter out .cov due to timeout
+        # constraints) still have a "latest" task to activate in patch builds.
+        if pr and "cov" in tags:
+            nc_expansions = {k: v for k, v in expansions.items() if k != "COVERAGE"}
+            # Use a distinct primary tag so companions are not selected by existing
+            # ".test-non-standard" selectors (e.g. load-balancer, PyOpenSSL variants).
+            nc_tags = [
+                "test-non-standard-no-cov" if t == "test-non-standard" else t
+                for t in tags
+                if t != "cov"
+            ]
+            nc_name = get_task_name("test-non-standard", python=python, **nc_expansions)
+            nc_server_func = FunctionCall(func="run server", vars=nc_expansions)
+            nc_test_vars = nc_expansions.copy()
+            nc_test_vars["TOOLCHAIN_VERSION"] = python
+            nc_test_func = FunctionCall(func="run tests", vars=nc_test_vars)
+            tasks.append(
+                EvgTask(name=nc_name, tags=nc_tags, commands=[nc_server_func, nc_test_func])
+            )
     return tasks
+
+
+def create_string_query_preview_tasks():
+    """Tasks for the preview Queryable Encryption string query types.
+
+    The preview query types need a server that is at least 8.2 and older than
+    9.0, and ALL_VERSIONS jumps straight from 8.0 to 9.0, so they have nowhere
+    to run without a dedicated task. setup_tests.py pins the released
+    pymongocrypt for 8.x, which bundles a libmongocrypt still carrying the
+    preview types.
+    """
+    python = CPYTHONS[-1]
+    topology = "replica_set"
+    auth, ssl = get_standard_auth_ssl(topology)
+    expansions = dict(AUTH=auth, SSL=ssl, TOPOLOGY=topology, VERSION="8.2")
+    tags = [
+        "test-string-query-preview",
+        "server-8.2",
+        f"python-{python}",
+        f"{topology}-{auth}-{ssl}",
+        auth,
+    ]
+    name = get_task_name("test-string-query-preview", python=python, **expansions)
+    server_func = FunctionCall(func="run server", vars=expansions)
+    test_vars = expansions.copy()
+    test_vars["TOOLCHAIN_VERSION"] = python
+    test_func = FunctionCall(func="run tests", vars=test_vars)
+    return [EvgTask(name=name, tags=tags, commands=[server_func, test_func])]
 
 
 def create_test_standard_auth_tasks():

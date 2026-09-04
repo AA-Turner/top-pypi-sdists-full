@@ -185,7 +185,7 @@ class ScreenshotsApi(object):
     def screenshot_delete(self, project_id, id, **kwargs):  # noqa: E501
         """Delete a screenshot  # noqa: E501
 
-        Delete an existing screenshot.  # noqa: E501
+        Permanently removes a screenshot and all its associated markers from the project. Use this when you need to fully remove a screenshot that is no longer relevant — for example, after a UI redesign renders the captured screen obsolete. This is a hard delete: the screenshot record and every key-to-region marker linked to it are destroyed together and cannot be recovered.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.screenshot_delete(project_id, id, async_req=True)
@@ -213,7 +213,7 @@ class ScreenshotsApi(object):
     def screenshot_delete_with_http_info(self, project_id, id, **kwargs):  # noqa: E501
         """Delete a screenshot  # noqa: E501
 
-        Delete an existing screenshot.  # noqa: E501
+        Permanently removes a screenshot and all its associated markers from the project. Use this when you need to fully remove a screenshot that is no longer relevant — for example, after a UI redesign renders the captured screen obsolete. This is a hard delete: the screenshot record and every key-to-region marker linked to it are destroyed together and cannot be recovered.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.screenshot_delete_with_http_info(project_id, id, async_req=True)
@@ -318,7 +318,7 @@ class ScreenshotsApi(object):
     def screenshot_show(self, project_id, id, **kwargs):  # noqa: E501
         """Get a single screenshot  # noqa: E501
 
-        Get details on a single screenshot for a given project.  # noqa: E501
+        Returns a single screenshot belonging to the specified project. Use this to retrieve the screenshot's name, description, hosted image URL, and marker count after uploading, or before creating, updating, or inspecting its markers. The response is a synchronous, idempotent read — repeated calls return the same record without side effects.  The Attachable Screenshots feature must be enabled on the account.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.screenshot_show(project_id, id, async_req=True)
@@ -346,7 +346,7 @@ class ScreenshotsApi(object):
     def screenshot_show_with_http_info(self, project_id, id, **kwargs):  # noqa: E501
         """Get a single screenshot  # noqa: E501
 
-        Get details on a single screenshot for a given project.  # noqa: E501
+        Returns a single screenshot belonging to the specified project. Use this to retrieve the screenshot's name, description, hosted image URL, and marker count after uploading, or before creating, updating, or inspecting its markers. The response is a synchronous, idempotent read — repeated calls return the same record without side effects.  The Attachable Screenshots feature must be enabled on the account.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.screenshot_show_with_http_info(project_id, id, async_req=True)

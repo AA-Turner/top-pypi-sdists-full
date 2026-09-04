@@ -80,6 +80,7 @@ from pyspark.errors.exceptions.base import AnalysisException
 
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.utils.telemetry import telemetry
 
 _RESERVED_BRANCH_NAMES = frozenset({"main"})
 
@@ -123,6 +124,14 @@ def _build_create_branch_action(
             action += " IF NOT EXISTS"
         return action
     if replace:
+        telemetry.report_iceberg_wap(
+            op="unsupported",
+            surface="sql_call",
+            ref_type="branch",
+            outcome="rejected",
+            error_code="UNSUPPORTED_OPERATION",
+            detail="replace_branch",
+        )
         exception = AnalysisException(
             f"Iceberg 'ALTER TABLE … REPLACE BRANCH {branch_name!r}' (without "
             "CREATE) is not translated by Snowpark Connect: Snowflake does "
@@ -148,6 +157,14 @@ def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> s
     """Translate ``ALTER TABLE … CREATE/REPLACE BRANCH …`` to Snowflake SQL."""
     branch_name = str(rel.branch())
     if branch_name in _RESERVED_BRANCH_NAMES:
+        telemetry.report_iceberg_wap(
+            op="unsupported",
+            surface="sql_call",
+            ref_type="branch",
+            outcome="rejected",
+            error_code="UNSUPPORTED_OPERATION",
+            detail="reserved_main",
+        )
         exception = AnalysisException(
             f"Iceberg branch name {branch_name!r} is reserved by Snowflake "
             "(the built-in main branch ref cannot be created via CREATE "
@@ -164,6 +181,15 @@ def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> s
     options = rel.branchOptions()
     unsupported = _branch_options_has_unsupported_binding(options)
     if unsupported is not None:
+        telemetry.report_iceberg_wap(
+            op="unsupported",
+            surface="sql_call",
+            ref_type="branch",
+            ddl_action="create",
+            outcome="rejected",
+            error_code="UNSUPPORTED_OPERATION",
+            detail="snapshot_pinned_branch",
+        )
         exception = AnalysisException(
             f"Iceberg 'ALTER TABLE … CREATE BRANCH {branch_name!r}' with "
             f"{unsupported} binding is not translated by Snowpark Connect yet: "
@@ -183,6 +209,12 @@ def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> s
         if_not_exists=if_not_exists,
     )
     quoted_branch = _quote_branch_name_sql(branch_name)
+    telemetry.report_iceberg_wap(
+        op="branch_ddl",
+        surface="sql_call",
+        ref_type="branch",
+        ddl_action="create",
+    )
     return f"ALTER ICEBERG TABLE {table_name_sql} {action} {quoted_branch}"
 
 
@@ -195,4 +227,10 @@ def translate_drop_branch(rel: TypingAny, table_name_sql: str) -> str:
     if if_exists:
         action += " IF EXISTS"
     quoted_branch = _quote_branch_name_sql(branch_name)
+    telemetry.report_iceberg_wap(
+        op="branch_ddl",
+        surface="sql_call",
+        ref_type="branch",
+        ddl_action="drop",
+    )
     return f"ALTER ICEBERG TABLE {table_name_sql} {action} {quoted_branch}"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: byteplus-python-sdk-v2
-Version: 3.0.59
+Version: 3.0.60
 Summary: Byteplus SDK for Python
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/byteplus-sdk/byteplus-python-sdk-v2
@@ -27,6 +27,8 @@ Requires-Dist: certifi>=2017.4.17
 Requires-Dist: python-dateutil>=2.1
 Requires-Dist: six>=1.16
 Requires-Dist: urllib3>=1.26.5
+Requires-Dist: pydantic<3.0.0,>=2.0.0; python_version >= "3.8"
+Requires-Dist: requests<3.0.0,>=2.31.0; python_version >= "3.8"
 Provides-Extra: ark
 Requires-Dist: cryptography>=44.0.1; extra == "ark"
 Dynamic: license-file

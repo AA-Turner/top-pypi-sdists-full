@@ -96,12 +96,13 @@ enum class OpType : uint16_t
     If,
     While,
     // Yield
-    // Variable
-    // VariabeWrite
-    // VariableRead
+    Variable,
+    VariableWrite,
+    VariableRead,
     // ConstShape
 
     // Regor Internal Operators
+    Container,
     MemoryCopy,
     ReinterpretCast,
     Passthrough,
@@ -137,6 +138,7 @@ enum class OpType : uint16_t
     Fill,
     FloorDiv,
     FloorMod,
+    Gelu,
     FullyConnected,
     GatherNd,
     GatherV2,
@@ -233,8 +235,8 @@ constexpr inline bool IsClipping(OpType opType)
 
 constexpr inline bool IsUnaryElementwise(OpType opType)
 {
-    return opType == OpType::Abs || opType == OpType::LeakyRelu || opType == OpType::CLZ ||
-           opType == OpType::LogicalNot || opType == OpType::Not || opType == OpType::Neg;
+    return opType == OpType::Abs || opType == OpType::Gelu || opType == OpType::Elu || opType == OpType::LeakyRelu ||
+           opType == OpType::CLZ || opType == OpType::LogicalNot || opType == OpType::Not || opType == OpType::Neg;
 }
 
 constexpr inline bool IsBinaryElementwise(OpType opType)
@@ -311,6 +313,16 @@ constexpr inline bool IsDataLayout(OpType opType)
 constexpr inline bool IsControlFlow(OpType opType)
 {
     return opType == OpType::If || opType == OpType::While;
+}
+
+constexpr inline bool IsRescale(OpType opType)
+{
+    return opType == OpType::Rescale || opType == OpType::Quantize;
+}
+
+constexpr inline bool IsVariable(OpType opType)
+{
+    return opType == OpType::Variable || opType == OpType::VariableRead || opType == OpType::VariableWrite;
 }
 
 }  // namespace regor

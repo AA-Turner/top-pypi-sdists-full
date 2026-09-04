@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abx-plugins
-Version: 1.12.224
+Version: 1.12.230
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://github.com/ArchiveBox/abx-plugins
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -25,6 +25,10 @@ Requires-Dist: abxpkg==1.12.117
 Requires-Dist: imagesize>=2.0.0
 Requires-Dist: rich-click>=1.9.7
 Requires-Dist: uv>=0.8.22
+Provides-Extra: opencode
+Requires-Dist: httpx>=0.28.1; extra == 'opencode'
+Requires-Dist: requests>=2.32.3; extra == 'opencode'
+Requires-Dist: websockets>=15; extra == 'opencode'
 Description-Content-Type: text/markdown
 
 # [ArchiveBox Plugin Marketplace](https://archivebox.github.io/abx-plugins/)

@@ -97,7 +97,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip|${{ hashFiles('setup.py') }}|${{ hashFiles('tox.ini') }}
+          key: pip|${{ hashFiles('pyproject.toml') }}|${{ hashFiles('tox.ini') }}
       - run: pip install tox
       - name: Configure Baikal with pre-seeded database
         run: |
@@ -183,13 +183,28 @@ jobs:
           docker exec ${{ job.services.nextcloud.id }} php occ config:system:set ratelimit.whitelist.0 --value='172.17.0.0/16' || true
           docker exec ${{ job.services.nextcloud.id }} php occ config:system:set ratelimit.whitelist.1 --value='127.0.0.1' || true
 
-          # Clear rate limit cache
-          docker exec ${{ job.services.nextcloud.id }} php -r "
-          \$db = new PDO('sqlite:/var/www/html/data/nextcloud.db');
-          \$db->exec('DELETE FROM oc_ratelimit_entries');
-          \$db->exec('DELETE FROM oc_bruteforce_attempts');
-          echo 'Cleared rate limit and bruteforce caches\n';
-          " || true
+          # Clear rate limit cache.  The SQLite file is named after the `dbname`
+          # config value, which defaults to `owncloud` — look it up rather than
+          # guessing, and check it exists first: PDO creates a missing SQLite
+          # file, so a wrong path silently yields "no such table" for every
+          # DELETE below.
+          DB_NAME=$(docker exec ${{ job.services.nextcloud.id }} php occ config:system:get dbname 2>/dev/null | tr -d '\r\n')
+          DB_PATH="/var/www/html/data/${DB_NAME:-owncloud}.db"
+          if docker exec ${{ job.services.nextcloud.id }} test -f "$DB_PATH"; then
+            docker exec ${{ job.services.nextcloud.id }} php -r "
+            \$db = new PDO('sqlite:$DB_PATH');
+            foreach (['oc_ratelimit_entries', 'oc_bruteforce_attempts'] as \$table) {
+                try {
+                    \$db->exec(\"DELETE FROM \$table\");
+                } catch (PDOException \$e) {
+                    fwrite(STDERR, \"skipping \$table: \" . \$e->getMessage() . \"\n\");
+                }
+            }
+            echo \"Cleared rate limit and bruteforce caches\n\";
+            " || true
+          else
+            echo "No database found at $DB_PATH — skipping cache cleanup"
+          fi
 
           echo "Nextcloud is configured!"
       - name: Configure Cyrus
@@ -326,7 +341,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip|${{ hashFiles('setup.py') }}|${{ hashFiles('tox.ini') }}
+          key: pip|${{ hashFiles('pyproject.toml') }}|${{ hashFiles('tox.ini') }}
       - run: pip install tox
       - run: tox -e docs
   style:
@@ -339,7 +354,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip|${{ hashFiles('setup.py') }}|${{ hashFiles('tox.ini') }}
+          key: pip|${{ hashFiles('pyproject.toml') }}|${{ hashFiles('tox.ini') }}
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pre-commit
@@ -356,12 +371,12 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip|${{ hashFiles('setup.py') }}|${{ hashFiles('tox.ini') }}
+          key: pip|${{ hashFiles('pyproject.toml') }}|${{ hashFiles('tox.ini') }}
       - run: pip install tox
       - run: tox -e deptry
   # The three async-* jobs below exist to test the async backend *selection* logic,
   # not to re-run the async integration tests.  The async HTTP library
-  # (_USE_HTTPX / _USE_NIQUESTS / _USE_HTTPXYZ) is chosen at import time based on
+  # (_USE_HTTPX / _USE_NIQUESTS / _HTTPX_FLAVOUR) is chosen at import time based on
   # what is installed, so the only way to exercise each fallback path is to
   # manipulate the installed packages before running pytest.  The main `tests`
   # job above already covers async tests with niquests (the default install);
@@ -410,14 +425,48 @@ jobs:
       - name: Verify httpxyz is used
         run: |
           python -c "
-          from caldav.async_davclient import _USE_HTTPX, _USE_HTTPXYZ, _USE_NIQUESTS
+          from caldav.async_davclient import _HTTPX_FLAVOUR, _USE_HTTPX, _USE_NIQUESTS
           assert not _USE_NIQUESTS, 'niquests should not be available'
-          assert _USE_HTTPXYZ, 'httpxyz should be used'
+          assert _HTTPX_FLAVOUR == 'httpxyz', f'expected httpxyz, got {_HTTPX_FLAVOUR}'
           assert _USE_HTTPX, '_USE_HTTPX should be set when httpxyz is used'
           print('✓ Using httpxyz for async HTTP')
           "
       - name: Run async tests with httpxyz
         run: pytest tests/test_async_davclient.py -v
+  async-httpx2:
+    # Uninstalls niquests and httpxyz and installs httpx2 - Pydantic's
+    # continuation of httpx, a separate package rather than a new httpx release.
+    # Unlike httpxyz it does not register itself in sys.modules as "httpx", so
+    # this job is what catches code that reaches for httpx by name.
+    # Runs unit tests plus the Xandikos async integration tests (embedded, no
+    # service container needed), so the backend is exercised over real HTTP.
+    name: async (httpx2 fallback)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies with httpx2, without niquests or httpxyz
+        run: |
+          pip install --editable .[test]
+          pip uninstall -y niquests httpxyz httpx
+          pip install httpx2
+      - name: Verify httpx2 is used
+        run: |
+          python -c "
+          from caldav.async_davclient import _HTTPX_FLAVOUR, _USE_HTTPX, _USE_NIQUESTS
+          assert not _USE_NIQUESTS, 'niquests should not be available'
+          assert _USE_HTTPX, '_USE_HTTPX should be set when httpx2 is used'
+          assert _HTTPX_FLAVOUR == 'httpx2', f'expected httpx2, got {_HTTPX_FLAVOUR}'
+          print('✓ Using httpx2 for async HTTP')
+          "
+      - name: Run async tests with httpx2
+        # Xandikos runs embedded, so no service container is needed; the
+        # selection is deliberately narrow rather than "everything not baikal",
+        # since the runner has docker and would otherwise auto-discover the
+        # docker test servers.
+        run: pytest tests/test_async_davclient.py tests/test_async_integration.py -v -k "xandikos or Xandikos"
   async-httpx:
     # Uninstalls both niquests and httpxyz to force the plain-httpx fallback path.
     # Runs unit tests + a real integration test against Baikal (the lightest server)
@@ -462,9 +511,9 @@ jobs:
       - name: Verify httpx is used
         run: |
           python -c "
-          from caldav.async_davclient import _USE_HTTPX, _USE_HTTPXYZ, _USE_NIQUESTS
+          from caldav.async_davclient import _HTTPX_FLAVOUR, _USE_HTTPX, _USE_NIQUESTS
           assert not _USE_NIQUESTS, 'niquests should not be available'
-          assert not _USE_HTTPXYZ, 'httpxyz should not be available'
+          assert _HTTPX_FLAVOUR == 'httpx', f'expected httpx, got {_HTTPX_FLAVOUR}'
           assert _USE_HTTPX, 'httpx should be used'
           print('✓ Using httpx for async HTTP')
           "
@@ -515,9 +564,9 @@ jobs:
       - name: Verify requests is used
         run: |
           python -c "
-          from caldav.davclient import _USE_REQUESTS, _USE_NIQUESTS
-          assert _USE_REQUESTS, 'requests should be available'
-          assert not _USE_NIQUESTS, 'niquests should not be available'
+          from caldav.lib.http_sync import USE_REQUESTS, USE_NIQUESTS
+          assert USE_REQUESTS, 'requests should be available'
+          assert not USE_NIQUESTS, 'niquests should not be available'
           print('✓ Using requests for sync HTTP')
           "
       - name: Run sync tests with requests

@@ -57,7 +57,7 @@ class DefaultSchema(PulpAutoSchema):
     """
     Overrides _allows_filters method to include filter fields only for read actions.
 
-    Schema can be customised per view(set). Override this class and set it as a `schema`
+    Schema can be customised per view(set). Override this class and set it as a ``schema``
     attribute of a view(set) of interest.
     """
 
@@ -82,7 +82,7 @@ class NamedModelViewSet(viewsets.GenericViewSet):
     A customized named ModelViewSet that knows how to register itself with the Pulp API router.
 
     This viewset is discoverable by its name.
-    "Normal" Django Models and Master/Detail models are supported by the `register_with` method.
+    "Normal" Django Models and Master/Detail models are supported by the ``register_with`` method.
 
     Attributes:
         lookup_field (str): The name of the field by which an object should be looked up, in
@@ -429,20 +429,27 @@ class AsyncReservedObjectMixin:
 
         This default implementation locks the instance being worked on.
 
+        .. note::
+
+          This does not work for [pulpcore.app.viewsets.AsyncCreateMixin][]
+          (as there is no instance). Classes using [pulpcore.app.viewsets.AsyncCreateMixin][]
+          must override this method.
+
         Args:
-            instance (django.models.Model | None): The instance that will be worked
+            instance (django.models.Model): The instance that will be worked
                 on by the task.
 
         Returns:
-            list[django.models.Model | str]: The resources to put in the task's reservation
+            list/str: The resources to put in the task's reservation
 
         Raises:
             AssertionError if instance is None (which happens for creation)
 
         """
-        if instance is not None:
-            return [instance]
-        return []
+        assert instance is not None, (
+            "'{}' must not use the default `async_reserved_resources` method when using create."
+        ).format(self.__class__.__name__)
+        return [instance]
 
     def async_shared_resources(self, instance, **kwargs):
         """
@@ -453,7 +460,7 @@ class AsyncReservedObjectMixin:
         return []
 
 
-class AsyncCreateMixin(AsyncReservedObjectMixin):
+class AsyncCreateMixin:
     """
     Provides a create method that dispatches a task with reservation.
     """

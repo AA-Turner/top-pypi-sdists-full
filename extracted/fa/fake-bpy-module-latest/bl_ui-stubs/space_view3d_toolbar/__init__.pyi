@@ -546,6 +546,13 @@ class VIEW3D_PT_tools_brush_falloff(
         :return: The class or default when not found.
         """
 
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
 class VIEW3D_PT_tools_brush_falloff_normal(View3DPaintPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -637,6 +644,13 @@ class VIEW3D_PT_tools_brush_shape(
         """
 
         :return: The class or default when not found.
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
         """
 
 class VIEW3D_PT_tools_brush_stroke(

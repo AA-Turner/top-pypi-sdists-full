@@ -148,6 +148,36 @@ def _central_tendency_and_ci_by_prior_and_posterior(
   return xr.Dataset(data_vars=xr_data, coords=xr_coords)
 
 
+class RhatSummaryDataFrame(pd.DataFrame):
+  """A DataFrame supporting backward compatibility for legacy R-hat column names."""
+
+  _LEGACY_COLUMN_MAP = {
+      "avg_rhat": constants.AVG_R_HAT,
+      "max_rhat": constants.MAX_R_HAT,
+      "percent_bad_rhat": constants.PERCENT_BAD_R_HAT,
+      "row_idx_bad_rhat": constants.ROW_IDX_BAD_R_HAT,
+      "col_idx_bad_rhat": constants.COL_IDX_BAD_R_HAT,
+  }
+
+  @property
+  def _constructor(self):
+    return RhatSummaryDataFrame
+
+  def __getitem__(self, key):
+    if (
+        isinstance(key, str)
+        and key in self._LEGACY_COLUMN_MAP
+        and key not in self.columns
+    ):
+      key = self._LEGACY_COLUMN_MAP[key]
+    elif isinstance(key, list):
+      key = [
+          self._LEGACY_COLUMN_MAP.get(k, k) if k not in self.columns else k
+          for k in key
+      ]
+    return super().__getitem__(key)
+
+
 class Analyzer:
   """Runs calculations to analyze the raw data after fitting the model."""
 
@@ -230,6 +260,33 @@ class Analyzer:
           for k in param_list
       })
 
+  def yield_batched_distribution_tensors(
+      self,
+      param_list: Sequence[str],
+      *,
+      use_posterior: bool = True,
+      batch_size: int = constants.DEFAULT_BATCH_SIZE,
+  ) -> Iterator[DistributionTensors]:
+    """Yields batched DistributionTensors for the given parameters.
+
+    Preconditions:
+      The model must be fitted (i.e. posterior/prior groups must exist in the
+      inference data). This is typically checked by the calling methods.
+
+    Args:
+      param_list: Sequence of parameter names to include in the batch.
+      use_posterior: Whether to use posterior or prior parameters.
+      batch_size: The batch size. Must be a positive integer.
+
+    Yields:
+      DistributionTensors containing the sliced parameters for the batch.
+    """
+    yield from self._yield_batched_distribution_tensors(
+        param_list=param_list,
+        use_posterior=use_posterior,
+        batch_size=batch_size,
+    )
+
   @backend.function(jit_compile=True)
   def _get_kpi_means(
       self,
@@ -280,6 +337,15 @@ class Analyzer:
           dist_tensors.gamma_gn,
       )
     return result
+
+  def get_kpi_means(
+      self,
+      data_tensors: DataTensors,
+      dist_tensors: DistributionTensors,
+  ) -> backend.Tensor:
+    """Computes batched KPI means."""
+    data_tensors_jit = dataclasses.replace(data_tensors, time=None)
+    return self._get_kpi_means(data_tensors_jit, dist_tensors)
 
   def _use_kpi(self, use_kpi: bool = False) -> bool:
     """Checks if KPI analysis should be used.
@@ -669,7 +735,7 @@ class Analyzer:
       self,
       tensor: backend.Tensor,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       aggregate_geos: bool = True,
       aggregate_times: bool = True,
       flexible_time_dim: bool = False,
@@ -685,17 +751,14 @@ class Analyzer:
       selected_geos: Optional list containing a subset of geos to include. By
         default, all geos are included. The selected geos should match those in
         `InputData.geo`.
-      selected_times: Optional list of times to include. This can either be a
-        string list containing a subset of time dimension coordinates from
-        `InputData.time` or a boolean list with length equal to the time
-        dimension of the tensor. By default, all time periods are included.
+      selected_times: Optional list of times to include. This is a string list
+        containing a subset of time dimension coordinates. By default, all time
+        periods are included.
       aggregate_geos: Boolean. If `True`, the tensor is summed over all geos.
       aggregate_times: Boolean. If `True`, the tensor is summed over all time
         periods.
       flexible_time_dim: Boolean. If `True`, the time dimension of the tensor is
-        not required to match the number of time periods in `InputData.time`. In
-        this case, if using `selected_times`, it must be a boolean list with
-        length equal to the time dimension of the tensor.
+        not required to match the number of time periods in `InputData.time`.
       has_media_dim: Boolean. Only used if `flexible_time_dim=True`. Otherwise,
         this is assumed based on the tensor dimensions. If `True`, the tensor is
         assumed to have a media dimension following the time dimension. If
@@ -921,9 +984,7 @@ class Analyzer:
           "use_kpi=False is only supported when inverse_transform_outcome=True."
       )
 
-  # TODO: Make this method public when this feature is ready for
-  # open source.
-  def _get_incremental_kpi(
+  def get_incremental_kpi(
       self,
       data_tensors: DataTensors,
       dist_tensors: DistributionTensors,
@@ -958,15 +1019,14 @@ class Analyzer:
     ):
       raise ValueError(
           "`non_media_treatments_baseline_normalized` must be passed to"
-          " `_get_incremental_kpi` when `non_media_treatments` data is"
-          " present."
+          " `get_incremental_kpi` when `non_media_treatments` data is present."
       )
     n_media_times = self.model_context.n_media_times
     if data_tensors.media is not None:
-      n_times = data_tensors.media.shape[1]  # pytype: disable=attribute-error
+      n_times = data_tensors.media.shape[1]  # pyrefly: ignore[missing-attribute]
       n_times_output = n_times if n_times != n_media_times else None
     elif data_tensors.reach is not None:
-      n_times = data_tensors.reach.shape[1]  # pytype: disable=attribute-error
+      n_times = data_tensors.reach.shape[1]  # pyrefly: ignore[missing-attribute]
       n_times_output = n_times if n_times != n_media_times else None
     else:
       raise ValueError("Both media_scaled and reach_scaled cannot be None.")
@@ -1117,7 +1177,7 @@ class Analyzer:
           " present."
       )
 
-    transformed_outcome = self._get_incremental_kpi(
+    transformed_outcome = self.get_incremental_kpi(
         data_tensors=data_tensors,
         dist_tensors=dist_tensors,
         non_media_treatments_baseline_normalized=non_media_treatments_baseline_normalized,
@@ -1149,8 +1209,8 @@ class Analyzer:
       scaling_factor0: float = 0.0,
       scaling_factor1: float = 1.0,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
-      media_selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
+      media_selected_times: Sequence[str] | None = None,
       aggregate_geos: bool = True,
       aggregate_times: bool = True,
       inverse_transform_outcome: bool = True,
@@ -1225,7 +1285,7 @@ class Analyzer:
         `organic_frequency`, `non_media_treatments` and `revenue_per_kpi`. If
         any of the tensors in `new_data` is provided with a different number of
         time periods than in `InputData`, then all tensors must be provided with
-        the same number of time periods.
+        the same number of time periods, and `new_data.time` must be provided.
       non_media_baseline_values: Optional list of shape
         `(n_non_media_channels,)`. Each element is a float which means that the
         fixed value will be used as baseline for the given channel. It is
@@ -1242,22 +1302,20 @@ class Analyzer:
         non-negative and greater than `scaling_factor0`.
       selected_geos: Optional list containing a subset of geos to include. By
         default, all geos are included.
-      selected_times: Optional list containing either a subset of dates to
-        include or booleans with length equal to the number of time periods in
-        `new_data` if time is modified in `new_data`, or `input_data.n_times`
-        otherwise. The incremental outcome corresponds to incremental KPI
-        generated during the `selected_times` arg by media executed during the
-        `media_selected_times` arg. Note that if `use_kpi=False`, then
-        `selected_times` can only include the time periods that have
-        `revenue_per_kpi` input data. By default, all time periods are included
-        where `revenue_per_kpi` data is available.
-      media_selected_times: Optional list containing either a subset of dates to
-        include or booleans with length equal to the number of time periods in
-        KPI data or number of time periods in the `new_data` args, if provided.
-        If `new_data` is provided, `media_selected_times` can select any subset
-        of time periods in `new_data`. If `new_data` is not provided,
-        `media_selected_times` selects from `InputData.time`. The incremental
-        outcome corresponds to incremental KPI generated during the
+      selected_times: Optional list containing a subset of dates to include. If
+        `new_data` is provided, `selected_times` can select any subset of time
+        periods in `new_data.time`. If `new_data` is not provided,
+        `selected_times` selects from `InputData.time`. The incremental outcome
+        corresponds to incremental KPI generated during the `selected_times` arg
+        by media executed during the `media_selected_times` arg. Note that if
+        `use_kpi=False`, then `selected_times` can only include the time periods
+        that have `revenue_per_kpi` input data. By default, all time periods are
+        included where `revenue_per_kpi` data is available.
+      media_selected_times: Optional list containing a subset of dates to
+        include. If `new_data` is provided, `media_selected_times` can select
+        any subset of time periods in `new_data.time`. If `new_data` is not
+        provided, `media_selected_times` selects from `InputData.time`. The
+        incremental outcome corresponds to incremental KPI generated during the
         `selected_times` arg by treatment variables executed during the
         `media_selected_times` arg. For each channel, the incremental outcome is
         defined as the difference between expected KPI when treatment variables
@@ -1408,10 +1466,166 @@ class Analyzer:
       incremental_outcome_temps.append(batch_incremental_outcome)
     return backend.concatenate(incremental_outcome_temps, axis=1)
 
+  def incremental_outcome_xr(
+      self,
+      use_posterior: bool = True,
+      *,
+      new_data: DataTensors | None = None,
+      non_media_baseline_values: Sequence[float] | None = None,
+      scaling_factor0: float = 0.0,
+      scaling_factor1: float = 1.0,
+      selected_geos: Sequence[str] | None = None,
+      selected_times: Sequence[str] | None = None,
+      media_selected_times: Sequence[str] | None = None,
+      aggregate_geos: bool = False,
+      aggregate_times: bool = False,
+      inverse_transform_outcome: bool = True,
+      use_kpi: bool = False,
+      by_reach: bool = True,
+      include_non_paid_channels: bool = True,
+      batch_size: int = constants.DEFAULT_BATCH_SIZE,
+  ) -> xr.DataArray:
+    """Calculates the incremental outcome as an xarray.DataArray.
+
+    This is a sister method to `incremental_outcome` that returns an
+    `xarray.DataArray` instead of a `backend.Tensor`. This allows users to
+    easily combine results from different models by leveraging xarray's
+    automatic alignment by coordinates.
+
+    Args:
+      use_posterior: If `True`, then the incremental outcome posterior
+        distribution is calculated. Otherwise, the prior distribution is
+        calculated.
+      new_data: Optional `DataTensors` container.
+      non_media_baseline_values: Optional sequence of baseline values.
+      scaling_factor0: Scaling factor for counterfactual scenario 0.
+      scaling_factor1: Scaling factor for counterfactual scenario 1.
+      selected_geos: Optional sequence containing a subset of geos to include.
+      selected_times: Optional sequence containing a subset of dates to include.
+      media_selected_times: Optional sequence containing a subset of dates to
+        include.
+      aggregate_geos: If `True`, then incremental outcome is summed over all
+        regions. Defaults to `False` in this method to preserve dimensions.
+      aggregate_times: If `True`, then incremental outcome is summed over all
+        time periods. Defaults to `False` in this method to preserve dimensions.
+      inverse_transform_outcome: Whether to inverse transform the outcome.
+      use_kpi: Whether to use KPI instead of revenue.
+      by_reach: Whether to calculate by reach.
+      include_non_paid_channels: Whether to include non-paid channels.
+      batch_size: Maximum draws per chain in each batch.
+
+    Returns:
+      An `xarray.DataArray` of incremental outcome with labeled dimensions and
+      coordinates.
+    """
+    outcome_tensor = self.incremental_outcome(
+        use_posterior=use_posterior,
+        new_data=new_data,
+        non_media_baseline_values=non_media_baseline_values,
+        scaling_factor0=scaling_factor0,
+        scaling_factor1=scaling_factor1,
+        selected_geos=selected_geos,
+        selected_times=selected_times,
+        media_selected_times=media_selected_times,
+        aggregate_geos=aggregate_geos,
+        aggregate_times=aggregate_times,
+        inverse_transform_outcome=inverse_transform_outcome,
+        use_kpi=use_kpi,
+        by_reach=by_reach,
+        include_non_paid_channels=include_non_paid_channels,
+        batch_size=batch_size,
+    )
+
+    def _get_dims() -> list[str]:
+      return [
+          constants.CHAIN,
+          constants.DRAW,
+          *([constants.GEO] if not aggregate_geos else []),
+          *([constants.TIME] if not aggregate_times else []),
+          constants.CHANNEL,
+      ]
+
+    def _get_coords(dims: Sequence[str]) -> dict[str, Any]:
+      """Returns a dictionary of coordinates for the xarray.DataArray.
+
+      Args:
+        dims: The dimensions of the xarray.DataArray.
+
+      Returns:
+        A dictionary of coordinates for the xarray.DataArray.
+      """
+      params = (
+          self.inference_data.posterior  # pyrefly: ignore[missing-attribute]
+          if use_posterior
+          else self.inference_data.prior  # pyrefly: ignore[missing-attribute]
+      )
+      n_draws = params.draw.size
+      n_chains = params.chain.size
+
+      coords = self.model_context.create_inference_data_coords(
+          n_chains, n_draws
+      )
+
+      channels = (
+          self.model_context.input_data.get_all_channels()
+          if include_non_paid_channels
+          else self.model_context.input_data.get_all_paid_channels()
+      )
+
+      geo_coords = {}
+      if constants.GEO in dims:
+        all_geos = self.model_context.input_data.geo.values
+        if selected_geos is not None:
+          selected_geos_set = set(selected_geos)
+          geo_coords[constants.GEO] = [
+              g for g in all_geos if g in selected_geos_set
+          ]
+        else:
+          geo_coords[constants.GEO] = list(all_geos)
+
+      time_coords = {}
+      if constants.TIME in dims:
+        time_idx = dims.index(constants.TIME)
+        time_dim_size = outcome_tensor.shape[time_idx]
+        all_times = (
+            new_data.time
+            if (new_data is not None and new_data.time is not None)
+            else self.model_context.input_data.time.values
+        )
+        if selected_times is not None:
+          selected_set = tensors.normalize_times_set(selected_times)
+          filtered_times = [
+              t
+              for t in all_times
+              if tensors.normalize_date_str(t) in selected_set
+          ]
+          if len(filtered_times) == time_dim_size:
+            time_coords[constants.TIME] = filtered_times
+        else:
+          if len(all_times) == time_dim_size:
+            time_coords[constants.TIME] = list(all_times)
+
+      return {
+          constants.CHAIN: coords[constants.CHAIN],
+          constants.DRAW: coords[constants.DRAW],
+          constants.CHANNEL: channels,
+          **geo_coords,
+          **time_coords,
+      }
+
+    dims = _get_dims()
+    coords_dict = _get_coords(dims)
+
+    return xr.DataArray(
+        data=np.asarray(outcome_tensor),
+        dims=dims,
+        coords=coords_dict,
+    )
+
   def _validate_geo_and_time_granularity(
       self,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       aggregate_geos: bool = True,
   ):
     """Validates the geo and time granularity arguments for ROI analysis.
@@ -1419,9 +1633,8 @@ class Analyzer:
     Args:
       selected_geos: Optional. Contains a subset of geos to include. By default,
         all geos are included.
-      selected_times: Optional. Contains a subset of times to include or
-        booleans with length `input_data.n_times`. By default, all time periods
-        are included.
+      selected_times: Optional. Contains a subset of dates to include. By
+        default, all time periods are included.
       aggregate_geos: If `True`, then expected revenue is summed over all
         regions.
 
@@ -1476,7 +1689,7 @@ class Analyzer:
       use_posterior: bool = True,
       new_data: DataTensors | None = None,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       aggregate_geos: bool = True,
       by_reach: bool = True,
       use_kpi: bool = False,
@@ -1520,13 +1733,13 @@ class Analyzer:
         tensors. If `None`, the marginal ROI is calculated using the original
         values of all the tensors. If any of the tensors in `new_data` is
         provided with a different number of time periods than in `InputData`,
-        then all tensors must be provided with the same number of time periods.
+        then all tensors must be provided with the same number of time periods,
+        and `new_data.time` must be provided. In this case, spend tensors must
+        be provided with geo and time granularity.
       selected_geos: Optional. Contains a subset of geos to include. By default,
         all geos are included.
-      selected_times: Optional list containing either a subset of dates to
-        include or booleans with length equal to the number of time periods in
-        the `new_data` args, if provided. By default, all time periods are
-        included.
+      selected_times: Optional list containing a subset of dates to include. By
+        default, all time periods are included.
       aggregate_geos: If `True`, the expected revenue is summed over all of the
         regions.
       by_reach: Used for a channel with reach and frequency. If `True`, returns
@@ -1609,7 +1822,7 @@ class Analyzer:
       use_posterior: bool = True,
       new_data: DataTensors | None = None,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       aggregate_geos: bool = True,
       use_kpi: bool = False,
       batch_size: int = constants.DEFAULT_BATCH_SIZE,
@@ -1648,13 +1861,13 @@ class Analyzer:
         `None`, the ROI is calculated using the original values of all the
         tensors. If any of the tensors in `new_data` is provided with a
         different number of time periods than in `InputData`, then all tensors
-        must be provided with the same number of time periods.
+        must be provided with the same number of time periods, and
+        `new_data.time` must be provided. In this case, spend tensors must be
+        provided with geo and time granularity.
       selected_geos: Optional. Contains a subset of geos to include. By default,
         all geos are included.
-      selected_times: Optional list containing either a subset of dates to
-        include or booleans with length equal to the number of time periods in
-        the `new_data` args, if provided. By default, all time periods are
-        included.
+      selected_times: Optional list containing a subset of dates to include. By
+        default, all time periods are included.
       aggregate_geos: Boolean. If `True`, the expected revenue is summed over
         all of the regions.
       use_kpi: If `False`, then revenue is used to calculate the ROI numerator.
@@ -1736,7 +1949,7 @@ class Analyzer:
       use_posterior: bool = True,
       new_data: DataTensors | None = None,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       aggregate_geos: bool = True,
       batch_size: int = constants.DEFAULT_BATCH_SIZE,
   ) -> backend.Tensor:
@@ -1776,13 +1989,12 @@ class Analyzer:
         `None`, the ROI is calculated using the original values of all the
         tensors. If any of the tensors in `new_data` is provided with a
         different number of time periods than in `InputData`, then all tensors
-        must be provided with the same number of time periods.
+        must be provided with the same number of time periods, and
+        `new_data.time` must be provided.
       selected_geos: Optional. Contains a subset of geos to include. By default,
         all geos are included.
-      selected_times: Optional list containing either a subset of dates to
-        include or booleans with length equal to the number of time periods in
-        the `new_data` args, if provided. By default, all time periods are
-        included.
+      selected_times: Optional list containing a subset of dates to include. By
+        default, all time periods are included.
       aggregate_geos: Boolean. If `True`, the expected KPI is summed over all of
         the regions.
       batch_size: Integer representing the maximum draws per chain in each
@@ -2064,7 +2276,7 @@ class Analyzer:
         `organic_frequency`, `non_media_treatments` and `revenue_per_kpi`. If
         any of the tensors in `new_data` is provided with a different number of
         time periods than in `InputData`, then all tensors must be provided with
-        the same number of time periods.
+        the same number of time periods, and `new_data.time` must be provided.
       use_kpi: Boolean. If `True`, the summary metrics are calculated using KPI.
         If `False`, the metrics are calculated using revenue.
       include_non_paid_channels: Boolean. If `True`, then non-media treatments
@@ -2110,7 +2322,7 @@ class Analyzer:
       marginal_roi_by_reach: bool = True,
       marginal_roi_incremental_increase: float = 0.01,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       aggregate_geos: bool = True,
       aggregate_times: bool = True,
       optimal_frequency: Sequence[float] | None = None,
@@ -2153,7 +2365,8 @@ class Analyzer:
         `None`, the summary metrics are calculated using the original values of
         all the tensors. If `new_data` is provided with a different number of
         time periods than in `InputData`, then all tensors, except `controls`,
-        must have the same number of time periods.
+        must have the same number of time periods, and `new_data.time` must be
+        provided.
       marginal_roi_by_reach: Boolean. Marginal ROI (mROI) is defined as the
         return on the next dollar spent. If this argument is `True`, the
         assumption is that the next dollar spent only impacts reach, holding
@@ -2166,10 +2379,8 @@ class Analyzer:
         when `include_non_paid_channels` is `False`.
       selected_geos: Optional list containing a subset of geos to include. By
         default, all geos are included.
-      selected_times: Optional list containing either a subset of dates to
-        include or booleans with length equal to the number of time periods in
-        the tensors in the `new_data` argument, if provided. By default, all
-        time periods are included.
+      selected_times: Optional list containing a subset of dates to include. By
+        default, all time periods are included.
       aggregate_geos: Boolean. If `True`, the expected outcome is summed over
         all of the regions.
       aggregate_times: Boolean. If `True`, the expected outcome is summed over
@@ -2307,24 +2518,21 @@ class Analyzer:
       )
       xr_coords[constants.GEO] = geo_dims  # pyrefly: ignore[unsupported-operation]
     if not aggregate_times:
-      # Get the time coordinates for flexible time dimensions.
-      modified_times = builder.get_modified_times(new_data)
-      if modified_times is None:
-        times = self.model_context.input_data.time.data
+      all_times = (
+          new_data.time
+          if new_data.time is not None
+          else self.model_context.input_data.time.values
+      )
+      if selected_times is not None:
+        selected_set = tensors.normalize_times_set(selected_times)
+        time_coords = [
+            t
+            for t in all_times
+            if tensors.normalize_date_str(t) in selected_set
+        ]
       else:
-        times = np.arange(modified_times)
-
-      time_indices = builder.build_unscaled_inputs(
-          new_data=new_data,
-          selected_times=selected_times,
-      ).time_indices
-
-      if time_indices is None:
-        time_coords = times
-      else:
-        time_coords = times[np.asarray(time_indices)]
-
-      xr_coords[constants.TIME] = time_coords  # pyrefly: ignore[unsupported-operation]
+        time_coords = list(all_times)
+      xr_coords[constants.TIME] = time_coords
     xr_dims_with_ci_and_distribution = xr_dims + (
         constants.METRIC,
         constants.DISTRIBUTION,
@@ -2402,144 +2610,137 @@ class Analyzer:
             "Effectiveness is not reported because it does not have a clear"
             " interpretation by time period."
         )
-        return xr.merge(
-            [
-                incremental_outcome,
-                pct_of_contribution,
-            ],
-            compat="no_conflicts",
-        )
+        datasets = [
+            incremental_outcome,
+            pct_of_contribution,
+        ]
       else:
-        return xr.merge(
-            [
-                incremental_outcome,
-                pct_of_contribution,
-                effectiveness,
-            ],
-            compat="no_conflicts",
-        )
-
-    # If non-paid channels are not included, return all metrics, paid and
-    # non-paid.
-    spend_list = []
-    new_spend_tensors = builder.build_unscaled_inputs(
-        new_data=new_data.filter_fields(
-            list(constants.SPEND_DATA) + [constants.TIME]
-        ),
-        required_tensors_names=constants.SPEND_DATA,
-    ).tensors
-    if self.model_context.n_media_channels > 0:
-      spend_list.append(new_spend_tensors.media_spend)
-    if self.model_context.n_rf_channels > 0:
-      spend_list.append(new_spend_tensors.rf_spend)
-    # TODO Add support for 1-dimensional spend.
-    spend_inputs = builder.build_unscaled_inputs(
-        new_data=new_data,
-        selected_geos=selected_geos,
-        selected_times=selected_times,
-    )
-    aggregated_spend = self.filter_and_aggregate_by_indices(
-        tensor=backend.concatenate(spend_list, axis=-1),
-        geo_indices=spend_inputs.geo_indices,
-        time_indices=spend_inputs.time_indices,
-        aggregate_geos=aggregate_geos,
-        aggregate_times=aggregate_times,
-        flexible_time_dim=True,
-    )
-    spend_with_total = backend.concatenate(
-        [  # pyrefly: ignore[bad-argument-type]
-            aggregated_spend,
-            backend.reduce_sum(aggregated_spend, -1, keepdims=True),  # pyrefly: ignore[bad-argument-type]
-        ],
-        axis=-1,
-    )
-    spend_data = self._compute_spend_data_aggregate(
-        spend_with_total=spend_with_total,
-        impressions_with_total=impressions_with_total,
-        xr_dims=xr_dims,
-        xr_coords=xr_coords,  # pyrefly: ignore[bad-argument-type]
-    )
-
-    if not aggregate_times:
-      # Outcome metrics should not be normalized by weekly media metrics, which
-      # do not have a clear interpretation due to lagged effects. Therefore, NaN
-      # values are returned for certain metrics if aggregate_times=False.
-      warnings.warn(
-          "ROI, mROI, Effectiveness, and CPIK are not reported because they "
-          "do not have a clear interpretation by time period."
-      )
-      return xr.merge(
-          [
-              spend_data,
-              incremental_outcome,
-              pct_of_contribution,
-          ],
-          compat="no_conflicts",
-      )
+        datasets = [
+            incremental_outcome,
+            pct_of_contribution,
+            effectiveness,
+        ]
     else:
-      roi = self._compute_roi_aggregate(
-          incremental_outcome_prior=incremental_outcome_prior,
-          incremental_outcome_posterior=incremental_outcome_posterior,
-          xr_dims=xr_dims_with_ci_and_distribution,
-          xr_coords=xr_coords_with_ci_and_distribution,  # pyrefly: ignore[bad-argument-type]
-          confidence_level=confidence_level,
-          spend_with_total=spend_with_total,
-      )
-      mroi = self._compute_roi_aggregate(
-          incremental_outcome_prior=incremental_outcome_mroi_prior,
-          incremental_outcome_posterior=incremental_outcome_mroi_posterior,
-          xr_dims=xr_dims_with_ci_and_distribution,
-          xr_coords=xr_coords_with_ci_and_distribution,  # pyrefly: ignore[bad-argument-type]
-          confidence_level=confidence_level,
-          spend_with_total=spend_with_total * marginal_roi_incremental_increase,
-          metric_name=constants.MROI,
-          # Drop mROI metric values in the Dataset's data_vars for the
-          # aggregated "All Paid Channels" channel dimension value.
-          # "Marginal ROI" calculation must arbitrarily assume how the
-          # "next dollar" of spend is allocated across "All Paid Channels" in
-          # this case, which may cause confusion in Meridian model and does not
-          # have much practical usefulness, anyway.
-      ).where(lambda ds: ds.channel != constants.ALL_CHANNELS)
-      cpik = self._compute_cpik_aggregate(
-          incremental_kpi_prior=self.compute_incremental_outcome_aggregate(
-              use_posterior=False,
-              new_data=new_data.filter_fields(incremental_outcome_fields),
-              use_kpi=True,
-              include_non_paid_channels=False,
-              **dim_kwargs,
-              **batched_kwargs,
+      # If non-paid channels are not included, return all metrics, paid and
+      # non-paid.
+      spend_list = []
+      new_spend_tensors = builder.build_unscaled_inputs(
+          new_data=new_data.filter_fields(
+              list(constants.SPEND_DATA) + [constants.TIME]
           ),
-          incremental_kpi_posterior=self.compute_incremental_outcome_aggregate(
-              use_posterior=True,
-              new_data=new_data.filter_fields(incremental_outcome_fields),
-              use_kpi=True,
-              include_non_paid_channels=False,
-              **dim_kwargs,
-              **batched_kwargs,
-          ),
-          spend_with_total=spend_with_total,
-          xr_dims=xr_dims_with_ci_and_distribution,
-          xr_coords=xr_coords_with_ci_and_distribution,  # pyrefly: ignore[bad-argument-type]
-          confidence_level=confidence_level,
+          required_tensors_names=constants.SPEND_DATA,
+      ).tensors
+      if self.model_context.n_media_channels > 0:
+        spend_list.append(new_spend_tensors.media_spend)
+      if self.model_context.n_rf_channels > 0:
+        spend_list.append(new_spend_tensors.rf_spend)
+      # TODO Add support for 1-dimensional spend.
+      spend_inputs = builder.build_unscaled_inputs(
+          new_data=new_data,
+          selected_geos=selected_geos,
+          selected_times=selected_times,
       )
-      return xr.merge(
-          [
-              spend_data,
-              incremental_outcome,
-              pct_of_contribution,
-              roi,
-              effectiveness,
-              mroi,
-              cpik,
+      aggregated_spend = self.filter_and_aggregate_by_indices(
+          tensor=backend.concatenate(spend_list, axis=-1),
+          geo_indices=spend_inputs.geo_indices,
+          time_indices=spend_inputs.time_indices,
+          aggregate_geos=aggregate_geos,
+          aggregate_times=aggregate_times,
+          flexible_time_dim=True,
+      )
+      spend_with_total = backend.concatenate(
+          [  # pyrefly: ignore[bad-argument-type]
+              aggregated_spend,
+              backend.reduce_sum(aggregated_spend, -1, keepdims=True),  # pyrefly: ignore[bad-argument-type]
           ],
-          compat="no_conflicts",
+          axis=-1,
       )
+      spend_data = self._compute_spend_data_aggregate(
+          spend_with_total=spend_with_total,
+          impressions_with_total=impressions_with_total,
+          xr_dims=xr_dims,
+          xr_coords=xr_coords,  # pyrefly: ignore[bad-argument-type]
+      )
+
+      if not aggregate_times:
+        # Outcome metrics should not be normalized by weekly media metrics,
+        # which do not have a clear interpretation due to lagged effects.
+        # Therefore, NaN values are returned for certain metrics if
+        # aggregate_times=False.
+        warnings.warn(
+            "ROI, mROI, Effectiveness, and CPIK are not reported because they "
+            "do not have a clear interpretation by time period."
+        )
+        datasets = [
+            spend_data,
+            incremental_outcome,
+            pct_of_contribution,
+        ]
+      else:
+        roi = self._compute_roi_aggregate(
+            incremental_outcome_prior=incremental_outcome_prior,
+            incremental_outcome_posterior=incremental_outcome_posterior,
+            xr_dims=xr_dims_with_ci_and_distribution,
+            xr_coords=xr_coords_with_ci_and_distribution,  # pyrefly: ignore[bad-argument-type]
+            confidence_level=confidence_level,
+            spend_with_total=spend_with_total,
+        )
+        mroi = self._compute_roi_aggregate(
+            incremental_outcome_prior=incremental_outcome_mroi_prior,
+            incremental_outcome_posterior=incremental_outcome_mroi_posterior,
+            xr_dims=xr_dims_with_ci_and_distribution,
+            xr_coords=xr_coords_with_ci_and_distribution,  # pyrefly: ignore[bad-argument-type]
+            confidence_level=confidence_level,
+            spend_with_total=spend_with_total * marginal_roi_incremental_increase,
+            metric_name=constants.MROI,
+            # Drop mROI metric values in the Dataset's data_vars for the
+            # aggregated "All Paid Channels" channel dimension value.
+            # "Marginal ROI" calculation must arbitrarily assume how the
+            # "next dollar" of spend is allocated across "All Paid Channels" in
+            # this case, which may cause confusion in Meridian model and does
+            # not have much practical usefulness, anyway.
+        ).where(lambda ds: ds.channel != constants.ALL_CHANNELS)
+        cpik = self._compute_cpik_aggregate(
+            incremental_kpi_prior=self.compute_incremental_outcome_aggregate(
+                use_posterior=False,
+                new_data=new_data.filter_fields(incremental_outcome_fields),
+                use_kpi=True,
+                include_non_paid_channels=False,
+                **dim_kwargs,
+                **batched_kwargs,
+            ),
+            incremental_kpi_posterior=self.compute_incremental_outcome_aggregate(
+                use_posterior=True,
+                new_data=new_data.filter_fields(incremental_outcome_fields),
+                use_kpi=True,
+                include_non_paid_channels=False,
+                **dim_kwargs,
+                **batched_kwargs,
+            ),
+            spend_with_total=spend_with_total,
+            xr_dims=xr_dims_with_ci_and_distribution,
+            xr_coords=xr_coords_with_ci_and_distribution,  # pyrefly: ignore[bad-argument-type]
+            confidence_level=confidence_level,
+        )
+        datasets = [
+            spend_data,
+            incremental_outcome,
+            pct_of_contribution,
+            roi,
+            effectiveness,
+            mroi,
+            cpik,
+        ]
+
+    merged = xr.merge(datasets, compat="no_conflicts")
+    merged.attrs[constants.USE_KPI] = use_kpi
+    return merged
 
   def get_aggregated_impressions(
       self,
       new_data: DataTensors | None = None,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       aggregate_geos: bool = True,
       aggregate_times: bool = True,
       optimal_frequency: Sequence[float] | None = None,
@@ -2557,10 +2758,8 @@ class Analyzer:
         from the Meridian object are used.
       selected_geos: Optional list containing a subset of geos to include. By
         default, all geos are included.
-      selected_times: Optional list containing either a subset of dates to
-        include or booleans with length equal to the number of time periods in
-        the tensors in the `new_data` argument, if provided. By default, all
-        time periods are included.
+      selected_times: Optional list containing a subset of dates to include. By
+        default, all time periods are included.
       aggregate_geos: Boolean. If `True`, the expected outcome is summed over
         all of the regions.
       aggregate_times: Boolean. If `True`, the expected outcome is summed over
@@ -2779,7 +2978,7 @@ class Analyzer:
       use_posterior: bool = True,
       use_kpi: bool = False,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       confidence_level: float = constants.DEFAULT_CONFIDENCE_LEVEL,
   ) -> xr.Dataset:
     """Calculates the optimal frequency that maximizes posterior mean ROI.
@@ -2810,7 +3009,8 @@ class Analyzer:
         data used to initialize the Meridian object is used. If any of the
         tensors in `new_data` is provided with a different number of time
         periods than in `InputData`, then all tensors must be provided with the
-        same number of time periods.
+        same number of time periods, and `new_data.time` must be provided. In
+        this case, `rf_spend` must be provided with geo and time granularity.
       max_frequency: Maximum frequency value used to calculate the frequency
         grid. If `None`, the maximum frequency value is calculated from the
         historic frequency (maximum value of Meridian.input_data, not
@@ -3323,13 +3523,13 @@ class Analyzer:
       A DataFrame with the following columns:
 
       *   `n_params`: The number of respective parameters in the model.
-      *   `avg_rhat`: The average R-hat value for the respective parameter.
-      *   `max_rhat`: The maximum R-hat value for the respective parameter.
-      *   `percent_bad_rhat`: The percentage of R-hat values for the respective
+      *   `avg_r_hat`: The average R-hat value for the respective parameter.
+      *   `max_r_hat`: The maximum R-hat value for the respective parameter.
+      *   `percent_bad_r_hat`: The percentage of R-hat values for the respective
           parameter that are greater than `bad_rhat_threshold`.
-      *   `row_idx_bad_rhat`: The row indices of the R-hat values that are
+      *   `row_idx_bad_r_hat`: The row indices of the R-hat values that are
           greater than `bad_rhat_threshold`.
-      *   `col_idx_bad_rhat`: The column indices of the R-hat values that are
+      *   `col_idx_bad_r_hat`: The column indices of the R-hat values that are
           greater than `bad_rhat_threshold`.
 
     Raises:
@@ -3367,16 +3567,16 @@ class Analyzer:
           pd.Series({
               constants.PARAM: param,
               constants.N_PARAMS: np.prod(rhat[param].shape),
-              constants.AVG_RHAT: np.nanmean(rhat[param]),  # pyrefly: ignore[no-matching-overload]
-              constants.MAX_RHAT: np.nanmax(rhat[param]),  # pyrefly: ignore[no-matching-overload]
-              constants.PERCENT_BAD_RHAT: np.nanmean(
+              constants.AVG_R_HAT: np.nanmean(rhat[param]),  # pyrefly: ignore[no-matching-overload]
+              constants.MAX_R_HAT: np.nanmax(rhat[param]),  # pyrefly: ignore[no-matching-overload]
+              constants.PERCENT_BAD_R_HAT: np.nanmean(
                   rhat[param] > bad_rhat_threshold  # pyrefly: ignore[unsupported-operation]
               ),
-              constants.ROW_IDX_BAD_RHAT: row_idx,
-              constants.COL_IDX_BAD_RHAT: col_idx,
+              constants.ROW_IDX_BAD_R_HAT: row_idx,
+              constants.COL_IDX_BAD_R_HAT: col_idx,
           })
       )
-    return pd.DataFrame(rhat_summary)
+    return RhatSummaryDataFrame(rhat_summary)
 
   def response_curves(
       self,
@@ -4254,7 +4454,7 @@ class Analyzer:
       self,
       new_data: DataTensors | None = None,
       selected_geos: Sequence[str] | None = None,
-      selected_times: Sequence[str] | Sequence[bool] | None = None,
+      selected_times: Sequence[str] | None = None,
       aggregate_times: bool = True,
       include_media: bool = True,
       include_rf: bool = True,

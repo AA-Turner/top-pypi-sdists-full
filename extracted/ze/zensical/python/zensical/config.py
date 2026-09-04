@@ -304,7 +304,9 @@ def get_theme_dir(name: str) -> str:
 
 def get_custom_theme_dir(path: str, config_path: str) -> str:
     """Return the custom theme directory."""
-    theme_dir = os.path.join(os.path.dirname(config_path), path)
+    theme_dir = os.path.normpath(
+        os.path.join(os.path.dirname(config_path), path)
+    )
 
     # Validate that custom theme directory exists
     if not os.path.isdir(theme_dir):
@@ -1296,10 +1298,9 @@ def _convert_plugins(value: Any, config: dict) -> dict:
     tags: list[dict[str, Any]] = []
 
     def add(name: str, data: Any) -> None:
-        """Preserve tags instances while retaining legacy map semantics."""
-        if name in ("tags", "material/tags") or name.startswith(
-            ("tags/", "material/tags/")
-        ):
+        """Canonicalize Material aliases while preserving tag instances."""
+        name = name.removeprefix("material/")
+        if name == "tags":
             tags.append({"name": name, "config": dict(data or {})})
         else:
             plugins[name] = data
@@ -1332,9 +1333,9 @@ def _convert_plugins(value: Any, config: dict) -> dict:
         search, "separator", '[\\s\\-_,:!=\\[\\]()\\\\"`/]+|\\.(?!\\d)', str
     )
 
-    # Consume Material's public plugin name and normalize it to the internal
-    # identifier extracted into typed Rust configuration.
-    present, meta = _pop_plugin_config(plugins, "material/meta")
+    # Normalize metadata into the typed Rust configuration. The Material
+    # namespace is removed at admission, so both names share this code path.
+    present, meta = _pop_plugin_config(plugins, "meta")
     set_default(meta, "enabled", present, bool)
     set_default(meta, "meta_file", ".meta.yml", str)
     plugins["meta"] = meta

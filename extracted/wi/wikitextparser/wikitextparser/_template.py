@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterable, TypeVar
+from collections.abc import Iterable
+from typing import TypeVar
 
 from regex import REVERSE
 
@@ -13,7 +14,7 @@ COMMENT_SUB = rc(COMMENT_PATTERN).sub
 
 TL_NAME_ARGS_FULLMATCH = rc(rb'[^|}]*+(?#name)(?<arg>\|[^|]*+)*+').fullmatch
 STARTING_WS_MATCH = rc(r'\s*+').match
-ENDING_WS_MATCH = rc(r'(?>\n[ \t]*)*+', REVERSE).match
+ENDING_WS_MATCH = rc(r'(?>\R[ \t]*)*+', REVERSE).match
 SPACE_AFTER_SEARCH = rc(r'\s*+(?=\|)').search
 
 T = TypeVar('T')

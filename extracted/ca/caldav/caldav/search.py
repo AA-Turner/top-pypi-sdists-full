@@ -17,6 +17,8 @@ from .elements import cdav, dav
 from .lib import error
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from .calendarobjectresource import (
         CalendarObjectResource as AsyncCalendarObjectResource,
     )
@@ -190,7 +192,8 @@ def _build_search_xml_query(
     for property in searcher._property_operator:
         if searcher._property_operator[property] == "undef":
             match = cdav.NotDefined()
-            filters.append(cdav.PropFilter(property.upper()) + match)
+            prop_name = "CATEGORIES" if property.lower() == "category" else property.upper()
+            filters.append(cdav.PropFilter(prop_name) + match)
         else:
             value = searcher._property_filters[property]
             property_ = property.upper()
@@ -232,6 +235,23 @@ def _build_search_xml_query(
     return (root, comp_class)
 
 
+def _dedup_by_url(matches: list) -> list:
+    """Drop repeated resources, keeping the first occurrence and the order.
+
+    A search that is split into several server queries can return the same
+    resource more than once: the include-completed split issues overlapping
+    queries, and in a comp-type split a resource that legally holds both a
+    VEVENT and a VTODO matches two of the three queries.
+    """
+    objects = []
+    seen = set()
+    for item in matches:
+        if item.url not in seen:
+            seen.add(item.url)
+            objects.append(item)
+    return objects
+
+
 def _is_not_defined_supported(features: Any, prop: str) -> bool:
     """Check if is-not-defined search is supported for a specific property.
 
@@ -267,7 +287,37 @@ class SearchAction(Enum):
     SEARCH_WITH_COMPTYPES = auto()  # (args) -> search with all comp types
     REQUEST_REPORT = auto()  # (xml, comp_class, props) -> make CalDAV request
     LOAD_OBJECT = auto()  # (obj) -> load object data
+    LOAD_OBJECTS_BATCH = (
+        auto()
+    )  # (calendar, objects) -> batch-load via calendar._batch_load_objects
     RETURN = auto()  # (result) -> return this value
+
+
+def _advance_search_gen(
+    gen: "Generator[tuple[SearchAction, Any], Any, None]",
+    result: Any = None,
+    exc: BaseException | None = None,
+) -> "tuple[SearchAction, Any] | None":
+    """Phase 2 of the search driver protocol, shared by sync and async drivers.
+
+    Feed the Phase-1 ``result`` (or the ``exc`` raised while executing the
+    yielded action) back into the search generator.  Feeding an exception via
+    ``gen.throw()`` lets the search logic's own try/except blocks act on it
+    (the issue #681 time-range fallback, per-object load error handling, ...);
+    if the generator does not handle it, ``gen.throw()`` re-raises it out of
+    here, which is the correct propagation.
+
+    Passing ``result=None, exc=None`` on a fresh generator primes it.
+
+    :return: the next ``(action, data)`` to execute, or ``None`` when the
+             generator is exhausted (StopIteration → the driver returns ``[]``).
+    """
+    try:
+        if exc is not None:
+            return gen.throw(exc)
+        return gen.send(result)
+    except StopIteration:
+        return None
 
 
 @dataclass
@@ -316,6 +366,12 @@ class CalDAVSearcher(Searcher):
     comp_class: Optional["CalendarObjectResource"] = None
     _explicit_operators: set = field(default_factory=set)
     _calendar: Optional["Calendar"] = field(default=None, repr=False)
+    ## When False, all server-compatibility workarounds in _search_impl are
+    ## disabled and the query the searcher describes is sent verbatim (a single
+    ## REPORT, no comp-type splitting, no filter rewriting, no fallback retries).
+    ## Used by the server-compatibility checker to observe raw server behaviour.
+    ## Propagates to clones automatically via dataclasses.replace().
+    _compatibility_workarounds: bool = True
 
     def add_property_filter(
         self,
@@ -455,12 +511,18 @@ class CalDAVSearcher(Searcher):
                 "create the searcher via calendar.searcher()"
             )
 
+        ## When disabled, every server-compatibility workaround below is skipped
+        ## and the query is sent verbatim (used by the compatibility checker to
+        ## observe raw server behaviour).
+        cw = self._compatibility_workarounds
+
         ## Workaround for servers where REPORT without a time range only returns
         ## objects within a sliding window (search.unlimited-time-range: broken).
         ## Inject a wide time range covering 1970–2126 so that year-2000 test
         ## objects and other old data are returned.
         if (
-            not self.start
+            cw
+            and not self.start
             and not self.end
             and not (self.expand or server_expand)
             and not calendar.client.features.is_supported("search.unlimited-time-range")
@@ -480,7 +542,8 @@ class CalDAVSearcher(Searcher):
         ## Handle servers with broken component-type filtering (e.g., Bedework)
         comp_type_support = calendar.client.features.is_supported("search.comp-type", str)
         no_comp_filter = (
-            (self.comp_class or self.todo or self.event or self.journal)
+            cw
+            and (self.comp_class or self.todo or self.event or self.journal)
             and comp_type_support == "broken"
             and post_filter is not False
         )
@@ -490,13 +553,18 @@ class CalDAVSearcher(Searcher):
             post_filter = True
 
         ## Setting default value for post_filter
-        if post_filter is None and (
-            (self.todo and not self.include_completed)
-            or self.expand
-            or "categories" in self._property_filters
-            or "category" in self._property_filters
-            or not calendar.client.features.is_supported("search.text.case-sensitive")
-            or not calendar.client.features.is_supported("search.time-range.accurate")
+        if (
+            cw
+            and post_filter is None
+            and (
+                (self.todo and not self.include_completed)
+                or self.expand
+                or "categories" in self._property_filters
+                or "category" in self._property_filters
+                or any(op == "==" for op in self._property_operator.values())
+                or not calendar.client.features.is_supported("search.text.case-sensitive")
+                or not calendar.client.features.is_supported("search.time-range.accurate")
+            )
         ):
             post_filter = True
 
@@ -508,7 +576,8 @@ class CalDAVSearcher(Searcher):
         ## expansion is unreliable (the master expands without knowing its exceptions, yielding
         ## duplicate occurrences).  Fall back to server-side expansion when it handles exceptions.
         if (
-            self.expand
+            cw
+            and self.expand
             and not server_expand
             and not calendar.client.features.is_supported("save-load.event.recurrences.exception")
             and calendar.client.features.is_supported("search.recurrences.expanded.exception")
@@ -523,7 +592,8 @@ class CalDAVSearcher(Searcher):
         ## (e.g. purelymail where both i;octet and i;ascii-casemap collations are unsupported).
         ## Remove all text-value filters and rely on client-side post_filter instead.
         if (
-            not calendar.client.features.is_supported("search.text")
+            cw
+            and not calendar.client.features.is_supported("search.text")
             and self._property_filters
             and post_filter is not False
         ):
@@ -545,7 +615,8 @@ class CalDAVSearcher(Searcher):
         ## special compatbility-case for servers that does not
         ## support category search properly
         if (
-            not calendar.client.features.is_supported("search.text.category")
+            cw
+            and not calendar.client.features.is_supported("search.text.category")
             and ("categories" in self._property_filters or "category" in self._property_filters)
             and post_filter is not False
         ):
@@ -562,7 +633,7 @@ class CalDAVSearcher(Searcher):
 
         ## special compatibility-case for servers that do not support is-not-defined
         ## for specific properties (e.g. search.is-not-defined.category or .dtend)
-        if post_filter is not False:
+        if cw and post_filter is not False:
             undef_props_without_support = [
                 prop
                 for prop, op in self._property_operator.items()
@@ -587,7 +658,8 @@ class CalDAVSearcher(Searcher):
 
         ## special compatibility-case for servers that do not support substring search
         if (
-            not calendar.client.features.is_supported("search.text.substring")
+            cw
+            and not calendar.client.features.is_supported("search.text.substring")
             and post_filter is not False
         ):
             explicit_contains = [
@@ -614,7 +686,7 @@ class CalDAVSearcher(Searcher):
 
         ## special compatibility-case for servers that does not
         ## support combined searches very well
-        if not calendar.client.features.is_supported("search.combined-is-logical-and"):
+        if cw and not calendar.client.features.is_supported("search.combined-is-logical-and"):
             if self.start or self.end:
                 if self._property_filters:
                     clone = self._clone_without_filters(clear_all_filters=True)
@@ -624,7 +696,7 @@ class CalDAVSearcher(Searcher):
                     )
                     yield (
                         SearchAction.RETURN,
-                        self.filter(objects, post_filter, split_expanded, server_expand),
+                        self.filter(objects, True, split_expanded, server_expand),
                     )
                     return
 
@@ -657,7 +729,7 @@ class CalDAVSearcher(Searcher):
         ## TODO: consider if not ignore_completed3 is sufficient,
         ## then the recursive part of the query here is moot, and
         ## we wouldn't waste so much time on repeated queries
-        if self.todo and self.include_completed is False:
+        if cw and self.todo and self.include_completed is False:
             clone = replace(self, include_completed=True)
             clone.include_completed = True  ## Why?  Isn't this redundant?
             clone.expand = False
@@ -688,13 +760,7 @@ class CalDAVSearcher(Searcher):
                     (clone, calendar, server_expand, False, props, xml, None, _hacks),
                 )
 
-            # Deduplicate by URL
-            objects = []
-            match_set = set()
-            for item in matches:
-                if item.url not in match_set:
-                    match_set.add(item.url)
-                    objects.append(item)
+            objects = _dedup_by_url(matches)
         else:
             orig_xml = xml
 
@@ -703,12 +769,47 @@ class CalDAVSearcher(Searcher):
                     server_expand, props=props, filters=xml, _hacks=_hacks
                 )
 
-            if not self.comp_class and not calendar.client.features.is_supported(
-                "search.comp-type.optional"
-            ):
-                if self.include_completed is None:
-                    self.include_completed = True
-
+            ## A CALDAV:time-range (and VALARM) filter is a component-level filter:
+            ## RFC4791 section 9.7 only allows it inside a comp-filter for
+            ## VEVENT/VTODO/VJOURNAL/VFREEBUSY/VALARM, never directly under VCALENDAR.
+            ## So when no component type is given we cannot place such a filter in an
+            ## RFC-legal way - we must split the search into one query per component
+            ## type (search.time-range.comp-type-optional).  This is independent of
+            ## search.comp-type.optional, which only governs comp-type-less queries
+            ## WITHOUT any filter.
+            ## The same applies to a prop-filter (CATEGORIES, SUMMARY, ...): under
+            ## VCALENDAR it would filter on VCALENDAR's own properties (which lack
+            ## component properties), so servers match nothing
+            ## (search.text.comp-type-optional).
+            ## See https://github.com/python-caldav/caldav/issues/681
+            has_component_level_filter = bool(
+                self.start or self.end or self.alarm_start or self.alarm_end
+            )
+            has_property_filter = bool(self._property_filters)
+            needs_comptype_split = (
+                cw
+                and not self.comp_class
+                and (
+                    not calendar.client.features.is_supported("search.comp-type.optional")
+                    or (
+                        has_component_level_filter
+                        and not calendar.client.features.is_supported(
+                            "search.time-range.comp-type-optional"
+                        )
+                    )
+                    or (
+                        has_property_filter
+                        and not calendar.client.features.is_supported(
+                            "search.text.comp-type-optional"
+                        )
+                    )
+                )
+            )
+            if needs_comptype_split:
+                ## The include_completed default for the split is resolved
+                ## inside _search_with_comptypes, on a clone.  Setting it on
+                ## self here would permanently change the meaning of the
+                ## caller's searcher - the issue-#650 class of bug.
                 result = yield (
                     SearchAction.SEARCH_WITH_COMPTYPES,
                     (calendar, server_expand, split_expanded, props, orig_xml, _hacks, post_filter),
@@ -722,8 +823,37 @@ class CalDAVSearcher(Searcher):
                     (calendar, xml, self.comp_class, props),
                 )
             except error.ReportError as err:
+                ## Reactive workaround for https://github.com/python-caldav/caldav/issues/681:
+                ## if the server was (optimistically) configured as supporting
+                ## search.time-range.comp-type-optional but actually rejects the
+                ## comp-type-less time-range query (e.g. SabreDAV's HTTP 400 "You cannot
+                ## add time-range filters on the VCALENDAR component"), retry by splitting
+                ## into one query per component type.  Also covers prop-filters
+                ## (search.text.comp-type-optional).  orig_xml must be empty - if the
+                ## caller passed a full calendar-query we cannot rebuild it per comp-type.
                 if (
-                    calendar.client.features.backward_compatibility_mode
+                    cw
+                    and not self.comp_class
+                    and not orig_xml
+                    and (has_component_level_filter or has_property_filter)
+                ):
+                    result = yield (
+                        SearchAction.SEARCH_WITH_COMPTYPES,
+                        (
+                            calendar,
+                            server_expand,
+                            split_expanded,
+                            props,
+                            orig_xml,
+                            _hacks,
+                            post_filter,
+                        ),
+                    )
+                    yield (SearchAction.RETURN, result)
+                    return
+                if (
+                    cw
+                    and calendar.client.features.backward_compatibility_mode
                     and not self.comp_class
                     and "400" not in err.reason
                 ):
@@ -780,29 +910,17 @@ class CalDAVSearcher(Searcher):
                     )
                     return
 
-        # Post-process: load objects
-        obj2 = []
-        for o in objects:
-            try:
-                yield (SearchAction.LOAD_OBJECT, o)
-                obj2.append(o)
-            except Exception:
-                logging.error(
-                    "Server does not want to reveal details about the calendar object",
-                    exc_info=True,
-                )
-        objects = obj2
+        # Post-process: batch-load unloaded objects in one REPORT instead of N GETs
+        yield (SearchAction.LOAD_OBJECTS_BATCH, (calendar, objects))
+        objects = [o for o in objects if o.is_loaded() or o.has_component()]
 
         # Google sometimes returns empty objects
         objects = [o for o in objects if o.has_component()]
         objects = self.filter(objects, post_filter, split_expanded, server_expand)
 
         # Partial workaround for https://github.com/python-caldav/caldav/issues/201
-        for obj in objects:
-            try:
-                yield (SearchAction.LOAD_OBJECT, obj)
-            except Exception:
-                pass
+        # Re-issue a batch load in case any objects need a second fetch
+        yield (SearchAction.LOAD_OBJECTS_BATCH, (calendar, objects))
 
         yield (SearchAction.RETURN, self.sort(objects))
 
@@ -815,6 +933,7 @@ class CalDAVSearcher(Searcher):
         xml: str = None,
         post_filter=None,
         _hacks: str = None,
+        compatibility_workarounds: bool | None = None,
     ) -> list[CalendarObjectResource]:
         """Do the search on a CalDAV calendar.
 
@@ -831,6 +950,13 @@ class CalDAVSearcher(Searcher):
         :param xml: XML query to be sent to the server (string or elements)
         :param post_filter: Do client-side filtering after querying the server
         :param _hacks: Please don't ask!
+        :param compatibility_workarounds: When ``False``, all server-compatibility
+                        workarounds are disabled and the query is sent verbatim
+                        (single REPORT, no comp-type splitting, no filter
+                        rewriting, no fallback retries).  Mainly for the
+                        server-compatibility checker, to observe raw server
+                        behaviour.  ``None`` (the default) leaves the searcher's
+                        current setting unchanged.
 
         Make sure not to confuse he CalDAV properties with iCalendar properties.
 
@@ -851,36 +977,52 @@ class CalDAVSearcher(Searcher):
         flag on.
 
         """
+        if compatibility_workarounds is not None:
+            self._compatibility_workarounds = compatibility_workarounds
         gen = self._search_impl(
             calendar, server_expand, split_expanded, props, xml, post_filter, _hacks
         )
-        result = None
 
-        try:
-            action, data = gen.send(result)
-        except StopIteration:
-            return []
-
-        while True:
+        ## The driver alternates Phase 1 (execute the yielded action, here) and
+        ## Phase 2 (feed the result/exception back, in _advance_search_gen).  Only
+        ## Phase 1 differs between sync and async; the generator protocol is shared.
+        step = _advance_search_gen(gen)  # prime the generator
+        while step is not None:
+            action, data = step
+            if action == SearchAction.RETURN:
+                return data
+            result = exc = None
             try:
-                if action == SearchAction.RECURSIVE_SEARCH:
-                    clone, cal, srv_exp, spl_exp, prp, xm, pf, hk = data
-                    result = clone.search(cal, srv_exp, spl_exp, prp, xm, pf, hk)
-                elif action == SearchAction.SEARCH_WITH_COMPTYPES:
-                    cal, srv_exp, spl_exp, prp, xm, hk, pf = data
-                    result = self._search_with_comptypes(cal, srv_exp, spl_exp, prp, xm, hk, pf)
-                elif action == SearchAction.REQUEST_REPORT:
-                    cal, xm, comp_cls, prp = data
-                    result = cal._request_report_build_resultlist(xm, comp_cls, props=prp)
-                elif action == SearchAction.LOAD_OBJECT:
-                    data.load(only_if_unloaded=True)
-                    result = None
-                elif action == SearchAction.RETURN:
-                    return data
+                result = self._dispatch_search_action(action, data)
+            except Exception as e:
+                exc = e
+            step = _advance_search_gen(gen, result, exc)
+        return []
 
-                action, data = gen.send(result)
-            except StopIteration:
-                return []
+    def _dispatch_search_action(self, action: SearchAction, data: Any) -> Any:
+        """Phase 1 of the sync search driver: execute one yielded SearchAction.
+
+        Returns the value to feed back into the generator (``None`` for actions
+        whose effect is a side effect).  ``RETURN`` is handled by the driver
+        loop itself.  Sync twin of :meth:`_async_dispatch_search_action`.
+        """
+        if action == SearchAction.RECURSIVE_SEARCH:
+            clone, cal, srv_exp, spl_exp, prp, xm, pf, hk = data
+            return clone.search(cal, srv_exp, spl_exp, prp, xm, pf, hk)
+        if action == SearchAction.SEARCH_WITH_COMPTYPES:
+            cal, srv_exp, spl_exp, prp, xm, hk, pf = data
+            return self._search_with_comptypes(cal, srv_exp, spl_exp, prp, xm, hk, pf)
+        if action == SearchAction.REQUEST_REPORT:
+            cal, xm, comp_cls, prp = data
+            return cal._request_report_build_resultlist(xm, comp_cls, props=prp)
+        if action == SearchAction.LOAD_OBJECT:
+            data.load(only_if_unloaded=True)
+            return None
+        if action == SearchAction.LOAD_OBJECTS_BATCH:
+            cal, objs = data
+            cal._batch_load_objects(objs)
+            return None
+        raise AssertionError(f"unhandled search action {action!r}")
 
     def _search_with_comptypes(
         self,
@@ -894,6 +1036,10 @@ class CalDAVSearcher(Searcher):
     ) -> list[CalendarObjectResource]:
         """
         Internal method - does three searches, one for each comp class (event, journal, todo).
+
+        Note that the results come back grouped by component type rather than
+        in server order; three queries cannot preserve an order that only one
+        query ever had.  Pass a sort key if the order matters.
         """
         if xml and (isinstance(xml, str) or "calendar-query" in xml.tag):
             # Full XML provided – cannot inject a comp-type filter into it.
@@ -904,19 +1050,19 @@ class CalDAVSearcher(Searcher):
             return self.sort(objects)
         objects = []
 
-        assert self.event is None and self.todo is None and self.journal is None
+        base = self._comptype_split_base()
 
         for comp_class in (Event, Todo, Journal):
             if not calendar.client.features.is_supported(
                 f"save-load.{comp_class.__name__.lower()}"
             ):
                 continue
-            clone = replace(self)
+            clone = replace(base)
             clone.comp_class = comp_class
             objects += clone.search(
                 calendar, server_expand, split_expanded, props, xml, post_filter, _hacks
             )
-        return self.sort(objects)
+        return self.sort(_dedup_by_url(objects))
 
     async def async_search(
         self,
@@ -927,6 +1073,7 @@ class CalDAVSearcher(Searcher):
         xml: str = None,
         post_filter=None,
         _hacks: str = None,
+        compatibility_workarounds: bool | None = None,
     ) -> list["AsyncCalendarObjectResource"]:
         """Async version of search() - does the search on an AsyncCalendar.
 
@@ -935,40 +1082,52 @@ class CalDAVSearcher(Searcher):
 
         See the sync search() method for full documentation.
         """
+        if compatibility_workarounds is not None:
+            self._compatibility_workarounds = compatibility_workarounds
         gen = self._search_impl(
             calendar, server_expand, split_expanded, props, xml, post_filter, _hacks
         )
-        result = None
 
-        try:
-            action, data = gen.send(result)
-        except StopIteration:
-            return []
-
-        while True:
+        ## See the sync search() driver: only Phase 1 (the action execution) is
+        ## awaited here; the Phase-2 generator protocol is shared via
+        ## _advance_search_gen.
+        step = _advance_search_gen(gen)  # prime the generator
+        while step is not None:
+            action, data = step
+            if action == SearchAction.RETURN:
+                return data
+            result = exc = None
             try:
-                if action == SearchAction.RECURSIVE_SEARCH:
-                    clone, cal, srv_exp, spl_exp, prp, xm, pf, hk = data
-                    result = await clone.async_search(cal, srv_exp, spl_exp, prp, xm, pf, hk)
-                elif action == SearchAction.SEARCH_WITH_COMPTYPES:
-                    cal, srv_exp, spl_exp, prp, xm, hk, pf = data
-                    result = await self._async_search_with_comptypes(
-                        cal, srv_exp, spl_exp, prp, xm, hk, pf
-                    )
-                elif action == SearchAction.REQUEST_REPORT:
-                    cal, xm, comp_cls, prp = data
-                    result = await cal._request_report_build_resultlist(xm, comp_cls, props=prp)
-                elif action == SearchAction.LOAD_OBJECT:
-                    load_result = data.load(only_if_unloaded=True)
-                    if inspect.isawaitable(load_result):
-                        await load_result
-                    result = None
-                elif action == SearchAction.RETURN:
-                    return data
+                result = await self._async_dispatch_search_action(action, data)
+            except Exception as e:
+                exc = e
+            step = _advance_search_gen(gen, result, exc)
+        return []
 
-                action, data = gen.send(result)
-            except StopIteration:
-                return []
+    async def _async_dispatch_search_action(self, action: SearchAction, data: Any) -> Any:
+        """Phase 1 of the async search driver: execute one yielded SearchAction.
+
+        Async twin of :meth:`_dispatch_search_action`; see it for semantics.
+        """
+        if action == SearchAction.RECURSIVE_SEARCH:
+            clone, cal, srv_exp, spl_exp, prp, xm, pf, hk = data
+            return await clone.async_search(cal, srv_exp, spl_exp, prp, xm, pf, hk)
+        if action == SearchAction.SEARCH_WITH_COMPTYPES:
+            cal, srv_exp, spl_exp, prp, xm, hk, pf = data
+            return await self._async_search_with_comptypes(cal, srv_exp, spl_exp, prp, xm, hk, pf)
+        if action == SearchAction.REQUEST_REPORT:
+            cal, xm, comp_cls, prp = data
+            return await cal._request_report_build_resultlist(xm, comp_cls, props=prp)
+        if action == SearchAction.LOAD_OBJECT:
+            load_result = data.load(only_if_unloaded=True)
+            if inspect.isawaitable(load_result):
+                await load_result
+            return None
+        if action == SearchAction.LOAD_OBJECTS_BATCH:
+            cal, objs = data
+            await cal._async_batch_load_objects(objs)
+            return None
+        raise AssertionError(f"unhandled search action {action!r}")
 
     async def _async_search_with_comptypes(
         self,
@@ -990,20 +1149,20 @@ class CalDAVSearcher(Searcher):
             return self.sort(objects)
         objects: list[AsyncCalendarObjectResource] = []
 
-        assert self.event is None and self.todo is None and self.journal is None
+        base = self._comptype_split_base()
 
         for comp_class in (Event, Todo, Journal):
             if not calendar.client.features.is_supported(
                 f"save-load.{comp_class.__name__.lower()}"
             ):
                 continue
-            clone = replace(self)
+            clone = replace(base)
             clone.comp_class = comp_class
             results = await clone.async_search(
                 calendar, server_expand, split_expanded, props, xml, post_filter, _hacks
             )
             objects.extend(results)
-        return self.sort(objects)
+        return self.sort(_dedup_by_url(objects))
 
     def filter(
         self,
@@ -1038,6 +1197,27 @@ class CalDAVSearcher(Searcher):
             split_expanded=split_expanded,
             server_expand=server_expand,
         )
+
+    def _comptype_split_base(self) -> "CalDAVSearcher":
+        """Return the searcher the per-comp-type clones are built from.
+
+        A truthy ``event``/``todo``/``journal`` flag would have produced a
+        ``comp_class``, and the split only happens when there is none — so
+        reaching here with one set means the caller and the driver disagree.
+        ``event=False`` is *not* such a case: it is a legal argument to the
+        public ``search()``, and testing it with ``is None`` used to trip a
+        bare, message-less ``AssertionError``.
+
+        ``include_completed`` defaults to True for the split (otherwise the
+        VTODO sub-search would quietly drop completed tasks), but that is
+        resolved on a copy: writing it back to ``self`` would change the
+        meaning of the caller's searcher for every later call — the
+        issue-#650 class of bug.
+        """
+        error.assert_(not (self.event or self.todo or self.journal))
+        if self.include_completed is None:
+            return replace(self, include_completed=True)
+        return self
 
     def build_search_xml_query(self, server_expand=False, props=None, filters=None, _hacks=None):
         """Build a CalDAV calendar-query XML request.

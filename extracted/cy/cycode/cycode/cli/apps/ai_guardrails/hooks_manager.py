@@ -127,16 +127,20 @@ def install_hooks(
     ide: IDE,
     scope: str = 'user',
     repo_path: Optional[Path] = None,
-    report_mode: bool = False,
 ) -> tuple[bool, str]:
     """Install Cycode AI guardrails hooks for ``ide``."""
     hooks_path = ide.settings_path(scope, repo_path)
 
-    existing = _load_hooks_file(hooks_path) or {'version': 1, 'hooks': {}}
-    existing.setdefault('version', 1)
+    existing = _load_hooks_file(hooks_path) or {'hooks': {}}
     existing.setdefault('hooks', {})
 
-    rendered = ide.render_hooks_config(async_mode=report_mode)
+    rendered = ide.render_hooks_config()
+
+    # Top-level fields come from the IDE's render only - Codex rejects a hooks file
+    # with unknown top-level fields, so no `version` may be injected here.
+    for key, value in rendered.items():
+        if key != 'hooks':
+            existing[key] = value
 
     for event, entries in rendered['hooks'].items():
         existing['hooks'].setdefault(event, [])
@@ -186,13 +190,9 @@ def _persist_uninstall(hooks_path: Path, existing: dict, modified: bool) -> tupl
     """Apply the uninstall result to disk and return ``(success, message)``."""
     if not modified:
         return True, 'No Cycode hooks found to remove'
+    # Never unlink: a shared settings file (Claude Code's settings.json) holds unrelated keys.
     if not existing.get('hooks'):
-        try:
-            hooks_path.unlink()
-        except Exception as e:
-            logger.debug('Failed to delete hooks file', exc_info=e)
-            return False, f'Failed to remove hooks file: {hooks_path}'
-        return True, f'Removed hooks file: {hooks_path}'
+        existing.pop('hooks', None)
     if not _save_hooks_file(hooks_path, existing):
         return False, f'Failed to update hooks file: {hooks_path}'
     return True, f'Cycode hooks removed from: {hooks_path}'

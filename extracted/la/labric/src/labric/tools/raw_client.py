@@ -3,17 +3,14 @@
 import typing
 from json.decoder import JSONDecodeError
 
-from .. import core
 from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.jsonable_encoder import encode_path_param
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
-from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
@@ -23,11 +20,8 @@ from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.batch_write_options import BatchWriteOptions
 from ..types.batch_write_response import BatchWriteResponse
 from ..types.error_schema import ErrorSchema
-from ..types.labric_upload_file_schema import LabricUploadFileSchema
 from ..types.query_result import QueryResult
-from ..types.table_schema_info_schema import TableSchemaInfoSchema
-from ..types.tools_file_content_schema import ToolsFileContentSchema
-from ..types.tools_file_info_schema import ToolsFileInfoSchema
+from ..types.queryable_table_schema import QueryableTableSchema
 from ..types.validation_error_schema import ValidationErrorSchema
 from .types.labric_read_schema_mode import LabricReadSchemaMode
 from .types.labric_read_schema_target_type import LabricReadSchemaTargetType
@@ -370,7 +364,9 @@ class RawToolsClient:
 
         Runs the query against the organization's read replica, so it cannot
         mutate data. Only SELECT statements are accepted. Supports positional
-        parameters via a params list. Use the schema tool to discover tables
+        parameters: write %s placeholders in the query and pass the values in
+        order in the params list. Named :param placeholders belong to saved
+        dataset queries and are not accepted here. Use the schema tool to discover tables
         first, and reference each column by its sql_column_name — foreign keys
         carry an _id suffix in SQL (e.g. a 'sample' reference is the 'sample_id'
         column).
@@ -500,157 +496,9 @@ class RawToolsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def upload_file(
-        self,
-        *,
-        file: core.File,
-        job_execution_id: typing.Optional[str] = OMIT,
-        instrument_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[LabricUploadFileSchema]:
-        """
-        Upload a file.
-
-        Accepts a multipart/form-data file upload, stores it in GCS, and returns the
-        created file record. At least one of job_execution_id and instrument_id is
-        required: pass a job_execution_id for an artifact of a job running in a
-        sandbox, which also records provenance linking the file to that execution,
-        and pass an instrument_id for data captured off-platform by an instrument the
-        Sync app cannot reach, which attaches the file to that instrument so
-        instrument triggers and parsers pick it up.
-
-        Requires an API key with the `write` scope.
-
-        Parameters
-        ----------
-        file : core.File
-            See core.File for more documentation
-
-        job_execution_id : typing.Optional[str]
-
-        instrument_id : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[LabricUploadFileSchema]
-            OK
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/tools/upload-file",
-            method="POST",
-            data={
-                "job_execution_id": job_execution_id,
-                "instrument_id": instrument_id,
-            },
-            files={
-                "file": file,
-            },
-            request_options=request_options,
-            omit=OMIT,
-            force_multipart=True,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    LabricUploadFileSchema,
-                    parse_obj_as(
-                        type_=LabricUploadFileSchema,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ValidationErrorSchema,
-                        parse_obj_as(
-                            type_=ValidationErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     def get_schema(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.List[TableSchemaInfoSchema]]:
+    ) -> HttpResponse[typing.List[QueryableTableSchema]]:
         """
         Describe the organization's data schema.
 
@@ -659,8 +507,10 @@ class RawToolsClient:
         nullability, uniqueness, and foreign-key targets. Each column carries two
         names: 'name' is what the read and write tools accept, and 'sql_column_name'
         is the physical column for SQL queries (foreign keys carry an _id suffix).
-        This is the map a parser writes into: use it to plan which tables to
-        populate and how rows link.
+        The org's own tables are followed by the platform tables (core_experiment,
+        core_instrument, and similar) that SQL queries can join against; those have
+        no id or semantic category. This is the map a parser writes into: use it to
+        plan which tables to populate and how rows link.
 
         Requires an API key with the `read` scope.
 
@@ -671,7 +521,7 @@ class RawToolsClient:
 
         Returns
         -------
-        HttpResponse[typing.List[TableSchemaInfoSchema]]
+        HttpResponse[typing.List[QueryableTableSchema]]
             OK
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -682,256 +532,9 @@ class RawToolsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.List[TableSchemaInfoSchema],
+                    typing.List[QueryableTableSchema],
                     parse_obj_as(
-                        type_=typing.List[TableSchemaInfoSchema],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ValidationErrorSchema,
-                        parse_obj_as(
-                            type_=ValidationErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def list_files(
-        self,
-        *,
-        instrument_id: typing.Optional[str] = None,
-        extensions: typing.Optional[str] = None,
-        query: typing.Optional[str] = None,
-        limit: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[typing.List[ToolsFileInfoSchema]]:
-        """
-        List source data files available for parser development.
-
-        Returns a representative set of uploaded files for the org, newest first.
-        Filter by instrument_id, comma-separated file extensions (e.g. "csv,txt"),
-        or a substring of the file name. Use the file-content tool to inspect a
-        file's raw contents.
-
-        Requires an API key with the `read` scope.
-
-        Parameters
-        ----------
-        instrument_id : typing.Optional[str]
-
-        extensions : typing.Optional[str]
-
-        query : typing.Optional[str]
-
-        limit : typing.Optional[int]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[typing.List[ToolsFileInfoSchema]]
-            OK
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/tools/files",
-            method="GET",
-            params={
-                "instrument_id": instrument_id,
-                "extensions": extensions,
-                "query": query,
-                "limit": limit,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    typing.List[ToolsFileInfoSchema],
-                    parse_obj_as(
-                        type_=typing.List[ToolsFileInfoSchema],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ValidationErrorSchema,
-                        parse_obj_as(
-                            type_=ValidationErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def get_file_content(
-        self, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ToolsFileContentSchema]:
-        """
-        Fetch a source file's content for inspecting raw instrument output.
-
-        Returns a presigned download URL plus a best-effort UTF-8 text preview of
-        the start of the file. Large files return a URL only (no inline preview);
-        fetch the full bytes via the URL when needed.
-
-        Requires an API key with the `read` scope.
-
-        Parameters
-        ----------
-        file_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ToolsFileContentSchema]
-            OK
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/tools/files/{encode_path_param(file_id)}/content",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ToolsFileContentSchema,
-                    parse_obj_as(
-                        type_=ToolsFileContentSchema,  # type: ignore
+                        type_=typing.List[QueryableTableSchema],  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1483,7 +1086,9 @@ class AsyncRawToolsClient:
 
         Runs the query against the organization's read replica, so it cannot
         mutate data. Only SELECT statements are accepted. Supports positional
-        parameters via a params list. Use the schema tool to discover tables
+        parameters: write %s placeholders in the query and pass the values in
+        order in the params list. Named :param placeholders belong to saved
+        dataset queries and are not accepted here. Use the schema tool to discover tables
         first, and reference each column by its sql_column_name — foreign keys
         carry an _id suffix in SQL (e.g. a 'sample' reference is the 'sample_id'
         column).
@@ -1613,157 +1218,9 @@ class AsyncRawToolsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def upload_file(
-        self,
-        *,
-        file: core.File,
-        job_execution_id: typing.Optional[str] = OMIT,
-        instrument_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[LabricUploadFileSchema]:
-        """
-        Upload a file.
-
-        Accepts a multipart/form-data file upload, stores it in GCS, and returns the
-        created file record. At least one of job_execution_id and instrument_id is
-        required: pass a job_execution_id for an artifact of a job running in a
-        sandbox, which also records provenance linking the file to that execution,
-        and pass an instrument_id for data captured off-platform by an instrument the
-        Sync app cannot reach, which attaches the file to that instrument so
-        instrument triggers and parsers pick it up.
-
-        Requires an API key with the `write` scope.
-
-        Parameters
-        ----------
-        file : core.File
-            See core.File for more documentation
-
-        job_execution_id : typing.Optional[str]
-
-        instrument_id : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[LabricUploadFileSchema]
-            OK
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/tools/upload-file",
-            method="POST",
-            data={
-                "job_execution_id": job_execution_id,
-                "instrument_id": instrument_id,
-            },
-            files={
-                "file": file,
-            },
-            request_options=request_options,
-            omit=OMIT,
-            force_multipart=True,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    LabricUploadFileSchema,
-                    parse_obj_as(
-                        type_=LabricUploadFileSchema,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ValidationErrorSchema,
-                        parse_obj_as(
-                            type_=ValidationErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     async def get_schema(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.List[TableSchemaInfoSchema]]:
+    ) -> AsyncHttpResponse[typing.List[QueryableTableSchema]]:
         """
         Describe the organization's data schema.
 
@@ -1772,8 +1229,10 @@ class AsyncRawToolsClient:
         nullability, uniqueness, and foreign-key targets. Each column carries two
         names: 'name' is what the read and write tools accept, and 'sql_column_name'
         is the physical column for SQL queries (foreign keys carry an _id suffix).
-        This is the map a parser writes into: use it to plan which tables to
-        populate and how rows link.
+        The org's own tables are followed by the platform tables (core_experiment,
+        core_instrument, and similar) that SQL queries can join against; those have
+        no id or semantic category. This is the map a parser writes into: use it to
+        plan which tables to populate and how rows link.
 
         Requires an API key with the `read` scope.
 
@@ -1784,7 +1243,7 @@ class AsyncRawToolsClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.List[TableSchemaInfoSchema]]
+        AsyncHttpResponse[typing.List[QueryableTableSchema]]
             OK
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -1795,256 +1254,9 @@ class AsyncRawToolsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.List[TableSchemaInfoSchema],
+                    typing.List[QueryableTableSchema],
                     parse_obj_as(
-                        type_=typing.List[TableSchemaInfoSchema],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ValidationErrorSchema,
-                        parse_obj_as(
-                            type_=ValidationErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def list_files(
-        self,
-        *,
-        instrument_id: typing.Optional[str] = None,
-        extensions: typing.Optional[str] = None,
-        query: typing.Optional[str] = None,
-        limit: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[typing.List[ToolsFileInfoSchema]]:
-        """
-        List source data files available for parser development.
-
-        Returns a representative set of uploaded files for the org, newest first.
-        Filter by instrument_id, comma-separated file extensions (e.g. "csv,txt"),
-        or a substring of the file name. Use the file-content tool to inspect a
-        file's raw contents.
-
-        Requires an API key with the `read` scope.
-
-        Parameters
-        ----------
-        instrument_id : typing.Optional[str]
-
-        extensions : typing.Optional[str]
-
-        query : typing.Optional[str]
-
-        limit : typing.Optional[int]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[typing.List[ToolsFileInfoSchema]]
-            OK
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/tools/files",
-            method="GET",
-            params={
-                "instrument_id": instrument_id,
-                "extensions": extensions,
-                "query": query,
-                "limit": limit,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    typing.List[ToolsFileInfoSchema],
-                    parse_obj_as(
-                        type_=typing.List[ToolsFileInfoSchema],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ValidationErrorSchema,
-                        parse_obj_as(
-                            type_=ValidationErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorSchema,
-                        parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def get_file_content(
-        self, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ToolsFileContentSchema]:
-        """
-        Fetch a source file's content for inspecting raw instrument output.
-
-        Returns a presigned download URL plus a best-effort UTF-8 text preview of
-        the start of the file. Large files return a URL only (no inline preview);
-        fetch the full bytes via the URL when needed.
-
-        Requires an API key with the `read` scope.
-
-        Parameters
-        ----------
-        file_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ToolsFileContentSchema]
-            OK
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/tools/files/{encode_path_param(file_id)}/content",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ToolsFileContentSchema,
-                    parse_obj_as(
-                        type_=ToolsFileContentSchema,  # type: ignore
+                        type_=typing.List[QueryableTableSchema],  # type: ignore
                         object_=_response.json(),
                     ),
                 )

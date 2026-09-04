@@ -11,6 +11,15 @@ from ..exceptions import ComponentError
 class GoogleSheetsClient(GoogleClient, ABC):
     """
     Google Sheets Client for downloading and interacting with Google Sheets.
+
+    Relationship to ``DownloadFromGoogleDrive`` (FEAT-246): the
+    ``DownloadFromGoogleDrive`` component uses ``GoogleDriveClient``'s
+    export path (``files().export_media``) for file-shaped output when a
+    native Google Sheet is requested through a generic Drive search/download
+    spec. ``GoogleSheetsClient.download_file`` is not used by that
+    component — it remains available for components that want a Sheet
+    fetched directly as a ``pandas.DataFrame`` (or json/excel/csv) by
+    ``sheet_id``, without going through Drive's file-search/export flow.
     """
 
     async def download_file(

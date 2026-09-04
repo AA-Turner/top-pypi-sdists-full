@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test maxStalenessSeconds support."""
+
 from __future__ import annotations
 
 import asyncio
@@ -27,11 +28,10 @@ from pymongo.operations import _Op
 
 sys.path[0:0] = [""]
 
-from test import PyMongoTestCase, client_context, unittest
-from test.utils_selection_tests import create_selection_tests
-
 from pymongo.errors import ConfigurationError
 from pymongo.server_selectors import writable_server_selector
+from test import PyMongoTestCase, client_context, unittest
+from test.utils_selection_tests import create_selection_tests
 
 _IS_SYNC = True
 
@@ -124,7 +124,8 @@ class TestMaxStaleness(PyMongoTestCase):
     def test_last_write_date(self):
         # From max-staleness-tests.rst, "Parse lastWriteDate".
         client = self.rs_or_single_client(heartbeatFrequencyMS=500)
-        client.pymongo_test.test.insert_one({})
+        self.addCleanup(client.pymongo_test.coll.drop)
+        client.pymongo_test.coll.insert_one({})
         # Wait for the server description to be updated.
         time.sleep(1)
         server = client._topology.select_server(writable_server_selector, _Op.TEST)
@@ -133,7 +134,7 @@ class TestMaxStaleness(PyMongoTestCase):
         # The first last_write_date may correspond to a internal server write,
         # sleep so that the next write does not occur within the same second.
         time.sleep(1)
-        client.pymongo_test.test.insert_one({})
+        client.pymongo_test.coll.insert_one({})
         # Wait for the server description to be updated.
         time.sleep(1)
         server = client._topology.select_server(writable_server_selector, _Op.TEST)

@@ -4,15 +4,13 @@ from dataclasses import dataclass
 
 from trilogy.constants import CONFIG, logger
 from trilogy.core.domain_graph import DomainGraph
-from trilogy.core.enums import Derivation
-from trilogy.core.models.execute import CTE, Join, RecursiveCTE, UnionCTE
+from trilogy.core.models.execute import CTE, Join, UnionCTE
 from trilogy.core.optimizations import (
     CollapseSingleParent,
     HideUnusedConcepts,
     InlineDatasource,
     JoinHoist,
     MergeIrrelevantGroupBy,
-    NarrowKeylessFullJoins,
     OptimizationRule,
     OrderInnerJoinsFirst,
     PredicatePushdown,
@@ -31,12 +29,11 @@ from trilogy.core.optimizations.collapse_single_parent import (
     grouped_unbound_passthrough_should_wait,
 )
 from trilogy.core.optimizations.full_join_lowering import lower_full_joins
-from trilogy.core.processing.condition_utility import merge_conditions_and_dedup
-from trilogy.core.processing.utility import sort_select_output
+from trilogy.core.processing.utility import sort_select_output_processed
 from trilogy.core.statements.author import MultiSelectStatement, SelectStatement
 from trilogy.utility import unique
 
-MAX_OPTIMIZATION_LOOPS = 100
+MAX_OPTIMIZATION_LOOPS = 10
 
 
 @dataclass(frozen=True)
@@ -51,35 +48,14 @@ class OptimizationRulePlan:
         return self.rule_factory()
 
 
-# other optimizations may make a CTE a pure passthrough
-# remove those
-# def is_locally_irrelevant(cte: CTE) -> CTE | bool:
-#     if not len(cte.parent_ctes) == 1:
-#         return False
-#     parent = cte.parent_ctes[0]
-#     if not parent.output_columns == cte.output_columns:
-#         return False
-#     if cte.condition is not None:
-#         return False
-#     if cte.group_to_grain:
-#         return False
-#     if len(cte.joins)>1:
-#         return False
-#     return parent
-
-
 def canonicalize_graph(input: list[CTE]) -> None:
     """Make the CTE graph self-consistent.
 
-    Optimization rules (inline, merge, collapse) replace or fold CTEs, but
-    other CTEs / joins can retain references to the *old* object. Those stale
-    copies are the source of "table does not exist" / reorder ``KeyError``
-    bugs. Rewrite every cross-reference to the single live instance keyed by
-    name:
+    Optimization rules replace or fold CTEs, but other CTEs / joins can
+    retain references to the old object. Rewrite every cross-reference to the
+    single live instance keyed by name:
 
-    - ``parent_ctes``: keep only references whose target is still in the
-      working set (a folded/merged parent is sourced via inline/merge now);
-      dedupe to the live object.
+    - ``parent_ctes``: dedupe to the live object.
     - join endpoints (``right_cte``/``left_cte``/``joinkey_pairs[].cte``):
       resolve to the live emitted CTE, or to the consumer's folded
       ``inlined_parents`` instance so the render contract stays in sync.
@@ -97,9 +73,8 @@ def canonicalize_graph(input: list[CTE]) -> None:
             )
 
     def resolve(node: CTE | UnionCTE) -> CTE | UnionCTE:
-        # Sync to the single live instance; never drop a reference (a missing
-        # target means another rule must still resolve it — dropping it would
-        # corrupt reachability).
+        # Never drop a reference: a missing target means another rule must
+        # still resolve it.
         return emitted.get(node.name) or inlined.get(node.name) or node
 
     for cte in input:
@@ -130,12 +105,9 @@ def canonicalize_graph(input: list[CTE]) -> None:
                 branch = binding.node
                 live = resolve(branch)
                 # A union arm renders inline and must project exactly this
-                # union's columns. If the same-named live emitted CTE carries a
-                # different projection — a name collision between this inline arm
-                # and an unrelated standalone CTE over the same source+grain
-                # (QDS identity ignores projection) — collapsing onto it would
-                # force one projection onto both and corrupt the other consumer.
-                # Keep the arm's own instance in that case.
+                # union's columns. A same-named live CTE with a different
+                # projection is a name collision (QDS identity ignores
+                # projection), so the arm keeps its own instance.
                 if live is not branch and {x.address for x in live.output_columns} != {
                     x.address for x in branch.output_columns
                 }:
@@ -150,54 +122,15 @@ def canonicalize_graph(input: list[CTE]) -> None:
                 ],
                 "name",
             )
-            # UNION ALL arity invariant: every branch must project exactly the
-            # union's columns. If a rule over-pruned one branch's
-            # ``output_columns`` (its ``source_map`` still carries the data),
-            # the branches diverge and the union renders invalid SQL (empty
-            # SELECT / column-count mismatch). Re-align divergent branches to
-            # the union's projection. Triggers ONLY when branches already
-            # disagree (an already-broken union) so consistent unions — every
-            # passing query — are untouched.
-            plain = [b for b in cte.internal_ctes if isinstance(b, CTE)]
-            if len(plain) > 1:
-
-                def visible(b: CTE) -> list[str]:
-                    return [
-                        x.address
-                        for x in b.output_columns
-                        if x.address not in b.hidden_concepts
-                    ]
-
-                counts = {len(visible(b)) for b in plain}
-                # ``union()``-concept branches legitimately project *different*
-                # local concepts, but a valid UNION ALL still needs the same
-                # column *count* per branch. Only when counts disagree is the
-                # union definitively invalid — a rule over-pruned one branch's
-                # projection. Re-align the short branch(es) to a healthy
-                # sibling's projection (its source_map still carries the data).
-                if len(counts) > 1:
-                    ref = max(plain, key=lambda b: len(visible(b)))
-                    ref_addrs = {x.address for x in ref.output_columns}
-                    for b in plain:
-                        if b is ref or len(visible(b)) == len(visible(ref)):
-                            continue
-                        sourceable = set(b.source_map.keys()) | {
-                            x.address for x in b.output_columns
-                        }
-                        if not ref_addrs <= sourceable:
-                            continue
-                        b.output_columns = list(ref.output_columns)
-                        b.hidden_concepts = set(ref.hidden_concepts)
 
 
 def subquery_sources(
     cte: CTE | UnionCTE,
     lookup: dict[str, CTE] | dict[str, CTE | UnionCTE],
 ) -> list[CTE | UnionCTE]:
-    """CTEs `cte` reads only from inside a subquery — existence membership
-    feeders and generated semi-join feeders. They are real references (the
-    rendered SQL names them) but not row sources, so they never appear in
-    ``dependency_nodes``."""
+    """CTEs `cte` reads only from inside a subquery: existence membership
+    feeders and generated semi-join feeders. The rendered SQL names them, but
+    they are not row sources, so they never appear in ``dependency_nodes``."""
     if not isinstance(cte, CTE):
         return []
     names: list[str] = [
@@ -220,20 +153,17 @@ def reorder_ctes(
     input: list[CTE],
 ):
     canonicalize_graph(input)
-    # STABLE topological order: among ready CTEs, earliest input position
-    # first. The result is a pure function of the input order and the
-    # dependency EDGE SET — never of edge/hash iteration order, which is what
-    # let sibling CTEs swap emission order between runs (PYTHONHASHSEED).
-    # Only nodes in the working set participate; a parent that isn't is
-    # sourced elsewhere (inlined/merged) and not emitted.
+    # Stable topological order: among ready CTEs, earliest input position
+    # first, so the result depends only on input order and the dependency
+    # edge set, never on hash iteration order. Only nodes in the working set
+    # participate; a parent that is not is sourced elsewhere and not emitted.
     position = {cte.name: index for index, cte in enumerate(input)}
     mapping: dict[str, CTE] = {cte.name: cte for cte in input}
     children: dict[str, set[str]] = {name: set() for name in mapping}
     indegree: dict[str, int] = {name: 0 for name in mapping}
     for cte in input:
-        # A CTE read only through a subquery — an existence membership's feeder
-        # or a generated semi-join's — still has to be DECLARED first: a WITH
-        # list is sequential, so an unordered reference is "table not found".
+        # A CTE read only through a subquery still has to be declared first:
+        # a WITH list is sequential.
         for parent in [*cte.dependency_nodes(), *subquery_sources(cte, mapping)]:
             if parent.name in mapping and cte.name not in children[parent.name]:
                 children[parent.name].add(cte.name)
@@ -262,36 +192,12 @@ def filter_irrelevant_ctes(
 ):
     relevant_ctes: set[str] = set()
     visited: set[str] = set()
+    by_name: dict[str, CTE | UnionCTE] = {c.name: c for c in input}
 
-    def recurse(
-        cte: CTE | UnionCTE,
-        inverse_map: dict[str, list[CTE | UnionCTE]],
-        emit: bool = True,
-    ):
-        # TODO: revisit this
-        # if parent := is_locally_irrelevant(cte):
-        #     logger.info(
-        #         optimization_log("FilterIrrelevantCTEs", f"Removing redundant CTE {cte.name} and replacing with {parent.name}")
-        #     )
-        #     for child in inverse_map.get(cte.name, []):
-        #         child.parent_ctes = [
-        #             x for x in child.parent_ctes if x.name != cte.name
-        #         ] + [parent]
-        #         for x in child.source_map:
-        #             if cte.name in child.source_map[x]:
-        #                 child.source_map[x].remove(cte.name)
-        #                 child.source_map[x].append(parent.name)
-        #         for x2 in child.existence_source_map:
-        #             if cte.name in child.existence_source_map[x2]:
-        #                 child.existence_source_map[x2].remove(cte.name)
-        #                 child.existence_source_map[x2].append(parent.name)
-        # else:
+    def recurse(cte: CTE | UnionCTE, emit: bool = True):
         if cte.name in visited:
-            # Promote to emitted if we now reach this CTE as a real parent.
             # A CTE first visited as a union branch (emit=False) and later
-            # reached via parent_ctes of some sibling needs its own WITH entry
-            # — without this it gets filtered out while consumers still
-            # reference its name. The visited-set still prevents re-traversal.
+            # reached as a real parent needs its own WITH entry.
             if emit:
                 relevant_ctes.add(cte.name)
             return
@@ -300,23 +206,19 @@ def filter_irrelevant_ctes(
             relevant_ctes.add(cte.name)
 
         for parent in cte.dependency_nodes():
-            recurse(parent, inverse_map)
-        # A subquery renders `FROM <feeder>` for CTEs referenced only through
-        # existence_source_map or a generated semi-join — those need WITH
-        # entries too.
+            recurse(parent)
+        # Subquery feeders need WITH entries too.
         for node in subquery_sources(cte, by_name):
-            recurse(node, inverse_map)
+            recurse(node)
         if isinstance(cte, UnionCTE):
             for binding in cte.source_bindings(include_branches=True):
                 if not binding.branch or binding.node is None:
                     continue
                 # Branches render inside the union; only their parents need
                 # standalone WITH entries.
-                recurse(binding.node, inverse_map, emit=False)
+                recurse(binding.node, emit=False)
 
-    by_name: dict[str, CTE | UnionCTE] = {c.name: c for c in input}
-    inverse_map = gen_inverse_map(input)
-    recurse(root_cte, inverse_map)
+    recurse(root_cte)
     final = [cte for cte in input if cte.name in relevant_ctes]
     filtered = [cte for cte in input if cte.name not in relevant_ctes]
     if filtered:
@@ -326,9 +228,7 @@ def filter_irrelevant_ctes(
                 f"Removing redundant CTEs {[x.name for x in filtered]}",
             )
         )
-    if len(final) == len(input):
-        return input
-    return filter_irrelevant_ctes(final, root_cte)
+    return final
 
 
 def gen_inverse_map(input: list[CTE | UnionCTE]) -> dict[str, list[CTE | UnionCTE]]:
@@ -340,11 +240,10 @@ def gen_inverse_map(input: list[CTE | UnionCTE]) -> dict[str, list[CTE | UnionCT
         else:
             dependencies = cte.dependency_nodes()
         seen = {parent.name for parent in dependencies}
-        # A source referenced ONLY from inside a subquery (existence membership
-        # or generated semi-join) is a real consumer relationship: a merge that
-        # repoints just the row consumers leaves that reference naming a dead
-        # CTE. Count it so is_sole_consumer sees it and repoint_consumers (via
-        # replace_dependency) rewrites it.
+        # A subquery-only reference is a real consumer relationship: a merge
+        # that repoints just the row consumers would leave it naming a dead
+        # CTE. Counting it lets is_sole_consumer see it and repoint_consumers
+        # rewrite it.
         for node in subquery_sources(cte, by_name):
             if node.name not in seen:
                 dependencies.append(node)
@@ -357,148 +256,13 @@ def gen_inverse_map(input: list[CTE | UnionCTE]) -> dict[str, list[CTE | UnionCT
     return inverse_map
 
 
-SENSITIVE_DERIVATIONS = [
-    Derivation.UNNEST,
-    Derivation.WINDOW,
-    Derivation.RECURSIVE,
-]
-
-
-def _grains_equivalent(cte: CTE | UnionCTE, direct_parent: CTE | UnionCTE) -> bool:
-    """Strict grain equality, with a pseudonym-aware fallback.
-
-    A pure projection that only renames or duplicates grain columns (e.g.
-    q39 selecting one key twice as ``isk1``/``isk2``) has a grain whose
-    component *addresses* differ from the parent's but which covers the same
-    underlying concepts. Treat those as equal so the redundant projection
-    CTE can still collapse. Additive: never rejects a previously-equal pair.
-    """
-    if direct_parent.grain == cte.grain:
-        return True
-    g1 = direct_parent.grain.components
-    g2 = cte.grain.components
-    if not g1 or not g2:
-        return False
-    concepts = {
-        c.address: c
-        for c in list(cte.source.output_concepts)
-        + list(direct_parent.source.output_concepts)
-    }
-
-    def equiv_sets(components: set[str]) -> list[set[str]] | None:
-        out: list[set[str]] = []
-        for addr in components:
-            concept = concepts.get(addr)
-            if concept is None:
-                return None
-            out.append(concept.equivalent_addresses)
-        return out
-
-    e1 = equiv_sets(g1)
-    e2 = equiv_sets(g2)
-    if e1 is None or e2 is None:
-        return False
-    return all(any(s1 & s2 for s2 in e2) for s1 in e1) and all(
-        any(s2 & s1 for s1 in e1) for s2 in e2
-    )
-
-
-def is_direct_return_eligible(cte: CTE | UnionCTE) -> CTE | UnionCTE | None:
-    # if isinstance(select, (PersistStatement, MultiSelectStatement)):
-    #     return False
-    parents = cte.dependency_nodes()
-    if len(parents) != 1:
-        return None
-    direct_parent = parents[0]
-    if isinstance(direct_parent, (UnionCTE, RecursiveCTE)):
-        return None
-
-    if cte.group_to_grain:
-        return None
-
-    output_addresses = {x.address for x in cte.output_columns}
-    parent_output_addresses = {x.address for x in direct_parent.output_columns}
-    if not output_addresses.issubset(parent_output_addresses):
-        return None
-    if not _grains_equivalent(cte, direct_parent):
-        logger.info(
-            optimization_log("DirectReturn", "grain mismatch, cannot early exit")
-        )
-        return None
-
-    assert isinstance(cte, CTE)
-    derived_concepts = [
-        c for c in cte.source.output_concepts if c not in cte.source.input_concepts
-    ]
-
-    parent_derived_concepts = [
-        c
-        for c in direct_parent.source.output_concepts
-        if c not in direct_parent.source.input_concepts
-    ]
-    condition_arguments = cte.condition.row_arguments if cte.condition else []
-    for x in derived_concepts:
-        if x.derivation in SENSITIVE_DERIVATIONS:
-            return None
-    # `cte`'s condition collapses into the parent's SELECT scope. If the parent
-    # derives a window (or other sensitive derivation), the predicate would then
-    # evaluate in the same scope as that window — and SQL applies WHERE before
-    # window functions, so a lead/lag/rank would see only the surviving rows
-    # instead of the full series. Keep the scopes separate so the predicate
-    # filters the window's OUTPUT (a HAVING applies after the window), whether or
-    # not the predicate references the window itself.
-    if cte.condition is not None:
-        for x in parent_derived_concepts:
-            if x.derivation in SENSITIVE_DERIVATIONS:
-                return None
-    for x in condition_arguments:
-        # if it's derived in the parent
-        if x.address in parent_derived_concepts:
-            if x.derivation in SENSITIVE_DERIVATIONS:
-                return None
-            # this maybe needs to be recursive if we flatten a ton of derivation
-            # into one CTE
-            if not x.lineage:
-                continue
-            for z in x.lineage.concept_arguments:
-                # if it was preexisting in the parent, it's safe
-                if z.address in direct_parent.source.input_concepts:
-                    continue
-                # otherwise if it's dangerous, play it safe.
-                if z.derivation in SENSITIVE_DERIVATIONS:
-                    return None
-    logger.info(
-        optimization_log(
-            "DirectReturn",
-            f"Removing redundant output CTE {cte.name} with derived_concepts {[x.address for x in derived_concepts]}",
-        )
-    )
-    return direct_parent
-
-
-def pass_up_metadata(downstream: CTE | UnionCTE, upstream: CTE | UnionCTE):
-    upstream.order_by = downstream.order_by
-    upstream.limit = downstream.limit
-    upstream.hidden_concepts = downstream.hidden_concepts.union(
-        upstream.hidden_concepts
-    )
-    # An existence subselect on the collapsed root resolves its set columns
-    # through existence_source_map; dropping the entries strands the
-    # membership and lets the feeder CTE be pruned as unreferenced.
-    if isinstance(downstream, CTE) and isinstance(upstream, CTE):
-        for address, sources in downstream.existence_source_map.items():
-            if address not in upstream.existence_source_map:
-                upstream.existence_source_map[address] = sources
-    if downstream.condition:
-        if upstream.condition:
-            # Dedup on AND-atoms: a root remap can re-pass a predicate the
-            # upstream CTE already carries, and stacking it raw compounds into
-            # `H AND H AND H` across optimizer loops (q31's HAVING).
-            upstream.condition = merge_conditions_and_dedup(
-                downstream.condition, upstream.condition
-            )
-        else:
-            upstream.condition = downstream.condition
+def carry_root_contract(old_root: CTE | UnionCTE, new_root: CTE | UnionCTE) -> None:
+    """The statement's ORDER BY, LIMIT and hidden set belong to whichever CTE
+    is the root; a merge rule carries its child's WHERE and existence
+    references but only a limited child's ordering."""
+    new_root.order_by = old_root.order_by
+    new_root.limit = old_root.limit
+    new_root.hidden_concepts = new_root.hidden_concepts | old_root.hidden_concepts
 
 
 def _enabled_dependencies(*names: tuple[str, bool]) -> tuple[str, ...]:
@@ -545,16 +309,6 @@ def build_optimization_rule_plan(
                     "runs after datasource inlining so joins that target folded "
                     "datasources stay folded when hoisted"
                 ),
-            )
-        )
-    if opts.merge_irrelevant_group_by and opts.join_hoist:
-        plan.append(
-            OptimizationRulePlan(
-                name="merge_irrelevant_group_by.after_join_hoist",
-                rule_factory=MergeIrrelevantGroupBy,
-                depends_on=("join_hoist",),
-                refires_after=("join_hoist",),
-                reason="uses joins and predicates stripped by join hoist",
             )
         )
     if opts.predicate_pushdown:
@@ -646,35 +400,25 @@ def build_optimization_rule_plan(
         plan.append(
             OptimizationRulePlan(
                 name="collapse_single_parent.after_pushdown",
-                # Must carry the domain graph like the other two phases: without
-                # it `produces_unbound_rowset` cannot tell a bound rowset key
-                # from an unbound one and conservatively treats EVERY aliased
-                # rowset output as unbound, so this phase collapses nothing that
-                # crosses a rowset boundary — which is most of what it exists to
-                # collapse.
+                # Without the domain graph `produces_unbound_rowset` treats
+                # every aliased rowset output as unbound and this phase
+                # collapses nothing across a rowset boundary.
                 rule_factory=lambda: CollapseSingleParent(domain_graph=domain_graph),
                 depends_on=("predicate_pushdown.remove",),
                 refires_after=("predicate_pushdown.remove",),
                 reason=(
                     "a per-contributor projection becomes a bare passthrough once "
                     "predicate pushdown relocates its WHERE onto the parent scan, "
-                    "so re-collapse it then (q81's dim-scan projection)"
+                    "so re-collapse it then"
                 ),
             )
         )
     elif not opts.merge_aggregate and opts.predicate_pushdown:
-        # merge_aggregate gates the full CollapseSingleParent rule, but a bare
-        # passthrough (single parent, no compute/WHERE/join/regroup) is pure
-        # noise unrelated to aggregate merging -- e.g. the semijoin-projection
-        # residue left once predicate pushdown relocates its WHERE onto the
-        # parent scan. Collapse it even with aggregate
-        # merging off. Deliberately UNCONDITIONAL (no refires_after): unlike the
-        # merge_aggregate branch above, this path has no initial collapse phase,
-        # so this sole phase must run regardless of whether pushdown made changes
-        # -- it is positioned after `remove`, so it sweeps any passthrough left by
-        # planning OR by an earlier optimization phase, not only pushdown-created
-        # ones. Gating on `remove` would leak a passthrough whenever remove is a
-        # no-op. It still loops to fixpoint internally like every phase.
+        # A bare passthrough is pure noise unrelated to aggregate merging, so
+        # it collapses even with merge_aggregate off. Deliberately no
+        # refires_after: this path has no initial collapse phase, so this sole
+        # phase must sweep passthroughs left by planning or by any earlier
+        # phase, not only pushdown-created ones.
         plan.append(
             OptimizationRulePlan(
                 name="collapse_single_parent.passthrough_after_pushdown",
@@ -718,7 +462,7 @@ def build_optimization_rule_plan(
         plan.append(
             OptimizationRulePlan(
                 name="predicate_pushdown.remove.after_join_upgrades",
-                rule_factory=PredicatePushdownRemove,
+                rule_factory=lambda: PredicatePushdownRemove(after_join_upgrades=True),
                 depends_on=("predicate_pushdown.after_final_upgrade",),
                 refires_after=("predicate_pushdown.after_final_upgrade",),
                 reason=(
@@ -743,48 +487,6 @@ def build_optimization_rule_plan(
                 reason=(
                     "needs upstream filters in their final position so the "
                     "accumulated-filter signatures on each side are stable"
-                ),
-            )
-        )
-    if opts.datasource_inlining and (
-        opts.upgrade_outer_key_set_equivalence or opts.upgrade_condition_joins
-    ):
-        upgrade_phases = _enabled_dependencies(
-            (
-                "upgrade_outer_key_set_equivalence",
-                opts.upgrade_outer_key_set_equivalence,
-            ),
-            ("upgrade_join_on_guards.final", opts.upgrade_condition_joins),
-        )
-        plan.append(
-            OptimizationRulePlan(
-                name="inline_datasource.after_join_upgrades",
-                rule_factory=InlineDatasource,
-                depends_on=upgrade_phases,
-                refires_after=upgrade_phases,
-                reason=(
-                    "a filtered raw scan only folds into a consumer whose joins "
-                    "are all INNER; the first inline pass runs before the outer "
-                    "joins are narrowed, so a scan behind a not-yet-upgraded "
-                    "outer join stays an extra CTE (tpc-h q3)"
-                ),
-            )
-        )
-    if opts.narrow_keyless_full_joins:
-        plan.append(
-            OptimizationRulePlan(
-                name="narrow_keyless_full_joins",
-                rule_factory=NarrowKeylessFullJoins,
-                depends_on=_enabled_dependencies(
-                    ("upgrade_join_on_guards.final", opts.upgrade_condition_joins),
-                    (
-                        "upgrade_outer_key_set_equivalence",
-                        opts.upgrade_outer_key_set_equivalence,
-                    ),
-                ),
-                reason=(
-                    "runs once the key-based narrowing passes have settled, so "
-                    "only genuinely keyless FULL joins are left to inspect"
                 ),
             )
         )
@@ -821,24 +523,6 @@ def build_optimization_rule_plan(
                 reason=(
                     "runs after consumers settle; filtered aggregate input can "
                     "move before grouping when all consumers reject empty groups"
-                ),
-            )
-        )
-    if opts.narrow_keyless_full_joins:
-        plan.append(
-            OptimizationRulePlan(
-                name="narrow_keyless_full_joins",
-                rule_factory=NarrowKeylessFullJoins,
-                depends_on=_enabled_dependencies(
-                    ("upgrade_join_on_guards.final", opts.upgrade_condition_joins),
-                    (
-                        "upgrade_outer_key_set_equivalence",
-                        opts.upgrade_outer_key_set_equivalence,
-                    ),
-                ),
-                reason=(
-                    "runs once the key-based narrowing passes have settled, so "
-                    "only genuinely keyless FULL joins are left to inspect"
                 ),
             )
         )
@@ -898,7 +582,7 @@ def build_optimization_rule_plan(
                 ),
                 reason=(
                     "the mirror is only sound for a settled INNER join, and it "
-                    "reads the feeder's visible outputs — so it runs after join "
+                    "reads the feeder's visible outputs, so it runs after join "
                     "types and output pruning are final. Adds no CTE and rewrites "
                     "no condition, so nothing downstream needs to re-fire"
                 ),
@@ -922,7 +606,23 @@ def build_optimization_rule_plan(
                 ),
             )
         )
+    validate_optimization_rule_plan(plan)
     return plan
+
+
+def validate_optimization_rule_plan(plan: list[OptimizationRulePlan]) -> None:
+    """Every ``depends_on`` / ``refires_after`` name must be an earlier phase."""
+    seen: set[str] = set()
+    for phase in plan:
+        if phase.name in seen:
+            raise ValueError(f"Optimization phase {phase.name!r} is registered twice")
+        for dependency in (*phase.depends_on, *phase.refires_after):
+            if dependency not in seen:
+                raise ValueError(
+                    f"Optimization phase {phase.name!r} depends on "
+                    f"{dependency!r}, which does not run before it"
+                )
+        seen.add(phase.name)
 
 
 def log_optimization_rule_plan(plan: list[OptimizationRulePlan]) -> None:
@@ -962,19 +662,10 @@ def optimize_ctes(
     domain_graph: DomainGraph | None = None,
     supports_full_join: bool = True,
 ) -> list[CTE | UnionCTE]:
-    direct_parent: CTE | UnionCTE | None = root_cte
-    while CONFIG.optimizations.direct_return and (
-        direct_parent := is_direct_return_eligible(root_cte)
-    ):
-        pass_up_metadata(root_cte, direct_parent)
-        root_cte = direct_parent
-
-        sort_select_output(root_cte, select)
-
     # Materialize the statement's output contract before demand-driven rules run.
     # Rendering applies the same projection, but doing it only at render time makes
     # carried, non-selected root columns appear live to their parent CTEs.
-    sort_select_output(root_cte, select)
+    sort_select_output_processed(root_cte, select)
 
     cte_lookup: dict[str, CTE | UnionCTE] = {c.name: c for c in input}
     cte_lookup[root_cte.name] = root_cte
@@ -1004,7 +695,6 @@ def optimize_ctes(
         phase_changed = False
         while not complete and (loops <= MAX_OPTIMIZATION_LOOPS):
             actions_taken = False
-            # assume we go through all CTEs once
             look_at = unique([root_cte, *reversed(input)], property="name")
             look_at = _optimization_visit_order(rule, look_at)
             inverse_map = gen_inverse_map(look_at)
@@ -1014,13 +704,12 @@ def optimize_ctes(
                 if merged:
                     cte_lookup.update({c.name: c for c in input})
                     cte_lookup[root_cte.name] = root_cte
-                    # Remap root_cte if it was merged
                     if root_cte.name in merged:
                         new_root_name = merged[root_cte.name]
 
                         if new_root_name in cte_lookup:
                             parent = cte_lookup[new_root_name]
-                            pass_up_metadata(root_cte, parent)
+                            carry_root_contract(root_cte, parent)
                             root_cte = parent
                             logger.info(
                                 optimization_log(
@@ -1028,11 +717,18 @@ def optimize_ctes(
                                     f"Remapped root_cte to {new_root_name}",
                                 )
                             )
-                    # Filter out merged CTEs from input
                     input = [c for c in input if c.name not in merged]
             complete = not actions_taken
             phase_changed = phase_changed or actions_taken
             loops += 1
+        if not complete:
+            logger.warning(
+                optimization_log(
+                    "Driver",
+                    f"{phase.name} hit MAX_OPTIMIZATION_LOOPS={MAX_OPTIMIZATION_LOOPS} "
+                    "without converging",
+                )
+            )
         input = reorder_ctes(filter_irrelevant_ctes(input, root_cte))
         phase_actions[phase.name] = phase_changed
         logger.info(
@@ -1044,8 +740,8 @@ def optimize_ctes(
         )
 
     if not supports_full_join:
-        # Last: the rewrite adds CTEs and repoints FROM bases, so every
-        # join-type and placement decision must already be final.
+        # The rewrite adds CTEs and repoints FROM bases, so every join-type
+        # and placement decision must already be final.
         input = lower_full_joins(input, root_cte)
 
     return reorder_ctes(filter_irrelevant_ctes(input, root_cte))

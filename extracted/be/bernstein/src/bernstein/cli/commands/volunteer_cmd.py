@@ -32,6 +32,7 @@ import click
 
 if TYPE_CHECKING:
     from bernstein.core.volunteer import VolunteerManifest
+    from bernstein.core.volunteer.clean_room import CleanRoomResult
 
 
 @click.group("volunteer")
@@ -355,6 +356,142 @@ def _fail(message: str, *, field: str, as_json: bool, path: Path) -> None:
     raise SystemExit(1)
 
 
+@volunteer_group.command("verify-bundle")
+@click.argument(
+    "bundle_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+)
+@click.option(
+    "--repo",
+    "repo_root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=".",
+    help="Local clone that already holds the bundle's attested base commit.",
+)
+@click.option(
+    "--receipt-out",
+    "receipt_out",
+    type=click.Path(path_type=Path, dir_okay=False),
+    default=None,
+    help="Sign and write a clean-room verification receipt to this path.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Emit machine-readable JSON.")
+def verify_bundle_cmd(bundle_path: Path, repo_root: Path, receipt_out: Path | None, as_json: bool) -> None:
+    """Re-run a result bundle's gates in a fresh, detached clean-room worktree.
+
+    Checks out the bundle's attested base commit into an isolated worktree
+    that shares nothing with the run being checked, applies the attested
+    patch, re-executes every gate the checkout's own manifest declares, and
+    compares exit codes and log digests against what the bundle attests.
+    Exits non-zero when the clean room does not reproduce the bundle.
+
+    Always builds (but does not sign) a clean-room verification receipt so
+    its digest can be printed alongside the report -- the same "the digest
+    is the point, not decoration" reasoning ``verify`` already documents.
+    Pass ``--receipt-out`` to also sign it, with this machine's persistent
+    volunteer worker key, and write it to disk.
+    """
+    from cryptography.exceptions import InvalidKey
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+    from bernstein.core.security.result_receipt_bundle import GENESIS_ANCHOR, ChainLink, load_bundle
+    from bernstein.core.volunteer.clean_room import (
+        build_clean_room_receipt,
+        clean_room_receipt_from_result,
+        verify_in_clean_room,
+        write_clean_room_receipt,
+    )
+    from bernstein.core.volunteer.lease_store import DEFAULT_WORKER_KEY_PATH, load_or_create_worker_key
+
+    envelope = load_bundle(bundle_path)
+
+    # The key that verifies the bundle's OWN signature is read from the
+    # bundle itself: at this stage nothing external has told this command
+    # whose bundle it is. That is safe rather than circular -- an attacker
+    # who rewrites this field also has to forge the signature over it, and
+    # `verify_in_clean_room`'s first step (verify_result_bundle) is exactly
+    # what catches that.
+    claimed_worker = envelope.statement.get("predicate", {}).get("bundle", {}).get("worker", {})
+    claimed_pem = claimed_worker.get("public_key_pem", "") if isinstance(claimed_worker, dict) else ""
+    try:
+        bundle_public_key = load_pem_public_key(claimed_pem.encode("ascii"))
+    except (ValueError, TypeError, InvalidKey) as exc:
+        _fail(
+            f"bundle names an unreadable worker public key: {exc}",
+            field="worker.public_key_pem",
+            as_json=as_json,
+            path=bundle_path,
+        )
+        return
+    if not isinstance(bundle_public_key, Ed25519PublicKey):
+        _fail(
+            "bundle's worker public key is not Ed25519",
+            field="worker.public_key_pem",
+            as_json=as_json,
+            path=bundle_path,
+        )
+        return
+
+    result = verify_in_clean_room(envelope, repo_root=repo_root, public_key=bundle_public_key)
+
+    # Relative to repo_root, not the process's own CWD: --repo already lets
+    # an operator name a checkout other than the one they are standing in,
+    # and the persistent worker identity should live inside that checkout
+    # either way, matching where every other volunteer command's .sdd/
+    # state lives relative to the project it belongs to.
+    verifier_key = load_or_create_worker_key(repo_root / DEFAULT_WORKER_KEY_PATH)
+    verifier_public_key = verifier_key.public_key()
+    from bernstein.core.security.audit_dsse import export_public_key_pem, keyid_from_public_key
+
+    receipt = clean_room_receipt_from_result(
+        result,
+        # This command does not walk a prior on-disk receipt to continue a
+        # chain across invocations -- every run here starts a fresh,
+        # length-1 chain. Continuity across runs is the submission path's
+        # concern (a separate issue), built on the same ChainLink type.
+        chain=ChainLink(anchor=GENESIS_ANCHOR, length=1),
+        verifier_keyid=keyid_from_public_key(verifier_public_key),
+        verifier_public_key_pem=export_public_key_pem(verifier_public_key).decode("ascii"),
+    )
+
+    if receipt_out is not None:
+        receipt_envelope = build_clean_room_receipt(receipt, signing_key=verifier_key)
+        write_clean_room_receipt(receipt_envelope, receipt_out)
+
+    if as_json:
+        payload = result.to_dict()
+        payload["receipt_digest"] = receipt.digest
+        payload["receipt_path"] = str(receipt_out) if receipt_out is not None else None
+        click.echo(json.dumps(payload, indent=2))
+    else:
+        _print_clean_room_report(result, receipt_digest=receipt.digest, receipt_path=receipt_out)
+
+    if not result.passed:
+        raise SystemExit(1)
+
+
+def _print_clean_room_report(result: CleanRoomResult, *, receipt_digest: str, receipt_path: Path | None) -> None:
+    if result.passed:
+        click.echo(f"✓ clean room reproduced bundle {result.bundle_digest}")
+    else:
+        click.echo(f"✗ clean room did NOT reproduce bundle {result.bundle_digest}", err=True)
+    click.echo(f"  patch applied       {'yes' if result.patch_applied else 'no'}")
+    if result.refusal_reason is not None:
+        click.echo(f"  refusal             {result.refusal_reason}: {result.refusal_detail}", err=True)
+    for divergence in result.outcome_divergences:
+        click.echo(
+            f"  outcome divergence  {divergence.command!r}: "
+            f"attested exit {divergence.attested_exit_code}, got {divergence.actual_exit_code}",
+            err=True,
+        )
+    for divergence in result.log_only_divergences:
+        click.echo(f"  log-only divergence {divergence.command!r}: same exit code, output text differs", err=True)
+    click.echo(f"  receipt digest      {receipt_digest}")
+    if receipt_path is not None:
+        click.echo(f"  receipt written to  {receipt_path}")
+
+
 @volunteer_group.command("hub")
 @click.option("--host", default="127.0.0.1", help="Host to bind to.")
 @click.option("--port", type=int, default=8053, help="Port to bind to.")
@@ -368,8 +505,12 @@ def hub_cmd(host: str, port: int, lease_store_path: str | None) -> None:
     """Serve the volunteer hub HTTP interface.
 
     The hub exposes endpoints for workers to enroll, claim, heartbeat,
-    submit, and release tasks.  See :func:`bernstein.core.volunteer.hub_app.build_hub_app`
-    for the API surface.
+    submit, and release tasks, plus its own task board for work that
+    originates here rather than mirroring a git-forge issue.  See
+    :func:`bernstein.core.volunteer.hub_app.build_hub_app` for the API surface.
+
+    The board's log is a sibling of the lease log, since the two are one hub's
+    state and are torn down together.
 
     .. note:: The lease store is single-process only. Do not run with
        ``uvicorn --workers N>1`` or multiple replicas.
@@ -395,6 +536,7 @@ def hub_cmd(host: str, port: int, lease_store_path: str | None) -> None:
     from bernstein.core.volunteer.budget import BudgetConfigError, load_budget_config
     from bernstein.core.volunteer.hub_app import build_hub_app
     from bernstein.core.volunteer.lease_store import LeaseStore
+    from bernstein.core.volunteer.task_board import TaskBoard
 
     if lease_store_path is None:
         lease_store_path = ".sdd/runtime/volunteer/leases.jsonl"
@@ -404,7 +546,9 @@ def hub_cmd(host: str, port: int, lease_store_path: str | None) -> None:
     except (BudgetConfigError, OSError) as error:
         raise click.ClickException(str(error)) from error
 
-    store = LeaseStore(Path(lease_store_path), budget=donor_budget)
-    app = build_hub_app(store)
+    lease_log = Path(lease_store_path)
+    store = LeaseStore(lease_log, budget=donor_budget)
+    board = TaskBoard(lease_log.parent / "tasks.jsonl")
+    app = build_hub_app(store, task_board=board)
     click.echo(f"Bernstein volunteer hub listening on http://{host}:{port}")
     uvicorn.run(app, host=host, port=port, log_level="warning")

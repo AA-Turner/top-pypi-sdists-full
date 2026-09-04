@@ -4,7 +4,12 @@ from typing import cast
 
 from trilogy.core.enums import BooleanOperator, Derivation, Purpose
 from trilogy.core.exceptions import UnresolvableQueryException
-from trilogy.core.models.build import BuildConcept, BuildConditional, BuildWhereClause
+from trilogy.core.models.build import (
+    BoolExpr,
+    BuildConcept,
+    BuildConditional,
+    BuildWhereClause,
+)
 from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.processing.condition_utility import (
     combine_condition_atoms,
@@ -23,6 +28,7 @@ from trilogy.core.processing.v4_helper.projection import lineage_existence_only
 from trilogy.core.processing.v4_helper.source_planning import SourceRequest, plan_source
 from trilogy.core.processing.v4_helper.staged_where import hosting_stage_index
 
+from .aggregate import outputs_with_scoped_join_mates
 from .common import search_parent
 from .condition_sources import resolve_existence_sources
 
@@ -35,7 +41,7 @@ def _outputs_with_grain_keys(
     for concept in outputs:
         addresses.add(concept.address)
         # A lineage-existence arg (the RHS of `auto flag <- a in b`) feeds the
-        # concept through a side-channel subselect, never its row identity —
+        # concept through a side-channel subselect, never its row identity;
         # demanding it as a row output here joins an unrelated model into the
         # stream (a disconnected-model cartesian for the derived-membership
         # flag, whose authored keys include the RHS).
@@ -87,7 +93,7 @@ def _with_condition_source_join_keys(
     (`where sum(val) by cat > 10 select id`) shares nothing: the merge degrades
     to a cross join and the gate stops filtering rows altogether. The keys come
     back hidden, so this only adds join columns, never projected ones. A `by *`
-    gate has no grain and is genuinely keyless — it stays a cross join.
+    gate has no grain and is genuinely keyless; it stays a cross join.
     """
     produced = {concept.address for concept in outputs}
     row_args = [
@@ -119,12 +125,12 @@ def _staged_precondition_clauses(
     The staged contract says a stage's aggregate/window computes over only the
     rows passing the stages before it. The group graph delivers that bound to
     the host's feeder scan, but a re-sourced copy (this ROW branch) plans in a
-    sub-search where the host is the search output itself — outside the
-    delivery pass's D1 reach — so the bound must ride the sub-search's own
+    sub-search where the host is the search output itself (outside the
+    delivery pass's D1 reach), so the bound must ride the sub-search's own
     WHERE. Existence atoms among the bounds resolve through the shared
     `resolve_existence_sources` like any other side-channel subselect, and a
     cross-row atom (an earlier stage's own gate) becomes an ordinary
-    condition-phase gate of the sub-search — re-sourced there with ITS stage
+    condition-phase gate of the sub-search, re-sourced there with ITS stage
     bounds through this same function, one recursion level down."""
     if not staged_conditions:
         return []
@@ -148,19 +154,19 @@ def _inheritable_atoms(
     """The ancestor atoms a condition-source sub-search must re-apply.
 
     ROOT re-sources from datasources rather than from `parents`, so a derived
-    row arg it re-plans is rebuilt from unfiltered rows — an atom an ancestor
+    row arg it re-plans is rebuilt from unfiltered rows: an atom an ancestor
     group applied is genuinely absent, and dropping it loses the filter
     outright (`where key is not null and sum(x) by key > 0` rebuilds the
     aggregate over NULL keys too, and the NULL group survives the outer join to
-    the dimension: tpc-ds q11).
+    the dimension).
 
     Only atoms expressible on what is being re-planned may come along. An atom
-    over the request's own concepts -- the derived args and their grain keys --
+    over the request's own concepts (the derived args and their grain keys)
     selects which GROUPS exist and cannot change any group's value. An atom over
     any other row column narrows the aggregate's INPUT, which is exactly the
     scope-narrowing the population/select dual-scope split exists to prevent: a
     population-only `sum(z) by x` gated beside `where f = 1` must still see
-    every row (test_where_select_dual_scope).
+    every row.
     """
     if preexisting_conditions is None:
         return []
@@ -196,7 +202,7 @@ def _resolve_root_condition_sources(
     un-hide step has no analogue because demanding those keys as mandatory
     outputs stops them being hidden in the first place.
 
-    Existence args are NOT forked — they go through the shared
+    Existence args are NOT forked; they go through the shared
     `resolve_existence_sources`, since a side-channel subselect is built the
     same way regardless of how the consumer sourced its own rows.
     """
@@ -236,10 +242,9 @@ def _stage_partitions(
     One search cannot re-source two stages' gates: each stage's cross-row value
     is defined over a different population, and a search carries one set of
     bounds. Batched together they resolve to a single hosting stage, which for
-    a mixed batch is stage 1 — no bounds at all — so the later stage's gate
+    a mixed batch is stage 1 (no bounds at all), so the later stage's gate
     silently re-computes over unfiltered rows. Splitting is confined to that
-    case: a batch spanning fewer than two stages keeps its single search, so
-    every previously-plannable query keeps its plan."""
+    case: a batch spanning fewer than two stages keeps its single search."""
     if not staged_conditions:
         return [row_args]
     by_stage: dict[int | None, list[BuildConcept]] = {}
@@ -292,7 +297,7 @@ def _resolve_row_arg_source(
     )
     inherited = _inheritable_atoms(preexisting_conditions, row_search + correlation)
     # A staged (`then where`) chain's cross-row arg must be re-sourced with
-    # its stage bound applied — without it the re-sourced copy computes
+    # its stage bound applied; without it the re-sourced copy computes
     # over unfiltered rows and silently replaces the bounded one the group
     # graph planned.
     inherited = inherited + _staged_precondition_clauses(staged_conditions, row_args)
@@ -328,29 +333,40 @@ def _resolve_row_arg_source(
     return row_node
 
 
-def _has_upgradable_outer_join(node: StrategyNode, guard_addresses: set[str]) -> bool:
-    """Whether the sourced node renders a preserved (outer) join whose
-    NULL-padded side carries a guard column — the only case where co-locating
-    the rejecting WHERE with the joins lets the join-upgrade pass tighten the
-    scan (q70: `state in top_states` over the LEFT-joined store dim). Anywhere
-    else the inline form buys nothing and costs a scan-CTE split when the
-    unfiltered scan is also consumed elsewhere (q33's size regression)."""
-    from trilogy.core.enums import JoinType
-    from trilogy.core.models.execute import BaseJoin
+def _where_clause(atoms: list[BoolExpr]) -> BuildWhereClause | None:
+    combined = combine_condition_atoms(atoms)
+    return BuildWhereClause(conditional=combined) if combined is not None else None
 
-    resolved = node.resolve()
-    for join in resolved.joins or []:
-        if not isinstance(join, BaseJoin):
-            continue
-        padded = []
-        if join.join_type in (JoinType.LEFT_OUTER, JoinType.FULL):
-            padded.append(join.right_datasource)
-        if join.join_type == JoinType.FULL:
-            padded.extend(ds.existing_datasource for ds in join.concept_pairs or [])
-        for side in padded:
-            if guard_addresses & {c.address for c in side.output_concepts}:
-                return True
-    return False
+
+def _split_aggregate_gates(
+    conditions: BuildWhereClause | None,
+) -> tuple[BuildWhereClause | None, BuildWhereClause | None]:
+    """(row atoms, cross-row gates): an atom with an aggregate-derived argument
+    needs a feeder merge; the rest can ride the row scan itself."""
+    if conditions is None:
+        return None, None
+    row_atoms: list[BoolExpr] = []
+    gates: list[BoolExpr] = []
+    for atom in decompose_condition(conditions.conditional):
+        if any(arg.derivation == Derivation.AGGREGATE for arg in atom.row_arguments):
+            gates.append(atom)
+        else:
+            row_atoms.append(atom)
+    return _where_clause(row_atoms), _where_clause(gates)
+
+
+def _conjoin(
+    clause: BuildWhereClause, other: BuildWhereClause | None
+) -> BuildWhereClause:
+    if other is None:
+        return clause
+    return BuildWhereClause(
+        conditional=BuildConditional(
+            left=clause.conditional,
+            right=other.conditional,
+            operator=BooleanOperator.AND,
+        )
+    )
 
 
 def gen_root(
@@ -393,21 +409,46 @@ def gen_root(
         )
     )
     if node is None and conditions is not None:
-        fallback_outputs = _with_condition_source_join_keys(
-            _outputs_with_grain_keys(inner_outputs, environment),
-            conditions,
-            environment,
-        )
-        node = plan_source(
-            SourceRequest(
-                outputs=fallback_outputs,
-                environment=environment,
-                graph=g,
-                history=history,
-                conditions=None,
-                complete_partials=complete_partials,
+        grain_outputs = _outputs_with_grain_keys(inner_outputs, environment)
+        fallback_outputs = grain_outputs
+        # A cross-row gate (`sum(x) by k > 0`) is what sent the conditioned
+        # request to this fallback; the plain row atoms beside it still belong
+        # on the row scan, so only the gates go to the feeder merge. The scan
+        # is then widened by the gates' keys alone: judged on the mixed clause,
+        # the widening declines and the gate feeder, planned with no row
+        # correlation, has nothing to join back on.
+        row_atoms, gates = _split_aggregate_gates(row_conditions)
+        node = None
+        if row_atoms is not None and gates is not None:
+            fallback_outputs = _with_condition_source_join_keys(
+                grain_outputs, gates, environment
             )
-        )
+            node = plan_source(
+                SourceRequest(
+                    outputs=fallback_outputs,
+                    environment=environment,
+                    graph=g,
+                    history=history,
+                    conditions=row_atoms,
+                    complete_partials=complete_partials,
+                )
+            )
+            if node is not None:
+                conditions = _conjoin(gates, existence_conditions)
+        if node is None:
+            fallback_outputs = _with_condition_source_join_keys(
+                grain_outputs, conditions, environment
+            )
+            node = plan_source(
+                SourceRequest(
+                    outputs=fallback_outputs,
+                    environment=environment,
+                    graph=g,
+                    history=history,
+                    conditions=None,
+                    complete_partials=complete_partials,
+                )
+            )
         if node is None:
             return None
         sources = _resolve_root_condition_sources(
@@ -436,9 +477,8 @@ def gen_root(
     if node is None or existence_conditions is None:
         return node
 
-    # Resolve every existence arg's source up front (single- and multi-arg alike).
-    # Deferring multi-arg cases to `_attach_existence_sources` left the union-member
-    # scans rendering the subselect with no wired source (INVALID_REFERENCE_BUG).
+    # Resolve every existence arg's source up front (single- and multi-arg
+    # alike), so no scan renders the subselect with no wired source.
     sources = _resolve_root_condition_sources(
         node, existence_conditions, environment, g, history
     )
@@ -454,27 +494,18 @@ def gen_root(
             not node.force_group
             and not (node_addresses & feeder_addresses)
             and not extra
-            and _has_upgradable_outer_join(
-                node,
-                {
-                    arg.address
-                    for atom in decompose_condition(existence_conditions.conditional)
-                    for arg in atom.row_arguments
-                },
-            )
         ):
-            # Attach the existence gate ON the sourced node, not in a
-            # pass-through wrapper CTE: the join-upgrade pass can only prove a
-            # preserved dim join INNER when the rejecting WHERE and the join
-            # render in the SAME select (q70's `state in top_states` guard must
-            # upgrade the nullable store join exactly as the inline form
-            # does), and a wrapper hides the joins from the proof. Gated to
-            # feeders whose outputs are fully disjoint from the row stream — a
-            # shared address makes node resolution treat the feeder as a row
-            # parent and fan the scan (q16/q23) — and to memberships whose row
-            # args are all demanded outputs (a hidden extra breaks downstream
-            # input validation, q23). Copy-first: plan_source results are
-            # history-cached and may be shared.
+            # Host the existence gate ON the sourced node rather than in a
+            # pass-through wrapper: the wrapper is what predicate pushdown
+            # would otherwise collapse, and the join-upgrade pass can only
+            # prove a preserved dim join INNER when the rejecting WHERE and
+            # the join render in the same select. Gated to feeders whose
+            # outputs are fully disjoint from the row stream (a shared address
+            # makes node resolution treat the feeder as a row parent and fan
+            # the scan) and to memberships whose row args are all demanded
+            # outputs (a hidden extra breaks downstream input validation).
+            # The copy keeps a history-cached result intact for its other
+            # consumers.
             gated = node.copy()
             gated.conditions = (
                 BuildConditional(
@@ -489,9 +520,15 @@ def gen_root(
             gated.add_existence_concepts(sources.existence_concepts, rebuild=False)
             gated.rebuild_cache()
             return gated
+        # The wrapper is a merge side: a coalescing scoped-join member the
+        # sourced node carries (a membership row arg that is also the
+        # authored `union join` axis) must stay visible, or join inference
+        # above pairs nothing and cross-joins the sides.
         return SelectNode(
             input_concepts=list(node.output_concepts),
-            output_concepts=list(outputs),
+            output_concepts=outputs_with_scoped_join_mates(
+                list(outputs), [node], environment
+            ),
             environment=environment,
             parents=[node, *sources.existence_parents],
             partial_concepts=list(node.partial_concepts),

@@ -291,7 +291,7 @@ void SchedulerPacking::ConvertOperations(const std::vector<Operation *> &executi
     }
 }
 
-ArchitectureOpGroupQuery SchedulerPacking::CreateOpGroupQuery(const SchedulerOperation *schedOp) const
+ArchitectureOpGroupQuery CreateOpGroupQuery(const SchedulerOperation *schedOp)
 {
     ArchitectureOpGroupQuery query{};
     query.type = schedOp->Type();
@@ -515,6 +515,8 @@ void SchedulerPacking::PackOperations()
                     ofmConn->SetType(nextOp->OFM()->Type());
                     if ( nextOp->OFM()->slice )
                     {
+                        assert(ofmConn->SliceShape() == nextOp->OFM()->slice.shape);
+
                         // Inherit the activation function's OFM slice and shape if it has slice
                         ofmConn->slice = nextOp->OFM()->slice;
                         ofmConn->shape = nextOp->OFM()->shape;
@@ -711,13 +713,25 @@ int SchedulerPacking::CanPack(const SchedulerOperation *schedOp, const Scheduler
     const SchedulerOperation *nextOp, const int prevOpKey) const
 {
     const auto prevConnOfm = prevOp->OFM();
-    const auto nextConnIfm = nextOp->IFM(0);
+    auto nextConnIfm = nextOp->IFM(0);
     const auto nextConnIfm2 = nextOp->TryIFM(1);
     const auto nextConnOfm = nextOp->OFM();
 
     SchedulerTensor *prevOFM = prevConnOfm->tensor.get();
+
+    // Previous op connects via IFM1
+    if ( nextConnIfm2 && nextConnIfm2->tensor.get() == prevOFM )
+    {
+        nextConnIfm = nextConnIfm2;
+    }
+    // Previous op in execution order doesn't connect to this one via IFM0 or IFM1
+    else if ( prevOFM != nextConnIfm->tensor.get() )
+    {
+        return 0;
+    }
+
     SchedulerTensor *ifmTensor = nextConnIfm->tensor.get();
-    SchedulerTensor *ifm2Tensor = nextConnIfm2 ? nextConnIfm2->tensor.get() : nullptr;
+
     assert(prevOFM && "primary/prev op must have OFM");
     assert(ifmTensor && "next op must have IFM");
 
@@ -729,12 +743,6 @@ int SchedulerPacking::CanPack(const SchedulerOperation *schedOp, const Scheduler
 
     // Do not pack persistent tensors with non persistent tensors
     if ( prevOFM->isPersistent != nextOp->OFM()->tensor->isPersistent )
-    {
-        return 0;
-    }
-
-    // Previous op in execution order doesn't connect to this one
-    if ( prevOFM != ifmTensor && prevOFM != ifm2Tensor )
     {
         return 0;
     }
@@ -762,23 +770,16 @@ int SchedulerPacking::CanPack(const SchedulerOperation *schedOp, const Scheduler
 
     // Can not have both reshape and slice/transpose/reverse
     const bool hasOfmSlice = nextConnOfm->shape != nextConnOfm->SliceShape();
-    if ( prevOFM == ifmTensor )
+    assert(prevOFM == ifmTensor);
+
+    const bool diffOffset = !Shape::IsReducedEqual<0>(prevConnOfm->SliceOffset(), nextConnIfm->SliceOffset());
+    const bool isReshape = prevConnOfm->shape != nextConnIfm->shape;
+    const bool hasIfmSlice = nextConnIfm->shape != nextConnIfm->SliceShape();
+    bool shapeDependent =
+        IsConvolution(schedOp->Type()) || prevOp->Kernel()->DilatedWH() != Point2i(1, 1) || prevOp->Kernel()->Stride() != Point2i(1, 1);
+    if ( diffOffset || hasIfmSlice || (isReshape && (hasOfmSlice || nextOp->IsReordering())) || (isReshape && shapeDependent) )
     {
-        const bool isReshape = prevConnOfm->shape != nextConnIfm->shape;
-        const bool hasIfmSlice = nextConnIfm->shape != nextConnIfm->SliceShape();
-        if ( hasIfmSlice || (isReshape && (hasOfmSlice || nextOp->IsReordering())) )
-        {
-            return 0;
-        }
-    }
-    else if ( prevOFM == ifm2Tensor )
-    {
-        const bool isReshape = prevConnOfm->shape != nextConnIfm2->shape;
-        const bool hasIfm2Slice = nextConnIfm2->shape != nextConnIfm2->SliceShape();
-        if ( hasIfm2Slice || (isReshape && (hasOfmSlice || nextOp->IsReordering())) )
-        {
-            return 0;
-        }
+        return 0;
     }
 
     if ( schedOp->OFM()->tensor->isGraphOutput || prevOp->OFM()->tensor->isGraphOutput )
@@ -812,7 +813,7 @@ void SchedulerPacking::InitSchedulerConnection(SchedulerConnection *schedConn, T
     schedConn->quantization = conn.quantization;
     schedConn->reverse = conn.reverse;
     schedConn->resamplingMode = ArchResampling::None;
-    schedConn->rounding = conn.rounding;
+    schedConn->Set(conn.rounding);
     schedConn->transpose = TransposeType::None;
     if ( schedConn->slice.stride )
     {

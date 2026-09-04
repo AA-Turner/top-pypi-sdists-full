@@ -451,6 +451,41 @@ class TestResolveThreadsAction:
         assert result.decision == ActionDecision.EXECUTE
         assert result.details == "Resolved 2 thread(s), 0 left open; skipped 1 prior review(s): #11:no_new_commit"
 
+    def test_execute_records_skipped_review_metrics_by_reason(self) -> None:
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="head123",
+            base_branch="main",
+            head_branch="feature",
+            unresolved_threads=3,
+            repairable_threads=3,
+            reviews=[
+                ReviewInfo(id=12, user="Copilot", state="CHANGES_REQUESTED", commit_sha="old123"),
+                ReviewInfo(id=11, user="Copilot", state="COMMENTED", commit_sha="old456"),
+                ReviewInfo(id=10, user="Copilot", state="COMMENTED", commit_sha="old789"),
+            ],
+        )
+        derived = DerivedState(snapshot)
+        provider = MagicMock()
+        provider.finalize_post_repair.side_effect = [
+            FinalizationResult(skipped=True, reason="already_finalized"),
+            FinalizationResult(skipped=True, reason="no_new_commit"),
+            FinalizationResult(resolved_count=1, unresolved_count=0),
+        ]
+        provider.list_review_comments.return_value = [
+            ReviewCommentInfo(id=101, path="a.py", body="x", html_url=""),
+        ]
+        provider.list_review_threads_by_thread_id.return_value = {"thread-1": (True, (101,))}
+        action = ResolveThreadsAction()
+
+        action.execute(provider, snapshot, derived)
+
+        assert derived.get("finalization_skipped_reviews_count") == 2
+        assert derived.get("finalization_skipped_reviews_by_reason") == {
+            "already_finalized": 1,
+            "no_new_commit": 1,
+        }
+
     def test_execute_reports_unknown_reason_for_skipped_review_without_reason(self) -> None:
         """A skipped review with no reason renders 'unknown' rather than vanishing."""
         snapshot = PRStateSnapshot(

@@ -2,7 +2,7 @@ from unittest import mock
 
 from sqlglot import exp, parse_one
 from sqlglot.dialects.dialect import Dialects
-from sqlglot.errors import UnsupportedError
+from sqlglot.errors import ErrorLevel, ParseError, UnsupportedError
 from tests.dialects.test_dialect import Validator
 
 
@@ -31,6 +31,17 @@ class TestSpark(Validator):
         self.validate_identity("TRUNCATE TABLE t1 PARTITION(age = 10, name = 'test', address)")
 
         self.validate_all(
+            "CREATE TABLE t (a INT, b STRING, UNIQUE (a))",
+            write={
+                "databricks": "CREATE TABLE t (a INT, b STRING)",
+                "hive": "CREATE TABLE t (a INT, b STRING)",
+                "materialize": "CREATE TABLE t (a INT, b TEXT)",
+                "spark": "CREATE TABLE t (a INT, b STRING)",
+                "spark2": "CREATE TABLE t (a INT, b STRING)",
+                "duckdb": "CREATE TABLE t (a INT, b TEXT, UNIQUE (a))",
+            },
+        )
+        self.validate_all(
             "CREATE TABLE db.example_table (col_a struct<struct_col_a:int, struct_col_b:string>)",
             write={
                 "duckdb": "CREATE TABLE db.example_table (col_a STRUCT(struct_col_a INT, struct_col_b TEXT))",
@@ -57,7 +68,7 @@ class TestSpark(Validator):
                 "presto": "CREATE TABLE db.example_table (col_a ARRAY(INTEGER), col_b ARRAY(ARRAY(INTEGER)))",
                 "hive": "CREATE TABLE db.example_table (col_a ARRAY<INT>, col_b ARRAY<ARRAY<INT>>)",
                 "spark": "CREATE TABLE db.example_table (col_a ARRAY<INT>, col_b ARRAY<ARRAY<INT>>)",
-                "snowflake": "CREATE TABLE db.example_table (col_a ARRAY, col_b ARRAY)",
+                "snowflake": "CREATE TABLE db.example_table (col_a ARRAY(INT), col_b ARRAY(ARRAY(INT)))",
             },
         )
         self.validate_all(
@@ -1197,6 +1208,38 @@ TBLPROPERTIES (
             write={"spark": "SELECT a, BOOL_OR(b) FROM table GROUP BY a"},
         )
 
+    def test_grouping_sets_as_group_by_element(self):
+        suffix_sql = "SELECT COUNT(1), d, h FROM t GROUP BY d, h GROUPING SETS ((d, h), (d))"
+        element_sql = "SELECT COUNT(1), d, h FROM t GROUP BY d, h, GROUPING SETS ((d, h), (d))"
+
+        for sql, expected_flag in (
+            (suffix_sql, False),
+            (element_sql, True),
+            ("SELECT a FROM t GROUP BY a, GROUPING SETS ((a)), GROUPING SETS ((a))", True),
+            ("SELECT COUNT(1), d, h FROM t GROUP BY GROUPING SETS ((d, h), (d))", True),
+        ):
+            with self.subTest(sql=sql):
+                group = self.validate_identity(sql).args["group"]
+                self.assertIs(group.args.get("grouping_sets_as_group_by_element"), expected_flag)
+
+        with self.assertRaises(ParseError):
+            self.parse_one("SELECT a FROM t GROUP BY a GROUPING SETS ((a)), GROUPING SETS ((a))")
+
+        suffix_expression = self.parse_one(suffix_sql)
+        for dialect in ("hive", "spark"):
+            with self.subTest(dialect=dialect):
+                self.assertEqual(
+                    suffix_expression.sql(dialect, unsupported_level=ErrorLevel.RAISE),
+                    suffix_sql,
+                )
+
+        self.assertEqual(
+            suffix_expression.sql("trino", unsupported_level=ErrorLevel.IGNORE),
+            element_sql,
+        )
+        with self.assertRaises(UnsupportedError):
+            suffix_expression.sql("trino", unsupported_level=ErrorLevel.RAISE)
+
     def test_current_user(self):
         self.validate_all(
             "CURRENT_USER",
@@ -1314,6 +1357,38 @@ TBLPROPERTIES (
             write={
                 "presto": "SELECT col, pos, IF(_u_2.pos_2 = _u_3.pos_3, _u_3.col_2) AS col_2, IF(_u_2.pos_2 = _u_3.pos_3, _u_3.pos_3) AS pos_3 FROM _u CROSS JOIN UNNEST(SEQUENCE(1, GREATEST(CARDINALITY(ARRAY[2, 3])))) AS _u_2(pos_2) CROSS JOIN UNNEST(ARRAY[2, 3]) WITH ORDINALITY AS _u_3(col_2, pos_3) WHERE _u_2.pos_2 = _u_3.pos_3 OR (_u_2.pos_2 > CARDINALITY(ARRAY[2, 3]) AND _u_3.pos_3 = CARDINALITY(ARRAY[2, 3]))",
             },
+        )
+
+    def test_explode_map(self):
+        from sqlglot.optimizer.annotate_types import annotate_types
+        from sqlglot.optimizer.qualify import qualify
+
+        expression = annotate_types(self.parse_one("SELECT EXPLODE(MAP(1, 'a')) AS (k, v)"))
+        self.assertEqual(
+            expression.sql("presto"),
+            "SELECT _u_2.k AS k, _u_2.v AS v FROM UNNEST(MAP(ARRAY[1], ARRAY['a'])) AS _u_2(k, v)",
+        )
+
+        schema = {"tbl": {"cells": "MAP<INT, STRING>"}}
+        expression = qualify(
+            self.parse_one("SELECT EXPLODE(cells) AS (cell_id, cell_name) FROM tbl"),
+            dialect="spark",
+            schema=schema,
+        )
+        expression = annotate_types(expression, dialect="spark", schema=schema)
+        self.assertEqual(
+            expression.sql("trino"),
+            'SELECT _u_2."cell_id" AS "cell_id", _u_2."cell_name" AS "cell_name" FROM "tbl" AS "tbl" CROSS JOIN UNNEST("tbl"."cells") AS _u_2("cell_id", "cell_name")',
+        )
+
+        expression = annotate_types(
+            self.parse_one("SELECT EXPLODE(tbl.cells) FROM tbl"),
+            dialect="spark",
+            schema=schema,
+        )
+        self.assertEqual(
+            expression.sql("trino"),
+            "SELECT _u_2.key AS key, _u_2.value AS value FROM tbl CROSS JOIN UNNEST(tbl.cells) AS _u_2(key, value)",
         )
 
     def test_strip_modifiers(self):

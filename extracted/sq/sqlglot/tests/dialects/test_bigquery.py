@@ -174,6 +174,19 @@ class TestBigQuery(Validator):
         self.validate_identity("CAST(x AS STRUCT<list ARRAY<INT64>>)")
         self.validate_identity("assert.true(1 = 1)")
         self.validate_identity("SELECT jsondoc['some_key']")
+        self.validate_identity("SELECT data.144A_FLAG FROM t", "SELECT data.`144A_FLAG` FROM t")
+        self.validate_identity("SELECT t.1a FROM t", "SELECT t.`1a` FROM t")
+        self.validate_identity("SELECT STRING(data.144) FROM t", "SELECT STRING(data.`144`) FROM t")
+        self.validate_identity(
+            "SELECT STRING(data.1e10) FROM t", "SELECT STRING(data.`1e10`) FROM t"
+        )
+        self.validate_identity("SELECT t.144 A_FLAG FROM t", "SELECT t.`144` AS A_FLAG FROM t")
+
+        col = self.parse_one("SELECT data.144A_FLAG FROM t").selects[0]
+        self.assertIsInstance(col, exp.Column)
+        self.assertEqual(
+            col.parts, [exp.to_identifier("data"), exp.to_identifier("144A_FLAG", quoted=True)]
+        )
         self.validate_identity("SELECT `p.d.UdF`(data).* FROM `p.d.t`")
         self.validate_identity("SELECT * FROM `my-project.my-dataset.my-table`")
         self.validate_identity("CREATE OR REPLACE TABLE `a.b.c` CLONE `a.b.d`")
@@ -209,6 +222,10 @@ class TestBigQuery(Validator):
         self.validate_identity("ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY x LIMIT 1)")
         self.validate_identity("ARRAY_AGG(x IGNORE NULLS)")
         self.validate_identity("ARRAY_AGG(DISTINCT x IGNORE NULLS HAVING MAX x ORDER BY x LIMIT 1)")
+        self.validate_identity("SELECT ARRAY_AGG((SELECT c FROM t LIMIT 1) IGNORE NULLS) FROM u")
+        self.validate_identity(
+            "SELECT ARRAY_AGG((SELECT c FROM t ORDER BY c) IGNORE NULLS LIMIT 1) FROM u"
+        )
         self.validate_identity("SELECT * FROM dataset.my_table TABLESAMPLE SYSTEM (10 PERCENT)")
         self.validate_identity("TIME('2008-12-25 15:30:00+08')")
         self.validate_identity("TIME('2008-12-25 15:30:00+08', 'America/Los_Angeles')")
@@ -3020,6 +3037,15 @@ OPTIONS (
                     },
                 )
 
+                # `->>` binds looser than most operators in DuckDB, so the arrow expression
+                # must be parenthesized when it's an operand of another operator
+                self.validate_all(
+                    f"SELECT {func}(j, '$.a') IS NOT NULL FROM t",
+                    write={
+                        "duckdb": "SELECT NOT (JSON_VALUE(j, '$.a') ->> '$') IS NULL FROM t",
+                    },
+                )
+
         self.assertEqual(self.parse_one(sql).sql("bigquery", normalize_functions="upper"), sql)
 
         # Test double quote escaping
@@ -3314,6 +3340,17 @@ OPTIONS (
                         self.validate_identity(
                             f"SELECT 1 AS foo{side}{kind} UNION ALL{name} SELECT 3 AS foo, 4 AS bar",
                         )
+
+        union = self.validate_identity(
+            "(SELECT 1 AS foo) FULL OUTER UNION ALL BY NAME (SELECT 2 AS foo, 3 AS bar)"
+        )
+        self.assertEqual(union.side, "FULL")
+        self.assertEqual(union.kind, "OUTER")
+
+        self.validate_identity("(SELECT 1 AS foo) FULL UNION ALL BY NAME (SELECT 2 AS foo)")
+
+        union = self.validate_identity("(SELECT 1) AS x UNION ALL (SELECT 2)")
+        self.assertIsInstance(union.this, exp.Subquery)
 
         self.validate_identity(
             "SELECT 1 AS x UNION ALL CORRESPONDING SELECT 2 AS x",

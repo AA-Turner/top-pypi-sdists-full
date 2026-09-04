@@ -6,6 +6,7 @@ Rule: None of the tests in this file should initiate any internet
 communication. We use Mock/MagicMock to emulate server communication.
 """
 
+import inspect
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -186,7 +187,7 @@ class TestAsyncDAVClient:
         if not _USE_HTTPX:
             pytest.skip("test only relevant for httpx backend")
 
-        with patch("httpx.AsyncClient") as mock_client:
+        with patch("caldav.async_davclient.httpx.AsyncClient") as mock_client:
             AsyncDAVClient(url="https://caldav.example.com/dav/")
             _, call_kwargs = mock_client.call_args
             assert "proxy" not in call_kwargs, (
@@ -200,7 +201,7 @@ class TestAsyncDAVClient:
         if not _USE_HTTPX:
             pytest.skip("test only relevant for httpx backend")
 
-        with patch("httpx.AsyncClient") as mock_client:
+        with patch("caldav.async_davclient.httpx.AsyncClient") as mock_client:
             AsyncDAVClient(
                 url="https://caldav.example.com/dav/",
                 proxy="proxy.example.com:8080",
@@ -339,6 +340,51 @@ class TestAsyncDAVClient:
         call_args = client.session.request.call_args
         # httpx uses kwargs for url
         assert "calendars" in call_args.kwargs["url"]
+
+    @pytest.mark.asyncio
+    async def test_propfind_props_as_raw_xml_string_is_rejected(self) -> None:
+        """A raw XML body belongs in ``body``, not in ``props``.
+
+        ``DAVClient.propfind`` accepts either a list of property names or a raw
+        XML body in ``props``; that is its legacy shape.  The async twin used
+        to assume a list, so a string was iterated character by character and
+        silently turned into an empty ``<D:prop/>`` request - servers answered
+        that with an empty or useless multistatus (Robur returns an empty
+        body), which is why the bug went unnoticed.  Rather than copy the
+        legacy shape into a new API, the async client has a dedicated ``body``
+        parameter and rejects a string here outright.
+        """
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+        client.session.request = AsyncMock()
+
+        raw = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<D:propfind xmlns:D="DAV:"><D:allprop/></D:propfind>'
+        )
+        with pytest.raises(TypeError, match="body"):
+            await client.propfind("https://caldav.example.com/dav/", props=raw)
+        client.session.request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_propfind_body_is_sent_verbatim(self) -> None:
+        """The supported way to send a raw request: ``body``."""
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+
+        mock_response = create_mock_response(
+            content=SAMPLE_PROPFIND_XML,
+            status_code=207,
+            headers={"Content-Type": "text/xml"},
+        )
+        client.session.request = AsyncMock(return_value=mock_response)
+
+        raw = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<D:propfind xmlns:D="DAV:"><D:allprop/></D:propfind>'
+        )
+        await client.propfind("https://caldav.example.com/dav/", body=raw)
+
+        kwargs = client.session.request.call_args.kwargs
+        assert "allprop" in str(kwargs.get("data") or kwargs.get("content") or "")
 
     @pytest.mark.asyncio
     async def test_report_method(self) -> None:
@@ -910,6 +956,59 @@ END:VCALENDAR"""
         _ = event.url  # must not raise AttributeError
 
 
+class TestAsyncLoadMultigetFallback:
+    """load(multiget_fallback=...) on the async twin.
+
+    Mirrors testLoadFallsBackToMultigetByDefault and
+    testLoadWithoutMultigetFallbackRaisesTheServersOwnError in
+    test_caldav_unit.py.
+    """
+
+    def _forbidden_event(self):
+        from caldav.aio import AsyncEvent
+        from caldav.collection import Calendar
+
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+        client.request = AsyncMock(
+            side_effect=error.AuthorizationError(
+                url="https://caldav.example.com/dav/calendars/test/x.ics",
+                reason="Forbidden",
+            )
+        )
+        calendar = Calendar(client=client, url="https://caldav.example.com/dav/calendars/test/")
+        return AsyncEvent(
+            client=client,
+            url="https://caldav.example.com/dav/calendars/test/x.ics",
+            parent=calendar,
+        )
+
+    @pytest.mark.asyncio
+    async def test_load_falls_back_to_multiget_by_default(self) -> None:
+        """A refused GET is retried as a calendar-multiget REPORT."""
+        from caldav.aio import AsyncCalendarObjectResource
+
+        event = self._forbidden_event()
+        with patch.object(
+            AsyncCalendarObjectResource, "load_by_multiget", new_callable=AsyncMock
+        ) as multiget:
+            multiget.return_value = event
+            assert await event.load() is event
+        multiget.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_load_without_multiget_fallback_raises_the_servers_own_error(self) -> None:
+        """multiget_fallback=False surfaces the 403 and sends no REPORT."""
+        from caldav.aio import AsyncCalendarObjectResource
+
+        event = self._forbidden_event()
+        with patch.object(
+            AsyncCalendarObjectResource, "load_by_multiget", new_callable=AsyncMock
+        ) as multiget:
+            with pytest.raises(error.AuthorizationError):
+                await event.load(multiget_fallback=False)
+        multiget.assert_not_awaited()
+
+
 class TestAsyncRateLimiting:
     """
     Unit tests for 429/503 rate-limit handling in AsyncDAVClient.
@@ -1058,3 +1157,180 @@ class TestAsyncRateLimiting:
         with patch("caldav.async_davclient.asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(error.RateLimitError):
                 await client.request("/")
+
+
+class TestAsyncPrincipalCalendar:
+    """``principal.calendar()`` must work with async clients.
+
+    Regression test: ``principal.calendar(cal_id=<plain id>)`` used to raise
+    ``TypeError: argument of type 'coroutine' is not a container or iterable``
+    for async clients, because the synchronous ``calendar_home_set`` property
+    evaluated ``"@" in <coroutine>`` without awaiting the async ``get_property``.
+    The cleanup blocks in the integration tests wrapped the call in a bare
+    ``except``, so calendars leaked silently and a later MKCALENDAR 405'd.
+    """
+
+    @pytest.mark.asyncio
+    async def test_calendar_by_cal_id_returns_awaitable(self) -> None:
+        """A plain cal_id needs the home set, so async returns a coroutine."""
+        from caldav.collection import Calendar, Principal
+
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+        principal = Principal(client=client, url="https://caldav.example.com/dav/principals/user/")
+
+        ## The calendar-home-set discovery is the only would-be round-trip; mock
+        ## the async get_property so the test stays offline.
+        with patch.object(
+            Principal,
+            "get_property",
+            new=AsyncMock(return_value="https://caldav.example.com/dav/calendars/user/"),
+        ):
+            result = principal.calendar(cal_id="testcal")
+            assert inspect.iscoroutine(result), "async calendar() must return a coroutine"
+            calendar = await result
+
+        assert isinstance(calendar, Calendar)
+        assert str(calendar.url).endswith("/calendars/user/testcal/")
+
+    @pytest.mark.asyncio
+    async def test_calendar_by_full_url_stays_synchronous(self) -> None:
+        """A full-URL cal_id needs no home set, so it must NOT become a coroutine.
+
+        ``test_calendar_by_full_url`` calls this without ``await`` and reads
+        ``.url`` directly, so the sync short-circuit must be preserved.
+        """
+        from caldav.collection import Calendar, Principal
+
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+        principal = Principal(client=client, url="https://caldav.example.com/dav/principals/user/")
+
+        calendar = principal.calendar(
+            cal_id="https://caldav.example.com/dav/calendars/user/testcal/"
+        )
+        assert isinstance(calendar, Calendar)
+        assert str(calendar.url).endswith("/calendars/user/testcal/")
+
+    @pytest.mark.asyncio
+    async def test_calendar_by_name_returns_awaitable(self) -> None:
+        """Gate finding F5: only the bare-``cal_id`` half was fixed.  A
+        ``name`` lookup went on to iterate the *coroutine* returned by the
+        async ``get_calendars()``, raising ``TypeError: 'coroutine' object is
+        not iterable``."""
+        from caldav.collection import Calendar, CalendarSet, Principal
+
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+        principal = Principal(client=client, url="https://caldav.example.com/dav/principals/user/")
+
+        wanted = Calendar(client, url="https://caldav.example.com/dav/calendars/user/wanted/")
+        other = Calendar(client, url="https://caldav.example.com/dav/calendars/user/other/")
+
+        async def fake_display_name(self: Calendar) -> str:
+            return "Wanted" if str(self.url).endswith("/wanted/") else "Other"
+
+        with (
+            patch.object(
+                Principal,
+                "get_property",
+                new=AsyncMock(return_value="https://caldav.example.com/dav/calendars/user/"),
+            ),
+            patch.object(CalendarSet, "get_calendars", new=AsyncMock(return_value=[other, wanted])),
+            patch.object(Calendar, "get_display_name", new=fake_display_name),
+        ):
+            result = principal.calendar(name="Wanted")
+            assert inspect.iscoroutine(result), "async calendar() must return a coroutine"
+            calendar = await result
+
+        assert isinstance(calendar, Calendar)
+        assert str(calendar.url).endswith("/calendars/user/wanted/")
+
+    @pytest.mark.asyncio
+    async def test_calendar_by_unknown_name_raises_notfound(self) -> None:
+        from caldav.collection import Calendar, CalendarSet, Principal
+        from caldav.lib import error
+
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+        principal = Principal(client=client, url="https://caldav.example.com/dav/principals/user/")
+        other = Calendar(client, url="https://caldav.example.com/dav/calendars/user/other/")
+
+        async def fake_display_name(self: Calendar) -> str:
+            return "Other"
+
+        with (
+            patch.object(
+                Principal,
+                "get_property",
+                new=AsyncMock(return_value="https://caldav.example.com/dav/calendars/user/"),
+            ),
+            patch.object(CalendarSet, "get_calendars", new=AsyncMock(return_value=[other])),
+            patch.object(Calendar, "get_display_name", new=fake_display_name),
+        ):
+            with pytest.raises(error.NotFoundError):
+                await principal.calendar(name="Wanted")
+
+
+class TestAsyncHttpLibrarySelection:
+    """Which async HTTP library the module picks, and what happens when none is there.
+
+    niquests is preferred; failing that, the httpx family is tried in order.
+    These tests exercise the selection itself rather than whichever library the
+    test run happens to have installed - one process can only ever have made
+    one choice, so the choosing has to be testable on its own.
+    """
+
+    def test_httpx2_is_an_accepted_library(self) -> None:
+        """https://github.com/python-caldav/caldav/issues/611 - httpx2 is Pydantic's
+        continuation of httpx and has to be usable as a fallback."""
+        from caldav.async_davclient import _ASYNC_HTTPX_CANDIDATES
+
+        assert "httpx2" in _ASYNC_HTTPX_CANDIDATES
+
+    def test_httpx2_is_preferred_over_httpxyz_and_httpx(self) -> None:
+        """A deliberate ordering decision, not an accident of the list: httpx2 is
+        the maintained continuation of httpx, httpxyz is a fork of it."""
+        from caldav.async_davclient import _ASYNC_HTTPX_CANDIDATES
+
+        order = {name: i for i, name in enumerate(_ASYNC_HTTPX_CANDIDATES)}
+        assert order["httpx2"] < order["httpxyz"] < order["httpx"]
+
+    def test_candidates_are_tried_in_order_and_stop_at_the_first_hit(self) -> None:
+        from caldav.async_davclient import _import_first_available
+
+        wanted = MagicMock(name="httpx2")
+        tried = []
+
+        def importer(name: str) -> MagicMock:
+            tried.append(name)
+            if name == "httpx2":
+                return wanted
+            raise ImportError(f"No module named {name!r}")
+
+        assert _import_first_available(("httpxyz", "httpx2", "httpx"), importer) == (
+            "httpx2",
+            wanted,
+        )
+        assert tried == ["httpxyz", "httpx2"], "should not keep importing after a hit"
+
+    def test_nothing_importable_yields_no_library(self) -> None:
+        from caldav.async_davclient import _import_first_available
+
+        def importer(name: str) -> None:
+            raise ImportError(f"No module named {name!r}")
+
+        assert _import_first_available(("httpxyz", "httpx2", "httpx"), importer) == (None, None)
+
+    def test_the_missing_library_error_names_every_option(self) -> None:
+        """The error is the only guidance a user gets, so it must list all of them."""
+        from caldav.async_davclient import _ASYNC_HTTPX_CANDIDATES, _NO_ASYNC_LIBRARY_ERROR
+
+        for name in ("niquests", *_ASYNC_HTTPX_CANDIDATES):
+            assert name in _NO_ASYNC_LIBRARY_ERROR
+
+    def test_the_flavour_names_the_library_that_was_imported(self) -> None:
+        """_HTTPX_FLAVOUR is asserted on by name in the CI fallback jobs, so it
+        has to keep saying which fork specifically got imported rather than
+        just "some httpx-alike".  None means the httpx family was not reached
+        at all, which is niquests' case."""
+        from caldav.async_davclient import _ASYNC_HTTPX_CANDIDATES, _HTTPX_FLAVOUR, _USE_HTTPX
+
+        assert _HTTPX_FLAVOUR in (None, *_ASYNC_HTTPX_CANDIDATES)
+        assert _USE_HTTPX == (_HTTPX_FLAVOUR is not None)

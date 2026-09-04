@@ -360,7 +360,8 @@ class FinalizationResult:
 
     Attributes:
         skipped: Whether finalization was skipped entirely (e.g., no new commit).
-        reason: Human-readable reason when skipped or for summary purposes.
+        reason: Human-readable reason when skipped or for summary purposes
+            (e.g., ``"no_new_commit"``, ``"already_finalized"``, ``"verified"``).
         resolved_count: Number of comments resolved.
         unresolved_count: Number of real (positive-ID) comments left unresolved.
             Synthetic suppressed entries recovered from a review body carry

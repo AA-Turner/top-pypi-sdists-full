@@ -114,7 +114,7 @@ def scout_dumps(obj: Any) -> bytes:
 
 
 class DillCallable:
-    """Wrapper for callables that uses dill for pickling.
+    """Wrapper for callables that uses cloudpickle for pickling.
 
     This allows closures and other complex callables to be serialized
     for use with spawn multiprocessing context.
@@ -319,7 +319,7 @@ class IPCContext:
     model_config: ModelConfig
     """Configuration specifying which model provider and settings to use."""
 
-    model_roles: dict[str, ModelConfig] | None
+    model_roles: dict[str, ModelConfig | list[ModelConfig]] | None
     """Optional mapping of role names to serializable ModelConfig instances."""
 
     generate_config: GenerateConfig

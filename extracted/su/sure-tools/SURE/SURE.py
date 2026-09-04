@@ -188,7 +188,6 @@ class SURE(nn.Module):
                                   use_cuda=use_cuda,
                                   seed=seed,
                                   dtype=dtype)
-        elif method == 'vae':
             self.engine = SUREVAE(input_dim=input_dim,
                                   codebook_size=codebook_size,
                                   context_sizes=context_sizes,
@@ -303,17 +302,17 @@ class SURE(nn.Module):
     def get_basal_embedding(self, zs, batch_size=1024, show_progress=True)->np.array:
          return self.engine.get_basal_embedding(zs, batch_size=batch_size, show_progress=show_progress)
     
-    def get_context_token(self, z_basal, cs, i, batch_size=1024, show_progress=True):
-        return self.engine.get_context_token(z_basal, cs, i, batch_size=batch_size, show_progress=show_progress)
+    def get_context_token(self, cs, i, batch_size=1024, show_progress=True):
+        return self.engine.get_context_token(cs, i, batch_size=batch_size, show_progress=show_progress)
     
-    def get_context_effect(self, zcs, batch_size=1024, show_progress=True)->np.array:
-        return self.engine.get_context_effect(zcs, batch_size=batch_size, show_progress=show_progress)
+    def get_context_effect(self, zs, zct, batch_size=1024, show_progress=True)->np.array:
+        return self.engine.get_context_effect(zs, zct, batch_size=batch_size, show_progress=show_progress)
     
-    def get_perturb_token(self, z_basal, zcs, ps, batch_size=1024, show_progress=True)->np.array:
-        return self.engine.get_perturb_token(z_basal, zcs, ps, batch_size, show_progress)
+    def get_perturb_token(self, ps, batch_size=1024, show_progress=True)->np.array:
+        return self.engine.get_perturb_token(ps, batch_size, show_progress)
     
-    def get_perturb_effect(self, zps, batch_size=1024, show_progress=True)->np.array:
-        return self.engine.get_perturb_effect(zps, batch_size, show_progress)
+    def get_perturb_effect(self, zs, zpt, batch_size=1024, show_progress=True)->np.array:
+        return self.engine.get_perturb_effect(zs, zpt, batch_size, show_progress)
     
     def representation(self, zs, batch_size=1024, show_progress=True)->np.array:
         return self.engine.decode_latent(zs, batch_size, show_progress)

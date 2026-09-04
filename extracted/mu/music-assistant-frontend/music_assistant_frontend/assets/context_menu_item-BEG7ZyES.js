@@ -1,0 +1,1 @@
+import{l as e}from"./api-BzIf7-ld.js";var t=t=>Array.isArray(t.labelArgs)?e(t.label,t.labelArgs):e(t.label,t.labelArgs??{});export{t};

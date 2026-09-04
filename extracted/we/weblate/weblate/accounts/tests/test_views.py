@@ -29,7 +29,7 @@ from social_core.exceptions import (
 )
 from weblate_schemas import load_schema
 
-from weblate.accounts.forms import ProfileForm
+from weblate.accounts.forms import ProfileForm, UserSettingsForm
 from weblate.accounts.models import Profile, Subscription
 from weblate.accounts.notifications import (
     NOTIFICATIONS,
@@ -37,7 +37,7 @@ from weblate.accounts.notifications import (
     NotificationScope,
 )
 from weblate.accounts.views import log_handled_auth_failure
-from weblate.auth.models import Group, User
+from weblate.auth.models import Group, Permission, Role, User
 from weblate.billing.models import Billing, Plan
 from weblate.lang.models import Language
 from weblate.trans.actions import ActionEvents
@@ -289,6 +289,34 @@ class ViewTest(RepoTestCase):
         self.assertContains(response, user_url)
         response = self.client.get(reverse("user_list"), {"sort_by": "invalid"})
         self.assertContains(response, user_url)
+
+    def test_user_list_bot_visibility(self) -> None:
+        """User listing hides bots unless the caller can view users globally."""
+        user = self.get_user()
+        bot = User.objects.create(
+            username="bot-confidential-project-ui-token",
+            full_name="Confidential UI token",
+            is_bot=True,
+        )
+        self.client.login(username=user.username, password="testpassword")
+
+        response = self.client.get(reverse("user_list"))
+        self.assertNotContains(response, bot.get_absolute_url())
+        response = self.client.get(reverse("user_list"), {"q": bot.username})
+        self.assertNotContains(response, bot.get_absolute_url())
+
+        permission = Permission.objects.get(codename="user.view")
+        role = Role.objects.create(name="View bot users")
+        role.permissions.add(permission)
+        group = Group.objects.create(name="View bot users")
+        group.roles.add(role)
+        user.groups.add(group)
+        user.clear_permissions_cache()
+
+        response = self.client.get(reverse("user_list"))
+        self.assertContains(response, bot.get_absolute_url())
+        response = self.client.get(reverse("user_list"), {"q": bot.username})
+        self.assertContains(response, bot.get_absolute_url())
 
     def test_user(self) -> None:
         """Test user pages."""
@@ -772,6 +800,7 @@ class ProfileTest(FixtureTestCase):
                 "nearby_strings": 10,
                 "theme": "auto",
                 "wide_tables": "on",
+                "listing_columns": ["total", "untranslated", "checks"],
                 "notifications__0-scope": 0,
                 "notifications__0-project": "",
                 "notifications__0-component": "",
@@ -786,6 +815,48 @@ class ProfileTest(FixtureTestCase):
         self.assertRedirects(response, reverse("profile"))
         self.user.profile.refresh_from_db()
         self.assertTrue(self.user.profile.wide_tables)
+        self.assertEqual(
+            self.user.profile.listing_columns, ["total", "untranslated", "checks"]
+        )
+
+    def test_profile_listing_columns_rejects_duplicates(self) -> None:
+        original_listing_columns = self.user.profile.listing_columns
+        response = self.client.post(
+            reverse("profile"),
+            {
+                "language": "en",
+                "languages": Language.objects.get(code="cs").id,
+                "secondary_languages": Language.objects.get(code="cs").id,
+                "full_name": "First Last",
+                "email": "weblate@example.org",
+                "username": "testuser",
+                "dashboard_view": Profile.DASHBOARD_WATCHED,
+                "translate_mode": Profile.TRANSLATE_FULL,
+                "zen_mode": Profile.ZEN_VERTICAL,
+                "nearby_strings": 10,
+                "theme": "auto",
+                "listing_columns": ["comments", "comments"],
+                "notifications__0-scope": 0,
+                "notifications__0-project": "",
+                "notifications__0-component": "",
+                "notifications__1-scope": 10,
+                "notifications__1-project": "",
+                "notifications__1-component": "",
+                "notifications__2-scope": 20,
+                "notifications__2-project": "",
+                "notifications__2-component": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        form = next(
+            form
+            for form in response.context["all_forms"]
+            if isinstance(form, UserSettingsForm)
+        )
+        self.assertIn("listing_columns", form.errors)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.listing_columns, original_listing_columns)
 
     def test_profile_group_display_uses_scoped_team_queryset(self) -> None:
         workspace = Workspace.objects.create(name="Profile workspace")

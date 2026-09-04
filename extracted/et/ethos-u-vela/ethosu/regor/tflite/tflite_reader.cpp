@@ -218,6 +218,36 @@ void TfLiteReader::LoadGraphs(const uint8_t *input, size_t size, const tflite::M
             if ( tflite_tensor->is_variable() ) persistent.push_back(tensors.back());
         }
 
+        // Deduce state variables from signature tensor names
+        auto tflite_signature_defs = model->signature_defs();
+        if ( tflite_signature_defs )
+        {
+            for ( const auto &tflite_signature_def : *tflite_signature_defs )
+            {
+                // Ignore signature defs not related to this subgraph
+                assert(tflite_signature_def);
+                if ( tflite_signature_def->subgraph_index() != graphs.size() ) continue;
+
+                const auto *signature_key = tflite_signature_def->signature_key();
+                if ( !signature_key ) continue;
+
+                const auto add_alternative_names = [&](const auto *maps)
+                {
+                    if ( !maps ) return;
+
+                    for ( const auto *map : *maps )
+                    {
+                        if ( !map || !map->name() || map->tensor_index() >= tensors.size() ) continue;
+
+                        tensors[map->tensor_index()]->AddAlternativeName(signature_key->str(), map->name()->str());
+                    }
+                };
+
+                add_alternative_names(tflite_signature_def->inputs());
+                add_alternative_names(tflite_signature_def->outputs());
+            }
+        }
+
         // Create operations
         int ext_key = 0;
         for ( const auto &tflite_operator : *tflite_operators )
@@ -355,7 +385,7 @@ void TfLiteReader::LoadGraphs(const uint8_t *input, size_t size, const tflite::M
                 ParseOperatorOptions(operation, tflite_operator, optDb);
 
                 // Set rounding according to reference
-                SetOFMRounding(operation);
+                SetOFMRounding(operation, tflite_operator);
             }
 
             operations.push_back(std::move(operation));
@@ -582,29 +612,6 @@ void TfLiteReader::ParseOperatorOptions(
             activation_function = options->fused_activation_function();
             // TODO: Are `weights_format`, `keep_num_dims` or `asymmetric_quantize_inputs` used?
             ReshapeFullyConnectedWeights(operation, TensorUsage::Weights);
-            auto weight_tensor = operation->Input(TensorUsage::Weights)->tensor;
-            if ( operation->Input(TensorUsage::Scales) == nullptr )
-            {
-                // Op has no bias; add bias tensor filled with zeros
-                int elems = weight_tensor->StorageShape().Batch();
-                auto ifm = operation->Input(TensorUsage::IFM)->tensor;
-                DataType biasType;
-                std::shared_ptr<Buffer> buf;
-                if ( ifm->Type() == DataType::Int16 )
-                {
-                    biasType = DataType::Int64;
-                    std::vector<int64_t> data(ToUnsigned(elems));
-                    buf = std::make_shared<Buffer>(std::move(data));
-                }
-                else
-                {
-                    biasType = DataType::Int32;
-                    std::vector<int32_t> data(ToUnsigned(elems));
-                    buf = std::make_shared<Buffer>(std::move(data));
-                }
-                auto biasTens = std::make_shared<Tensor>(weight_tensor->Name() + "_bias", biasType, Shape(1, 1, 1, elems), buf);
-                operation->ConnectInput(TensorUsage::Scales, biasTens);
-            }
         }
         break;
 
@@ -700,6 +707,13 @@ void TfLiteReader::ParseOperatorOptions(
         }
         break;
 
+        case tflite::BuiltinOptions::GeluOptions:
+        {
+            const auto options = GetBuiltinOptions<tflite::GeluOptions>(tflite_operator);
+            operation->Attribute<gelu_attr_t>()->approximate = options->approximate();
+        }
+        break;
+
         case tflite::BuiltinOptions::StridedSliceOptions:
             break;
 
@@ -786,6 +800,9 @@ void TfLiteReader::ParseOperatorOptions(
         case tflite::BuiltinOptions::SelectOptions:
         case tflite::BuiltinOptions::SelectV2Options:
         case tflite::BuiltinOptions::ExpandDimsOptions:
+        case tflite::BuiltinOptions::NegOptions:
+        case tflite::BuiltinOptions::SliceOptions:
+        case tflite::BuiltinOptions::SquaredDifferenceOptions:
             break;
 
         case tflite::BuiltinOptions::ConcatEmbeddingsOptions:
@@ -805,11 +822,9 @@ void TfLiteReader::ParseOperatorOptions(
         case tflite::BuiltinOptions::LogSoftmaxOptions:
         case tflite::BuiltinOptions::CastOptions:
         case tflite::BuiltinOptions::LessOptions:
-        case tflite::BuiltinOptions::NegOptions:
         case tflite::BuiltinOptions::GreaterOptions:
         case tflite::BuiltinOptions::GreaterEqualOptions:
         case tflite::BuiltinOptions::LessEqualOptions:
-        case tflite::BuiltinOptions::SliceOptions:
         case tflite::BuiltinOptions::SparseToDenseOptions:
         case tflite::BuiltinOptions::TileOptions:
         case tflite::BuiltinOptions::EqualOptions:
@@ -829,7 +844,6 @@ void TfLiteReader::ParseOperatorOptions(
         case tflite::BuiltinOptions::BidirectionalSequenceRNNOptions:
         case tflite::BuiltinOptions::FloorModOptions:
         case tflite::BuiltinOptions::RangeOptions:
-        case tflite::BuiltinOptions::SquaredDifferenceOptions:
         case tflite::BuiltinOptions::AbsOptions:
         case tflite::BuiltinOptions::UniqueOptions:
         case tflite::BuiltinOptions::ReverseV2Options:
@@ -867,16 +881,36 @@ void TfLiteReader::ParseOperatorOptions(
     UnFuseActivation(operation, activation_function, optDb);
 }
 
-void TfLiteReader::SetOFMRounding(const std::shared_ptr<Operation> &operation)
+void TfLiteReader::SetOFMRounding(const std::shared_ptr<Operation> &operation, const tflite::Operator *tflite_operator)
 {
     auto ifm = operation->Input(TensorUsage::IFM)->tensor;
     auto opType = operation->Type();
+    auto bias = operation->Input(TensorUsage::Scales);
+    bool useDoubleRound = bias && bias->tensor->Type() == DataType::Int32;
+    if ( !bias )
+    {
+        if ( opType == OpType::Conv2D )
+        {
+            const auto options = GetBuiltinOptions<tflite::Conv2DOptions>(tflite_operator);
+            useDoubleRound = options->quantized_bias_type() == tflite::TensorType::INT32;
+        }
+        else if ( opType == OpType::TransposeConv2D )
+        {
+            const auto options = GetBuiltinOptions<tflite::TransposeConvOptions>(tflite_operator);
+            useDoubleRound = options->quantized_bias_type() == tflite::TensorType::INT32;
+        }
+        else if ( opType == OpType::FullyConnected )
+        {
+            const auto options = GetBuiltinOptions<tflite::FullyConnectedOptions>(tflite_operator);
+            useDoubleRound = options->quantized_bias_type() == tflite::TensorType::INT32;
+        }
+    }
 
     // Default rounding mode
     RoundMode roundMode = RoundMode::DBL;
 
-    // Change according to reference
-    if ( ifm->Type() == DataType::Int16 && (IsConvolution(opType) || IsVectorProduct(opType)) )
+    // Stored bias bit-width affects semantics. INT32 selects the double-rounding quantizer in the TFLite reference.
+    if ( ifm->Type() == DataType::Int16 && (IsConvolution(opType) || IsVectorProduct(opType)) && !useDoubleRound )
     {
         roundMode = RoundMode::NATURAL;
     }

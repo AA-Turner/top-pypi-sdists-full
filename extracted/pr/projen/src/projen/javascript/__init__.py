@@ -8585,6 +8585,7 @@ class NodePackage(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -8631,6 +8632,7 @@ class NodePackage(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -8681,6 +8683,7 @@ class NodePackage(
             bundled_deps=bundled_deps,
             bun_version=bun_version,
             code_artifact_options=code_artifact_options,
+            config=config,
             dedupe_deps=dedupe_deps,
             delete_orphaned_lock_files=delete_orphaned_lock_files,
             deps=deps,
@@ -9319,6 +9322,7 @@ class NodePackageManager(enum.Enum):
         "bundled_deps": "bundledDeps",
         "bun_version": "bunVersion",
         "code_artifact_options": "codeArtifactOptions",
+        "config": "config",
         "dedupe_deps": "dedupeDeps",
         "delete_orphaned_lock_files": "deleteOrphanedLockFiles",
         "deps": "deps",
@@ -9368,6 +9372,7 @@ class NodePackageOptions:
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -9413,6 +9418,7 @@ class NodePackageOptions:
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -9471,6 +9477,7 @@ class NodePackageOptions:
             check_type(argname="argument bundled_deps", value=bundled_deps, expected_type=type_hints["bundled_deps"])
             check_type(argname="argument bun_version", value=bun_version, expected_type=type_hints["bun_version"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
             check_type(argname="argument dedupe_deps", value=dedupe_deps, expected_type=type_hints["dedupe_deps"])
             check_type(argname="argument delete_orphaned_lock_files", value=delete_orphaned_lock_files, expected_type=type_hints["delete_orphaned_lock_files"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -9529,6 +9536,8 @@ class NodePackageOptions:
             self._values["bun_version"] = bun_version
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if config is not None:
+            self._values["config"] = config
         if dedupe_deps is not None:
             self._values["dedupe_deps"] = dedupe_deps
         if delete_orphaned_lock_files is not None:
@@ -9770,6 +9779,20 @@ class NodePackageOptions:
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional["CodeArtifactOptions"], result)
+
+    @builtins.property
+    def config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Configuration values available to package scripts at runtime.
+
+        Values should be JSON-serializable.
+
+        :default: - no package configuration
+
+        :see: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#config
+        :stability: experimental
+        '''
+        result = self._values.get("config")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
     def dedupe_deps(self) -> typing.Optional[builtins.bool]:
@@ -10278,6 +10301,7 @@ class NodeProject(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -10413,6 +10437,7 @@ class NodeProject(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -10550,6 +10575,7 @@ class NodeProject(
             bundled_deps=bundled_deps,
             bun_version=bun_version,
             code_artifact_options=code_artifact_options,
+            config=config,
             dedupe_deps=dedupe_deps,
             delete_orphaned_lock_files=delete_orphaned_lock_files,
             deps=deps,
@@ -11044,6 +11070,7 @@ class NodeProject(
         "bundled_deps": "bundledDeps",
         "bun_version": "bunVersion",
         "code_artifact_options": "codeArtifactOptions",
+        "config": "config",
         "dedupe_deps": "dedupeDeps",
         "delete_orphaned_lock_files": "deleteOrphanedLockFiles",
         "deps": "deps",
@@ -11187,6 +11214,7 @@ class NodeProjectOptions(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -11322,6 +11350,7 @@ class NodeProjectOptions(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -11516,6 +11545,7 @@ class NodeProjectOptions(
             check_type(argname="argument bundled_deps", value=bundled_deps, expected_type=type_hints["bundled_deps"])
             check_type(argname="argument bun_version", value=bun_version, expected_type=type_hints["bun_version"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
             check_type(argname="argument dedupe_deps", value=dedupe_deps, expected_type=type_hints["dedupe_deps"])
             check_type(argname="argument delete_orphaned_lock_files", value=delete_orphaned_lock_files, expected_type=type_hints["delete_orphaned_lock_files"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -11690,6 +11720,8 @@ class NodeProjectOptions(
             self._values["bun_version"] = bun_version
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if config is not None:
+            self._values["config"] = config
         if dedupe_deps is not None:
             self._values["dedupe_deps"] = dedupe_deps
         if delete_orphaned_lock_files is not None:
@@ -12383,6 +12415,20 @@ class NodeProjectOptions(
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional["CodeArtifactOptions"], result)
+
+    @builtins.property
+    def config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Configuration values available to package scripts at runtime.
+
+        Values should be JSON-serializable.
+
+        :default: - no package configuration
+
+        :see: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#config
+        :stability: experimental
+        '''
+        result = self._values.get("config")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
     def dedupe_deps(self) -> typing.Optional[builtins.bool]:
@@ -13900,6 +13946,7 @@ class PnpmWorkspaceYaml(
         catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
         cert: typing.Optional[builtins.str] = None,
         child_concurrency: typing.Optional[jsii.Number] = None,
+        ci: typing.Optional[builtins.bool] = None,
         cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
         color: typing.Optional["PnpmWorkspaceYamlSchemaColor"] = None,
         config_dependencies: typing.Any = None,
@@ -13927,12 +13974,14 @@ class PnpmWorkspaceYaml(
         fetch_timeout: typing.Optional[jsii.Number] = None,
         fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
         force_legacy_deploy: typing.Optional[builtins.bool] = None,
+        frozen_store: typing.Optional[builtins.bool] = None,
         git_branch_lockfile: typing.Optional[builtins.bool] = None,
         git_checks: typing.Optional[builtins.bool] = None,
         git_shallow_hosts: typing.Optional[typing.Sequence[builtins.str]] = None,
         global_bin_dir: typing.Optional[builtins.str] = None,
         global_dir: typing.Optional[builtins.str] = None,
         global_pnpmfile: typing.Optional[builtins.str] = None,
+        global_shims: typing.Any = None,
         hoist: typing.Optional[builtins.bool] = None,
         hoisting_limits: typing.Optional["PnpmWorkspaceYamlSchemaHoistingLimits"] = None,
         hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14040,6 +14089,7 @@ class PnpmWorkspaceYaml(
         update_notifier: typing.Optional[builtins.bool] = None,
         use_beta_cli: typing.Optional[builtins.bool] = None,
         use_node_version: typing.Optional[builtins.str] = None,
+        use_running_store_server: typing.Optional[builtins.bool] = None,
         use_stderr: typing.Optional[builtins.bool] = None,
         verify_deps_before_run: typing.Any = None,
         verify_store_integrity: typing.Optional[builtins.bool] = None,
@@ -14047,6 +14097,7 @@ class PnpmWorkspaceYaml(
         virtual_store_dir: typing.Optional[builtins.str] = None,
         virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
         virtual_store_only: typing.Optional[builtins.bool] = None,
+        virtual_store_type: typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"] = None,
         workspace_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -14069,6 +14120,7 @@ class PnpmWorkspaceYaml(
         :param catalogs: (experimental) Define arbitrarily named catalogs.
         :param cert: (experimental) A client certificate to pass when accessing the registry.
         :param child_concurrency: (experimental) The maximum number of child processes to allocate simultaneously to build node_modules.
+        :param ci: (experimental) Explicitly tells pnpm whether the current environment is a Continuous Integration system, overriding pnpm's automatic CI detection. Added in pnpm v10.12.1.
         :param cleanup_unused_catalogs: (experimental) When set to ``true``, pnpm will remove unused catalog entries during installation.
         :param color: (experimental) Controls colors in the output.
         :param config_dependencies: (experimental) Config dependencies allow you to share and centralize configuration files, settings, and hooks across multiple projects. They are installed before all regular dependencies ('dependencies', 'devDependencies', 'optionalDependencies'), making them ideal for setting up custom hooks, patches, and catalog entries.
@@ -14096,12 +14148,14 @@ class PnpmWorkspaceYaml(
         :param fetch_timeout: (experimental) The maximum amount of time to wait for HTTP requests to complete.
         :param fetch_warn_timeout_ms: (experimental) A warning message is displayed if a metadata request to the registry takes longer than the specified threshold (in milliseconds). Added in pnpm v10.18.0.
         :param force_legacy_deploy: (experimental) By default, pnpm deploy will try creating a dedicated lockfile from a shared lockfile for deployment. If this setting is set to true, the legacy deploy behavior will be used.
+        :param frozen_store: (experimental) Makes pnpm install work against a read-only package store (such as a Nix store or OCI image layer). When enabled, pnpm opens the store's SQLite database in immutable mode and never writes to the store. Works best together with --offline and --frozen-lockfile; incompatible with --force. Added in pnpm v11.7.0.
         :param git_branch_lockfile: (experimental) When set to true, the generated lockfile name after installation will be named based on the current branch name to completely avoid merge conflicts.
         :param git_checks: (experimental) Check if current branch is your publish branch, clean, and up-to-date with remote.
         :param git_shallow_hosts: (experimental) When fetching dependencies that are Git repositories, if the host is listed in this setting, pnpm will use shallow cloning to fetch only the needed commit, not all the history.
         :param global_bin_dir: (experimental) Allows to set the target directory for the bin files of globally installed packages.
         :param global_dir: (experimental) Specify a custom directory to store global packages.
         :param global_pnpmfile: (experimental) The location of a global pnpmfile. A global pnpmfile is used by all projects during installation.
+        :param global_shims: (experimental) Controls which globally installed packages get project-aware shims, which are global commands that run the version specified by the current project instead of the globally installed one. A boolean disables (false) or resets to the defaults (true), while an object maps package names to a policy: "auto" (or true) to switch automatically when publisher-authenticated, "prompt" to confirm on each use, "always" to switch unconditionally, or false to disable. Object entries merge with the built-in defaults ({"node": "auto", "deno": "auto", "bun": "auto"}). Added in pnpm v12.0.0-rc.2.
         :param hoist: (experimental) When true, all dependencies are hoisted to node_modules/.pnpm/node_modules.
         :param hoisting_limits: (experimental) Added a new hoistingLimits setting for ``nodeLinker: hoisted`` installs, mirroring yarn's ``nmHoistingLimits``. It accepts ``none`` (the default — hoist as far as possible), workspaces (hoist only as far as each workspace package), or dependencies (hoist only up to each workspace package's direct dependencies).
         :param hoist_pattern: (experimental) Tells pnpm which packages should be hoisted to node_modules/.pnpm/node_modules.
@@ -14209,6 +14263,7 @@ class PnpmWorkspaceYaml(
         :param update_notifier: (experimental) When true, pnpm will check for updates to the installed packages and notify the user.
         :param use_beta_cli: (experimental) Experimental option that enables beta features of the CLI.
         :param use_node_version: (experimental) Specifies which exact Node.js version should be used for the project's runtime.
+        :param use_running_store_server: (experimental) Deprecated. Only allows installation with a store server. If no store server is running, installation will fail.
         :param use_stderr: (experimental) When true, all the output is written to stderr.
         :param verify_deps_before_run: (experimental) This setting allows the checking of the state of dependencies before running scripts.
         :param verify_store_integrity: (experimental) By default, if a file in the store has been modified, the content of this file is checked before linking it to a project's node_modules.
@@ -14216,6 +14271,7 @@ class PnpmWorkspaceYaml(
         :param virtual_store_dir: (experimental) The directory with links to the store.
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
+        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :stability: experimental
@@ -14242,6 +14298,7 @@ class PnpmWorkspaceYaml(
             catalogs=catalogs,
             cert=cert,
             child_concurrency=child_concurrency,
+            ci=ci,
             cleanup_unused_catalogs=cleanup_unused_catalogs,
             color=color,
             config_dependencies=config_dependencies,
@@ -14269,12 +14326,14 @@ class PnpmWorkspaceYaml(
             fetch_timeout=fetch_timeout,
             fetch_warn_timeout_ms=fetch_warn_timeout_ms,
             force_legacy_deploy=force_legacy_deploy,
+            frozen_store=frozen_store,
             git_branch_lockfile=git_branch_lockfile,
             git_checks=git_checks,
             git_shallow_hosts=git_shallow_hosts,
             global_bin_dir=global_bin_dir,
             global_dir=global_dir,
             global_pnpmfile=global_pnpmfile,
+            global_shims=global_shims,
             hoist=hoist,
             hoisting_limits=hoisting_limits,
             hoist_pattern=hoist_pattern,
@@ -14382,6 +14441,7 @@ class PnpmWorkspaceYaml(
             update_notifier=update_notifier,
             use_beta_cli=use_beta_cli,
             use_node_version=use_node_version,
+            use_running_store_server=use_running_store_server,
             use_stderr=use_stderr,
             verify_deps_before_run=verify_deps_before_run,
             verify_store_integrity=verify_store_integrity,
@@ -14389,6 +14449,7 @@ class PnpmWorkspaceYaml(
             virtual_store_dir=virtual_store_dir,
             virtual_store_dir_max_length=virtual_store_dir_max_length,
             virtual_store_only=virtual_store_only,
+            virtual_store_type=virtual_store_type,
             workspace_concurrency=workspace_concurrency,
         )
 
@@ -14443,6 +14504,7 @@ class PnpmWorkspaceYaml(
         "catalogs": "catalogs",
         "cert": "cert",
         "child_concurrency": "childConcurrency",
+        "ci": "ci",
         "cleanup_unused_catalogs": "cleanupUnusedCatalogs",
         "color": "color",
         "config_dependencies": "configDependencies",
@@ -14470,12 +14532,14 @@ class PnpmWorkspaceYaml(
         "fetch_timeout": "fetchTimeout",
         "fetch_warn_timeout_ms": "fetchWarnTimeoutMs",
         "force_legacy_deploy": "forceLegacyDeploy",
+        "frozen_store": "frozenStore",
         "git_branch_lockfile": "gitBranchLockfile",
         "git_checks": "gitChecks",
         "git_shallow_hosts": "gitShallowHosts",
         "global_bin_dir": "globalBinDir",
         "global_dir": "globalDir",
         "global_pnpmfile": "globalPnpmfile",
+        "global_shims": "globalShims",
         "hoist": "hoist",
         "hoisting_limits": "hoistingLimits",
         "hoist_pattern": "hoistPattern",
@@ -14583,6 +14647,7 @@ class PnpmWorkspaceYaml(
         "update_notifier": "updateNotifier",
         "use_beta_cli": "useBetaCli",
         "use_node_version": "useNodeVersion",
+        "use_running_store_server": "useRunningStoreServer",
         "use_stderr": "useStderr",
         "verify_deps_before_run": "verifyDepsBeforeRun",
         "verify_store_integrity": "verifyStoreIntegrity",
@@ -14590,6 +14655,7 @@ class PnpmWorkspaceYaml(
         "virtual_store_dir": "virtualStoreDir",
         "virtual_store_dir_max_length": "virtualStoreDirMaxLength",
         "virtual_store_only": "virtualStoreOnly",
+        "virtual_store_type": "virtualStoreType",
         "workspace_concurrency": "workspaceConcurrency",
     },
 )
@@ -14615,6 +14681,7 @@ class PnpmWorkspaceYamlSchema:
         catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
         cert: typing.Optional[builtins.str] = None,
         child_concurrency: typing.Optional[jsii.Number] = None,
+        ci: typing.Optional[builtins.bool] = None,
         cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
         color: typing.Optional["PnpmWorkspaceYamlSchemaColor"] = None,
         config_dependencies: typing.Any = None,
@@ -14642,12 +14709,14 @@ class PnpmWorkspaceYamlSchema:
         fetch_timeout: typing.Optional[jsii.Number] = None,
         fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
         force_legacy_deploy: typing.Optional[builtins.bool] = None,
+        frozen_store: typing.Optional[builtins.bool] = None,
         git_branch_lockfile: typing.Optional[builtins.bool] = None,
         git_checks: typing.Optional[builtins.bool] = None,
         git_shallow_hosts: typing.Optional[typing.Sequence[builtins.str]] = None,
         global_bin_dir: typing.Optional[builtins.str] = None,
         global_dir: typing.Optional[builtins.str] = None,
         global_pnpmfile: typing.Optional[builtins.str] = None,
+        global_shims: typing.Any = None,
         hoist: typing.Optional[builtins.bool] = None,
         hoisting_limits: typing.Optional["PnpmWorkspaceYamlSchemaHoistingLimits"] = None,
         hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14755,6 +14824,7 @@ class PnpmWorkspaceYamlSchema:
         update_notifier: typing.Optional[builtins.bool] = None,
         use_beta_cli: typing.Optional[builtins.bool] = None,
         use_node_version: typing.Optional[builtins.str] = None,
+        use_running_store_server: typing.Optional[builtins.bool] = None,
         use_stderr: typing.Optional[builtins.bool] = None,
         verify_deps_before_run: typing.Any = None,
         verify_store_integrity: typing.Optional[builtins.bool] = None,
@@ -14762,6 +14832,7 @@ class PnpmWorkspaceYamlSchema:
         virtual_store_dir: typing.Optional[builtins.str] = None,
         virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
         virtual_store_only: typing.Optional[builtins.bool] = None,
+        virtual_store_type: typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"] = None,
         workspace_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) JSON schema for pnpm-workspace.yaml files.
@@ -14784,6 +14855,7 @@ class PnpmWorkspaceYamlSchema:
         :param catalogs: (experimental) Define arbitrarily named catalogs.
         :param cert: (experimental) A client certificate to pass when accessing the registry.
         :param child_concurrency: (experimental) The maximum number of child processes to allocate simultaneously to build node_modules.
+        :param ci: (experimental) Explicitly tells pnpm whether the current environment is a Continuous Integration system, overriding pnpm's automatic CI detection. Added in pnpm v10.12.1.
         :param cleanup_unused_catalogs: (experimental) When set to ``true``, pnpm will remove unused catalog entries during installation.
         :param color: (experimental) Controls colors in the output.
         :param config_dependencies: (experimental) Config dependencies allow you to share and centralize configuration files, settings, and hooks across multiple projects. They are installed before all regular dependencies ('dependencies', 'devDependencies', 'optionalDependencies'), making them ideal for setting up custom hooks, patches, and catalog entries.
@@ -14811,12 +14883,14 @@ class PnpmWorkspaceYamlSchema:
         :param fetch_timeout: (experimental) The maximum amount of time to wait for HTTP requests to complete.
         :param fetch_warn_timeout_ms: (experimental) A warning message is displayed if a metadata request to the registry takes longer than the specified threshold (in milliseconds). Added in pnpm v10.18.0.
         :param force_legacy_deploy: (experimental) By default, pnpm deploy will try creating a dedicated lockfile from a shared lockfile for deployment. If this setting is set to true, the legacy deploy behavior will be used.
+        :param frozen_store: (experimental) Makes pnpm install work against a read-only package store (such as a Nix store or OCI image layer). When enabled, pnpm opens the store's SQLite database in immutable mode and never writes to the store. Works best together with --offline and --frozen-lockfile; incompatible with --force. Added in pnpm v11.7.0.
         :param git_branch_lockfile: (experimental) When set to true, the generated lockfile name after installation will be named based on the current branch name to completely avoid merge conflicts.
         :param git_checks: (experimental) Check if current branch is your publish branch, clean, and up-to-date with remote.
         :param git_shallow_hosts: (experimental) When fetching dependencies that are Git repositories, if the host is listed in this setting, pnpm will use shallow cloning to fetch only the needed commit, not all the history.
         :param global_bin_dir: (experimental) Allows to set the target directory for the bin files of globally installed packages.
         :param global_dir: (experimental) Specify a custom directory to store global packages.
         :param global_pnpmfile: (experimental) The location of a global pnpmfile. A global pnpmfile is used by all projects during installation.
+        :param global_shims: (experimental) Controls which globally installed packages get project-aware shims, which are global commands that run the version specified by the current project instead of the globally installed one. A boolean disables (false) or resets to the defaults (true), while an object maps package names to a policy: "auto" (or true) to switch automatically when publisher-authenticated, "prompt" to confirm on each use, "always" to switch unconditionally, or false to disable. Object entries merge with the built-in defaults ({"node": "auto", "deno": "auto", "bun": "auto"}). Added in pnpm v12.0.0-rc.2.
         :param hoist: (experimental) When true, all dependencies are hoisted to node_modules/.pnpm/node_modules.
         :param hoisting_limits: (experimental) Added a new hoistingLimits setting for ``nodeLinker: hoisted`` installs, mirroring yarn's ``nmHoistingLimits``. It accepts ``none`` (the default — hoist as far as possible), workspaces (hoist only as far as each workspace package), or dependencies (hoist only up to each workspace package's direct dependencies).
         :param hoist_pattern: (experimental) Tells pnpm which packages should be hoisted to node_modules/.pnpm/node_modules.
@@ -14924,6 +14998,7 @@ class PnpmWorkspaceYamlSchema:
         :param update_notifier: (experimental) When true, pnpm will check for updates to the installed packages and notify the user.
         :param use_beta_cli: (experimental) Experimental option that enables beta features of the CLI.
         :param use_node_version: (experimental) Specifies which exact Node.js version should be used for the project's runtime.
+        :param use_running_store_server: (experimental) Deprecated. Only allows installation with a store server. If no store server is running, installation will fail.
         :param use_stderr: (experimental) When true, all the output is written to stderr.
         :param verify_deps_before_run: (experimental) This setting allows the checking of the state of dependencies before running scripts.
         :param verify_store_integrity: (experimental) By default, if a file in the store has been modified, the content of this file is checked before linking it to a project's node_modules.
@@ -14931,6 +15006,7 @@ class PnpmWorkspaceYamlSchema:
         :param virtual_store_dir: (experimental) The directory with links to the store.
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
+        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :stability: experimental
@@ -14972,6 +15048,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument catalogs", value=catalogs, expected_type=type_hints["catalogs"])
             check_type(argname="argument cert", value=cert, expected_type=type_hints["cert"])
             check_type(argname="argument child_concurrency", value=child_concurrency, expected_type=type_hints["child_concurrency"])
+            check_type(argname="argument ci", value=ci, expected_type=type_hints["ci"])
             check_type(argname="argument cleanup_unused_catalogs", value=cleanup_unused_catalogs, expected_type=type_hints["cleanup_unused_catalogs"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument config_dependencies", value=config_dependencies, expected_type=type_hints["config_dependencies"])
@@ -14999,12 +15076,14 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument fetch_timeout", value=fetch_timeout, expected_type=type_hints["fetch_timeout"])
             check_type(argname="argument fetch_warn_timeout_ms", value=fetch_warn_timeout_ms, expected_type=type_hints["fetch_warn_timeout_ms"])
             check_type(argname="argument force_legacy_deploy", value=force_legacy_deploy, expected_type=type_hints["force_legacy_deploy"])
+            check_type(argname="argument frozen_store", value=frozen_store, expected_type=type_hints["frozen_store"])
             check_type(argname="argument git_branch_lockfile", value=git_branch_lockfile, expected_type=type_hints["git_branch_lockfile"])
             check_type(argname="argument git_checks", value=git_checks, expected_type=type_hints["git_checks"])
             check_type(argname="argument git_shallow_hosts", value=git_shallow_hosts, expected_type=type_hints["git_shallow_hosts"])
             check_type(argname="argument global_bin_dir", value=global_bin_dir, expected_type=type_hints["global_bin_dir"])
             check_type(argname="argument global_dir", value=global_dir, expected_type=type_hints["global_dir"])
             check_type(argname="argument global_pnpmfile", value=global_pnpmfile, expected_type=type_hints["global_pnpmfile"])
+            check_type(argname="argument global_shims", value=global_shims, expected_type=type_hints["global_shims"])
             check_type(argname="argument hoist", value=hoist, expected_type=type_hints["hoist"])
             check_type(argname="argument hoisting_limits", value=hoisting_limits, expected_type=type_hints["hoisting_limits"])
             check_type(argname="argument hoist_pattern", value=hoist_pattern, expected_type=type_hints["hoist_pattern"])
@@ -15112,6 +15191,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument update_notifier", value=update_notifier, expected_type=type_hints["update_notifier"])
             check_type(argname="argument use_beta_cli", value=use_beta_cli, expected_type=type_hints["use_beta_cli"])
             check_type(argname="argument use_node_version", value=use_node_version, expected_type=type_hints["use_node_version"])
+            check_type(argname="argument use_running_store_server", value=use_running_store_server, expected_type=type_hints["use_running_store_server"])
             check_type(argname="argument use_stderr", value=use_stderr, expected_type=type_hints["use_stderr"])
             check_type(argname="argument verify_deps_before_run", value=verify_deps_before_run, expected_type=type_hints["verify_deps_before_run"])
             check_type(argname="argument verify_store_integrity", value=verify_store_integrity, expected_type=type_hints["verify_store_integrity"])
@@ -15119,6 +15199,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument virtual_store_dir", value=virtual_store_dir, expected_type=type_hints["virtual_store_dir"])
             check_type(argname="argument virtual_store_dir_max_length", value=virtual_store_dir_max_length, expected_type=type_hints["virtual_store_dir_max_length"])
             check_type(argname="argument virtual_store_only", value=virtual_store_only, expected_type=type_hints["virtual_store_only"])
+            check_type(argname="argument virtual_store_type", value=virtual_store_type, expected_type=type_hints["virtual_store_type"])
             check_type(argname="argument workspace_concurrency", value=workspace_concurrency, expected_type=type_hints["workspace_concurrency"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if allow_builds is not None:
@@ -15157,6 +15238,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["cert"] = cert
         if child_concurrency is not None:
             self._values["child_concurrency"] = child_concurrency
+        if ci is not None:
+            self._values["ci"] = ci
         if cleanup_unused_catalogs is not None:
             self._values["cleanup_unused_catalogs"] = cleanup_unused_catalogs
         if color is not None:
@@ -15211,6 +15294,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["fetch_warn_timeout_ms"] = fetch_warn_timeout_ms
         if force_legacy_deploy is not None:
             self._values["force_legacy_deploy"] = force_legacy_deploy
+        if frozen_store is not None:
+            self._values["frozen_store"] = frozen_store
         if git_branch_lockfile is not None:
             self._values["git_branch_lockfile"] = git_branch_lockfile
         if git_checks is not None:
@@ -15223,6 +15308,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["global_dir"] = global_dir
         if global_pnpmfile is not None:
             self._values["global_pnpmfile"] = global_pnpmfile
+        if global_shims is not None:
+            self._values["global_shims"] = global_shims
         if hoist is not None:
             self._values["hoist"] = hoist
         if hoisting_limits is not None:
@@ -15437,6 +15524,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["use_beta_cli"] = use_beta_cli
         if use_node_version is not None:
             self._values["use_node_version"] = use_node_version
+        if use_running_store_server is not None:
+            self._values["use_running_store_server"] = use_running_store_server
         if use_stderr is not None:
             self._values["use_stderr"] = use_stderr
         if verify_deps_before_run is not None:
@@ -15451,6 +15540,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["virtual_store_dir_max_length"] = virtual_store_dir_max_length
         if virtual_store_only is not None:
             self._values["virtual_store_only"] = virtual_store_only
+        if virtual_store_type is not None:
+            self._values["virtual_store_type"] = virtual_store_type
         if workspace_concurrency is not None:
             self._values["workspace_concurrency"] = workspace_concurrency
 
@@ -15645,6 +15736,18 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("child_concurrency")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def ci(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Explicitly tells pnpm whether the current environment is a Continuous Integration system, overriding pnpm's automatic CI detection.
+
+        Added in pnpm v10.12.1.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#ci
+        '''
+        result = self._values.get("ci")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def cleanup_unused_catalogs(self) -> typing.Optional[builtins.bool]:
@@ -15926,6 +16029,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def frozen_store(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Makes pnpm install work against a read-only package store (such as a Nix store or OCI image layer).
+
+        When enabled, pnpm opens the store's SQLite database in immutable mode and never writes to the store. Works best together with --offline and --frozen-lockfile; incompatible with --force. Added in pnpm v11.7.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#frozenStore
+        '''
+        result = self._values.get("frozen_store")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def git_branch_lockfile(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When set to true, the generated lockfile name after installation will be named based on the current branch name to completely avoid merge conflicts.
 
@@ -15986,6 +16101,18 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("global_pnpmfile")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def global_shims(self) -> typing.Any:
+        '''(experimental) Controls which globally installed packages get project-aware shims, which are global commands that run the version specified by the current project instead of the globally installed one.
+
+        A boolean disables (false) or resets to the defaults (true), while an object maps package names to a policy: "auto" (or true) to switch automatically when publisher-authenticated, "prompt" to confirm on each use, "always" to switch unconditionally, or false to disable. Object entries merge with the built-in defaults ({"node": "auto", "deno": "auto", "bun": "auto"}). Added in pnpm v12.0.0-rc.2.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#globalShims
+        '''
+        result = self._values.get("global_shims")
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def hoist(self) -> typing.Optional[builtins.bool]:
@@ -17131,6 +17258,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def use_running_store_server(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Deprecated.
+
+        Only allows installation with a store server. If no store server is running, installation will fail.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#useRunningStoreServer
+        '''
+        result = self._values.get("use_running_store_server")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def use_stderr(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When true, all the output is written to stderr.
 
@@ -17203,6 +17342,20 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def virtual_store_type(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"]:
+        '''(experimental) Determines where the virtual store is located.
+
+        When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#virtualStoreType
+        '''
+        result = self._values.get("virtual_store_type")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"], result)
+
+    @builtins.property
     def workspace_concurrency(self) -> typing.Optional[jsii.Number]:
         '''(experimental) Set the maximum number of tasks to run simultaneously.
 
@@ -17229,17 +17382,19 @@ class PnpmWorkspaceYamlSchema:
 @jsii.data_type(
     jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaAudit",
     jsii_struct_bases=[],
-    name_mapping={"ignore": "ignore", "level": "level"},
+    name_mapping={"ignore": "ignore", "ignore_prune": "ignorePrune", "level": "level"},
 )
 class PnpmWorkspaceYamlSchemaAudit:
     def __init__(
         self,
         *,
         ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ignore_prune: typing.Optional[builtins.bool] = None,
         level: typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"] = None,
     ) -> None:
         '''
         :param ignore: (experimental) A list of GHSA codes that will be ignored by pnpm audit.
+        :param ignore_prune: (experimental) When ``true``, ``pnpm audit --fix`` removes the ``audit.ignore`` entries whose GHSA no longer appears in the audit report, so a list of tolerated advisories doesn't accumulate entries for dependencies that are long gone. Added in: v11.25.0 and v12.0.0.
         :param level: (experimental) Only print advisories with severity greater than or equal to this level.
 
         :stability: experimental
@@ -17248,10 +17403,13 @@ class PnpmWorkspaceYamlSchemaAudit:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25751f667168cfb6ffa6b083001cf41788072a1013bedbc9f682974bd4a8dbe5)
             check_type(argname="argument ignore", value=ignore, expected_type=type_hints["ignore"])
+            check_type(argname="argument ignore_prune", value=ignore_prune, expected_type=type_hints["ignore_prune"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if ignore is not None:
             self._values["ignore"] = ignore
+        if ignore_prune is not None:
+            self._values["ignore_prune"] = ignore_prune
         if level is not None:
             self._values["level"] = level
 
@@ -17264,6 +17422,16 @@ class PnpmWorkspaceYamlSchemaAudit:
         '''
         result = self._values.get("ignore")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def ignore_prune(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When ``true``, ``pnpm audit --fix`` removes the ``audit.ignore`` entries whose GHSA no longer appears in the audit report, so a list of tolerated advisories doesn't accumulate entries for dependencies that are long gone. Added in: v11.25.0 and v12.0.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaAudit#ignorePrune
+        '''
+        result = self._values.get("ignore_prune")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def level(self) -> typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"]:
@@ -17480,8 +17648,8 @@ class PnpmWorkspaceYamlSchemaHoistingLimits(enum.Enum):
     :schema: PnpmWorkspaceYamlSchemaHoistingLimits
     '''
 
-    NODE = "NODE"
-    '''(experimental) node.
+    NONE = "NONE"
+    '''(experimental) none.
 
     :stability: experimental
     '''
@@ -18465,6 +18633,28 @@ class PnpmWorkspaceYamlSchemaVersioningMaxBump(enum.Enum):
     '''
     MAJOR = "MAJOR"
     '''(experimental) major.
+
+    :stability: experimental
+    '''
+
+
+@jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaVirtualStoreType")
+class PnpmWorkspaceYamlSchemaVirtualStoreType(enum.Enum):
+    '''(experimental) Determines where the virtual store is located.
+
+    When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+
+    :stability: experimental
+    :schema: PnpmWorkspaceYamlSchemaVirtualStoreType
+    '''
+
+    PROJECT = "PROJECT"
+    '''(experimental) project.
+
+    :stability: experimental
+    '''
+    GLOBAL = "GLOBAL"
+    '''(experimental) global.
 
     :stability: experimental
     '''
@@ -25913,6 +26103,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "catalogs": "catalogs",
         "cert": "cert",
         "child_concurrency": "childConcurrency",
+        "ci": "ci",
         "cleanup_unused_catalogs": "cleanupUnusedCatalogs",
         "color": "color",
         "config_dependencies": "configDependencies",
@@ -25940,12 +26131,14 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "fetch_timeout": "fetchTimeout",
         "fetch_warn_timeout_ms": "fetchWarnTimeoutMs",
         "force_legacy_deploy": "forceLegacyDeploy",
+        "frozen_store": "frozenStore",
         "git_branch_lockfile": "gitBranchLockfile",
         "git_checks": "gitChecks",
         "git_shallow_hosts": "gitShallowHosts",
         "global_bin_dir": "globalBinDir",
         "global_dir": "globalDir",
         "global_pnpmfile": "globalPnpmfile",
+        "global_shims": "globalShims",
         "hoist": "hoist",
         "hoisting_limits": "hoistingLimits",
         "hoist_pattern": "hoistPattern",
@@ -26053,6 +26246,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "update_notifier": "updateNotifier",
         "use_beta_cli": "useBetaCli",
         "use_node_version": "useNodeVersion",
+        "use_running_store_server": "useRunningStoreServer",
         "use_stderr": "useStderr",
         "verify_deps_before_run": "verifyDepsBeforeRun",
         "verify_store_integrity": "verifyStoreIntegrity",
@@ -26060,6 +26254,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "virtual_store_dir": "virtualStoreDir",
         "virtual_store_dir_max_length": "virtualStoreDirMaxLength",
         "virtual_store_only": "virtualStoreOnly",
+        "virtual_store_type": "virtualStoreType",
         "workspace_concurrency": "workspaceConcurrency",
     },
 )
@@ -26085,6 +26280,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
         cert: typing.Optional[builtins.str] = None,
         child_concurrency: typing.Optional[jsii.Number] = None,
+        ci: typing.Optional[builtins.bool] = None,
         cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
         color: typing.Optional["PnpmWorkspaceYamlSchemaColor"] = None,
         config_dependencies: typing.Any = None,
@@ -26112,12 +26308,14 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         fetch_timeout: typing.Optional[jsii.Number] = None,
         fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
         force_legacy_deploy: typing.Optional[builtins.bool] = None,
+        frozen_store: typing.Optional[builtins.bool] = None,
         git_branch_lockfile: typing.Optional[builtins.bool] = None,
         git_checks: typing.Optional[builtins.bool] = None,
         git_shallow_hosts: typing.Optional[typing.Sequence[builtins.str]] = None,
         global_bin_dir: typing.Optional[builtins.str] = None,
         global_dir: typing.Optional[builtins.str] = None,
         global_pnpmfile: typing.Optional[builtins.str] = None,
+        global_shims: typing.Any = None,
         hoist: typing.Optional[builtins.bool] = None,
         hoisting_limits: typing.Optional["PnpmWorkspaceYamlSchemaHoistingLimits"] = None,
         hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -26225,6 +26423,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         update_notifier: typing.Optional[builtins.bool] = None,
         use_beta_cli: typing.Optional[builtins.bool] = None,
         use_node_version: typing.Optional[builtins.str] = None,
+        use_running_store_server: typing.Optional[builtins.bool] = None,
         use_stderr: typing.Optional[builtins.bool] = None,
         verify_deps_before_run: typing.Any = None,
         verify_store_integrity: typing.Optional[builtins.bool] = None,
@@ -26232,6 +26431,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         virtual_store_dir: typing.Optional[builtins.str] = None,
         virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
         virtual_store_only: typing.Optional[builtins.bool] = None,
+        virtual_store_type: typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"] = None,
         workspace_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) Options for ``PnpmWorkspaceYaml``.
@@ -26254,6 +26454,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param catalogs: (experimental) Define arbitrarily named catalogs.
         :param cert: (experimental) A client certificate to pass when accessing the registry.
         :param child_concurrency: (experimental) The maximum number of child processes to allocate simultaneously to build node_modules.
+        :param ci: (experimental) Explicitly tells pnpm whether the current environment is a Continuous Integration system, overriding pnpm's automatic CI detection. Added in pnpm v10.12.1.
         :param cleanup_unused_catalogs: (experimental) When set to ``true``, pnpm will remove unused catalog entries during installation.
         :param color: (experimental) Controls colors in the output.
         :param config_dependencies: (experimental) Config dependencies allow you to share and centralize configuration files, settings, and hooks across multiple projects. They are installed before all regular dependencies ('dependencies', 'devDependencies', 'optionalDependencies'), making them ideal for setting up custom hooks, patches, and catalog entries.
@@ -26281,12 +26482,14 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param fetch_timeout: (experimental) The maximum amount of time to wait for HTTP requests to complete.
         :param fetch_warn_timeout_ms: (experimental) A warning message is displayed if a metadata request to the registry takes longer than the specified threshold (in milliseconds). Added in pnpm v10.18.0.
         :param force_legacy_deploy: (experimental) By default, pnpm deploy will try creating a dedicated lockfile from a shared lockfile for deployment. If this setting is set to true, the legacy deploy behavior will be used.
+        :param frozen_store: (experimental) Makes pnpm install work against a read-only package store (such as a Nix store or OCI image layer). When enabled, pnpm opens the store's SQLite database in immutable mode and never writes to the store. Works best together with --offline and --frozen-lockfile; incompatible with --force. Added in pnpm v11.7.0.
         :param git_branch_lockfile: (experimental) When set to true, the generated lockfile name after installation will be named based on the current branch name to completely avoid merge conflicts.
         :param git_checks: (experimental) Check if current branch is your publish branch, clean, and up-to-date with remote.
         :param git_shallow_hosts: (experimental) When fetching dependencies that are Git repositories, if the host is listed in this setting, pnpm will use shallow cloning to fetch only the needed commit, not all the history.
         :param global_bin_dir: (experimental) Allows to set the target directory for the bin files of globally installed packages.
         :param global_dir: (experimental) Specify a custom directory to store global packages.
         :param global_pnpmfile: (experimental) The location of a global pnpmfile. A global pnpmfile is used by all projects during installation.
+        :param global_shims: (experimental) Controls which globally installed packages get project-aware shims, which are global commands that run the version specified by the current project instead of the globally installed one. A boolean disables (false) or resets to the defaults (true), while an object maps package names to a policy: "auto" (or true) to switch automatically when publisher-authenticated, "prompt" to confirm on each use, "always" to switch unconditionally, or false to disable. Object entries merge with the built-in defaults ({"node": "auto", "deno": "auto", "bun": "auto"}). Added in pnpm v12.0.0-rc.2.
         :param hoist: (experimental) When true, all dependencies are hoisted to node_modules/.pnpm/node_modules.
         :param hoisting_limits: (experimental) Added a new hoistingLimits setting for ``nodeLinker: hoisted`` installs, mirroring yarn's ``nmHoistingLimits``. It accepts ``none`` (the default — hoist as far as possible), workspaces (hoist only as far as each workspace package), or dependencies (hoist only up to each workspace package's direct dependencies).
         :param hoist_pattern: (experimental) Tells pnpm which packages should be hoisted to node_modules/.pnpm/node_modules.
@@ -26394,6 +26597,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param update_notifier: (experimental) When true, pnpm will check for updates to the installed packages and notify the user.
         :param use_beta_cli: (experimental) Experimental option that enables beta features of the CLI.
         :param use_node_version: (experimental) Specifies which exact Node.js version should be used for the project's runtime.
+        :param use_running_store_server: (experimental) Deprecated. Only allows installation with a store server. If no store server is running, installation will fail.
         :param use_stderr: (experimental) When true, all the output is written to stderr.
         :param verify_deps_before_run: (experimental) This setting allows the checking of the state of dependencies before running scripts.
         :param verify_store_integrity: (experimental) By default, if a file in the store has been modified, the content of this file is checked before linking it to a project's node_modules.
@@ -26401,6 +26605,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param virtual_store_dir: (experimental) The directory with links to the store.
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
+        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :see: https://pnpm.io/pnpm-workspace_yaml
@@ -26442,6 +26647,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument catalogs", value=catalogs, expected_type=type_hints["catalogs"])
             check_type(argname="argument cert", value=cert, expected_type=type_hints["cert"])
             check_type(argname="argument child_concurrency", value=child_concurrency, expected_type=type_hints["child_concurrency"])
+            check_type(argname="argument ci", value=ci, expected_type=type_hints["ci"])
             check_type(argname="argument cleanup_unused_catalogs", value=cleanup_unused_catalogs, expected_type=type_hints["cleanup_unused_catalogs"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument config_dependencies", value=config_dependencies, expected_type=type_hints["config_dependencies"])
@@ -26469,12 +26675,14 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument fetch_timeout", value=fetch_timeout, expected_type=type_hints["fetch_timeout"])
             check_type(argname="argument fetch_warn_timeout_ms", value=fetch_warn_timeout_ms, expected_type=type_hints["fetch_warn_timeout_ms"])
             check_type(argname="argument force_legacy_deploy", value=force_legacy_deploy, expected_type=type_hints["force_legacy_deploy"])
+            check_type(argname="argument frozen_store", value=frozen_store, expected_type=type_hints["frozen_store"])
             check_type(argname="argument git_branch_lockfile", value=git_branch_lockfile, expected_type=type_hints["git_branch_lockfile"])
             check_type(argname="argument git_checks", value=git_checks, expected_type=type_hints["git_checks"])
             check_type(argname="argument git_shallow_hosts", value=git_shallow_hosts, expected_type=type_hints["git_shallow_hosts"])
             check_type(argname="argument global_bin_dir", value=global_bin_dir, expected_type=type_hints["global_bin_dir"])
             check_type(argname="argument global_dir", value=global_dir, expected_type=type_hints["global_dir"])
             check_type(argname="argument global_pnpmfile", value=global_pnpmfile, expected_type=type_hints["global_pnpmfile"])
+            check_type(argname="argument global_shims", value=global_shims, expected_type=type_hints["global_shims"])
             check_type(argname="argument hoist", value=hoist, expected_type=type_hints["hoist"])
             check_type(argname="argument hoisting_limits", value=hoisting_limits, expected_type=type_hints["hoisting_limits"])
             check_type(argname="argument hoist_pattern", value=hoist_pattern, expected_type=type_hints["hoist_pattern"])
@@ -26582,6 +26790,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument update_notifier", value=update_notifier, expected_type=type_hints["update_notifier"])
             check_type(argname="argument use_beta_cli", value=use_beta_cli, expected_type=type_hints["use_beta_cli"])
             check_type(argname="argument use_node_version", value=use_node_version, expected_type=type_hints["use_node_version"])
+            check_type(argname="argument use_running_store_server", value=use_running_store_server, expected_type=type_hints["use_running_store_server"])
             check_type(argname="argument use_stderr", value=use_stderr, expected_type=type_hints["use_stderr"])
             check_type(argname="argument verify_deps_before_run", value=verify_deps_before_run, expected_type=type_hints["verify_deps_before_run"])
             check_type(argname="argument verify_store_integrity", value=verify_store_integrity, expected_type=type_hints["verify_store_integrity"])
@@ -26589,6 +26798,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument virtual_store_dir", value=virtual_store_dir, expected_type=type_hints["virtual_store_dir"])
             check_type(argname="argument virtual_store_dir_max_length", value=virtual_store_dir_max_length, expected_type=type_hints["virtual_store_dir_max_length"])
             check_type(argname="argument virtual_store_only", value=virtual_store_only, expected_type=type_hints["virtual_store_only"])
+            check_type(argname="argument virtual_store_type", value=virtual_store_type, expected_type=type_hints["virtual_store_type"])
             check_type(argname="argument workspace_concurrency", value=workspace_concurrency, expected_type=type_hints["workspace_concurrency"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if allow_builds is not None:
@@ -26627,6 +26837,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["cert"] = cert
         if child_concurrency is not None:
             self._values["child_concurrency"] = child_concurrency
+        if ci is not None:
+            self._values["ci"] = ci
         if cleanup_unused_catalogs is not None:
             self._values["cleanup_unused_catalogs"] = cleanup_unused_catalogs
         if color is not None:
@@ -26681,6 +26893,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["fetch_warn_timeout_ms"] = fetch_warn_timeout_ms
         if force_legacy_deploy is not None:
             self._values["force_legacy_deploy"] = force_legacy_deploy
+        if frozen_store is not None:
+            self._values["frozen_store"] = frozen_store
         if git_branch_lockfile is not None:
             self._values["git_branch_lockfile"] = git_branch_lockfile
         if git_checks is not None:
@@ -26693,6 +26907,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["global_dir"] = global_dir
         if global_pnpmfile is not None:
             self._values["global_pnpmfile"] = global_pnpmfile
+        if global_shims is not None:
+            self._values["global_shims"] = global_shims
         if hoist is not None:
             self._values["hoist"] = hoist
         if hoisting_limits is not None:
@@ -26907,6 +27123,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["use_beta_cli"] = use_beta_cli
         if use_node_version is not None:
             self._values["use_node_version"] = use_node_version
+        if use_running_store_server is not None:
+            self._values["use_running_store_server"] = use_running_store_server
         if use_stderr is not None:
             self._values["use_stderr"] = use_stderr
         if verify_deps_before_run is not None:
@@ -26921,6 +27139,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["virtual_store_dir_max_length"] = virtual_store_dir_max_length
         if virtual_store_only is not None:
             self._values["virtual_store_only"] = virtual_store_only
+        if virtual_store_type is not None:
+            self._values["virtual_store_type"] = virtual_store_type
         if workspace_concurrency is not None:
             self._values["workspace_concurrency"] = workspace_concurrency
 
@@ -27115,6 +27335,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("child_concurrency")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def ci(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Explicitly tells pnpm whether the current environment is a Continuous Integration system, overriding pnpm's automatic CI detection.
+
+        Added in pnpm v10.12.1.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#ci
+        '''
+        result = self._values.get("ci")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def cleanup_unused_catalogs(self) -> typing.Optional[builtins.bool]:
@@ -27396,6 +27628,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def frozen_store(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Makes pnpm install work against a read-only package store (such as a Nix store or OCI image layer).
+
+        When enabled, pnpm opens the store's SQLite database in immutable mode and never writes to the store. Works best together with --offline and --frozen-lockfile; incompatible with --force. Added in pnpm v11.7.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#frozenStore
+        '''
+        result = self._values.get("frozen_store")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def git_branch_lockfile(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When set to true, the generated lockfile name after installation will be named based on the current branch name to completely avoid merge conflicts.
 
@@ -27456,6 +27700,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("global_pnpmfile")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def global_shims(self) -> typing.Any:
+        '''(experimental) Controls which globally installed packages get project-aware shims, which are global commands that run the version specified by the current project instead of the globally installed one.
+
+        A boolean disables (false) or resets to the defaults (true), while an object maps package names to a policy: "auto" (or true) to switch automatically when publisher-authenticated, "prompt" to confirm on each use, "always" to switch unconditionally, or false to disable. Object entries merge with the built-in defaults ({"node": "auto", "deno": "auto", "bun": "auto"}). Added in pnpm v12.0.0-rc.2.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#globalShims
+        '''
+        result = self._values.get("global_shims")
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def hoist(self) -> typing.Optional[builtins.bool]:
@@ -28601,6 +28857,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def use_running_store_server(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Deprecated.
+
+        Only allows installation with a store server. If no store server is running, installation will fail.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#useRunningStoreServer
+        '''
+        result = self._values.get("use_running_store_server")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def use_stderr(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When true, all the output is written to stderr.
 
@@ -28671,6 +28939,20 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("virtual_store_only")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def virtual_store_type(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"]:
+        '''(experimental) Determines where the virtual store is located.
+
+        When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#virtualStoreType
+        '''
+        result = self._values.get("virtual_store_type")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"], result)
 
     @builtins.property
     def workspace_concurrency(self) -> typing.Optional[jsii.Number]:
@@ -28781,6 +29063,7 @@ __all__ = [
     "PnpmWorkspaceYamlSchemaVersioningChangelogStorage",
     "PnpmWorkspaceYamlSchemaVersioningEpics",
     "PnpmWorkspaceYamlSchemaVersioningMaxBump",
+    "PnpmWorkspaceYamlSchemaVirtualStoreType",
     "Prettier",
     "PrettierOptions",
     "PrettierOverride",
@@ -29671,6 +29954,7 @@ def _typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dedupe_deps: typing.Optional[builtins.bool] = None,
     delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -29819,6 +30103,7 @@ def _typecheckingstub__32555a77b63910142de45100c4a6d74880ddece00a3cbae9c27803467
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dedupe_deps: typing.Optional[builtins.bool] = None,
     delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -29967,6 +30252,7 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dedupe_deps: typing.Optional[builtins.bool] = None,
     delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -30130,6 +30416,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
     cert: typing.Optional[builtins.str] = None,
     child_concurrency: typing.Optional[jsii.Number] = None,
+    ci: typing.Optional[builtins.bool] = None,
     cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
     color: typing.Optional[PnpmWorkspaceYamlSchemaColor] = None,
     config_dependencies: typing.Any = None,
@@ -30157,12 +30444,14 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     fetch_timeout: typing.Optional[jsii.Number] = None,
     fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
     force_legacy_deploy: typing.Optional[builtins.bool] = None,
+    frozen_store: typing.Optional[builtins.bool] = None,
     git_branch_lockfile: typing.Optional[builtins.bool] = None,
     git_checks: typing.Optional[builtins.bool] = None,
     git_shallow_hosts: typing.Optional[typing.Sequence[builtins.str]] = None,
     global_bin_dir: typing.Optional[builtins.str] = None,
     global_dir: typing.Optional[builtins.str] = None,
     global_pnpmfile: typing.Optional[builtins.str] = None,
+    global_shims: typing.Any = None,
     hoist: typing.Optional[builtins.bool] = None,
     hoisting_limits: typing.Optional[PnpmWorkspaceYamlSchemaHoistingLimits] = None,
     hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -30270,6 +30559,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     update_notifier: typing.Optional[builtins.bool] = None,
     use_beta_cli: typing.Optional[builtins.bool] = None,
     use_node_version: typing.Optional[builtins.str] = None,
+    use_running_store_server: typing.Optional[builtins.bool] = None,
     use_stderr: typing.Optional[builtins.bool] = None,
     verify_deps_before_run: typing.Any = None,
     verify_store_integrity: typing.Optional[builtins.bool] = None,
@@ -30277,6 +30567,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     virtual_store_dir: typing.Optional[builtins.str] = None,
     virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
     virtual_store_only: typing.Optional[builtins.bool] = None,
+    virtual_store_type: typing.Optional[PnpmWorkspaceYamlSchemaVirtualStoreType] = None,
     workspace_concurrency: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30308,6 +30599,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
     cert: typing.Optional[builtins.str] = None,
     child_concurrency: typing.Optional[jsii.Number] = None,
+    ci: typing.Optional[builtins.bool] = None,
     cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
     color: typing.Optional[PnpmWorkspaceYamlSchemaColor] = None,
     config_dependencies: typing.Any = None,
@@ -30335,12 +30627,14 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     fetch_timeout: typing.Optional[jsii.Number] = None,
     fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
     force_legacy_deploy: typing.Optional[builtins.bool] = None,
+    frozen_store: typing.Optional[builtins.bool] = None,
     git_branch_lockfile: typing.Optional[builtins.bool] = None,
     git_checks: typing.Optional[builtins.bool] = None,
     git_shallow_hosts: typing.Optional[typing.Sequence[builtins.str]] = None,
     global_bin_dir: typing.Optional[builtins.str] = None,
     global_dir: typing.Optional[builtins.str] = None,
     global_pnpmfile: typing.Optional[builtins.str] = None,
+    global_shims: typing.Any = None,
     hoist: typing.Optional[builtins.bool] = None,
     hoisting_limits: typing.Optional[PnpmWorkspaceYamlSchemaHoistingLimits] = None,
     hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -30448,6 +30742,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     update_notifier: typing.Optional[builtins.bool] = None,
     use_beta_cli: typing.Optional[builtins.bool] = None,
     use_node_version: typing.Optional[builtins.str] = None,
+    use_running_store_server: typing.Optional[builtins.bool] = None,
     use_stderr: typing.Optional[builtins.bool] = None,
     verify_deps_before_run: typing.Any = None,
     verify_store_integrity: typing.Optional[builtins.bool] = None,
@@ -30455,6 +30750,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     virtual_store_dir: typing.Optional[builtins.str] = None,
     virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
     virtual_store_only: typing.Optional[builtins.bool] = None,
+    virtual_store_type: typing.Optional[PnpmWorkspaceYamlSchemaVirtualStoreType] = None,
     workspace_concurrency: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30463,6 +30759,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
 def _typecheckingstub__25751f667168cfb6ffa6b083001cf41788072a1013bedbc9f682974bd4a8dbe5(
     *,
     ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ignore_prune: typing.Optional[builtins.bool] = None,
     level: typing.Optional[PnpmWorkspaceYamlSchemaAuditLevel] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31268,6 +31565,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
     cert: typing.Optional[builtins.str] = None,
     child_concurrency: typing.Optional[jsii.Number] = None,
+    ci: typing.Optional[builtins.bool] = None,
     cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
     color: typing.Optional[PnpmWorkspaceYamlSchemaColor] = None,
     config_dependencies: typing.Any = None,
@@ -31295,12 +31593,14 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     fetch_timeout: typing.Optional[jsii.Number] = None,
     fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
     force_legacy_deploy: typing.Optional[builtins.bool] = None,
+    frozen_store: typing.Optional[builtins.bool] = None,
     git_branch_lockfile: typing.Optional[builtins.bool] = None,
     git_checks: typing.Optional[builtins.bool] = None,
     git_shallow_hosts: typing.Optional[typing.Sequence[builtins.str]] = None,
     global_bin_dir: typing.Optional[builtins.str] = None,
     global_dir: typing.Optional[builtins.str] = None,
     global_pnpmfile: typing.Optional[builtins.str] = None,
+    global_shims: typing.Any = None,
     hoist: typing.Optional[builtins.bool] = None,
     hoisting_limits: typing.Optional[PnpmWorkspaceYamlSchemaHoistingLimits] = None,
     hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -31408,6 +31708,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     update_notifier: typing.Optional[builtins.bool] = None,
     use_beta_cli: typing.Optional[builtins.bool] = None,
     use_node_version: typing.Optional[builtins.str] = None,
+    use_running_store_server: typing.Optional[builtins.bool] = None,
     use_stderr: typing.Optional[builtins.bool] = None,
     verify_deps_before_run: typing.Any = None,
     verify_store_integrity: typing.Optional[builtins.bool] = None,
@@ -31415,6 +31716,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     virtual_store_dir: typing.Optional[builtins.str] = None,
     virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
     virtual_store_only: typing.Optional[builtins.bool] = None,
+    virtual_store_type: typing.Optional[PnpmWorkspaceYamlSchemaVirtualStoreType] = None,
     workspace_concurrency: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

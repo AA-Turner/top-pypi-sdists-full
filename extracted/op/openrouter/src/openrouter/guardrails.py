@@ -397,7 +397,7 @@ class Guardrails(BaseSDK):
     ) -> components.CreateGuardrailResponse:
         r"""Create a guardrail
 
-        Create a new guardrail for the authenticated user. A newly created guardrail enforces nothing until it is assigned to API keys or organization members; `workspace_id` places the guardrail in a workspace but does not apply it to that workspace's traffic. To restrict all traffic in a workspace, update the workspace's default guardrail instead. [Management key](/docs/guides/overview/auth/management-api-keys) required.
+        Create a new guardrail for the authenticated user. A newly created guardrail enforces nothing until it is assigned to API keys or organization members; `workspace_id` places the guardrail in a workspace but does not apply it to that workspace's traffic. To restrict all traffic in a workspace, update the workspace's default guardrail instead. Set `allowed_data_regions` to enforce [In-Region Routing](/docs/guides/features/in-region-routing#enforcing-in-region-routing-with-guardrails): governed requests must arrive through one of the listed OpenRouter domains and are rejected with a 403 otherwise. [Management key](/docs/guides/overview/auth/management-api-keys) required.
 
         :param name: Name for the new guardrail
         :param http_referer: The app identifier should be your app's URL and is used as the primary identifier for rankings.
@@ -631,7 +631,7 @@ class Guardrails(BaseSDK):
     ) -> components.CreateGuardrailResponse:
         r"""Create a guardrail
 
-        Create a new guardrail for the authenticated user. A newly created guardrail enforces nothing until it is assigned to API keys or organization members; `workspace_id` places the guardrail in a workspace but does not apply it to that workspace's traffic. To restrict all traffic in a workspace, update the workspace's default guardrail instead. [Management key](/docs/guides/overview/auth/management-api-keys) required.
+        Create a new guardrail for the authenticated user. A newly created guardrail enforces nothing until it is assigned to API keys or organization members; `workspace_id` places the guardrail in a workspace but does not apply it to that workspace's traffic. To restrict all traffic in a workspace, update the workspace's default guardrail instead. Set `allowed_data_regions` to enforce [In-Region Routing](/docs/guides/features/in-region-routing#enforcing-in-region-routing-with-guardrails): governed requests must arrive through one of the listed OpenRouter domains and are rejected with a 403 otherwise. [Management key](/docs/guides/overview/auth/management-api-keys) required.
 
         :param name: Name for the new guardrail
         :param http_referer: The app identifier should be your app's URL and is used as the primary identifier for rankings.
@@ -1546,6 +1546,11 @@ class Guardrails(BaseSDK):
                 errors.NotFoundResponseErrorData, http_res
             )
             raise errors.NotFoundResponseError(response_data, http_res)
+        if utils.match_response(http_res, "409", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.ConflictResponseErrorData, http_res
+            )
+            raise errors.ConflictResponseError(response_data, http_res)
         if utils.match_response(http_res, "500", "application/json"):
             response_data = unmarshal_json_response(
                 errors.InternalServerResponseErrorData, http_res
@@ -1780,6 +1785,11 @@ class Guardrails(BaseSDK):
                 errors.NotFoundResponseErrorData, http_res
             )
             raise errors.NotFoundResponseError(response_data, http_res)
+        if utils.match_response(http_res, "409", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.ConflictResponseErrorData, http_res
+            )
+            raise errors.ConflictResponseError(response_data, http_res)
         if utils.match_response(http_res, "500", "application/json"):
             response_data = unmarshal_json_response(
                 errors.InternalServerResponseErrorData, http_res

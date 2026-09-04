@@ -65,7 +65,7 @@ std::unique_ptr<Architecture> CreateArchDefault(const std::string &config)
 }
 // Create a Graph from a list of operations
 // Populates inputs/outputs based on tensorUsage
-std::unique_ptr<Graph> CreateGraph(std::vector<std::shared_ptr<Operation>> &ops);
+std::unique_ptr<Graph> CreateGraph(std::vector<std::shared_ptr<Operation>> &ops, GraphNotation notation = GraphNotation::GraphAPI);
 
 // Helpers for Graph IR
 // -----------------------------

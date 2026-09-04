@@ -5690,12 +5690,39 @@ def build_app(
         # detect a too-old daemon before negotiating. schema_version stays
         # for back-compat (pre-#1943 callers read it as "the" version) and
         # is always equal to schema_max.
+        #
+        # #3084: store_backend answers "which storage engine is this daemon
+        # actually pointed at?" -- a config read (`coord.db.resolve_store_
+        # backend`, which resolves the SAME `store:` block `get_connection()`
+        # does), never a DB connection attempt, so this stays a pure liveness
+        # probe: no DB access, never auth-gated. Additive per docs/
+        # STORE_SERVICE.md §4's expand/migrate/contract rule -- an older
+        # daemon simply omits the field, which existing schema consumers
+        # already tolerate since they only read the keys they know about.
+        #
+        # `resolve_store_backend()` deliberately raises ConfigError for an
+        # explicit-but-invalid `store:` block (see `_resolve_store_target`'s
+        # docstring in coord/db.py) -- correct for callers that are about to
+        # *use* the backend, but /healthz is a liveness probe, not one of
+        # those callers: the daemon's real, already-open connection is
+        # unaffected by a bad on-disk edit (see db.py's "Connection-sharing
+        # model"), so a config typo must never turn this endpoint's 200 into
+        # a 500. Catch broadly, not just ConfigError -- any resolution
+        # failure here degrades to "unknown" rather than taking the probe
+        # down, matching this file's other "must never be fatal" handlers.
+        from coord.db import resolve_store_backend  # noqa: PLC0415
+
+        try:
+            backend, _redacted_target = resolve_store_backend()
+        except Exception:  # noqa: BLE001 — /healthz must stay a pure liveness probe
+            backend = "unknown"
         return JSONResponse(
             {
                 "status": "ok",
                 "schema_version": SCHEMA_VERSION,
                 "schema_min": MIN_SCHEMA_VERSION,
                 "schema_max": SCHEMA_VERSION,
+                "store_backend": backend,
             }
         )
 

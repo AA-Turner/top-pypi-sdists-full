@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """MongoDB documentation examples in Python."""
+
 from __future__ import annotations
 
 import asyncio
@@ -21,12 +22,10 @@ import functools
 import sys
 import threading
 import time
+
 from test.helpers import ConcurrentRunner
 
 sys.path[0:0] = [""]
-
-from test import IntegrationTest, client_context, unittest
-from test.utils_shared import wait_until
 
 import pymongo
 from pymongo.errors import ConnectionFailure, OperationFailure
@@ -35,6 +34,8 @@ from pymongo.read_preferences import ReadPreference
 from pymongo.server_api import ServerApi
 from pymongo.synchronous.helpers import next
 from pymongo.write_concern import WriteConcern
+from test import IntegrationTest, client_context, unittest
+from test.utils_shared import wait_until
 
 _IS_SYNC = True
 
@@ -861,7 +862,6 @@ class TestSampleShellCommands(IntegrationTest):
         )
         # End Aggregation Example 4
 
-    @client_context.require_version_min(4, 4)
     def test_aggregate_projection_example(self):
         db = self.db
 

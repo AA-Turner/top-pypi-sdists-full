@@ -139,7 +139,7 @@ void FastStorageAllocator::AllocateFeatureMaps(const std::vector<std::unique_ptr
             SchedulerConnection *ofm = schedOp->OFM();
             if ( !ofm->tensor->consumers.empty() && !ofm->tensor->hasCPUReaders && !ofm->tensor->isGraphOutput &&
                  !ofm->tensor->isPersistent && _scratchedFms.count(ofm->tensor.get()) == 0 &&
-                 opGroup->NeedsAllocation(ofm->tensor->uid) )
+                 opGroup->NeedsAllocation(ofm->tensor->uid) && !(cost->stagingPreference % StagingPref::RequireOFM) )
             {
                 LOG_TRACE1("Candidate fast storage tensor: {}\n", ofm->tensor->Name());
                 _scratchedFms[ofm->tensor.get()] = ofm->tensor->memArea;

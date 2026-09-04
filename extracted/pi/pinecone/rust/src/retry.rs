@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use rand::Rng;
@@ -9,6 +9,71 @@ use tonic::Status;
 /// Callback type invoked on every retryable error. Receives the host string.
 pub type ThrottleCallback = Arc<dyn Fn(String) + Send + Sync>;
 
+/// Token bucket bounding how much *extra* load retries may add, per gRFC A6.
+///
+/// The adaptive limiter on the Python side bounds how many batches are in
+/// flight; nothing bounded how many attempts each one costs. During a partial
+/// outage — say 20% of calls failing — a flat 6x multiplier means a client sends
+/// 2x its baseline volume at exactly the moment the backend has lost capacity.
+///
+/// Every failure spends a token; every success returns `token_ratio` of one.
+/// While the bucket is below half, retries are suppressed and calls fail fast on
+/// their first attempt, so a total outage self-limits to one request per call
+/// instead of `max_retries + 1`.
+pub struct RetryBudget {
+    tokens: Mutex<f64>,
+    max_tokens: f64,
+    token_ratio: f64,
+}
+
+impl RetryBudget {
+    pub fn new(max_tokens: f64, token_ratio: f64) -> Self {
+        Self {
+            tokens: Mutex::new(max_tokens),
+            max_tokens,
+            token_ratio,
+        }
+    }
+
+    /// Spend a token for a failed attempt. Returns whether a retry is affordable.
+    fn withdraw(&self) -> bool {
+        let mut tokens = self.tokens.lock().unwrap_or_else(|e| e.into_inner());
+        *tokens = (*tokens - 1.0).max(0.0);
+        *tokens > self.max_tokens / 2.0
+    }
+
+    /// Return a fraction of a token for a successful call.
+    fn deposit(&self) {
+        let mut tokens = self.tokens.lock().unwrap_or_else(|e| e.into_inner());
+        *tokens = (*tokens + self.token_ratio).min(self.max_tokens);
+    }
+}
+
+impl Default for RetryBudget {
+    fn default() -> Self {
+        Self::new(DEFAULT_BUDGET_TOKENS, DEFAULT_BUDGET_RATIO)
+    }
+}
+
+/// Bucket size. Large enough that a short burst of failures on an otherwise
+/// healthy channel never suppresses retries, small enough to react within a few
+/// hundred calls.
+const DEFAULT_BUDGET_TOKENS: f64 = 100.0;
+
+/// Sustained retry overhead permitted once the bucket has drained: 10% of
+/// successful traffic, which is the gRFC A6 default.
+const DEFAULT_BUDGET_RATIO: f64 = 0.1;
+
+/// Multiple of `initial_backoff` seeding the decorrelated-jitter window.
+///
+/// Seeding it at `initial_backoff` makes the first retry `uniform(base, 3*base)`
+/// — with a 100ms base that is a 200ms window, identical for every client in a
+/// fleet. A backend restart returns UNAVAILABLE to everyone at once and carries
+/// no trailers, so that narrow window is exactly where a thundering herd forms.
+/// Nothing useful recovers in 100ms anyway, so the wider first draw costs a
+/// caller little and buys the fleet real dispersion.
+const FIRST_RETRY_SPREAD: u32 = 10;
+
 /// Configuration for retry behavior on gRPC calls.
 #[derive(Clone)]
 pub struct RetryConfig {
@@ -16,7 +81,9 @@ pub struct RetryConfig {
     pub max_retries: u32,
     /// Initial backoff duration before the first retry.
     pub initial_backoff: Duration,
-    /// Maximum backoff duration cap.
+    /// Maximum backoff duration cap. Bounds both the jitter path and a
+    /// server-supplied pushback hint, so it must be large enough to honor a
+    /// realistic `grpc-retry-pushback-ms` value.
     pub max_backoff: Duration,
     /// Backoff multiplier (retained for API compatibility; no longer used in delay
     /// computation since decorrelated jitter was adopted in DX-0153).
@@ -29,10 +96,12 @@ pub struct RetryConfig {
     /// Optional callback invoked with the host string on every retryable error.
     /// Receives the host string (e.g. "my-index-abc123.svc.pinecone.io") on each
     /// retryable failure so the caller can update per-host rate-limit state.
-    /// In transport.rs this wraps a Python ``Py<PyAny>`` callable under `Python::with_gil`.
+    /// In transport.rs this wraps a Python ``Py<PyAny>`` callable under `Python::attach`.
     pub on_throttle: Option<ThrottleCallback>,
     /// Host string passed to `on_throttle` callback (parsed from endpoint at construction).
     pub host: String,
+    /// Shared per-channel retry budget. `None` disables budgeting entirely.
+    pub budget: Option<Arc<RetryBudget>>,
 }
 
 impl Default for RetryConfig {
@@ -40,7 +109,11 @@ impl Default for RetryConfig {
         Self {
             max_retries: 5,
             initial_backoff: Duration::from_millis(100),
-            max_backoff: Duration::from_millis(1600),
+            // Matches REST's `RetryConfig.max_wait`. A 1600ms cap silently swallowed
+            // server pushback: a `grpc-retry-pushback-ms: 30000` hint was clamped to
+            // 1.6s, so we parsed an explicit instruction from the server and then
+            // hammered it anyway.
+            max_backoff: Duration::from_secs(60),
             multiplier: 2,
             retryable_codes: [
                 tonic::Code::Unavailable as i32,
@@ -51,26 +124,44 @@ impl Default for RetryConfig {
             .collect(),
             on_throttle: None,
             host: String::new(),
+            budget: Some(Arc::new(RetryBudget::default())),
         }
     }
+}
+
+/// What a server-supplied pushback hint tells the client to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Pushback {
+    /// Wait at least this long before retrying.
+    Wait(Duration),
+    /// The server is shedding load and does not want this call retried at all.
+    Stop,
 }
 
 /// Parse a server-supplied retry pushback hint from a tonic Status's trailers.
 ///
 /// Looks for `grpc-retry-pushback-ms` first (gRPC-native, milliseconds), then
 /// `retry-after` (HTTP-style, seconds) as a fallback. Returns `None` if neither
-/// is present or the value cannot be parsed as a non-negative number.
+/// is present or the value cannot be parsed as a number.
+///
+/// A negative value is `Pushback::Stop`: per gRFC A6 that is the server saying
+/// do not retry. Treating it as "no hint" would mean retrying against an
+/// explicit instruction from a backend that is trying to shed load.
 ///
 /// HTTP-date values in `retry-after` are not parsed and return `None`.
-pub fn parse_pushback(status: &Status) -> Option<Duration> {
+pub fn parse_pushback(status: &Status) -> Option<Pushback> {
     let metadata = status.metadata();
 
     // gRPC-native: milliseconds
     if let Some(v) = metadata.get("grpc-retry-pushback-ms") {
         if let Ok(s) = v.to_str() {
             if let Ok(ms) = s.trim().parse::<f64>() {
-                if ms >= 0.0 && ms.is_finite() {
-                    return Some(Duration::from_millis(ms as u64));
+                if ms.is_finite() {
+                    return Some(if ms < 0.0 {
+                        Pushback::Stop
+                    } else {
+                        Pushback::Wait(Duration::from_millis(ms as u64))
+                    });
                 }
             }
         }
@@ -80,8 +171,12 @@ pub fn parse_pushback(status: &Status) -> Option<Duration> {
     if let Some(v) = metadata.get("retry-after") {
         if let Ok(s) = v.to_str() {
             if let Ok(secs) = s.trim().parse::<f64>() {
-                if secs >= 0.0 && secs.is_finite() {
-                    return Some(Duration::from_secs_f64(secs));
+                if secs.is_finite() {
+                    return Some(if secs < 0.0 {
+                        Pushback::Stop
+                    } else {
+                        Pushback::Wait(Duration::from_secs_f64(secs))
+                    });
                 }
             }
         }
@@ -93,23 +188,45 @@ pub fn parse_pushback(status: &Status) -> Option<Duration> {
 /// Add a uniform smear on top of the server-supplied pushback so concurrent
 /// clients don't all wake at the same instant.
 ///
-/// Returns `min(max_backoff, pushback + uniform(0, pushback * 0.5))`.
-fn smear_pushback(pushback: Duration, max_backoff: Duration) -> Duration {
-    let pb_ms = pushback.as_millis() as u64;
-    let smear_max = pb_ms / 2;
+/// Returns `base + uniform(0, max(base / 2, floor))` where `base` is the
+/// pushback clamped to `max_backoff`.
+///
+/// The clamp happens *before* the smear, matching the REST transport. Smearing
+/// first and truncating afterwards collapses part of the distribution onto
+/// exactly `max_backoff` — with a 60s cap, a 50s pushback puts 60% of a fleet on
+/// the same millisecond and a pushback at or above the cap puts all of it there,
+/// on the one code path whose whole purpose is dispersal.
+///
+/// `floor` keeps a zero pushback ("retry immediately", per gRFC A6) from
+/// producing a zero-width, perfectly synchronized wave.
+fn smear_pushback(pushback: Duration, max_backoff: Duration, floor: Duration) -> Duration {
+    let base_ms = std::cmp::min(pushback, max_backoff).as_millis() as u64;
+    let smear_max = std::cmp::max(base_ms / 2, floor.as_millis() as u64);
     let smear_ms = if smear_max == 0 {
         0
     } else {
         rand::rng().random_range(0..=smear_max)
     };
-    let total = Duration::from_millis(pb_ms.saturating_add(smear_ms));
-    std::cmp::min(total, max_backoff)
+    Duration::from_millis(base_ms.saturating_add(smear_ms))
 }
 
 /// Decorrelated jitter (AWS-recommended pattern): uniform(base, prev*3)
 /// capped at max_backoff. Less self-correlation across retries than plain
 /// full jitter, which spreads fleet retries better.
 fn decorrelated_jitter(base: Duration, prev_delay: Duration, max_backoff: Duration) -> Duration {
+    let (base_ms, upper) = jitter_window(base, prev_delay, max_backoff);
+    if upper == base_ms {
+        return Duration::from_millis(base_ms);
+    }
+    let ms = rand::rng().random_range(base_ms..=upper);
+    Duration::from_millis(ms)
+}
+
+/// The inclusive `[lower, upper]` millisecond window retry `n` draws from:
+/// `base` up to three times the delay retry `n - 1` actually slept, capped at
+/// `max_backoff`. Split out from [`decorrelated_jitter`] so the escalation rule
+/// is assertable without timing a retry loop against the wall clock.
+fn jitter_window(base: Duration, prev_delay: Duration, max_backoff: Duration) -> (u64, u64) {
     let base_ms = base.as_millis() as u64;
     let upper_unbounded = prev_delay
         .as_millis()
@@ -117,11 +234,7 @@ fn decorrelated_jitter(base: Duration, prev_delay: Duration, max_backoff: Durati
         .min(u64::MAX as u128) as u64;
     let upper_capped = std::cmp::min(upper_unbounded, max_backoff.as_millis() as u64);
     let upper = std::cmp::max(base_ms, upper_capped); // guard against base > cap misconfig
-    if upper == base_ms {
-        return Duration::from_millis(base_ms);
-    }
-    let ms = rand::rng().random_range(base_ms..=upper);
-    Duration::from_millis(ms)
+    (base_ms, upper)
 }
 
 /// Execute an async gRPC operation with retry on transient error codes.
@@ -131,6 +244,9 @@ fn decorrelated_jitter(base: Duration, prev_delay: Duration, max_backoff: Durati
 ///
 /// Retries on any code listed in `config.retryable_codes` (default: UNAVAILABLE,
 /// RESOURCE_EXHAUSTED, ABORTED). All other error codes are returned immediately without retry.
+// result_large_err: `Status` is the error the generated clients hand us and that
+// `status_to_py_err` consumes; boxing here would only add wrap/unwrap at every call site.
+#[allow(clippy::result_large_err)]
 pub async fn retry_on_transient<F, Fut, T>(
     config: &RetryConfig,
     mut operation: F,
@@ -139,27 +255,80 @@ where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, Status>>,
 {
+    retry_on_transient_request(config, (), |()| operation()).await
+}
+
+/// [`retry_on_transient`] for operations that consume a request.
+///
+/// tonic's generated clients take the request by value, so every attempt needs
+/// its own copy. Handing the closure `request.clone()` on each iteration copies
+/// the full proto payload once per attempt — at 500 x 1536 f32 that is ~3 MB of
+/// memcpy per batch. This clones only while another attempt is still possible
+/// and gives the last one the original by value, so `n` attempts cost `n - 1`
+/// clones instead of `n`, and a `max_retries: 0` config costs none at all.
+///
+/// Removing the remaining clone would mean not owning the payload per attempt —
+/// a shared or pre-encoded representation the generated client cannot take.
+// result_large_err: see `retry_on_transient` — same `tonic::Status` pass-through.
+#[allow(clippy::result_large_err)]
+pub async fn retry_on_transient_request<F, Fut, T, R>(
+    config: &RetryConfig,
+    request: R,
+    mut operation: F,
+) -> Result<T, Status>
+where
+    R: Clone,
+    F: FnMut(R) -> Fut,
+    Fut: Future<Output = Result<T, Status>>,
+{
     let mut attempt = 0u32;
-    let mut prev_delay = config.initial_backoff;
+    let mut prev_delay = config.initial_backoff * FIRST_RETRY_SPREAD;
+    let mut pending = request;
 
     loop {
-        match operation().await {
-            Ok(val) => return Ok(val),
+        // `spare` is None exactly when the retry budget is spent, which is also
+        // the attempt that gets the original rather than a copy.
+        let (payload, spare) = if attempt < config.max_retries {
+            (pending.clone(), Some(pending))
+        } else {
+            (pending, None)
+        };
+
+        match operation(payload).await {
+            Ok(val) => {
+                if let Some(budget) = &config.budget {
+                    budget.deposit();
+                }
+                return Ok(val);
+            }
             Err(status) if config.retryable_codes.contains(&(status.code() as i32)) => {
                 if let Some(cb) = &config.on_throttle {
                     cb(config.host.clone());
                 }
-                if attempt >= config.max_retries {
+                let affordable = config.budget.as_ref().is_none_or(|b| b.withdraw());
+                let Some(next) = spare else {
+                    return Err(status);
+                };
+                if !affordable {
+                    tracing::debug!("retry budget exhausted; failing fast");
                     return Err(status);
                 }
-                let delay = if let Some(pushback) = parse_pushback(&status) {
-                    smear_pushback(pushback, config.max_backoff)
-                } else {
-                    decorrelated_jitter(config.initial_backoff, prev_delay, config.max_backoff)
+                let delay = match parse_pushback(&status) {
+                    Some(Pushback::Stop) => {
+                        tracing::debug!("server asked us not to retry; failing fast");
+                        return Err(status);
+                    }
+                    Some(Pushback::Wait(pushback)) => {
+                        smear_pushback(pushback, config.max_backoff, config.initial_backoff)
+                    }
+                    None => {
+                        decorrelated_jitter(config.initial_backoff, prev_delay, config.max_backoff)
+                    }
                 };
                 tracing::debug!("retry attempt {} sleeping for {:?}", attempt + 1, delay);
                 prev_delay = delay;
                 tokio::time::sleep(delay).await;
+                pending = next;
                 attempt += 1;
             }
             Err(status) => return Err(status),
@@ -368,44 +537,91 @@ mod tests {
         assert_eq!(call_count.load(Ordering::SeqCst), 1);
     }
 
-    #[tokio::test]
-    async fn backoff_delay_increases() {
-        // Verify that successive retries take progressively longer.
-        // We measure wall-clock time for configs with different retry counts.
-        let config_1 = RetryConfig {
-            max_retries: 1,
-            initial_backoff: Duration::from_millis(10),
-            max_backoff: Duration::from_millis(500),
-            multiplier: 2,
-            ..Default::default()
-        };
-        let config_3 = RetryConfig {
-            max_retries: 3,
-            initial_backoff: Duration::from_millis(10),
-            max_backoff: Duration::from_millis(500),
-            multiplier: 2,
-            ..Default::default()
-        };
+    /// Replaces a wall-clock comparison of a 3-retry run against a 1-retry run.
+    /// That inverted on a noisy CI runner, and decorrelated jitter does not
+    /// actually guarantee it: three draws from `[base, 3*prev]` can total less
+    /// than one draw from the same seeded window. What the schedule does
+    /// guarantee is that each retry's window ceiling is three times the delay
+    /// just slept, which is what this asserts.
+    #[test]
+    fn backoff_window_escalates_from_each_delay() {
+        let base = Duration::from_millis(10);
+        let max_backoff = Duration::from_secs(60);
+        let mut prev = base * FIRST_RETRY_SPREAD;
 
-        let start_1 = std::time::Instant::now();
-        let _ = retry_on_transient(&config_1, || async {
-            Err::<(), Status>(Status::unavailable("unavailable"))
-        })
-        .await;
-        let elapsed_1 = start_1.elapsed();
+        for retry in 1..=5u32 {
+            let (lower, upper) = jitter_window(base, prev, max_backoff);
+            assert_eq!(lower, base.as_millis() as u64, "retry {retry} floor");
+            assert_eq!(
+                upper,
+                prev.as_millis() as u64 * 3,
+                "retry {retry} ceiling is not 3x the previous delay"
+            );
+            assert!(
+                upper > prev.as_millis() as u64,
+                "retry {retry} ceiling {upper} did not escalate past prev {prev:?}"
+            );
 
-        let start_3 = std::time::Instant::now();
-        let _ = retry_on_transient(&config_3, || async {
-            Err::<(), Status>(Status::unavailable("unavailable"))
-        })
-        .await;
-        let elapsed_3 = start_3.elapsed();
+            let delay = decorrelated_jitter(base, prev, max_backoff);
+            assert!(delay >= base, "retry {retry} delay {delay:?} below floor");
+            assert!(
+                delay.as_millis() as u64 <= upper,
+                "retry {retry} delay {delay:?} above ceiling {upper}"
+            );
+            prev = delay;
+        }
+    }
 
-        // 3 retries should take longer than 1 retry due to increasing backoff
-        assert!(
-            elapsed_3 > elapsed_1,
-            "3 retries ({elapsed_3:?}) should take longer than 1 retry ({elapsed_1:?})"
-        );
+    #[test]
+    fn backoff_window_grows_with_the_previous_delay() {
+        let base = Duration::from_millis(10);
+        let max_backoff = Duration::from_millis(900);
+        let ceilings: Vec<u64> = [10u64, 20, 40, 80, 160]
+            .into_iter()
+            .map(|ms| jitter_window(base, Duration::from_millis(ms), max_backoff).1)
+            .collect();
+
+        assert_eq!(ceilings, vec![30, 60, 120, 240, 480]);
+        for pair in ceilings.windows(2) {
+            assert!(pair[1] > pair[0], "ceiling shrank: {pair:?}");
+        }
+
+        // Above the cap the ceiling clamps instead of growing without bound.
+        let capped = jitter_window(base, Duration::from_secs(1000), max_backoff).1;
+        assert_eq!(capped, max_backoff.as_millis() as u64);
+    }
+
+    /// The escalation rule above is arithmetic; this pins that the loop really
+    /// sleeps it, once per retry. `initial_backoff == max_backoff` collapses the
+    /// jitter window to a single point, so the schedule is exact, and paused
+    /// time makes the measurement tokio's virtual clock rather than the runner's.
+    #[tokio::test(start_paused = true)]
+    async fn more_retries_sleep_strictly_longer() {
+        fn flat_config(max_retries: u32) -> RetryConfig {
+            RetryConfig {
+                max_retries,
+                initial_backoff: Duration::from_millis(10),
+                max_backoff: Duration::from_millis(10),
+                multiplier: 2,
+                ..Default::default()
+            }
+        }
+
+        async fn slept(config: &RetryConfig) -> Duration {
+            let start = tokio::time::Instant::now();
+            let _ = retry_on_transient(config, || async {
+                Err::<(), Status>(Status::unavailable("unavailable"))
+            })
+            .await;
+            start.elapsed()
+        }
+
+        let one = slept(&flat_config(1)).await;
+        let three = slept(&flat_config(3)).await;
+
+        assert_eq!(one, Duration::from_millis(10));
+        assert_eq!(three, Duration::from_millis(30));
+        assert!(three > one);
     }
 
     #[tokio::test]
@@ -424,7 +640,10 @@ mod tests {
         status
             .metadata_mut()
             .insert("grpc-retry-pushback-ms", "1500".parse().unwrap());
-        assert_eq!(parse_pushback(&status), Some(Duration::from_millis(1500)));
+        assert_eq!(
+            parse_pushback(&status),
+            Some(Pushback::Wait(Duration::from_millis(1500)))
+        );
     }
 
     #[test]
@@ -433,7 +652,10 @@ mod tests {
         status
             .metadata_mut()
             .insert("retry-after", "30".parse().unwrap());
-        assert_eq!(parse_pushback(&status), Some(Duration::from_secs(30)));
+        assert_eq!(
+            parse_pushback(&status),
+            Some(Pushback::Wait(Duration::from_secs(30)))
+        );
     }
 
     #[test]
@@ -445,7 +667,10 @@ mod tests {
         status
             .metadata_mut()
             .insert("retry-after", "30".parse().unwrap());
-        assert_eq!(parse_pushback(&status), Some(Duration::from_millis(500)));
+        assert_eq!(
+            parse_pushback(&status),
+            Some(Pushback::Wait(Duration::from_millis(500)))
+        );
     }
 
     #[test]
@@ -455,12 +680,23 @@ mod tests {
     }
 
     #[test]
-    fn parse_pushback_returns_none_for_negative_value() {
-        let mut status = Status::resource_exhausted("limited");
+    fn parse_pushback_negative_means_do_not_retry() {
+        // gRFC A6: a negative pushback is the server refusing the retry, not a
+        // missing hint. Treating it as absent retries against the instruction.
+        let mut status = Status::unavailable("busy");
         status
             .metadata_mut()
-            .insert("grpc-retry-pushback-ms", "-100".parse().unwrap());
-        assert_eq!(parse_pushback(&status), None);
+            .insert("grpc-retry-pushback-ms", "-1".parse().unwrap());
+        assert_eq!(parse_pushback(&status), Some(Pushback::Stop));
+    }
+
+    #[test]
+    fn parse_pushback_negative_retry_after_means_do_not_retry() {
+        let mut status = Status::unavailable("busy");
+        status
+            .metadata_mut()
+            .insert("retry-after", "-5".parse().unwrap());
+        assert_eq!(parse_pushback(&status), Some(Pushback::Stop));
     }
 
     #[test]
@@ -480,7 +716,10 @@ mod tests {
             .metadata_mut()
             .insert("grpc-retry-pushback-ms", "1500.5".parse().unwrap());
         // Truncates to 1500 ms (Duration::from_millis takes u64)
-        assert_eq!(parse_pushback(&status), Some(Duration::from_millis(1500)));
+        assert_eq!(
+            parse_pushback(&status),
+            Some(Pushback::Wait(Duration::from_millis(1500)))
+        );
     }
 
     #[test]
@@ -527,9 +766,12 @@ mod tests {
         assert_eq!(call_count.load(Ordering::SeqCst), 3);
     }
 
-    #[tokio::test]
+    /// Paused time, so the measurement is tokio's virtual clock: the assertion
+    /// is the exact schedule the cap produces rather than a wall-clock budget a
+    /// stalled runner can blow through. `smear_pushback(1h, 5ms, 1ms)` clamps
+    /// the base to 5ms and smears up to `max(5/2, 1) = 2ms` on top of it.
+    #[tokio::test(start_paused = true)]
     async fn pushback_capped_at_max_backoff() {
-        // Build a config with a tight cap and a giant pushback; assert the call returns quickly.
         let config = RetryConfig {
             max_retries: 1,
             initial_backoff: Duration::from_millis(1),
@@ -537,7 +779,7 @@ mod tests {
             multiplier: 2,
             ..Default::default()
         };
-        let start = std::time::Instant::now();
+        let start = tokio::time::Instant::now();
         let _ = retry_on_transient(&config, || async {
             let mut s = Status::resource_exhausted("limited");
             // 1 hour in milliseconds — would block forever if not capped
@@ -546,12 +788,14 @@ mod tests {
             Err::<(), Status>(s)
         })
         .await;
-        // With max_backoff=5ms, the single retry sleeps at most 5ms;
-        // total elapsed must be well under 100ms.
+        let elapsed = start.elapsed();
         assert!(
-            start.elapsed() < Duration::from_millis(100),
-            "elapsed={:?} — pushback not capped",
-            start.elapsed()
+            elapsed >= Duration::from_millis(5),
+            "elapsed={elapsed:?} — the clamped pushback was not waited out"
+        );
+        assert!(
+            elapsed <= Duration::from_millis(7),
+            "elapsed={elapsed:?} — pushback not capped at max_backoff + smear"
         );
     }
 
@@ -658,28 +902,62 @@ mod tests {
         let max = Duration::from_secs(120);
         let pushback = Duration::from_secs(60);
         for _ in 0..200 {
-            let d = smear_pushback(pushback, max);
+            let d = smear_pushback(pushback, max, Duration::ZERO);
             assert!(d >= pushback, "delay {d:?} < pushback {pushback:?}");
             assert!(d <= Duration::from_millis(60_000 + 30_000));
         }
     }
 
     #[test]
-    fn smear_pushback_capped_at_max_backoff() {
+    fn smear_pushback_clamps_the_base_then_smears() {
+        // The clamp applies to the base, so the smear still disperses a fleet
+        // that was told to wait longer than the cap. Clamping afterwards instead
+        // would put every one of these samples on exactly `max`.
         let max = Duration::from_millis(70_000);
-        let pushback = Duration::from_secs(60);
-        for _ in 0..200 {
-            let d = smear_pushback(pushback, max);
-            assert!(d <= max);
+        let pushback = Duration::from_secs(120);
+        let samples: std::collections::HashSet<u64> = (0..200)
+            .map(|_| smear_pushback(pushback, max, Duration::ZERO).as_millis() as u64)
+            .collect();
+        assert!(
+            samples.len() > 50,
+            "pushback above the cap collapsed to {} distinct delays",
+            samples.len()
+        );
+        for d in &samples {
+            assert!(*d >= 70_000, "delay {d} below the clamped base");
+            assert!(*d <= 105_000, "delay {d} above base + half");
         }
     }
 
     #[test]
-    fn smear_pushback_zero_pushback_is_zero() {
-        assert_eq!(
-            smear_pushback(Duration::ZERO, Duration::from_secs(60)),
-            Duration::ZERO
+    fn smear_pushback_at_the_cap_still_disperses() {
+        let max = Duration::from_secs(60);
+        let samples: std::collections::HashSet<u64> = (0..200)
+            .map(|_| smear_pushback(max, max, Duration::ZERO).as_millis() as u64)
+            .collect();
+        assert!(
+            samples.len() > 50,
+            "a pushback exactly at the cap produced {} distinct delays",
+            samples.len()
         );
+    }
+
+    #[test]
+    fn smear_pushback_zero_disperses_using_the_floor() {
+        // gRFC A6 reads a zero pushback as "retry immediately". Without a floor
+        // every client would do so on the same millisecond.
+        let floor = Duration::from_millis(100);
+        let samples: std::collections::HashSet<u64> = (0..200)
+            .map(|_| {
+                smear_pushback(Duration::ZERO, Duration::from_secs(60), floor).as_millis() as u64
+            })
+            .collect();
+        assert!(
+            samples.len() > 20,
+            "zero pushback collapsed to {} delays",
+            samples.len()
+        );
+        assert!(samples.iter().all(|d| *d <= 100));
     }
 
     #[test]

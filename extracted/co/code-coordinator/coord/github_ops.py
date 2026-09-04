@@ -2318,6 +2318,152 @@ def get_pr_head_ref(repo: str, number: int) -> str | None:
     return head_ref or None
 
 
+# #3092: the ONE string that ties a provisioned preview lane to the lookup
+# that reads it back. `cloudflare/pages-action` names the GitHub Deployment's
+# environment "<projectName> (Preview)"; `get_pr_deployment_url` below matches
+# on this marker. Both the generator (`preview_environment_name`, used by
+# `coord repo add --with-preview` to assert at PROVISION time that the
+# workflow it just wrote will actually be readable) and the matcher
+# (`is_preview_environment`) live here so they cannot drift into a mismatch —
+# and a mismatch is silent, because `get_pr_deployment_url` returns None
+# rather than raising.
+PREVIEW_ENVIRONMENT_MARKER = "(Preview)"
+
+
+def preview_environment_name(project_name: str) -> str:
+    """The GitHub Deployment environment name ``cloudflare/pages-action``
+    derives from a Pages ``projectName`` (#3092).
+
+    Pure and vendor-specific by design: it is the action's own convention
+    (``"natal-chart (Preview)"`` for ``projectName: natal-chart``), which is
+    exactly why it can be *asserted* at provision time rather than probed
+    with a throwaway PR.
+    """
+    return f"{project_name} {PREVIEW_ENVIRONMENT_MARKER}"
+
+
+def is_preview_environment(environment: object) -> bool:
+    """True when a GitHub Deployment's ``environment`` names a per-PR
+    preview (#3092).
+
+    The single predicate :func:`get_pr_deployment_url` selects deployments
+    with. Takes ``object`` rather than ``str`` because it is applied straight
+    to a value parsed out of GitHub's JSON, which is not guaranteed to be a
+    string.
+    """
+    return isinstance(environment, str) and PREVIEW_ENVIRONMENT_MARKER in environment
+
+
+def set_repo_secret(repo: str, name: str, value: str) -> None:
+    """Set GitHub Actions secret *name* on *repo* to *value* (#3092).
+
+    Deliberately NOT routed through :func:`_gh`: that helper passes every
+    argument as argv, and ``gh secret set NAME --body <value>`` would put the
+    Cloudflare API token in this host's process table for any local user to
+    read. ``gh`` reads the value from stdin when ``--body`` is omitted, so
+    that is what this does — the value never appears in argv, never in an
+    exception message, and never in :func:`record_gh_call`'s telemetry (which
+    only ever sees the argv this builds).
+
+    Idempotent: ``gh secret set`` overwrites an existing secret of the same
+    name. Raises :class:`GhError` on any failure, consistent with every other
+    write in this module.
+    """
+    args = ["secret", "set", name, "--repo", repo]
+    caller = "github_ops.set_repo_secret"
+    _t0 = time.monotonic()
+    try:
+        result = subprocess.run(
+            ["gh", *args],
+            input=value, capture_output=True, text=True, timeout=30,
+        )
+    except FileNotFoundError as exc:
+        record_gh_call(args, outcome="unreachable", duration_s=time.monotonic() - _t0,
+                       detail="gh not found", caller=caller)
+        raise GhError(f"gh {' '.join(args)} failed: gh not found: {exc}") from exc
+    except subprocess.TimeoutExpired as exc:
+        record_gh_call(args, outcome="unreachable", duration_s=time.monotonic() - _t0,
+                       detail="timed out", caller=caller)
+        raise GhError(f"gh {' '.join(args)} failed: timed out: {exc}") from exc
+    except OSError as exc:
+        record_gh_call(args, outcome="unreachable", duration_s=time.monotonic() - _t0,
+                       detail=str(exc), caller=caller)
+        raise GhError(f"gh {' '.join(args)} failed: {exc}") from exc
+    duration = time.monotonic() - _t0
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        record_gh_call(args, outcome=_classify_gh_exit(stderr), duration_s=duration,
+                       detail=stderr, caller=caller)
+        raise GhError(f"gh {' '.join(args)} failed: {stderr}")
+    record_gh_call(args, outcome="ok", duration_s=duration, caller=caller)
+
+
+def get_pr_deployment_url(repo: str, branch: str) -> str | None:
+    """Return the live preview-deployment URL for *branch*'s GitHub
+    Deployment, or ``None`` when one can't be confirmed (#2948).
+
+    Cloudflare Pages (via ``cloudflare/pages-action``, and any similarly-wired
+    per-PR-preview host) does NOT publish a derivable preview URL — it is a
+    per-deployment content hash, not a branch-alias subdomain, and there is no
+    branch-alias fallback either (measured live against natal-chart, see
+    ``docs/CUSTOMER_FACING_APPS.md`` §1 and #2948). The only reliable source
+    is the GitHub Deployment the action creates per push, read straight from
+    the forge instead of guessed:
+
+        gh api repos/{repo}/deployments?ref={branch}
+        gh api repos/{repo}/deployments/{id}/statuses
+
+    Matches on the deployment's **environment name containing "(Preview)"**
+    (Cloudflare Pages' own convention, e.g. ``"natal-chart (Preview)"``, via
+    the shared :func:`is_preview_environment` predicate — #3092 asserts the
+    provisioned ``projectName`` against that same predicate), NOT
+    on recency/list order — production deploys are hash URLs too and
+    interleave with previews in the same ``ref`` list, so picking ``[0]``
+    can silently hand back a production URL. Deployments are walked
+    newest-first (GitHub's default order); the first environment-matching
+    deployment whose latest status carries an ``environment_url`` wins.
+
+    Returns ``None`` — never raises — on any ``gh`` failure, a malformed
+    response, a ref with no deployments, or a matched deployment whose
+    statuses carry no URL yet. Every one of those is "can't confirm a real
+    preview URL right now", which callers must treat as unresolved rather
+    than silently falling back to a constructed guess (the #2948 bug this
+    function replaces).
+    """
+    try:
+        deployments = _gh_json(
+            "api", f"repos/{repo}/deployments?ref={branch}",
+            default=None, caller="github_ops.get_pr_deployment_url",
+        )
+    except Exception:  # noqa: BLE001 — any gh failure: no URL to report
+        return None
+    if not isinstance(deployments, list):
+        return None
+    for deployment in deployments:
+        if not isinstance(deployment, dict):
+            continue
+        if not is_preview_environment(deployment.get("environment")):
+            continue
+        deployment_id = deployment.get("id")
+        if deployment_id is None:
+            continue
+        try:
+            statuses = _gh_json(
+                "api", f"repos/{repo}/deployments/{deployment_id}/statuses",
+                default=None, caller="github_ops.get_pr_deployment_url",
+            )
+        except Exception:  # noqa: BLE001 — keep looking at other candidates
+            continue
+        if not isinstance(statuses, list):
+            continue
+        for status in statuses:
+            if isinstance(status, dict):
+                url = status.get("environment_url")
+                if isinstance(url, str) and url:
+                    return url
+    return None
+
+
 # #1564: `gh pr checks --json` does NOT have a `conclusion` field — it never
 # has. Requesting it makes `gh` exit 1 with empty stdout, which used to make
 # every single merge look like an unreadable CI status (fail-closed, so it
@@ -3167,6 +3313,65 @@ def get_repo_milestones(repo: str, *, state: str = "open") -> list[dict]:
     # a single malformed line used to bare-json.loads() into an unattributable
     # crash that discarded every other (well-formed) milestone line too — skip
     # just the bad line instead.
+    results = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parsed = _json_loads_or(line, default=None)
+        if parsed is not None:
+            results.append(parsed)
+    return results
+
+
+#: The ``--jq`` projection :func:`get_repo_milestones_with_counts` sends.
+#:
+#: A named module constant rather than an inline literal so the #967
+#: regression guard (an invalid filter — ``.[].{...}`` with no pipe — that
+#: made the whole call fail end to end, and which no mocked-``subprocess``
+#: test could catch) can run THIS EXACT string through a real jq engine.
+#: :func:`get_repo_milestones`'s own filter is pinned the same way, by
+#: source-regex, in ``tests/test_cli_milestone_assign.py``; this one is
+#: split across several source lines, so it needs a name to be reachable.
+MILESTONE_COUNTS_JQ = (
+    ".[] | {number: .number, title: .title, state: .state, "
+    "open_issues: .open_issues, closed_issues: .closed_issues, "
+    "description: .description}"
+)
+
+
+def get_repo_milestones_with_counts(repo: str, *, state: str = "open") -> list[dict]:
+    """Milestones for *repo*, carrying GitHub's own open/closed issue counts.
+
+    Same REST listing (and the same one paginated ``gh api`` call) as
+    :func:`get_repo_milestones`, projecting the four extra fields GitHub
+    already computes for every milestone: ``state``, ``open_issues``,
+    ``closed_issues`` and ``description``. Backs the dashboard's
+    ``GET /api/milestones`` roster (#3072), where "how many of this
+    milestone's issues are closed" is a headline column — and where deriving
+    it locally would mean either a second ``--state all`` issue fetch per
+    milestone or a count that quietly disagrees with what GitHub's own
+    milestone page shows.
+
+    A deliberate *sibling* of :func:`get_repo_milestones` rather than a
+    widening of it: that function is the identity-only lookup every
+    title→number resolution path uses (``coord milestone assign``, ``coord
+    plans``), and every one of those callers would otherwise start paying
+    for fields it discards. The returned dicts are a strict superset of
+    ``get_repo_milestones``'s, so anything that accepts one accepts the
+    other — :func:`coord.plans.aggregate_repo_plans` takes this list
+    directly.
+
+    Returns ``[]`` for a repo with no milestones (not an error).
+    """
+    raw = _gh(
+        "api", "--paginate",
+        f"repos/{repo}/milestones?state={state}",
+        "--jq", MILESTONE_COUNTS_JQ,
+        caller="github_ops.get_repo_milestones_with_counts")
+    # One compact JSON object per line, same as get_repo_milestones — and the
+    # same #1353 rule: skip a single malformed line rather than letting it
+    # discard every well-formed milestone alongside it.
     results = []
     for line in raw.splitlines():
         line = line.strip()

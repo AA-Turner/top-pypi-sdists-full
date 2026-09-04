@@ -16,7 +16,11 @@ from trilogy.core.models.build import (
 )
 from trilogy.core.models.core import EnumType
 from trilogy.core.models.datasource import Address
-from trilogy.core.processing.condition_utility import simplify_conditions
+from trilogy.core.processing.condition_utility import (
+    ExcludedEnumValues,
+    effective_enum_domain,
+    simplify_conditions,
+)
 
 
 def _datasource_score(ds: BuildDatasource) -> int:
@@ -72,6 +76,7 @@ def _best_enum_union(
     dses: list[BuildDatasource],
     enum_type: EnumType,
     merge_key: BuildConcept,
+    excluded: ExcludedEnumValues | None = None,
 ) -> list[list[BuildDatasource]] | None:
     """Find the best minimal covering combinations for an enum-partitioned key.
 
@@ -85,7 +90,13 @@ def _best_enum_union(
     returns vs. dim, all keyed by the same channel enum) each contribute
     their own union datasource instead of collapsing into the single best.
     Materialized table sources score higher than script/query sources.
+    Coverage is judged over the effective domain: values the statement's row
+    gate rules out (``excluded``) need no arm, and an arm for such a value
+    cannot contribute.
     """
+    required = {
+        str(v) for v in effective_enum_domain(enum_type, merge_key, excluded).values
+    }
     by_value: dict[object, list[BuildDatasource]] = defaultdict(list)
     for ds in dses:
         if not ds.non_partial_for:
@@ -93,12 +104,12 @@ def _best_enum_union(
         val = _extract_enum_value_for_key(
             ds.non_partial_for.conditional, merge_key.address
         )
-        if val is None:
+        if val is None or str(val) not in required:
             continue
         by_value[val].append(ds)
 
-    # All enum values must have at least one candidate source
-    if {str(v) for v in by_value} < set(enum_type.values):
+    # Every value that can still occur must have at least one candidate source
+    if not required <= {str(v) for v in by_value}:
         return None
 
     values = list(by_value.keys())
@@ -113,19 +124,15 @@ def _best_enum_union(
             cols[id(ds)] = frozenset(col.concept.address for col in ds.columns)
             scores[id(ds)] = _datasource_score(ds)
 
-    # Members MAY disagree on intrinsic (~) partiality of a shared column
-    # (a "mixed-family" combo, e.g. web_sales + catalog/store_returns).
-    # Such a union is a legitimate per-channel provider of columns it binds
-    # complete (q05: a web return's return-site lives on web_sales), and
-    # union partial propagation keeps its ~-partial keys from ever outranking
-    # a pure family that binds them complete (q14) — so don't reject it here.
-    # An empty overlap beyond the merge key IS rejected, at the first step it
-    # appears: intersection only shrinks, so no continuation can revive it.
-    # Ties reproduce the old product enumeration exactly: per signature the
+    # Members MAY disagree on intrinsic (~) partiality of a shared column (a
+    # mixed-family combo): such a union is a legitimate provider of the columns
+    # it binds complete, and union partial propagation keeps its ~-partial keys
+    # from outranking a pure family, so it is not rejected here. An empty
+    # overlap beyond the merge key IS rejected at the first step it appears:
+    # intersection only shrinks. Ties are deterministic: per signature the
     # winner is the first max-scoring combo in product order (`combo_key` =
-    # candidate index tuple, lexicographic = product order), and signatures
-    # order by their first-achieving combo (`min_key`, tracked over ALL combos
-    # reaching a signature, not just the best-scoring one).
+    # candidate index tuple), and signatures order by their first-achieving
+    # combo (`min_key`, tracked over ALL combos reaching a signature).
     merge_key_addr = merge_key.address
     # signature -> (score, combo, combo_key, min_key)
     states: dict[
@@ -190,11 +197,9 @@ def _best_enum_union(
     }
     if not best_per_overlap:
         return None
-    # Keep only maximal overlap signatures: drop a signature whose concept set
-    # is a strict subset of another's. This filters out "mixed" combos (e.g.,
-    # 2 sales + 1 dim) whose overlap is a strict subset of a pure-grouping
-    # combo (e.g., 3 sales). Pure parallel partitionings (sales/returns/dim)
-    # remain incomparable and all survive.
+    # Keep only maximal overlap signatures: a mixed combo whose overlap is a
+    # strict subset of a pure-family combo's is dropped, while parallel
+    # partitionings remain incomparable and all survive.
     sigs = list(best_per_overlap.keys())
     maximal = [s for s in sigs if not any(s < other for other in sigs)]
     return [best_per_overlap[s][0] for s in maximal]
@@ -242,7 +247,9 @@ def _merge_key(dses: list[BuildDatasource], merge_key_addr: str) -> BuildConcept
 
 
 def get_union_sources(
-    datasources: list[BuildDatasource], concepts: list[BuildConcept]
+    datasources: list[BuildDatasource],
+    concepts: list[BuildConcept],
+    excluded: ExcludedEnumValues | None = None,
 ) -> list[list[BuildDatasource]]:
     final: list[list[BuildDatasource]] = []
     for merge_key_addr, dses in _partition_families(datasources, concepts).items():
@@ -250,29 +257,29 @@ def get_union_sources(
         if merge_key is None:
             continue
         if isinstance(merge_key.datatype, EnumType):
-            result = _best_enum_union(dses, merge_key.datatype, merge_key)
+            result = _best_enum_union(dses, merge_key.datatype, merge_key, excluded)
             if result:
                 final.extend(result)
         else:
             conditions = [
                 c.non_partial_for.conditional for c in dses if c.non_partial_for
             ]
-            if simplify_conditions(conditions):
+            if simplify_conditions(conditions, excluded):
                 final.append(dses)
     return final
 
 
 def describe_incomplete_partitions(
-    datasources: list[BuildDatasource], concepts: list[BuildConcept]
+    datasources: list[BuildDatasource],
+    concepts: list[BuildConcept],
+    excluded: ExcludedEnumValues | None = None,
 ) -> str | None:
     """Why a `complete where` family failed to union into a complete source.
 
     ``get_union_sources`` only unions arms whose predicates provably exhaust the
-    discriminator's domain — a family that misses a value would silently drop
-    those rows. A plain `string` discriminator has no enumerable domain, so no
-    set of equality predicates over it can ever be proven complete. Without this
-    the query just reports "no complete sources", which reads as a planner
-    failure rather than a modeling one.
+    discriminator's domain. A plain `string` discriminator has no enumerable
+    domain, so no set of equality predicates over it can be proven complete;
+    this names that modeling gap instead of a generic "no complete sources".
     """
     reasons: list[str] = []
     for merge_key_addr, dses in _partition_families(datasources, concepts).items():
@@ -282,10 +289,11 @@ def describe_incomplete_partitions(
         if merge_key is None:
             continue
         if isinstance(merge_key.datatype, EnumType):
-            if _best_enum_union(dses, merge_key.datatype, merge_key):
+            if _best_enum_union(dses, merge_key.datatype, merge_key, excluded):
                 continue
         elif simplify_conditions(
-            [c.non_partial_for.conditional for c in dses if c.non_partial_for]
+            [c.non_partial_for.conditional for c in dses if c.non_partial_for],
+            excluded,
         ):
             continue
         names = ", ".join(sorted(d.name for d in dses))

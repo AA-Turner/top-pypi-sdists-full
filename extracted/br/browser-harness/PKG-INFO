@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-harness
-Version: 0.1.10
+Version: 0.1.13
 Summary: The simplest, thinnest, and most powerful harness to control your real browser with your agent.
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/browser-use/browser-harness
@@ -22,6 +22,8 @@ Requires-Dist: cdp-use==1.4.5
 Requires-Dist: fetch-use==0.4.0
 Requires-Dist: pillow==12.3.0
 Requires-Dist: websockets==15.0.1
+Provides-Extra: mcp
+Requires-Dist: mcp==2.1.1; extra == "mcp"
 Dynamic: license-file
 
 <img src="https://raw.githubusercontent.com/browser-use/media/main/browser-harness/banner-ink.svg" alt="Browser Harness" width="100%" />
@@ -72,6 +74,13 @@ the checkbox so the agent can connect to your browser:
 ## Scale with Browser Use Cloud
 
 Use your local browser for logged-in, personal work. When you want many browsers in parallel—with live previews, proxies, stealth, CAPTCHA solving, and more—scale with [Browser Use Cloud](https://cloud.browser-use.com/new-api-key).
+
+## MCP server
+
+`browser-harness-mcp` exposes the browser control helpers as MCP tools over
+stdio, so any MCP client (Claude Code, Devin, Cursor, etc.) can drive the
+browser without writing a second CDP layer. See [docs/MCP.md](docs/MCP.md) for
+setup and client configuration.
 
 ## Contributing
 

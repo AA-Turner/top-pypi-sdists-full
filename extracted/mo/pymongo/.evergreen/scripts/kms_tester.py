@@ -33,7 +33,7 @@ def _setup_azure_vm(base_env: dict[str, str]) -> None:
     env["AZUREKMS_CMD"] = "sudo apt-get install -y python3-dev build-essential"
     run_command(f"{azure_dir}/run-command.sh", env=env)
 
-    env["AZUREKMS_CMD"] = "bash .evergreen/just.sh setup-tests kms azure-remote"
+    env["AZUREKMS_CMD"] = "CI=true bash .evergreen/just.sh setup-tests kms azure-remote"
     run_command(f"{azure_dir}/run-command.sh", env=env)
     LOGGER.info("Setting up Azure VM... done.")
 
@@ -53,7 +53,7 @@ def _setup_gcp_vm(base_env: dict[str, str]) -> None:
     env["GCPKMS_CMD"] = "sudo apt-get install -y python3-dev build-essential"
     run_command(f"{gcp_dir}/run-command.sh", env=env)
 
-    env["GCPKMS_CMD"] = "bash ./.evergreen/just.sh setup-tests kms gcp-remote"
+    env["GCPKMS_CMD"] = "CI=true bash ./.evergreen/just.sh setup-tests kms gcp-remote"
     run_command(f"{gcp_dir}/run-command.sh", env=env)
     LOGGER.info("Setting up GCP VM...")
 
@@ -91,6 +91,8 @@ def setup_kms(sub_test_name: str) -> None:
         return
 
     if sub_test_target == "azure":
+        # Opt in to corporate Azure credentials (DRIVERS-3392)
+        os.environ["FLE_AZURE_USE_CORPORATE"] = "YES"
         run_command("./setup-secrets.sh", cwd=kms_dir)
 
     if success:
@@ -99,9 +101,9 @@ def setup_kms(sub_test_name: str) -> None:
             os.environ["AZUREKMS_VMNAME_PREFIX"] = "PYTHON_DRIVER"
 
             # Found using "az vm image list --output table"
-            os.environ[
-                "AZUREKMS_IMAGE"
-            ] = "Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest"
+            os.environ["AZUREKMS_IMAGE"] = (
+                "Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest"
+            )
         else:
             os.environ["GCPKMS_IMAGEFAMILY"] = "debian-12"
 
@@ -127,11 +129,11 @@ def test_kms_send_to_remote(sub_test_name: str) -> None:
     if sub_test_name == "azure":
         key_name = os.environ["KEY_NAME"]
         key_vault_endpoint = os.environ["KEY_VAULT_ENDPOINT"]
-        env[
-            "AZUREKMS_CMD"
-        ] = f'KEY_NAME="{key_name}" KEY_VAULT_ENDPOINT="{key_vault_endpoint}" bash ./.evergreen/just.sh run-tests'
+        env["AZUREKMS_CMD"] = (
+            f'KEY_NAME="{key_name}" KEY_VAULT_ENDPOINT="{key_vault_endpoint}" CI=true bash ./.evergreen/just.sh run-tests'
+        )
     else:
-        env["GCPKMS_CMD"] = "./.evergreen/just.sh run-tests"
+        env["GCPKMS_CMD"] = "CI=true ./.evergreen/just.sh run-tests"
     cmd = f"{DIRS[sub_test_name]}/run-command.sh"
     run_command(cmd, env=env)
 

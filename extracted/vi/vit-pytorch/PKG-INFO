@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vit-pytorch
-Version: 1.26.4
+Version: 1.26.5
 Summary: Vision Transformer (ViT) - Pytorch
 Author-email: Phil Wang <lucidrains@gmail.com>
 License: MIT License

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huey
-Version: 3.3.4
+Version: 3.4.0
 Summary: a little task queue
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/huey
@@ -20,6 +20,8 @@ Provides-Extra: postgres
 Requires-Dist: psycopg>=3.2; extra == "postgres"
 Provides-Extra: cysqlite
 Requires-Dist: cysqlite>=0.3.5; extra == "cysqlite"
+Provides-Extra: stats
+Requires-Dist: peewee>=3.17; extra == "stats"
 Dynamic: license-file
 
 .. image:: https://media.charlesleifer.com/blog/photos/huey3-logo.png

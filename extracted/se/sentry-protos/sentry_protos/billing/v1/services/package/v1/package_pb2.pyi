@@ -150,6 +150,31 @@ class SharedLineItemPool(google.protobuf.message.Message):
 global___SharedLineItemPool = SharedLineItemPool
 
 @typing.final
+class PackageFeatureConfigs(google.protobuf.message.Message):
+    """Non-volume feature limits tied to a package tier (dashboards, metric
+    detectors, etc.).  These are UI-facing caps that differ by plan but are
+    not billed line items.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DASHBOARD_LIMIT_FIELD_NUMBER: builtins.int
+    METRIC_DETECTOR_LIMIT_FIELD_NUMBER: builtins.int
+    dashboard_limit: builtins.int
+    """Maximum number of custom dashboards.  -1 means unlimited."""
+    metric_detector_limit: builtins.int
+    """Maximum number of metric detectors."""
+    def __init__(
+        self,
+        *,
+        dashboard_limit: builtins.int = ...,
+        metric_detector_limit: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["dashboard_limit", b"dashboard_limit", "metric_detector_limit", b"metric_detector_limit"]) -> None: ...
+
+global___PackageFeatureConfigs = PackageFeatureConfigs
+
+@typing.final
 class PackageConfig(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -167,6 +192,7 @@ class PackageConfig(google.protobuf.message.Message):
     HAS_PAYG_MODES_FIELD_NUMBER: builtins.int
     RETENTION_DEFAULTS_FIELD_NUMBER: builtins.int
     VERCEL_ID_FIELD_NUMBER: builtins.int
+    FEATURE_CONFIGS_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
@@ -206,6 +232,10 @@ class PackageConfig(google.protobuf.message.Message):
         A category can occur only once.
         """
 
+    @property
+    def feature_configs(self) -> global___PackageFeatureConfigs:
+        """Non-volume feature limits for this package."""
+
     def __init__(
         self,
         *,
@@ -223,9 +253,10 @@ class PackageConfig(google.protobuf.message.Message):
         has_payg_modes: builtins.bool = ...,
         retention_defaults: collections.abc.Iterable[sentry_protos.billing.v1.common.v1.retention_pb2.DataCategoryRetention] | None = ...,
         vercel_id: builtins.str | None = ...,
+        feature_configs: global___PackageFeatureConfigs | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "flexible_base_price_cents", b"flexible_base_price_cents", "vercel_id", b"vercel_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "retention_defaults", b"retention_defaults", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable", "vercel_id", b"vercel_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "feature_configs", b"feature_configs", "flexible_base_price_cents", b"flexible_base_price_cents", "vercel_id", b"vercel_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "feature_configs", b"feature_configs", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "retention_defaults", b"retention_defaults", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable", "vercel_id", b"vercel_id"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_vercel_id", b"_vercel_id"]) -> typing.Literal["vercel_id"] | None: ...
 
 global___PackageConfig = PackageConfig

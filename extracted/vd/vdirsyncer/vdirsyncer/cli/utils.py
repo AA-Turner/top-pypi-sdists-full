@@ -11,18 +11,19 @@ from typing import Any
 import aiohttp
 import click
 
-from .. import BUGTRACKER_HOME
-from .. import DOCS_HOME
-from .. import exceptions
-from ..storage.base import Storage
-from ..sync.exceptions import IdentConflict
-from ..sync.exceptions import PartialSync
-from ..sync.exceptions import StorageEmpty
-from ..sync.exceptions import SyncConflict
-from ..sync.status import SqliteStatus
-from ..utils import atomic_write
-from ..utils import expand_path
-from ..utils import get_storage_init_args
+from vdirsyncer import BUGTRACKER_HOME
+from vdirsyncer import DOCS_HOME
+from vdirsyncer import exceptions
+from vdirsyncer.storage.base import Storage
+from vdirsyncer.sync.exceptions import IdentConflict
+from vdirsyncer.sync.exceptions import PartialSync
+from vdirsyncer.sync.exceptions import StorageEmpty
+from vdirsyncer.sync.exceptions import SyncConflict
+from vdirsyncer.sync.status import SqliteStatus
+from vdirsyncer.utils import atomic_write
+from vdirsyncer.utils import expand_path
+from vdirsyncer.utils import get_storage_init_args
+
 from . import cli_logger
 
 STATUS_PERMISSIONS = 0o600
@@ -30,7 +31,7 @@ STATUS_DIR_PERMISSIONS = 0o700
 
 
 class _StorageIndex:
-    def __init__(self):
+    def __init__(self) -> None:
         self._storages: dict[str, str] = {
             "caldav": "vdirsyncer.storage.dav.CalDAVStorage",
             "carddav": "vdirsyncer.storage.dav.CardDAVStorage",
@@ -61,7 +62,7 @@ class JobFailed(RuntimeError):
     pass
 
 
-def handle_cli_error(status_name=None, e=None):
+def handle_cli_error(status_name=None, exc=None):
     """
     Print a useful error message for the current exception.
 
@@ -70,21 +71,19 @@ def handle_cli_error(status_name=None, e=None):
     """
 
     try:
-        if e is not None:
-            raise e
+        if exc is not None:
+            raise exc
         else:
-            raise
+            raise  # noqa: PLE0704
     except exceptions.UserError as e:
         cli_logger.critical(e)
     except StorageEmpty as e:
         cli_logger.error(
-            '{status_name}: Storage "{name}" was completely emptied. If you '
-            "want to delete ALL entries on BOTH sides, then use "
-            "`vdirsyncer sync --force-delete {status_name}`. "
-            "Otherwise delete the files for {status_name} in your status "
-            "directory.".format(
-                name=e.empty_storage.instance_name, status_name=status_name
-            )
+            f'{status_name}: Storage "{e.empty_storage.instance_name}" was '
+            "completely emptied. If you want to delete ALL entries on BOTH sides,"
+            f"then use `vdirsyncer sync --force-delete {status_name}`. "
+            f"Otherwise delete the files for {status_name} in your status "
+            "directory."
         )
     except PartialSync as e:
         cli_logger.error(
@@ -287,15 +286,14 @@ async def storage_instance_from_config(
     except exceptions.CollectionNotFound as e:
         if create:
             config = await handle_collection_not_found(
-                config, config.get("collection", None), e=str(e)
+                config, config.get("collection", None), e=str(e), implicit_create=True
             )
             return await storage_instance_from_config(
                 config,
                 create=False,
                 connector=connector,
             )
-        else:
-            raise
+        raise
     except Exception:
         return handle_storage_init_error(cls, new_config)
 
@@ -303,7 +301,7 @@ async def storage_instance_from_config(
 def handle_storage_init_error(cls, config):
     e = sys.exc_info()[1]
     if not isinstance(e, TypeError) or "__init__" not in repr(e):
-        raise
+        raise  # noqa: PLE0704
 
     all, required = get_storage_init_args(cls)
     given = set(config)
@@ -343,7 +341,9 @@ def assert_permissions(path: str, wanted: int) -> None:
         os.chmod(path, wanted)
 
 
-async def handle_collection_not_found(config, collection, e=None):
+async def handle_collection_not_found(
+    config, collection, e=None, implicit_create=False
+):
     storage_name = config.get("instance_name", None)
 
     cli_logger.warning(
@@ -352,7 +352,7 @@ async def handle_collection_not_found(config, collection, e=None):
         )
     )
 
-    if click.confirm("Should vdirsyncer attempt to create it?"):
+    if implicit_create or click.confirm("Should vdirsyncer attempt to create it?"):
         storage_type = config["type"]
         cls, config = storage_class_from_config(config)
         config["collection"] = collection
@@ -360,8 +360,8 @@ async def handle_collection_not_found(config, collection, e=None):
             args = await cls.create_collection(**config)
             args["type"] = storage_type
             return args
-        except NotImplementedError as e:
-            cli_logger.error(e)
+        except NotImplementedError as exc:
+            cli_logger.error(exc)
 
     raise exceptions.UserError(
         f'Unable to find or create collection "{collection}" for '

@@ -21,7 +21,7 @@ from shrub.v3.shrub_service import ShrubService
 # Globals
 ##############
 
-ALL_VERSIONS = ["4.2", "4.4", "5.0", "6.0", "7.0", "8.0", "rapid", "latest"]
+ALL_VERSIONS = ["4.4", "5.0", "6.0", "7.0", "8.0", "9.0", "rapid", "latest"]
 CPYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14t", "3.14"]
 PYPYS = ["pypy3.11"]
 MIN_SUPPORT_VERSIONS = ["3.9", "pypy3.9", "pypy3.10"]
@@ -106,7 +106,7 @@ def create_variant_generic(
             task_refs.append(t)
         else:
             task_refs.append(EvgTaskRef(name=t))
-    expansions = expansions and expansions.copy() or dict()
+    expansions = (expansions and expansions.copy()) or dict()
     if "run_on" in kwargs:
         run_on = kwargs.pop("run_on")
     elif host:
@@ -137,15 +137,12 @@ def create_variant(
     expansions: dict | None = None,
     **kwargs: Any,
 ) -> BuildVariant:
-    expansions = expansions and expansions.copy() or dict()
+    expansions = (expansions and expansions.copy()) or dict()
     if version:
         expansions["VERSION"] = version
     # 8.0+ Windows builds must run on win-latest
-    if (
-        "win64" in display_name.lower()
-        or "win32" in display_name.lower()
-        and version
-        and version >= "8.0"
+    if "win64" in display_name.lower() or (
+        "win32" in display_name.lower() and version and version >= "8.0"
     ):
         kwargs["run_on"] = HOSTS["win-latest"].run_on
     return create_variant_generic(
@@ -166,7 +163,7 @@ def get_versions_until(max_version: str) -> list[str]:
     max_version_float = float(max_version)
     versions = [v for v in ALL_VERSIONS if v not in ["rapid", "latest"]]
     versions = [v for v in versions if float(v) <= max_version_float]
-    if not len(versions):
+    if not versions:
         raise ValueError(f"No server versions found less <= {max_version}")
     return versions
 

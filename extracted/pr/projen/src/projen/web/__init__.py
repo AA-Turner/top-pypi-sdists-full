@@ -288,6 +288,7 @@ class NextJsProject(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_javascript_eb5dbe11.CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -427,6 +428,7 @@ class NextJsProject(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -568,6 +570,7 @@ class NextJsProject(
             bundled_deps=bundled_deps,
             bun_version=bun_version,
             code_artifact_options=code_artifact_options,
+            config=config,
             dedupe_deps=dedupe_deps,
             delete_orphaned_lock_files=delete_orphaned_lock_files,
             deps=deps,
@@ -716,6 +719,7 @@ class NextJsProject(
         "bundled_deps": "bundledDeps",
         "bun_version": "bunVersion",
         "code_artifact_options": "codeArtifactOptions",
+        "config": "config",
         "dedupe_deps": "dedupeDeps",
         "delete_orphaned_lock_files": "deleteOrphanedLockFiles",
         "deps": "deps",
@@ -862,6 +866,7 @@ class NextJsProjectOptions(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_javascript_eb5dbe11.CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1001,6 +1006,7 @@ class NextJsProjectOptions(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -1199,6 +1205,7 @@ class NextJsProjectOptions(
             check_type(argname="argument bundled_deps", value=bundled_deps, expected_type=type_hints["bundled_deps"])
             check_type(argname="argument bun_version", value=bun_version, expected_type=type_hints["bun_version"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
             check_type(argname="argument dedupe_deps", value=dedupe_deps, expected_type=type_hints["dedupe_deps"])
             check_type(argname="argument delete_orphaned_lock_files", value=delete_orphaned_lock_files, expected_type=type_hints["delete_orphaned_lock_files"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -1379,6 +1386,8 @@ class NextJsProjectOptions(
             self._values["bun_version"] = bun_version
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if config is not None:
+            self._values["config"] = config
         if dedupe_deps is not None:
             self._values["dedupe_deps"] = dedupe_deps
         if delete_orphaned_lock_files is not None:
@@ -2102,6 +2111,20 @@ class NextJsProjectOptions(
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional["_javascript_eb5dbe11.CodeArtifactOptions"], result)
+
+    @builtins.property
+    def config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Configuration values available to package scripts at runtime.
+
+        Values should be JSON-serializable.
+
+        :default: - no package configuration
+
+        :see: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#config
+        :stability: experimental
+        '''
+        result = self._values.get("config")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
     def dedupe_deps(self) -> typing.Optional[builtins.bool]:
@@ -3483,6 +3506,7 @@ class NextJsTypeScriptProject(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_javascript_eb5dbe11.CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3640,6 +3664,7 @@ class NextJsTypeScriptProject(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -3799,6 +3824,7 @@ class NextJsTypeScriptProject(
             bundled_deps=bundled_deps,
             bun_version=bun_version,
             code_artifact_options=code_artifact_options,
+            config=config,
             dedupe_deps=dedupe_deps,
             delete_orphaned_lock_files=delete_orphaned_lock_files,
             deps=deps,
@@ -3947,6 +3973,7 @@ class NextJsTypeScriptProject(
         "bundled_deps": "bundledDeps",
         "bun_version": "bunVersion",
         "code_artifact_options": "codeArtifactOptions",
+        "config": "config",
         "dedupe_deps": "dedupeDeps",
         "delete_orphaned_lock_files": "deleteOrphanedLockFiles",
         "deps": "deps",
@@ -4111,6 +4138,7 @@ class NextJsTypeScriptProjectOptions(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_javascript_eb5dbe11.CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4268,6 +4296,7 @@ class NextJsTypeScriptProjectOptions(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -4494,6 +4523,7 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument bundled_deps", value=bundled_deps, expected_type=type_hints["bundled_deps"])
             check_type(argname="argument bun_version", value=bun_version, expected_type=type_hints["bun_version"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
             check_type(argname="argument dedupe_deps", value=dedupe_deps, expected_type=type_hints["dedupe_deps"])
             check_type(argname="argument delete_orphaned_lock_files", value=delete_orphaned_lock_files, expected_type=type_hints["delete_orphaned_lock_files"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -4692,6 +4722,8 @@ class NextJsTypeScriptProjectOptions(
             self._values["bun_version"] = bun_version
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if config is not None:
+            self._values["config"] = config
         if dedupe_deps is not None:
             self._values["dedupe_deps"] = dedupe_deps
         if delete_orphaned_lock_files is not None:
@@ -5451,6 +5483,20 @@ class NextJsTypeScriptProjectOptions(
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional["_javascript_eb5dbe11.CodeArtifactOptions"], result)
+
+    @builtins.property
+    def config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Configuration values available to package scripts at runtime.
+
+        Values should be JSON-serializable.
+
+        :default: - no package configuration
+
+        :see: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#config
+        :stability: experimental
+        '''
+        result = self._values.get("config")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
     def dedupe_deps(self) -> typing.Optional[builtins.bool]:
@@ -7199,6 +7245,7 @@ class ReactProject(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_javascript_eb5dbe11.CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -7337,6 +7384,7 @@ class ReactProject(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -7477,6 +7525,7 @@ class ReactProject(
             bundled_deps=bundled_deps,
             bun_version=bun_version,
             code_artifact_options=code_artifact_options,
+            config=config,
             dedupe_deps=dedupe_deps,
             delete_orphaned_lock_files=delete_orphaned_lock_files,
             deps=deps,
@@ -7728,6 +7777,7 @@ class ReactTypeScriptProject(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_javascript_eb5dbe11.CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -7884,6 +7934,7 @@ class ReactTypeScriptProject(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -8042,6 +8093,7 @@ class ReactTypeScriptProject(
             bundled_deps=bundled_deps,
             bun_version=bun_version,
             code_artifact_options=code_artifact_options,
+            config=config,
             dedupe_deps=dedupe_deps,
             delete_orphaned_lock_files=delete_orphaned_lock_files,
             deps=deps,
@@ -8169,6 +8221,7 @@ class ReactTypeScriptProject(
         "bundled_deps": "bundledDeps",
         "bun_version": "bunVersion",
         "code_artifact_options": "codeArtifactOptions",
+        "config": "config",
         "dedupe_deps": "dedupeDeps",
         "delete_orphaned_lock_files": "deleteOrphanedLockFiles",
         "deps": "deps",
@@ -8332,6 +8385,7 @@ class ReactTypeScriptProjectOptions(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_javascript_eb5dbe11.CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -8488,6 +8542,7 @@ class ReactTypeScriptProjectOptions(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -8713,6 +8768,7 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument bundled_deps", value=bundled_deps, expected_type=type_hints["bundled_deps"])
             check_type(argname="argument bun_version", value=bun_version, expected_type=type_hints["bun_version"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
             check_type(argname="argument dedupe_deps", value=dedupe_deps, expected_type=type_hints["dedupe_deps"])
             check_type(argname="argument delete_orphaned_lock_files", value=delete_orphaned_lock_files, expected_type=type_hints["delete_orphaned_lock_files"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -8908,6 +8964,8 @@ class ReactTypeScriptProjectOptions(
             self._values["bun_version"] = bun_version
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if config is not None:
+            self._values["config"] = config
         if dedupe_deps is not None:
             self._values["dedupe_deps"] = dedupe_deps
         if delete_orphaned_lock_files is not None:
@@ -9645,6 +9703,20 @@ class ReactTypeScriptProjectOptions(
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional["_javascript_eb5dbe11.CodeArtifactOptions"], result)
+
+    @builtins.property
+    def config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Configuration values available to package scripts at runtime.
+
+        Values should be JSON-serializable.
+
+        :default: - no package configuration
+
+        :see: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#config
+        :stability: experimental
+        '''
+        result = self._values.get("config")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
     def dedupe_deps(self) -> typing.Optional[builtins.bool]:
@@ -11388,6 +11460,7 @@ class ReactComponentOptions(ReactRewireOptions):
         "bundled_deps": "bundledDeps",
         "bun_version": "bunVersion",
         "code_artifact_options": "codeArtifactOptions",
+        "config": "config",
         "dedupe_deps": "dedupeDeps",
         "delete_orphaned_lock_files": "deleteOrphanedLockFiles",
         "deps": "deps",
@@ -11530,6 +11603,7 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_javascript_eb5dbe11.CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dedupe_deps: typing.Optional[builtins.bool] = None,
         delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -11668,6 +11742,7 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param config: (experimental) Configuration values available to package scripts at runtime. Values should be JSON-serializable. Default: - no package configuration
         :param dedupe_deps: (experimental) Add a ``dedupe`` task that deduplicates project dependencies. Deduplication prevents multiple versions of the same package from being installed, if a single version can satisfy all requested version ranges. This prevents version proliferation and reduces the size of the dependency tree. The behavior depends on the package manager: - npm: runs ``npm dedupe`` after every mutating install. - pnpm: runs ``pnpm dedupe`` after every mutating install. - Yarn Berry: runs ``yarn dedupe`` after every mutating install. If ``yarnBerryOptions.dedupePackages`` is set, only the listed packages are deduplicated. - Yarn Classic: ``yarn install`` already deduplicates, so the task only prints an informational message. - Bun: not supported, enabling this option throws an error. Default: - false, unless ``yarnBerryOptions.dedupePackages`` is set
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
@@ -11865,6 +11940,7 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
             check_type(argname="argument bundled_deps", value=bundled_deps, expected_type=type_hints["bundled_deps"])
             check_type(argname="argument bun_version", value=bun_version, expected_type=type_hints["bun_version"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
             check_type(argname="argument dedupe_deps", value=dedupe_deps, expected_type=type_hints["dedupe_deps"])
             check_type(argname="argument delete_orphaned_lock_files", value=delete_orphaned_lock_files, expected_type=type_hints["delete_orphaned_lock_files"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -12042,6 +12118,8 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
             self._values["bun_version"] = bun_version
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if config is not None:
+            self._values["config"] = config
         if dedupe_deps is not None:
             self._values["dedupe_deps"] = dedupe_deps
         if delete_orphaned_lock_files is not None:
@@ -12743,6 +12821,20 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional["_javascript_eb5dbe11.CodeArtifactOptions"], result)
+
+    @builtins.property
+    def config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Configuration values available to package scripts at runtime.
+
+        Values should be JSON-serializable.
+
+        :default: - no package configuration
+
+        :see: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#config
+        :stability: experimental
+        '''
+        result = self._values.get("config")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
     def dedupe_deps(self) -> typing.Optional[builtins.bool]:
@@ -14146,6 +14238,7 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[_javascript_eb5dbe11.CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dedupe_deps: typing.Optional[builtins.bool] = None,
     delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14289,6 +14382,7 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[_javascript_eb5dbe11.CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dedupe_deps: typing.Optional[builtins.bool] = None,
     delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14483,6 +14577,7 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[_javascript_eb5dbe11.CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dedupe_deps: typing.Optional[builtins.bool] = None,
     delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14666,6 +14761,7 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[_javascript_eb5dbe11.CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dedupe_deps: typing.Optional[builtins.bool] = None,
     delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,

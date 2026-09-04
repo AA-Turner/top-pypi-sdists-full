@@ -7244,12 +7244,13 @@ class ReportType(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
+    * `AGENT_WEEKLY_DIGEST`None
     * `EXPENSIVE_QUERIES`None
     * `REINFORCEMENT_LOOP_DIGEST`None
     """
 
     __schema__ = schema
-    __choices__ = ("EXPENSIVE_QUERIES", "REINFORCEMENT_LOOP_DIGEST")
+    __choices__ = ("AGENT_WEEKLY_DIGEST", "EXPENSIVE_QUERIES", "REINFORCEMENT_LOOP_DIGEST")
 
 
 class ReportTypeEnum(pycarlo.lib.types.Enum):

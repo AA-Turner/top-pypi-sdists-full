@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from ._compression import Compression, IdentityCompression
+from ._shared import message_too_large_error
 from .code import Code
 from .errors import ConnectError
 
@@ -53,7 +54,7 @@ class EnvelopeReader(Generic[_RES]):
                 compressed = prefix_byte & 0b01 != 0
 
                 message_data = self._buffer[5 : 5 + self._next_message_length]
-                self._buffer = self._buffer[5 + self._next_message_length :]
+                del self._buffer[: 5 + self._next_message_length]
                 self._next_message_length = None
                 if compressed:
                     if isinstance(self._compression, IdentityCompression):
@@ -61,15 +62,9 @@ class EnvelopeReader(Generic[_RES]):
                             Code.INTERNAL,
                             "protocol error: sent compressed message without compression support",
                         )
-                    message_data = self._compression.decompress(message_data)
 
-                if (
-                    self._read_max_bytes is not None
-                    and len(message_data) > self._read_max_bytes
-                ):
-                    raise ConnectError(
-                        Code.RESOURCE_EXHAUSTED,
-                        f"message is larger than configured max {self._read_max_bytes}",
+                    message_data = self._compression.decompress(
+                        message_data, self._read_max_bytes
                     )
 
                 if self.handle_end_message(prefix_byte, message_data):
@@ -82,19 +77,27 @@ class EnvelopeReader(Generic[_RES]):
                 return
 
             self._next_message_length = int.from_bytes(self._buffer[1:5], "big")
+            if (
+                self._read_max_bytes is not None
+                and self._next_message_length > self._read_max_bytes
+            ):
+                raise message_too_large_error(self._read_max_bytes)
 
     def handle_end_message(
-        self, prefix_byte: int, message_data: bytes | bytearray
+        self, _prefix_byte: int, _message_data: bytes | bytearray, /
     ) -> bool:
-        """For client protocols with an end message like Connect and gRPC-Web, handle the end message.
-        Returns True if the end message was handled, False otherwise.
+        """Handle the end message for client protocols that have one.
+
+        Connect and gRPC-Web are such protocols. Returns True if the end
+        message was handled, False otherwise.
         """
         return False
 
     def handle_response_complete(
-        self, response: Response | SyncResponse, e: ConnectError | None = None
+        self, response: Response | SyncResponse, /, e: ConnectError | None = None
     ) -> None:
         """Handle any client finalization needed when the response is complete.
+
         This is typically used to process trailers for gRPC.
         """
 

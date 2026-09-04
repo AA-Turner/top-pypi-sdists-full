@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2024-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2024-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -33,7 +33,7 @@ using namespace regor;
 namespace
 {
 
-std::unique_ptr<SchedulerOperation> CreateOperation(OpType opType, Shape ifmShape, Shape ifm2Shape, Shape ofmShape)
+std::unique_ptr<SchedulerOperation> CreateOperation(OpType opType, const Shape &ifmShape, const Shape &ifm2Shape, const Shape &ofmShape)
 {
     auto ifm1 = CreateSchedulerTensor("ifm1", ifmShape, DataType::Int8);
     auto ifm2 = CreateSchedulerTensor("ifm2", ifm2Shape, DataType::Int8);
@@ -45,7 +45,7 @@ std::unique_ptr<SchedulerOperation> CreateOperation(OpType opType, Shape ifmShap
     return op;
 }
 
-std::unique_ptr<SchedulerOperation> CreateOperation(OpType opType, Shape ifmShape, Shape ofmShape)
+std::unique_ptr<SchedulerOperation> CreateOperation(OpType opType, const Shape &ifmShape, const Shape &ofmShape)
 {
     auto ifm1 = CreateSchedulerTensor("ifm1", ifmShape, DataType::Int8);
     auto ofm = CreateSchedulerTensor("ofm", ofmShape, DataType::Int8);

@@ -50,6 +50,9 @@ static const std::unordered_set<OpType> s_noQuant = {
     OpType::ReduceAny,
     OpType::ExpandDims,
     OpType::MemoryCopy,
+    OpType::Variable,
+    OpType::VariableRead,
+    OpType::VariableWrite,
 };
 
 constexpr int MAX_MEAN_KERNEL_SIZE = 64 * 64;
@@ -661,6 +664,86 @@ bool LogPrecision(const Operation *op)
     return true;
 }
 
+// IFM and OFM shapes must match
+bool EluShapes(const Operation *op)
+{
+    auto ifmConn = op->Input(TensorUsage::IFM);
+    assert(ifmConn);
+    auto ofmConn = op->Output(TensorUsage::OFM);
+    assert(ofmConn);
+    const auto &ifmShape = ifmConn->shape;
+    const auto &ofmShape = ofmConn->shape;
+    if ( ifmShape != ofmShape )
+    {
+        Failure(op, fmt::format("Mismatching shapes: IFM={}, OFM={}", ifmShape.ToString(), ofmShape.ToString()));
+        return false;
+    }
+    return true;
+}
+
+// IFM and OFM datatypes must match.
+// IFM and OFM datatypes must be Int8.
+bool EluPrecision(const Operation *op)
+{
+    auto ifmConn = op->Input(TensorUsage::IFM);
+    assert(ifmConn);
+    auto ofmConn = op->Output(TensorUsage::OFM);
+    assert(ofmConn);
+    auto ifmType = ifmConn->tensor->Type();
+    auto ofmType = ofmConn->tensor->Type();
+    if ( ifmType != DataType::Int8 )
+    {
+        Failure(op, fmt::format("Unsupported IFM type: {}", DataTypeToString(ifmType)));
+        return false;
+    }
+    if ( ifmType != ofmType )
+    {
+        Failure(op, fmt::format("Mismatching dataTypes: IFM={}, OFM={}", DataTypeToString(ifmType), DataTypeToString(ofmType)));
+        return false;
+    }
+    return true;
+}
+
+// IFM and OFM shapes must match
+bool GeluShapes(const Operation *op)
+{
+    auto ifmConn = op->Input(TensorUsage::IFM);
+    assert(ifmConn);
+    auto ofmConn = op->Output(TensorUsage::OFM);
+    assert(ofmConn);
+    const auto &ifmShape = ifmConn->shape;
+    const auto &ofmShape = ofmConn->shape;
+    if ( ifmShape != ofmShape )
+    {
+        Failure(op, fmt::format("Mismatching shapes: IFM={}, OFM={}", ifmShape.ToString(), ofmShape.ToString()));
+        return false;
+    }
+    return true;
+}
+
+// IFM and OFM datatypes must match.
+// IFM and OFM datatypes must be Int8 or UInt8.
+bool GeluPrecision(const Operation *op)
+{
+    auto ifmConn = op->Input(TensorUsage::IFM);
+    assert(ifmConn);
+    auto ofmConn = op->Output(TensorUsage::OFM);
+    assert(ofmConn);
+    auto ifmType = ifmConn->tensor->Type();
+    auto ofmType = ofmConn->tensor->Type();
+    if ( ifmType != DataType::Int8 && ifmType != DataType::UInt8 )
+    {
+        Failure(op, fmt::format("Unsupported IFM type: {}", DataTypeToString(ifmType)));
+        return false;
+    }
+    if ( ifmType != ofmType )
+    {
+        Failure(op, fmt::format("Mismatching dataTypes: IFM={}, OFM={}", DataTypeToString(ifmType), DataTypeToString(ofmType)));
+        return false;
+    }
+    return true;
+}
+
 // Batch must be 1.
 bool UnitBatch(const Operation *op)
 {
@@ -1011,12 +1094,55 @@ bool SupportedDTypes(const Operation *op, const std::set<DataType> &supportedDat
             auto type = conn.tensor->Type();
             if ( (IsIFM(usage) || IsOFM(usage)) && supportedDataTypes.count(type) == 0 )
             {
-                Failure(op, fmt::format("Operation has tensor with unsupported DataType {}", DataTypeToString(type)));
+                Failure(op,
+                    fmt::format("Operation has tensor with unsupported DataType {} ({})", DataTypeToString(type),
+                        conn.tensor->Name()));
                 return false;
             }
         }
     }
     return true;
+}
+
+bool SupportedVariableDTypes(const Operation *op, const std::set<DataType> &supportedDataTypes)
+{
+    auto checkData = [op, &supportedDataTypes](const TensorConnection *conn) -> bool
+    {
+        assert(conn);
+        assert(conn->tensor);
+        auto type = conn->tensor->Type();
+        if ( supportedDataTypes.count(type) == 0 )
+        {
+            Failure(op, fmt::format("Variable data tensor {} has unsupported DataType {}", conn->tensor->Name(), DataTypeToString(type)));
+            return false;
+        }
+        return true;
+    };
+
+    if ( op->Type() == OpType::VariableRead )
+    {
+        auto ofmConn = op->Output(TensorUsage::OFM);
+        if ( !ofmConn )
+        {
+            Failure(op, "VariableRead op must have data IFM");
+            return false;
+        }
+        return checkData(ofmConn);
+    }
+
+    if ( op->Type() == OpType::VariableWrite )
+    {
+        auto ifmConn = op->Input(TensorUsage::IFM);
+        if ( !ifmConn )
+        {
+            Failure(op, "VariableWrite op must have data OFM");
+            return false;
+        }
+        return checkData(ifmConn);
+    }
+
+    assert(false && "Expected variable operation");
+    return false;
 }
 
 }  // namespace
@@ -1034,6 +1160,9 @@ TfLiteSupportedOperators::TfLiteSupportedOperators(int64_t maxWeightSum8Bit, int
     supportedDTypes = {[&supportedDataTypes](const Operation *op) -> bool
         { return SupportedDTypes(op, supportedDataTypes); },
         fmt::format("Feature-map dataTypes must be one of {}", dTypes)};
+    variableDTypes = {[&supportedDataTypes](const Operation *op) -> bool
+        { return SupportedVariableDTypes(op, supportedDataTypes); },
+        fmt::format("Variable handle tensors must be Resource. Variable data tensors must be one of {}", dTypes)};
 
     mustHaveIFM = {&MustHaveIFM, "Operations must have at least one IFM."};
     mustHaveOFM = {&MustHaveOFM, "Operations must have at least one OFM."};
@@ -1080,6 +1209,10 @@ TfLiteSupportedOperators::TfLiteSupportedOperators(int64_t maxWeightSum8Bit, int
     transposeDims = {&TransposeDims, "Tensor dimension must be <= 8"};
     logShapes = {&LogShapes, "IFM and OFM shapes must match"};
     logPrecision = {&LogPrecision, "IFM and OFM datatypes must match, and must be Int8 or Int16"};
+    geluShapes = {&GeluShapes, "IFM and OFM shapes must match"};
+    geluPrecision = {&GeluPrecision, "IFM and OFM datatypes must match, and must be Int8 or UInt8"};
+    eluShapes = {&EluShapes, "IFM and OFM shapes must match"};
+    eluPrecision = {&EluPrecision, "IFM and OFM datatypes must match, and must be Int8"};
     unitBatch = {&UnitBatch, "Batch must be 1."};
     meanDepth = {&MeanDepth, "Reduction over depth is only supported if any of h,w,c == 1"};
     meanAxisSize = {&MeanAxisSize, fmt::format("Reduced axis must be less than {}", MAX_MEAN_KERNEL_SIZE)};
@@ -1098,11 +1231,25 @@ TfLiteSupportedOperators::TfLiteSupportedOperators(int64_t maxWeightSum8Bit, int
     for ( OpType type : supportedOpTypes )
     {
         // generic constraints
-        opConstraints[type].push_back(&supportedDTypes);
-        opConstraints[type].push_back(&mustHaveIFM);
-        opConstraints[type].push_back(&mustHaveOFM);
-        opConstraints[type].push_back(&tensMustHaveShape);
         opConstraints[type].push_back(&tensDimMustBeStatic);
+        // variable constraints
+        if ( IsVariable(type) )
+        {
+            opConstraints[type].push_back(&variableDTypes);
+        }
+        else
+        {
+            opConstraints[type].push_back(&supportedDTypes);
+            opConstraints[type].push_back(&tensMustHaveShape);
+        }
+        if ( type != OpType::Variable && type != OpType::VariableRead )
+        {
+            opConstraints[type].push_back(&mustHaveIFM);
+        }
+        if ( type != OpType::Variable && type != OpType::VariableWrite )
+        {
+            opConstraints[type].push_back(&mustHaveOFM);
+        }
         // quantization constraints
         if ( s_noQuant.find(type) == std::end(s_noQuant) )
         {
@@ -1144,6 +1291,10 @@ TfLiteSupportedOperators::TfLiteSupportedOperators(int64_t maxWeightSum8Bit, int
     opConstraints[OpType::Pad].push_back(&padParams);
     opConstraints[OpType::PadV2].push_back(&padParams);
     opConstraints[OpType::MirrorPad].push_back(&padParams);
+    opConstraints[OpType::Gelu].push_back(&geluShapes);
+    opConstraints[OpType::Gelu].push_back(&geluPrecision);
+    opConstraints[OpType::Elu].push_back(&eluShapes);
+    opConstraints[OpType::Elu].push_back(&eluPrecision);
     opConstraints[OpType::Log].push_back(&logShapes);
     opConstraints[OpType::Log].push_back(&logPrecision);
     opConstraints[OpType::Mean].push_back(&unitBatch);

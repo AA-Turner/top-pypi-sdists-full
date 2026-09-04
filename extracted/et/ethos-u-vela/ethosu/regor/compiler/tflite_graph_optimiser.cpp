@@ -505,6 +505,81 @@ Operation *TFLiteGraphOptimiser::ConvertTanhSigmoidToLUT16(Operation *const op)
 
 // Rewrite functions
 
+// Convert GELU operations to LUT
+Operation *TFLiteGraphOptimiser::ConvertGeluToLUT(Graph *const graph, Operation *const operation)
+{
+    UNUSED(graph);
+    Operation *returnOp = operation;
+    if ( operation->Type() != OpType::Gelu )
+    {
+        return returnOp;
+    }
+
+    const bool approximate = operation->Attribute<gelu_attr_t>()->approximate;
+    auto gelu = [approximate](double x) -> double
+    {
+        if ( approximate )
+        {
+            constexpr double GELU_TANH_APPROX_CUBIC_COEFF = 0.044715f;
+            const double SQRT_2_OVER_PI = std::sqrt(2.0 / M_PI);
+            const double tanhArg = SQRT_2_OVER_PI * ((GELU_TANH_APPROX_CUBIC_COEFF * std::pow(x, 3)) + x);
+            return 0.5f * x * (1.0f + std::tanh(tanhArg));
+        }
+        else
+        {
+            return x * 0.5f * std::erfc(-x / M_SQRT2);
+        }
+    };
+
+    const auto *ifmConn = operation->Input(TensorUsage::IFM0);
+    DataType ifmType = ifmConn->tensor->Type();
+    if ( ifmType == DataType::Int8 || ifmType == DataType::UInt8 )
+    {
+        returnOp = ConvertToLUT8(operation, gelu, "Gelu");
+        RecordOptimisation(*operation, returnOp);
+        operation->Disconnect();
+    }
+
+    return returnOp;
+}
+
+
+// Convert ELU operations to LUT
+Operation *TFLiteGraphOptimiser::ConvertEluToLUT(Graph *const graph, Operation *const operation)
+{
+    UNUSED(graph);
+    Operation *returnOp = operation;
+    if ( operation->Type() != OpType::Elu )
+    {
+        return returnOp;
+    }
+
+    auto elu = [](double x) -> double
+    {
+        if ( x > 0 )
+        {
+            return x;
+        }
+        else
+        {
+            // Keep the exact expression used to generate the bit-exact LUT.
+            return std::exp(x) - 1;
+        }
+    };
+
+    const auto *ifmConn = operation->Input(TensorUsage::IFM0);
+    DataType ifmType = ifmConn->tensor->Type();
+    if ( ifmType == DataType::Int8 )
+    {
+        returnOp = ConvertToLUT8(operation, elu, "Elu");
+        RecordOptimisation(*operation, returnOp);
+        operation->Disconnect();
+    }
+
+    return returnOp;
+}
+
+
 // Convert EXP operations to LUT
 Operation *TFLiteGraphOptimiser::ConvertExpToLUT(Graph *const graph, Operation *const operation)
 {
@@ -1257,6 +1332,21 @@ Operation *TFLiteGraphOptimiser::ConvertReduceMinMaxAnyAll(Graph *const graph, O
     return returnOp;
 }
 
+Operation *TFLiteGraphOptimiser::CreateTileOp(const TensorConnection *ifm, const Shape &ofmShape)
+{
+    auto op = std::make_shared<Operation>(OpType::Tile);
+    const Shape ifmShape = Shape::PadAxes(ifm->shape, ofmShape.Size(), 1);
+
+    auto multiples = (ofmShape / ifmShape).ToList<int32_t>();
+    auto multiplesTensor = CreateConstTensor("multiples", DataType::Int32, std::make_shared<Buffer>(std::move(multiples)));
+    auto ofm = std::make_shared<Tensor>(ifm->tensor->Name() + "/" + OpTypeToString(op->Type()), ifm->tensor->Type(), ofmShape);
+
+    op->ConnectInput(TensorUsage::IFM, ifm->tensor).Set(ifmShape).Set(ifm->quantization);
+    op->ConnectInput(TensorUsage::Params, multiplesTensor);
+    op->ConnectOutput(TensorUsage::OFM, ofm).Set(ofmShape).Set(ifm->quantization);
+    return op.get();
+}
+
 Operation *TFLiteGraphOptimiser::CreateTransposeForMatMul(const std::shared_ptr<Tensor> &ifm, const Shape &ofmShape)
 {
     auto op = std::make_shared<Operation>(OpType::Transpose);
@@ -1313,11 +1403,18 @@ Operation *TFLiteGraphOptimiser::RewriteBatchMatMul(Graph *const, Operation *con
         // IFM handling - Reshape ifm N,H,W,C -> 1,NxH,W,C
         auto ifmReshaped = Shape(1, n, ifmShape.Width(), ifmShape.Depth());
         auto ifmTensor = ifm->tensor;
+        // Materialise broadcasted leading dimensions before flattening them into MatMul rows.
+        if ( ifmShape.Batch() != ofmShape.Batch() || ifmShape.Height() != ofmShape.Height() )
+        {
+            auto op = CreateTileOp(ifm, ifmShape.WithBatch(ofmShape.Batch()).WithHeight(ofmShape.Height()));
+            RecordOptimisation(*operation, op);
+            ifmTensor = op->Output(TensorUsage::OFM)->tensor;
+        }
         if ( transposeIfm )
         {
             // Add Transpose op, ifm:  1,n,W,C -> 1,n,C,W
             ifmReshaped = Shape(1, ifmReshaped.Height(), ifmReshaped.Depth(), ifmReshaped.Width());
-            auto op = CreateTransposeForMatMul(ifm->tensor, ifmReshaped);
+            auto op = CreateTransposeForMatMul(ifmTensor, ifmReshaped);
             RecordOptimisation(*operation, op);
             ifmTensor = op->Output(TensorUsage::OFM)->tensor;
         }
@@ -1325,11 +1422,18 @@ Operation *TFLiteGraphOptimiser::RewriteBatchMatMul(Graph *const, Operation *con
         // IFM2 handling - Reshape ifm2 N,H,W,C -> 1,NxH,W,C
         auto ifm2Reshaped = Shape(1, n, ifm2Shape.Width(), ifm2Shape.Depth());
         auto ifm2Tensor = ifm2->tensor;
+        // Materialise broadcasted leading dimensions before flattening them into MatMul rows.
+        if ( ifm2Shape.Batch() != ofmShape.Batch() || ifm2Shape.Height() != ofmShape.Height() )
+        {
+            auto op = CreateTileOp(ifm2, ifm2Shape.WithBatch(ofmShape.Batch()).WithHeight(ofmShape.Height()));
+            RecordOptimisation(*operation, op);
+            ifm2Tensor = op->Output(TensorUsage::OFM)->tensor;
+        }
         if ( transposeIfm2 )
         {
             // Add Transpose op, ifm2: 1,n,W,C -> 1,n,C,W
             ifm2Reshaped = Shape(1, ifm2Reshaped.Height(), ifm2Reshaped.Depth(), ifm2Reshaped.Width());
-            auto op = CreateTransposeForMatMul(ifm2->tensor, ifm2Reshaped);
+            auto op = CreateTransposeForMatMul(ifm2Tensor, ifm2Reshaped);
             RecordOptimisation(*operation, op);
             ifm2Tensor = op->Output(TensorUsage::OFM)->tensor;
         }
@@ -1372,11 +1476,10 @@ Operation *TFLiteGraphOptimiser::RewriteFullyConnectDynamic(Graph *const, Operat
         auto ifm2Tensor = transposeOp->Output(TensorUsage::OFM)->tensor;
 
         auto matMulOp = std::make_shared<Operation>(OpType::MatMul);
-        auto rounding = ifm->tensor->Type() == DataType::Int16 ? RoundMode::NATURAL : RoundMode::DBL;
 
         matMulOp->ConnectInput(TensorUsage::IFM0, ifm->tensor).Set(ifmShape).Set(ifm->quantization).Set(ifm->slice);
         matMulOp->ConnectInput(TensorUsage::IFM1, ifm2Tensor).Set(ifm2Transposed).Set(ifm2->quantization).Set(ifm2->slice);
-        matMulOp->ConnectOutput(TensorUsage::OFM, ofm->tensor).Set(ofmShape).Set(ofm->quantization).Set(ofm->slice).Set(rounding);
+        matMulOp->ConnectOutput(TensorUsage::OFM, ofm->tensor).Set(ofmShape).Set(ofm->quantization).Set(ofm->slice).Set(ofm->rounding);
 
         RecordOptimisation(*operation, matMulOp.get());
         returnOp = matMulOp.get();
@@ -1694,19 +1797,22 @@ Operation *TFLiteGraphOptimiser::FixupDilationGT2(Graph *const, Operation *const
     return returnOp;
 }
 
-// If conv op without bias tensor, create one with zeroes
+// If convolution or FullyConnected op without bias tensor, create one with zeroes
 Operation *TFLiteGraphOptimiser::FixupBias(Graph *const, Operation *const operation)
 {
-    if ( IsConvolution(operation->Type()) && operation->CountInputs(TensorUsage::Scales) == 0 )
+    if ( (IsConvolution(operation->Type()) || operation->Type() == OpType::FullyConnected) && operation->CountInputs(TensorUsage::Scales) == 0 )
     {
         auto ifmConn = operation->Input(TensorUsage::IFM);
         auto ofmConn = operation->Output(TensorUsage::OFM);
 
-        // Create bias tensor with zeroes
+        // Bias type controls reduced-scale conversion for int16, even when the bias values are zero.
         DataType biasType;
         std::shared_ptr<Buffer> biasBuffer;
-        auto biasElements = ofmConn->shape.Depth();
-        if ( ifmConn->tensor->Type() == DataType::Int16 )
+        auto biasElements =
+            operation->Type() == OpType::FullyConnected ?
+                operation->Input(TensorUsage::Weights)->tensor->StorageShape().Batch() :
+                ofmConn->shape.Depth();
+        if ( ifmConn->tensor->Type() == DataType::Int16 && ofmConn->rounding != RoundMode::DBL )
         {
             biasType = DataType::Int64;
             biasBuffer = std::make_shared<Buffer>(std::make_unique<int64_t[]>(biasElements), biasElements);
@@ -1717,7 +1823,7 @@ Operation *TFLiteGraphOptimiser::FixupBias(Graph *const, Operation *const operat
             biasBuffer = std::make_shared<Buffer>(std::make_unique<int32_t[]>(biasElements), biasElements);
         }
         auto biasTensor = CreateConstTensor("bias", biasType, biasBuffer);
-        operation->ConnectInput(TensorUsage::Scales, biasTensor);
+        operation->ConnectInput(TensorUsage::Scales, biasTensor).Set(Quantization::Unit());
     }
     return operation;
 }
@@ -2278,11 +2384,10 @@ Operation *TFLiteGraphOptimiser::Convert8bitLeakyReluToLUT(Graph *const graph, O
         assert(params->tensor->IsConstant());
         assert(params->quantization.scales.size() > 0);
         assert(params->quantization.zeroPoints.size() > 0);
-        QuantizedScale alphaQuant = QuantizedScale(alpha);
         auto alphaZp = params->quantization.zeroPoints[0];
         scalar = Scalar<int64_t>(*params->tensor) - alphaZp;
-        alphaQuant = params->quantization.scales[0];
-        alphaScale = ElementwiseMulScale(ifmScale, alphaQuant.Dequantize(), ofmScale);
+        auto scaleValue = params->quantization.scales[0].Dequantize();
+        alphaScale = ElementwiseMulScale(ifmScale, scaleValue, ofmScale);
     }
 
     // convert to left shift-positive notation
@@ -2579,7 +2684,7 @@ Operation *TFLiteGraphOptimiser::ConvertZeroPoint(Graph *const graph, Operation 
         opType == OpType::AvgPool || opType == OpType::Resize || opType == OpType::CLZ || opType == OpType::SHL || opType == OpType::Div;
     for ( auto [usage, ifmConn] : operation->Inputs().pairs() )
     {
-        if ( IsIFM(usage) )
+        if ( IsIFM(usage) && ifmConn.tensor->Type() != DataType::None )
         {
             if ( zeroPoint0ForType || DataTypeSizeBits(ifmConn.tensor->Type()) >= 32 )
                 ifmConn.quantization.zeroPoints.clear();
@@ -2587,7 +2692,7 @@ Operation *TFLiteGraphOptimiser::ConvertZeroPoint(Graph *const graph, Operation 
     }
     for ( auto [usage, ofmConn] : operation->Outputs().pairs() )
     {
-        if ( IsOFM(usage) )
+        if ( IsOFM(usage) && ofmConn.tensor->Type() != DataType::None )
         {
             if ( zeroPoint0ForType || opType == OpType::ArgMax ) ofmConn.quantization.zeroPoints.clear();
         }
@@ -2767,10 +2872,11 @@ Operation *TFLiteGraphOptimiser::ConvertQuantizationToExplicit(Graph *const grap
         return operation;
     }
 
-    // Special handling of boolean comparison operators, since the boolean ofm tensor has no quantization
-    // but the ifm tensors may have TFLite quantization which requires adjusting.
+    // Take care of operators that need special handling first
     switch ( opType )
     {
+        // Special handling of boolean comparison operators, since the boolean ofm tensor has no quantization
+        // but the ifm tensors may have TFLite quantization which requires adjusting.
         case OpType::Less:
         case OpType::Greater:
         case OpType::Equal:
@@ -2792,6 +2898,14 @@ Operation *TFLiteGraphOptimiser::ConvertQuantizationToExplicit(Graph *const grap
                 if ( !ifm1Quant.scales.empty() ) ifm1Quant.scales.front().shift -= 8;
                 ifm1Quant.type = QuantizationType::EXPLICIT;
             }
+            break;
+        }
+        // Special handling of Cast operator, since the operator should have no quantization
+        // but the tensors may have TFLite quantization from the loader which needs to be removed.
+        case OpType::Cast:
+        {
+            operation->Input(TensorUsage::IFM)->quantization = {};
+            operation->Output(TensorUsage::OFM)->quantization = {};
             break;
         }
         default:
@@ -2941,18 +3055,12 @@ Operation *TFLiteGraphOptimiser::ConvertQuantizationToExplicit(Graph *const grap
 
             if ( !ifm0Quant.scales.empty() && !ofmQuant.scales.empty() && !ifm1Quant.scales.empty() )
             {
-                double ifm0Scale = ifm0Quant.Scale().Dequantize();
-                double ifm1Scale = ifm1Quant.Scale().Dequantize();
-                double ofmScale = ofmQuant.Scale().Dequantize();
+                auto ifm0Scale = float(ifm0Quant.Scale().Dequantize());
+                auto ifm1Scale = float(ifm1Quant.Scale().Dequantize());
+                auto ofmScale = ofmQuant.Scale().Dequantize();
                 ofmQuant.scales.clear();
-                if ( DataTypeSizeBits(ifm0Conn->tensor->Type()) != 8 )
-                {
-                    ofmQuant.scales.push_back(QuantizedScale((ifm0Scale * ifm1Scale) / ofmScale, true));
-                }
-                else
-                {
-                    ofmQuant.scales.push_back(ElementwiseMulScale<float, double>(ifm0Scale, ifm1Scale, ofmScale));
-                }
+                bool reduced = DataTypeSizeBits(ifm0Conn->tensor->Type()) != 8;
+                ofmQuant.scales.push_back(QuantizedScale(double(ifm0Scale * ifm1Scale) / ofmScale, reduced));
             }
             break;
         }
@@ -3088,6 +3196,22 @@ static std::shared_ptr<Tensor> SliceConstTensor1D(
 
 namespace
 {
+
+std::string GetVariableIdentityFromHandle(const Operation *const variableOp)
+{
+    assert(variableOp);
+    assert(variableOp->Type() == OpType::Variable);
+
+    const auto *passthrough = static_cast<const tflite::Operator *>(variableOp->Passthrough());
+    assert(passthrough);
+
+    const auto *options = passthrough->builtin_options_as_VarHandleOptions();
+    assert(options);
+    assert(options->shared_name());
+    const std::string container = options->container() ? options->container()->str() : std::string();
+    return std::to_string(int(container.size())) + ":" + container + options->shared_name()->str();
+}
+
 void DisconnectActivation(Operation *const op)
 {
     assert(TfLiteMapping::CanFuseActivationFunction(op));
@@ -3102,7 +3226,59 @@ void DisconnectActivation(Operation *const op)
     activation->SetPassthroughOp();
     activation->Disconnect();
 }
+
 }  // namespace
+
+// Lower TFLite Variable/VariableRead/VariableWrite to GraphIR Variable/VariableRead/VariableWrite
+Operation *TFLiteGraphOptimiser::LowerVariables(Graph *const graph, Operation *const operation)
+{
+    const OpType type = operation->Type();
+    if ( type != OpType::Variable )
+    {
+        return operation;
+    }
+
+    // Check if we can handle this variable data type
+    for ( const auto &consumer : operation->OFM()->Readers() )
+    {
+        if ( !_supportedOps->Check(consumer.get()) )
+        {
+            return operation;
+        }
+    }
+
+    const std::string variableName = GetVariableIdentityFromHandle(operation);
+
+    // Remove the variable op by converting it to one persistent tensor per OFM consumer
+    for ( const auto &consumer : operation->OFM()->Readers() )
+    {
+        std::shared_ptr<Tensor> var;
+        if ( consumer->Type() == OpType::VariableRead )
+        {
+            const auto *ofmConn = consumer->Output(TensorUsage::OFM);
+            var = ofmConn->tensor->Clone();
+            consumer->ConnectInput(TensorUsage::IFM, var).Set(ofmConn->quantization);
+        }
+        else if ( consumer->Type() == OpType::VariableWrite )
+        {
+            const auto *ifmConn = consumer->Input(TensorUsage::IFM);
+            var = ifmConn->tensor->Clone();
+            consumer->ConnectOutput(TensorUsage::OFM, var).Set(ifmConn->quantization);
+
+            // Mark this tensor as output to we can reach it
+            graph->AddOutput(var);
+        }
+        assert(var);
+        var->SetBuffer(nullptr);
+        var->SetName(variableName);
+        graph->AddPersistent(var);
+    }
+
+    // Remove the Variable op
+    operation->Disconnect();
+
+    return operation;
+}
 
 Operation *TFLiteGraphOptimiser::SupportedOperatorChecks(Graph *const graph, Operation *const operation)
 {
@@ -3141,12 +3317,6 @@ Operation *TFLiteGraphOptimiser::SupportedOperatorChecks(Graph *const graph, Ope
 Operation *TFLiteGraphOptimiser::ClampActivations(Graph *const graph, Operation *const operation)
 {
     OpType opType = operation->Type();
-    auto Quantize = [](float value, const Quantization &quant)
-    {
-        float scale = quant.scales.empty() ? 1.0f : float(quant.scales[0].Dequantize());
-        int64_t zp = quant.zeroPoints.empty() ? 0 : quant.zeroPoints[0];
-        return zp + int64_t(std::round(double(value / scale)));
-    };
     if ( !IsActivation(opType) )
     {
         return operation;
@@ -3207,13 +3377,45 @@ Operation *TFLiteGraphOptimiser::ConvertConvolutionGroup(Graph *const graph, Ope
         return operation;
     }
 
+    int kernelsPerGroup = weightShape.Batch() / numGroups;
+    const auto dilation = operation->Kernel()->Dilation();
+    const bool needsDilationFixup = dilation.x > 2 || dilation.y > 2;
+    const bool hasExclusiveWeights = weightConn->tensor->Readers().size() == 1;
+    const bool readsFullIfmDepth =
+        ifmReadShape.Depth() == ifmShape.Depth() && (!ifmConn->slice.offset || ifmConn->slice.offset.Depth() == 0);
+    const bool hasUnslicedWeights = !weightConn->slice.shape;
+    const bool isDepthwiseEquivalent =
+        weightShape.Size() == 4 && weightShape.Depth() == 1 && kernelsPerGroup == 1 &&
+        weightShape.Batch() == ifmReadShape.Depth() && ofmShape.Depth() == ifmReadShape.Depth() &&
+        biasShape.Depth() == ofmShape.Depth() && readsFullIfmDepth && hasUnslicedWeights &&
+        weightConn->tensor->IsConstant() && biasConn->tensor->IsConstant() && !needsDilationFixup && hasExclusiveWeights;
+    if ( isDepthwiseEquivalent )
+    {
+        // A grouped Conv2D with one input and one output channel per group is equivalent to a
+        // DepthwiseConv2D with depth multiplier 1. Reinterpret [O,H,W,I] weights as [I,H,W,O]
+        // without copying the constant data.
+        auto depthwiseOp = std::make_shared<Operation>(OpType::DepthwiseConv2D);
+        depthwiseOp->SetKernel(std::make_unique<Kernel>(*operation->Kernel()));
+        Shape depthwiseWeightShape = weightShape.Extract(3, 1, 2, 0);
+        Shape depthwiseWeightStride = Shape::GetStridesForShape(weightShape, 1).Extract(3, 1, 2, 0);
+        const UniqueId sourceId = *operation;
+        ReplaceOperation(operation, depthwiseOp.get());
+
+        auto *depthwiseWeights = depthwiseOp->Input(TensorUsage::Weights);
+        depthwiseWeights->shape = depthwiseWeightShape;
+        depthwiseWeights->slice.shape = depthwiseWeightShape;
+        depthwiseWeights->slice.stride = depthwiseWeightStride;
+
+        RecordOptimisation(sourceId, depthwiseOp.get());
+        return depthwiseOp.get();
+    }
+
     // Create final Concat operation
     auto concatOp = std::make_shared<Operation>(OpType::Concat);
     concatOp->CopyOutput(TensorUsage::OFM, *ofmConn);
     concatOp->Attribute<axis_attr_t>()->axis = -1;
 
     // Create 'numGroups' number of convolutions, each reading a depth-wise slice of the IFM.
-    int kernelsPerGroup = weightShape.Batch() / numGroups;
     Shape zeroShape = ifmReadShape.WithZeros();
     Shape ifmSlice = ifmReadShape.WithDepth(ifmReadShape.Depth() / numGroups);
     Shape ofmSlice = ofmShape.WithDepth(ofmShape.Depth() / numGroups);
@@ -3259,29 +3461,24 @@ Operation *TFLiteGraphOptimiser::ConvertConvolutionGroup(Graph *const graph, Ope
             assert(biasConn->tensor->Type() == DataType::Int64);
             biasSubTensor = SliceConstTensor1D<int64_t>(biasConn, biasSlice, biasOffset, biasName + "bias" + std::to_string(i));
         }
-        // Slice quantization info for weights and bias
+        // Slice quantization info for weights
         Quantization newWeightQuant = weightConn->quantization;
-        Quantization newBiasQuant = biasConn->quantization;
         if ( weightConn->quantization.scales.size() > 1 )
         {
             // Per-channel quantization
             newWeightQuant.scales.clear();
             newWeightQuant.zeroPoints.clear();
-            newBiasQuant.scales.clear();
-            newBiasQuant.zeroPoints.clear();
             for ( int j = 0; j < kernelsPerGroup; j++ )
             {
                 newWeightQuant.scales.push_back(weightConn->quantization.scales[j + (i * kernelsPerGroup)]);
                 newWeightQuant.zeroPoints.push_back(weightConn->quantization.zeroPoints[j + (i * kernelsPerGroup)]);
-                newBiasQuant.scales.push_back(biasConn->quantization.scales[j + (i * kernelsPerGroup)]);
-                newBiasQuant.zeroPoints.push_back(biasConn->quantization.zeroPoints[j + (i * kernelsPerGroup)]);
             }
         }
         // Connect weights slice
         convGroupOp->ConnectInput(TensorUsage::Weights, weightSubTensor).Set(newWeightQuant);
 
         // Connect the bias slice
-        convGroupOp->ConnectInput(TensorUsage::Scales, biasSubTensor).Set(newBiasQuant);
+        convGroupOp->ConnectInput(TensorUsage::Scales, biasSubTensor).Set(biasConn->quantization);
 
         // Connect intermediate OFM to Concat op
         concatOp->ConnectInput(MakeTensorUsage(TensorUsage::IFM, i), ofmConvGroup)

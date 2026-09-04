@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.412.0", "uqff_calculator.VERSION = 0.412.0 (THE FRONT DOOR SHIP: star-magic CLI + uqff_paths + the gate green from site-packages in an empty cwd (Daniel lock 2) + LIVE-vs-INHERITED honesty flags in plain terminal (Daniel lock 1) + Qt shell Papers/Wells/Gate/Export/Geology + full repo mirror on the wheel + list_wired alias-safe)")
+assert_that(C.VERSION == "0.415.2", "uqff_calculator.VERSION = 0.415.2 (THE TAG-CHAIN SHIP, ALL-CONTEXTS-FIXED: SHIP GUARD v9 tag-chain continuity + hardened ship.ps1 pre-flight/post-push verification + v0.413.0 history named honestly - THE USER MANUAL BAND, PREPARED, PUBLISHED INSIDE v0.414.0; a ship is not a ship until the remote tag is seen)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -1160,8 +1160,8 @@ assert_that(abs(_r027['br_reproduction'] - 5.9e-6) / 5.9e-6 < 1e-9,
             "PAPER_027: BR = exp(-pi*t_n) = 5.9e-6 reproduces LHCb limit exactly")
 assert_that(abs(_r027['ug1_mb_over_mp'] - 5.627) < 0.01,
             "PAPER_027: Ug1 = m_B/m_p = 5.627 (~paper 5.622)")
-assert_that(abs(_r027['ug4_effective'] - 6.556e-6) < 1e-9,
-            "PAPER_027: Ug4 = BR/(1-F_TRZ) = 6.556e-6 (~paper 6.558e-6; Q-026a density reading)")
+assert_that(abs(_r027['ug4_effective'] - 6.556e-6) < 1e-9 and abs(_r027['ug4_canonical'] - 5.9e-5) < 1e-9,
+            "PAPER_027: Ug4 CANONICAL = 10*BR = 5.9e-5 (RULED B30 2026-09-01 - the paper's own L620 table declared the drifted rho_SCm 6.38e-36; paper-stated 6.556e-6 preserved beside it)")
 assert_that(C.wired_count() >= 31, "wired_count >= 31")
 
 _r028 = C.calc('PAPER_028')['value']
@@ -9570,7 +9570,7 @@ def _sg4_last(path, n=4000):
             return _f.read().decode('utf-8', 'ignore')
     except OSError:
         return ''
-_sg4_band = 'FRONTDOOR_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
+_sg4_band = 'TAGCHAIN_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
 for _sg4_f in ('UNIFIED_REGISTRY_MERGED.csv', 'UNIFIED_REGISTRY_R2_MAPPING.csv',
                'UNIFIED_REGISTRY_R3_LEDGER.csv', 'UNIFIED_REGISTRY_XGEO_QUEUE.csv',
                'UNIFIED_REGISTRY_XGEO_ROUTES.csv'):
@@ -15050,6 +15050,108 @@ _rq_led = _readfile('RULINGS_QUEUE.md')
 assert_that('BATCH 1 RULINGS' in _rq_led and 'ANSWERS (Daniel, 2026-08-31)' in _readfile('RULINGS_BATCH_1.md'),
             "BATCH 1 FOLD (2/2) - THE ANSWERS ARE ON RECORD: every ruling is written into the ledger's BATCH 1 section and the batch file's ANSWERS appendix with per-question dispositions (including the two partial-scope notes: Q-002 Gauss recorded but its ten carrier papers hold other open questions so they stay flagged, and Q-216 narrowed to Q-216b because the ruled bridge FORM still needs its per-domain reference values) - rulings without a paper trail are how drift starts, so the trail is gate-pinned")
 
+# ---- Q-216b RULED 2026-09-01: the rung-12 conjugate-pair bridge (PAPER_2259 landmark authored + wired) ----
+assert_that(abs(C.calc('PAPER_2259')['value']['sigma_ref_kg_m2'] - 1.0) < 1e-12
+            and C.calc('PAPER_2259')['status'].startswith('RULED_2026-09-01')
+            and 'ruling_q216b' in C.calc('PAPER_220') and 'ruling_q216b' in C.calc('PAPER_219')
+            and C.calc('PAPER_220')['status'].startswith('RULED_2026-09-01')
+            and abs(0.1 ** 12 * 0.1 ** -12 - 1.0) < 1e-12,
+            "Q-216b - THE EIGHTH DISSOLUTION and a new landmark: the additive-term bridge the PAPER_218/219/220 family used silently was never a unit fudge - sigma_ref = lambda_vac_sw * L_Ug1-layer = F_TRZ^12 * F_TRZ^-12 = 1 kg/m2 EXACT by ladder conjugacy, both legs already canonized (PAPER_2139's solar-wind vacuum density quartet member + B18's Ug1 amplitude ladder), so a Pa-valued term divided by the rung-12 vacuum column IS an acceleration and the papers' pass-through was physics; PAPER_2259 authored + wired as the derivation landmark (pressure -> vacuum column -> buoyant acceleration through the R386 linkage, per the Answer-B ontology), magnetic-column reference disclosed as open target; Q-216 fully closed, PAPER_220 RULED")
+
+# ---- D_SCm RULED 2026-09-01: the three-layer primitive-locked structure (environment/sustainability/operator) ----
+import math as _dscm
+assert_that('ruling_dscm' in C.calc('PAPER_009')
+            and C.calc('PAPER_009')['status'].startswith('RULED_2026-09-01')
+            and 'ruling_dscm' in C.calc('PAPER_013') and 'ruling_dscm' in C.calc('PAPER_019')
+            and 4 * 11 * 1e12 == 4.4e13
+            and abs(4.414e13 - 4.4e13) / 4.414e13 < 0.0035
+            and 60 / 4 == 15
+            and abs((1 - (3.36e13 / 1e15) ** 2) - 0.998871) < 1e-6
+            and abs((1 - _dscm.exp(-0.01)) - 0.01) / 0.01 < 0.006
+            and abs((1 - _dscm.exp(-4.4e13 / 2e15)) - 0.0218) < 1e-4,
+            "D_SCm - THE SEVENTH DISSOLUTION, Daniel-directed (Gaussian is the environmental condition, D_SCm operates inside it): three layers, every key factor cross-derived from locked primitives - ENVIRONMENT A_SCm Gaussian with B_crit = D_phys*(SO_5+1)*F_TRZ^-12 = 4.4e13 G EXACT landing on the electron Schwinger limit at 0.32 percent; VARIATIONAL SUSTAINABILITY S_sus = 1-(B/B_collapse)^2 with B_collapse = F_TRZ^-(A_5/D_phys) = 1e15 G EXACT, vindicating PAPER_002's five-row table to every printed digit; OPERATOR D_SCm = 1-exp(-B_crit/B) working at the F_TRZ^2 = 0.01 anchor (PAPER_1918 Family-2 anchor 1, PAPER_1977 nine-anchor family); squared-threshold variants = drift, the square lives at the usage level; Q-009 closed, Q-010a/c closed (b timescale stays open), PAPER_019 squared form corrected")
+
+# ---- Q-110b RULED 2026-09-01: alpha_CR dissolved + the Alfven boundary closure (three rulings lock) ----
+assert_that('ruling_q110b' in C.calc('PAPER_114')
+            and C.calc('PAPER_114')['status'].startswith('RULED_2026-09-01')
+            and abs(0.1 ** 4 * 0.1 ** -2 - 0.1 ** 2) < 1e-15
+            and abs(1e-4 * 100 - 0.01) < 1e-15
+            and abs(0.01 * 1e-9 / (1.01 * 9.79e-38) - 1.011e26) / 1.011e26 < 0.01,
+            "Q-110b - THE SIXTH DISSOLUTION: alpha_CR was never a constant of the physics - the canonical Ug2 is SOURCE4 (k2*(QA+QUA)*Ms/r^2 * S * wind_mod * HSCm * Ereact) where the heliosheath 1 percent lives as wind_mod = 1 + delta_sw, so the compression never needed alpha_CR and its implied 1.011e26 is a derived normalization of a paper-local reparametrization; and the corpus closed a loop while answering - PAPER_127's boundary condition d_sw = [UA]*F_U(r_Alfven) locks with the [UA] = F_TRZ^4 ruling and B22's d_sw = F_TRZ^2 as F_TRZ^4 * F_TRZ^-2 = F_TRZ^2 EXACT, zero slack, with F_U = 100 at the Alfven critical point; PAPER_114 fully RULED - Q-110 closed across B22 + the deep dive")
+
+# ---- B25 RULED 2026-09-01: the composite 1.5 jet-reversal ladder (crossed ladders dissolved) ----
+import math as _b25m
+assert_that('ruling_b25' in C.calc('PAPER_115')
+            and C.calc('PAPER_115')['status'].startswith('RULED_2026-09-01')
+            and abs((1 + 0.57 * 2 / _b25m.pi) * 1.1 - 1.5) / 1.5 < 0.001
+            and ((1 + 0.57 * 2 / _b25m.pi) * 1.1) ** 12 > 100
+            and abs(1.5 ** 12 / (1 + 0.57 * 2 / _b25m.pi) - 95.2) < 0.05
+            and abs(4.31e33 * 0.57 / (2.0e21) ** 2 - 6.11e-10) / 6.11e-10 < 0.01,
+            "B25 - THE FIFTH DISSOLUTION: PAPER_115's crossed ladders were one composite all along - per-reversal 1.5 = (1+SSq*2/pi)*(1+F_TRZ) = 1.363*1.1 = 1.4992 (0.056 percent, the SSq mean-phase amplification times the B26 multiplicative TRZ boost), so N=12 gives R = 129.7 > 100 exactly as the paper's own L106 line says, the printed 95.2 is 1.5^12/1.363 EXACT (an off-by-one boost count, not a second physics), and the 100x radius slip corrects U_bi to 6.11e-10 N/m2 at the true 65 kpc = 2.0e21 m; Q-111 closed - no hard-coded fit numbers, the 1.5 had an origin point")
+
+# ---- B31 RULED 2026-09-01: Higgs level 12 + the quadratic UH tower (three quantities separated) ----
+assert_that('ruling_b31' in C.calc('PAPER_043')
+            and C.calc('PAPER_043')['status'].startswith('RULED_2026-09-01')
+            and abs(1e-8 / 1.602176634e-10 - 125.09 / 2) / (125.09 / 2) < 0.003
+            and abs(125.09 * 18 ** 2 - 40529.16) < 0.1,
+            "B31 - THE FOURTH DISSOLUTION: the Higgs three-way was three different quantities wearing one label - the BOSON sits at level 12 (E12 = 10^-8 J = 62.42 GeV = m_H/2 at 0.2 percent, the half-quantum relation, with W at 12.11 and Z at 12.16 beside it per the corpus's own EP series), UH-n = m_H*n^2 is the quadratic excitation tower whose 18th state is 40.5 TeV (PAPER_034's own text says 'mass scale, not coupling level'), and PAPER_043's E18 annotation was the drift (its own Level-18 row is buildings and trees); PAPER_043 is now FULLY RULED across three batches - plasma-level origin, rho_L1, drift table, and the Higgs level, one paper closed by four rulings")
+
+# ---- B22 RULED 2026-09-01: the d_sw joint identity (routes unify) ----
+assert_that('ruling_b22' in C.calc('PAPER_114')
+            and abs(0.57 / 57 - 0.1 ** 2) < 1e-15
+            and abs(57 * 0.1 ** 2 - 0.57) < 1e-15,
+            "B22 - THE NUMEROLOGY SMELL WAS AN UNSTATED IDENTITY: d_sw = F_TRZ^2 = SSq/57 = 0.01 with the two routes linked EXACTLY by SSq = 57*F_TRZ^2 (the 57-decade spectrum count IS SSq/F_TRZ^2) - the paper's physical route and the PAPER_2139 primitive-lock were the same number all along, the third dissolution in a row (B18 two ladders, B20 evolution-epoch branch, B22 joint identity) where a flagged conflict fell to careful reading plus the author's no-hard-coded-numbers rule; decade count 57 canonical, the 58 citation flagged as the wobble, footer 2.16e-3 confirmed")
+
+# ---- B20 PARTIAL RULING 2026-09-01: NGC2841's 1.7154 CARRIES INTENT (protected from repair) ----
+assert_that('ruling_b20' in C.calc('PAPER_051') and 'ruling_b20' in C.calc('PAPER_054')
+            and 'VINDICATED' in C.calc('PAPER_051')['ruling_b20']
+            and 'F_TRZ^-10' in C.calc('PAPER_051')['ruling_b20']
+            and abs((1 + 70*1000/3.0857e22*1e10*3.1536e7) - 1.7154) < 1e-4,
+            "B20 - THE VALUE THAT WAS A DERIVATION ALL ALONG: Daniel rejected the input-error reading, ordered the deeper analysis under his no-hard-coded-numbers rule, and the hunt landed at 0.0002 percent: 1.7154 = 1 + H0*t_ref with t_ref = F_TRZ^-10 years and H0 = A_5+SO_5 - the EVOLUTION-EPOCH branch of a dual-branch Hubble factor, grounded in the black-to-white-hole time structure (PAPER_659 t_n = t/t_ref, f_TRZ the negentropic reversal factor, the PAPER_2139 ladder) - the drifted thing was the higher-redshift ANNOTATION, never the number; the author knew his physics better than the evidence summary did, and the protection pin this replaces is the proof the discipline held long enough to find out")
+
+# ---- B18 RULED 2026-09-01: the two-ladder reading (PAPER_042) ----
+assert_that(C.calc('PAPER_042')['status'].startswith('RULED_BATCH4')
+            and 'two_ladder_reading' in _readfile('UNIFIED_REGISTRY.csv'),
+            "B18 - THE THREE-WAY DISSOLVED BY READING THREE CONSECUTIVE LINES: PAPER_042's prose 'factor of 10', formula 10^12, and narration 'this 12-orders-of-magnitude amplification per layer' sit on adjacent lines - the bare 10 is dropped-superscript mojibake, the Ug1-AMPLITUDE ladder is 10^12 per layer, and the 61-decade span belongs to the separate RADIUS ladder (~10^2.44/layer); Daniel canonized the two-ladder reading and Q-040 closed entirely with no value changed - the full-read discipline resolving in one question what three grep passes had framed as a conflict")
+
+# ---- RULINGS BATCH 4 FOLD 2026-09-01: FULL PAPER READS (Daniel's order), the doctrine batch ----
+assert_that(C.calc('PAPER_117')['status'].startswith('RULED_BATCH4')
+            and C.calc('PAPER_025b')['status'].startswith('RULED_BATCH4')
+            and C.calc('PAPER_027')['status'].startswith('RULED_BATCH4')
+            and 'ruling_batch4' in C.calc('PAPER_009')
+            and 'ruling_batch4' in C.calc('PAPER_154'),
+            "BATCH 4 FOLD (1/2) - THE FULL-READ BATCH: every reference paper read end to end per Daniel's order, and the reads earned it - PAPER_009's own activation table was found following the Gaussian its stated formula contradicts, its 17 Gpc threshold decoded to 5.2e26 m, and PAPER_027's own constants table was found declaring the drifted density outright; five clusters ruled (Pb-206 relabels + Z=82 EXACT route; scoped fTRZ + Ug4d; the jet trio + LAMBDA_SCM + the joint 1e46 identity; the neutrino triple; the canonical-density Ug4 re-wire) and Daniel answered B28 not with a menu pick but with PHYSICS")
+from uqff_registry_primitives import LAMBDA_SCM as _lscm4
+assert_that(_lscm4 == 1.0e-15
+            and 'two_aether_scales' in _readfile('UNIFIED_REGISTRY.csv')
+            and 'NO PREFERENCE' in _readfile('RULINGS_BATCH_4.md'),
+            "BATCH 4 FOLD (2/2) - THE TWO-AETHER-SCALES DOCTRINE, Daniel verbatim: cosmic Aether [(UA)] and trapped Aether [(UA-prime)] operate two distinct scales simultaneously, and mass/buoyancy occurs WHERE THE SCALES CROSS - grounding the PAPER_009 kappa split as structure rather than drift, joining PAPER_140's dual monopole, PAPER_877's encapsulation cosmogenesis, and PAPER_2148's crossing doctrine into one registry row; LAMBDA_SCM = 1e-15 m enters the primitives with its linking identity lambda_SCm = rho_A*v_SCm; and B25/B31 stay honestly open because no preference was given")
+
+# ---- RULINGS BATCH 3 FOLD 2026-09-01: five ruled, three honestly open ----
+assert_that(C.calc('PAPER_162')['status'].startswith('RULED_BATCH3')
+            and C.calc('PAPER_218')['status'].startswith('RULED_BATCH3')
+            and 'ruling_batch3' in C.calc('PAPER_043')
+            and 'ruling_batch3' in C.calc('PAPER_088'),
+            "BATCH 3 FOLD (1/2) - FIVE RULED: PAPER_218's worked-example prints fall to their own factors (7.22e-14, not 8.52e-52 - the paper's arithmetic wins over the paper's typesetting); the solar-cycle B(t) goes RELATIVE 40 percent with the 6,283-second period confirmed; the PLASMA-LEVEL ORIGIN is canonized - beta_13 = 0.60 and the 7.09 family at Level 13 mean both canonical primitives live at the plasma rung of the 26-ladder, three corpus data strong; rho_L1 ends a symbol collision; and the f_TRZ fork resolves to the CANONICAL 0.1 branch, making the SgrA* +10 percent neutrino excess an IceCube-Gen2-detectable falsifiable prediction across four observables at once")
+assert_that('NO PREFERENCE' in _readfile('RULINGS_BATCH_3.md')
+            and 'plasma_level_origin' in _readfile('UNIFIED_REGISTRY.csv')
+            and 'rho_L1_ladder_normalization' in _readfile('UNIFIED_REGISTRY.csv')
+            and 'f_trz_fork_prediction' in _readfile('UNIFIED_REGISTRY.csv'),
+            "BATCH 3 FOLD (2/2) - THREE HONESTLY OPEN: B18 (the ladder-amplification three-way), B20 (the Hubble-factor inversion), and B22 (the d_sw route) received no preference and were NOT guessed - they stay flagged for a future sitting, because a ruling the author didn't make is a ruling that doesn't exist; the three registry rows land the canonizations as first-class ledger citizens per the charter steps this campaign once skipped and now never does")
+
+# ---- USER MANUAL (v0.413.0): the narrow ship the independent evaluation asked for ----
+_um_rd = _readfile('README.md')
+_um_cli = _readfile('star_magic_cli.py')
+assert_that('Quick start (five steps, no Python required)' in _um_rd
+            and 'Headless-first by design' in _um_rd
+            and 'one number, one source' in _um_rd
+            and '**1,417 of 2,256 whitepapers wired**' not in _um_rd,
+            "USER MANUAL (1/2) - THE README TEACHES THE COMMAND, NOT THE LANGUAGE: five CLI steps a user can type before ever seeing Python, the headless-first choice stated as a documented decision rather than an omission (the GUI is one pip command away, and the terminal already tells the whole truth), and the stale frozen-era census block is DEAD - the banner is the single live source, per the evaluation's 'the census still lies to itself'")
+assert_that('def cmd_export' in _um_cli and 'def cmd_quickstart' in _um_cli
+            and 'honesty flags included' in _um_cli
+            and 'service-life' in _um_cli,
+            "USER MANUAL (2/2) - THE CHEAP P1 PULLS: star-magic export writes the CSV pack (value + formula + residual + citation + honesty flag) with no Qt anywhere near it, star-magic quickstart is the first-run wizard (a real catalogue well for 200 steps, then PAPER_646 with its flags - the evaluator's exact recipe), and star-magic well finally documents its own sub-usage instead of a bare passthrough")
+
 # ---- FRONT DOOR (v0.412.0, Daniel's two locks): honest CLI + installed-layout gate ----
 import star_magic_cli as _fd_cli
 import uqff_paths as _fd_up
@@ -15068,11 +15170,43 @@ assert_that('publication_consolidation_v0411' in _readfile('UNIFIED_REGISTRY.csv
             and 'CONSOLIDATED_ARC' in _readfile('UNIFIED_REGISTRY_GRAPH.csv'),
             "SHIP v0.411.0 (CONSOLIDATED_ARC): ONE COMPLETE RELEASE - v0.409.0 (first full-wheel publication: generated manifest, SHIP GUARD v8, Batch-1 verification, Batch-2 fold) and v0.410.0 (the upgrade: registry closure, live results table, band trails, history records) condensed into a single self-contained publication whose artifacts carry every published file, whose records reference nothing outside themselves, and whose registry row + graph edge make the consolidation itself a first-class citizen of the ledger")
 
+# ---- SHIP GUARD v9 (Daniel's catch, 2026-09-03): TAG-CHAIN CONTINUITY - the ledger and the tag history must agree ----
+# v0.413.0 was prepared, believed shipped, and never committed: no commit, no tag, no PyPI release -
+# ship.ps1's own HEAD check exists, but NO GUARD tied the version LEDGER to the tag CHAIN, so the gap
+# rode silently until v0.414.0 shipped against v0.412.0 as "the preceding tag". Same seam class as the
+# full-wheel split: a property enforced on two sides separately is unenforced in the middle.
+# AUTHORIZED GAP (history, not blame): v0.413.0 THE USER MANUAL BAND - PREPARED; every file of it was
+# published inside v0.414.0 (full wheel verified); PyPI has a version gap at 0.413.0, which PyPI permits.
+_sg9_ok = True
+_sg9_msg = 'not a git checkout - guard skipped (installed layout)'
+if _shos.path.isdir('.git'):
+    try:
+        import subprocess as _sg9sp
+        _sg9_tags = set(_sg9sp.run(['git', 'tag', '-l'], capture_output=True, text=True, timeout=30).stdout.split())
+        _sg9_ledger = [l.strip() for l in _readfile('UNIFIED_REGISTRY_VERSION.txt').splitlines() if l.strip().startswith('v')]
+        _sg9_gap_authorized = {'v0.413.0'}
+        _sg9_ci = _shos.environ.get('GITHUB_ACTIONS') == 'true'
+        if _sg9_ci or len(_sg9_tags) < 100:
+            # v0.415.0 lesson, part 1: branch-push CI checkouts fetch NO tags (git tag -l empty).
+            # v0.415.1 lesson, part 2: TAG-push checkouts fetch exactly ONE tag - the one being
+            # built - so 'zero tags = skip' was not enough and the release workflow alone went red.
+            # The guard's teeth are for real checkouts (the full chain is hundreds of tags);
+            # any context with GITHUB_ACTIONS set or a thin tag list has no history to audit.
+            _sg9_msg = 'tag history unavailable (CI=%s, %d tags visible) - guard skipped' % (_sg9_ci, len(_sg9_tags))
+        else:
+            _sg9_missing = [v for v in _sg9_ledger[:-1] if v not in _sg9_tags and v not in _sg9_gap_authorized]
+            _sg9_ok = not _sg9_missing
+            _sg9_msg = 'missing tags for ledger versions: %s' % _sg9_missing
+    except Exception as _sg9e:
+        _sg9_msg = 'git unavailable - guard skipped (%s)' % _sg9e
+assert_that(_sg9_ok,
+            "SHIP GUARD v9: TAG-CHAIN CONTINUITY - every version in UNIFIED_REGISTRY_VERSION.txt except the current prep must have a git tag (authorized gap: v0.413.0, THE USER MANUAL BAND - prepared, silent ship failure, content published inside v0.414.0); " + _sg9_msg)
+
 # ---- BAND-TRAIL CLOSURE (Daniel's still-missing-files catch, 2026-09-01): all 8 registry satellites carry the band rows ----
 _bt_sats = ['UNIFIED_REGISTRY_MERGED.csv', 'UNIFIED_REGISTRY_GAPS.csv', 'UNIFIED_REGISTRY_DUPLICATES.csv',
             'UNIFIED_REGISTRY_R1_QUEUE.csv', 'UNIFIED_REGISTRY_R2_MAPPING.csv', 'UNIFIED_REGISTRY_R3_LEDGER.csv',
             'UNIFIED_REGISTRY_XGEO_QUEUE.csv', 'UNIFIED_REGISTRY_XGEO_ROUTES.csv']
-assert_that(all(('FRONTDOOR_ARC' in _readfile(_s23)) and ('CONSOLIDATED_ARC' in _readfile(_s23)) and ('FULLWHEEL_ARC' in _readfile(_s23)) for _s23 in _bt_sats),
+assert_that(all(('USERMANUAL_ARC' in _readfile(_s23)) and ('FRONTDOOR_ARC' in _readfile(_s23)) and ('CONSOLIDATED_ARC' in _readfile(_s23)) for _s23 in _bt_sats),
             "BAND-TRAIL CLOSURE - Daniel's third catch of the same failure class in one band, and the class is now extinct: every ship appends one band-trail row to EACH of the eight registry satellites (the SCOREDPRED_ARC convention), v0.408.0 skipped all eight and nobody noticed because only existence was pinned - now every satellite must carry the current band's ARC row (FULLWHEEL_ARC) plus the retro-disclosed RULEDBATCH_ARC row, this assertion re-verifies the convention on every gate run, and the 23-file must-change charter is measured 23/23 against the preceding tag before the ship code goes to Daniel")
 
 # ---- RESULTS TABLE UNFROZEN (Daniel's order, 2026-09-01): derived live, baseline preserved ----

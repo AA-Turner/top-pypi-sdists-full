@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: wafer-py
-Version: 0.4.9
+Version: 0.5.0
 Summary: Anti-detection HTTP client for Python
 Project-URL: Homepage, https://github.com/Averyy/wafer
 Project-URL: Repository, https://github.com/Averyy/wafer
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.12
+Requires-Dist: cryptography>=42
 Requires-Dist: wreq<0.13,>=0.12.1
 Provides-Extra: browser
 Requires-Dist: faster-whisper; extra == 'browser'
@@ -40,7 +41,7 @@ Description-Content-Type: text/markdown
 
 Anti-detection HTTP client for Python. Built on [wreq](https://github.com/0x676e67/wreq-python) (Rust + BoringSSL).
 
-Handles TLS fingerprinting, WAF challenge detection/solving, cookie caching, retry with backoff, rate limiting, embed mode for iframe/XHR impersonation, and proxy support.
+Handles TLS fingerprinting, WAF challenge detection/solving, cookie caching, retry with backoff, rate limiting, embed mode for iframe/XHR impersonation, proxy support, and completion of incomplete certificate chains (servers that send only their leaf certificate load in a browser and fail in every other HTTP client).
 
 ```bash
 pip install wafer-py

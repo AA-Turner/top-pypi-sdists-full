@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import random
+import re
 import sys
 import tempfile
 import time
@@ -137,6 +138,44 @@ DTEND:20060715T040000Z
 SUMMARY:Bastille Day Party
 END:VEVENT
 """
+
+
+def near_now_ics(ics, days=30, hours=11):
+    """Return a copy of an ical event string with DTSTART/DTEND shifted to ~now.
+
+    Some servers (e.g. OX App Suite) only return objects within a sliding ~±1
+    year window from REPORT-based lookups (ref search.unlimited-time-range), so
+    an event with a static historic date (the year-2006 dates in ev1/broken_ev1)
+    is invisible to get_events()/get_event_by_uid() even though it was stored
+    correctly.  Using a near-now date keeps these save-then-search tests
+    meaningful on such servers.  Only plain "DTSTART:"/"DTEND:" properties are
+    shifted; recurring all-day templates (DTSTART;VALUE=DATE:) are left alone.
+    """
+    start = datetime.now() + timedelta(days=days)
+    end = start + timedelta(hours=hours)
+    ics = re.sub(r"DTSTART:[0-9T]+Z?", start.strftime("DTSTART:%Y%m%dT%H%M%SZ"), ics)
+    ics = re.sub(r"DTEND:[0-9T]+Z?", end.strftime("DTEND:%Y%m%dT%H%M%SZ"), ics)
+    return ics
+
+
+def next_anniversary_windows(month=11, day=2, hour=17):
+    """Search windows around the next future anniversary of (month, day).
+
+    A FREQ=YEARLY event (e.g. evr, anchored at 1997-11-02) recurs forever, so
+    historic search windows like 2008-11 are arbitrary.  Servers with a sliding
+    REPORT window (e.g. OX App Suite, ref search.time-range.event.old-dates) can
+    only serve time ranges near now, so we search the next future occurrence
+    instead.  Returns (year, narrow_start, narrow_end, wide_end): a ±1-day window
+    catching one occurrence in `year`, plus a wide_end one year later so that
+    [narrow_start, wide_end] catches two consecutive occurrences.
+    """
+    now = datetime.now()
+    year = now.year if (now.month, now.day) <= (month, day) else now.year + 1
+    narrow_start = datetime(year, month, day - 1, hour, 0, 0)
+    narrow_end = datetime(year, month, day + 1, hour, 0, 0)
+    wide_end = datetime(year + 1, month, day + 1, hour, 0, 0)
+    return year, narrow_start, narrow_end, wide_end
+
 
 ev2 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -795,24 +834,40 @@ class _TestSchedulingBase:
         ## process scheduling asynchronously, so poll with backoff before giving up.
         new_attendee_inbox_items = []
         auto_scheduled = False
+        last_scan_error = None
         for _ in range(30):
-            new_attendee_inbox_items = [
-                item
-                for item in self.principals[1].schedule_inbox().get_items()
-                if item.url not in inbox_items
-            ]
-            ## Check whether the server auto-scheduled the event directly into
-            ## the attendee's calendar (server-side automatic scheduling).
-            ## The event may land in any calendar (e.g. Cyrus uses Default, not the
-            ## test calendar), so search all attendee calendars for the event UID.
-            auto_scheduled = any(
-                event.id == event_uid
-                for cal in self.principals[1].calendars()
-                for event in cal.get_events()
-            )
+            try:
+                ## Correlate by UID: a late METHOD:CANCEL from another scheduling
+                ## test's teardown can otherwise land here as a stray "new" item
+                ## (see testAcceptInviteUsernameEmailFallback).
+                new_attendee_inbox_items = [
+                    item
+                    for item in self.principals[1].schedule_inbox().get_items()
+                    if item.url not in inbox_items and item.id == event_uid
+                ]
+                ## Check whether the server auto-scheduled the event directly into
+                ## the attendee's calendar (server-side automatic scheduling).
+                ## The event may land in any calendar (e.g. Cyrus uses Default, not the
+                ## test calendar), so search all attendee calendars for the event UID.
+                auto_scheduled = any(
+                    event.id == event_uid
+                    for cal in self.principals[1].calendars()
+                    for event in cal.get_events()
+                )
+            except (error.ResponseError, ValueError) as scan_error:
+                ## Same as the async twin: a scheduling object that is present but
+                ## not yet readable is what the poll is here to wait out.
+                last_scan_error = scan_error
+                new_attendee_inbox_items = []
             if new_attendee_inbox_items or auto_scheduled:
                 break
             time.sleep(1)
+        else:
+            if last_scan_error is not None:
+                pytest.fail(
+                    "scheduling data never became readable within 30s; last error: "
+                    f"{last_scan_error!r}"
+                )
 
         if len(new_attendee_inbox_items) == 0 or auto_scheduled:
             ## Server implements automatic scheduling.  Some servers (e.g.
@@ -904,12 +959,19 @@ class _TestSchedulingBase:
         )
         self._auto_scheduled_event_uids.append(saved_event.id)
 
+        ## Correlate the inbox item to THIS invite by UID.  Picking the first
+        ## arbitrary "new" item is flaky: deleting an organizer event (e.g. a
+        ## previous scheduling test's teardown) makes Zimbra deliver a late
+        ## METHOD:CANCEL for the old UID, which can land in this test's poll
+        ## window before our own REQUEST arrives.  We match on UID (not method)
+        ## so that a wrongly-delivered non-REQUEST for our own UID still fails
+        ## the is_invite_request() assertion below rather than being hidden.
         new_attendee_inbox_items = []
         for _ in range(30):
             new_attendee_inbox_items = [
                 item
                 for item in self.principals[1].schedule_inbox().get_items()
-                if item.url not in inbox_items
+                if item.url not in inbox_items and item.id == saved_event.id
             ]
             if new_attendee_inbox_items:
                 break
@@ -934,10 +996,9 @@ class _TestSchedulingBase:
     ## inbox/outbox?
 
     # ------------------------------------------------------------------ #
-    # Schedule-Tag tests (RFC 6638 section 3.2–3.3)                       #
-    # All tests below are expected to FAIL until the implementation is    #
-    # complete.  See docs/design/TODO_SCHEDULE_TAG.md and                 #
-    # https://github.com/python-caldav/caldav/issues/660                  #
+    # Schedule-Tag tests (RFC 6638 section 3.2–3.3)                      #
+    # Implemented in v3.2.0, see                                         #
+    # https://github.com/python-caldav/caldav/issues/660                 #
     # ------------------------------------------------------------------ #
 
     def testScheduleTagReturnedOnSave(self):
@@ -1099,6 +1160,7 @@ class _TestSchedulingBase:
             _make_ical("Original summary"),
             [self.principals[0], attendee_addr],
         )
+        assert saved is not None
         self._auto_scheduled_event_uids.append(uid)
 
         ## Find the attendee's copy and record the tag
@@ -1258,6 +1320,25 @@ def _delay_decorator(f, t=20):
     return foo
 
 
+## HTTP methods that change server state.  A "write-delay" server settles each of
+## these asynchronously, so we sleep AFTER every such request to let the change
+## become visible before the test reads it back (the general, write-side
+## counterpart of the search-cache delay, which only delays searches).
+_WRITE_HTTP_METHODS = frozenset(
+    {"PUT", "DELETE", "MKCALENDAR", "MKCOL", "PROPPATCH", "MOVE", "COPY", "POST"}
+)
+
+
+def _write_delay_decorator(f, t=10):
+    def foo(url, method="GET", *a, **kwa):
+        response = f(url, method, *a, **kwa)
+        if str(method).upper() in _WRITE_HTTP_METHODS:
+            time.sleep(t)
+        return response
+
+    return foo
+
+
 class RepeatedFunctionalTestsBaseClass:
     """This is a class with functional tests (tests that goes through
     basic functionality and actively communicates with third parties)
@@ -1333,6 +1414,12 @@ class RepeatedFunctionalTestsBaseClass:
         if foo.get("behaviour") == "delay":
             Calendar._search = Calendar.search
             Calendar.search = _delay_decorator(Calendar.search, t=foo["delay"])
+        foo = self.is_supported("write-delay", dict)
+        if foo.get("behaviour") == "delay":
+            ## Every write goes through the client request(); sleep after the
+            ## write verbs so the asynchronous change has settled before read-back.
+            ## Instance-level wrap (like rate-limit), torn down with the client.
+            self.caldav.request = _write_delay_decorator(self.caldav.request, t=foo["delay"])
 
         if False and self.check_compatibility_flag("no-current-user-principal"):
             self.principal = Principal(client=self.caldav, url=self.server_params["principal_url"])
@@ -1374,6 +1461,35 @@ class RepeatedFunctionalTestsBaseClass:
         if not was_created:
             self._preconfigured_calendar_urls.add(cal_url)
 
+    def _delete_used_calendar(self, cal, wipe):
+        """Clean up one tracked calendar, tolerating one the test already deleted.
+
+        A test that deletes a calendar it created (testSetCalendarProperties
+        does, with testcal_id2) leaves it in ``calendars_used``, so this
+        addresses a collection that is no longer there.  Most servers answer
+        the wipe's REPORT with 404 and `_post_delete()` accepts a 404 as
+        success, but Robur answers 403 - see the
+        ``non-existing-raises-not-found.collection`` feature, which is why the
+        tolerated exception comes from ``_notFound()`` rather than being
+        NotFoundError outright.  A NotFoundError is tolerated silently; on the
+        servers where ``_notFound()`` widens to DAVError, anything else that is
+        caught is logged, so a genuine delete failure is still visible in the
+        test output.
+        """
+        try:
+            cal.delete(wipe=wipe)
+        except self._notFound(collection=True) as e:
+            if not isinstance(e, error.NotFoundError):
+                ## On a server that answers 403 rather than 404 for a missing
+                ## collection (Robur), _notFound() widens to DAVError - which
+                ## would also swallow a real failure to delete a calendar that
+                ## is still there.  Tolerate it, but do not let it be silent:
+                ## leftover calendars accumulating unnoticed is what the Robur
+                ## profile refresh in this series had to undo.
+                logging.warning(
+                    "cleanup: tolerated %s while deleting %s: %s", type(e).__name__, cal.url, e
+                )
+
     def _cleanup(self, mode=None):
         if self.cleanup_regime == "none":
             return  ## no cleanup for ephemeral servers
@@ -1383,18 +1499,18 @@ class RepeatedFunctionalTestsBaseClass:
             return  ## no cleanup needed
         if self.cleanup_regime == "wipe-calendar":
             for cal in self.calendars_used:
-                cal.delete(wipe=True)
+                self._delete_used_calendar(cal, wipe=True)
             return  ## keep calendar alive; don't fall through to cal.delete() below
         elif not self.is_supported("create-calendar") or self.cleanup_regime == "thorough":
             for cal in self.calendars_used:
-                cal.delete(wipe=True)
+                self._delete_used_calendar(cal, wipe=True)
             return
         for cal in self.calendars_used:
             if str(cal.url) in self._preconfigured_calendar_urls:
                 ## Pre-configured calendar: wipe objects, don't delete the calendar
-                cal.delete(wipe=True)
+                self._delete_used_calendar(cal, wipe=True)
             else:
-                cal.delete()
+                self._delete_used_calendar(cal, wipe=None)
         for calid in (
             self.testcal_id,
             self.testcal_id2,
@@ -1458,10 +1574,30 @@ class RepeatedFunctionalTestsBaseClass:
             return self._default_calendar
 
         # Pre-processing: set up defaults for name and cal_id
+        comp_set = kwargs.get("supported_calendar_component_set", [])
+        # A component-restricted fixture (VTODO-only / VJOURNAL-only) is always
+        # looked up by cal_id, never by display name.
+        restricted = bool(comp_set) and "VEVENT" not in comp_set
         if "name" not in kwargs:
             if self.cleanup_regime in ("light", "pre"):
                 self._teardownCalendar(cal_id=self.testcal_id)
-            if not self.is_supported("create-calendar.set-displayname"):
+            # Only give a display name when the server accepts one and keeps the
+            # calendar at the requested cal_id URL.  On servers that assign a
+            # different canonical URL when a name is set (create-calendar.stable-url
+            # unsupported: Zimbra relocates, OX uses an opaque id) the library
+            # re-points to the canonical URL, so a named fixture would still work -
+            # but we keep the fixture nameless there so the bulk of the suite keeps
+            # addressing the fixture by its cal_id (simpler, and avoids the
+            # name-ambiguity issues below).  Component-restricted fixtures also stay
+            # nameless: they are only ever found by cal_id, and giving them the same
+            # "Yep" name as the primary fixture would make principal.calendar(
+            # name="Yep") ambiguous and, on servers enforcing per-principal unique
+            # calendar names (SOGo), block the primary calendar from being (re)named.
+            if (
+                restricted
+                or not self.is_supported("create-calendar.set-displayname")
+                or not self.is_supported("create-calendar.stable-url")
+            ):
                 kwargs["name"] = None
             else:
                 kwargs["name"] = "Yep"
@@ -1470,10 +1606,9 @@ class RepeatedFunctionalTestsBaseClass:
             # that a VTODO-only calendar and a VJOURNAL-only calendar don't share the
             # same slot and cause MKCALENDAR failures (and wrong-type PUT errors) when
             # the calendar persists across tests under wipe-calendar cleanup regime.
-            comp_set = kwargs.get("supported_calendar_component_set", [])
             if comp_set and "VJOURNAL" in comp_set and "VEVENT" not in comp_set:
                 kwargs["cal_id"] = self.testcal_id + "-journals"
-            elif comp_set and "VEVENT" not in comp_set:
+            elif restricted:
                 kwargs["cal_id"] = self.testcal_id + "-tasks"
             else:
                 kwargs["cal_id"] = self.testcal_id
@@ -1493,7 +1628,14 @@ class RepeatedFunctionalTestsBaseClass:
         try:
             from caldav_server_tester import ServerQuirkChecker
         except ImportError:
-            pytest.skip("caldav_server_tester is not installed")
+            ## Not in the test extra on purpose - see tests/README.md,
+            ## "testCheckCompatibility does not run in CI".  Install a
+            ## caldav-server-tester checkout that matches this branch and this
+            ## test starts working.
+            pytest.skip(
+                "caldav_server_tester is not installed - install it to run this test, "
+                "see tests/README.md"
+            )
 
         # Use pdb debug mode if pytest was run with --pdb, otherwise use logging
         debug_mode = "pdb" if request.config.option.usepdb else "logging"
@@ -1543,37 +1685,11 @@ class RepeatedFunctionalTestsBaseClass:
         fo = checker.features_checked
         fe = self.caldav.features
 
-        ## dotted list expected and observed
-        ## Snapshot checked features before compact=True calls collapse(), which
-        ## mutates _server_features by removing subfeatures that collapse into
-        ## their parent — making tested features look like untested ones.
-        checked_features = set(fo._server_features.keys())
-        observed = fo.dotted_feature_set_list(compact=True)
-        expected = fe.dotted_feature_set_list(compact=True)
-
-        for feature in set(observed.keys()).union(set(expected.keys())):
-            observation = fo.is_supported(feature, str)
-            expectation = fe.is_supported(feature, str)
-            if "fragile" in (observation, expectation):
-                continue
-            if "unknown" in (observation, expectation):
-                continue
-            ## Skip features the checker never explicitly tested -
-            ## the observation would just be a default, not a real result
-            if feature not in observed and feature not in checked_features:
-                continue
-            type_ = fo.find_feature(feature).get("type", "server-feature")
-            if type_ in (
-                "client-feature",
-                "server-observation",
-                "tests-behaviour",
-                "client-hints",
-                "server-peculiarity",
-            ):
-                continue
-            assert expectation == observation, (
-                f"expectation is {expectation}, observation is {observation} for {feature}"
-            )
+        mismatches = fe.compare(fo)
+        assert not mismatches, "compatibility mismatches:\n" + "\n".join(
+            f"  {m['feature']}: declared {m['expected']!r}, observed {m['observed']!r}"
+            for m in mismatches
+        )
 
     def testSupport(self):
         """
@@ -1588,7 +1704,9 @@ class RepeatedFunctionalTestsBaseClass:
     def testSchedulingInfo(self):
         self.skip_unless_support("scheduling.calendar-user-address-set")
         calendar_user_address_set = self.principal.calendar_user_address_set()
+        assert calendar_user_address_set is not None
         me_a_participant = self.principal.get_vcal_address()
+        assert me_a_participant is not None
 
     def testAddOrganizer(self):
         """add_organizer() sets ORGANIZER from the current principal (issue #524).
@@ -1680,7 +1798,9 @@ END:VCALENDAR
     def testSchedulingMailboxes(self):
         self.skip_unless_support("scheduling.mailbox")
         inbox = self.principal.schedule_inbox()
+        assert inbox is not None
         outbox = self.principal.schedule_outbox()
+        assert outbox is not None
 
     def testFindCalendarOwner(self):
         cal = self._fixCalendar()
@@ -1777,9 +1897,9 @@ END:VCALENDAR"""
         this is implicitly run by the setup)
         """
         # ResourceType MUST be defined, and SHOULD be returned on a propfind
-        # for "allprop" if I have the permission to see it.
-        # So, no ResourceType returned seems like a bug in bedework
-        self.skip_on_compatibility_flag("propfind_allprop_failure")
+        # for "allprop" if I have the permission to see it (RFC4918 section 9.1).
+        # A few servers (bedework, CCS) omit it.
+        self.skip_unless_support("propfind.allprop.resourcetype")
 
         # first a raw xml propfind to the root URL
         foo = self.caldav.propfind(
@@ -1792,12 +1912,15 @@ END:VCALENDAR"""
         assert "resourcetype" in to_local(foo.raw)
 
         # next, the internal _query_properties, returning an xml tree ...
+        # (DAV:status is a response-only element, not a queryable property -
+        # asking for it makes some servers, e.g. CCS, answer 400 - so we query a
+        # real live property instead and assert on this response, not the first.)
         foo2 = self.principal._query_properties(
             [
-                dav.Status(),
+                dav.ResourceType(),
             ]
         )
-        assert "resourcetype" in to_local(foo.raw)
+        assert "resourcetype" in to_local(foo2.raw)
         # TODO: more advanced asserts
 
     def testGetCalendarHomeSet(self):
@@ -1836,6 +1959,7 @@ END:VCALENDAR"""
 
         str_ = str(c)
         repr_ = repr(c)
+        assert str_ and repr_
 
         ## Not sure if those asserts make much sense, the main point here is to exercise
         ## the __str__ and __repr__ methods on the Calendar object.
@@ -1847,11 +1971,24 @@ END:VCALENDAR"""
         assert "Calendar" in repr(c)
         assert str(c.url) in repr(c)
 
-    def _notFound(self):
-        if self.check_compatibility_flag("non_existing_raises_other"):
-            return error.DAVError
-        else:
+    def _notFound(self, collection=False):
+        """The exception class a lookup of something non-existing may raise.
+
+        ``collection=True`` for a lookup of a missing *calendar*, which some
+        servers answer differently from a missing calendar *object*: Robur
+        answers 403 for both, but ``load()`` retries a missing object as a
+        multiget against the existing parent calendar and gets a 404 out of it,
+        so only the collection lookup surfaces the AuthorizationError.  The two
+        are siblings under ``non-existing-raises-not-found`` for that reason -
+        neither answer can be derived from the other.
+        """
+        feature = "non-existing-raises-not-found." + ("collection" if collection else "object")
+        if self.is_supported(feature):
             return error.NotFoundError
+        else:
+            ## Some servers answer 403 instead of 404 (e.g. Robur); accept any
+            ## DAVError in that case.
+            return error.DAVError
 
     def testPrincipal(self):
         collections = self.principal.get_calendars()
@@ -1890,13 +2027,22 @@ END:VCALENDAR"""
         assert len(events) == 0
         c.delete()
 
-        if self.is_supported("create-calendar.auto"):
-            with pytest.raises(self._notFound()):
+        if not self.is_supported("create-calendar.auto"):
+            # Two separate pytest.raises blocks: with both probes in a single
+            # block, the first one to raise would short-circuit the second,
+            # leaving it untested (and on auto-create servers get_events()
+            # doesn't raise at all, so the block passed only because
+            # get_display_name() happened to 404).
+            with pytest.raises(self._notFound(collection=True)):
                 self.principal.calendar(cal_id="shouldnotexist").get_events()
+            with pytest.raises(self._notFound(collection=True)):
                 self.principal.calendar(cal_id="shouldnotexist").get_display_name()
 
     def testChangeAttendeeStatusWithEmailGiven(self):
         self.skip_unless_support("save-load.event")
+        ## Some servers (e.g. OX) forbid changing an attendee's PARTSTAT via a
+        ## direct PUT (403 Forbidden) and require iTIP scheduling instead.
+        self.skip_unless_support("save-load.mutable.attendee-partstat")
         c = self._fixCalendar()
 
         event = c.add_event(
@@ -1950,8 +2096,9 @@ END:VCALENDAR"""
             ## we're supposed to be working towards a brand new calendar
             assert len(existing_events) == 0
 
-        # add event
-        c.add_event(broken_ev1)
+        # add event (near-now date so it stays visible to REPORT-based lookups
+        # on sliding-window servers; see near_now_ics)
+        c.add_event(near_now_ics(broken_ev1))
 
         # c.get_events() should give a full list of events
         events = cleanse(c.get_events())
@@ -1963,8 +2110,14 @@ END:VCALENDAR"""
         assert len(events2) == 1
         assert events2[0].url == events[0].url
 
-        if self.is_supported("create-calendar") and self.is_supported(
-            "create-calendar.set-displayname"
+        if (
+            self.is_supported("create-calendar")
+            and self.is_supported("create-calendar.set-displayname")
+            ## _fixCalendar only gives the calendar a display name ("Yep") when
+            ## the server also keeps the URL stable; on servers that assign a
+            ## different canonical URL when a name is set (Zimbra, OX) the fixture
+            ## is created nameless.
+            and self.is_supported("create-calendar.stable-url")
         ):
             ## We should be able to access the calender through the name
             c2 = self.principal.calendar(name="Yep")
@@ -1973,21 +2126,81 @@ END:VCALENDAR"""
                 self.is_supported("delete-calendar")
                 or self.is_supported("delete-calendar", str) == "fragile"
             ):
-                assert c2.url == c.url
+                ## A name lookup may return a different (canonical) calendar URL
+                ## than the one we created it at on servers that don't preserve
+                ## the URL (e.g. OX exposes the calendar under an internal
+                ## cal://0/NNN id); see save-load.stable-url.
+                if self.is_supported("save-load.stable-url"):
+                    assert c2.url == c.url
                 events2 = cleanse(c2.get_events())
                 assert len(events2) == 1
                 assert events2[0].url == events[0].url
 
         # add another event, it should be doable without having premade ICS
+        _dt = datetime.now() + timedelta(days=31)
         ev2 = c.add_event(
-            dtstart=datetime(2015, 10, 10, 8, 7, 6),
+            dtstart=_dt,
             summary="This is a test event",
-            dtend=datetime(2016, 10, 10, 9, 8, 7),
+            dtend=_dt + timedelta(hours=1),
             uid="ctuid1",
         )
         events = c.get_events()
         assert len(events) == len(existing_events) + 2
         ev2.delete()
+
+    def testNamedCalendarUrlIsUsable(self):
+        """A calendar created WITH a display name must be fully usable by URL.
+
+        Exercises create-calendar.stable-url: on servers that assign a different
+        canonical URL when a name is set (unsupported - Zimbra relocates the
+        collection to a display-name-derived path, OX uses an opaque cal://0/NNN),
+        Calendar._create() must discover and adopt the canonical URL so that
+        object operations addressed via the returned calendar's .url resolve.
+        Regression guard for the Zimbra "event 404s on the cal_id URL even though
+        the collection is reachable there" quirk.  On stable servers the calendar
+        simply stays at the requested cal_id and the test still passes.
+        """
+        self.skip_unless_support("create-calendar")
+        self.skip_unless_support("create-calendar.set-displayname")
+        self.skip_unless_support("save-load.event")
+        self.skip_unless_support("delete-calendar")
+
+        cal_id = self.testcal_id + "-named-url"
+        name = "csc-repoint-" + str(uuid.uuid4())
+        self._teardownCalendar(cal_id=cal_id)
+        cal = self.principal.make_calendar(cal_id=cal_id, name=name)
+        try:
+            ## the display name stuck (set-displayname is supported)
+            assert cal.get_display_name() == name
+
+            ## store an event and look it up BY URL through the returned calendar;
+            ## cal.url must point at the address that actually resolves.
+            uid = "csc-repoint-" + str(uuid.uuid4())
+            _dt = datetime.now() + timedelta(days=20)
+            stored = cal.add_event(
+                dtstart=_dt,
+                dtend=_dt + timedelta(hours=1),
+                summary="re-point url test",
+                uid=uid,
+            )
+
+            ## REPORT-based lookup may lag on indexing servers (e.g. OX); retry.
+            fetched = None
+            for _ in range(10):
+                try:
+                    fetched = cal.event_by_url(stored.url)
+                    break
+                except error.NotFoundError:
+                    time.sleep(1)
+            assert fetched is not None, "event not retrievable by URL on the created calendar"
+            assert fetched.url == stored.url
+            assert fetched.icalendar_component["uid"] == uid
+        finally:
+            try:
+                cal.delete()
+            except Exception:
+                logging.warning(f"unable to delete calendar {cal.url} with name {name}")
+            self._teardownCalendar(cal_id=cal_id)
 
     @pytest.mark.parametrize("klass", ["Calendar", "Event"])
     def testCreateEventFromiCal(self, klass):
@@ -2012,6 +2225,7 @@ END:VCALENDAR"""
         ## Parametrized test - we should test both with the Calendar object and the Event object
         obj = {"Calendar": icalcal, "Event": icalevent}[klass]
         event = c.add_event(obj)
+        assert event is not None
         events = c.get_events()
         assert len([x for x in events if x.icalendar_component["uid"] == "ctuid1"]) == 1
 
@@ -2026,6 +2240,7 @@ END:VCALENDAR"""
             alarm_trigger=timedelta(minutes=-15),
             alarm_action="AUDIO",
         )
+        assert ev is not None
 
         self.skip_unless_support("search.time-range.alarm")
 
@@ -2096,7 +2311,7 @@ END:VCALENDAR"""
         if self.is_supported("save-load.todo.mixed-calendar"):
             objcnt += len(c.get_todos())
         objcnt += len(c.get_events())
-        obj = c.add_event(ev1)
+        obj = c.add_event(near_now_ics(ev1))
         objcnt += 1
         if self.is_supported("save-load.event.recurrences"):
             c.add_event(evr)
@@ -2178,7 +2393,7 @@ END:VCALENDAR"""
         ## ADDING yet another object ... and it should also be reported
         if is_time_based:
             time.sleep(1)
-        obj3 = c.add_event(ev3)
+        c.add_event(near_now_ics(ev3))
         if is_time_based:
             time.sleep(1)
         my_changed_objects = c.get_objects_by_sync_token(sync_token=my_changed_objects.sync_token)
@@ -2242,7 +2457,7 @@ END:VCALENDAR"""
         if self.is_supported("save-load.todo.mixed-calendar"):
             objcnt += len(c.get_todos())
         objcnt += len(c.get_events())
-        obj = c.add_event(ev1)
+        obj = c.add_event(near_now_ics(ev1))
         objcnt += 1
         if self.is_supported("save-load.event.recurrences"):
             c.add_event(evr)
@@ -2260,6 +2475,25 @@ END:VCALENDAR"""
         my_objects = c.objects(load_objects=True)
         assert my_objects.sync_token != ""
         assert len(list(my_objects)) == objcnt
+
+        stable_url = self.is_supported("save-load.stable-url")
+
+        def synced_match(o):
+            """Return the synced object corresponding to o, or None.
+
+            objects_by_url() is keyed by the server-reported URL, which on
+            servers that don't preserve the PUT URL (e.g. OX; see
+            save-load.stable-url) differs from o.url - so fall back to matching
+            by UID there.
+            """
+            synced = my_objects.objects_by_url()
+            if stable_url:
+                return synced.get(o.url)
+            uid = o.icalendar_component["uid"]
+            return next(
+                (cand for cand in synced.values() if cand.icalendar_component["uid"] == uid),
+                None,
+            )
 
         if is_time_based:
             time.sleep(1)
@@ -2287,13 +2521,13 @@ END:VCALENDAR"""
         if not is_fragile:
             assert len(list(updated)) == 1
             assert len(list(deleted)) == 0
-        assert "foobar" in my_objects.objects_by_url()[obj.url].data
+        assert "foobar" in synced_match(obj).data
 
         if is_time_based:
             time.sleep(1)
 
         ## ADDING yet another object ... and it should also be reported
-        obj3 = c.add_event(ev3)
+        obj3 = c.add_event(near_now_ics(ev3))
 
         if is_time_based:
             time.sleep(1)
@@ -2302,7 +2536,7 @@ END:VCALENDAR"""
         if not is_fragile:
             assert len(list(updated)) == 1
             assert len(list(deleted)) == 0
-        assert obj3.url in my_objects.objects_by_url()
+        assert synced_match(obj3) is not None
 
         self.skip_unless_support("sync-token.delete")
 
@@ -2317,7 +2551,7 @@ END:VCALENDAR"""
         if not is_fragile:
             assert len(list(updated)) == 0
             assert len(list(deleted)) == 1
-        assert obj.url not in my_objects.objects_by_url()
+        assert synced_match(obj) is None
 
         if is_time_based:
             time.sleep(1)
@@ -2336,13 +2570,18 @@ END:VCALENDAR"""
             self._teardownCalendar(cal_id=self.testcal_id2)
         c1 = self._fixCalendar(name="Yep", cal_id=self.testcal_id)
         c2 = self._fixCalendar(name="Yapp", cal_id=self.testcal_id2)
+        assert c2 is not None
 
-        e1_ = c1.add_event(ev1)
+        e1_ = c1.add_event(near_now_ics(ev1))
         if not self.check_compatibility_flag("event_by_url_is_broken"):
             e1_.load()
         e1 = c1.get_events()[0]
         if not self.check_compatibility_flag("event_by_url_is_broken"):
-            assert e1.url == e1_.url
+            ## e1 came from a search and may carry a different (canonical) URL
+            ## than the PUT URL on servers that don't preserve it (e.g. OX); see
+            ## save-load.stable-url.
+            if self.is_supported("save-load.stable-url"):
+                assert e1.url == e1_.url
             e1.load()
         if self.cleanup_regime == "post":
             self._teardownCalendar(cal_id=self.testcal_id)
@@ -2361,10 +2600,11 @@ END:VCALENDAR"""
 
         assert not len(c1.get_events())
         assert not len(c2.get_events())
-        e1_ = c1.add_event(ev1)
+        e1_ = c1.add_event(near_now_ics(ev1))
+        assert e1_ is not None
         e1 = c1.get_events()[0]
 
-        if not self.check_compatibility_flag("duplicates_not_allowed"):
+        if self.is_supported("save.duplicate-event"):
             ## Duplicate the event in the same calendar, with new uid
             e1_dup = e1.copy()
             e1_dup.save()
@@ -2392,10 +2632,10 @@ END:VCALENDAR"""
         ## this makes no sense, there won't be any duplication
         e1_dup2 = e1.copy(keep_uid=True)
         e1_dup2.save()
-        if self.check_compatibility_flag("duplicates_not_allowed"):
-            assert len(c1.get_events()) == 1
-        else:
+        if self.is_supported("save.duplicate-event"):
             assert len(c1.get_events()) == 2
+        else:
+            assert len(c1.get_events()) == 1
 
         if self.cleanup_regime == "post":
             self._teardownCalendar(cal_id=self.testcal_id)
@@ -2408,8 +2648,9 @@ END:VCALENDAR"""
         ## in case the calendar is reused
         cnt = len(c.get_events())
 
-        # add event from vobject data
-        ve1 = vobject.readOne(ev1)
+        # add event from vobject data (near-now date so it stays visible to
+        # REPORT-based lookups on sliding-window servers; see near_now_ics)
+        ve1 = vobject.readOne(near_now_ics(ev1))
         c.add_event(ve1)
         cnt += 1
 
@@ -2630,17 +2871,20 @@ END:VCALENDAR"""
             dtstart=datetime.now() + timedelta(minutes=15),
             uid="test2",
         )
+        assert t2 is not None
         t3 = c.add_todo(
             summary="3 task future due",
             due=datetime.now() + timedelta(hours=15),
             dtstart=datetime(2022, 12, 11, 10, 9, 8),
             uid="test3",
         )
+        assert t3 is not None
         t4 = c.add_todo(
             summary="4 task priority is set to nine which is the lowest",
             priority=9,
             uid="test4",
         )
+        assert t4 is not None
         t5 = c.add_todo(
             summary="5 task status is set to COMPLETED and this will disappear from the ordinary todo search",
             status="COMPLETED",
@@ -2652,6 +2896,7 @@ END:VCALENDAR"""
             categories="home,garden,sunshine",
             uid="test6",
         )
+        assert t6 is not None
 
         def check_order(tasks, order):
             assert [str(x.icalendar_component["uid"]) for x in tasks] == [
@@ -2693,9 +2938,12 @@ END:VCALENDAR"""
         pre_cnt = len(c.get_todos())
 
         t1 = c.add_todo(todo)
+        assert t1 is not None
         t2 = c.add_todo(todo2)
+        assert t2 is not None
         t3 = c.add_todo(todo3)
         t4 = c.add_todo(todo4)
+        assert t4 is not None
         t5 = c.add_todo(todo5)
         t6 = c.add_todo(todo6)
 
@@ -3049,6 +3297,7 @@ END:VCALENDAR"""
             uid="ctuid4",
             parent=[some_todo.id],
         )
+        assert child is not None
 
         ## This should still work out (set the children due to some time before the parents due)
         ## (The fact that we now have a child does not affect it anyhow)
@@ -3083,6 +3332,7 @@ END:VCALENDAR"""
             description="A quick birth, in the middle of the night",
             uid="ctuid1",
         )
+        assert j2 is not None
         assert len(c.get_journals()) == 2
         assert len(c.search(journal=True)) == 2
         todos = c.get_todos()
@@ -3124,6 +3374,7 @@ END:VCALENDAR"""
         assert len(todos2) == 1
 
         t3 = c.add_todo(summary="mop the floor", categories=["housework"], priority=4, uid="ctuid1")
+        assert t3 is not None
         assert len(c.get_todos()) == 2
 
         # adding a todo without a UID, it should also work (library will add the missing UID)
@@ -3265,9 +3516,12 @@ END:VCALENDAR"""
         # add todo-item
         t1 = c.add_todo(todo)
         t2 = c.add_todo(todo2)
+        assert t2 is not None
         t3 = c.add_todo(todo3)
+        assert t3 is not None
         t4 = c.add_todo(todo4)
         t5 = c.add_todo(todo5)
+        assert t5 is not None
         t6 = c.add_todo(todo6)
         todos = c.get_todos()
         assert len(todos) == 6
@@ -3335,8 +3589,8 @@ END:VCALENDAR"""
         )
         if not self.is_supported("search.recurrences.includes-implicit.todo"):
             foo -= 1  ## t6 will not be returned
-        if self.check_compatibility_flag(
-            "vtodo_datesearch_nodtstart_task_is_skipped"
+        if not self.is_supported(
+            "search.time-range.todo.no-dtstart"
         ) or self.check_compatibility_flag(
             "vtodo_datesearch_nodtstart_task_is_skipped_in_closed_date_range"
         ):
@@ -3369,10 +3623,22 @@ END:VCALENDAR"""
         todos2 = c.search(start=datetime(2025, 4, 14), todo=True, include_completed=True)
         todos3 = c.search(start=datetime(2025, 4, 14), todo=True)
 
+        ## On a compliant server t1/t4/t6 are returned by an open-ended future
+        ## search, so we get Todo objects back.  Some servers legitimately return
+        ## nothing here: they skip no-dtstart todos (t1/t4) and don't carry the
+        ## recurring todo (t6) into the future - e.g. Stalwart, which skips
+        ## no-dtstart todos and only marks implicit-recurrence todos "fragile".
+        ## The presence/absence of each todo is verified by the urls_found logic
+        ## below; here we type-check whatever did come back -- every object,
+        ## not just the first, and unconditionally: guarding on non-emptiness
+        ## would make the check disappear silently on exactly the servers
+        ## where it is most likely to catch something.
         if self.is_supported("search.time-range.open.end"):
-            assert isinstance(todos1[0], Todo)
-            assert isinstance(todos2[0], Todo)
-            assert isinstance(todos3[0], Todo)
+            for todos in (todos1, todos2, todos3):
+                assert all(isinstance(x, Todo) for x in todos), (
+                    f"search returned non-Todo objects: "
+                    f"{[type(x).__name__ for x in todos if not isinstance(x, Todo)]}"
+                )
 
         ## * t6 should be returned, as it's a yearly task spanning over 2025
         ## * t1 should probably be returned, as it has no due date set and hence
@@ -3385,8 +3651,8 @@ END:VCALENDAR"""
         urls_found = set(urls_found)
         if self.is_supported("search.recurrences.includes-implicit.todo", accept_fragile=True):
             urls_found.discard(t6.url)
-        if not self.check_compatibility_flag(
-            "vtodo_datesearch_nodtstart_task_is_skipped"
+        if self.is_supported(
+            "search.time-range.todo.no-dtstart"
         ) and not self.check_compatibility_flag("vtodo_datesearch_notime_task_is_skipped"):
             urls_found.discard(t4.url)
         if self.check_compatibility_flag("vtodo_no_due_infinite_duration"):
@@ -3412,6 +3678,135 @@ END:VCALENDAR"""
         assert len(objects) == 2
         assert set([type(x).__name__ for x in objects]) == {"Todo", "Event"}
 
+    def testSearchWithoutCompTypeWithDateRange(self):
+        """Test for https://github.com/python-caldav/caldav/issues/681
+
+        A time-range search that does NOT specify a component type must work
+        even on SabreDAV-based servers (Baikal, Nextcloud, ...) which - correctly
+        per RFC4791 section 9.7 - reject a CALDAV:time-range placed directly under
+        the VCALENDAR comp-filter with HTTP 400.  The library works around this by
+        splitting the search into one query per component type
+        (search.time-range.comp-type-optional being unsupported).
+
+        The search is run twice: once with the server's real feature
+        configuration, and once with search.time-range.comp-type-optional forced
+        to "supported".  The forced run makes the library optimistically send the
+        comp-type-less time-range query that SabreDAV rejects, exercising the
+        reactive 400-fallback.  Without that fallback the forced run fails on
+        Baikal.
+        """
+        self.skip_unless_support("search.time-range.event")
+        cal = self._fixCalendar()
+
+        ## Near-future dates, to steer clear of servers that restrict old-date
+        ## time-range searches.
+        now = datetime.now(timezone.utc)
+        dtstart = now + timedelta(days=1)
+        dtend = dtstart + timedelta(hours=1)
+        uid = "issue681-" + uuid.uuid4().hex
+        ical = (
+            "BEGIN:VCALENDAR\r\n"
+            "VERSION:2.0\r\n"
+            "PRODID:-//python-caldav//issue681 test//EN\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            f"DTSTAMP:{now.strftime('%Y%m%dT%H%M%SZ')}\r\n"
+            f"DTSTART:{dtstart.strftime('%Y%m%dT%H%M%SZ')}\r\n"
+            f"DTEND:{dtend.strftime('%Y%m%dT%H%M%SZ')}\r\n"
+            "SUMMARY:issue 681 comp-type-less time-range search\r\n"
+            "END:VEVENT\r\n"
+            "END:VCALENDAR\r\n"
+        )
+        cal.save_event(ical)
+
+        start = now
+        end = now + timedelta(days=2)
+
+        def _assert_event_found():
+            ## must not raise (this is the crux of issue #681) and must find the event
+            objects = cal.search(start=start, end=end)
+            assert [o for o in objects if uid in o.data], (
+                "comp-type-less time-range search did not return the event"
+            )
+
+        ## Run 1: the server's real feature configuration (proactive comp-type split)
+        _assert_event_found()
+
+        ## Determine how this server reacts to the raw comp-type-less time-range
+        ## query.  Only SabreDAV-style servers (Baikal, Nextcloud) reject it with a
+        ## ReportError (HTTP 400) - that is the case the reactive fallback (issue
+        ## #681 item 4) is designed to recover from.  Others return nothing, or a
+        ## different error (e.g. Cyrus may answer 403), where forcing the feature on
+        ## is an unrecoverable misconfiguration not worth asserting on.
+        try:
+            cal.search(start=start, end=end, compatibility_workarounds=False)
+            raw_report_error = False
+        except error.ReportError:
+            raw_report_error = True
+        except error.DAVError:
+            raw_report_error = False
+
+        ## Run 2 (only meaningful where the raw query raises a ReportError): force
+        ## search.time-range.comp-type-optional ON and verify the reactive fallback
+        ## recovers and still finds the event.
+        if raw_report_error:
+            features = self.caldav.features
+            key = "search.time-range.comp-type-optional"
+            had_key = key in features._server_features
+            saved = features._server_features.get(key)
+            features.set_feature(key, {"support": "full"})
+            try:
+                objects = cal.search(start=start, end=end)
+                assert [o for o in objects if uid in o.data], (
+                    "reactive fallback did not recover the comp-type-less time-range search"
+                )
+            finally:
+                if had_key:
+                    features._server_features[key] = saved
+                else:
+                    features._server_features.pop(key, None)
+
+    def testSearchWithoutCompTypeWithCategory(self):
+        """Test for https://github.com/python-caldav/caldav/issues/681
+
+        A property filter (here CATEGORIES) without a component type must work.
+        Placed directly under the VCALENDAR comp-filter the prop-filter targets
+        VCALENDAR's own properties, which lack component properties like
+        CATEGORIES, so servers (Xandikos, SabreDAV, ...) match nothing.  The
+        library works around this by splitting the search into one query per
+        component type (search.text.comp-type-optional being unsupported).
+        """
+        self.skip_unless_support("search.text.category")
+        cal = self._fixCalendar()
+
+        category = "issue681cat" + uuid.uuid4().hex[:8]
+        uid = "issue681cat-" + uuid.uuid4().hex
+        ical = (
+            "BEGIN:VCALENDAR\r\n"
+            "VERSION:2.0\r\n"
+            "PRODID:-//python-caldav//issue681 test//EN\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            f"DTSTAMP:{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}\r\n"
+            f"DTSTART:{(datetime.now(timezone.utc) + timedelta(days=1)).strftime('%Y%m%dT%H%M%SZ')}\r\n"
+            f"DTEND:{(datetime.now(timezone.utc) + timedelta(days=1, hours=1)).strftime('%Y%m%dT%H%M%SZ')}\r\n"
+            "SUMMARY:issue 681 comp-type-less category search\r\n"
+            f"CATEGORIES:{category}\r\n"
+            "END:VEVENT\r\n"
+            "END:VCALENDAR\r\n"
+        )
+        cal.save_event(ical)
+
+        ## The proactive per-component-type split is the only safe fix here: unlike
+        ## the time-range case (where SabreDAV returns HTTP 400, which the reactive
+        ## fallback can catch), servers silently return nothing for a prop-filter
+        ## under VCALENDAR, so there is no error to recover from.  Hence we only
+        ## verify the default (proactive) behaviour.
+        objects = cal.search(category=category)
+        assert [o for o in objects if uid in o.data], (
+            "comp-type-less category search did not return the event"
+        )
+
     def testTodoCompletion(self):
         """
         Will check that todo-items can be completed and deleted
@@ -3424,6 +3819,7 @@ END:VCALENDAR"""
 
         # add todo-items
         t1 = c.add_todo(todo)
+        assert t1 is not None
         t2 = c.add_todo(todo2)
         t3 = c.add_todo(todo3, status="NEEDS-ACTION")
 
@@ -3530,7 +3926,10 @@ END:VCALENDAR"""
         c = self._fixCalendar(name="Yølp", cal_id=self.testcal_id)
 
         # add event
-        e1 = c.add_event(ev1.replace("Bastille Day Party", "Bringebærsyltetøyfestival"))
+        e1 = c.add_event(
+            near_now_ics(ev1).replace("Bastille Day Party", "Bringebærsyltetøyfestival")
+        )
+        assert e1 is not None
 
         # fetch it back
         events = c.get_events()
@@ -3555,7 +3954,10 @@ END:VCALENDAR"""
         c = self._fixCalendar(name="Yølp", cal_id=self.testcal_id)
 
         # add event
-        e1 = c.add_event(to_str(ev1.replace("Bastille Day Party", "Bringebærsyltetøyfestival")))
+        e1 = c.add_event(
+            to_str(near_now_ics(ev1).replace("Bastille Day Party", "Bringebærsyltetøyfestival"))
+        )
+        assert e1 is not None
 
         # c.get_events() should give a full list of events
         events = c.get_events()
@@ -3566,6 +3968,9 @@ END:VCALENDAR"""
 
     def testSetCalendarProperties(self):
         self.skip_unless_support("create-calendar.set-displayname")
+        ## This test expects the fixture's display name ("Yep") and renames the
+        ## calendar in place; both require the URL to stay put when a name is set.
+        self.skip_unless_support("create-calendar.stable-url")
         self.skip_unless_support("delete-calendar")
 
         c = self._fixCalendar()
@@ -3595,57 +4000,71 @@ END:VCALENDAR"""
             if not self.is_supported("delete-calendar"):
                 raise
 
-        c.set_properties(
-            [
-                dav.DisplayName("hooray"),
-            ]
-        )
-        props = c.get_properties(
-            [
-                dav.DisplayName(),
-            ]
-        )
-        assert props[dav.DisplayName.tag] == "hooray"
+        try:
+            c.set_properties(
+                [
+                    dav.DisplayName("hooray"),
+                ]
+            )
+            props = c.get_properties(
+                [
+                    dav.DisplayName(),
+                ]
+            )
+            assert props[dav.DisplayName.tag] == "hooray"
+        finally:
+            ## Restore the fixture's canonical display name.  Under the
+            ## wipe-calendar cleanup regime the calendar is reused (never
+            ## deleted) between tests, so a lingering "hooray" would make this
+            ## test non-idempotent (the next run reads "hooray", not "Yep") and,
+            ## on servers enforcing per-principal unique calendar names (SOGo),
+            ## block other calendars from taking the "hooray" name.
+            try:
+                c.set_properties([dav.DisplayName("Yep")])
+            except error.PropsetError:
+                ## Best-effort cleanup only: the assertion of interest has
+                ## already run above.  Some servers reject setting the display
+                ## name (PropsetError); if so there's nothing to restore and
+                ## nothing actionable to do here, so swallow it silently.
+                pass
 
         ## calendar color and calendar order are extra properties not
-        ## described by RFC5545, but anyway supported by quite some
-        ## server implementations
-        if self.check_compatibility_flag("calendar_color"):
-            props = c.get_properties(
-                [
-                    ical.CalendarColor(),
-                ]
-            )
-            assert props[ical.CalendarColor.tag] != "sort of blueish"
-            c.set_properties(
-                [
-                    ical.CalendarColor("blue"),
-                ]
-            )
-            props = c.get_properties(
-                [
-                    ical.CalendarColor(),
-                ]
-            )
-            assert props[ical.CalendarColor.tag] == "blue"
-        if self.check_compatibility_flag("calendar_order"):
-            props = c.get_properties(
-                [
-                    ical.CalendarOrder(),
-                ]
-            )
-            assert props[ical.CalendarOrder.tag] != "-434"
-            c.set_properties(
-                [
-                    ical.CalendarOrder("12"),
-                ]
-            )
-            props = c.get_properties(
-                [
-                    ical.CalendarOrder(),
-                ]
-            )
+        ## described by RFC5545, but anyway supported by quite some server
+        ## implementations.  How they behave is probed in detail by the
+        ## server-tester (calendar-color / calendar-color.hex /
+        ## calendar-order); here we mirror the core of what it asserts.
+        ##
+        ## The colour cannot be compared against the value that was set: a
+        ## server marked `full` is allowed to normalise a colour name to its
+        ## hex form.  But asserting only that *something* came back would
+        ## pass even if set_properties() were a complete no-op, so instead we
+        ## set two different values and require two different values back.
+        if self.is_supported("calendar-color"):
+            self._assert_property_tracks_input(c, ical.CalendarColor, "blue", "green")
+        if self.is_supported("calendar-color.hex"):
+            self._assert_property_tracks_input(c, ical.CalendarColor, "#FF0000FF", "#00FF00FF")
+        if self.is_supported("calendar-order"):
+            c.set_properties([ical.CalendarOrder("12")])
+            props = c.get_properties([ical.CalendarOrder()])
             assert props[ical.CalendarOrder.tag] == "12"
+
+    def _assert_property_tracks_input(self, cal, element, value1, value2):
+        """Assert that a collection property actually stores what it is given.
+
+        Set two different values in turn and require two different values
+        back.  This distinguishes a property that works (even one the server
+        normalises) from one that is read-only or silently dropped, without
+        assuming the stored form equals the form that was set.
+        """
+        cal.set_properties([element(value1)])
+        got1 = cal.get_properties([element()])[element.tag]
+        cal.set_properties([element(value2)])
+        got2 = cal.get_properties([element()])[element.tag]
+        assert got1, f"{element.tag}: nothing was stored for {value1!r}"
+        assert got1 != got2, (
+            f"{element.tag}: {got1!r} comes back for both {value1!r} and {value2!r} - "
+            f"the property is read-only, or set_properties() did nothing"
+        )
 
     def testLookupEvent(self):
         """
@@ -3656,8 +4075,9 @@ END:VCALENDAR"""
         c = self._fixCalendar()
         assert c.url is not None
 
-        # add event
-        e1 = c.add_event(ev1)
+        # add event, with a near-now date so it stays visible to REPORT-based
+        # lookups on sliding-window servers (see near_now_ics()).
+        e1 = c.add_event(near_now_ics(ev1))
         assert e1.url is not None
 
         # Verify that we can look it up, both by URL and by ID
@@ -3668,7 +4088,15 @@ END:VCALENDAR"""
         # look up by UID
         e3 = c.get_event_by_uid("20010712T182145Z-123401@example.com")
         assert e3.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
-        assert e3.url == e1.url
+        if self.is_supported("save-load.stable-url"):
+            assert e3.url == e1.url
+        else:
+            ## The server reports the object under a different (canonical) URL
+            ## than the one we stored it at (e.g. OX App Suite).  We can't compare
+            ## URLs, but we can confirm the looked-up URL is a real, fetchable
+            ## resource holding the same event.
+            e3.load()
+            assert e3.icalendar_component["uid"] == e1.icalendar_component["uid"]
 
         e4 = Event(client=self.caldav, url=e1.url)
         e4.load()
@@ -3686,17 +4114,21 @@ END:VCALENDAR"""
         c = self._fixCalendar()
         assert c.url is not None
 
+        ## near-now date so the event stays visible to REPORT-based lookups on
+        ## sliding-window servers (e.g. OX); see near_now_ics
+        ev1_now = near_now_ics(ev1)
+
         # attempts on updating/overwriting a non-existing event should fail:
         with pytest.raises(error.ConsistencyError):
-            c.add_event(ev1, no_create=True)
+            c.add_event(ev1_now, no_create=True)
 
         # no_create and no_overwrite is mutually exclusive, this will always
         # raise an error (unless the ical given is blank)
         with pytest.raises(error.ConsistencyError):
-            c.add_event(ev1, no_create=True, no_overwrite=True)
+            c.add_event(ev1_now, no_create=True, no_overwrite=True)
 
         # add event
-        e1 = c.add_event(ev1)
+        e1 = c.add_event(ev1_now)
 
         todo_ok = self.is_supported("save-load.todo.mixed-calendar")
         if todo_ok:
@@ -3706,19 +4138,30 @@ END:VCALENDAR"""
             assert t1.url is not None
         if not self.check_compatibility_flag("event_by_url_is_broken"):
             assert c.event_by_url(e1.url).url == e1.url
-        assert c.get_event_by_uid(e1.id).url == e1.url
+        ## get_event_by_uid may return a different (canonical) URL than the PUT
+        ## URL on servers that don't preserve it (e.g. OX); see save-load.stable-url
+        e_by_uid = c.get_event_by_uid(e1.id)
+        if self.is_supported("save-load.stable-url"):
+            assert e_by_uid.url == e1.url
+        else:
+            assert e_by_uid.icalendar_component["uid"] == e1.icalendar_component["uid"]
 
         no_create = True
 
         ## add same event again.  As it has same uid, it should be overwritten
-        ## (but some calendars may throw a "409 Conflict")
-        if self.is_supported("save-load.mutable"):
-            e2 = c.add_event(ev1)
+        ## (but some calendars may throw a "409 Conflict").  Overwriting via a
+        ## fresh PUT without an If-Match etag is gated on save-load.mutable.if-match-optional:
+        ## OX enforces optimistic concurrency and rejects such a PUT with 409
+        ## (etag-conditional save() still works, so save-load.mutable stays full).
+        if self.is_supported("save-load.mutable") and self.is_supported(
+            "save-load.mutable.if-match-optional"
+        ):
+            e2 = c.add_event(ev1_now)
             if todo_ok:
                 t2 = c.add_todo(todo)
 
             ## add same event with "no_create".  Should work like a charm.
-            e2 = c.add_event(ev1, no_create=no_create)
+            e2 = c.add_event(ev1_now, no_create=no_create)
             if todo_ok:
                 t2 = c.add_todo(todo, no_create=no_create)
 
@@ -3740,7 +4183,7 @@ END:VCALENDAR"""
 
         ## "no_overwrite" should throw a ConsistencyError.
         with pytest.raises(error.ConsistencyError):
-            c.add_event(ev1, no_overwrite=True)
+            c.add_event(ev1_now, no_overwrite=True)
         if todo_ok:
             with pytest.raises(error.ConsistencyError):
                 c.add_todo(todo, no_overwrite=True)
@@ -3750,15 +4193,13 @@ END:VCALENDAR"""
         if todo_ok:
             t1.delete()
 
-        if self.check_compatibility_flag("non_existing_raises_other"):
-            expected_error = error.DAVError
-        else:
-            expected_error = error.NotFoundError
-
         # Verify that we can't look it up, both by URL and by ID
         with pytest.raises(self._notFound()):
             c.event_by_url(e1.url)
-        if self.is_supported("save-load.mutable"):
+        ## e2 only exists if the put-overwrite block above ran
+        if self.is_supported("save-load.mutable") and self.is_supported(
+            "save-load.mutable.if-match-optional"
+        ):
             with pytest.raises(self._notFound()):
                 c.event_by_url(e2.url)
         if not self.check_compatibility_flag("event_by_url_is_broken"):
@@ -3876,20 +4317,24 @@ END:VCALENDAR"""
         self.skip_unless_support("search.recurrences.includes-implicit.event")
         c = self._fixCalendar()
 
-        # evr is a yearly event starting at 1997-11-02
+        # evr is a yearly event starting at 1997-11-02.  We search the next
+        # future Nov-2 anniversary rather than a fixed historic year, so that
+        # sliding-window servers (e.g. OX) can serve the time range.
+        year, narrow_start, narrow_end, wide_end = next_anniversary_windows()
         e = c.add_event(evr)
+        assert e is not None
 
-        ## Without "expand", we should still find it when searching over 2008 ...
+        ## Without "expand", we should still find it when searching the anniversary
         with pytest.deprecated_call():
             r = c.date_search(
-                datetime(2008, 11, 1, 17, 00, 00),
-                datetime(2008, 11, 3, 17, 00, 00),
+                narrow_start,
+                narrow_end,
                 expand=False,
             )
         r2 = c.search(
             event=True,
-            start=datetime(2008, 11, 1, 17, 00, 00),
-            end=datetime(2008, 11, 3, 17, 00, 00),
+            start=narrow_start,
+            end=narrow_end,
             expand=False,
         )
         assert len(r) == 1
@@ -3899,46 +4344,46 @@ END:VCALENDAR"""
         ## legacy method name
         with pytest.deprecated_call():
             r1 = c.date_search(
-                datetime(2008, 11, 1, 17, 00, 00),
-                datetime(2008, 11, 3, 17, 00, 00),
+                narrow_start,
+                narrow_end,
                 expand=True,
             )
         ## server expansion, with client side fallback
         r2 = c.search(
             event=True,
-            start=datetime(2008, 11, 1, 17, 00, 00),
-            end=datetime(2008, 11, 3, 17, 00, 00),
+            start=narrow_start,
+            end=narrow_end,
             expand=True,
         )
         ## r3 was client-side expansion, but this is the default now
         ## server side expansion
         r4 = c.search(
             event=True,
-            start=datetime(2008, 11, 1, 17, 00, 00),
-            end=datetime(2008, 11, 3, 17, 00, 00),
+            start=narrow_start,
+            end=narrow_end,
             server_expand=True,
         )
         assert len(r1) == 1
         assert len(r2) == 1
         assert r1[0].data.count("END:VEVENT") == 1
         assert r2[0].data.count("END:VEVENT") == 1
-        ## due to expandation, the DTSTART should be in 2008
-        assert r1[0].data.count("DTSTART;VALUE=DATE:2008") == 1
-        assert r2[0].data.count("DTSTART;VALUE=DATE:2008") == 1
+        ## due to expandation, the DTSTART should be in the anniversary year
+        assert r1[0].data.count(f"DTSTART;VALUE=DATE:{year}") == 1
+        assert r2[0].data.count(f"DTSTART;VALUE=DATE:{year}") == 1
         if self.is_supported("search.recurrences.expanded.event"):
-            assert r4[0].data.count("DTSTART;VALUE=DATE:2008") == 1
+            assert r4[0].data.count(f"DTSTART;VALUE=DATE:{year}") == 1
 
         ## With expand=True and searching over two recurrences ...
         with pytest.deprecated_call():
             r1 = c.date_search(
-                datetime(2008, 11, 1, 17, 00, 00),
-                datetime(2009, 11, 3, 17, 00, 00),
+                narrow_start,
+                wide_end,
                 expand=True,
             )
         r2 = c.search(
             event=True,
-            start=datetime(2008, 11, 1, 17, 00, 00),
-            end=datetime(2009, 11, 3, 17, 00, 00),
+            start=narrow_start,
+            end=wide_end,
             expand=True,
         )
 
@@ -3976,6 +4421,7 @@ END:VCALENDAR"""
         # evr2 is a bi-weekly event starting 2024-04-11
         ## It has an exception, edited summary for recurrence id 20240425T123000Z
         e = c.add_event(evr2)
+        assert e is not None
 
         rc = c.search(
             start=datetime(2024, 3, 31, 0, 0),
@@ -4052,30 +4498,45 @@ END:VCALENDAR"""
 
         cal = self._fixCalendar()
 
+        ## Anchor the daily recurring event a few days in the future so servers
+        ## with a sliding REPORT window / no old-date support (e.g. CCS, ref
+        ## search.time-range.event.old-dates) can still serve the time ranges.
+        ## The integer passed to search()/summary_on() is a day offset from this
+        ## anchor day; the values just need to be distinct future days.
+        base = (datetime.now() + timedelta(days=2)).replace(
+            hour=8, minute=7, second=6, microsecond=0
+        )
+
         ## Create a daily recurring event
         cal.add_event(
             uid="test1",
             summary="daily test",
-            dtstart=datetime(2015, 1, 1, 8, 7, 6),
-            dtend=datetime(2015, 1, 1, 9, 7, 6),
+            dtstart=base,
+            dtend=base + timedelta(hours=1),
             rrule={"FREQ": "DAILY"},
         )
 
-        def search(month):
+        def day_start(offset):
+            return (base + timedelta(days=offset)).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+
+        def search(offset):
             """
-            Internal function to find one recurrence object
+            Internal function to find one recurrence object - the occurrence on
+            the day `offset` days after the event's anchor day.
             """
             recurrence = cal.search(
                 event=True,
-                start=datetime(2015, month, 1),
-                end=datetime(2015, month, 2),
+                start=day_start(offset),
+                end=day_start(offset) + timedelta(days=1),
                 expand=True,
             )
             assert len(recurrence) == 1
             return recurrence[0]
 
-        def summary_by_month(month):
-            return search(month).icalendar_component["summary"]
+        def summary_on(offset):
+            return search(offset).icalendar_component["summary"]
 
         ## Search for a recurrence
         recurrence = search(7)
@@ -4085,52 +4546,56 @@ END:VCALENDAR"""
         recurrence.save()
 
         ## Only one day should be affected
-        assert summary_by_month(6) == "daily test"
-        assert summary_by_month(7) == "half a year of daily testing"
-        assert summary_by_month(8) == "daily test"
+        assert summary_on(6) == "daily test"
+        assert summary_on(7) == "half a year of daily testing"
+        assert summary_on(8) == "daily test"
 
         ## let's try to set several recurrence exceptions
         recurrence = search(2)
         recurrence.icalendar_component["summary"] = "one month of daily testing"
         recurrence.save()
 
-        assert summary_by_month(1) == "daily test"
-        assert summary_by_month(2) == "one month of daily testing"
-        assert summary_by_month(7) == "half a year of daily testing"
+        assert summary_on(1) == "daily test"
+        assert summary_on(2) == "one month of daily testing"
+        assert summary_on(7) == "half a year of daily testing"
 
         ## Changing any of the exceptions should also work
         recurrence = search(7)
         recurrence.icalendar_component["summary"] = "six months of daily testing"
         recurrence.save()
-        assert summary_by_month(7) == "six months of daily testing"
+        assert summary_on(7) == "six months of daily testing"
 
         ## parameter all_recurrences should change all recurrences -
-        ## except February and July
+        ## except the two edited exceptions (offsets 2 and 7)
         recurrence = search(9)
         recurrence.icalendar_component["summary"] = "daily testing"
         recurrence.save(all_recurrences=True)
-        assert summary_by_month(1) == "daily testing"
-        assert summary_by_month(2) == "one month of daily testing"
-        assert summary_by_month(3) == "daily testing"
-        assert summary_by_month(7) == "six months of daily testing"
+        assert summary_on(1) == "daily testing"
+        assert summary_on(2) == "one month of daily testing"
+        assert summary_on(3) == "daily testing"
+        assert summary_on(7) == "six months of daily testing"
 
-        ## Last ... let's change the dtend and dtstart of the recurrence
-        recurrence = search(9)
-        recurrence.icalendar_component.pop("dtstart")
-        recurrence.icalendar_component.add("dtstart", datetime(2015, 9, 1, 8, 0, 0))
-        recurrence.icalendar_component.pop("dtend")
-        recurrence.icalendar_component.add("dtend", datetime(2015, 9, 1, 10, 0, 0))
-        recurrence.save(all_recurrences=True)
+        ## Last ... let's change the dtend and dtstart of the recurrence.
+        ## This reschedules the whole series (moves the master DTSTART) while the
+        ## two exceptions above are still attached - some servers (e.g. OX) reject
+        ## that re-anchoring with a 409 Conflict, so it is gated on its own flag.
+        if self.is_supported("save-load.event.recurrences.exception.reschedule"):
+            recurrence = search(9)
+            recurrence.icalendar_component.pop("dtstart")
+            recurrence.icalendar_component.add("dtstart", day_start(9).replace(hour=8))
+            recurrence.icalendar_component.pop("dtend")
+            recurrence.icalendar_component.add("dtend", day_start(9).replace(hour=10))
+            recurrence.save(all_recurrences=True)
 
-        recurrence = search(8)
-        assert (
-            recurrence.icalendar_component.start.astimezone()
-            == datetime(2015, 8, 1, 8, 0, 0).astimezone()
-        )
-        assert (
-            recurrence.icalendar_component.end.astimezone()
-            == datetime(2015, 8, 1, 10, 0, 0).astimezone()
-        )
+            recurrence = search(8)
+            assert (
+                recurrence.icalendar_component.start.astimezone()
+                == day_start(8).replace(hour=8).astimezone()
+            )
+            assert (
+                recurrence.icalendar_component.end.astimezone()
+                == day_start(8).replace(hour=10).astimezone()
+            )
 
     def testOffsetURL(self):
         """
@@ -4146,6 +4611,8 @@ END:VCALENDAR"""
             conn = client(**connect_params, url=url)
             principal = conn.principal()
             calendars = principal.get_calendars()
+            assert calendars is not None
+            assert calendars is not None
 
     def testObjects(self):
         # TODO: description ... what are we trying to test for here?
@@ -4203,15 +4670,15 @@ class TestProxy(proxy.TestCase):
     def testNoProxyRaisesError(self):
         with client(**self.server_params) as conn:
             with pytest.raises(AssertionError):
-                principal = conn.principal()
+                conn.principal()
 
     def testWithProxyParams(self):
         with client(proxy=self.proxy, **self.server_params) as conn:
-            principal = conn.principal()
+            assert conn.principal() is not None
 
     def testWithProxyParamsWithoutScheme(self):
         with client(proxy=f"localhost:{self.PROXY.flags.port}", **self.server_params) as conn:
-            principal = conn.principal()
+            assert conn.principal() is not None
 
     ## TODO: figure out how to test this properly.
     @pytest.mark.skipif(True, reason="work in progress ... this doesn't seem to work")
@@ -4219,7 +4686,7 @@ class TestProxy(proxy.TestCase):
         os.environ["HTTP_PROXY"] = self.proxy
         os.environ["HTTPS_PROXY"] = self.proxy
         with client(**self.server_params) as conn:
-            principal = conn.principal()
+            assert conn.principal() is not None
 
     ## TODO: test socks proxy as well.
     ## TODO: test https proxying as well

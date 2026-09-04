@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "django-ses"
-version = "4.7.2"
+version = "4.8.0"
 description = "A Django email backend for Amazon's Simple Email Service (SES)"
 authors = [
     "Harry Marr <harry@hmarr.com>",
@@ -20,6 +20,7 @@ classifiers = [
     'Framework :: Django :: 4.2',
     'Framework :: Django :: 5.2',
     'Framework :: Django :: 6.0',
+    'Framework :: Django :: 6.1',
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
@@ -42,8 +43,15 @@ include = ["example", "tests"]
 [tool.poetry.dependencies]
 python = ">=3.8"
 boto3 = ">=1.0.0"
-django = ">=3.2"
-importlib-metadata = {version = ">=1", python = "<3.8"}
+# Intended majors: >=3.2,<4 | >=4,<5 | >=5,<6 | >=6,<7
+# Poetry needs disjoint python markers; each row is one Python band and a union of
+# those major ranges where CI runs that combo.
+django = [
+    {version = ">=3.2,<5", python = ">=3.8,<3.10"},
+    {version = ">=3.2,<6", python = ">=3.10,<3.12"},
+    {version = ">=3.2,<7", python = ">=3.12,<3.13"},
+    {version = ">=4,<7", python = ">=3.13"},
+]
 backports-zoneinfo = {version = ">=0.2.1", python = "<3.9"}
 cryptography = {version = ">=36.0.2", optional = true}
 requests = {version = ">=2.32.1", optional = true}
@@ -53,14 +61,24 @@ bounce =  ["requests", "cryptography"]
 events = ["requests", "cryptography"]
 
 [tool.poetry.group.dev.dependencies]
+pre-commit = "*"
 ruff = "*"
 tox = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+# Same as Black.
+line-length = 120
+
+# Assume Python 3.14
+target-version = "py314"
 
 [tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
 select = [
     "E",       # pycodestyle errors
     "W",       # pycodestyle warnings
@@ -82,11 +100,6 @@ fixable = [
 ]
 unfixable = []
 
-# Same as Black.
-line-length = 120
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-# Assume Python 3.12
-target-version = "py312"

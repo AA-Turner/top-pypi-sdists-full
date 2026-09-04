@@ -37,6 +37,7 @@ use super::config::AzblobConfig;
 use super::copier::AzblobCopiers;
 use super::copier::new_azblob_copier;
 use super::core::AzblobCore;
+use super::core::ErrorContext;
 use super::core::constants::AZBLOB_COPY_MAX_BLOCK_SIZE;
 use super::core::constants::AZBLOB_COPY_MIN_BLOCK_SIZE;
 use super::core::constants::X_MS_META_PREFIX;
@@ -413,10 +414,14 @@ impl Builder for AzblobBuilder {
             write_with_user_metadata: true,
 
             delete: true,
+            delete_with_if_match: true,
+            delete_with_if_none_match: true,
             delete_max_size: Some(AZBLOB_BATCH_LIMIT),
 
             copy: true,
             copy_with_if_not_exists: true,
+            copy_with_if_match: true,
+            copy_with_if_none_match: true,
             copy_can_multi: true,
             copy_multi_min_size: Some(AZBLOB_COPY_MIN_BLOCK_SIZE),
             copy_multi_max_size: Some(AZBLOB_COPY_MAX_BLOCK_SIZE),
@@ -463,6 +468,7 @@ impl Service for AzblobBackend {
     type Lister = oio::PageLister<AzblobLister>;
     type Deleter = oio::BatchDeleter<AzblobDeleter>;
     type Copier = AzblobCopiers;
+    type Composer = ();
 
     fn info(&self) -> ServiceInfo {
         self.core.info.clone()
@@ -485,6 +491,8 @@ impl Service for AzblobBackend {
     }
 
     async fn stat(&self, ctx: &OperationContext, path: &str, args: OpStat) -> Result<RpStat> {
+        let error_ctx = ErrorContext::new(ServiceOperation("GetBlobProperties"))
+            .with_caller_condition(args.is_conditional());
         let resp = self
             .core
             .azblob_get_blob_properties(ctx, path, &args)
@@ -495,19 +503,19 @@ impl Service for AzblobBackend {
         match status {
             StatusCode::OK => {
                 let headers = resp.headers();
-                let mut meta = parse_into_metadata(path, headers)?;
+                let mut meta = parse_into_metadata(path, headers)?.into_builder();
                 if let Some(version_id) = parse_header_to_str(headers, X_MS_VERSION_ID)? {
-                    meta.set_version(version_id);
+                    meta.version(version_id);
                 }
 
                 let user_meta = parse_prefixed_headers(headers, X_MS_META_PREFIX);
                 if !user_meta.is_empty() {
-                    meta = meta.with_user_metadata(user_meta);
+                    meta.user_metadata(user_meta);
                 }
 
-                Ok(RpStat::new(meta))
+                Ok(RpStat::new(meta.build()))
             }
-            _ => Err(parse_error(resp)),
+            _ => Err(parse_error(error_ctx, resp)),
         }
     }
     fn read(&self, ctx: &OperationContext, path: &str, args: OpRead) -> Result<Self::Reader> {
@@ -580,10 +588,9 @@ impl Service for AzblobBackend {
         from: &str,
         to: &str,
         args: OpCopy,
-        opts: OpCopier,
     ) -> Result<Self::Copier> {
         let output: AzblobCopiers = {
-            let copier = new_azblob_copier(self.core.clone(), ctx, from, to, args, opts)?;
+            let copier = new_azblob_copier(self.core.clone(), ctx, from, to, args)?;
             Ok(copier)
         }?;
 
@@ -612,9 +619,9 @@ impl Service for AzblobBackend {
         let req = match args.operation() {
             PresignOperation::Stat(v) => self.core.azblob_head_blob_request(path, v),
             PresignOperation::Read(range, v) => self.core.azblob_get_blob_request(path, *range, v),
-            PresignOperation::Write(_) => {
+            PresignOperation::Write(v) => {
                 self.core
-                    .azblob_put_blob_request(path, None, &OpWrite::default(), Buffer::new())
+                    .azblob_put_blob_request(path, None, v, Buffer::new())
             }
             PresignOperation::Delete(_) => Err(Error::new(
                 ErrorKind::Unsupported,

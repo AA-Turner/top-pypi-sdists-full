@@ -307,19 +307,20 @@ def create_config(tmp_path):
 
 
 default_options_uncolored_help = (
-    r"  --time / --no-time           Measure and print elapsed execution time\.\n"
-    r"                               \[default: no-time\]\n"
-    r"  --config CONFIG_PATH         Location of the configuration file\. Supports\n"
+    r"  -h, --help                   Show this message and exit\.\n"
+    r"\n"
+    r"Configuration options:\n"
+    r"  --config LOCATION            Location of the configuration file\. Supports\n"
     r"                               local path with glob patterns or remote URL\.\n"
-    r"                               \[default: .*\n"
-    r"(?:                               .+\n"
-    r")*                               .*\]\n"
+    r"                               \[default: (?:.*\n                               )*.*\]\n"
     r"  --no-config                  Ignore all configuration files and only use\n"
     r"                               command line parameters and environment\n"
     r"                               variables\.\n"
-    r"  --validate-config FILE       Validate the configuration file and exit\.\n"
+    r"  --validate-config LOCATION   Validate the configuration file and exit\.\n"
     r"  --export-config FORMAT       Export the configuration in the selected format\n"
     r"                               to <stdout>, then exit\.\n"
+    r"\n"
+    r"Output options:\n"
     r"  --accessible                 Accessibility mode: disable colors and render\n"
     r"                               tables in a borderless, screen-reader-friendly\n"
     r"                               format\.\n"
@@ -333,11 +334,10 @@ default_options_uncolored_help = (
     r"  --theme \[auto\|dark\|dracula\|light\|manpage\|monokai\|nord\|solarized-dark\]\n"
     r"                               Color theme used for help screens\.  \[default:\n"
     r"                               dark\]\n"
-    r"  --params                     Show all CLI parameters, their provenance,\n"
-    r"                               defaults and value, then exit\.\n"
-    r"  --table-format \[aligned\|asciidoc\|colon-grid\|csv\|csv-excel\|csv-excel-tab\|csv-unix\|double-grid\|double-outline\|fancy-grid\|fancy-outline\|github\|grid\|heavy-grid\|heavy-outline\|hjson\|html\|jira\|json\|json5\|jsonc\|latex\|latex-booktabs\|latex-longtable\|latex-raw\|mediawiki\|mixed-grid\|mixed-outline\|moinmoin\|orgtbl\|outline\|pipe\|plain\|presto\|pretty\|psql\|rounded-grid\|rounded-outline\|rst\|simple\|simple-grid\|simple-outline\|textile\|toml\|tsv\|unsafehtml\|vertical\|xml\|yaml\|youtrack\]\n"
-    r"                               Rendering style of tables\.  \[default: rounded-\n"
+    r"  --table-format FORMAT        Rendering style of tables\.  \[default: rounded-\n"
     r"                               outline\]\n"
+    r"\n"
+    r"Logging options:\n"
     r"  --verbosity LEVEL            Either CRITICAL, ERROR, WARNING, INFO, DEBUG\.\n"
     r"                               \[default: WARNING\]\n"
     r"  -v, --verbose                Increase the default WARNING verbosity by one\n"
@@ -347,29 +347,35 @@ default_options_uncolored_help = (
     r"                               level for each additional repetition of the\n"
     r"                               option\.  \[default: 0\]\n"
     r"  --debug                      Shorthand for --verbosity DEBUG\.\n"
+    r"\n"
+    r"Introspection options:\n"
+    r"  --time / --no-time           Measure and print elapsed execution time\.\n"
+    r"                               \[default: no-time\]\n"
+    r"  --params                     Show all CLI parameters, their provenance,\n"
+    r"                               defaults and value, then exit\.\n"
     r"  --tree                       Show the tree of nested subcommands and exit\.\n"
     r"  --man                        Read the command's manual page and exit\.\n"
     r"  --help-format \[carapace\|json\|json-full\|man\|markdown\|markdown-full\]\n"
     r"                               Render the command in the given format and exit\.\n"
     r"  --version                    Show the version and exit\.\n"
-    r"  -h, --help                   Show this message and exit\.\n"
 )
 
 
 default_options_colored_help = (
-    r"  \x1b\[36m\x1b\[1m--time\x1b\[0m / \x1b\[36m\x1b\[1m--no-time\x1b\[0m           Measure and print elapsed execution time\.\n"
-    r"                               \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mno-time\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
-    r"  \x1b\[36m\x1b\[1m--config\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mCONFIG_PATH\x1b\[0m         Location of the configuration file\. Supports\n"
+    r"  \x1b\[36m\x1b\[1m-h\x1b\[0m, \x1b\[36m\x1b\[1m--help\x1b\[0m                   Show this message and exit\.\n"
+    r"\n"
+    r"\x1b\[94m\x1b\[4mConfiguration options:\x1b\[0m\n"
+    r"  \x1b\[36m\x1b\[1m--config\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mLOCATION\x1b\[0m            Location of the configuration file\. Supports\n"
     r"                               local path with glob patterns or remote URL\.\n"
-    r"                               \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3m.*\n"
-    r"(?:                               .+\n"
-    r")*                               .*\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
+    r"                               \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3m(?:.*\n                               )*.*\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
     r"  \x1b\[36m\x1b\[1m--no-config\x1b\[0m                  Ignore all configuration files and only use\n"
     r"                               command line parameters and environment\n"
     r"                               variables\.\n"
-    r"  \x1b\[36m\x1b\[1m--validate-config\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mFILE\x1b\[0m       Validate the configuration file and exit\.\n"
+    r"  \x1b\[36m\x1b\[1m--validate-config\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mLOCATION\x1b\[0m   Validate the configuration file and exit\.\n"
     r"  \x1b\[36m\x1b\[1m--export-config\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mFORMAT\x1b\[0m       Export the configuration in the selected format\n"
     r"                               to <stdout>, then exit\.\n"
+    r"\n"
+    r"\x1b\[94m\x1b\[4mOutput options:\x1b\[0m\n"
     r"  \x1b\[36m\x1b\[1m--accessible\x1b\[0m                 Accessibility mode: disable colors and render\n"
     r"                               tables in a borderless, screen-reader-friendly\n"
     r"                               format\.\n"
@@ -383,11 +389,10 @@ default_options_colored_help = (
     r"  \x1b\[36m\x1b\[1m--theme\x1b\[0m \[\x1b\[35m\x1b\[1mauto\x1b\[0m\|\x1b\[35m\x1b\[1mdark\x1b\[0m\|\x1b\[35m\x1b\[1mdracula\x1b\[0m\|\x1b\[35m\x1b\[1mlight\x1b\[0m\|\x1b\[35m\x1b\[1mmanpage\x1b\[0m\|\x1b\[35m\x1b\[1mmonokai\x1b\[0m\|\x1b\[35m\x1b\[1mnord\x1b\[0m\|\x1b\[35m\x1b\[1msolarized-dark\x1b\[0m\]\n"
     r"                               Color theme used for help screens\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault:\n"
     r"                               \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mdark\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
-    r"  \x1b\[36m\x1b\[1m--params\x1b\[0m                     Show all CLI parameters, their provenance,\n"
-    r"                               defaults and value, then exit\.\n"
-    r"  \x1b\[36m\x1b\[1m--table-format\x1b\[0m \[\x1b\[35m\x1b\[1maligned\x1b\[0m\|\x1b\[35m\x1b\[1masciidoc\x1b\[0m\|\x1b\[35m\x1b\[1mcolon-grid\x1b\[0m\|\x1b\[35m\x1b\[1mcsv\x1b\[0m\|\x1b\[35m\x1b\[1mcsv-excel\x1b\[0m\|\x1b\[35m\x1b\[1mcsv-excel-tab\x1b\[0m\|\x1b\[35m\x1b\[1mcsv-unix\x1b\[0m\|\x1b\[35m\x1b\[1mdouble-grid\x1b\[0m\|\x1b\[35m\x1b\[1mdouble-outline\x1b\[0m\|\x1b\[35m\x1b\[1mfancy-grid\x1b\[0m\|\x1b\[35m\x1b\[1mfancy-outline\x1b\[0m\|\x1b\[35m\x1b\[1mgithub\x1b\[0m\|\x1b\[35m\x1b\[1mgrid\x1b\[0m\|\x1b\[35m\x1b\[1mheavy-grid\x1b\[0m\|\x1b\[35m\x1b\[1mheavy-outline\x1b\[0m\|\x1b\[35m\x1b\[1mhjson\x1b\[0m\|\x1b\[35m\x1b\[1mhtml\x1b\[0m\|\x1b\[35m\x1b\[1mjira\x1b\[0m\|\x1b\[35m\x1b\[1mjson\x1b\[0m\|\x1b\[35m\x1b\[1mjson5\x1b\[0m\|\x1b\[35m\x1b\[1mjsonc\x1b\[0m\|\x1b\[35m\x1b\[1mlatex\x1b\[0m\|\x1b\[35m\x1b\[1mlatex-booktabs\x1b\[0m\|\x1b\[35m\x1b\[1mlatex-longtable\x1b\[0m\|\x1b\[35m\x1b\[1mlatex-raw\x1b\[0m\|\x1b\[35m\x1b\[1mmediawiki\x1b\[0m\|\x1b\[35m\x1b\[1mmixed-grid\x1b\[0m\|\x1b\[35m\x1b\[1mmixed-outline\x1b\[0m\|\x1b\[35m\x1b\[1mmoinmoin\x1b\[0m\|\x1b\[35m\x1b\[1morgtbl\x1b\[0m\|\x1b\[35m\x1b\[1moutline\x1b\[0m\|\x1b\[35m\x1b\[1mpipe\x1b\[0m\|\x1b\[35m\x1b\[1mplain\x1b\[0m\|\x1b\[35m\x1b\[1mpresto\x1b\[0m\|\x1b\[35m\x1b\[1mpretty\x1b\[0m\|\x1b\[35m\x1b\[1mpsql\x1b\[0m\|\x1b\[35m\x1b\[1mrounded-grid\x1b\[0m\|\x1b\[35m\x1b\[1mrounded-outline\x1b\[0m\|\x1b\[35m\x1b\[1mrst\x1b\[0m\|\x1b\[35m\x1b\[1msimple\x1b\[0m\|\x1b\[35m\x1b\[1msimple-grid\x1b\[0m\|\x1b\[35m\x1b\[1msimple-outline\x1b\[0m\|\x1b\[35m\x1b\[1mtextile\x1b\[0m\|\x1b\[35m\x1b\[1mtoml\x1b\[0m\|\x1b\[35m\x1b\[1mtsv\x1b\[0m\|\x1b\[35m\x1b\[1munsafehtml\x1b\[0m\|\x1b\[35m\x1b\[1mvertical\x1b\[0m\|\x1b\[35m\x1b\[1mxml\x1b\[0m\|\x1b\[35m\x1b\[1myaml\x1b\[0m\|\x1b\[35m\x1b\[1myoutrack\x1b\[0m\]\n"
-    r"                               Rendering style of tables\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mrounded-\n"
+    r"  \x1b\[36m\x1b\[1m--table-format\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mFORMAT\x1b\[0m        Rendering style of tables\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mrounded-\n"
     r"                               outline\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
+    r"\n"
+    r"\x1b\[94m\x1b\[4mLogging options:\x1b\[0m\n"
     r"  \x1b\[36m\x1b\[1m--verbosity\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mLEVEL\x1b\[0m            Either \x1b\[35m\x1b\[1mCRITICAL\x1b\[0m, \x1b\[35m\x1b\[1mERROR\x1b\[0m, \x1b\[35m\x1b\[1mWARNING\x1b\[0m, \x1b\[35m\x1b\[1mINFO\x1b\[0m, \x1b\[35m\x1b\[1mDEBUG\x1b\[0m\.\n"
     r"                               \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mWARNING\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
     r"  \x1b\[36m\x1b\[1m-v\x1b\[0m, \x1b\[36m\x1b\[1m--verbose\x1b\[0m                Increase the default \x1b\[35m\x1b\[1mWARNING\x1b\[0m verbosity by one\n"
@@ -397,12 +402,17 @@ default_options_colored_help = (
     r"                               level for each additional repetition of the\n"
     r"                               option\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3m0\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
     r"  \x1b\[36m\x1b\[1m--debug\x1b\[0m                      Shorthand for \x1b\[36m\x1b\[1m--verbosity\x1b\[0m \x1b\[35m\x1b\[1mDEBUG\x1b\[0m\.\n"
+    r"\n"
+    r"\x1b\[94m\x1b\[4mIntrospection options:\x1b\[0m\n"
+    r"  \x1b\[36m\x1b\[1m--time\x1b\[0m / \x1b\[36m\x1b\[1m--no-time\x1b\[0m           Measure and print elapsed execution time\.\n"
+    r"                               \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mno-time\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
+    r"  \x1b\[36m\x1b\[1m--params\x1b\[0m                     Show all CLI parameters, their provenance,\n"
+    r"                               defaults and value, then exit\.\n"
     r"  \x1b\[36m\x1b\[1m--tree\x1b\[0m                       Show the tree of nested subcommands and exit\.\n"
     r"  \x1b\[36m\x1b\[1m--man\x1b\[0m                        Read the command's manual page and exit\.\n"
     r"  \x1b\[36m\x1b\[1m--help-format\x1b\[0m \[\x1b\[35m\x1b\[1mcarapace\x1b\[0m\|\x1b\[35m\x1b\[1mjson\x1b\[0m\|\x1b\[35m\x1b\[1mjson-full\x1b\[0m\|\x1b\[35m\x1b\[1mman\x1b\[0m\|\x1b\[35m\x1b\[1mmarkdown\x1b\[0m\|\x1b\[35m\x1b\[1mmarkdown-full\x1b\[0m\]\n"
     r"                               Render the command in the given format and exit\.\n"
     r"  \x1b\[36m\x1b\[1m--version\x1b\[0m                    Show the version and exit\.\n"
-    r"  \x1b\[36m\x1b\[1m-h\x1b\[0m, \x1b\[36m\x1b\[1m--help\x1b\[0m                   Show this message and exit\.\n"
 )
 
 
@@ -435,17 +445,23 @@ default_debug_colored_quiet_log = (
 
 
 default_config_file_pattern = (
-    # `*.json5` and `*.jsonc` are only emitted by `ConfigFormat` when
-    # the optional `json5` and `json-with-comments` packages are
-    # importable (see `click_extra.config`). Make both optional in the
-    # regex so the same assertion matches whether or not those extras are
+    # `*.json5`, `*.jwcc` and `*.jsonc` are only emitted by `ConfigFormat`
+    # when the optional `json5` and `json-with-comments` packages are
+    # importable (see `click_extra.config`). Make each group optional in
+    # the regex so the same assertion matches whether or not those extras are
     # installed: full match in upstream CI, gracefully shorter match in
-    # hermetic builders (Guix, Nixpkgs) that ship neither extra. Same
-    # shape as the `git_long_hash = (?:hash|None)` graceful-degradation
+    # hermetic builders (Guix, Nixpkgs) that ship neither extra. `*.json5`
+    # and `*.jwcc` share one group because the same parser gates them both.
+    # `*.sqlite` and `*.sqlite3` are optional for the same reason, on the
+    # standard library instead of an extra: FreeBSD serves the `sqlite3`
+    # bindings as a `pyXXX-sqlite3` package apart from the interpreter.
+    # Same shape as the `git_long_hash = (?:hash|None)` graceful-degradation
     # pattern further down.
     r"\{\*\.toml,\*\.yaml,\*\.yml,\*\.json"
-    r"(?:,\*\.json5)?(?:,\*\.jsonc)?"
-    r",\*\.hjson,\*\.ini,\*\.xml,\*\.plist,\*\.sqlite,\*\.sqlite3,\*\.conf,pyproject\.toml\}"
+    r"(?:,\*\.json5,\*\.jwcc)?(?:,\*\.jsonc)?"
+    r",\*\.hjson,\*\.ini,\*\.xml,\*\.plist"
+    r"(?:,\*\.sqlite,\*\.sqlite3)?"
+    r",\*\.conf,pyproject\.toml\}"
 )
 default_debug_uncolored_config = (
     rf"debug: Load configuration matching .+{default_config_file_pattern}\n"

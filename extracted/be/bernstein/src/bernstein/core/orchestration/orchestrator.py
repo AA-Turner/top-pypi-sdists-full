@@ -29,6 +29,7 @@ import signal
 import threading
 import time
 from datetime import UTC, datetime
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import httpx
@@ -52,6 +53,7 @@ from bernstein.core.approval import ApprovalGate, ApprovalMode
 from bernstein.core.bandit_router import BanditRouter
 from bernstein.core.batch_api import ProviderBatchManager
 from bernstein.core.bulletin import BulletinBoard, BulletinMessage, SignalActionFailure
+from bernstein.core.circuit_breaker import check_budget_violations
 from bernstein.core.cluster import NodeHeartbeatClient
 from bernstein.core.config.run_overlay import effective_mtime
 from bernstein.core.context import refresh_knowledge_base
@@ -204,7 +206,7 @@ _compute_total_spent = compute_total_spent
 _total_spent_cache = total_spent_cache
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
     from bernstein.core.backlog_parser import ParsedBacklogTask
@@ -416,7 +418,6 @@ class Orchestrator:
         )
         self._agents: dict[str, AgentSession] = {}
         self._lock_manager = FileLockManager(workdir)
-        self._file_ownership: dict[str, str] = {}  # filepath -> agent_id (legacy alias; use _lock_manager)
         from bernstein.core.loop_detector import LoopDetector
 
         self._loop_detector = LoopDetector()
@@ -875,6 +876,8 @@ class Orchestrator:
         # orchestrator, so the hook is applied here via a setter.
         if hasattr(self._spawner, "set_merge_queue"):
             self._spawner.set_merge_queue(self._merge_queue)
+        if hasattr(self._spawner, "set_file_ownership_provider"):
+            self._spawner.set_file_ownership_provider(lambda: dict(self._file_ownership))
         if hasattr(self._spawner, "set_quality_gate_config"):
             self._spawner.set_quality_gate_config(self._quality_gate_config)
         if hasattr(self._spawner, "set_run_id"):
@@ -2159,6 +2162,12 @@ class Orchestrator:
 
         # 4d-ii. Token growth monitor: alert on quadratic growth, kill runaway agents
         check_token_growth(self)
+
+        # 4d-ii.a Per-task token budget kill switch: hard-kill agents that
+        # blow through 2x their configured `max_tokens_per_task` budget
+        # (issue #3374). `token_budget` defaults to 0 (disabled) so this is
+        # a no-op for sessions spawned without a scope budget configured.
+        check_budget_violations(self, result)
 
         # 4d-ii.5 Loop and deadlock detection: kill looping agents, break lock cycles
         check_loops_and_deadlocks(self)
@@ -4631,10 +4640,29 @@ class Orchestrator:
     def _release_file_ownership(self, agent_id: str) -> None:
         """Release all files owned by the given agent."""
         self._lock_manager.release(agent_id)
-        # Always clean the legacy dict so code that reads _file_ownership directly stays consistent
-        to_remove = [fp for fp, owner in self._file_ownership.items() if owner == agent_id]
-        for fp in to_remove:
-            del self._file_ownership[fp]
+
+    @property
+    def _file_ownership(self) -> Mapping[str, str]:
+        """Read-only projection of :attr:`_lock_manager` for legacy callers.
+
+        Returns a ``{file_path: agent_id}`` mapping built from the lock
+        manager's current snapshot.  The orchestrator no longer maintains a
+        parallel store; every claim/release goes through
+        :class:`FileLockManager`, and this property is the single projection
+        of that authoritative state.
+
+        The mapping is wrapped in a :class:`~types.MappingProxyType` so a
+        write fails loudly.  Returning a plain ``dict`` built per access made
+        ``orch._file_ownership[path] = agent`` mutate a temporary that was
+        discarded on the next line - no exception, no claim, and the caller
+        went on believing it owned the file.  That is how this landed:
+        ``test_check_file_overlap_detects_active_agent`` seeded ownership
+        that way, the claim evaporated, and the failure surfaced three
+        frames later as ``assert False is True`` on an untouched assertion.
+        A proxy raises ``TypeError`` at the write instead, naming the line
+        that has to move to :meth:`FileLockManager.acquire`.
+        """
+        return MappingProxyType({lock.file_path: lock.agent_id for lock in self._lock_manager.all_locks()})
 
     def _release_task_to_session(self, task_ids: list[str]) -> None:
         """Remove reverse-index entries for the given task IDs."""
@@ -4979,10 +5007,12 @@ class Orchestrator:
     def _check_file_overlap(self, batch: list[Task]) -> bool:
         """Return True if any file in *batch* is currently owned by an active agent.
 
-        Checks both the in-memory ``_file_ownership`` dict (cross-referenced
-        against live agent status) and the persistent ``_lock_manager`` (for
-        crash-recovery locks held across process restarts).  Dead agents do not
-        block new batches even if they appear in the ownership index.
+        Reads from the persistent :class:`FileLockManager`, which is the
+        single source of truth for file ownership (the legacy
+        ``_file_ownership`` attribute is now a projection of it).  Dead
+        agents do not block new batches even if a stale lock entry still
+        names them; ``FileLockManager`` will expire such entries via its TTL
+        on the next call.
         """
         all_files = [f for task in batch for f in task.owned_files]
         if not all_files:
@@ -4992,21 +5022,9 @@ class Orchestrator:
         lock_timestamps: dict[str, float] = {}
         conflict = False
 
-        # In-memory ownership check - filters out dead agents explicitly.
-        for fpath in all_files:
-            owner_id = self._file_ownership.get(fpath)
-            if owner_id:
-                session = self._agents.get(owner_id)
-                if session and session.status == "working":
-                    logger.debug(
-                        "File %s owned by active agent %s, deferring batch",
-                        fpath,
-                        owner_id,
-                    )
-                    held_by[fpath] = owner_id
-                    conflict = True
-
-        # Persistent lock check (survives crashes via FileLockManager TTL).
+        # Single authoritative ownership check: FileLockManager is the source
+        # of truth. The dead-agent filter previously done against the legacy
+        # dict is implicit here because the lock manager expires stale entries.
         conflicts = self._lock_manager.check_conflicts(all_files)
         if conflicts:
             for fpath, lock in conflicts:
@@ -5917,6 +5935,15 @@ class Orchestrator:
                 provider=session.provider,
                 task_ids=session.task_ids,
                 agent_source=session.agent_source,
+                # Issue #4908: record the resolved endpoint identity
+                # (adapter, model, base_url, endpoint_profile_name) so
+                # operators can answer "which model server produced this
+                # work" from the run record alone. Only the api_key_env
+                # variable *name* is recorded; its value is never exposed.
+                endpoint_adapter_name=session.endpoint_adapter_name,
+                endpoint_model=session.endpoint_model,
+                endpoint_base_url=session.endpoint_base_url,
+                endpoint_profile_name=session.endpoint_profile_name,
             )
             # Issue #3375: pin the declared context files the spawner resolved
             # for this session at their content addresses. Recorded only when

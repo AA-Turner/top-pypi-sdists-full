@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase-compat"
-version = "0.5.6"
+version = "0.5.7"
 description = "Thin shared structural package for cross-repo enums, wire DTOs, event envelopes, primitives, and experimental schemas."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -49,6 +49,18 @@ line-length = 100
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
+# OMN-15541: `testpaths` is the SINGLE SOURCE OF TRUTH for what CI collects.
+# The full-suite job in .github/workflows/ci.yml deliberately passes NO
+# positional path to pytest so it inherits this list verbatim, and
+# scripts/ci/detect_test_paths.py reads the same key via collected_test_roots()
+# instead of hardcoding a second list. Previously ci.yml said
+# `pytest src/omnibase_compat/tests/` while the selector said `["tests/"]` —
+# two DISJOINT hardcoded lists, so a fail-closed escalation ran 141 tests and
+# none of the 277 here under `tests/`.
+# scripts/validation/validate_test_root_collection.py fails closed on every
+# half of that seam: a tests/ dir absent from this list, a ci.yml full-suite
+# step that re-introduces a positional path, a selector that stops reading this
+# key, and an entry here that is not a directory on disk.
 testpaths = ["src/omnibase_compat/tests", "tests"]
 pythonpath = ["src", "."]
 markers = [

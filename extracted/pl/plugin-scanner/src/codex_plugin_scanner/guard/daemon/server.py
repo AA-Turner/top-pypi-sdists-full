@@ -111,6 +111,7 @@ from ..desktop_notifications import (
     ensure_desktop_notification_setup,
     macos_notification_guidance,
 )
+from ..harness_disconnect_gate import require_harness_disconnect_gate
 from ..insights_share import publish_insights_share
 from ..local_dashboard_session import (
     DEFAULT_LOCAL_DASHBOARD_SESSION_TTL_SECONDS,
@@ -3254,6 +3255,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 )
             else:
                 result = self._run_headless_managed_action(adapter.harness, harness_action, payload, context)
+        except ApprovalGateError as error:
+            return error.status, error.to_payload()
         except ValueError as error:
             return _headless_action_error_payload(
                 operation=operation,
@@ -3318,6 +3321,11 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             )
             if confirmation != expected_confirmation:
                 raise ValueError("confirmation_required")
+            require_harness_disconnect_gate(
+                self.server.store.guard_home,  # type: ignore[attr-defined]
+                payload,
+                harness=harness,
+            )
         install_command = "uninstall" if action == "uninstall" else "install"
         return apply_managed_install(
             install_command,
@@ -4051,6 +4059,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             {
                 "connect_required": connect_flow is not None,
                 "connect_flow": connect_flow,
+                "dashboard_url": _package_firewall_connect_url(store).removesuffix("/connect"),
             }
         )
 
@@ -4062,6 +4071,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     "error": "guard_cloud_connect_not_required",
                     "connect_required": False,
                     "connect_flow": None,
+                    "dashboard_url": _package_firewall_connect_url(store).removesuffix("/connect"),
                     "message": "Guard Cloud connect is not required to publish insights from this machine.",
                 },
                 status=409,
@@ -4082,10 +4092,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "request_id": request_id,
             "poll_after_ms": _SUPPLY_CHAIN_CONNECT_POLL_AFTER_MS,
         }
-        started, current = _begin_guard_cloud_connect_state(  # type: ignore[arg-type]
-            self.server,
-            starting_state,
-        )
+        started, current = _begin_guard_cloud_connect_state(self.server, starting_state)  # type: ignore[arg-type]
         if not started:
             self._write_json({"connect_required": True, "connect_flow": current}, status=202)
             return
@@ -4555,6 +4562,16 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if dry_run:
             self._write_json(build_harness_setup_plan(action, adapter.harness, context, dry_run=True))
             return
+        if action == "uninstall":
+            try:
+                require_harness_disconnect_gate(
+                    self.server.store.guard_home,  # type: ignore[attr-defined]
+                    payload,
+                    harness=adapter.harness,
+                )
+            except ApprovalGateError as error:
+                self._write_approval_gate_error(error)
+                return
         install_command = "uninstall" if action == "uninstall" else "install"
         try:
             result = apply_managed_install(
@@ -5954,38 +5971,20 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     "hookSpecificOutput": {"hookEventName": event, "permissionDecision": "allow"},
                 }
             return {"continue": True, "reason_code": reason_code, "observed_review_failure": True}
-        from .hook_availability_policy import availability_harness_response, lifecycle_event_is_observe_only
+        from .hook_availability_policy import availability_harness_response
 
-        if event == "PreToolUse" or lifecycle_event_is_observe_only(event):
-            payload_dict = dict(payload) if isinstance(payload, Mapping) else {}
-            return availability_harness_response(
-                payload_dict,
-                harness=harness,
-                event_name=event,
-                reason_code=reason_code,
-                reason=reason,
-                workspace=workspace_path,
-                home_dir=home_path,
-                guard_home=guard_home,
-                recording_only=observe_mode,
-            )
-        if harness in {"pi", "omp"}:
-            return {
-                "decision": "deny",
-                "reason": reason,
-                "model_output_action": "block",
-                "notice": "warning",
-                "reason_code": reason_code,
-            }
-        if event == "PermissionRequest":
-            return {
-                "reason_code": reason_code,
-                "hookSpecificOutput": {
-                    "hookEventName": event,
-                    "decision": {"behavior": "deny", "message": reason},
-                },
-            }
-        return {"continue": False, "stopReason": reason, "systemMessage": reason, "reason_code": reason_code}
+        payload_dict = dict(payload) if isinstance(payload, Mapping) else {}
+        return availability_harness_response(
+            payload_dict,
+            harness=harness,
+            event_name=event,
+            reason_code=reason_code,
+            reason=reason,
+            workspace=workspace_path,
+            home_dir=home_path,
+            guard_home=guard_home,
+            recording_only=observe_mode,
+        )
 
     def _validated_fail_safe_hook_paths(
         self,

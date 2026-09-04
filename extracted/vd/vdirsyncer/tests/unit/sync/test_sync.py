@@ -98,7 +98,8 @@ async def test_read_only_and_prefetch():
     await sync(a, b, status, force_delete=True)
     await sync(a, b, status, force_delete=True)
 
-    assert not items(a) and not items(b)
+    assert not items(a)
+    assert not items(b)
 
 
 @pytest.mark.asyncio
@@ -226,7 +227,8 @@ async def test_insert_hash():
 
     await a.update(href, Item("UID:1\nHAHA:YES"), etag)
     await sync(a, b, status)
-    assert "hash" in status["1"][0] and "hash" in status["1"][1]
+    assert "hash" in status["1"][0]
+    assert "hash" in status["1"][1]
 
 
 @pytest.mark.asyncio
@@ -346,7 +348,7 @@ async def test_uses_get_multi(monkeypatch):
     a = MemoryStorage()
     b = MemoryStorage()
     item = Item("UID:1")
-    expected_href, etag = await a.upload(item)
+    expected_href, _etag = await a.upload(item)
 
     await sync(a, b, {})
     assert get_multi_calls == [[expected_href]]
@@ -383,7 +385,7 @@ async def test_changed_uids():
     a = MemoryStorage()
     b = MemoryStorage()
     href_a, etag_a = await a.upload(Item("UID:A-ONE"))
-    href_b, etag_b = await b.upload(Item("UID:B-ONE"))
+    _href_b, _etag_b = await b.upload(Item("UID:B-ONE"))
     status = {}
     await sync(a, b, status)
 
@@ -437,7 +439,7 @@ async def test_partial_sync_revert():
     assert items(a) == {"UID:2"}
 
 
-@pytest.mark.parametrize("sync_inbetween", (True, False))
+@pytest.mark.parametrize("sync_inbetween", [True, False])
 @pytest.mark.asyncio
 async def test_ident_conflict(sync_inbetween):
     a = MemoryStorage()
@@ -467,7 +469,7 @@ async def test_moved_href():
     a = MemoryStorage()
     b = MemoryStorage()
     status = {}
-    href, etag = await a.upload(Item("UID:haha"))
+    _href, _etag = await a.upload(Item("UID:haha"))
     await sync(a, b, status)
 
     b.items["lol"] = b.items.pop("haha")
@@ -528,7 +530,7 @@ async def test_unicode_hrefs():
     a = MemoryStorage()
     b = MemoryStorage()
     status = {}
-    href, etag = await a.upload(Item("UID:äää"))
+    _href, _etag = await a.upload(Item("UID:äää"))
     await sync(a, b, status)
 
 
@@ -551,7 +553,7 @@ class SyncMachine(RuleBasedStateMachine):
         if flaky_etags:
 
             async def get(href):
-                old_etag, item = s.items[href]
+                _old_etag, item = s.items[href]
                 etag = _random_string()
                 s.items[href] = etag, item
                 return item, etag
@@ -642,10 +644,7 @@ class SyncMachine(RuleBasedStateMachine):
 
             errors = []
 
-            if with_error_callback:
-                error_callback = errors.append
-            else:
-                error_callback = None
+            error_callback = errors.append if with_error_callback else None
 
             try:
                 # If one storage is read-only, double-sync because changes don't
@@ -668,7 +667,8 @@ class SyncMachine(RuleBasedStateMachine):
             except ActionIntentionallyFailed:
                 pass
             except BothReadOnly:
-                assert a.read_only and b.read_only
+                assert a.read_only
+                assert b.read_only
                 assume(False)
             except StorageEmpty:
                 if force_delete:

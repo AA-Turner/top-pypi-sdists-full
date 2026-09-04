@@ -42,7 +42,7 @@ import hashlib
 import re
 import time
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 __all__ = [
     "VERDICT_APPROVED",
@@ -65,6 +65,9 @@ __all__ = [
     "park_marker",
     "parse_park_marker",
     "is_gate_a_refusal_reason",
+    "PendingAmend",
+    "find_pending_amends",
+    "summarise_pending_amends",
 ]
 
 #: The two verdicts an operator can record, mirroring ``coord test
@@ -480,3 +483,158 @@ def decisions_by_milestone(
         if rec is not None:
             out[(rec.repo_name, rec.milestone_number)] = rec
     return out
+
+
+# ── #3065: unmerged Gate-A branches — the blind spot before the merge ──────
+#
+# `evaluate()` above is, and must stay, correct for what it was built for
+# (#2063): it compares the recorded approval against the contract on the
+# repo's DEFAULT BRANCH, so an `--amend` that has already merged correctly
+# downgrades a stale approval to STATE_STALE. What it structurally cannot
+# see is the window *before* that merge — a `type="mock-author"` branch
+# that is dispatched, reviewed (maybe even approved), sitting in the merge
+# queue, but not yet on the default branch. `coord gate-a`'s read path
+# printed a clean "approved" for ten hours while exactly that sat waiting,
+# because nothing it read ever looked past the default branch.
+#
+# This is deliberately a separate, read-only, best-effort layer bolted onto
+# the read path in `coord/commands/gate_a.py` — NOT a new `GateADecision`
+# state and NOT a change to `evaluate()`'s verdict semantics. The approval
+# still means exactly what it always meant ("a human signed off on the
+# contract that is/was on the default branch"); this only adds "...and by
+# the way, here is a branch that approval does NOT cover."
+
+
+@dataclass(frozen=True)
+class PendingAmend:
+    """One unmerged ``type="mock-author"`` branch found on the board for a
+    milestone's tracking issue, paired with its review verdict (if any).
+
+    ``review_verdict`` is ``None`` when no review row exists yet for this
+    branch, or one exists but has not (yet) produced a parseable verdict —
+    both read as "pending" to an operator; this module makes no attempt to
+    tell them apart (that distinction already lives in ``coord gates``,
+    #1956).
+    """
+
+    branch: str
+    assignment_id: str | None
+    review_verdict: str | None  # None | "approve" | "request-changes"
+
+
+def find_pending_amends(
+    *,
+    repo_name: str,
+    tracking_issue: int,
+    all_assignments: Iterable[Any],
+    is_merged: Callable[[str], bool],
+) -> list[PendingAmend]:
+    """Unmerged Gate-A (``type="mock-author"``) branches for this milestone's
+    tracking issue, oldest first.
+
+    *all_assignments* should be every board row worth scanning — active AND
+    completed (a mock-author worker that finished its session moves to
+    ``board.completed`` long before its branch merges, so completed rows
+    are exactly the ones this exists to catch). Rows are duck-typed
+    (``type``, ``repo_name``, ``issue_number``, ``branch``,
+    ``assignment_id``, ``review_of_assignment_id``, ``review_verdict``,
+    ``dispatched_at``) so real ``coord.models.Assignment`` rows and bare
+    test stand-ins both work.
+
+    *is_merged* is injected — normally
+    ``lambda b: coord.github_ops.pr_is_merged(repo_cfg.github, b)`` — so
+    this function itself makes no GitHub/network call and stays trivially
+    testable. Any branch *is_merged* reports ``True`` for is dropped: a
+    merged amend is exactly the case ``evaluate()`` already handles
+    (:data:`STATE_STALE`), not this blind spot.
+
+    Multiple unmerged branches for the same tracking issue (several amend
+    rounds in flight, or history the board never cleaned up) are all
+    returned — this is a "here is what's happening" read, not a
+    single-answer decision, so it should not silently pick one and hide
+    the rest.
+    """
+    rows = list(all_assignments)
+    mock_rows = [
+        a
+        for a in rows
+        if getattr(a, "type", None) == "mock-author"
+        and getattr(a, "repo_name", None) == repo_name
+        and getattr(a, "issue_number", None) == tracking_issue
+        and getattr(a, "branch", None)
+    ]
+
+    # #3065 review: a fix-round worker (`auto_loop.py`'s `_dispatch_fix`,
+    # ~line 1210) gets a brand-new `assignment_id` while reusing the SAME
+    # `branch` (`branch=work.branch`), linking back via
+    # `review_of_assignment_id=work.assignment_id`. So after a normal
+    # request-changes -> fix -> re-review -> approve cycle, two
+    # `mock-author` rows share one branch: the stale original (tied to the
+    # superseded request-changes review) and the fix round (tied to the
+    # current review). Per branch, keep the NEWEST-dispatched row — the
+    # same "sort `dispatched_at` descending, take index 0" convention
+    # `coord/diagnose.py`'s `_latest()` uses to resolve a fix-round chain —
+    # not the oldest, or the stale original wins and its long-superseded
+    # review verdict gets reported as current.
+    by_branch: dict[str, Any] = {}
+    for a in sorted(mock_rows, key=lambda a: getattr(a, "dispatched_at", None) or 0.0, reverse=True):
+        by_branch.setdefault(a.branch, a)
+
+    out: list[PendingAmend] = []
+    for a in sorted(by_branch.values(), key=lambda a: getattr(a, "dispatched_at", None) or 0.0):
+        branch = a.branch
+        if is_merged(branch):
+            continue
+        # Prefer the verdict already stamped directly onto this (latest)
+        # row's own `review_verdict` field: `coord/state.py`'s
+        # `record_work_review_verdict()` stamps the winning terminal
+        # verdict onto the *current* work-like row the moment the pipeline
+        # advances (`WORK_LIKE_TYPES` includes `mock-author`), so this is
+        # the same value `coord gates` and the merge gate already trust.
+        # Fall back to scanning standalone `review` rows keyed to this
+        # row's own `assignment_id` only when that field isn't populated
+        # (duck-typed test stand-ins, or a review still in flight).
+        review_verdict: str | None = getattr(a, "review_verdict", None)
+        if review_verdict is None:
+            reviews = [
+                r
+                for r in rows
+                if getattr(r, "type", None) == "review"
+                and getattr(r, "review_of_assignment_id", None) == a.assignment_id
+            ]
+            if reviews:
+                reviews.sort(key=lambda r: getattr(r, "dispatched_at", None) or 0.0)
+                review_verdict = getattr(reviews[-1], "review_verdict", None)
+        out.append(
+            PendingAmend(
+                branch=branch,
+                assignment_id=getattr(a, "assignment_id", None),
+                review_verdict=review_verdict,
+            )
+        )
+    return out
+
+
+def summarise_pending_amends(pending: Iterable[PendingAmend]) -> list[str]:
+    """Human-readable lines for ``coord gate-a``'s read path, one pair of
+    lines per :class:`PendingAmend` — empty list when there is nothing
+    pending. Purely additive to whatever :func:`summarise` already printed;
+    never changes exit code or verdict."""
+    lines: list[str] = []
+    for p in pending:
+        # #253: `review_verdict` speaks the *reviewer's* vocabulary
+        # ("approve"/"request-changes"), not Gate A's own verdict
+        # vocabulary (`VERDICT_APPROVED` == "approved") — these are two
+        # different gates recording two different things.
+        if p.review_verdict == "approve":
+            what = "an approved --amend is waiting to merge"
+        elif p.review_verdict == "request-changes":
+            what = "an --amend is waiting on changes before it can merge"
+        else:
+            what = "an --amend is in flight, review not yet complete"
+        verdict_word = p.review_verdict or "pending"
+        lines.append(f"  ! {what}: {p.branch} (review: {verdict_word})")
+        lines.append(
+            "    the approval above covers the contract on main, NOT that branch"
+        )
+    return lines

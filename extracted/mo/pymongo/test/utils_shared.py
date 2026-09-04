@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Shared utilities for testing pymongo"""
+
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +23,7 @@ import functools
 import random
 import re
 import shutil
+import struct
 import sys
 import threading
 import unittest
@@ -29,10 +31,6 @@ import warnings
 from collections import abc, defaultdict
 from functools import partial
 from inspect import iscoroutinefunction
-from test import client_context
-from test.asynchronous.utils import async_wait_until
-from test.utils import wait_until
-from typing import List
 
 from bson.objectid import ObjectId
 from pymongo import monitoring, operations, read_preferences
@@ -53,11 +51,14 @@ from pymongo.monitoring import (
     PoolCreatedEvent,
     PoolReadyEvent,
 )
+from pymongo.pool_shared import _CancellationContext, _PoolGeneration
 from pymongo.read_concern import ReadConcern
 from pymongo.server_type import SERVER_TYPE
 from pymongo.synchronous.collection import ReturnDocument
-from pymongo.synchronous.pool import _CancellationContext, _PoolGeneration
 from pymongo.write_concern import WriteConcern
+from test import client_context
+from test.asynchronous.utils import async_wait_until
+from test.utils import wait_until
 
 IMPOSSIBLE_WRITE_CONCERN = WriteConcern(w=50)
 
@@ -149,15 +150,15 @@ class EventListener(BaseListener, monitoring.CommandListener):
         self.results = defaultdict(list)
 
     @property
-    def started_events(self) -> List[monitoring.CommandStartedEvent]:
+    def started_events(self) -> list[monitoring.CommandStartedEvent]:
         return self.results["started"]
 
     @property
-    def succeeded_events(self) -> List[monitoring.CommandSucceededEvent]:
+    def succeeded_events(self) -> list[monitoring.CommandSucceededEvent]:
         return self.results["succeeded"]
 
     @property
-    def failed_events(self) -> List[monitoring.CommandFailedEvent]:
+    def failed_events(self) -> list[monitoring.CommandFailedEvent]:
         return self.results["failed"]
 
     def started(self, event: monitoring.CommandStartedEvent) -> None:
@@ -172,7 +173,7 @@ class EventListener(BaseListener, monitoring.CommandListener):
         self.failed_events.append(event)
         self.add_event(event)
 
-    def started_command_names(self) -> List[str]:
+    def started_command_names(self) -> list[str]:
         """Return list of command names started."""
         return [event.command_name for event in self.started_events]
 
@@ -337,18 +338,37 @@ class CompareType:
 
 
 class FunctionCallRecorder:
-    """Utility class to wrap a callable and record its invocations."""
+    """Utility class to wrap a callable and record its invocations.
+
+    A synchronous callable is recorded immediately, before it runs. A
+    coroutine function is recorded only once the returned coroutine
+    finishes running, whether it returns, raises, or is cancelled, so
+    callers can rely on a recorded call meaning the wrapped coroutine
+    actually ran rather than merely having been scheduled.
+    """
 
     def __init__(self, function):
         self._function = function
         self._call_list = []
 
     def __call__(self, *args, **kwargs):
-        self._call_list.append((args, kwargs))
         if iscoroutinefunction(self._function):
-            return self._function(*args, **kwargs)
+
+            async def _run_and_record():
+                try:
+                    return await self._function(*args, **kwargs)
+                finally:
+                    self._call_list.append((args, kwargs))
+
+            return _run_and_record()
         else:
+            self._call_list.append((args, kwargs))
             return self._function(*args, **kwargs)
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return functools.partial(self, obj)
 
     def reset(self):
         """Wipes the call list."""
@@ -390,11 +410,11 @@ def delay(sec):
     .. code-block:: python
 
         db.coll.insert_one({"x": 1})
-        db.test.find_one({"x": 1})
+        db.coll.find_one({"x": 1})
         # {'x': 1, '_id': ObjectId('54f4e12bfba5220aa4d6dee8')}
 
         # The following will wait 2.5 seconds before returning.
-        db.test.find_one({"$where": delay(2.5)})
+        db.coll.find_one({"$where": delay(2.5)})
         # {'x': 1, '_id': ObjectId('54f4e12bfba5220aa4d6dee8')}
 
     Using ``delay`` to provoke a KeyboardInterrupt
@@ -548,13 +568,13 @@ def lazy_client_trial(reset, target, test, get_client):
     `test` takes the lazily-connecting collection and asserts a
     post-condition to prove `target` succeeded.
     """
-    collection = client_context.client.pymongo_test.test
+    collection = client_context.client.pymongo_test.coll
 
     with frequent_thread_switches():
         for _i in range(NTRIALS):
             reset(collection)
             lazy_client = get_client()
-            lazy_collection = lazy_client.pymongo_test.test
+            lazy_collection = lazy_client.pymongo_test.coll
             run_threads(lazy_collection, target)
             test(lazy_collection)
 
@@ -743,3 +763,13 @@ async def async_barrier_wait(barrier, timeout: float | None = None):
 
 def barrier_wait(barrier, timeout: float | None = None):
     barrier.wait(timeout=timeout)
+
+
+def pack_msg_header(length: int, request_id: int, response_to: int, op_code: int) -> bytes:
+    """Pack a MongoDB wire-protocol message header (``<iiii``: length,
+    request_id, response_to, op_code).
+
+    Lets tests set an arbitrary ``length`` (including invalid values), which
+    production header-packing never does.
+    """
+    return struct.pack("<iiii", length, request_id, response_to, op_code)

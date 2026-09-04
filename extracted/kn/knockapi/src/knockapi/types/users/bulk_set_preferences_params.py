@@ -9,6 +9,7 @@ from ..._types import SequenceNotStr
 from ..shared_params.condition import Condition
 from ..recipients.preference_set_channel_types_param import PreferenceSetChannelTypesParam
 from ..recipients.preference_set_channel_setting_param import PreferenceSetChannelSettingParam
+from ..preference_set_commercial_subscribed_setting_param import PreferenceSetCommercialSubscribedSettingParam
 
 __all__ = [
     "BulkSetPreferencesParams",
@@ -17,6 +18,7 @@ __all__ = [
     "PreferencesCategoriesPreferenceSetWorkflowCategorySettingObject",
     "PreferencesCategoriesPreferenceSetWorkflowCategorySettingObjectChannels",
     "PreferencesChannels",
+    "PreferencesCommercialSubscribed",
     "PreferencesWorkflows",
     "PreferencesWorkflowsPreferenceSetWorkflowCategorySettingObject",
     "PreferencesWorkflowsPreferenceSetWorkflowCategorySettingObjectChannels",
@@ -57,6 +59,8 @@ class PreferencesCategoriesPreferenceSetWorkflowCategorySettingObject(TypedDict,
 PreferencesCategories: TypeAlias = Union[bool, PreferencesCategoriesPreferenceSetWorkflowCategorySettingObject]
 
 PreferencesChannels: TypeAlias = Union[bool, PreferenceSetChannelSettingParam]
+
+PreferencesCommercialSubscribed: TypeAlias = Union[bool, PreferenceSetCommercialSubscribedSettingParam]
 
 PreferencesWorkflowsPreferenceSetWorkflowCategorySettingObjectChannels: TypeAlias = Union[
     bool, PreferenceSetChannelSettingParam
@@ -102,10 +106,12 @@ class Preferences(TypedDict, total=False):
     channels: Optional[Dict[str, PreferencesChannels]]
     """Channel preferences."""
 
-    commercial_subscribed: Optional[bool]
+    commercial_subscribed: Optional[PreferencesCommercialSubscribed]
     """Whether the recipient is subscribed to commercial communications.
 
     When false, the recipient will not receive commercial workflow notifications.
+    Can also be set to a settings object with conditions that are evaluated at
+    notification send time.
     """
 
     workflows: Optional[Dict[str, PreferencesWorkflows]]

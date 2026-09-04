@@ -132,40 +132,45 @@ jobs:
               workflowDispatchIssueNumber: '${{ github.event.inputs.issue_number }}',
             });
 
+      - name: Set up Python (Cloud Agent Guard)
+        if: steps.extract.outcome == 'success' && env.SPECKIT_ENGINE == 'cloud-agent' && steps.extract.outputs.next_phase != '4'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Cloud Agent Guard
+        if: steps.extract.outcome == 'success' && env.SPECKIT_ENGINE == 'cloud-agent' && steps.extract.outputs.next_phase != '4'
+        run: python -m pip install .
+
       - name: Cloud Agent In-Flight Guard
         id: cloud-inflight
-        if: steps.extract.outcome == 'success' && env.SPECKIT_ENGINE == 'cloud-agent'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
-          script: |
-            const issueNumber = Number('${{ steps.extract.outputs.issue_number }}');
-            const phase = Number('${{ steps.extract.outputs.next_phase }}');
-            try {
-              const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, { owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, per_page: 100 });
-              const pulls = await github.paginate(github.rest.pulls.list, { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 });
-              const markerRegex = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=(\d+) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
-              const active = labels.some((label) => label.name === `speckit:agent-assigned-phase-${phase}`) ||
-                pulls.some((pr) => {
-                  if (pr.user?.login !== 'copilot-swe-agent[bot]') return false;
-                  const markerMatch = (pr.body || '').match(markerRegex);
-                  if (!markerMatch) return false;
-                  const markerIssue = Number(markerMatch[1]);
-                  const markerPhase = Number(markerMatch[2]);
-                  const hierarchyLevel = String(markerMatch[3] || '').toLowerCase();
-                  const expectedBase = (phase === 2)
-                    ? `speckit/${issueNumber}/phase-1-specify`
-                    : (phase === 3 && hierarchyLevel !== 'task')
-                      ? `speckit/${issueNumber}/phase-2-clarify`
-                      : 'main';
-                  return markerIssue === issueNumber && markerPhase === phase && pr.base?.ref === expectedBase;
-                });
-              core.setOutput('already', active ? 'true' : 'false');
-              if (active) core.info(`Cloud Agent phase ${phase} is already in flight for issue #${issueNumber}`);
-            } catch (e) {
-              core.warning(`Cloud in-flight lookup failed; preserving tracking state: ${e?.message ?? String(e)}`);
-              core.setOutput('already', 'true');
-            }
+        if: steps.extract.outcome == 'success' && env.SPECKIT_ENGINE == 'cloud-agent' && steps.extract.outputs.next_phase != '4'
+        env:
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.extract.outputs.issue_number }}
+          PHASE: ${{ steps.extract.outputs.next_phase }}
+          HIERARCHY_LEVEL: ${{ (steps.extract.outputs.terminal_hierarchy_level == 'epic' && 'epic') || (github.event_name == 'workflow_dispatch' && inputs.hierarchy_level != 'auto' && inputs.hierarchy_level) || steps.extract.outputs.terminal_hierarchy_level || 'unknown' }}
+        run: |
+          [[ "$HIERARCHY_LEVEL" == "auto" ]] && HIERARCHY_LEVEL="unknown"
+          set +e
+          result="$(agdt-speckit-cloud-agent-guard \
+            --issue-number "$ISSUE_NUMBER" \
+            --phase "$PHASE" \
+            --hierarchy-level "$HIERARCHY_LEVEL" \
+            --repo "$GITHUB_REPOSITORY")"
+          status=$?
+          printf '%s\n' "$result"
+          already="true"
+          if [[ "$status" -eq 0 ]]; then
+            already="$(RESULT="$result" python -c 'import json, os; print("true" if json.loads(os.environ["RESULT"]).get("in_flight") is True else "false")' 2>/dev/null)"
+            [[ "$already" == "true" || "$already" == "false" ]] || already="true"
+          else
+            echo "::warning::Cloud in-flight lookup failed; preserving tracking state"
+          fi
+          echo "already=$already" >> "$GITHUB_OUTPUT"
 
       - name: Add Phase Complete Label to Issue
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '0' && github.event_name != 'workflow_dispatch' && steps.cloud-inflight.outputs.already != 'true'

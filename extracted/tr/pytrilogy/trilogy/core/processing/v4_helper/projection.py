@@ -4,18 +4,28 @@ from collections.abc import Iterable
 
 from trilogy.core.enums import Derivation
 from trilogy.core.models.build import BuildConcept, BuildConceptArgs, BuildFilterItem
-from trilogy.core.processing.nodes import StrategyNode
+from trilogy.core.processing.nodes import SelectNode, StrategyNode, UnionNode
 
 
 def parent_output_addresses(node: StrategyNode) -> set[str]:
     # A hidden parent output is dropped from that parent's CTE SELECT, so a
-    # consumer cannot read it — exclude it from what's "available".
+    # consumer cannot read it; exclude it from what's "available".
     return {
         output.address
         for parent in node.parents
         for output in parent.output_concepts
         if output.address not in parent.hidden_concepts
     }
+
+
+def renderable_addresses(node: StrategyNode) -> set[str]:
+    """Addresses `node` can project: its parents' visible outputs plus, for a leaf
+    scan, every column its datasource binds (a leaf has no parent nodes, so
+    `parent_output_addresses` alone reports nothing)."""
+    available = parent_output_addresses(node)
+    if isinstance(node, SelectNode) and node.datasource is not None:
+        available |= {c.address for c in node.datasource.output_concepts}
+    return available
 
 
 def lineage_existence_only(concept: BuildConcept) -> set[str]:
@@ -62,10 +72,8 @@ def concept_satisfiable(
     if concept.address in available or concept.address in keep:
         return True
     # A constant is a literal rendered inline (e.g. the `by all_rows` grand-total
-    # marker), never sourced from a row parent — always satisfiable. Without this,
-    # dropping its standalone constant scan (a cross-joined `SELECT 1`) would make
-    # an output whose grain references it (the `count() by all_rows`) look
-    # unsatisfiable and get pruned.
+    # marker), never sourced from a row parent, so it is always satisfiable even
+    # when its standalone constant scan is dropped.
     if concept.derivation == Derivation.CONSTANT:
         return True
     # A merged/struct concept can be available under a pseudonym address (e.g.
@@ -85,10 +93,35 @@ def concept_satisfiable(
     return result
 
 
+def literal_producible(concept: BuildConcept, _seen: set[str] | None = None) -> bool:
+    """Renderable with no row parent at all: a constant, or a value whose whole
+    lineage bottoms out in literals (`sum(1)`, a parameter, `unnest([1,2])`).
+
+    Distinct from `concept_satisfiable`, which reads "no row arguments" as
+    unsatisfiable because with parents present a lineage that reaches nothing
+    is a dead end. Without parents that same shape is the ONLY thing that can
+    still render, so it needs its own rule rather than a shared one."""
+    if concept.derivation == Derivation.CONSTANT:
+        return True
+    if concept.lineage is None or concept.derivation == Derivation.ROOT:
+        return False
+    seen = _seen if _seen is not None else set()
+    if concept.address in seen:
+        return True
+    seen.add(concept.address)
+    return all(literal_producible(arg, seen) for arg in row_lineage_arguments(concept))
+
+
 def satisfiable_outputs(
     outputs: list[BuildConcept],
     parents: list[StrategyNode],
 ) -> list[BuildConcept]:
+    # A parentless group keeps its outputs here even when it cannot source them.
+    # That looks wrong, but it is load-bearing: the bogus node has to survive
+    # long enough for the post-assembly checks (`_has_unsourced_leaf`) and the
+    # disconnected-subgraph diagnostics to run on the assembled tree and report
+    # WHICH concepts split. Pruning it here instead leaves a partial plan that
+    # renders INVALID_REFERENCE_BUG for the condition args nothing produces.
     if not parents:
         return outputs
     available = {
@@ -117,9 +150,33 @@ def widen_projection(
 ) -> bool:
     """Widen `node`'s projection in place; returns whether anything changed.
 
-    `rebuild=False` defers the resolve to the caller — only safe while nothing
+    `rebuild=False` defers the resolve to the caller; only safe while nothing
     resolves the node (or a descendant of it) before that rebuild lands."""
     changed = False
+    # A union's columns are the STACK of its arms' columns; widening the union
+    # alone claims a column no arm produces, and the renderer's union escape
+    # hatch emits it as a bare reference rather than raising. Every arm has to
+    # compute it from its own scan, so this is all-or-nothing: one arm that
+    # cannot render it means the union cannot carry it at all.
+    if isinstance(node, UnionNode) and node.parents:
+        arm_candidates = list(input_candidates)
+        arm_outputs = list(output_concepts)
+        arm_available = [renderable_addresses(arm) for arm in node.parents]
+        for arm, available in zip(node.parents, arm_available):
+            arm_addrs = {concept.address for concept in arm.output_concepts}
+            if not all(
+                concept.address in arm_addrs or concept_satisfiable(concept, available)
+                for concept in arm_outputs
+            ):
+                return False
+        for arm, available in zip(node.parents, arm_available):
+            changed |= widen_projection(
+                arm,
+                arm_outputs,
+                input_candidates=arm_candidates,
+                available_addresses=available,
+                rebuild=rebuild,
+            )
     in_addrs = {concept.address for concept in node.input_concepts}
     out_addrs = {concept.address for concept in node.output_concepts}
     for concept in input_candidates:

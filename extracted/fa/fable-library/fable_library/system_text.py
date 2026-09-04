@@ -11,7 +11,7 @@ from .string_ import format, get_length, is_null_or_empty, join, replace, replic
 from .util import UNIT, Unit, clear, range, string_hash, to_enumerable
 
 
-def _expr236() -> TypeInfo:
+def _expr225() -> TypeInfo:
     return class_type("System.Text.StringBuilder", None, StringBuilder)
 
 
@@ -34,7 +34,7 @@ class StringBuilder(StringableBase):
         return string_hash(to_string(x))
 
 
-StringBuilder_reflection = _expr236
+StringBuilder_reflection = _expr225
 
 
 def StringBuilder__ctor_Z18115A39(value: str, capacity: int) -> StringBuilder:
@@ -244,6 +244,13 @@ def StringBuilder__set_Chars_413E0D0A(x: StringBuilder, index: int, value: str) 
         ]
 
 
+def StringBuilder__get_Length(x: StringBuilder) -> int:
+    len_1: int = 0
+    for i in range(tmp if (-2147483648 <= (tmp := len(x.buf) - 1) <= 2147483647) else int32(tmp), 0, -1):
+        len_1 = tmp_1 if (-2147483648 <= (tmp_1 := len_1 + get_length(x.buf[i])) <= 2147483647) else int32(tmp_1)
+    return len_1
+
+
 def StringBuilder__Replace_Z766F94C0(x: StringBuilder, old_value: str, new_value: str) -> StringBuilder:
     for i in range(tmp if (-2147483648 <= (tmp := len(x.buf) - 1) <= 2147483647) else int32(tmp), 0, -1):
         x.buf[i] = replace(x.buf[i], old_value, new_value)
@@ -255,15 +262,8 @@ def StringBuilder__Replace_Z384F8060(x: StringBuilder, old_value: str, new_value
     return StringBuilder__Append_Z721C83C5(StringBuilder__Clear(x), str_1)
 
 
-def StringBuilder__get_Length(x: StringBuilder) -> int:
-    len_1: int = 0
-    for i in range(tmp if (-2147483648 <= (tmp := len(x.buf) - 1) <= 2147483647) else int32(tmp), 0, -1):
-        len_1 = tmp_1 if (-2147483648 <= (tmp_1 := len_1 + get_length(x.buf[i])) <= 2147483647) else int32(tmp_1)
-    return len_1
-
-
-def StringBuilder__ToString_Z37302880(x: StringBuilder, first_index: int, length: int) -> str:
-    return substring(to_string(x), first_index, length)
+def StringBuilder__ToString_Z37302880(x: StringBuilder, start_index: int, length: int) -> str:
+    return substring(to_string(x), start_index, length)
 
 
 __all__ = [

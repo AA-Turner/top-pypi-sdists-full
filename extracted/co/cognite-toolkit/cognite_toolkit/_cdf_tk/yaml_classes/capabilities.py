@@ -342,6 +342,12 @@ class RoboticsAcl(Capability):
     scope: AllScope | DataSetScope
 
 
+class RuleSetsAcl(Capability):
+    _capability_name = "ruleSetsAcl"
+    actions: list[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
 class SAPWritebackAcl(Capability):
     _capability_name = "sapWritebackAcl"
     actions: list[Literal["READ", "WRITE"]]
@@ -399,6 +405,12 @@ class TimeSeriesSubscriptionsAcl(Capability):
 class TransformationsAcl(Capability):
     _capability_name = "transformationsAcl"
     actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class TransformationsExternalDataSourcesAcl(Capability):
+    _capability_name = "transformationsExternalDataSourcesAcl"
+    actions: list[Literal["READ", "WRITE", "USE"]]
     scope: AllScope | DataSetScope
 
 

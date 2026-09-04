@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreadnode
-Version: 2.0.43
+Version: 2.0.45
 Summary: Dreadnode SDK
 Project-URL: Homepage, https://dreadnode.io
 Project-URL: Documentation, https://docs.dreadnode.io
@@ -60,7 +60,7 @@ Requires-Dist: torch>=2.9.0; extra == 'airt-ml'
 Provides-Extra: all
 Requires-Dist: confusables<2.0.0,>=1.2.0; extra == 'all'
 Requires-Dist: moviepy<3.0.0,>=2.1.2; extra == 'all'
-Requires-Dist: nltk<4.0.0,>=3.9.1; extra == 'all'
+Requires-Dist: nltk<4.0.0,>=3.10.3; extra == 'all'
 Requires-Dist: presidio-analyzer<3.0.0,>=2.2.359; extra == 'all'
 Requires-Dist: python-jsonpath>=2.0.1; extra == 'all'
 Requires-Dist: rapidfuzz>=3.14.1; extra == 'all'
@@ -75,7 +75,7 @@ Requires-Dist: claude-agent-sdk>=0.1.0; extra == 'claude-code'
 Provides-Extra: nova-sonic
 Provides-Extra: scoring
 Requires-Dist: confusables<2.0.0,>=1.2.0; extra == 'scoring'
-Requires-Dist: nltk<4.0.0,>=3.9.1; extra == 'scoring'
+Requires-Dist: nltk<4.0.0,>=3.10.3; extra == 'scoring'
 Requires-Dist: presidio-analyzer<3.0.0,>=2.2.359; extra == 'scoring'
 Requires-Dist: python-jsonpath>=2.0.1; extra == 'scoring'
 Requires-Dist: rapidfuzz>=3.14.1; extra == 'scoring'

@@ -116,10 +116,61 @@ class Timestamp(MeshcopTLVItem):
         """Decode the timestamp."""
         # The timestamps are packed in 8 bytes:
         # [seconds 48 bits][ticks 15 bits][authoritative flag 1 bit]
-        unpacked: int = struct.unpack("!Q", self.data)[0]
+        try:
+            unpacked: int = struct.unpack("!Q", self.data)[0]
+        except struct.error as err:
+            raise TLVError(f"invalid timestamp '{self.data.hex()}'") from err
         self.authoritative = bool(unpacked & 1)
         self.seconds = unpacked >> 16
         self.ticks = (unpacked >> 1) & 0x7FFF
+
+    @classmethod
+    def from_values(
+        cls,
+        tag: MeshcopTLVType,
+        seconds: int,
+        ticks: int = 0,
+        authoritative: bool = False,
+    ) -> Timestamp:
+        """Construct a timestamp from its field values.
+
+        Raises TLVError if seconds or ticks don't fit the wire format.
+        """
+        if not 0 <= seconds < 2**48:
+            raise TLVError(f"timestamp seconds out of range: {seconds}")
+        if not 0 <= ticks < 2**15:
+            raise TLVError(f"timestamp ticks out of range: {ticks}")
+        packed = (seconds << 16) | (ticks << 1) | int(authoritative)
+        return cls(tag, struct.pack("!Q", packed))
+
+
+@dataclass
+class DelayTimer(MeshcopTLVItem):
+    """Delay timer."""
+
+    delay: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Decode the delay in milliseconds.
+
+        Raises TLVError if the data is not the four bytes the wire format
+        defines, so a malformed delay timer is rejected instead of being
+        accepted at whatever width it arrived with.
+        """
+        try:
+            self.delay = struct.unpack("!L", self.data)[0]
+        except struct.error as err:
+            raise TLVError(f"invalid delay timer '{self.data.hex()}'") from err
+
+    @classmethod
+    def from_milliseconds(cls, delay: int) -> DelayTimer:
+        """Construct a delay timer from a delay in milliseconds.
+
+        Raises TLVError if the delay doesn't fit the wire format.
+        """
+        if not 0 <= delay < 2**32:
+            raise TLVError(f"delay timer out of range: {delay}")
+        return cls(MeshcopTLVType.DELAYTIMER, struct.pack("!L", delay))
 
 
 def _encode_item(item: MeshcopTLVItem) -> bytes:
@@ -143,10 +194,12 @@ def encode_tlv(items: dict[MeshcopTLVType | int, MeshcopTLVItem]) -> str:
 
 def _parse_item(tag: MeshcopTLVType | int, data: bytes) -> MeshcopTLVItem:
     """Parse a TLV encoded dataset item."""
-    if tag == MeshcopTLVType.ACTIVETIMESTAMP:
+    if tag in (MeshcopTLVType.ACTIVETIMESTAMP, MeshcopTLVType.PENDINGTIMESTAMP):
         return Timestamp(tag, data)
     if tag == MeshcopTLVType.CHANNEL:
         return Channel(tag, data)
+    if tag == MeshcopTLVType.DELAYTIMER:
+        return DelayTimer(tag, data)
     if tag == MeshcopTLVType.NETWORKNAME:
         return NetworkName(tag, data)
 
@@ -190,9 +243,10 @@ def parse_tlv(data: str) -> dict[MeshcopTLVType | int, MeshcopTLVItem]:
         val = data_bytes[pos : pos + _len]
         pos += _len
 
-        # Once we have the value, we can log a warning about the unknown TLV
+        # Log unknown TLVs by type and length only: the value may hold
+        # network credentials, which don't belong in the log.
         if not isinstance(tag, MeshcopTLVType):
-            _LOGGER.warning("unknown TLV type %d=%r", raw_tag, val)
+            _LOGGER.warning("unknown TLV type %d (%d bytes)", raw_tag, _len)
 
         if tag in result:
             raise TLVError(f"duplicated tag {tag!r}")

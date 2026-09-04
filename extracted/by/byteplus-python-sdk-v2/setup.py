@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages  # noqa: H301
 
 NAME = "byteplus-python-sdk-v2"
-VERSION = "3.0.59"
+VERSION = "3.0.60"
 # To install the library, run the following
 #
 # python setup.py install
@@ -15,7 +15,9 @@ REQUIRES = [
     "certifi>=2017.4.17",
     "python-dateutil>=2.1",
     "six>=1.16",
-    "urllib3>=1.26.5"
+    "urllib3>=1.26.5",
+    "pydantic>=2.0.0,<3.0.0; python_version >= '3.8'",
+    "requests>=2.31.0,<3.0.0; python_version >= '3.8'",
 ]
 
 setup(

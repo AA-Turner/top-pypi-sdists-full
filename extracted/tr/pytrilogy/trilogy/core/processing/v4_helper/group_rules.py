@@ -12,7 +12,7 @@ One registry per shape concern, lookup by derivation, fallback to a default.
 
 import hashlib
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 
 from trilogy.core import graph as nx
 from trilogy.core.enums import (
@@ -29,7 +29,7 @@ from .models import ConceptAttrs, GroupBucket, nulls_grouping_keys
 
 
 def _sig_digest(sig_repr: str) -> str:
-    """Stable across processes — group ids must not vary with hash salting."""
+    """Stable across processes: group ids must not vary with hash salting."""
     return hashlib.sha256(sig_repr.encode("utf-8")).hexdigest()[:12]
 
 
@@ -73,7 +73,7 @@ def _apply_grouping_mode(
     Two things fall out of one mode and must not drift apart: the SEMANTICS
     consumers ask about (`bucket.nulls_grouping_keys`) and the IDENTITY that
     keeps a non-standard bucket from colliding with a STANDARD one of the same
-    (label, depth, grain) — one CTE cannot carry both GROUP BY clauses.
+    (label, depth, grain), since one CTE cannot carry both GROUP BY clauses.
     ``extra`` appends further discriminator segments for rules that also split
     on their own signature."""
     segments: list[str] = []
@@ -89,7 +89,7 @@ def _apply_grouping_mode(
 def _split_by_label(items: list[NodeItem]) -> dict[str, list[NodeItem]]:
     """Per-label partition. Two concepts in different sub-graphs (e.g.
     outer query vs. rowset internals) never share a bucket regardless
-    of grain or derivation — they're different planning scopes."""
+    of grain or derivation; they're different planning scopes."""
     by_label: dict[str, list[NodeItem]] = defaultdict(list)
     for node, data in items:
         by_label[data.label].append((node, data))
@@ -161,14 +161,14 @@ def partition_aggregates(
 
     STANDARD aggregates split by ``input_grain`` (the row grain their arguments
     need). ROLLUP/CUBE/GROUPING_SETS aggregates instead co-source by *upstream
-    population*: members at the same output grain and mode whose stop-signatures
-    are equal or nest assemble into one combined fact and roll up once. Equal
-    signatures cover differing argument sub-grains over a shared root (q70:
-    line-grain ``total_sum`` rides with store-grain dimensions); nesting covers a
-    shared root plus same-grain derived transforms (q18: agg1-5 read row measures
-    while agg6/7 read ``group(..) by order_number, item.id`` values at that same
-    row grain). Splitting them into one ROLLUP CTE per source — rejoined on the
-    grouping dims — is fragile (null-safety on rolled-up keys) and slower."""
+    population*: members at the same output grain and mode whose
+    stop-signatures are equal or nest assemble into one combined fact and roll
+    up once. Equal signatures cover differing argument sub-grains over a shared
+    root (a line-grain sum beside store-grain dimensions); nesting covers a
+    shared root plus same-grain derived transforms (row measures beside
+    ``group(..) by order, item`` values at that same row grain). One ROLLUP CTE
+    per source, rejoined on the grouping dims, is fragile (null-safety on
+    rolled-up keys) and slower."""
     standard = [(n, d) for n, d in items if not nulls_grouping_keys(d.grouping_mode)]
     grouped = [(n, d) for n, d in items if nulls_grouping_keys(d.grouping_mode)]
     buckets = _partition_standard_aggregates(
@@ -193,8 +193,8 @@ def _arg_rowset_populations(
 ) -> frozenset[str]:
     """Rowset labels an aggregate's arguments read from. A rowset is an opaque
     row population: two same-grain aggregates whose arguments live in different
-    rowsets cannot share one input stream — the shared scan would cross-join
-    the bodies and fan each argument by the other side's cardinality (the two
+    rowsets cannot share one input stream; the shared scan would cross-join
+    the bodies and fan each argument by the other side's cardinality (two
     global counts over an `except(...)` and a `union(...)` rowset). The walk
     stops AT a rowset member; the body behind it is a separate planning scope."""
     pops: set[str] = set()
@@ -230,16 +230,16 @@ def _fold_distinct_rewritable_buckets(
 
     Two same-output-grain aggregates normally split when their arguments need
     different row grains (`sum(return_quantity)` reads return lines,
-    `count(order_id)` reads deduped orders — q83). But a count OF A KEY is
+    `count(order_id)` reads deduped orders). But a count OF A KEY is
     DISTINCT-counting by definition, so its dedup folds into the aggregate and
     the split (sibling CTE + re-join at the output grain) is pure overhead.
 
     Nesting is LITERAL membership in the finer stream's row identity (its
-    input grain plus the shared output grain — q83's `item.id` rides as the
-    GROUP BY key beside the `item.sk`-grain rows). Deliberately NOT an FD
-    closure: `post_id` FD-determines `user_id`, but a count of `user_id`
-    beside post-grain sums must still count over the USER population, not the
-    users reachable through posts."""
+    input grain plus the shared output grain, so an output key rides as the
+    GROUP BY key beside the finer-grain rows). Deliberately NOT an FD closure:
+    `post_id` FD-determines `user_id`, but a count of `user_id` beside
+    post-grain sums must still count over the USER population, not the users
+    reachable through posts."""
     distinct_by_key: dict[AggKey, set[str]] = defaultdict(set)
     changed = True
     while changed:
@@ -255,7 +255,7 @@ def _fold_distinct_rewritable_buckets(
                 if target == key or target[:3] != key[:3] or target[4] != populations:
                     continue
                 target_grain = target[3]
-                # Only fold onto a genuine finer row stream — never onto a
+                # Only fold onto a genuine finer row stream, never onto a
                 # bucket already at its output grain (no shared dedup to save,
                 # and an out-grain stream rarely determines the counted key).
                 if not target_grain or target_grain == target[2]:
@@ -366,8 +366,8 @@ def _partition_standard_aggregates(
                 segments.append("input:" + "|".join(sorted(input_grain)))
             if populations:
                 segments.append("pop:" + "|".join(sorted(populations)))
-            # Layer 0 keeps the unsplit group id, so unaffected queries plan
-            # byte-identically to before layering existed.
+            # Layer 0 keeps the unsplit group id; only later layers are
+            # discriminated.
             if layer_index:
                 segments.append(f"layer:{layer_index}")
             if segments:
@@ -382,6 +382,48 @@ def _partition_standard_aggregates(
                 _add_member(bucket, node, data)
             buckets.append(bucket)
     return buckets
+
+
+def _root(uf: list[int], x: int) -> int:
+    while uf[x] != x:
+        uf[x] = uf[uf[x]]
+        x = uf[x]
+    return x
+
+
+def _components(n: int, related: Iterable[tuple[int, int]]) -> list[list[int]]:
+    """Connected components of indices 0..n-1 given the related pairs, each in
+    index order and ordered by smallest member (group ids derive from bucket
+    order)."""
+    uf = list(range(n))
+    for i, j in related:
+        uf[_root(uf, j)] = _root(uf, i)
+    groups: dict[int, list[int]] = defaultdict(list)
+    for i in range(n):
+        groups[_root(uf, i)].append(i)
+    return list(groups.values())
+
+
+def _property_key_pairs(main_items: list[NodeItem]) -> list[tuple[str, str]]:
+    """(property root, key root) pairs among `main_items`: a property and its
+    declared key sit on one entity row, so they co-source even when no lineage
+    joins them. A key collapsed onto another identity (scoped join, `merge
+    into`) is present under the canonical address only; the mate's pseudonyms
+    declare the identity."""
+    node_by_addr = {data.address: node for node, data in main_items}
+    node_by_pseudonym: dict[str, str] = {}
+    for node, data in main_items:
+        for pseudonym in data.pseudonyms:
+            node_by_pseudonym.setdefault(pseudonym, node)
+    pairs: list[tuple[str, str]] = []
+    for node, data in main_items:
+        if data.purpose != Purpose.PROPERTY:
+            continue
+        for key_addr in data.keys:
+            key_node = node_by_addr.get(key_addr) or node_by_pseudonym.get(key_addr)
+            if key_node is not None and key_node != node:
+                pairs.append((node, key_node))
+    return pairs
 
 
 def _partition_grouped_aggregates(
@@ -417,23 +459,13 @@ def _partition_grouped_aggregates(
             for node, _ in members
         ]
         n = len(members)
-        uf = list(range(n))
-
-        def find(x: int, _uf=uf) -> int:
-            while _uf[x] != x:
-                _uf[x] = _uf[_uf[x]]
-                x = _uf[x]
-            return x
-
-        for i in range(n):
-            for j in range(i + 1, n):
-                if sigs[i] <= sigs[j] or sigs[j] <= sigs[i]:
-                    uf[find(j)] = find(i)
-
-        components: dict[int, list[int]] = defaultdict(list)
-        for i in range(n):
-            components[find(i)].append(i)
-        for member_indices in components.values():
+        nested = [
+            (i, j)
+            for i in range(n)
+            for j in range(i + 1, n)
+            if sigs[i] <= sigs[j] or sigs[j] <= sigs[i]
+        ]
+        for member_indices in _components(n, nested):
             bucket = _bucket_for(depth_label, Derivation.AGGREGATE, grain, label=label)
             shared_sig: frozenset[str] = frozenset().union(
                 *(sigs[i] for i in member_indices)
@@ -465,11 +497,11 @@ def _relation_side_partitions(
     member, never inside one scan. So the axis must not license co-bucketing,
     and the zero-reach bailout in `_cosource_component_groups` must apply per
     side rather than swallowing both sides into one scan bucket (which
-    degrades the join to a cross product — no scan can render the computed
+    degrades the join to a cross product; no scan can render the computed
     member as a column). Property roots sharing a declared key are FD-related
     (one entity row, one scan) and stay together even when the key itself is
     not demanded. With no relation edges in the graph this returns a single
-    partition, leaving the existing behavior untouched."""
+    partition."""
     relation_pairs = {
         frozenset((u, v))
         for u, v in concept_graph.edges
@@ -483,21 +515,14 @@ def _relation_side_partitions(
             continue
         adjacency[u].add(v)
         adjacency[v].add(u)
-    node_by_addr = {data.address: node for node, data in main_items}
-    node_by_pseudonym: dict[str, str] = {}
-    for node, data in main_items:
-        for pseudonym in data.pseudonyms:
-            node_by_pseudonym.setdefault(pseudonym, node)
+    for node, key_node in _property_key_pairs(main_items):
+        adjacency[node].add(key_node)
+        adjacency[key_node].add(node)
     by_key: dict[str, list[str]] = defaultdict(list)
     for node, data in main_items:
-        if data.purpose != Purpose.PROPERTY:
-            continue
-        for key_addr in data.keys:
-            by_key[key_addr].append(node)
-            key_node = node_by_addr.get(key_addr) or node_by_pseudonym.get(key_addr)
-            if key_node is not None and key_node != node:
-                adjacency[node].add(key_node)
-                adjacency[key_node].add(node)
+        if data.purpose == Purpose.PROPERTY:
+            for key_addr in data.keys:
+                by_key[key_addr].append(node)
     for key_mates in by_key.values():
         for other in key_mates[1:]:
             adjacency[key_mates[0]].add(other)
@@ -533,48 +558,40 @@ def _cosource_component_groups(
     co-sourcing. See `partition_roots` for the full rules."""
     addr_of = {node: data.address for node, data in main_items}
     # Forward lineage reach per root, following only LINEAGE edges (a
-    # d1→d0 ordering rides its own CONSTRAINT edge and is excluded here).
+    # d1->d0 ordering rides its own CONSTRAINT edge and is excluded here).
     reaches: list[set[str]] = []
     for node, _ in main_items:
         seen: set[str] = set()
+        visited = {node}
         stack = [node]
         while stack:
             cur = stack.pop()
             for nxt in concept_graph.successors(cur):
-                if nxt in seen:
+                if nxt in visited:
                     continue
                 if edge_kind(concept_edges, cur, nxt) != EdgeKind.LINEAGE:
                     continue
-                seen.add(nxt)
+                visited.add(nxt)
                 stack.append(nxt)
+                # A pure output alias is a 1:1 relabel of its own source, not
+                # a shared consumer that forces a join. Counting it as reach
+                # is what makes `select x as t` take the split path where
+                # `select x` bails to the safe single bucket; walk through it
+                # to whatever really consumes it instead.
+                if not concept_attrs[nxt].is_rename:
+                    seen.add(nxt)
         reaches.append(seen)
 
-    # Bail out to one bucket if any root has zero reach — see partition_roots.
+    # Bail out to one bucket if any root has zero reach; see partition_roots.
     can_split = bool(main_items) and all(reaches)
     if not can_split:
         return [list(main_items)] if main_items else []
 
     n = len(main_items)
-    parent = list(range(n))
-
-    def find(x: int, _parent=parent) -> int:
-        while _parent[x] != x:
-            _parent[x] = _parent[_parent[x]]
-            x = _parent[x]
-        return x
-
-    def union(a: int, b: int, _parent=parent) -> None:
-        ra, rb = find(a, _parent), find(b, _parent)
-        if ra != rb:
-            _parent[rb] = ra
-
-    for i in range(n):
-        for j in range(i + 1, n):
-            if reaches[i] & reaches[j]:
-                union(i, j)
-
-    # Co-source roots that converge at the query output projection.
-    # `reaches` holds node ids; map to addresses to test membership.
+    # Co-source roots that converge at the query output projection: each
+    # output root maps to its concept-graph component id, and roots sharing
+    # one merge. `reaches` holds node ids; map to addresses to test membership.
+    output_component: dict[int, int] = {}
     if output_addresses:
         output_roots = [
             i
@@ -592,29 +609,16 @@ def _cosource_component_groups(
         # A PROPERTY root and its KEY root are FD-related even when the
         # lineage graph never joins them (a pure two-alias projection
         # `select cust_id as x, cname as y` has one BASIC per root and
-        # no shared consumer) — the table binding both is what relates
+        # no shared consumer); the table binding both is what relates
         # them, and splitting them cross-joins ON 1=1 (cartesian rows).
         # Properties only: two KEYS related through a fact FK (user_id
-        # on posts) must NOT co-source — `count(user_id)` reads the
+        # on posts) must NOT co-source; `count(user_id)` reads the
         # users table, not the post FK column's deduped domain.
-        node_by_addr = {data.address: node for node, data in main_items}
-        # A key collapsed onto another identity (scoped join `left join
-        # a.aid = b.bid`, `merge into`) is present under the canonical
-        # address only; the mate's pseudonyms declare the identity.
-        node_by_pseudonym: dict[str, str] = {}
-        for node, data in main_items:
-            for pseudonym in data.pseudonyms:
-                node_by_pseudonym.setdefault(pseudonym, node)
-        for node, data in main_items:
-            if data.purpose != Purpose.PROPERTY:
-                continue
-            for key_addr in data.keys:
-                key_node = node_by_addr.get(key_addr) or node_by_pseudonym.get(key_addr)
-                if key_node is not None and key_node != node:
-                    undirected.add_edge(node, key_node)
+        for node, key_node in _property_key_pairs(main_items):
+            undirected.add_edge(node, key_node)
         # A PROPERTY root and another root BOUND BY THE SAME DATASOURCE sit on
-        # one physical row stream (`select group_id as g, nullable_amount as v`
-        # — the fact binds its FK column beside its property; each root feeds
+        # one physical row stream (`select group_id as g, nullable_amount as v`:
+        # the fact binds its FK column beside its property; each root feeds
         # only its own rename, so no shared consumer relates them and splitting
         # cross-joins ON 1=1 with any WHERE applied to just one leg). Only when
         # NEITHER root feeds a grain-collapsing consumer: an aggregate defines
@@ -644,17 +648,20 @@ def _cosource_component_groups(
         for ci, comp in enumerate(nx.connected_components(undirected)):
             for node in comp:
                 comp_of[node] = ci
-        by_component: dict[int, list[int]] = defaultdict(list)
         for i in output_roots:
-            by_component[comp_of.get(main_items[i][0], -1 - i)].append(i)
-        for component_roots in by_component.values():
-            for k in range(1, len(component_roots)):
-                union(component_roots[0], component_roots[k])
+            output_component[i] = comp_of.get(main_items[i][0], -1 - i)
 
-    components: dict[int, list[NodeItem]] = defaultdict(list)
-    for i, item in enumerate(main_items):
-        components[find(i)].append(item)
-    return list(components.values())
+    related = [
+        (i, j)
+        for i in range(n)
+        for j in range(i + 1, n)
+        if reaches[i] & reaches[j]
+        or (i in output_component and output_component[i] == output_component.get(j))
+    ]
+    return [
+        [main_items[i] for i in member_indices]
+        for member_indices in _components(n, related)
+    ]
 
 
 def partition_roots(
@@ -668,7 +675,7 @@ def partition_roots(
 ) -> list[GroupBucket]:
     """Partition root concepts into independent scan buckets per label.
 
-    Two roots co-source iff their downstream lineage reach overlaps — a
+    Two roots co-source iff their downstream lineage reach overlaps: a
     shared consumer (aggregate, basic, etc.) means the planner has to
     join them into one row stream. Disjoint reach means the two roots
     feed entirely separate sub-plans that only meet again at a later
@@ -678,23 +685,22 @@ def partition_roots(
     Splitting is only safe when the concept graph proves independence:
     every non-existence root has non-zero reach. A zero-reach root is a
     leaf SELECT output or an inline WHERE filter arg (``date.year=2024``)
-    whose membership in a row stream is implicit — the d1 condition node
+    whose membership in a row stream is implicit: the d1 condition node
     isn't materialized in the concept graph and the datasource FK that
     ties it to a fact table lives elsewhere. With no signal to place it,
-    we conservatively keep everything in one bucket: matches the prior
-    behavior and avoids dropping filters (q08).
+    everything stays in one bucket so no filter is dropped.
 
     Reach is also extended to the query's output projection: roots whose
     lineage lands in ``output_addresses`` all recombine at the FINAL node,
     so they are co-sourced even when their concept-graph reach is disjoint.
     Every output column is a separate leaf here (the projection that unifies
     them is only added to the group graph later), so without this they would
-    split and the FINAL merge would degrade to a ``1=1`` cross product (q04:
-    four customer attributes, each feeding only its own SELECT alias).
+    split and the FINAL merge would degrade to a ``1=1`` cross product (four
+    customer attributes, each feeding only its own SELECT alias).
 
     Existence-only roots (concepts only referenced as existence_args)
     always stay in their own buckets so the existence wiring picks them
-    up as side-channel sources (q16).
+    up as side-channel sources.
     """
     if not items:
         return []
@@ -707,9 +713,9 @@ def partition_roots(
         main_items = [(n, d) for n, d in sub_items if not d.existence_only]
         # Single-row roots (a grand-total precomputed value, a constant, a `<*>`
         # watermark) join by cross product, never by a key. Co-bucketing one with
-        # keyed roots from a different scan yields an unsourceable group — no join
-        # key links e.g. a `flight_count` grand-total table to a `carrier` dim,
-        # and a zero-reach single-row output would otherwise force the
+        # keyed roots from a different scan yields an unsourceable group (no join
+        # key links a grand-total table to a dimension), and a zero-reach
+        # single-row output would otherwise force the
         # conservative single-bucket bailout to swallow every keyed root. Pull
         # them out: same-source single rows still share one scan (one bucket
         # together), and the FINAL node cross-joins them onto the keyed plan.
@@ -825,13 +831,13 @@ def _feeds_extra_signature_group(
     concept_attrs: dict[str, ConceptAttrs],
     primary_group: dict[str, str],
 ) -> bool:
-    """True if `node` is a lineage ANCESTOR of any concept in `extra_gids` --
+    """True if `node` is a lineage ANCESTOR of any concept in `extra_gids`,
     i.e. `node` feeds a (non-BASIC, barrier) group the larger-signature node
-    consumes. Subset-nest-merging would then place a producer and a consumer of
-    that barrier in one bucket, which 2-cycles through the barrier (q2.1: the
-    `*_sales` BASIC feeds the window the `*_increase` round-BASIC reads, so the
-    naive nest merged both into one week_seq group). Walks lineage out-edges
-    (parent -> child = input -> consumer)."""
+    consumes. Subset-nest-merging would then place a producer and a consumer
+    of that barrier in one bucket, which 2-cycles through the barrier (a BASIC
+    feeds a window that a second BASIC reads; a naive nest would merge both
+    into one group). Walks lineage out-edges (parent -> child = input ->
+    consumer)."""
     if not extra_gids:
         return False
     targets = {n for n, g in primary_group.items() if g in extra_gids}
@@ -879,13 +885,12 @@ def _partition_by_signature_and_grain(
     """Generic signature+grain bucketing. Used for derivations whose
     upstream identity should split buckets even when row-shape (depth /
     grain) matches: BASIC (rename chains, derived columns) and FILTER
-    (specialized basics — same scan-compatibility story).
+    (specialized basics, same scan-compatibility story).
 
     Within a label, two nodes share a bucket iff their stop-signatures
-    are equal AND one's grain is a subset of the other's. The grain-
-    subset union preserves the historical "widen to the superset" merge
-    so a chain of derivations at progressively finer grains still
-    co-sources when they share an upstream.
+    are equal AND one's grain is a subset of the other's; the bucket grain
+    is the union, so a chain of derivations at progressively finer grains
+    still co-sources when they share an upstream.
 
     ``signature_exempt`` nodes waive only the signature test (the grain
     test still applies): see `partition_filters_by_signature`."""
@@ -913,19 +918,7 @@ def _partition_by_signature_and_grain(
                 sig |= set(extra_signature(node))
             sigs.append(frozenset(sig))
         grains = [sub_items[i][1].grain_components for i in range(n)]
-        uf = list(range(n))
-
-        def find(x: int, _uf=uf) -> int:
-            while _uf[x] != x:
-                _uf[x] = _uf[_uf[x]]
-                x = _uf[x]
-            return x
-
-        def union(a: int, b: int, _uf=uf) -> None:
-            ra, rb = find(a, _uf), find(b, _uf)
-            if ra != rb:
-                _uf[rb] = ra
-
+        merged: list[tuple[int, int]] = []
         for i in range(n):
             for j in range(i + 1, n):
                 signatures_match = sigs[i] == sigs[j] or (
@@ -951,13 +944,9 @@ def _partition_by_signature_and_grain(
                     ):
                         continue
                 if grains[i] <= grains[j] or grains[j] <= grains[i]:
-                    union(i, j)
+                    merged.append((i, j))
 
-        components: dict[int, list[int]] = defaultdict(list)
-        for i in range(n):
-            components[find(i)].append(i)
-
-        for member_indices in components.values():
+        for member_indices in _components(n, merged):
             merged_grain: frozenset[str] = frozenset().union(
                 *(grains[i] for i in member_indices)
             )
@@ -1022,9 +1011,8 @@ def partition_windows(
             bucket = _bucket_for(
                 depth_label, layer[0][1].derivation, grain, label=label
             )
-            # Layer 0 keeps the historical (undiscriminated) group id so the
-            # single-layer case -- every query without window-over-window -- is
-            # byte-identical to the default rule.
+            # Layer 0 keeps the undiscriminated group id; only later layers are
+            # discriminated.
             _apply_grouping_mode(
                 bucket, grouping_mode, *(() if index == 0 else (f"wlayer:{index}",))
             )
@@ -1044,7 +1032,7 @@ def partition_basics_by_signature(
     output_addresses: frozenset[str] = frozenset(),
 ) -> list[GroupBucket]:
     """Group BASICs by `(label, stop-signature, grain-subset)`. See
-    `_partition_by_signature_and_grain` for the full story — BASIC's
+    `_partition_by_signature_and_grain` for the full story; BASIC's
     stop walks through other BASICs and stops at any non-BASIC."""
     return _partition_by_signature_and_grain(
         items,
@@ -1067,22 +1055,21 @@ def partition_filters_by_signature(
     ensure_assigned: EnsureAssignedFn,
     output_addresses: frozenset[str] = frozenset(),
 ) -> list[GroupBucket]:
-    """FILTERs are specialized BASICs — same scan-compatibility story.
+    """FILTERs are specialized BASICs: same scan-compatibility story.
     Two filters that look identical by depth/grain but read from
-    disjoint upstreams (e.g. q08's `_virt_filter_zips` over a basic
-    chain vs. `_virt_filter_id` over customer roots) should not be
-    co-sourced; their disjoint parent groups would form a back-edge
-    through any shared downstream consumer.
+    disjoint upstreams (one over a basic chain, one over customer roots)
+    should not be co-sourced; their disjoint parent groups would form a
+    back-edge through any shared downstream consumer.
 
     That back-edge risk needs a downstream consumer to route through.
-    A FILTER that is a projected output AND a lineage sink has none —
-    its only consumer is the FINAL merge, which is a sink — so such
-    filters recombine into one row anyway and are exempted from the
-    signature split (they still must be grain-comparable). Mirrors
-    `partition_roots`' output-convergence co-sourcing. Without it, a
-    membership subselect requesting several cross-grain `_virt_filter`
-    concepts (HAVING-derived existence feeders) sources one CTE per
-    concept plus a merge, instead of one feeder CTE."""
+    A FILTER that is a projected output AND a lineage sink has none (its
+    only consumer is the FINAL merge, which is a sink), so such filters
+    recombine into one row anyway and are exempted from the signature
+    split (they still must be grain-comparable). Mirrors `partition_roots`'
+    output-convergence co-sourcing. Without it, a membership subselect
+    requesting several cross-grain `_virt_filter` concepts (HAVING-derived
+    existence feeders) sources one CTE per concept plus a merge, instead of
+    one feeder CTE."""
 
     def existence_signature(node: str) -> frozenset[str]:
         return frozenset(
@@ -1091,13 +1078,13 @@ def partition_filters_by_signature(
             if edge_kind(concept_edges, pred, node) == EdgeKind.EXISTENCE
         )
 
-    # A FILTER concept that is itself a semijoin RHS -- an existence SOURCE, with
-    # an outgoing EXISTENCE edge (`pcid in store_buyers`) -- is functionally an
-    # independent sub-query. Co-bucketing two of them (q10's `store_buyers` +
-    # `webcat_buyers`) forces one shared scan carrying two mutually-exclusive
-    # predicates, which can only render as row-preserving CASE columns -- blocking
-    # predicate pushdown and dim pruning. Give each its own bucket so it sources as
-    # a single-predicate WHERE sub-query (mirrors the ROOT `existence:` solos).
+    # A FILTER concept that is itself a semijoin RHS (an existence SOURCE, with
+    # an outgoing EXISTENCE edge: `pcid in store_buyers`) is functionally an
+    # independent sub-query. Co-bucketing two of them forces one shared scan
+    # carrying two mutually-exclusive predicates, which can only render as
+    # row-preserving CASE columns, blocking predicate pushdown and dim pruning.
+    # Give each its own bucket so it sources as a single-predicate WHERE
+    # sub-query (mirrors the ROOT `existence:` solos).
     solo_items: list[NodeItem] = []
     shared_items: list[NodeItem] = []
     for node, data in items:
@@ -1110,10 +1097,9 @@ def partition_filters_by_signature(
             shared_items.append((node, data))
 
     # `output_addresses` folds in condition args, so a D1 (WHERE-recursion)
-    # filter can carry a projected address without being a projected OUTPUT --
+    # filter can carry a projected address without being a projected OUTPUT;
     # exempting one would waive the signature split for a node that does have a
-    # downstream consumer. Excluded structurally rather than relying on the
-    # corpus never producing one.
+    # downstream consumer.
     output_sinks = frozenset(
         node
         for node, data in shared_items
@@ -1157,27 +1143,27 @@ def partition_rowsets(
 ) -> list[GroupBucket]:
     """Every handle of one rowset shares a row population (the rowset is one
     sub-query, planned in full by `gen_rowset`), so they all bucket into a
-    single boundary group by rowset identity — never per-column grain (which
+    single boundary group by rowset identity: never per-column grain (which
     the FINAL node would have to rejoin on grain keys, degrading to `1=1` for
     grain-mismatched contributors) and never per-DEPTH.
 
-    Keyed by `(label, rowset_name)` only — deliberately NOT including depth. A
+    Keyed by `(label, rowset_name)` only, deliberately NOT including depth. A
     rowset referenced in both the SELECT (d0) and a WHERE (d1) is still one
-    population; splitting d0/d1 stranded a consumer's filter from its scan (q64:
-    an arm's `count(...) by dims` read the d0 dim handles while the per-arm
-    `marital != ...` filter sat in a separate d1 handle group, so the filter
-    fell through to FINAL and the aggregate counted unfiltered rows). The
-    bucket depth is d1 only if every member is d1 (a pure condition-feeder
-    rowset); any d0 member makes it a d0 boundary that produces SELECT output.
-    Grain is the union of members' grains (same rows, so a wider grain only
-    widens ride-through within the one CTE)."""
+    population; splitting d0/d1 strands a consumer's filter from its scan (an
+    arm's `count(...) by dims` reads the d0 dim handles while its per-arm
+    filter sits in a separate d1 handle group, so the filter falls through to
+    FINAL and the aggregate counts unfiltered rows). The bucket depth is d1
+    only if every member is d1 (a pure condition-feeder rowset); any d0 member
+    makes it a d0 boundary that produces SELECT output. Grain is the union of
+    members' grains (same rows, so a wider grain only widens ride-through
+    within the one CTE)."""
     by_key: dict[tuple[str, str], GroupBucket] = {}
     members_by_key: dict[tuple[str, str], list[NodeItem]] = defaultdict(list)
     for node, data in items:
         assert data.rowset_name is not None
         # Key on SCOPE, not the full label: the label's "@condition" phase
         # suffix would otherwise split a rowset's SELECT (blank-phase) handles
-        # from its WHERE (condition-phase) handles into two groups (q64).
+        # from its WHERE (condition-phase) handles into two groups.
         scope = _scope_and_phase(data.label)[0]
         members_by_key[(scope, data.rowset_name)].append((node, data))
     for (scope, rowset_name), members in members_by_key.items():
@@ -1212,8 +1198,8 @@ def partition_constants(
     whose filtered output the downstream SELECT constant simply rebuilds
     (`gen_constant` ignores parents), dropping the filter entirely
     (`select today where date_add(current_date(), day, -30) < today`). Key on
-    `(scope, grain, grouping_mode)` — never depth, and on the scope rather than
-    the full label so the `@condition` phase suffix doesn't re-split them — and
+    `(scope, grain, grouping_mode)`, never depth, and on the scope rather than
+    the full label so the `@condition` phase suffix doesn't re-split them, and
     surface the bucket at its most-downstream member depth so it produces the
     SELECT output AND carries the WHERE. Mirrors `partition_rowsets`."""
     ConstantKey = tuple[str, frozenset[str], AggregateGroupingMode | None]

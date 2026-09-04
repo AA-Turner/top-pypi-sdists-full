@@ -92,11 +92,11 @@ class NeedsBuilder(Builder):
         else:
             LOGGER.info("Needs successfully exported")
 
-    def get_target_uri(self, _docname: str, _typ: str | None = None) -> str:
+    def get_target_uri(self, _docname: str, _typ: str | None = None) -> str:  # ty: ignore[invalid-method-override]
         # only needed if the write phase is run
         return ""
 
-    def prepare_writing(self, _docnames: set[str]) -> None:
+    def prepare_writing(self, _docnames: set[str]) -> None:  # ty: ignore[invalid-method-override]
         # only needed if the write phase is run
         pass
 
@@ -104,7 +104,7 @@ class NeedsBuilder(Builder):
         # only needed if the write phase is run
         pass
 
-    def write_doc_serialized(self, _docname: str, _doctree: nodes.document) -> None:
+    def write_doc_serialized(self, _docname: str, _doctree: nodes.document) -> None:  # ty: ignore[invalid-method-override]
         # only needed if the write phase is run
         pass
 
@@ -217,31 +217,46 @@ class NeedumlsBuilder(Builder):
         needumls = SphinxNeedsData(env).get_or_create_umls().values()
 
         for needuml in needumls:
-            if needuml["save"]:
-                puml_content = needuml["content_calculated"]
-                # check if given save path dir exists
-                save_path = os.path.join(self.outdir, needuml["save"])
-                save_dir = os.path.dirname(save_path)
-                if not os.path.exists(save_dir):
-                    os.makedirs(save_dir, exist_ok=True)
+            if not needuml["save"]:
+                continue
 
-                LOGGER.info(f"Storing needuml data to file {save_path}.")
-                with open(save_path, "w") as f:
-                    f.write(puml_content)
+            puml_content = needuml["content_calculated"]
+            save_path = os.path.join(self.outdir, needuml["save"])
+
+            if not puml_content:
+                # ``content_calculated`` is only filled in while a document is
+                # written, so a needuml whose document was not written this build
+                # (an incremental rebuild, or a document dropped because PlantUML
+                # is unavailable) has nothing to save.  Writing it anyway truncated
+                # a previously good file to zero bytes.
+                LOGGER.info(
+                    f"Skipping needuml file {save_path}, "
+                    "its content was not generated in this build."
+                )
+                continue
+
+            # check if given save path dir exists
+            save_dir = os.path.dirname(save_path)
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir, exist_ok=True)
+
+            LOGGER.info(f"Storing needuml data to file {save_path}.")
+            with open(save_path, "w") as f:
+                f.write(puml_content)
 
     def get_outdated_docs(self) -> Iterable[str]:
         return []
 
-    def prepare_writing(self, _docnames: set[str]) -> None:
+    def prepare_writing(self, _docnames: set[str]) -> None:  # ty: ignore[invalid-method-override]
         pass
 
-    def write_doc_serialized(self, _docname: str, _doctree: nodes.document) -> None:
+    def write_doc_serialized(self, _docname: str, _doctree: nodes.document) -> None:  # ty: ignore[invalid-method-override]
         pass
 
     def cleanup(self) -> None:
         pass
 
-    def get_target_uri(self, _docname: str, _typ: str | None = None) -> str:
+    def get_target_uri(self, _docname: str, _typ: str | None = None) -> str:  # ty: ignore[invalid-method-override]
         return ""
 
 
@@ -258,7 +273,7 @@ def build_needumls_pumls(app: Sphinx, _exception: Exception) -> None:
 
     # if other builder like html used together with config: needs_build_needumls
     needs_builder = NeedumlsBuilder(app, env)
-    needs_builder.outdir = os.path.join(needs_builder.outdir, config.build_needumls)  # type: ignore[assignment]
+    needs_builder.outdir = os.path.join(needs_builder.outdir, config.build_needumls)  # ty: ignore[invalid-assignment]
 
     needs_builder.finish()
 
@@ -286,14 +301,14 @@ class SchemaBuilder(Builder):
     def get_outdated_docs(self) -> Iterable[str]:
         return []
 
-    def prepare_writing(self, _docnames: set[str]) -> None:
+    def prepare_writing(self, _docnames: set[str]) -> None:  # ty: ignore[invalid-method-override]
         pass
 
-    def write_doc_serialized(self, _docname: str, _doctree: nodes.document) -> None:
+    def write_doc_serialized(self, _docname: str, _doctree: nodes.document) -> None:  # ty: ignore[invalid-method-override]
         pass
 
     def cleanup(self) -> None:
         pass
 
-    def get_target_uri(self, _docname: str, _typ: str | None = None) -> str:
+    def get_target_uri(self, _docname: str, _typ: str | None = None) -> str:  # ty: ignore[invalid-method-override]
         return ""

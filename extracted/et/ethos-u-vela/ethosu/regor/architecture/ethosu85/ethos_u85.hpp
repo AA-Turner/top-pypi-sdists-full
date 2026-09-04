@@ -54,7 +54,6 @@ enum class EthosU85NpuOp
     None = 0,
     Convolution,
     Depthwise,
-    VectorProduct,
     Pooling,
     ReduceSum,
     ReduceMinMax,

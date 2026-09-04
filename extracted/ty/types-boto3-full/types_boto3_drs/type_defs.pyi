@@ -64,6 +64,7 @@ from .literals import (
     ReplicationConfigurationReplicatedDiskStagingDiskTypeType,
     ReplicationDirectionType,
     ReplicationStatusType,
+    SourceServerArchitectureType,
     TargetInstanceTypeRightSizingMethodType,
     VolumeStatusType,
 )
@@ -1150,6 +1151,7 @@ class SourcePropertiesTypeDef(TypedDict):
     ramBytes: NotRequired[int]
     os: NotRequired[OSTypeDef]
     supportsNitroInstances: NotRequired[bool]
+    architecture: NotRequired[SourceServerArchitectureType]
 
 class ParticipatingResourceTypeDef(TypedDict):
     participatingResourceID: NotRequired[ParticipatingResourceIDTypeDef]

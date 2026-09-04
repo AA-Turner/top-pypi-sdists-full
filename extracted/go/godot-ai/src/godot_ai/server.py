@@ -66,6 +66,7 @@ from godot_ai.sessions.registry import SessionRegistry
 from godot_ai.telemetry import (
     MilestoneType,
     RecordType,
+    TelemetryConfig,
     install_fastmcp_wraps,
     record_milestone,
     record_telemetry,
@@ -211,7 +212,10 @@ _ROLLUP_BLOCKS: tuple[tuple[str | None, str], ...] = (
         "                   move, reparent, add_to_group, remove_from_group\n",
     ),
     ("script", "  script_manage    read, detach, find_symbols\n"),
-    ("project", "  project_manage   stop, settings_get, settings_set\n"),
+    (
+        "project",
+        "  project_manage   stop, settings_get, settings_set, set_main_scene\n",
+    ),
     (
         "editor",
         "  editor_manage    state, selection_get/set, monitors_get, quit, logs_clear,\n"
@@ -659,6 +663,10 @@ def create_server(
                 ## ``instance_id`` it belongs to, so it cannot be stale
                 ## relative to that instance.
                 "active_lease_count": leases.active_count(),
+                ## Live env re-read so the dock can show what this process
+                ## will actually send. Advisory only — this route does not
+                ## accept an opt-out mutation (#913).
+                "telemetry_enabled": not TelemetryConfig._is_disabled_via_env(),
             }
         )
 

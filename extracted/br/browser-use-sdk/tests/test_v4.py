@@ -5,11 +5,14 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
-from browser_use_sdk.v4 import InlineSecretSource, SecretBinding
+from browser_use_sdk.v4 import InlineSecretSource, OnePasswordSecretSource, SecretBinding
+from browser_use_sdk.v4.resources.browsers import AsyncBrowsers, Browsers
 from browser_use_sdk.v4.resources.runs import AsyncRuns, Runs
 from browser_use_sdk.v4.resources.sessions import Sessions
 from browser_use_sdk.v4.resources.workspaces import AsyncWorkspaces, Workspaces
@@ -52,12 +55,34 @@ def _queued_message(status: str = "pending") -> dict[str, Any]:
     }
 
 
+def _stopped_browser() -> dict[str, Any]:
+    return {
+        "id": SESSION_ID,
+        "status": "stopped",
+        "timeoutAt": "2026-01-01T01:00:00Z",
+        "startedAt": "2026-01-01T00:00:00Z",
+        "proxyUsedMb": "0",
+        "proxyCost": "0",
+        "browserCost": "0.01",
+        "metadata": {},
+    }
+
+
+def _active_browser() -> dict[str, Any]:
+    return {
+        **_stopped_browser(),
+        "status": "active",
+        "cdpUrl": "wss://connect.browser-use.com/devtools/browser/test",
+    }
+
+
 class FakeSyncHttp:
     """Fake SyncHttpClient — returns queued responses, records every call."""
 
     def __init__(self, responses: list[dict[str, Any]]) -> None:
         self.responses = list(responses)
         self.calls: list[tuple[str, str, dict[str, Any] | None, dict[str, Any] | None]] = []
+        self.headers: list[dict[str, str] | None] = []
 
     def request(
         self,
@@ -66,8 +91,10 @@ class FakeSyncHttp:
         *,
         json: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         self.calls.append((method, path, json, params))
+        self.headers.append(headers)
         return self.responses.pop(0)
 
 
@@ -75,6 +102,7 @@ class FakeAsyncHttp:
     def __init__(self, responses: list[dict[str, Any]]) -> None:
         self.responses = list(responses)
         self.calls: list[tuple[str, str, dict[str, Any] | None, dict[str, Any] | None]] = []
+        self.headers: list[dict[str, str] | None] = []
 
     async def request(
         self,
@@ -83,9 +111,79 @@ class FakeAsyncHttp:
         *,
         json: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         self.calls.append((method, path, json, params))
+        self.headers.append(headers)
         return self.responses.pop(0)
+
+
+def test_browsers_stop() -> None:
+    http = FakeSyncHttp([_stopped_browser()])
+    browsers = Browsers(http)  # type: ignore[arg-type]
+
+    browser = browsers.stop(SESSION_ID)
+
+    assert http.calls[0][:3] == (
+        "PATCH",
+        f"/browsers/{SESSION_ID}",
+        {"action": "stop"},
+    )
+    assert browser.status.value == "stopped"
+
+
+def test_browsers_create() -> None:
+    http = FakeSyncHttp([_active_browser()])
+    browsers = Browsers(http)  # type: ignore[arg-type]
+
+    browser = browsers.create(
+        proxy_country_code="DE",
+        metadata={"flow": "quickstart"},
+        pdf_renderer_enabled=False,
+        solve_captchas=False,
+    )
+
+    assert http.calls[0][:3] == (
+        "POST",
+        "/browsers",
+        {
+            "proxyCountryCode": "de",
+            "metadata": {"flow": "quickstart"},
+            "pdfRendererEnabled": False,
+            "solveCaptchas": False,
+        },
+    )
+    assert browser.cdp_url == "wss://connect.browser-use.com/devtools/browser/test"
+
+
+def test_async_browsers_stop() -> None:
+    async def run() -> None:
+        http = FakeAsyncHttp([_stopped_browser()])
+        browsers = AsyncBrowsers(http)  # type: ignore[arg-type]
+
+        browser = await browsers.stop(SESSION_ID)
+
+        assert http.calls[0][:3] == (
+            "PATCH",
+            f"/browsers/{SESSION_ID}",
+            {"action": "stop"},
+        )
+        assert browser.status.value == "stopped"
+
+    asyncio.run(run())
+
+
+def test_async_browsers_create() -> None:
+    async def run() -> None:
+        http = FakeAsyncHttp([_active_browser()])
+        browsers = AsyncBrowsers(http)  # type: ignore[arg-type]
+
+        browser = await browsers.create(proxy_country_code="us")
+
+        assert http.calls[0][:3] == ("POST", "/browsers", {"proxyCountryCode": "us"})
+        assert browser.status.value == "active"
+
+    asyncio.run(run())
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +255,105 @@ def test_async_wait_for_completion() -> None:
     asyncio.run(run())
 
 
+def test_wait_for_event_returns_browser_ready_before_terminal_wait() -> None:
+    http = FakeSyncHttp(
+        [
+            {
+                "events": [
+                    {
+                        "runId": RUN_ID,
+                        "id": 1,
+                        "ts": "2026-01-01T00:00:00Z",
+                        "type": "run.created",
+                        "data": {},
+                    }
+                ],
+                "nextAfter": 1,
+                "hasMore": True,
+            },
+            {
+                "events": [
+                    {
+                        "runId": RUN_ID,
+                        "id": 2,
+                        "ts": "2026-01-01T00:00:01Z",
+                        "type": "browser.ready",
+                        "data": {"live_view_url": "https://live"},
+                    }
+                ],
+                "nextAfter": 2,
+                "hasMore": False,
+            },
+        ]
+    )
+    event = Runs(http).wait_for_event(RUN_ID, "browser.ready", interval=0)  # type: ignore[arg-type]
+    assert event.data["live_view_url"] == "https://live"
+    assert http.calls[-1][3] == {"after": 1, "limit": 100}
+
+
+def test_async_wait_for_event_returns_browser_ready() -> None:
+    async def run() -> None:
+        http = FakeAsyncHttp(
+            [
+                {
+                    "events": [],
+                    "nextAfter": 0,
+                    "hasMore": False,
+                },
+                {
+                    "events": [
+                        {
+                            "runId": RUN_ID,
+                            "id": 1,
+                            "ts": "2026-01-01T00:00:01Z",
+                            "type": "browser.ready",
+                            "data": {"live_view_url": "https://live"},
+                        }
+                    ],
+                    "nextAfter": 1,
+                    "hasMore": False,
+                },
+            ]
+        )
+        event = await AsyncRuns(http).wait_for_event(  # type: ignore[arg-type]
+            RUN_ID, "browser.ready", interval=0
+        )
+        assert event.data["live_view_url"] == "https://live"
+        assert http.calls[-1][3] == {"after": 0, "limit": 100}
+
+    asyncio.run(run())
+
+
+def test_wait_for_event_stops_when_run_ends_first() -> None:
+    terminal = {
+        "events": [
+            {
+                "runId": RUN_ID,
+                "id": 1,
+                "ts": "2026-01-01T00:00:00Z",
+                "type": "run.dispatch_failed",
+                "data": {},
+            }
+        ],
+        "nextAfter": 1,
+        "hasMore": False,
+    }
+    sync_http = FakeSyncHttp([terminal])
+    with pytest.raises(RuntimeError, match="run.dispatch_failed before browser.ready"):
+        Runs(sync_http).wait_for_event(RUN_ID, "browser.ready")  # type: ignore[arg-type]
+    assert len(sync_http.calls) == 1
+
+    async def run() -> None:
+        async_http = FakeAsyncHttp([terminal])
+        with pytest.raises(RuntimeError, match="run.dispatch_failed before browser.ready"):
+            await AsyncRuns(async_http).wait_for_event(  # type: ignore[arg-type]
+                RUN_ID, "browser.ready"
+            )
+        assert len(async_http.calls) == 1
+
+    asyncio.run(run())
+
+
 # ---------------------------------------------------------------------------
 # runs create / list / events
 # ---------------------------------------------------------------------------
@@ -188,7 +385,9 @@ def test_runs_create_sends_camel_case_body() -> None:
         secret_bindings=[
             SecretBinding(
                 alias="github_password",
-                source=InlineSecretSource(type="inline", value="not-masked"),
+                source=InlineSecretSource(
+                    type="inline", value=SecretStr("not-masked")
+                ),
                 allowedDomains=["github.com"],
             )
         ],
@@ -215,6 +414,57 @@ def test_runs_create_sends_camel_case_body() -> None:
         "maxCostUsd": "1.50",
     }
     assert str(created.id) == RUN_ID
+
+
+def test_runs_create_serializes_onepassword_binding() -> None:
+    http = FakeSyncHttp(
+        [
+            {
+                "id": RUN_ID,
+                "status": "queued",
+                "model": "gpt-5.6-luna",
+                "sessionId": SESSION_ID,
+                "workspaceId": WORKSPACE_ID,
+                "eventsUrl": f"https://api.browser-use.com/api/v4/runs/{RUN_ID}/events",
+            }
+        ]
+    )
+    runs = Runs(http)  # type: ignore[arg-type]
+    integration_id = "00000000-0000-0000-0000-000000000004"
+
+    runs.create(
+        "Sign in",
+        secret_bindings=[
+            SecretBinding(
+                alias="github_password",
+                source=OnePasswordSecretSource(
+                    type="onepassword",
+                    integrationId=UUID(integration_id),
+                    vaultId="vault-id",
+                    itemId="item-id",
+                    fieldId="password",
+                ),
+                allowedDomains=["github.com"],
+            )
+        ],
+    )
+
+    assert http.calls[0][2] == {
+        "task": "Sign in",
+        "secretBindings": [
+            {
+                "alias": "github_password",
+                "source": {
+                    "type": "onepassword",
+                    "integrationId": integration_id,
+                    "vaultId": "vault-id",
+                    "itemId": "item-id",
+                    "fieldId": "password",
+                },
+                "allowedDomains": ["github.com"],
+            }
+        ],
+    }
 
 
 def test_runs_list_cursor_pagination() -> None:
@@ -278,11 +528,17 @@ def test_sessions_send_message() -> None:
     http = FakeSyncHttp([_queued_message()])
     sessions = Sessions(http)  # type: ignore[arg-type]
 
-    msg = sessions.send_message(SESSION_ID, "also check the careers page", interrupt=True)
+    msg = sessions.send_message(
+        SESSION_ID,
+        "also check the careers page",
+        interrupt=True,
+        deduplicate="exact-text-v1",
+    )
 
     method, path, body, _ = http.calls[0]
     assert (method, path) == ("POST", f"/sessions/{SESSION_ID}/queue")
     assert body == {"text": "also check the careers page", "interrupt": True}
+    assert http.headers[0] == {"X-V4-Queue-Deduplicate": "exact-text-v1"}
     assert msg.status.value == "pending"
 
 

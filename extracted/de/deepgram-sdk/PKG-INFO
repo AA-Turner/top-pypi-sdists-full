@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepgram-sdk
-Version: 7.8.0
+Version: 7.8.1
 Summary: 
 License: MIT
 Requires-Python: >=3.10,<4.0
@@ -101,6 +101,11 @@ with client.listen.v2.connect(
 
 Transcribe pre-recorded audio files ([API Reference](./reference.md#listen-v1-media-transcribe-file)):
 
+`nova-3` uses English when `language` is omitted. For non-English audio, pass a
+supported language explicitly, such as `language="fr"`. Use `detect_language=True`
+when one dominant language is unknown, or `language="multi"` when the audio may
+contain multiple supported languages.
+
 ```python
 from deepgram import DeepgramClient
 
@@ -109,7 +114,8 @@ client = DeepgramClient()
 with open("audio.wav", "rb") as audio_file:
     response = client.listen.v1.media.transcribe_file(
         request=audio_file.read(),
-        model="nova-3"
+        model="nova-3",
+        language="en",
     )
     print(response.results.channels[0].alternatives[0].transcript)
 ```
@@ -129,7 +135,8 @@ response = client.speak.v1.audio.generate(
 
 # Save the audio file
 with open("output.mp3", "wb") as audio_file:
-    audio_file.write(response.stream.getvalue())
+    for chunk in response:
+        audio_file.write(chunk)
 ```
 
 #### Text Analysis

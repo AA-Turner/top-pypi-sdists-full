@@ -16,12 +16,13 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import logging
 import os
 import plistlib
 import re
-import sqlite3
+import subprocess
 import sys
 import unittest.mock
 from pathlib import Path
@@ -50,6 +51,7 @@ from click_extra import (
     echo,
     export_config_option,
     format_from_mime,
+    format_from_path,
     get_app_dir,
     group,
     no_config_option,
@@ -59,6 +61,7 @@ from click_extra import (
     validate_config_option,
 )
 from click_extra.config import SQLITE_CONFIG_TABLE
+from click_extra.config.formats import SQLITE_SUPPORT, disabled_format_message
 from click_extra.config.schema import (
     _expand_dotted_keys,
 )
@@ -69,7 +72,7 @@ from click_extra.pytest import (
     default_debug_uncolored_version_details,
 )
 
-DOCS_CONFIG_PAGE = Path(__file__).parent.parent / "docs" / "config.md"
+DOCS_CONFIG_PAGE = Path(__file__).parent.parent / "docs" / "config-discovery.md"
 """The documentation page transcribing part of ``ConfigFormat``."""
 
 # The complete set of glob search flags ``ConfigOption`` enforces by default.
@@ -464,7 +467,14 @@ def make_sqlite_config(
     *,
     create_table: bool = True,
 ) -> Path:
-    """Write a nested mapping into a SQLite configuration database."""
+    """Write a nested mapping into a SQLite configuration database.
+
+    Skips the calling test on a Python whose SQLite bindings are missing, the
+    same interpreter on which `ConfigFormat.SQLITE` reports itself disabled.
+    """
+    sqlite3 = pytest.importorskip(
+        "sqlite3", reason="SQLITE is gated on the standard library's sqlite3"
+    )
     connection = sqlite3.connect(path)
     if create_table:
         connection.execute(
@@ -540,11 +550,11 @@ def test_unset_conf_debug_message(invoke, simple_config_cli, assert_output_regex
 def test_conf_default_path(invoke, simple_config_cli):
     result = invoke(simple_config_cli, "--help", color=False)
 
-    # Cloup wraps the long --config default at unpredictable columns, sometimes
-    # mid-token (e.g. "~/config-c" then "li1"), so we cannot guess the wrap points
-    # with a regex. De-wrap the option's help block by dropping all whitespace,
-    # then match the path and glob pattern against it.
-    help_screen = re.sub(r"\s+", "", result.stdout.split("--config CONFIG_PATH")[1])
+    # Cloup wraps the --config default at unpredictable columns, sometimes mid-token
+    # (e.g. "~/config-c" then "li1"), so we cannot guess the wrap points with a
+    # regex. De-wrap the option's help block by dropping all whitespace, then match
+    # the folder against it.
+    help_screen = re.sub(r"\s+", "", result.stdout.split("--config LOCATION")[1])
 
     # Mirror the CLI's own path display: default_pattern() resolves the app dir
     # before shrinkuser() collapses the home prefix to "~". The resolve() matters
@@ -554,11 +564,78 @@ def test_conf_default_path(invoke, simple_config_cli):
     default_path = re.sub(
         r"\s+", "", str(shrinkuser(Path(get_app_dir("config-cli1")).resolve()))
     )
-    assert f"default:{default_path}" in help_screen
+    assert f"default:{default_path}{os.path.sep}]" in help_screen
 
-    # And the glob pattern.
+    # An inherited format set is collapsed away, so the folder is the whole default.
+    # See ConfigOption.collapse_default().
     fp = ",".join(unique(flatten(f.patterns for f in ConfigFormat if f.enabled)))
-    assert f"{{{fp}}}]" in help_screen
+    assert f"{{{fp}}}" not in help_screen
+
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("file_format_patterns", "expected_pattern"),
+    [
+        pytest.param(ConfigFormat.TOML, "*.toml", id="single_format"),
+        pytest.param(
+            {ConfigFormat.TOML: ["*.toml", "my_app.conf"]},
+            "{*.toml,my_app.conf}",
+            id="custom_patterns",
+        ),
+    ],
+)
+def test_conf_chosen_formats_displayed(invoke, file_format_patterns, expected_pattern):
+    """A format set chosen by the developer is displayed in full.
+
+    Only an inherited set collapses to its folder, so the help screen keeps showing
+    the effect of `file_format_patterns`, which is what `docs/config-discovery.md`
+    demonstrates.
+    """
+
+    @click.command
+    @config_option(file_format_patterns=file_format_patterns)
+    def config_cli1():
+        pass
+
+    result = invoke(config_cli1, "--help", color=False)
+
+    help_screen = re.sub(r"\s+", "", result.stdout.split("--config LOCATION")[1])
+    assert f"{expected_pattern}]" in help_screen
+
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "shows_patterns"),
+    [
+        pytest.param({"show_file_patterns": True}, True, id="inherited_forced_on"),
+        pytest.param({"show_file_patterns": False}, False, id="inherited_forced_off"),
+        pytest.param(
+            {"file_format_patterns": ConfigFormat.TOML, "show_file_patterns": False},
+            False,
+            id="chosen_forced_off",
+        ),
+    ],
+)
+def test_conf_show_file_patterns(invoke, kwargs, shows_patterns):
+    """`show_file_patterns` overrides the display in both directions."""
+
+    @click.command
+    @config_option(**kwargs)
+    def config_cli1():
+        pass
+
+    result = invoke(config_cli1, "--help", color=False)
+
+    config_opt = search_params(config_cli1.params, ConfigOption)
+    assert isinstance(config_opt, ConfigOption)
+    fp = config_opt.file_pattern
+    suffix = f"{{{fp}}}" if "," in fp else fp
+    help_screen = re.sub(r"\s+", "", result.stdout.split("--config LOCATION")[1])
+    assert (f"{suffix}]" in help_screen) is shows_patterns
 
     assert not result.stderr
     assert result.exit_code == 0
@@ -583,7 +660,7 @@ def test_conf_default_pathlib_type(invoke, create_config):
     # we cannot predict how Cloup will wrap the help screen lines.
     help_screen = "".join(
         line.strip()
-        for line in result.stdout.split("--config CONFIG_PATH")[1].splitlines()
+        for line in result.stdout.split("--config LOCATION")[1].splitlines()
     )
     assert str(shrinkuser(conf_path)) in help_screen
 
@@ -1235,6 +1312,124 @@ def test_format_from_mime_restricted_to_candidates():
     assert format_from_mime("application/json", [ConfigFormat.TOML]) is None
 
 
+def test_jwcc_resolves_to_the_json5_parser(tmp_path):
+    """A `*.jwcc` file is read by the `JSON5` parser, which is a superset of it."""
+    assert format_from_path(tmp_path / "settings.jwcc") is ConfigFormat.JSON5
+
+
+def test_jwcc_conf(invoke, simple_config_cli, tmp_path):
+    """A JWCC document loads: JSON plus comments and trailing commas."""
+    pytest.importorskip("json5", reason="JWCC is parsed by the json5 extra")
+
+    conf_file = tmp_path / "configuration.jwcc"
+    conf_file.write_text(
+        dedent(
+            """
+            {
+                // A comment, which plain JSON refuses.
+                "config-cli1": {
+                    "dummy_flag": true,
+                    "my_list": ["pip", "npm", "gem",],
+                    "default": {"int_param": 3,},
+                },
+            }
+            """,
+        ),
+        encoding="utf-8",
+    )
+
+    result = invoke(
+        simple_config_cli, "--config", str(conf_file), "default", color=False
+    )
+    assert result.exit_code == 0
+    assert result.stdout == (
+        "dummy_flag = True\nmy_list = ('pip', 'npm', 'gem')\nint_parameter = 3\n"
+    )
+
+
+def test_conf_key_reaches_a_case_preserving_param_name(invoke, create_config):
+    """A parameter whose name kept its case is still addressed by that case.
+
+    Click takes an identifier declaration verbatim, so this parameter is named
+    `Explicit_Name`. No fold produces that spelling, so the template has to
+    stay the authority on it.
+    """
+
+    @click.command
+    @config_option
+    @option("--explicit", "Explicit_Name", default="untouched")
+    def case_cli(**kwargs):
+        echo(f"value = {kwargs['Explicit_Name']!r}")
+
+    for spelling in ("Explicit_Name", "Explicit-Name"):
+        conf_path = create_config(
+            "case.toml", f'[case-cli]\n"{spelling}" = "from-conf"\n'
+        )
+        result = invoke(case_cli, "--config", str(conf_path), color=False)
+        assert result.exit_code == 0
+        assert result.stdout == "value = 'from-conf'\n", spelling
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    ("foo_bar", "foo-bar", "Foo-Bar", "FOO_BAR", "foo-BAR"),
+)
+def test_conf_key_case_folds_onto_the_param_name(invoke, create_config, spelling):
+    """Every spelling Click could have derived `foo_bar` from reaches it."""
+
+    @click.command
+    @config_option
+    @option("--Foo-Bar", default="untouched")
+    def fold_cli(foo_bar):
+        echo(f"value = {foo_bar!r}")
+
+    conf_path = create_config("fold.toml", f'[fold-cli]\n"{spelling}" = "from-conf"\n')
+    result = invoke(fold_cli, "--config", str(conf_path), color=False)
+    assert result.exit_code == 0
+    assert result.stdout == "value = 'from-conf'\n"
+
+
+def test_conf_key_folding_onto_two_params_is_skipped(invoke, create_config, caplog):
+    """A key folding onto two parameter names picks neither, and warns.
+
+    Click allows `foo_bar` and `Foo_Bar` on one command, and nothing in the
+    folded spelling says which was meant.
+    """
+
+    @click.command
+    @config_option
+    @option("--foo-bar", default="untouched")
+    @option("--other", "Foo_Bar", default="untouched")
+    def ambiguous_cli(**kwargs):
+        echo(f"values = {sorted(kwargs.items())!r}")
+
+    conf_path = create_config(
+        "ambiguous.toml", '[ambiguous-cli]\n"FOO_BAR" = "from-conf"\n'
+    )
+    with caplog.at_level(logging.WARNING, logger="click_extra"):
+        result = invoke(ambiguous_cli, "--config", str(conf_path), color=False)
+
+    assert result.exit_code == 0
+    assert "'from-conf'" not in result.stdout
+    assert "matches" in caplog.text
+    assert "no spelling tells them apart" in caplog.text
+
+
+def test_strict_conf_accepts_a_folded_key(invoke, create_config):
+    """Strict mode no longer rejects a spelling the fold resolves."""
+
+    @click.command
+    @config_option(strict=True)
+    @option("--Foo-Bar", default="untouched")
+    def strict_fold_cli(foo_bar):
+        echo(f"value = {foo_bar!r}")
+
+    conf_path = create_config("strict.toml", '[strict-fold-cli]\n"Foo-Bar" = "ok"\n')
+    result = invoke(strict_fold_cli, "--config", str(conf_path), color=False)
+    assert result.exit_code == 0
+    assert result.stdout == "value = 'ok'\n"
+
+
 def test_mime_types_are_unambiguous():
     """No media type is claimed by two formats.
 
@@ -1265,13 +1460,15 @@ def test_docs_media_types_table_matches_formats():
     and that table is the only place a user reads the mapping from.
     """
     page = DOCS_CONFIG_PAGE.read_text(encoding="utf-8")
-    table = page.split("#### Typing a download", 1)[1].split("```{warning}", 1)[0]
+    table = page.split("### Typing a download", 1)[1].split("```{warning}", 1)[0]
 
-    # Each row links its format to the section documenting it, whose anchor is
-    # the member name kebab-cased.
+    # Each row links its format to the section documenting it, on a sibling
+    # page, whose anchor is the member name kebab-cased.
     documented = {}
     for row in table.splitlines():
-        match = re.match(r"\|\s*\[`[^`]+`\]\(#([\w-]+)\)\s*\|([^|]+)\|", row)
+        match = re.match(
+            r"\|\s*\[`[^`]+`\]\((?:[\w-]+\.md)?#([\w-]+)\)\s*\|([^|]+)\|", row
+        )
         if not match:
             continue
         anchor, cell = match.groups()
@@ -1538,18 +1735,28 @@ def test_argfile_secondary_flag_and_inline_value(invoke, create_config):
 
 
 @pytest.mark.parametrize(
-    ("conf_text", "expect_error"),
+    ("conf_text", "expected_key"),
     [
         pytest.param(
             "--unknown-option some value\n--name ok\n",
-            True,
+            "unknown_option",
             id="unknown-option-rejected",
         ),
-        pytest.param("--name ok\n", False, id="clean-config-accepted"),
+        pytest.param(
+            "--Unknown-Option some value\n--name ok\n",
+            "unknown_option",
+            id="unknown-option-case-folded",
+        ),
+        pytest.param("--name ok\n", None, id="clean-config-accepted"),
     ],
 )
-def test_argfile_strict_conf(invoke, create_config, conf_text, expect_error):
-    """Strict mode rejects unknown options with the standard error."""
+def test_argfile_strict_conf(invoke, create_config, conf_text, expected_key):
+    """Strict mode rejects unknown options with the standard error.
+
+    An unmatched declaration is named the way Click names a parameter it
+    derives from one, case fold included, so `--Unknown-Option` is reported
+    as `unknown_option`.
+    """
 
     @click.command
     @config_option(strict=True)
@@ -1560,12 +1767,12 @@ def test_argfile_strict_conf(invoke, create_config, conf_text, expect_error):
     conf_path = create_config("strict.conf", conf_text)
     result = invoke(argfile_strict_cli, "--config", str(conf_path), color=False)
 
-    if expect_error:
+    if expected_key:
         assert result.exit_code == 1
         assert not result.stdout
         assert (
             "Configuration validation error: "
-            "Unknown configuration key 'unknown_option'." in result.stderr
+            f"Unknown configuration key {expected_key!r}." in result.stderr
         )
     else:
         assert result.exit_code == 0
@@ -1714,6 +1921,89 @@ def test_sqlite_conf_unparsable(invoke, simple_config_cli, tmp_path, make_db):
     )
     assert result.exit_code == 2
     assert "critical: Error parsing file as" in result.stderr
+
+
+SPLITTABLE_STDLIB_MODULES = frozenset((
+    "curses",
+    "dbm",
+    "readline",
+    "sqlite3",
+    "tkinter",
+))
+"""Standard library modules a distribution can ship apart from its base Python.
+
+Each wraps a system library, so a packager can leave it out of the interpreter:
+FreeBSD serves `sqlite3` as a separate `pyXXX-sqlite3` package, and Debian
+serves `tkinter` as `python3-tk`. A module-level import of any of them kills
+every CLI built on `click_extra` at import time, on an interpreter that is
+otherwise complete, so each one is probed and imported at its point of use."""
+
+
+def eager_imports(tree: ast.Module) -> set[str]:
+    """Top-level packages a module imports as soon as it is loaded.
+
+    Skips function bodies, which import at call time, and `try` blocks, which
+    guard against a missing module. Those are the two shapes that survive an
+    interpreter without the module.
+    """
+    found: set[str] = set()
+
+    def visit(node: ast.AST) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Try)):
+                continue
+            if isinstance(child, ast.Import):
+                found.update(alias.name.split(".")[0] for alias in child.names)
+            elif isinstance(child, ast.ImportFrom) and not child.level and child.module:
+                found.add(child.module.split(".")[0])
+            visit(child)
+
+    visit(tree)
+    return found
+
+
+def test_no_splittable_stdlib_module_imported_at_load_time():
+    """No module of the package imports a splittable module unconditionally."""
+    package_root = Path(__file__).parent.parent / "click_extra"
+    offenders = {}
+    for module_path in sorted(package_root.rglob("*.py")):
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        culprits = eager_imports(tree) & SPLITTABLE_STDLIB_MODULES
+        if culprits:
+            offenders[str(module_path.relative_to(package_root))] = sorted(culprits)
+    assert not offenders
+
+
+@pytest.mark.once
+def test_sqlite3_not_imported_by_the_package():
+    """Importing the package leaves `sqlite3` out of `sys.modules`.
+
+    Covers the whole import graph, dependencies included, where
+    `test_no_splittable_stdlib_module_imported_at_load_time` only reads the
+    package's own sources.
+    """
+    result = subprocess.run(
+        (
+            sys.executable,
+            "-c",
+            "import sys, click_extra; print('sqlite3' in sys.modules)",
+        ),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    assert result.stdout.strip() == "False"
+
+
+def test_sqlite_support_gates_the_format():
+    """`SQLITE` is enabled exactly when the standard library ships its bindings."""
+    assert ConfigFormat.SQLITE.enabled is SQLITE_SUPPORT
+
+    message = disabled_format_message(ConfigFormat.SQLITE)
+    # There is no `click-extra[sqlite]` to install: the bindings ship with Python.
+    assert "click-extra[" not in message
+    assert "sqlite3" in message
 
 
 @pytest.mark.parametrize(
@@ -3364,6 +3654,54 @@ def test_validate_config_valid(invoke, create_config):
     assert "is valid" in result.stderr
 
 
+def test_validate_config_accepts_a_glob(invoke, create_config):
+    """--validate-config takes every location `--config` takes, glob included."""
+    conf_text = dedent("""\
+        [validate-cli]
+        dummy_flag = true
+        """)
+    conf_path = create_config("valid.toml", conf_text)
+
+    @click.command
+    @option("--dummy-flag/--no-flag")
+    @config_option
+    @validate_config_option
+    def validate_cli(dummy_flag):
+        echo(f"dummy_flag = {dummy_flag!r}")
+
+    pattern = str(conf_path.parent / "*.toml")
+    result = invoke(validate_cli, "--validate-config", pattern, color=False)
+    assert result.exit_code == 0
+    assert "is valid" in result.stderr
+
+
+def test_validate_config_accepts_a_url(invoke, httpserver):
+    """A configuration a CLI can load from a URL is one it can also validate."""
+    conf_text = dedent("""\
+        [validate-cli]
+        dummy_flag = true
+        """)
+    httpserver.expect_request("/settings.toml").respond_with_data(
+        conf_text, content_type="application/toml"
+    )
+
+    @click.command
+    @option("--dummy-flag/--no-flag")
+    @config_option
+    @validate_config_option
+    def validate_cli(dummy_flag):
+        echo(f"dummy_flag = {dummy_flag!r}")
+
+    result = invoke(
+        validate_cli,
+        "--validate-config",
+        httpserver.url_for("/settings.toml"),
+        color=False,
+    )
+    assert result.exit_code == 0
+    assert "is valid" in result.stderr
+
+
 def test_validate_config_invalid_keys(invoke, create_config):
     """--validate-config with unrecognized keys exits 1."""
     conf_text = dedent("""\
@@ -3464,7 +3802,7 @@ def test_validate_config_unparsable(invoke, create_config):
 
 
 def test_validate_config_missing_file(invoke, tmp_path):
-    """--validate-config with a nonexistent file is caught by Click's Path(exists=True)."""
+    """--validate-config reports a nonexistent location from its own callback."""
 
     @click.group
     @option("--dummy-flag/--no-flag")
@@ -3480,6 +3818,7 @@ def test_validate_config_missing_file(invoke, tmp_path):
     missing = str(tmp_path / "nonexistent.toml")
     result = invoke(validate_cli, "--validate-config", missing, color=False)
     assert result.exit_code == 2
+    assert f"Configuration file not found: {missing}" in result.stderr
 
 
 def test_validate_config_requires_config_option(invoke, tmp_path):

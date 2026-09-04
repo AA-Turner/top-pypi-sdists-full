@@ -111,6 +111,55 @@ def cmd_gui(_args) -> int:
     return shell_main()
 
 
+
+def cmd_export(args) -> int:
+    """CSV export pack without Qt: value + formula + residual + citation + honesty flag."""
+    import uqff_calculator as C
+    pid = args.paper
+    if pid not in C.DISPATCH:
+        print("UNKNOWN PAPER: %s" % pid)
+        return 2
+    r = C.calc(pid)
+    out = args.out or (pid + ".csv")
+    rows = _results_rows_for(pid) or [{}]
+    with open(out, "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["paper", "value", "formula", "residual_pct", "status",
+                    "citation", "constant", "table_value", "live_status"])
+        cite = "%s (Star-Magic UQFF, star-magic-program; see CITATION.cff at %s)" % (
+            pid, uqff_paths.resolve("CITATION.cff"))
+        for row in rows:
+            w.writerow([pid, r.get("value"), r.get("formula"), r.get("residual_pct"),
+                        r.get("status", "WIRED"), cite, row.get("constant", ""),
+                        row.get("uqff_value", ""), row.get("live_status", "")])
+    print("exported: %s (%d row%s; honesty flags included)" % (out, len(rows), "s" if len(rows) != 1 else ""))
+    return 0
+
+
+def cmd_quickstart(_args) -> int:
+    """First run: a real catalogue well for 200 steps + a flagship paper with
+    its honesty flags. Everything below is the same gate-verified machinery."""
+    print("== star-magic quickstart ==")
+    print("[1/3] corpus:")
+    cmd_docs(_args)
+    print("[2/3] downhole: KTB pilot-hole profile, 200 simulated steps…")
+    try:
+        from uqff_downhole_simulator import UQFFDownholeEngine
+        e = UQFFDownholeEngine()
+        for _ in range(200):
+            e.step()
+        s = e.summary()
+        print("   engine summary:", {k: s[k] for k in list(s)[:4]})
+    except Exception as ex:
+        print("   downhole demo skipped: %s" % ex)
+    print("[3/3] calculator: PAPER_646 (the Universal Inertial Operator)…")
+    class _A:  # minimal args shim
+        paper = "PAPER_646"; list = False
+    cmd_calc(_A)
+    print("== done. Next: star-magic calc --list | star-magic gate | star-magic gui ==")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="star-magic",
                                  description="Star-Magic UQFF: calculator + downhole surveying, one door.")
@@ -121,9 +170,23 @@ def main(argv=None) -> int:
     p_calc.set_defaults(fn=cmd_calc)
     p_gate = sub.add_parser("gate", help="full fidelity gate (works from site-packages)")
     p_gate.set_defaults(fn=cmd_gate)
-    p_well = sub.add_parser("well", help="downhole simulator passthrough")
-    p_well.add_argument("rest", nargs=argparse.REMAINDER)
+    p_well = sub.add_parser(
+        "well", help="downhole simulator passthrough",
+        description=("Passthrough to the downhole surveying simulator. Sub-usage: "
+                     "star-magic well run --steps 200 --out run.csv | "
+                     "star-magic well service-life --years 5 --out curves.csv | "
+                     "star-magic well telemetry --hours 24 --out field.csv | "
+                     "star-magic well case-study --td 25000 --out case.md | "
+                     "star-magic well report --out reportdir/"))
+    p_well.add_argument("rest", nargs=argparse.REMAINDER,
+                        help="arguments forwarded to python -m uqff_downhole_simulator")
     p_well.set_defaults(fn=cmd_well)
+    p_exp = sub.add_parser("export", help="CSV export pack (no Qt): value+formula+residual+citation+flag")
+    p_exp.add_argument("paper")
+    p_exp.add_argument("--out", default="")
+    p_exp.set_defaults(fn=cmd_export)
+    p_qs = sub.add_parser("quickstart", help="first run: catalogue well 200 steps + PAPER_646 with honesty flags")
+    p_qs.set_defaults(fn=cmd_quickstart)
     p_docs = sub.add_parser("docs", help="where the corpus lives on this machine")
     p_docs.set_defaults(fn=cmd_docs)
     p_gui = sub.add_parser("gui", help="Qt operator shell (gui extra)")

@@ -9,6 +9,7 @@ TODO: it should probably be split with the "feature definitions",
 """
 import copy
 import warnings
+from typing import Any
 
 # Valid support levels for features
 VALID_SUPPORT_LEVELS = frozenset({
@@ -78,10 +79,140 @@ class FeatureSet:
             }
         },
         "url": {
+            ## Grouping node for facts about how the server wants its URLs
+            ## spelled.  Kept as client-hints: the node itself is not probed,
+            ## it only collects sub-features such as url.encode-at.
             "type": "client-hints",
+        },
+        "url.encode-at": {
+            "description": (
+                "How the server treats a literal '@' in a resource path versus its percent-encoded "
+                "spelling '%40'.  A grouping node - the three subfeatures below carry the facts, "
+                "one per thing a probe can actually observe, and the client reads only those.  "
+                "RFC3986 section 3.3 makes '@' a legal pchar, so a producer never has to encode "
+                "it, and section 2.2 makes it a *reserved* character, so the two spellings are "
+                "formally NOT equivalent: section 6.2.2.2 licenses decoding only the octets of "
+                "*unreserved* characters (section 2.3).  A server serving both spellings as one "
+                "resource is being lenient, not conformant, and servers disagree.  This matters "
+                "wherever a path embeds an email-like identifier: an ownCloud/Nextcloud "
+                "calendar-home-set (/remote.php/dav/calendars/user@example.com/), or an object "
+                "whose UID is an email address.  Which of that the client acts on is decided by "
+                "'url.encode-at.identity'.  Where the two spellings name one resource - the "
+                "default - the spelling carries no information, so every path is normalised the "
+                "way this library has always normalised it and nothing here changes any "
+                "behaviour.  Where a profile declares the server conformant, the spelling is part "
+                "of the resource name and the client stops rewriting it anywhere.  "
+                "Not covered here: a server that stores a resource at one spelling and later "
+                "reports it back under the other.  That is one flavour of save-load.stable-url "
+                "(create-calendar.stable-url for collections) and is handled there."
+            ),
+            "links": [
+                "https://datatracker.ietf.org/doc/html/rfc3986#section-2.2",
+                "https://datatracker.ietf.org/doc/html/rfc3986#section-3.3",
+                "https://datatracker.ietf.org/doc/html/rfc3986#section-6.2.2.2",
+            ],
+        },
+        "url.encode-at.identity": {
+            "description": (
+                "Whether the server treats '/x/foo@bar/' and '/x/foo%40bar/' as two *different* "
+                "resources.  'full' is the RFC3986-conformant reading - '@' is reserved, so the "
+                "encoded form is a different path - and a client told that must not treat the two "
+                "as interchangeable: two URLs spelling the same '@' differently do not compare "
+                "equal.  'unsupported' records a server that aliases them, which is lenient rather "
+                "than broken.  This is the switch the URL code turns on: 'unsupported' means "
+                "two spellings may be taken for one URL and paths are normalised exactly as they "
+                "always were, 'full' means every spelling the server sent is kept as it sent it.  "
+                "NOTE THE DEFAULT, which is deliberately the non-conformant one for the 3.x "
+                "series: treating the two spellings as one is what this library has always done, "
+                "and making the conformant reading the default would change URL identity for every "
+                "existing user of an unprobed server.  It is also what every server probed so far "
+                "actually does - 2026-08-26, against the twelve test servers in tests/, every one "
+                "that resolved both spellings served them as one resource - so the conservative "
+                "default is the accurate one as well.  A server that really is conformant has to "
+                "say so in its profile.  If servers are observed handling identity differently "
+                "dependent on weather the at-sign exists in a cal_id, uid or username part of an "
+                "URL, then we should consider to create children features."
+            ),
+            "default": {"support": "unsupported"},
+        },
+        "url.encode-at.literal": {
+            "description": (
+                "Whether a literal '@' in a resource path is accepted and resolves.  'full' (the "
+                "default) is the conformant case: RFC3986 section 3.3 makes '@' a legal pchar, so "
+                "a server has no business refusing it.  Note that this does not decide what the "
+                "client sends: where it mints a path of its own it uses '%40', which is what it "
+                "has always sent and where objects written by older versions of this library are.  'unsupported' is the ownCloud/Nextcloud case: the server hands "
+                "out a calendar-home-set containing a literal '@' and then refuses to serve it.  "
+                "That is the one thing that makes the client rewrite a spelling it was *given* "
+                "rather than one it minted, and on a server declared conformant it is what keeps "
+                "the historic home-set workaround switched on.  "
+                "Servers were expected to answer this the same way wherever the '@' sits, and "
+                "one does not: Stalwart re-encodes an '@' in an object name (a PUT to the "
+                "literal path is accepted and the resource is then reachable only under '%40') "
+                "while serving a calendar path under whichever spelling it was asked for.  So "
+                "the three children below carry the per-axis facts and the consumers read the "
+                "child they are actually about.  This node keeps its 'full' default and still "
+                "answers for every child a profile does not mention, so the ~40 profiles written "
+                "before the split - and any that declare this key flatly - mean exactly what "
+                "they meant before."
+            ),
+            "default": {"support": "full"},
+        },
+        "url.encode-at.literal.object": {
+            "description": (
+                "Whether a literal '@' in the name of a calendar object resource ('<uid>.ics' "
+                "for a UID that is an email address) is accepted and resolves.  'unsupported' "
+                "covers both a server that refuses such a PUT outright and one that accepts it "
+                "and then serves the resource only under '%40' - from a client holding the URL "
+                "it minted, those are the same problem.  Note that it does not decide the "
+                "spelling the client mints; 'url.encode-at.encoded' does."
+            ),
+            "default": {"support": "full"},
+        },
+        "url.encode-at.literal.collection": {
+            "description": (
+                "Whether a literal '@' in a calendar id - a collection segment the *client* "
+                "chose - is accepted and resolves.  Distinct from the object axis because a "
+                "server may route a collection quite differently from an '.ics' inside one, and "
+                "from the principal axis because the client minted this spelling rather than "
+                "being handed it."
+            ),
+            "default": {"support": "full"},
+        },
+        "url.encode-at.literal.principal": {
+            "description": (
+                "Whether a literal '@' in a path the *server* handed out - a principal or "
+                "calendar-home-set carrying an email-like username - is accepted and resolves.  "
+                "This is the ownCloud/Nextcloud case the 2021 workaround was written for "
+                "(/remote.php/dav/calendars/user@example.com/, served only as '%40'), and it is "
+                "the only one of the three that makes the client rewrite a spelling it was "
+                "given: 'at_literal_is_refused' reads this child and nothing else."
+            ),
+            "default": {"support": "full"},
+        },
+        "url.encode-at.encoded": {
+            "description": (
+                "Whether the percent-encoded spelling '%40' is accepted and resolves.  'full' is "
+                "the default: a server that rejects a legally percent-encoded octet outright is "
+                "hard to defend.  Note what this does *not* say - on a server whose "
+                "'url.encode-at.identity' is 'full', '%40' resolving means it resolves to a "
+                "*different* resource than '@' does, which is correct rather than a problem.  This is what decides the "
+                "spelling the client mints: '%40' unless this says '%40' will not work, in which "
+                "case the literal '@' is all that is left to try."
+            ),
+            "default": {"support": "full"},
+        },
+        "well-known": {
+            "description": "Server handles /.well-known/caldav discovery as specified in RFC 6764 section 5. A conformant server should respond with a redirect (301/302/307/308) from /.well-known/caldav to the actual CalDAV endpoint. 'full' means a redirect was observed; 'unsupported' means the server returned 404 or similar; 'unknown' means the check was skipped (e.g. localhost or request failed). Note: well-known is often provided by infrastructure (reverse proxy/hosting) rather than the CalDAV server itself, so 'unknown' is the expected default for self-hosted or test setups.",
+            "default": {"support": "unknown"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc6764#section-5"],
         },
         "get-current-user-principal": {
             "description": "Support for RFC5397, current principal extension.  Most CalDAV servers have this, but it is an extension to the DAV standard.  Possibly observed missing on mail.ru, DavMail gateway and it is possible to configure the support in some sabre-based servers",
+            ## Independent feature (directly probed): the default marks it so the
+            ## node uses its own probed value rather than being derived from
+            ## subfeatures such as .has-calendar.
+            "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc5397"],
         },
         "get-current-user-principal.has-calendar": {
@@ -91,8 +222,44 @@ class FeatureSet:
             "description": "Server returns the supported-calendar-component-set property (RFC 4791 section 5.2.3).  The property is optional: when absent the RFC mandates that all component types are accepted, so 'unsupported' here is not a protocol violation, but the client cannot determine the actual supported set without trying.",
             "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.2.3"],
         },
+        "propfind": {
+            "description": "Server supports the PROPFIND method (RFC4918 section 9.1): a PROPFIND for a named property returns a multistatus response.  Independent feature (not just a grouping node) so that a server lacking a sub-feature like propfind.allprop.resourcetype is not mistaken for one that does not support PROPFIND at all.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4918#section-9.1"],
+        },
+        "propfind.allprop": {
+            "description": "An <DAV:allprop/> PROPFIND returns a multistatus response.  This is independent of whether resourcetype in particular is included (see propfind.allprop.resourcetype).",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4918#section-9.1"],
+        },
+        "propfind.allprop.resourcetype": {
+            "description": "An <DAV:allprop/> PROPFIND returns the DAV:resourcetype live property.  RFC4918 section 9.1 lists resourcetype among the live properties an allprop request should return, so 'full' (the default) is the conformant behaviour; a few servers (Bedework) omit it.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4918#section-9.1"],
+        },
         "create-calendar.with-supported-component-types": {
             "description": "Server honours the supported-calendar-component-set restriction set at MKCALENDAR time.  When 'full', the server both advertises (or enforces) the restriction; when 'unsupported', the restriction is silently ignored (wrong-type objects can be saved to the calendar).  When 'ungraceful', the MKCALENDAR request itself fails when a component set is specified.",
+        },
+        "calendar-color": {
+            "description": "Server stores the nonstandard Apple/Mozilla {http://apple.com/ns/ical/}calendar-color property (set with a colour name like 'blue') on a calendar collection.  'full' covers servers that normalise the name to a hex value (the set value still tracks the input); 'broken' is a read-only property (the same value comes back regardless of what is set).  Not described by RFC4791/RFC5545, so a server that rejects or ignores it ('unsupported') is not breaching any RFC.  The default is 'fragile' because the behaviour varies a lot between servers and is rarely worth asserting on.",
+            "default": {"support": "fragile"},
+            "note":
+"""The real default ought to be False because this is not a part
+of any published standard AFAIK.  We should never expect servers
+to support this.  However, the compatibility test would trip on
+servers that supports it if we leave it as False.
+"Fragile" sort of makes sense, because until it has been tested
+one should assume the support to maybe exist and maybe not -
+hence, "fragile".
+"""
+        },
+        "calendar-color.hex": {
+            "description": "Like calendar-color, but the property is set with a hex value (e.g. '#FF0000FF') rather than a colour name.  Some servers accept one form but not the other.",
+            "default": {"support": "fragile"},
+        },
+        "calendar-order": {
+            "description": "Server stores the nonstandard Apple/Mozilla {http://apple.com/ns/ical/}calendar-order property on a calendar collection (a get/set round-trip).  'broken' is a read-only property (e.g. the server returns the calendar's own position regardless of what is set).  Not described by RFC4791/RFC5545, so a server that rejects or ignores it ('unsupported') is not breaching any RFC.  The default is 'fragile' because the behaviour varies a lot between servers.",
+            "default": {"support": "fragile"},
         },
         "rate-limit": {
             "type": "client-feature",
@@ -108,6 +275,15 @@ class FeatureSet:
             "description": "The server delivers search results from a cache which is not immediately updated when an object is changed.  Hence recent changes may not be reflected in search results",
             "extra_keys": {
                 "delay": "after this number of seconds, we may be reasonably sure that the search results are updated",
+            }
+        },
+        "write-delay": {
+            "type": "server-peculiarity",
+            "default": {"support": "full"},
+            "description": "The server processes write operations (PUT/DELETE/MKCALENDAR/PROPPATCH/...) asynchronously: the request returns success before the change has fully taken effect, so an immediate read-back (of any kind, not just a search) may 404 or return stale data.  A client must wait a bit after every write.  This is the general, write-side counterpart of 'search-cache' (which only delays searches).  'full' (the default) means writes take effect synchronously.",
+            "extra_keys": {
+                "behaviour": "'delay' to enable the post-write sleep",
+                "delay": "sleep this number of seconds after every write request before relying on the change being visible",
             }
         },
         "tests-cleanup-calendar": {
@@ -127,10 +303,38 @@ class FeatureSet:
             "description": "Accessing a calendar which does not exist automatically creates it",
         },
         "create-calendar.set-displayname": {
-            "description": "It's possible to set the displayname on a calendar upon creation"
+            "description": "It's possible to set the displayname on a calendar upon creation",
+            ## Independent feature (directly probed).
+            "default": {"support": "full"},
+        },
+        "create-calendar.stable-url": {
+            "description": (
+                "After a calendar is created it remains addressable at the URL derived from the "
+                "requested cal_id.  'full' (the normal case): the calendar's canonical URL is the "
+                "requested URL.  'unsupported': the server assigns a DIFFERENT canonical URL and the "
+                "requested cal_id is not a reliable address for the calendar's object resources, so "
+                "clients must discover and adopt the canonical URL after creation (the caldav library "
+                "does this automatically).  Two known patterns are handled identically: Zimbra "
+                "relocates the collection to a display-name-derived path - a collection-level alias "
+                "may linger at the cal_id and answer PROPFIND/REPORT, but a GET on a child object "
+                "(.../<cal_id>/<uid>.ics) 404s, so it is not a usable address (cf. save-load.get-by-url); "
+                "OX always exposes an opaque cal://0/NNN (base64-segment) canonical URL.  Note: on "
+                "Zimbra the URL only becomes unstable when a display name is supplied at creation; a "
+                "nameless MKCALENDAR stays at the requested cal_id."
+            ),
+            "default": {"support": "full"},
+        },
+        "propfind.displayname": {
+            "description": "Server returns the DAV:displayname property for a calendar collection via PROPFIND (RFC4918 section 15.2). This is a standard live property; virtually all CalDAV servers support it. 'broken' means the property is absent from the PROPFIND response even though a displayname was supplied at creation time.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4918#section-15.2"],
         },
         "delete-calendar": {
             "description": "RFC4791 says nothing about deletion of calendars, so the server implementation is free to choose weather this should be supported or not.  Section 3.2.3.2 in RFC 6638 says that if a calendar is deleted, all the calendarobjectresources on the calendar should also be deleted - but it's a bit unclear if this only applies to scheduling objects or not.  Some calendar servers moves the object to a trashcan rather than deleting it",
+            ## Independent feature (directly probed): the default marks it so the
+            ## node uses its own probed value rather than being derived from
+            ## .free-namespace.
+            "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc6638#section-3.2.3.2"],
         },
         "delete-calendar.free-namespace": {
@@ -142,9 +346,12 @@ class FeatureSet:
             "default": { "support": "fragile" },
         },
         "save-load": {
-            "description": "it's possible to save and load objects to the calendar"
+            "description": "it's possible to save and load objects to the calendar",
         },
-        "save-load.event": {"description": "it's possible to save and load events to the calendar"},
+        "save-load.event": { ## TODO: make this DRY
+            "description": "it's possible to save and load events to the calendar",
+            "default": { "support": "full" }
+        },
         "save-load.event.recurrences": {"description": "it's possible to save and load recurring events to the calendar - events with an RRULE property set, including recurrence sets", "default": {"support": "full"}},
         "save-load.event.recurrences.count": {"description": "The server will receive and store a recurring event with a count set in the RRULE", "default": {"support": "full"}},
         ## This was Claude's suggestion and it works as of today, the
@@ -157,16 +364,66 @@ class FeatureSet:
         ## information was simply discarded, and the current search behaviour would in
         ## such a case be incorrect if the exception is simply discarded.
         "save-load.event.recurrences.exception": {"description": "When a VCALENDAR containing a master VEVENT (with RRULE) and exception VEVENT(s) (with RECURRENCE-ID) is stored, the server keeps them together as a single calendar object resource. When unsupported, the server splits exception VEVENTs into separate calendar objects, making client-side expansion unreliable (the master expands without knowing about its exceptions)."},
-        "save-load.todo": {"description": "it's possible to save and load tasks to the calendar"},
-        "save-load.todo.recurrences": {"description": "it's possible to save and load recurring tasks to the calendar"},
+        "save-load.event.recurrences.exception.reschedule": {"description": "The server accepts a PUT that reschedules an entire recurring event - changing the master VEVENT's DTSTART (re-anchoring the whole series) while detached exception VEVENT(s) (with RECURRENCE-ID) are present and their RECURRENCE-IDs are shifted to line up with the new series.  This is unsupported for Ox, the server rejects such a PUT with 409 Conflict even when a matching If-Match etag is supplied.  Rescheduling a recurring event that has no exceptions still works.  Exercised by save(all_recurrences=True) after changing dtstart/dtend.", "default": {"support": "full"}},
+        "save-load.todo": {
+            "description": "it's possible to save and load tasks to the calendar",
+            "default": { "support": "full" }
+        },
+        "save-load.todo.recurrences": {"description": "it's possible to save and load recurring tasks to the calendar", "default": {"support": "full"}},
         "save-load.todo.recurrences.count": {"description": "The server will receive and store a recurring task with a count set in the RRULE", "default": {"support": "full"}},
         "save-load.todo.recurrences.thisandfuture": {"description": "Completing a recurring task with rrule_mode='thisandfuture' works (modifies RRULE and saves back to server)", "default": {"support": "full"}},
         "save-load.todo.mixed-calendar": {"description": "The same calendar may contain both events and tasks (Zimbra only allows tasks to be placed on special task lists)", "default": {"support": "full"}},
-        "save-load.journal": {"description": "The server will even accept journals"},
+        "save-load.journal": {
+            "description": "The server will even accept journals",
+            "default": { "support": "full" }
+        },
         ## TODO: zimbra cannot mix events and tasks, but then davis surprised me by not allowing journals on the same calendar.  But this may be a miss in the checking script - it may be that mixing is allowed, but that the calendar has to be set up from scratch with explicit support for both VJOURNAL and other things
         "save-load.journal.mixed-calendar": {"description": "The same calendar may contain events, tasks and journals (some servers require journals on a dedicated VJOURNAL calendar)", "default": {"support": "full"}},
         "save-load.get-by-url": {
             "description": "GET requests to calendar object resource URLs work correctly. When unsupported, the server returns 404 on GET even for valid object URLs. The client works around this by falling back to UID-based lookup.",
+        },
+        "non-existing-raises-not-found": {
+            "description": (
+                "Looking up something that does not exist raises NotFoundError.  A grouping "
+                "node: the two subfeatures below are siblings, neither derived from the other, "
+                "because a server is perfectly free to answer one way for a missing calendar "
+                "*object* and another for a missing *collection* - Robur does - and because the "
+                "library reaches the two by different code paths.  Declaring this parent claims "
+                "both at once, which is only honest when both were actually observed."
+            ),
+        },
+        "non-existing-raises-not-found.object": {
+            "description": (
+                "Looking up a non-existing calendar *object* resource raises NotFoundError.  "
+                "'full' (the default) is the expected behaviour: the server itself answers 404.  "
+                "'quirk' when the caller still ends up with a NotFoundError, but only because the "
+                "library worked around what the server actually answered - "
+                "`CalendarObjectResource.load()` retries a failed GET as a calendar-multiget "
+                "REPORT against the parent collection, and a server answering 403 on the object "
+                "URL may report the missing href with a 404 inside that multistatus (Robur does); "
+                "read the `behaviour` field for what a given server does.  Anything reaching past "
+                "`load()` sees the raw answer, and `load(multiget_fallback=False)` asks for it "
+                "deliberately.  'unsupported' when the lookup ends in some other DAVError - "
+                "typically AuthorizationError, because the server answers 403 rather than 404 to "
+                "avoid leaking whether a resource exists, which is a legitimate choice rather "
+                "than an RFC breach, hence 'unsupported' rather than 'broken'."
+            ),
+            "default": {"support": "full"},
+        },
+        "non-existing-raises-not-found.collection": {
+            "description": (
+                "Looking up a non-existing calendar *collection* raises NotFoundError.  A sibling "
+                "of '.object' rather than its child: there is no multiget fallback for a "
+                "collection, so a server answering 403 for anything non-existing (Robur) is "
+                "rescued into NotFoundError for a missing object while a missing calendar "
+                "surfaces the AuthorizationError.  Neither observation tells you anything about "
+                "the other, so neither may be derived from the other."
+            ),
+            "default": {"support": "full"},
+        },
+        "save-load.stable-url": {
+            "description": "The server reports a calendar object resource under the same URL the client used to store it, so that a client may compare a searched object's URL with one it constructed as '<collection>/<uid>.ics'.  When 'unsupported' it may not, and has to read the URL off the response.  Two different things make it 'unsupported'.  The server may assign the resource a name of its own choosing.  Or the *collection* may not stay at the address it was created at, in which case a constructed object URL is only usable from the address the server reports objects under - and a client is handed either address depending on how it got the Calendar: make_calendar adopts the canonical URL, a calendar listing reports it, while the cal_id shortcut is pure URL arithmetic and never round-trips.  That comes in two flavours.  OX App Suite exposes a calendar both at the requested cal_id and at an opaque internal 'cal://0/NNN' path, a direct GET on either working, so a constructed URL resolves but is not the URL the server reports.  Zimbra instead relocates the collection to a display-name-derived path and leaves an alias at the cal_id that answers PROPFIND but 404s on child objects, so a constructed URL under the cal_id does not resolve at all.  That second case is 'create-calendar.stable-url' seen from the object end, and it is read from there rather than measured again here - measuring it made this feature's verdict depend on which address the probe run happened to be holding.",
+            "default": {"support": "full"},
         },
         "save-load.reuse-deleted-uid": {
             "description": "After deleting an event, the server allows creating a new event with the same UID. When 'broken', the server keeps deleted events in a trashbin with a soft-delete flag, causing unique constraint violations on UID reuse. See https://github.com/nextcloud/server/issues/30096"
@@ -182,6 +439,15 @@ class FeatureSet:
         },
         "save-load.mutable": {
             "description": "A saved calendar object resource can be modified and PUT back to the server; the server accepts the update and returns the modified data on the next GET/REPORT. When 'unsupported', the server treats calendar objects as immutable after initial creation (e.g. Google Calendar's legacy CalDAV API). Replaces the old 'no_overwrite' compatibility flag.",
+            "default": {"support": "full"},
+        },
+        "save-load.mutable.attendee-partstat": {
+            "description": "A client can modify an attendee's PARTSTAT on an existing event and PUT it back directly to the calendar.  When 'unsupported', the server forbids direct modification of attendee participation status via PUT (e.g. OX App Suite returns 403 Forbidden even with a matching If-Match etag) and expects the change to be made through iTIP scheduling instead.  See https://github.com/python-caldav/caldav/issues/399",
+            "default": {"support": "full"},
+            "links": ["https://github.com/python-caldav/caldav/issues/399"],
+        },
+        "save-load.mutable.if-match-optional": {
+            "description": "The If-Match precondition is optional when overwriting an existing calendar object resource: the server accepts a PUT that carries no If-Match etag (i.e. add_event()/save() on an object that was not first fetched).  When 'unsupported', the server requires an If-Match etag for updates and rejects a no-If-Match overwrite with 409 Conflict (e.g. OX App Suite enforces optimistic concurrency).  Such servers still support save-load.mutable via a fetch-then-save (etag-conditional) update; only the blind-overwrite path is affected.",
             "default": {"support": "full"},
         },
         "search": {
@@ -208,7 +474,17 @@ class FeatureSet:
             "description": "Time-range searches should only return events/todos that actually fall within the requested time range. Some servers incorrectly return recurring events whose recurrences fall outside (after) the search interval, or events with no recurrences in the requested time range at all. RFC4791 section 9.9 specifies that a VEVENT component overlaps a time range if the condition (start < search_end AND end > search_start) is true.",
             "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-9.9"],
         },
+        "search.time-range.comp-type-optional": {
+            "description": "Whether the server accepts a calendar-query carrying a time-range filter but NOT specifying a component type. Per RFC4791 section 9.7 a CALDAV:time-range element is only valid inside a comp-filter for VEVENT/VTODO/VJOURNAL/VFREEBUSY/VALARM - never directly under the VCALENDAR comp-filter. A query without a component type therefore has nowhere RFC-legal to put the time-range. Consequently 'unsupported' (the default) is FULLY RFC-COMPLIANT and is NOT a server defect: SabreDAV-based servers (Baikal, Nextcloud, ...) correctly reject such queries with HTTP 400 'You cannot add time-range filters on the VCALENDAR component'. When unsupported, the library splits the search into one query per component type. See https://github.com/python-caldav/caldav/issues/681",
+            "default": {"support": "unsupported"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-9.7"],
+        },
         "search.time-range.todo": {"description": "basic time range searches for tasks works", "default": {"support": "full"}},
+        "search.time-range.todo.no-dtstart": {
+            "description": "A VTODO without DTSTART (but with DUE) is returned by a date-range search.  RFC5545 and RFC4791 section 9.9 say such a task has a defined time span and should be found, so 'full' (the default) is the compliant behaviour; some servers (Davical, Stalwart, Synology) skip any task lacking DTSTART.  Probed with a closed window; servers that skip such tasks only in closed ranges (returning them in open-ended ones) are instead tracked by the 'vtodo_datesearch_nodtstart_task_is_skipped_in_closed_date_range' flag.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-9.9"],
+        },
         "search.time-range.todo.old-dates": {"description": "time range searches for tasks with old dates (e.g. year 2000) work - some servers enforce a min-date-time restriction"},
         "search.time-range.todo.strict": {
             "description": "Bounded VTODO time-range searches do not return tasks whose time span falls entirely outside the searched range (no false positives).",
@@ -264,6 +540,11 @@ class FeatureSet:
         "search.text": {
             "description": "Search for text attributes should work"
         },
+        "search.text.comp-type-optional": {
+            "description": "Whether the server returns matching objects for a calendar-query that carries a prop-filter (CATEGORIES, SUMMARY, ...) but does NOT specify a component type.  Such a prop-filter ends up directly under the VCALENDAR comp-filter, where it filters on VCALENDAR's own properties - which do not include component properties like CATEGORIES - so most servers (e.g. Xandikos, SabreDAV) match nothing.  'unsupported' (the default) is therefore the common, RFC-reasonable case; when unsupported the library splits the search into one query per component type.  Analogous to search.time-range.comp-type-optional.  See https://github.com/python-caldav/caldav/issues/681",
+            "default": {"support": "unsupported"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-9.7"],
+        },
         "search.text.case-sensitive": {
             "description": "In RFC4791, section-9.7.5, a text-match may pass a collation, and i;ascii-casemap MUST be the default, this is not checked (yet - TODO) by the caldav-server-checker project.  Section 7.5 describes that the servers also are REQUIRED to support i;octet.  The definitions of those collations are given in RFC4790, i;octet is a case-sensitive byte-by-byte comparition (fastest).  search.text.case-sensitive is supported if passing the i;octet collation to search causes the search to be case-sensitive.",
             "links": [
@@ -285,6 +566,10 @@ class FeatureSet:
         },
         "search.text.category": {
             "description": "Search for category should work.  This is not explicitly specified in RFC4791, but covered in section 9.7.5.  No examples targets categories explicitly, but there are some text match examples in section 7.8.6 and following sections",
+            ## Independent feature (directly probed): the default marks it so the
+            ## node uses its own probed value rather than being derived from
+            ## .substring.
+            "default": {"support": "full"},
             "links": [
                 "https://datatracker.ietf.org/doc/html/rfc4791#section-9.7.5",
                 "https://datatracker.ietf.org/doc/html/rfc4791#section-7.8.6",
@@ -301,7 +586,11 @@ class FeatureSet:
             "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-7.4"],
         },
         "search.recurrences.includes-implicit.todo": {
-            "description": "tasks can also be recurring"
+            "description": "tasks can also be recurring",
+            ## Independent feature (directly probed): the default marks it so the
+            ## node uses its own probed value rather than being derived from
+            ## .pending.
+            "default": {"support": "full"},
         },
         "search.recurrences.includes-implicit.todo.pending": {
             "description": "a future recurrence of a pending task should always be pending and appear in searches for pending tasks",
@@ -332,6 +621,10 @@ class FeatureSet:
         },
         "sync-token": {
             "description": "RFC6578 sync-collection reports are supported. Server provides sync tokens that can be used to efficiently retrieve only changed objects since last sync. Support can be 'full', 'fragile' (occasionally returns more content than expected), or 'unsupported'. Behaviour 'time-based' indicates second-precision tokens requiring sleep(1) between operations",
+            ## Independent feature (directly probed): the default marks it so the
+            ## node uses its own probed value rather than being derived from
+            ## .delete.
+            "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc6578"],
         },
         "sync-token.delete": {
@@ -339,6 +632,10 @@ class FeatureSet:
         },
         "scheduling": {
             "description": "Server supports CalDAV Scheduling (RFC6638). Detected via the presence of 'calendar-auto-schedule' in the DAV response header.",
+            ## Independent feature (directly probed via the DAV header): the default
+            ## marks it so the node uses its own probed value rather than being
+            ## derived from subfeatures such as .calendar-user-address-set.
+            "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc6638"],
         },
         "scheduling.mailbox": {
@@ -390,6 +687,11 @@ class FeatureSet:
         },
         "principal-search": {
             "description": "Server supports searching for principals (CalDAV users). Principal search may be restricted for privacy/security reasons on many servers.  (not to be confused with get-current-user-principal)"
+            ## NB: genuine grouping node - 'supported' iff at least one search
+            ## method (.by-name / .list-all) works.  The checker sets it directly
+            ## because that OR-semantics cannot be expressed by the library's
+            ## all-children-agree derivation; it deliberately has NO default so
+            ## that when all sub-searches fail the node is unsupported.
         },
         "principal-search.by-name": {
             "description": "Server supports searching for principals by display name. Testing this properly requires setting up another user with a known name, so this check is not yet implemented"
@@ -407,6 +709,10 @@ class FeatureSet:
         "save.duplicate-uid": {},
         "save.duplicate-uid.cross-calendar": {
             "description": "Server allows events with the same UID to exist in different calendars and treats them as separate entities. Support can be 'full' (allowed), 'ungraceful' (rejected with error), or 'unsupported' (silently ignored or moved). Behaviour 'silently-ignored' means the duplicate is not saved but no error is thrown. Behaviour 'moved-instead-of-copied' means the event is moved from the original calendar to the new calendar (Zimbra behavior)"
+        },
+        "save.duplicate-event": {
+            "description": "Server allows two events with identical content but different UIDs to coexist in the same calendar.  Some servers reject or de-duplicate such an event ('duplicates not allowed even with a different UID'), in which case this is 'unsupported' (silently dropped) or 'ungraceful' (rejected with an error).  The default 'full' is the usual behaviour.",
+            "default": {"support": "full"},
         },
         ## TODO: as for now, the tests will run towards the first calendar it will find, and most of the tests will assume the calendar is empty.  This is bad.
         "test-calendar": {
@@ -485,7 +791,9 @@ class FeatureSet:
                 self._old_flags = feature_set[feature]
                 continue
             try:
-                feature_info = self.find_feature(feature)
+                ## called for the exception, not the return value: an unknown
+                ## feature name is a typo in the configuration and gets a warning
+                self.find_feature(feature)
             except (AssertionError, KeyError):
                 warnings.warn(
                     f"Unknown feature '{feature}' in configuration. "
@@ -493,13 +801,14 @@ class FeatureSet:
                     UserWarning,
                     stacklevel=3,
                 )
+                continue
             value = feature_set[feature]
             if feature not in self._server_features:
                 self._server_features[feature] = {}
             server_node = self._server_features[feature]
             if isinstance(value, bool):
                 server_node['support'] = "full" if value else "unsupported"
-            elif isinstance(value, str) and 'support' not in server_node:
+            elif isinstance(value, str):
                 self._validate_support_level(value, feature)
                 server_node['support'] = value
             elif isinstance(value, dict):
@@ -541,44 +850,76 @@ class FeatureSet:
 
     def collapse(self):
         """
-        If all subfeatures are the same, it should be collapsed into the parent
+        Compact the stored feature set: a *grouping* parent (one without its own
+        explicit default) whose grouping children are all explicitly set to the
+        same status is replaced by a single entry on the parent, and the children
+        are dropped.
 
-        Messy and complex logic :-(
+        The parent status comes from the single derivation path,
+        is_supported() -> _derive_from_subfeatures().  That path already:
+          * treats a node with an explicit default as an independent feature -
+            never derived/collapsed from its children (so e.g. save-load.mutable
+            stays "full" even when every child is "unsupported"), and
+          * ignores independent children (those with their own default) when
+            deriving a grouping parent.
+        collapse() adds only a losslessness check on top: it folds the children
+        in solely when every grouping child is explicitly set and matches the
+        derived value, so no per-child information is lost.
         """
-        features = list(self._server_features.keys())
         parents = set()
-        for feature in features:
+        for feature in self._server_features:
             if '.' in feature:
                 parents.add(feature[:feature.rfind('.')])
-        parents = list(parents)
-        ## Parents needs to be ordered by the number of dots.  We proceed those with most dots first.
-        parents.sort(key = lambda x: (-x.count('.'), x))
-        for parent in parents:
+        ## Deepest parents first, so a freshly collapsed child can feed its parent.
+        for parent in sorted(parents, key=lambda x: (-x.count('.'), x)):
             parent_info = self.find_feature(parent)
 
-            if len(parent_info['subfeatures']):
-                foo = self.is_supported(parent, return_type=dict, return_defaults=False)
-                if len(parent_info['subfeatures']) > 1 or foo is not None:
-                    dont_collapse = False
-                    foo_key = self._collapse_key(foo) if foo is not None else None
-                    for sub in parent_info['subfeatures']:
-                        bar = self._server_features.get(f"{parent}.{sub}")
-                        if bar is None:
-                            dont_collapse = True
-                            break
-                        bar_key = self._collapse_key(bar)
-                        if foo is None:
-                            foo = bar
-                            foo_key = bar_key
-                        elif bar_key != foo_key:
-                            dont_collapse = True
-                            break
-                    if not dont_collapse:
-                        if parent not in self._server_features:
-                            self._server_features[parent] = {}
-                        for sub in parent_info['subfeatures']:
-                            self._server_features.pop(f"{parent}.{sub}")
-                        self.copyFeatureSet({parent: foo})
+            ## Independent node (its own explicit default) is never collapsed.
+            if 'default' in parent_info:
+                continue
+
+            ## Independent children (their own default) are separate features:
+            ## neither folded in nor required to match.
+            grouping_children = [
+                sub
+                for sub in parent_info['subfeatures']
+                if 'default' not in self.find_feature(f"{parent}.{sub}")
+            ]
+            if not grouping_children:
+                continue
+
+            derived = self.is_supported(parent, return_type=dict, return_defaults=False)
+            if derived is None:
+                continue
+            derived_key = self._collapse_key(derived)
+
+            ## Lossless only if every grouping child is explicitly set and matches.
+            child_nodes = [self._server_features.get(f"{parent}.{sub}") for sub in grouping_children]
+            if any(node is None or self._collapse_key(node) != derived_key for node in child_nodes):
+                continue
+
+            ## Folding sets the (previously unset) parent explicitly, which an
+            ## *independent* child (its own default) that is not itself explicitly
+            ## set would then inherit - changing its resolved status whenever its
+            ## default differs from the derived value.  Skip the fold in that case
+            ## so is_supported() stays invariant under collapse().  (e.g. folding
+            ## save.duplicate-uid into save must not flip the independent sibling
+            ## save.duplicate-event from its default "full" to "ungraceful".)
+            independent_children = [
+                sub
+                for sub in parent_info['subfeatures']
+                if 'default' in self.find_feature(f"{parent}.{sub}")
+            ]
+            if any(
+                f"{parent}.{sub}" not in self._server_features
+                and self._collapse_key(self._default(f"{parent}.{sub}")) != derived_key
+                for sub in independent_children
+            ):
+                continue
+
+            for sub in grouping_children:
+                self._server_features.pop(f"{parent}.{sub}", None)
+            self.copyFeatureSet({parent: derived})
 
     def _default(self, feature_info):
         if isinstance(feature_info, str):
@@ -619,7 +960,12 @@ class FeatureSet:
             if 'default' not in current_info:
                 derived = self._derive_from_subfeatures(feature_, current_info, return_type, accept_fragile)
                 if derived is not None:
-                    return derived
+                    # When visiting an ancestor node (feature_ != feature), only propagate
+                    # the derived status downward if the *original* queried feature is also
+                    # a grouping node (no explicit default). Independent features have their
+                    # own explicit default and must not be overridden by a derived ancestor.
+                    if feature_ == feature or 'default' not in feature_info:
+                        return derived
             if '.' not in feature_:
                 if not return_defaults:
                     return None
@@ -689,8 +1035,11 @@ class FeatureSet:
         if has_positive:
             if all_same:
                 derived_status = subfeature_statuses[0]
+            elif not is_complete:
+                # Incomplete mixed set: unset siblings might be unsupported; inconclusive
+                return None
             else:
-                # Mixed positive/negative → unknown
+                # All relevant children seen, but mixed positive/negative → unknown
                 derived_status = 'unknown'
         elif is_complete and all_same:
             # All relevant subfeatures set, all the same negative status
@@ -804,6 +1153,67 @@ class FeatureSet:
             ret[x] = feature.copy()
         return ret
 
+    ## Feature types that the server-tester cannot reliably probe and that
+    ## therefore must not be cross-checked against the declared config.
+    _UNCHECKABLE_FEATURE_TYPES = (
+        "client-feature",
+        "server-observation",
+        "tests-behaviour",
+        "client-hints",
+        "server-peculiarity",
+    )
+
+    def compare(self, observed):
+        """Compare this *declared* (expected) feature set against an *observed*
+        feature set and return the list of mismatches.
+
+        Each mismatch is a dict with keys ``feature``, ``expected`` and
+        ``observed`` holding the resolved (string) support levels that disagree.
+
+        Only server-features are compared; anything resolving to ``fragile`` or
+        ``unknown`` on either side, and feature types the tester cannot probe
+        reliably (see ``_UNCHECKABLE_FEATURE_TYPES``), are ignored.
+        """
+        ## Snapshot what the tester explicitly probed *before* compact=True
+        ## calls collapse(), which mutates _server_features by folding
+        ## subfeatures into their parent - making probed features look
+        ## untested.  is_supported() still resolves the collapsed values
+        ## correctly afterwards via the parent.
+        checked_features = set(observed._server_features.keys())
+        observed_dotted = observed.dotted_feature_set_list(compact=True)
+        expected_dotted = self.dotted_feature_set_list(compact=True)
+
+        mismatches = []
+        ## Iterate everything either side made an explicit statement about:
+        ## the compacted dotted dicts plus every feature the tester probed.
+        ## Probed features whose observed value equals the default are absent
+        ## from observed_dotted, yet may still conflict with a non-default
+        ## status the declared config inherits from a parent (e.g. Infomaniak
+        ## search.comp-type.optional vs an unsupported search.comp-type).
+        for feature in set(observed_dotted).union(expected_dotted).union(checked_features):
+            observation = observed.is_supported(feature, str)
+            expectation = self.is_supported(feature, str)
+            if "fragile" in (observation, expectation):
+                continue
+            if "unknown" in (observation, expectation):
+                continue
+            ## Skip features the tester never explicitly probed - the
+            ## observation would just be a default, not a real result.
+            if feature not in observed_dotted and feature not in checked_features:
+                continue
+            type_ = observed.find_feature(feature).get("type", "server-feature")
+            if type_ in self._UNCHECKABLE_FEATURE_TYPES:
+                continue
+            if expectation != observation:
+                mismatches.append(
+                    {
+                        "feature": feature,
+                        "expected": expectation,
+                        "observed": observation,
+                    }
+                )
+        return mismatches
+
 #### OLD STYLE
 
 ## THE LIST BELOW IS TO BE REMOVED COMPLETELY.  DO NOT USE IT.
@@ -825,27 +1235,8 @@ class FeatureSet:
 ## * Perhaps some more readable format should be considered (yaml?).
 ## * Consider how to get this into the documentation
 incompatibility_description = {
-    'calendar_order':
-        """Server supports (nonstandard) calendar ordering property""",
-
-    'calendar_color':
-        """Server supports (nonstandard) calendar color property""",
-
-    'duplicates_not_allowed':
-        """Duplication of an event in the same calendar not allowed """
-        """(even with different uid)""",
-
-
     'event_by_url_is_broken':
         """A GET towards a valid calendar object resource URL will yield 404 (wtf?)""",
-
-    'propfind_allprop_failure':
-        """The propfind test fails ... """
-        """it asserts DAV:allprop response contains the text 'resourcetype', """
-        """possibly this assert is wrong""",
-
-    'vtodo_datesearch_nodtstart_task_is_skipped':
-        """date searches for todo-items will not find tasks without a dtstart""",
 
     'vtodo_datesearch_nodtstart_task_is_skipped_in_closed_date_range':
         """only open-ended date searches for todo-items will find tasks without a dtstart""",
@@ -866,17 +1257,11 @@ incompatibility_description = {
         """Events should be deleted before the calendar is deleted, """
         """and/or deleting a calendar may not have immediate effect""",
 
-    'no_overwrite':
-        """events cannot be edited""",
-
     'dav_not_supported':
         """when asked, the server may claim it doesn't support the DAV protocol.  Observed by one baikal server, should be investigated more (TODO) and robur""",
 
    'fastmail_buggy_noexpand_date_search':
         """The 'blissful anniversary' recurrent example event is returned when asked for a no-expand date search for some timestamps covering a completely different date""",
-
-    'non_existing_raises_other':
-        """Robur raises AuthorizationError when trying to access a non-existing resource (while 404 is expected).  Probably so one shouldn't probe a public name space?""",
 
     'robur_rrule_freq_yearly_expands_monthly':
         """Robur expands a yearly event into a monthly event.  I believe I've reported this one upstream at some point, but can't find back to it""",
@@ -884,6 +1269,9 @@ incompatibility_description = {
 }
 
 xandikos = {
+    ## Genuinely returns matching objects for a comp-type-less query that carries
+    ## a time-range (verified: the event is returned, not just "no error").
+    "search.time-range.comp-type-optional": {"support": "full"},
     ## Principal property search returns 403 (not implemented)
     "principal-search": "ungraceful",
 
@@ -900,6 +1288,9 @@ xandikos = {
 ## There is much development going on at Radicale as of summar 2025,
 ## so I'm expecting this list to shrink a lot soon.
 radicale = {
+    ## Genuinely returns matching objects for a comp-type-less query that carries
+    ## a time-range (verified: the event is returned, not just "no error").
+    "search.time-range.comp-type-optional": {"support": "full"},
     "search.is-not-defined": {"support": "full"},
     "search.text.case-sensitive": {"support": "unsupported"},
     "search.recurrences.includes-implicit.todo.pending": {"support": "fragile", "behaviour": "inconsistent results between runs"},
@@ -909,11 +1300,9 @@ radicale = {
     ## this only applies for very simple installations
     "auto-connect.url": {"domain": "localhost", "scheme": "http", "basepath": "/"},
     "scheduling": {"support": "unsupported"},
-    'old_flags': [
-    ## extra features not specified in RFC4791
-    "calendar_order",
-    "calendar_color"
-    ]
+    ## extra properties not specified in RFC4791/RFC5545
+    "calendar-color": {"support": "full"},
+    "calendar-order": {"support": "full"},
 }
 
 ## Be aware that nextcloud by default have different rate limits, including how often a user is allowed to create a new calendar.  This may break test runs badly.
@@ -921,8 +1310,20 @@ nextcloud = {
     'auto-connect.url': {
         'basepath': '/remote.php/dav',
     },
-    ## I'm surprised, I'm quite sure this was reported ungraceful earlier.  Passed with caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad 2026-02-15.  The commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad was however development done on the wrong branch and has been force-pushed awway.  It was again observed ungraceful at commits be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492
-    'search.comp-type.optional': {'support': 'ungraceful'},
+    ## Probed 2026-08-26 against the docker test server with a user actually
+    ## named "at@e.email": both spellings resolve, at the collection level and
+    ## at the object level, and a PROPFIND on the "%40" form reports the href
+    ## back with a literal "@".  Aliased, i.e. the url.encode-at.identity
+    ## default - so nothing is declared here.
+    ##
+    ## Recorded because it retires a hack from 2021 (72e30326, "owncloud
+    ## returns remote.php/dav/calendars/tobixen@e.email/ ... the @ should be
+    ## quoted"), which percent-encoded every relative home-set containing an
+    ## "@" for every server ever since.  Whatever that worked around, this
+    ## server does not need it today, and no other profile asks for it.
+    ## The time-range variant is tracked separately as
+    ## search.time-range.comp-type-optional (unsupported on SabreDAV, the default).
+    'search.comp-type.optional': {'support': 'full'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
     "search.recurrences.includes-implicit.infinite-scope": False,
     'delete-calendar': {
@@ -970,13 +1371,52 @@ ecloud = nextcloud | {
 ## Zimbra is not very good at it's caldav support
 zimbra = {
     'auto-connect.url': {'basepath': '/dav/'},
+    ## Genuinely returns matching objects for a comp-type-less query that carries
+    ## a time-range (verified: the event is returned, not just "no error").
+    'search.time-range.comp-type-optional': {'support': 'full'},
     'delete-calendar': {'support': 'fragile', 'behaviour': 'may move to trashbin instead of deleting immediately'},
     ## This is a zimbra bug when creating calendars with a display
     ## name.  Now mitigated in the calendar creation code.
     #'save-load.get-by-url': {'support': 'fragile', 'behaviour': '404 most of the time - but sometimes 200.  Weird, should be investigated more'},
     ## Zimbra treats same-UID events across calendars as aliases of the same event
     'save.duplicate-uid.cross-calendar': {'support': 'unsupported'},
-    'create-calendar.set-displayname': {'support': 'unsupported'},
+    ## Zimbra DOES apply a display name set at creation (the name sticks, so
+    ## set-displayname is 'full') - but it couples the display name to the
+    ## calendar URL.  MKCALENDAR lands the calendar at the requested cal_id path;
+    ## the display name is then applied by a follow-up PROPPATCH, which Zimbra
+    ## implements as a rename that MOVES the collection: the canonical URL
+    ## relocates to a display-name-derived path (verified deterministic with a
+    ## unique name against zcs-foss:latest).
+    ##
+    ## So create-calendar.stable-url is 'unsupported': is_supported() returns
+    ## False, and Calendar._create() therefore discovers and adopts the canonical
+    ## URL after creation (re-pointing self.url), instead of dropping the display
+    ## name.  This keeps the calendar fully usable (name retained AND object URLs
+    ## resolve) on both Zimbra and OX with no per-server branching.
+    ##
+    ## Two Zimbra quirks worth recording (and someday probing for explicitly),
+    ## mirrored in caldav-server-tester's CheckMakeDeleteCalendar:
+    ##   * The URL is only unstable when a display name is supplied at creation;
+    ##     a nameless MKCALENDAR stays put at the requested cal_id.
+    ##   * Zimbra keeps a collection-level ALIAS at the original cal_id (PROPFIND/
+    ##     REPORT on it succeed), yet a GET on a child object under that alias
+    ##     (.../<cal_id>/<uid>.ics) 404s - the object is only retrievable under
+    ##     the canonical relocated URL.  So "the calendar collection is reachable
+    ##     at cal_id" does NOT imply "objects are reachable at cal_id"; the canonical
+    ##     URL must be used.  (This also explains the old save-load.get-by-url
+    ##     "404 most of the time but sometimes 200" observation.)
+    'create-calendar.set-displayname': {'support': 'full'},
+    'create-calendar.stable-url': {'support': 'unsupported', 'behaviour': 'a display name set at creation relocates the collection to a display-name-derived canonical URL; a collection alias lingers at the requested cal_id but child object GETs under it 404'},
+    ## The object end of the same relocation.  Zimbra keeps the name the object
+    ## was stored under, so this is not a rename - but the collection moved, and
+    ## the alias left behind at the requested cal_id does not serve child
+    ## objects, so a URL a client constructed as '<cal_id>/<uid>.ics' 404s.  Only
+    ## a client holding the canonical collection URL can construct an object URL
+    ## at all, and the library hands out either address depending on how the
+    ## Calendar was obtained.  See the OX profile for the other flavour of this:
+    ## there both collection addresses work, so the constructed URL resolves but
+    ## may not be the one the server reports.
+    'save-load.stable-url': {'support': 'unsupported', 'behaviour': "the object keeps the name it was stored under, but the collection moved to its display-name-derived canonical URL and the cal_id alias 404s on child objects, so an object URL constructed under the requested cal_id does not resolve"},
     'save-load.todo.mixed-calendar': {'support': 'unsupported'},
     'save-load.todo.recurrences.count': {'support': 'unsupported'}, ## This is a new problem?
     'save-load.journal': {'support': 'ungraceful'},
@@ -986,8 +1426,12 @@ zimbra = {
     "search.recurrences.includes-implicit.infinite-scope": False,
     # sometimes throws a 500
     'search.text.category': {'support': 'ungraceful'},
-    'search.recurrences.expanded.todo': { "support": "unsupported" },
-    'search.comp-type.optional': {'support': 'fragile'}, ## TODO: more research on this, looks like a bug in the checker,
+    ## search.recurrences.expanded.todo was 'unsupported'; 'full' observed
+    ## 2026-08-26.  The declaration dated from when the probe searched the
+    ## *event* calendar for the recurring todo, so a server that keeps tasks
+    ## in a collection of their own could only ever come out unsupported
+    ## (caldav-server-tester 7a66c18).
+    'search.comp-type.optional': {'support': 'full'},
     'search.time-range.alarm': {'support': 'unsupported'},
     'principal-search': "unsupported",
     ## Zimbra implements server-side automatic scheduling: invitations are
@@ -1011,11 +1455,15 @@ zimbra = {
     ## TODO: I just discovered that when searching for a date some
     ## years after a recurring daily event was made, the event does
     ## not appear.
-
-    ## extra features not specified in RFC5545
-    "calendar_order",
-    "calendar_color"
-    ]
+    ],
+    ## extra properties not specified in RFC4791/RFC5545.  Zimbra stores
+    ## calendar-order, and stores calendar-color only when set as a hex value -
+    ## it rejects/ignores a colour name like "blue".  (The old 'calendar_color'
+    ## flag was never actually exercised, because testSetCalendarProperties skips
+    ## on Zimbra: setting a display name relocates the calendar.)
+    "calendar-color": {"support": "unsupported"},
+    "calendar-color.hex": {"support": "full"},
+    "calendar-order": {"support": "full"},
 }
 
 bedework = {
@@ -1040,7 +1488,12 @@ bedework = {
     "search.recurrences": False,
     "sync-token": { "support": "fragile" },
     'search.comp-type': {'support': 'broken', 'behaviour': 'Server returns everything when searching for events and nothing when searching for todos'},
-    'search.comp-type.optional': {'support': 'ungraceful'},
+    'search.comp-type.optional': {'support': 'full'},
+    ## Flaps between full and unsupported across runs - the comp-type-less
+    ## time-range query intermittently returns the in-range object vs nothing,
+    ## most likely the search-cache delay above.  Marked fragile so the checker
+    ## skips it.  Observed 2026-06-06.
+    'search.time-range.comp-type-optional': {'support': 'fragile'},
     'search.is-not-defined.dtend': False,
     "principal-search": {  "support": "ungraceful" },
     ## Bedework hides past non-recurring events from REPORT without a time-range filter,
@@ -1056,25 +1509,11 @@ bedework = {
 
     ## TODO: play with this and see if it's needed
     'save-load.icalendar.related-to': {'support': 'broken', 'behaviour': 'first RELATED-TO line is preserved but subsequent RELATED-TO lines are stripped'},
-    'old_flags': [
-    'propfind_allprop_failure',
-    'duplicates_not_allowed',
-    ],
-
-}
-
-synology = {
-    'principal-search': False,
-    'sync-token': 'fragile',
-    'delete-calendar': False,
-    'search.comp-type.optional': 'fragile',
-    'search.is-not-defined': {'support': 'fragile', 'behaviour': 'works for CLASS but not for CATEGORIES'},
-    'search.text.case-sensitive': {'support': 'unsupported'},
-    'search.time-range.alarm': {'support': 'unsupported'},
-    'old_flags': ['vtodo_datesearch_nodtstart_task_is_skipped'],
-    'test-calendar': {'cleanup-regime': 'wipe-calendar'},
-    'scheduling.schedule-tag': False,
-    'scheduling.mailbox.inbox-delivery': False,
+    ## Bedework omits DAV:resourcetype from an allprop PROPFIND response.
+    "propfind.allprop.resourcetype": {"support": "unsupported"},
+    ## (The old 'duplicates_not_allowed' flag was stale: Bedework does store a
+    ## second event with the same content under a different UID, so
+    ## save.duplicate-event is left at the default "full".)
 }
 
 baikal =  { ## version 0.10.1
@@ -1082,7 +1521,9 @@ baikal =  { ## version 0.10.1
     # into their calendar.
     "scheduling.schedule-tag": False,
     "http.multiplexing": "fragile", ## ref https://github.com/python-caldav/caldav/issues/564
-    'search.comp-type.optional': {'support': 'ungraceful'},
+    ## was 'ungraceful' - that was the checker bug (cnt counted the journal that
+    ## SabreDAV stores in a separate calendar); confirmed full 2026-06-06.
+    'search.comp-type.optional': {'support': 'full'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     "search.recurrences.includes-implicit.infinite-scope": False,
@@ -1091,11 +1532,9 @@ baikal =  { ## version 0.10.1
     'principal-search.by-name.self': {'support': 'unsupported'},
     'principal-search.list-all': {'support': 'ungraceful'},
     #'sync-token.delete': {'support': 'unsupported'}, ## Perhaps on some older servers?
-    'old_flags': [
-        ## extra features not specified in RFC5545
-        "calendar_order",
-        "calendar_color",
-    ],
+    ## extra properties not specified in RFC4791/RFC5545
+    "calendar-color": {"support": "full"},
+    "calendar-order": {"support": "full"},
     ## I'm surprised, I'm quite sure this was passing earlier.  Caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad
     'search.combined-is-logical-and': False
 } ## TODO: testPrincipals, testWrongAuthType, testTodoDatesearch fails
@@ -1107,7 +1546,7 @@ baikal_old = baikal | {
 }
 
 cyrus = {
-    "search.comp-type.optional": {"support": "ungraceful"},
+    "search.comp-type.optional": {"support": "full"},
     "search.recurrences.includes-implicit.infinite-scope": False,
     "search.time-range.alarm": {"support": "ungraceful"},
     'principal-search': {'support': 'ungraceful'},
@@ -1139,6 +1578,8 @@ cyrus = {
 #    'get_object_by_uid_is_broken'
 #]
 
+## See the synology profile above: Synology Calendar ships a modified DAViCal,
+## so the two profiles should be kept in sync where the fork has not diverged.
 davical = {
     # Disable HTTP/2 multiplexing - davical doesn't support it well and niquests
     # lazy responses cause MultiplexingError when accessing status_code
@@ -1146,29 +1587,63 @@ davical = {
     # DAViCal delivers iTIP notifications to the attendee inbox AND auto-schedules
     # into their calendar.
     "scheduling.schedule-tag": False,
-    "search.comp-type.optional": { "support": "fragile" },
+    "search.comp-type.optional": { "support": "full" },
+    ## Genuinely returns matching objects for a comp-type-less query that carries
+    ## a time-range (verified: the event is returned, not just "no error").
+    "search.time-range.comp-type-optional": { "support": "full" },
     "search.time-range.alarm": { "support": "unsupported" },
     'sync-token': {'support': 'fragile'},
     'principal-search': {'support': 'unsupported'},
     'principal-search.list-all': {'support': 'unsupported'},
+    ## DAViCal skips VTODOs without DTSTART in date-range searches.
+    'search.time-range.todo.no-dtstart': {'support': 'unsupported'},
     "old_flags": [
         #'no_journal', ## it threw a 500 internal server error! ## for old versions
         #'nofreebusy', ## for old versions
         ## 'fragile_sync_tokens' removed - covered by 'sync-token': {'support': 'fragile'}
-        'vtodo_datesearch_nodtstart_task_is_skipped', ## no issue raised yet
-        'calendar_color',
-        'calendar_order',
         'vtodo_datesearch_notime_task_is_skipped',
     ],
+    ## extra properties not specified in RFC4791/RFC5545
+    "calendar-color": {"support": "full"},
+    "calendar-order": {"support": "full"},
+}
+
+## Synology Calendar (the DSM package) embeds a modified DAViCal, hence
+## deriving from the davical profile above.
+##
+## Re-probed with caldav-server-tester against a DSM 7 Synology Calendar
+## 2026-08-23: every feature the checker could test matched davical except
+## calendar deletion, so only the deviations are listed here.
+synology = davical | {
+    ## The one real behavioural divergence of the fork: DSM manages calendars
+    ## through its own UI/API and refuses a CalDAV DELETE on the collection,
+    ## where upstream DAViCal allows it.  Consequence for callers: Calendar
+    ## .delete() degrades to wiping the objects, so a cal_id is never freed for
+    ## reuse and a later MKCALENDAR at the same id gets 405.
+    'delete-calendar': False,
+    ## (scheduling.mailbox.inbox-delivery used to be pinned False here.  It was
+    ## added in a bulk hints commit with no per-server evidence, and it cannot be
+    ## probed on the configured server - the checker needs a second user account,
+    ## and every test that reads it skips on the principal count first.  So it was
+    ## an unfalsifiable guess; it now inherits davical, which delivers iTIP
+    ## requests to the attendee inbox.  Pin it again only with a real observation.)
+    ## Test bookkeeping rather than a server feature.
+    'test-calendar': {'cleanup-regime': 'wipe-calendar'},
 }
 
 sogo = {
     "scheduling.schedule-tag": False,
     "scheduling.mailbox.inbox-delivery": False,
+    ## SOGo rejects the calendar-color property with an error (left at the
+    ## default "fragile" - rejecting a nonstandard extension is fine).  It
+    ## accepts calendar-order but echoes back a server-computed position rather
+    ## than the value that was set, so that property is effectively read-only.
+    "calendar-order": {"support": "broken", "behaviour": "read-only; server returns its own calendar position rather than the value set"},
     ## I'm surprised, I'm quite sure this was passing earlier.  reported unsupported with caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad 2026-02-15
     "search.text.category": False,
-    "search.time-range.event.old-dates": False,
-    "search.time-range.todo.old-dates": False,
+    ## old-date time-range search works (probe found, definite-future object
+    ## correctly excluded); the earlier "False" was an artifact of the old
+    ## count==1 check, which a next-year open-start DUE-only task inflated.
     "save-load.journal": {"support": "ungraceful"},
     "search.is-not-defined": {"support": "unsupported"},
     "search.text.case-sensitive": {
@@ -1180,9 +1655,13 @@ sogo = {
     "search.time-range.alarm": {
         "support": "unsupported"
     },
-    ## was unsupported.  reported ungraceful with caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad 2026-02-15
+    ## A comp-type-less query returns nothing - with or without a time-range -
+    ## so both search.comp-type.optional and search.time-range.comp-type-optional
+    ## are unsupported (the latter is the default).  The previous "ungraceful" was
+    ## a checker bug where the comp-type.optional probe carried a time-range that
+    ## SabreDAV-likes reject (https://github.com/python-caldav/caldav/issues/681).
     "search.comp-type.optional": {
-        "support": "ungraceful"
+        "support": "unsupported"
     },
     ## includes-implicit.todo has been observed as both supported and unsupported
     ## across different test runs.  Other includes-implicit children are unsupported.
@@ -1248,21 +1727,28 @@ robur = {
         'basepath': '/principals/', # TODO: this seems fishy
     },
     "save-load.journal": { "support": "ungraceful" },
-    "delete-calendar": { "support": "unsupported" },
     "search.is-not-defined": { "support": "unsupported" },
     "search.time-range.todo": { "support": "unsupported" },
     "search.time-range.alarm": {'support': 'unsupported'},
     "search.text": { "support": "unsupported", "behaviour": "a text search ignores the filter and returns all elements" },
-    "search.comp-type.optional": { "support": "ungraceful" },
     "search.recurrences.expanded.todo": { "support": "unsupported" },
     "search.recurrences.expanded.event": { "support": "fragile" },
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     'principal-search': {'support': 'ungraceful'},
     'freebusy-query': {'support': 'ungraceful'},
     "scheduling": {"support": "unsupported"},
-    'old_flags': [
-        'non_existing_raises_other', ## AuthorizationError instead of NotFoundError
-    ],
+    ## Robur answers 403, not 404, for everything that does not exist below
+    ## /calendars/ and /principals/ - a non-existing calendar *object* included
+    ## (verified 2026-08-26: GET and PROPFIND on a missing .ics in an existing
+    ## calendar both give 403).  An object lookup nevertheless ends in
+    ## NotFoundError, so callers are not surprised; a collection lookup has no
+    ## such rescue and surfaces the 403.
+    'non-existing-raises-not-found.object': {
+        'support': 'quirk',
+        'behaviour': "a direct lookup raises AuthorizationError (403); the NotFoundError comes out of load()'s calendar-multiget fallback, where Robur reports the missing href with an inner 404"},
+    'non-existing-raises-not-found.collection': {
+        'support': 'unsupported',
+        'behaviour': 'a non-existing calendar collection raises AuthorizationError (403), not NotFoundError'},
     'save-load.icalendar.related-to': {'support': 'unsupported'},
     'test-calendar': {'cleanup-regime': 'wipe-calendar'},
     "sync-token": {"support": "ungraceful"},
@@ -1280,9 +1766,6 @@ posteo = {
     ## TODO1: we should ignore cases where observations are unknown while configuration is known
     ## TODO2: there are more calendars available at the posteo account, so it should be possible to check this.
     "save.duplicate-uid.cross-calendar": { "support": "unknown" },
-    ## foo ... "full" observed for the next two, 70938dc1cbb6a839978eee4315699746d38ee5f0/3cae24cf99da1702b851b5a74a9b88c8e5317dad, 2026-02-17
-    ## bar ... 3cae24cf99da1702b851b5a74a9b88c8e5317dad was probably the rotten commit, ungraceful again in  be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492
-    'search.comp-type.optional': {'support': 'ungraceful'},
     'search.recurrences.includes-implicit.infinite-scope': False,
     #'search.text.case-sensitive': {'support': 'unsupported'},
     ## Comment from claude:
@@ -1330,11 +1813,12 @@ davis = {
     "principal-search.by-name.self": {"support": "unsupported"},
     "principal-search": {"support": "ungraceful"},
     "save-load.journal.mixed-calendar": {"support": "unsupported"},
-    "search.comp-type.optional": {"support": "ungraceful"},
-    "old_flags": [
-        "calendar_order",
-        "calendar_color",
-    ],
+    ## was 'ungraceful' - that was the checker bug (cnt counted the journal that
+    ## SabreDAV stores in a separate calendar); confirmed full 2026-06-06.
+    "search.comp-type.optional": {"support": "full"},
+    ## extra properties not specified in RFC4791/RFC5545
+    "calendar-color": {"support": "full"},
+    "calendar-order": {"support": "full"},
     ## I'm surprised, I'm quite sure this was passing earlier.  Caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad
     'search.combined-is-logical-and': False
 }
@@ -1356,25 +1840,34 @@ ccs = {
     "save.duplicate-uid.cross-calendar": {"support": "ungraceful"},
     # CCS rejects multi-instance VTODOs (thisandfuture recurring completion)
     "save-load.todo.recurrences.thisandfuture": {"support": "unsupported"},
-    "search.comp-type.optional": {"support": "ungraceful"},
-    ## "full" observed, 70938dc1cbb6a839978eee4315699746d38ee5f0/3cae24cf99da1702b851b5a74a9b88c8e5317dad, 2026-02-17.
-    ## However, this may be due to mess with the caldav-server-checker branches.  "unsupported" again at be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492
+    "search.comp-type.optional": {"support": "full"},
     "search.text.case-sensitive": {"support": "unsupported"},
     "search.time-range.event": {"support": "full"},
     "search.time-range.event.old-dates": {"support": "ungraceful"},
     "search.time-range.todo": {"support": "full"},
     "search.time-range.todo.old-dates": {"support": "ungraceful"},
-    "search.time-range.open": {"support": "ungraceful"},
+    ## open-ended time-range searches work with the near-future fixtures; CCS only
+    ## rejected them (ungraceful) for the old year-2000 range, so the leaves default
+    ## to "full" (a grouping "search.time-range.open: ungraceful" was removed here).
     "search.time-range.alarm": {"support": "unsupported"},
-    "search.recurrences": {"support": "unsupported"},
+    ## Recurrence expansion actually works within the (near-future) search window;
+    ## this was previously reported "unsupported" only because the test fixtures
+    ## lived in year 2000, which CCS's min-date-time restriction hid.  Only infinite
+    ## scope (far-future) remains unsupported.
+    "search.recurrences.includes-implicit.infinite-scope": {"support": "unsupported"},
+    ## search.recurrences.expanded.todo was 'unsupported'; 'full' observed
+    ## 2026-08-26.  The declaration dated from when the probe searched the
+    ## *event* calendar for the recurring todo, so a server that keeps tasks
+    ## in a collection of their own could only ever come out unsupported
+    ## (caldav-server-tester 7a66c18).
     "principal-search": {"support": "unsupported"},
     # Ephemeral Docker container: wipe objects (avoids UID conflicts across calendars)
     "test-calendar": {"cleanup-regime": "wipe-calendar"},
-    ## Did pass earlier, ungraceful at be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492
-    'freebusy-query': {'support': 'ungraceful'},
-    "old_flags": [
-        "propfind_allprop_failure",
-    ],
+    ## freebusy-query works with the near-future fixtures; CCS rejected the
+    ## year-2000 range with an error, so this defaults to "full" now.
+    ## (The old 'propfind_allprop_failure' flag was stale: CCS does return
+    ## DAV:resourcetype in an allprop PROPFIND, so propfind.allprop.resourcetype
+    ## is left at the default "full".)
 }
 
 ## Stalwart - all-in-one mail & collaboration server (CalDAV added 2024/2025)
@@ -1382,6 +1875,41 @@ ccs = {
 ## CalDAV served at /dav/cal/<username>/ over HTTP on port 8080.
 ## Feature support mostly unknown until tested; starting with empty hints.
 stalwart = {
+    ## url.encode-at, re-probed 2026-08-31 against the docker test server with
+    ## all three axes.  Stalwart answers them differently, and it is the server
+    ## that made url.encode-at.literal grow per-axis children:
+    ##  * object names: a PUT to the literal "@" path is accepted (201), but the
+    ##    resource is then reachable only under "%40".
+    ##  * calendar ids: both spellings are served, and they are two separate
+    ##    collections, each holding its own objects.
+    ##  * principal paths: the server-given path answers under both spellings.
+
+    ## Hence identity is "full" for calendar ids, it is correct
+    ## according to RFC3986 section 6.2.2.2 and section 3.3.  A
+    ## calendar ID with "@" (reserved) in the spelling is different
+    ## from the same ID with "%40" in the spelling.  A calendar ID
+    ## with "A" (unreserved) in the ID is the same as a calendar ID
+    ## with "%41" in the spelling.  The feature is set full.
+
+    ## HOWEVER, for the principal part of the URL, "/someone@example.com/"
+    ## points to the same resource as "/someone%40example.com/".
+
+    ## And for the filename, there is even a third behaviour.  A PUT towards
+    ## "foo@bar.ics" will place things under a canonical file name
+    ## "foo%40bar.ics".  A GET towards "foo@bar.ics" will yield 404.
+
+    ## Probably the right thing to do here is to split url.encode-at.identity
+    ## into three, but Claude didn't agree and thinks everything is fine as
+    ## it is now.  At least the tests pass.
+    'url.encode-at.identity': {
+        'support': 'full',
+        'behaviour': "the two spellings of a calendar ID are two separate collections, each holding its own objects.  However, the behaviour is different for objects and principals"},
+    'url.encode-at.literal.object': {
+        'support': 'unsupported',
+        'behaviour': "an object PUT to the literal '@' path is reachable only under '%40'"},
+    'url.encode-at.literal.collection': {'support': 'full'},
+    'url.encode-at.literal.principal': {'support': 'full'},
+    'url.encode-at.encoded': {'support': 'full'},
     'rate-limit': {
         'enable': True,
         'default_sleep': 3,
@@ -1390,24 +1918,39 @@ stalwart = {
     'create-calendar.auto': True,
     'principal-search': {'support': 'ungraceful'},
     'search.time-range.alarm': False,
+    ## Stalwart accepts comp-type-less queries fully, including the time-range
+    ## and prop-filter variants (both unsupported on most other servers).
+    ## Confirmed 2026-06-06.
+    'search.time-range.comp-type-optional': {'support': 'full'},
+    'search.text.comp-type-optional': {'support': 'full'},
     ## Stalwart supports implicit recurrence for datetime events but not for
     ## all-day (VALUE=DATE) recurring events in time-range searches.
     'search.recurrences.includes-implicit.event': {'support': 'fragile', 'behaviour': 'broken for all-day (VALUE=DATE) events'},
     ## Stalwart returns the recurring todo in search results but doesn't return the
     ## RRULE intact, so client-side expansion can't expand it to specific occurrences.
     'search.recurrences.includes-implicit.todo': {'support': 'fragile'},
-    ## Stalwart correctly handles exceptions in server-side CALDAV:expand (observed supported).
-    ## Stalwart stores master+exception VEVENTs as a single resource with 2 VEVENTs.
+    ## Stalwart stores master+exception VEVENTs as a single resource with 2 VEVENTs,
+    ## so client-side expand of the recurrence set works.
     'save-load.event.recurrences.exception': {'support': 'full'},
+    ## ...but server-side CALDAV:expand only suppresses the exception-overridden
+    ## occurrence when SEQUENCE is absent.  With SEQUENCE present (as real clients
+    ## always emit) it returns both the original occurrence and the override.
+    ## Detected by the server-tester's csc_monthly_recurring_with_exception_seq fixture.
+    'search.recurrences.expanded.exception': {
+        'support': 'fragile',
+        'behaviour': 'server-side expand fails to suppress the exception-overridden occurrence when SEQUENCE is present',
+    },
     'search.time-range.open': True,
     ## Stalwart delivers iTIP notifications to the attendee inbox AND auto-schedules
     ## into their calendar (verified by running CheckSchedulingInboxDelivery).
     "scheduling.mailbox.inbox-delivery": True,
     "scheduling.auto-schedule": True,
-    'old_flags': [
-        ## Stalwart does not return VTODO items without DTSTART in date searches
-        'vtodo_datesearch_nodtstart_task_is_skipped',
-    ],
+    ## Stalwart's handling of DTSTART-less VTODOs in date searches is date
+    ## dependent: a near-future DUE-only task is returned (the server-tester
+    ## probe sees 'full'), but the old-date fixtures used by testTodoDatesearch
+    ## are skipped.  Marked 'fragile' so the checker skips it and the integration
+    ## test (is_supported -> False) still treats the old-date task as skipped.
+    'search.time-range.todo.no-dtstart': {'support': 'fragile'},
 }
 
 ## Lots of transient problems with purelymail
@@ -1421,7 +1964,6 @@ purelymail = {
     ## 409 Conflict with <must-have-parent> when PUTting to a URL not under an existing calendar
     #'save-load.get-by-url': {'support': 'unknown'},
     #'save-load.todo': {'support': 'ungraceful'},
-    'search.comp-type.optional': {'support': 'unsupported'},
     ## The search features below are unreliable on purelymail, likely due
     ## to the 160s search-cache delay.  Results flip between unsupported
     ## and ungraceful across runs.  Marked fragile so the checker skips them.
@@ -1494,12 +2036,24 @@ gmx = {
     ]
 }
 
-## https://www.open-xchange.com/
+## https://ox.io/
 ## OX App Suite CalDAV served at /caldav/ (Apache proxies to /servlet/dav/caldav on port 8009).
 ## The Docker image must be built locally before use (see tests/docker-test-servers/ox/build.sh).
 ox = {
-    ## Renaming a calendar after creation via PROPPATCH is not supported
-    'create-calendar.set-displayname': {'support': 'unsupported'},
+    ## Renaming a calendar after creation via PROPPATCH is not supported, but
+    ## setting the display name AT creation time is - and that's what the probe
+    ## tests.  Was 'unsupported' (conflated the two operations, and masked by the
+    ## checker's display-name-lookup bug).  Confirmed full 2026-06-07.
+    'create-calendar.set-displayname': {'support': 'full'},
+    ## OX gives EVERY calendar an opaque internal 'cal://0/NNN' canonical URL
+    ## (base64-encoded in the path, e.g. /caldav/Y2FsOi8vMC8xMzYw/), whether or
+    ## not a display name is set.  The requested cal_id does resolve as a usable
+    ## alias (object GETs under it work, unlike Zimbra), but the canonical URL
+    ## still differs from the requested URL - so under the URL-stability semantics
+    ## this is 'unsupported', exactly like Zimbra and with no special-casing: the
+    ## library discovers and adopts the canonical URL after creation.  (The
+    ## display name itself sticks, so create-calendar.set-displayname is 'full'.)
+    'create-calendar.stable-url': {'support': 'unsupported', 'behaviour': "the calendar's canonical URL is an opaque cal://0/NNN (base64 path segment) that differs from the requested cal_id; the cal_id alias is usable but clients should adopt the canonical URL"},
     ## VTODOs must be in a dedicated VTODO-only calendar; mixed calendars not supported
     'save-load.todo.mixed-calendar': {'support': 'unsupported'},
     ## Basic VTODO support works fine; only recurrences are broken
@@ -1508,20 +2062,66 @@ ox = {
     'save-load.todo.recurrences': {'support': 'ungraceful'},
     ## VJOURNAL is not supported
     'save-load.journal': {'support': 'unsupported'},
+    ## OX exposes the calendar both under the requested cal_id and under an
+    ## internal "cal://0/NNN" id, so an object looked up via REPORT comes back
+    ## under a different calendar URL than the one used to PUT them (GET on the
+    ## original URL still works via an alias).  The object's own *name* is
+    ## preserved; it is the collection that has two addresses, and a client
+    ## holding the alias therefore cannot compare a searched object's URL with
+    ## one it constructed.  See create-calendar.stable-url for the other half.
+    'save-load.stable-url': {'support': 'unsupported'},
+    ## OX enforces optimistic concurrency: a no-If-Match overwrite PUT is rejected
+    ## with 409 Conflict (etag-conditional save() still works).
+    'save-load.mutable.if-match-optional': {'support': 'unsupported'},
+    ## OX forbids changing an attendee's PARTSTAT via a direct PUT (403 Forbidden
+    ## even with a matching etag); it must go through iTIP scheduling.
+    'save-load.mutable.attendee-partstat': {'support': 'unsupported'},
     ## Search limitations
     'search.time-range.event.old-dates': {'support': 'unsupported'},
     'search.time-range.todo.old-dates': {'support': 'unsupported'},
     'search.time-range.alarm': {'support': 'unsupported'},
     'search.unlimited-time-range': {'support': 'broken'},
-    'search.comp-type.optional': {'support': 'ungraceful'},
-    'search.text': {'support': 'unsupported'},
+    ## was 'ungraceful' - that was the checker bug (cnt mismatch across the
+    ## separate VTODO calendar); confirmed full 2026-06-06.
+    'search.comp-type.optional': {'support': 'full'},
+    ## OX silently ignores the CALDAV comp-filter: a calendar-query that
+    ## specifies a component type returns the calendar's whole contents
+    ## regardless of the requested type (a VEVENT-calendar answers a VTODO query
+    ## with its VEVENT, and vice versa).  No right-typed objects are dropped, so
+    ## the library recovers the correct result by post-filtering - hence
+    ## "unsupported" (silently ignored), not "broken".  Confirmed by direct probe
+    ## 2026-06-09.  Contrast bedework, which drops the todos (data loss = broken).
+    'search.comp-type': {'support': 'unsupported'},
+    ## Text search (case-sensitive, case-insensitive, substring) now works in OX.
+    ## Confirmed full 2026-06-13.  Category search remains unsupported.
+    'search.text': {'support': 'full'},
     'search.text.category': {'support': 'unsupported'},
-    'search.text.case-sensitive': {'support': 'unsupported'},
-    'search.text.case-insensitive': {'support': 'unsupported'},
-    ## Recurrence searching broken (sliding window + old-dates limitation)
-    'search.recurrences.includes-implicit': {'support': 'unsupported'},
+    ## Recurrence searching: the sliding window hides far-past/far-future
+    ## occurrences, but implicit expansion of *datetime* events and server-side
+    ## expansion of exceptions work within the window (detectable now that the
+    ## fixtures are in the near future rather than year 2000).  VTODO recurrence,
+    ## datetime-event server-side expansion, and infinite scope remain unsupported.
+    ## (event and exception expansion are left at the default "full".)
+    'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     'search.recurrences.includes-implicit.todo.pending': {'support': 'unsupported'},
-    'search.recurrences.expanded': {'support': 'unsupported'},
+    'search.recurrences.includes-implicit.infinite-scope': {'support': 'unsupported'},
+    'search.recurrences.expanded.event': {'support': 'unsupported'},
+    'search.recurrences.expanded.todo': {'support': 'unsupported'},
+    ## Rescheduling the whole series (changing the master DTSTART) is rejected with
+    ## 409 Conflict once detached exceptions exist - even with a matching If-Match
+    ## etag.  Shifting the DTSTART of an exception-free recurring event still works.
+    ## Confirmed by direct probe 2026-06-14.
+    'save-load.event.recurrences.exception.reschedule': {'support': 'unsupported'},
+    ## OX ignores the time-range on VTODO queries and returns every task
+    'search.time-range.todo.strict': {'support': 'broken'},
+    ## OX silently ignores the is-not-defined prop-filter and returns the whole
+    ## calendar regardless (confirmed by direct probe 2026-06-09: a no_category
+    ## search still returns the categorised event; a no_class search still
+    ## returns the CONFIDENTIAL event).  Same "filter ignored" behaviour as
+    ## search.comp-type above - silently ignored, hence unsupported.
+    'search.is-not-defined': {'support': 'unsupported'},
+    'search.is-not-defined.category': {'support': 'unsupported'},
+    'search.is-not-defined.class': {'support': 'unsupported'},
     ## is-not-defined for DTEND is not supported
     'search.is-not-defined.dtend': {'support': 'unsupported'},
     ## Freebusy queries are not supported (returns 400)
@@ -1538,9 +2138,168 @@ ox = {
     "scheduling.freebusy-query": "ungraceful",
     'search.time-range.open.start': "broken",
     'search.time-range.open.end': True,
-    ## time-range.open is "broken", while time-range.open.start.duration is "unsupported"?
-    ## this may possibly be some problems with the checker rather than with Ox
-    'search.time-range.open.start.duration': "unsupported"
+    ## DTSTART+DURATION components ARE found by an overlapping time-range search:
+    ## confirmed by direct probe 2026-06-09 for VEVENT, and the VTODO duration
+    ## fixture is returned too.  The VTODO time-range is not honoured strictly
+    ## (out-of-range tasks leak in - tracked separately as
+    ## search.time-range.todo.strict=broken), so the checker now treats the VTODO
+    ## duration probe as inconclusive rather than a failure and judges this
+    ## feature from the conclusive VEVENT result.  (Previously mis-reported as a
+    ## VTODO/VEVENT asymmetry; see the old "checker problem" note here.)
+    'search.time-range.open.start.duration': {'support': 'full'},
+    ## Rate limiting.  One may want to override this in production.
+    'rate-limit': {
+        'enable': True,
+        'interval': 300,
+        'count': 1500,
+        'max_sleep': 350,
+        'default_sleep': 20
+    }
+}
+
+## Infomaniak (https://www.infomaniak.com/) - kSuite calendar, CalDAV served at
+## https://sync.infomaniak.com/ (/.well-known/caldav redirects there).  Runs
+## SabreDAV 4.3.1.  Profiled 2026-06-15 against a freshly created dedicated
+## calendar; save-load and most search features work well.
+infomaniak = {
+    ## SabreDAV processes writes asynchronously - MKCALENDAR/PUT/DELETE return
+    ## before the change is queryable, so an immediate read-back 404s or returns
+    ## stale data for several seconds.  This is server-wide (not just searches),
+    ## so we sleep after every write rather than only before searches.
+    'write-delay': {'behaviour': 'delay', 'delay': 16},
+    ## VJOURNAL is not supported.
+    'save-load.journal': {'support': 'unsupported'},
+    ## Calendar colour/order work once the post-write delay is honoured (the
+    ## hex form is normalised, e.g. '#FF0000FF' is stored as '#ff0000').  These
+    ## previously looked 'broken' (read-only): a read-back issued too soon
+    ## returned the stale value, an artifact of the asynchronous writes above.
+    ## Set explicitly to 'full' since the feature default is the weaker 'fragile'.
+    'calendar-color': {'support': 'full'},
+    'calendar-color.hex': {'support': 'full'},
+    'calendar-order': {'support': 'full'},
+    ## The CALDAV comp-filter is silently ignored: a calendar-query that requests
+    ## one component type returns the calendar's whole contents regardless (a
+    ## VJOURNAL query returned a VEVENT).  No right-typed objects are dropped, so
+    ## the library recovers by post-filtering - hence "unsupported", not "broken".
+    'search.comp-type': {'support': 'unsupported', 'behaviour': 'comp-filter silently ignored - returns the whole calendar regardless of requested component type'},
+    ## Because the comp-filter is ignored, omitting it (which the RFC permits)
+    ## also returns the whole calendar - so the "optional comp-type" behaviour
+    ## works.  The parent is 'unsupported', so this child must say so explicitly,
+    ## otherwise it inherits 'unsupported' and disagrees with the observation.
+    'search.comp-type.optional': {'support': 'full'},
+    ## A combined (logical-AND) filter is not honoured.
+    'search.combined-is-logical-and': {'support': 'unsupported'},
+    ## VTODO recurrence searching is not supported (datetime VEVENT recurrence
+    ## search, including server-side expand and infinite scope, works fine).
+    'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
+    'search.recurrences.includes-implicit.todo.pending': {'support': 'unsupported'},
+    'search.recurrences.expanded.todo': {'support': 'unsupported'},
+    ## Scheduling is advertised and the calendar-user-address-set and scheduling
+    ## mailbox are present, but the server never returns a Schedule-Tag (neither
+    ## on GET nor via PROPFIND).
+    'scheduling.schedule-tag': {'support': 'unsupported', 'behaviour': 'no Schedule-Tag returned on GET or via PROPFIND'},
+    'scheduling.schedule-tag.stable-partstat': {'support': 'unsupported'},
+    ## Principal search is effectively unsupported (lists nothing / errors out).
+    'principal-search': {'support': 'ungraceful'},
+    'principal-search.by-name.self': {'support': 'unsupported'},
+    'principal-search.list-all': {'support': 'ungraceful'},
+    ## This was added 2026-08-28.  I believe the compatibility tests have passed
+    ## before.  I don't think this part of the test suite has changed.  It could
+    ## be that the behaviour has changed at the server side.  418 was originally an
+    ## April joke and may mean anything ... but it's sometimes used as a rate-limit
+    ## response.  However, it seems to consistently break exactly here.
+    'sync-token': {'support': 'ungraceful', 'behaviour': "418 I'm a teapot"},
 }
 
 # fmt: on
+
+
+## --- url.encode-at readers -------------------------------------------------
+##
+## The URL code asks these, never the support level of the grouping parent: a
+## level such as "quirk" records that the server deviates, not how.  The rule
+## the two readers below encode is that the client does not rewrite a spelling
+## it was handed - it only picks one when it has to mint a path of its own, and
+## only picks "%40" when told the literal "@" is refused.
+
+
+def at_spelling_to_mint(features: Any) -> str:
+    """The ``@`` spelling to use where the client has to build a path itself.
+
+    ``%40``, which is what this library has always sent, so an object whose
+    UID is an email address keeps landing on the URL it has always landed on.
+    The only reason to deviate is a server declared not to resolve ``%40`` at
+    all, and then the literal ``@`` is all that is left to try.
+
+    "Declared" is meant strictly, which is why this reads the support level
+    rather than asking ``is_supported()``.  A probe that could not reach a
+    verdict writes the subfeature explicitly - ``unknown``, or ``fragile``
+    where two observations disagreed - and such a node overrides the ``full``
+    default.  As a plain boolean those land in the same bucket as
+    ``unsupported``, so a server nobody managed to measure would move every
+    minted email-UID object off the URL this library has always used, on no
+    evidence at all.  Not observed is not the same as observed not to work.
+    """
+    if features is None:
+        return "%40"
+    level = features.is_supported("url.encode-at.encoded", str)
+    return "@" if level in ("unsupported", "broken", "ungraceful") else "%40"
+
+
+def at_spellings_are_aliased(features: Any) -> bool:
+    """True unless the server is declared to treat the two spellings apart.
+
+    ``url.encode-at.identity`` defaults to ``unsupported`` in the 3.x series,
+    so this is True unless a profile says otherwise - see the feature
+    description for why the non-conformant reading is the default.
+    """
+    if features is None:
+        return True
+    return not features.is_supported("url.encode-at.identity")
+
+
+def at_literal_is_refused(features: Any) -> bool:
+    """True for a server declared not to serve a literal ``@`` in a path.
+
+    The ownCloud shape the 2021 workaround was written for: the server hands
+    out a calendar-home-set containing an ``@`` and then will not serve that
+    path.  It is the one thing that makes the client encode a spelling it was
+    given rather than one it minted.
+
+    Read as a support level rather than a boolean, for the same reason as
+    :func:`at_spelling_to_mint`, though it bites in the opposite direction and
+    only on a server declared conformant - which is the only kind that reaches
+    this function.  There, rewriting the ``@`` the server handed out addresses
+    a *different* resource, so doing it because a probe recorded ``unknown``
+    would 404 a home-set that was working.
+
+    Reads ``url.encode-at.literal.principal``, not the parent: a home-set is a
+    username inside a path the server minted, and that is the only axis this
+    hack is about.  Stalwart is why the distinction matters - its *object*
+    paths refuse the literal spelling while its principal path serves it - and
+    a profile that declares the parent flatly still reaches this child, so
+    nothing written before the split changes meaning.
+    """
+    if features is None:
+        return False
+    level = features.is_supported("url.encode-at.literal.principal", str)
+    return level in ("unsupported", "broken", "ungraceful")
+
+
+def at_spelling_is_significant(features: Any) -> bool:
+    """True when the ``@`` spelling identifies the resource, and so must be kept.
+
+    The inverse of :func:`at_spellings_are_aliased`, and the single switch the
+    URL code turns on.  Where a server serves the two spellings as one resource
+    - the default, and what every server probed so far does - the spelling
+    carries no information, so the client normalises paths exactly as it always
+    has and nothing about its behaviour changes.  Where a profile declares the
+    server conformant, the spelling *is* part of the name, so every path the
+    server sent keeps the spelling it arrived with.
+
+    Having one switch is the point.  Preserving a spelling in one place and
+    normalising it in another is how the two halves of this library came to
+    disagree - an href was decoded on the way in while a calendar-home-set was
+    encoded on the way out.
+    """
+    return not at_spellings_are_aliased(features)

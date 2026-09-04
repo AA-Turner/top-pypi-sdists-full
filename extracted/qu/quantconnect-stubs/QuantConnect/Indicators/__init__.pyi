@@ -6078,6 +6078,14 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         ...
 
     @overload
+    def __ge__(self, other: QuantConnect.Indicators.IIndicator) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
     def __ge__(self, right: float) -> bool:
         """Determines if the indicator's current value is greater than or equal to the specified value"""
         ...
@@ -6115,6 +6123,14 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
     @overload
     def __ge__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
         """Determines if the specified value is greater than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Indicators.IIndicator) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -6180,6 +6196,14 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         ...
 
     @overload
+    def __le__(self, other: QuantConnect.Indicators.IIndicator) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
     def __le__(self, right: float) -> bool:
         """Determines if the indicator's current value is less than or equal to the specified value"""
         ...
@@ -6217,6 +6241,14 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
     @overload
     def __le__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
         """Determines if the specified value is less than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Indicators.IIndicator) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
         ...
 
     @overload

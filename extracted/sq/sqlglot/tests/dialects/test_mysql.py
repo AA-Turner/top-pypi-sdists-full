@@ -10,6 +10,8 @@ class TestMySQL(Validator):
     dialect = "mysql"
 
     def test_ddl(self):
+        self.validate_identity("DROP TEMPORARY TABLE IF EXISTS db.t1, t2 CASCADE")
+
         for t in ("BIGINT", "INT", "MEDIUMINT", "SMALLINT", "TINYINT"):
             self.validate_identity(f"CREATE TABLE t (id {t} UNSIGNED)")
             self.validate_identity(f"CREATE TABLE t (id {t}(10) UNSIGNED)")
@@ -36,6 +38,9 @@ class TestMySQL(Validator):
         self.validate_identity("CREATE TABLE foo (a BIGINT, FULLTEXT INDEX (b))")
         self.validate_identity("CREATE TABLE foo (a BIGINT, SPATIAL INDEX (b))")
         self.validate_identity("CREATE TABLE foo (a INT UNSIGNED ZEROFILL)")
+        self.validate_identity("CREATE TABLE foo (a VARCHAR(16) BINARY)")
+        self.validate_identity("CREATE TABLE foo (a CHAR(16) BINARY NOT NULL)")
+        self.validate_identity("CREATE TABLE foo (a VARCHAR(16) CHARACTER SET utf8mb4 BINARY)")
         self.validate_identity("CREATE TABLE foo (a INT INVISIBLE)")
         self.validate_identity("ALTER TABLE t ADD COLUMN c INT INVISIBLE")
         self.validate_identity("ALTER TABLE t1 ADD COLUMN x INT, ALGORITHM=INPLACE, LOCK=EXCLUSIVE")
@@ -295,7 +300,22 @@ class TestMySQL(Validator):
             "CREATE FUNCTION f() RETURNS TEXT LANGUAGE SQL SQL SECURITY INVOKER AS SELECT 'abc'",
         )
 
+    def test_column_key_constraint(self):
+        self.validate_identity(
+            "CREATE TABLE t1 (id INT KEY AUTO_INCREMENT)",
+            "CREATE TABLE t1 (id INT PRIMARY KEY AUTO_INCREMENT)",
+        )
+        self.validate_identity(
+            "CREATE TABLE t1 (id INT AUTO_INCREMENT KEY)",
+            "CREATE TABLE t1 (id INT AUTO_INCREMENT PRIMARY KEY)",
+        )
+        self.validate_identity(
+            "CREATE TABLE t1 (id INT KEY)",
+            "CREATE TABLE t1 (id INT PRIMARY KEY)",
+        )
+
     def test_identity(self):
+        self.validate_identity("SELECT a, SUM(b) FROM t GROUP BY a WITH ROLLUP LIMIT 2")
         self.validate_identity("SELECT HIGH_PRIORITY STRAIGHT_JOIN SQL_CALC_FOUND_ROWS * FROM t")
         self.validate_identity("SELECT CAST(COALESCE(`id`, 'NULL') AS CHAR CHARACTER SET binary)")
         self.validate_identity("SELECT e.* FROM e STRAIGHT_JOIN p ON e.x = p.y")
@@ -818,6 +838,29 @@ class TestMySQL(Validator):
                 "snowflake": "SELECT TO_CHAR(CAST('1900-10-04 22:23:00' AS TIMESTAMP), 'DD yy DY DD mm mon')",
             },
         )
+        self.validate_all(
+            "SELECT DATE_FORMAT('2021-01-01 22:23:00', '%x')",
+            write={
+                "mysql": "SELECT DATE_FORMAT('2021-01-01 22:23:00', '%x')",
+                "duckdb": "SELECT STRFTIME(CAST('2021-01-01 22:23:00' AS TIMESTAMP), '%G')",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE_FORMAT(CAST('2021-01-01 22:23:00' AS DATETIME), '%x')",
+            read={
+                "duckdb": "SELECT STRFTIME(CAST('2021-01-01 22:23:00' AS TIMESTAMP), '%G')",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE_FORMAT('2007-10-04 22:23:00', '%r')",
+            write={
+                "mysql": "SELECT DATE_FORMAT('2007-10-04 22:23:00', '%r')",
+                "duckdb": "SELECT STRFTIME(CAST('2007-10-04 22:23:00' AS TIMESTAMP), '%I:%M:%S %p')",
+            },
+        )
+        self.validate_identity("SELECT DATE_FORMAT(x, '%X-%V')")
+        self.validate_identity("SELECT DATE_FORMAT(x, '%x-%v')")
+        self.validate_identity("SELECT DATE_FORMAT(x, '%U')")
 
     def test_mysql_time(self):
         self.validate_identity("TIME_STR_TO_UNIX(x)", "UNIX_TIMESTAMP(x)")
@@ -1656,6 +1699,8 @@ COMMENT='客户账户表'"""
     def test_analyze(self):
         self.validate_identity("ANALYZE LOCAL TABLE tbl")
         self.validate_identity("ANALYZE NO_WRITE_TO_BINLOG TABLE tbl")
+        self.validate_identity("ANALYZE TABLE t1, t2")
+        self.validate_identity("ANALYZE LOCAL TABLE db.t1, db.t2, t3")
         self.validate_identity("ANALYZE tbl UPDATE HISTOGRAM ON col1")
         self.validate_identity("ANALYZE tbl UPDATE HISTOGRAM ON col1 USING DATA 'json_data'")
         self.validate_identity("ANALYZE tbl UPDATE HISTOGRAM ON col1 WITH 5 BUCKETS")

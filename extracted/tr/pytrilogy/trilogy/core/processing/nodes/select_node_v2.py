@@ -36,13 +36,11 @@ class SelectNode(StrategyNode):
         output_concepts: list[BuildConcept],
         environment: BuildEnvironment,
         datasource: BuildDatasource | None = None,
-        whole_grain: bool = False,
         parents: list["StrategyNode"] | None = None,
         depth: int = 0,
         partial_concepts: list[BuildConcept] | None = None,
         rollup_concepts: list[BuildConcept] | None = None,
         nullable_concepts: list[BuildConcept] | None = None,
-        accept_partial: bool = False,
         grain: BuildGrain | None = None,
         force_group: bool | None = False,
         conditions: BoolExpr | None = None,
@@ -51,7 +49,6 @@ class SelectNode(StrategyNode):
         ordering: BuildOrderBy | None = None,
         existence_concepts: list[BuildConcept] | None = None,
     ):
-        # Derive partial/nullable from datasource columns when not explicitly provided
         if datasource and partial_concepts is None:
             partial_concepts = datasource.partial_concepts
         if datasource and nullable_concepts is None:
@@ -60,7 +57,6 @@ class SelectNode(StrategyNode):
             input_concepts=input_concepts,
             output_concepts=output_concepts,
             environment=environment,
-            whole_grain=whole_grain,
             parents=parents,
             depth=depth,
             partial_concepts=partial_concepts,
@@ -74,12 +70,10 @@ class SelectNode(StrategyNode):
             ordering=ordering,
             existence_concepts=existence_concepts,
         )
-        self.accept_partial = accept_partial
         self.datasource = datasource
 
     def validate_inputs(self):
-        # we do not need to validate inputs for a select node
-        # as it will be a root
+        # a select node is a root; nothing to validate against
         return
 
     def resolve_from_provided_datasource(
@@ -105,9 +99,7 @@ class SelectNode(StrategyNode):
             for x in c.alias.concept_arguments:
                 source_map[x.address] = {datasource}
         # Outputs resolved at render rather than read off a column get an empty
-        # entry, which marks them mapped for `validate_missing` without naming a
-        # source. TVF_UNION belongs here for the same reason MULTISELECT does:
-        # both are align outputs recovered via `find_source`.
+        # entry: mapped for `validate_missing` without naming a source.
         for x in all_concepts_final:
             if x.address not in source_map and x.derivation in (
                 Derivation.MULTISELECT,
@@ -120,9 +112,7 @@ class SelectNode(StrategyNode):
             ):
                 source_map[x.address] = set()
 
-        # if we're not grouping
-        # force grain to datasource grain
-        # so that we merge on the same grain
+        # when not grouping, the scan keeps the datasource grain so merges align
         if self.force_group is False:
             grain = self.grain if self.grain else datasource.grain
         else:
@@ -134,27 +124,23 @@ class SelectNode(StrategyNode):
             datasources=[datasource],
             grain=grain,
             joins=[],
-            # union the node-level stamps (mirrors nullable below): a licensed
-            # rowset handle widened onto this scan can be a partial binding the
-            # datasource columns alone cannot express
+            # node-level stamps can mark a partial binding (a licensed rowset
+            # handle widened onto this scan) the datasource columns cannot express
             partial_concepts=unique(
                 [c.concept for c in datasource.columns if not c.is_complete]
                 + list(self.partial_concepts),
                 "address",
             ),
             rollup_concepts=self.rollup_concepts,
-            # union the node-level stamps: a BASIC computed at this scan over a
-            # nullable column (`l_key + 1`) is nullable here but is not a
-            # datasource column, so the column scan alone under-reports
+            # node-level stamps carry a BASIC computed at this scan over a
+            # nullable column, which is not itself a datasource column
             nullable_concepts=unique(
                 [c.concept for c in datasource.columns if c.is_nullable]
                 + list(self.nullable_concepts),
                 "address",
             ),
             source_type=SourceType.DIRECT_SELECT,
-            # we can skip rendering conditions
             condition=self.conditions,
-            # select nodes should never group
             force_group=self.force_group,
             hidden_concepts=self.hidden_concepts,
             ordering=self.ordering,
@@ -180,9 +166,8 @@ class SelectNode(StrategyNode):
             ordering=self.ordering,
             base_datasource=datasource,
         )
-        # A constant-LHS membership (`(1, 2) in (rs.a, rs.b)`) has no row source
-        # but still checks its set via an existence subquery; carry the existence
-        # parents' source map through so the membership renders (grain-less form).
+        # A constant-LHS membership has no row source but still checks its set
+        # via an existence subquery; carry the existence parents' source map.
         if self.parents and self.existence_concepts:
             parent_sources: list[QueryDatasource | BuildDatasource] = [
                 p.resolve() for p in self.parents
@@ -196,7 +181,6 @@ class SelectNode(StrategyNode):
         return resolution
 
     def _resolve(self) -> QueryDatasource:
-        # if we have parent nodes, we do not need to go to a datasource
         resolution: QueryDatasource | None = None
         if all(
             (
@@ -220,7 +204,6 @@ class SelectNode(StrategyNode):
         if self.parents:
             if not resolution:
                 return super()._resolve()
-            # zip in our parent source map
             parent_sources: list[QueryDatasource | BuildDatasource] = [
                 p.resolve() for p in self.parents
             ]
@@ -245,18 +228,16 @@ class SelectNode(StrategyNode):
         return resolution
 
     def copy(self) -> "SelectNode":
-        node = SelectNode(
+        node = type(self)(
             input_concepts=list(self.input_concepts),
             output_concepts=list(self.output_concepts),
             environment=self.environment,
             datasource=self.datasource,
             depth=self.depth,
             parents=self.parents,
-            whole_grain=self.whole_grain,
             partial_concepts=list(self.partial_concepts),
             rollup_concepts=list(self.rollup_concepts),
             nullable_concepts=list(self.nullable_concepts),
-            accept_partial=self.accept_partial,
             grain=self.grain,
             force_group=self.force_group,
             conditions=self.conditions,
@@ -272,36 +253,11 @@ class SelectNode(StrategyNode):
 class RowsetNode(SelectNode):
     """A thin translation projection over a rowset body.
 
-    Re-exposes the body's rowset-local concepts (`local._rs_*`) under their outer
-    rowset addresses (`rs.*`). A distinct type so the regroup pass
-    (``group_if_required_v2``) recognizes it and never regroups: the wrapper is a
-    pure 1:1 projection of an already-final body, so forcing a GROUP BY would dedup
-    rows (e.g. collapse a union-stack's duplicates) or omit raw projections.
+    Re-exposes the body's rowset-local concepts under their outer rowset
+    addresses. A distinct type so the regroup pass never regroups it: the
+    wrapper is a 1:1 projection of an already-final body, and a forced GROUP BY
+    would dedup rows or omit raw projections.
     """
-
-    def copy(self) -> "RowsetNode":
-        node = RowsetNode(
-            input_concepts=list(self.input_concepts),
-            output_concepts=list(self.output_concepts),
-            environment=self.environment,
-            datasource=self.datasource,
-            depth=self.depth,
-            parents=self.parents,
-            whole_grain=self.whole_grain,
-            partial_concepts=list(self.partial_concepts),
-            rollup_concepts=list(self.rollup_concepts),
-            nullable_concepts=list(self.nullable_concepts),
-            accept_partial=self.accept_partial,
-            grain=self.grain,
-            force_group=self.force_group,
-            conditions=self.conditions,
-            preexisting_conditions=self.preexisting_conditions,
-            hidden_concepts=self.hidden_concepts,
-            ordering=self.ordering,
-            existence_concepts=list(self.existence_concepts),
-        )
-        node.limit = self.limit
-        return node
 
 
 class ConstantNode(SelectNode):

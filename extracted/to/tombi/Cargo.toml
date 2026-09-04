@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "1.5.0"  # We use git tags for versioning. This is just a placeholder.
+version = "1.5.1"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -41,6 +41,7 @@ proc-macro2 = "1.0.95"
 quote = "1.0.40"
 rayon = "1.10.0"
 reqwest = { version = "0.12.15", default-features = false, features = [
+  "gzip",
   "json",
   "rustls-tls-native-roots",
 ] }

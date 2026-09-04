@@ -73,7 +73,7 @@ from uqff_registry_primitives import (
     DELTA_M2_21_EV2, DELTA_M2_32_EV2,
 )
 
-VERSION = "0.412.0"
+VERSION = "0.415.2"
 
 # NAMED OBSERVED SI ANCHORS (constant drain 2026-08-16, PAPER_2141 bulk pattern + PAPER_2149 observation-headlining)
 # Bit-identical to the literals they replace; UQFF-derived counterparts live in uqff_registry_primitives.
@@ -28988,6 +28988,30 @@ def _p2257(dataset=None):
             'residual_pct': 0.0}
 
 
+@_register('PAPER_2259')
+def _p2259(dataset=None):
+    """PAPER_2259: rung-12 conjugate-pair bridge sigma_ref = lambda_vac_sw * L_Ug1_layer = 1 kg/m2 EXACT."""
+    lam_vac_sw = F_TRZ ** 12
+    l_ug1_layer = F_TRZ ** -12
+    sigma_ref = lam_vac_sw * l_ug1_layer
+    return {
+        'value': {
+            'lambda_vac_sw_kg_m3': lam_vac_sw,        # F_TRZ^12 EXACT (PAPER_2139 quartet)
+            'l_ug1_layer_m': l_ug1_layer,             # F_TRZ^-12 EXACT (B18 Ug1 amplitude ladder)
+            'sigma_ref_kg_m2': sigma_ref,             # 1.0 EXACT by ladder conjugacy
+            'bridge': 'g_term = P_term / sigma_ref (Pa -> m/s2)',
+            'family_pass_through': {'p220_f_wind_pa': 1.36e-10, 'p450_w_wind_pa': 1e-12,
+                                    'p220_m_mag_t': 4.49e-28},
+            'mediation': 'R386 buoyancy linkage: pressure -> rung-12 vacuum column -> buoyant acceleration',
+            'magnetic_column': 'OPEN_UQFF_DERIVATION_TARGET (unit reference disclosed, not derived)',
+        },
+        'formula': 'sigma_ref = F_TRZ^12 * F_TRZ^-12 = 1 kg/m2 EXACT',
+        'source': 'PAPER_2259',
+        'residual_pct': 0.0,
+        'status': 'RULED_2026-09-01 (Q-216b: conjugate pair canonized + this derivation landmark)',
+    }
+
+
 @_register('PAPER_2258')
 def _p2258(dataset=None):
     tool = {'available': False}
@@ -29496,7 +29520,9 @@ def _paper_009(dataset):
                     'BNS-light 0.37 BNS-heavy 0.62 BBH deactivated; 9-sector; Production; VDS=F_TRZ (Q-009)'),
         'source': 'PAPER_009',
         'residual_pct': abs(systems['gw150914_bbh'] / systems['gw170817_bns'] - 2.4) / 2.4 * 100.0,
-        'status': 'OPEN_RULING',
+        'ruling_batch4': 'B28 RULED 2026-09-01 (Daniels physics, verbatim doctrine): Aether and SCm simultaneously operate TWO DISTINCT SCALES - cosmic Aether [(UA)] vs trapped Aether [(UA-prime)] inside the shell (DPM doctrine: UA-prime forms when SCm encapsulates free UA; SCm -> massive cosmogenesis, PAPER_877/140/2148) - and mass/buoyancy occurrences arise WHERE THE SCALES CROSS; the PAPER_009 internal split between the threshold scale (5.2e26 m = 17 Gpc) and the table scale is therefore NOT drift but the two-aether structure; D_SCm functional form (Gaussian vs 1-exp) remains OPEN - not ruled; Q-009a re-read under the two-scale doctrine',
+        'ruling_dscm': 'RULED D_SCm 2026-09-01 (Daniel-directed deep dive - three-layer primitive-locked structure canonized): (1) ENVIRONMENT A_SCm = exp[-(B/B_crit)^2] Gaussian (scm_activation_function.py Session 204, smooth SCm manifold collapse) with B_crit = D_phys*(SO_5+1)*F_TRZ^-12 = 4*11*1e12 = 4.4e13 G EXACT = electron Schwinger m_e^2 c^3/(e hbar) at 0.32 pct (PAPER_1188 cross-derivation); (2) VARIATIONAL SUSTAINABILITY S_sus = 1-(B/B_collapse)^2 with B_collapse = F_TRZ^-(A_5/D_phys) = 1e15 G EXACT (PAPER_2143 15-identity; PAPER_002 L33 SCm->0 threshold; PAPER_002 table all 5 rows EXACT under this form - vindicated, not drift); (3) OPERATOR D_SCm = 1-exp(-B_crit/B) threshold inside the environment, working point F_TRZ^2 = 0.01 EXACT (PAPER_1918 Family-2 anchor 1, PAPER_1977 nine-anchor family); squared-threshold variants = drift (square lives at usage level Edot ~ D^2); Q-009b CLOSED',
+        'status': 'RULED_2026-09-01 (Q-009 closed: a=B28 two-aether-scales structure, b=D_SCm three-layer canonization)',
     }
 
 
@@ -29677,6 +29703,7 @@ def _paper_013(dataset):
                     'envelope spread, weakest member of the corpus - honest, undressed, OPEN'),
         'source': 'PAPER_013',
         'residual_pct': abs(D_scm - 0.01) / 0.01 * 100.0,   # 118% vs paper ~0.01 (Q-010)
+        'ruling_dscm': 'RULED D_SCm 2026-09-01: Q-010a/c CLOSED - canonical form 1-exp(-B_crit/B) UNSQUARED in Gauss (own L87 numeric line computes unsquared -> 0.0218, rounds toward the F_TRZ^2 = 0.01 anchor working point at B = B_crit*F_TRZ^-2); L70 LaTeX square = drift (square lives at usage level, the ruled Edot ~ D^2 convention); B_crit = D_phys*(SO_5+1)*F_TRZ^-12 = 4.4e13 G EXACT primitive route; Q-010b (t_sd 3x vs 10000x timescale conflict) REMAINS OPEN',
         'status': 'OPEN_RULING',
     }
 
@@ -30081,6 +30108,7 @@ def _paper_019(dataset):
                     'A_UQFF = D_total * A_GR,std; h_c = A*(f/f_yr)^(-2/3)'),
         'source': 'PAPER_019',
         'residual_pct': abs(d_total_fyr * a_gr_std - 2.4e-15) / 2.4e-15 * 100,
+        'ruling_dscm': 'RULED D_SCm 2026-09-01 (partial): L161 squared-threshold 1-exp[-(B_crit/B)^2] = drift - canonical operator is UNSQUARED 1-exp(-B_crit/B) per the three-layer canonization (square lives at usage level); Q-016 (amplification-vs-suppression parameterization) unaffected, REMAINS OPEN',
         'status': 'OPEN_RULING',
     }
 
@@ -30483,7 +30511,8 @@ def _paper_025b(dataset):
                     'm1/m2 = M_N2/M_N1 = SSq; enhancement = sin^2(2theta)/4*(M_s1/Sum)^2'),
         'source': 'PAPER_025b',
         'residual_pct': abs(sum(m_nu) - 74.2) / 74.2 * 100,
-        'status': 'OPEN_RULING',
+        'ruling_batch4': 'RULED B29 2026-09-01: eigenstate TRIPLE canonical - sum m_nu = 72.89 meV (SSq hierarchy 8.18/14.35 = 0.5700 EXACT); stated 74.2 = slip; M_N1 = 2.19e9 GeV (PAPER_026 self-rectification folded); DW Omega h2 = 0.131 ACCEPTED as the honest disclosed prediction vs 0.12; Q-023a/b/c CLOSED',
+        'status': 'RULED_BATCH4_2026-09-01 (B29: triple canonical; DW overshoot stands disclosed)',
     }
 
 
@@ -30627,7 +30656,8 @@ def _paper_027(dataset):
     ug3 = -1.0 * c_lfv * s_lfv                       # -0.3337
     t_n_lfv = -_m.log(br_limit_me) / _m.pi           # 3.8327
     ug1 = 5.27965 / 0.93827                          # m_B/m_p = 5.627
-    ug4_effective = br_limit_me / (1.0 - F_TRZ)      # 6.556e-6 (Q-026a reading)
+    ug4_effective = br_limit_me / (1.0 - F_TRZ)      # 6.556e-6 paper-stated reading (drifted rho_SCm=6.38e-36 in its own L620 table)
+    ug4_canonical = 10.0 * br_limit_me               # 5.9e-5 CANONICAL (rho_UA/rho_SCm = 10, RULED B30)
     _v = _common_uqff_blocks(1.4, 1.0e4, 'lfv')
     _v.update({
         'VDS_sub_ratio_paper': 0.143, 'DVP_prime_paper': 107, 'DVP_n_channel_paper': 2/D_CRIT_F,
@@ -30644,7 +30674,8 @@ def _paper_027(dataset):
             't_n_plus_printed': 3.900,               # Q-026b (computed 3.8917)
             'br_reproduction': _m.exp(-_m.pi * t_n_lfv),   # = 5.9e-6
             'ug1_mb_over_mp': ug1,
-            'ug4_effective': ug4_effective,          # BR/(1-F_TRZ) reading
+            'ug4_effective': ug4_effective,          # paper-stated (drift denominator)
+            'ug4_canonical': ug4_canonical,          # 5.9e-5 CANONICAL densities (RULED B30)
             'f_u_net': ug1 - abs(ug3),               # ~5.29 (paper 5.288 with 5.622 Ug1)
             'sm_gim_floor': 1.0e-54,
             'lhcb_luminosity_fb': 5.4,
@@ -30656,7 +30687,8 @@ def _paper_027(dataset):
                     't_n_LFV = -ln(BR)/pi; BR = exp(-pi*t_n)'),
         'source': 'PAPER_027',
         'residual_pct': abs(_m.exp(-_m.pi * t_n_lfv) - br_limit_me) / br_limit_me * 100,
-        'status': 'OPEN_RULING',
+        'ruling_batch4': 'RULED B30 2026-09-01 (FULL READ): the papers OWN constants table (L620) declares the drifted rho_SCm = 6.38e-36 kg/m3 - Ug4 re-wired on CANONICAL densities = 10*BR = 5.9e-5 (paper-stated 6.558e-6 preserved); reversal depth 3.8917 canonical (print 3.900); LENR coupling renamed k_eta_LENR ending the PAPER_026b collision; Q-026a/b/c CLOSED',
+        'status': 'RULED_BATCH4_2026-09-01 (B30: canonical-density Ug4; depth 3.8917; k_eta_LENR)',
     }
 
 
@@ -31566,7 +31598,9 @@ def _paper_042(dataset):
                     'E_LENR = h * 1.25 THz'),
         'source': 'PAPER_042',
         'residual_pct': abs(e_phonon - 8.28e-22) / 8.28e-22 * 100,
-        'status': 'OPEN_RULING',
+        'ruling_batch3': 'B23 RULED 2026-09-01: F_rel = 4.30e33 N folded (PAPER_059 resolution); Colman-Gillespie divisor 4.17e9 folded (PAPER_046 self-rectification); Q-040b/c CLOSED. Q-040a (layer amplification three-way) remains OPEN - no preference given (B18)',
+        'ruling_b18': 'RULED B18 2026-09-01 (full section read): TWO-LADDER READING canonized - Ug1-AMPLITUDE ratio = 10^12/layer (L86 formula + L87 narration agree; the bare 10 prints at L85 and the conclusion are dropped-superscript mojibake) while the RADIUS ladder spans 61 decades over 26 layers (~10^2.44/layer) - two distinct quantities, no conflict; Q-040a CLOSED (Q-040 fully closed with B23s b/c folds)',
+        'status': 'RULED_BATCH4_2026-09-01 (B18: two-ladder reading - Ug1 10^12/layer, radius ~10^2.44/layer)',
     }
 
 
@@ -31632,7 +31666,9 @@ def _paper_043(dataset):
                     'U_i = lambda_i*(rho_r)*omega_LENR*cos(pi*t_n)*(1+f_TRZ)'),
         'source': 'PAPER_043',
         'residual_pct': (8.0 - e8_mev) / 8.0 * 100,
-        'status': 'OPEN_RULING',
+        'ruling_batch3': 'B19 RULED 2026-09-01: PLASMA-LEVEL ORIGIN CANONIZED - beta_13 = 0.60 IS the plasma-level value of canonical beta_i (3-datum support); ladder Level-1 normalization RENAMED rho_L1 = 1e-8 J/m3 (symbol collision with canonical rho_SCm ended); ratio/f_TRZ local variants = drift per charter table (B23); Q-041a/b/c/e CLOSED; Q-041d (Higgs level) remains',
+        'ruling_b31': 'RULED B31 2026-09-01: HIGGS LEVEL = 12 canonical - E12 = 10^-8 J = 62.42 GeV = m_H/2 (0.2%), boson at n = 12.30, EW family concordant (W 12.11, Z 12.16 per the corpus EP series); UH-n = m_H*n^2 is a SEPARATE quadratic Higgs tower (PAPER_034s own words - UH-18 = 40.5 TeV is that towers 18th state, not a level assignment); the E18 (Higgs boson energy scale) annotation = drift (PAPER_043s own Level-18 row is meter-scale/macroscopic); Q-041d CLOSED - Q-041 now fully closed (a/e B19, b/c B23, d B31)',
+        'status': 'RULED_2026-09-01 (Q-041 fully closed across B19/B23/B31; plasma-level origin + rho_L1 + Higgs level 12)',
     }
 
 
@@ -32111,7 +32147,9 @@ def _paper_051(dataset):
                     'final parsec: [SCm] viscous Ug4 sink; DM: [SCm]+[UA] opposition'),
         'source': 'PAPER_051',
         'residual_pct': abs(align(50.0, 48.3) - 96.48),
-        'status': 'OPEN_RULING',
+        'ruling_batch3': 'B19 RULED 2026-09-01: the 7.09 family at Level 13 canonized as the plasma-level origin datum (joint with PAPER_043 beta_13); Q-048a CLOSED. Q-048b (Hubble factor) remains OPEN - no preference given (B20); Q-048c/d remain',
+        'ruling_b20': 'B20 RESOLVED (Daniel canonized, 2026-09-01): 1.7154 = 1 + H0*t_ref with t_ref = F_TRZ^-10 years = 1e10 yr and H0 = A_5+SO_5 = 70 (residual 0.0002%) - the EVOLUTION-EPOCH BRANCH of the dual-branch Hubble factor (lookback branch = the 1.0002-class values), grounded in the black->white-hole time structure (PAPER_659 t_n = t/t_ref; f_TRZ negentropic reversal; PAPER_2139 F_TRZ ladder). The value is VINDICATED as derived, not repaired; the higher-redshift ANNOTATION was the drift. Q-048b/Q-050a CLOSED',
+        'status': 'RULED_2026-09-01 (Q-048 fully closed: a=B19 plasma origin, b=B20 evolution-epoch branch, c=B23 ratio drift table, d=B12 THz domain-split)',
     }
 
 
@@ -32280,6 +32318,7 @@ def _paper_054(dataset):
                     'Ug3 = M*omega_string*r*t*exp(-kappa*t)'),
         'source': 'PAPER_054',
         'residual_pct': abs(ug3_boost - 0.4) / 0.4 * 100,
+        'ruling_b20': 'B20 RESOLVED (Daniel canonized, 2026-09-01): 1.7154 = 1 + H0*t_ref with t_ref = F_TRZ^-10 years = 1e10 yr and H0 = A_5+SO_5 = 70 (residual 0.0002%) - the EVOLUTION-EPOCH BRANCH of the dual-branch Hubble factor (lookback branch = the 1.0002-class values), grounded in the black->white-hole time structure (PAPER_659 t_n = t/t_ref; f_TRZ negentropic reversal; PAPER_2139 F_TRZ ladder). The value is VINDICATED as derived, not repaired; the higher-redshift ANNOTATION was the drift. Q-048b/Q-050a CLOSED',
         'status': 'OPEN_RULING',
     }
 
@@ -34203,6 +34242,7 @@ def _paper_088(dataset):
                     'flavor (1:1:1)*(1+0.001*f_TRZ)'),
         'source': 'PAPER_088',
         'residual_pct': abs((1.0 + F_TRZ) - 1.01) / 1.01 * 100,
+        'ruling_batch3': 'B21 RULED 2026-09-01: CANONICAL 0.1 BRANCH - F_TRZ = 0.1 is the UQFF prediction across all four fork observables (neutrino +10pct DETECTABLE by IceCube-Gen2, pulsar timing, FRB slope, THz-bench dip); PAPER_102 lab-fluid tension stays flagged open; Q-084a CLOSED (joint: Q-087c/092c/096c); Q-084b/c remain',
         'status': 'OPEN_RULING',
     }
 
@@ -35565,7 +35605,9 @@ def _paper_114(dataset):
         'formula': 'Ug2 = a_CR*q_p^2*v^2/(r^2*m_p*c^2); d_sw = 0.01; rho ratio = 1+d_sw',
         'source': 'PAPER_114',
         'residual_pct': abs(ug2_coeff - 9.76e-38) / 9.76e-38 * 100,
-        'status': 'OPEN_RULING',
+        'ruling_q110b': 'RULED Q-110b 2026-09-01 (corpus deep dive): ALPHA_CR IS NOT A CORPUS CONSTANT - the canonical Ug2 is SOURCE4 (MAIN_1_CoAnQi.cpp L24294, cited by this papers own sec 2.1 header): Ug2 = k2*(QA+QUA)*Ms/r^2 * S * (1+delta_sw*v_sw) * HSCm * Ereact, with delta_sw = 0.01 a SOURCE4 constant and wind_mod = 1.01 at the calibration wind 5e5 m/s - the compression is structurally 1 + delta_sw, no alpha_CR needed; the papers alpha_CR*q_p^2*v^2/(r^2*m_p*c^2) form is a paper-local per-proton reparametrization (sole corpus occurrence) whose implied normalization 1.011e26 is DERIVED, not primitive (1.1 pct proximity to F_TRZ^-26 noted, NOT canonized - no chain); NEW EXACT CLOSURE canonized: d_sw = [UA]*F_U(r_Alfven) = F_TRZ^4 * F_TRZ^-2 = F_TRZ^2 EXACT (PAPER_127 L38 boundary condition + [UA]=1e-4=F_TRZ^4 ruling + B22 d_sw=F_TRZ^2 lock together with zero slack; F_U at the Alfven critical point = F_TRZ^-2 = 100)',
+        'ruling_b22': 'RULED B22 2026-09-01 (full read): d_sw JOINT IDENTITY canonized - d_sw = F_TRZ^2 = SSq/57 = 0.01, the two routes IDENTICAL via the exact linking relation SSq = 57*F_TRZ^2 (decade count 57 = SSq/F_TRZ^2); the papers physical route (SSq over the 57-decade spectrum) and the PAPER_2139 primitive-lock are one number; decade count = 57 canonical (the 58 citation = wobble, flagged); footer chain 2.16e-3 confirmed (print 3.2e-3 = slip); Q-110a/c CLOSED (Q-110b alpha_CR remains OPEN)',
+        'status': 'RULED_2026-09-01 (Q-110 fully closed: a/c=B22 joint identity, b=Q-110b corpus route - SOURCE4 wind_mod + Alfven boundary closure)',
     }
 
 
@@ -35618,12 +35660,16 @@ def _paper_115(dataset):
             't_jet_yr': r65 / (0.7 * C_LIGHT_CONVENTION) / YEAR_S,          # 3.03e5 EXACT
             'dt_n_yr': r65 / (0.7 * C_LIGHT_CONVENTION) / YEAR_S / 13,      # 2.33e4 EXACT
             'lifetime_inconsistency': 'sec 2.3 2e8 yr vs sec 4 3e5 yr (1000x)',
+            'per_reversal_composite': (1 + SSQ * (2 / _m.pi)) * (1 + F_TRZ),  # 1.4992 ~ 1.5 (0.056%) - B25 canonical
+            'r_n12_composite': ((1 + SSQ * (2 / _m.pi)) * (1 + F_TRZ)) ** 12,   # 129.0 > 100 - matches paper L106
+            'printed_95_2_is': 1.5 ** 12 / (1 + SSQ * (2 / _m.pi)),             # 95.2 EXACT - off-by-one boost count
             'mechanism': 'cumulative t_n buoyancy-inversion, Lorentz-independent floor',
         },
         'formula': 'R_N = (1 + SSq*2/pi)^N; U_bi = F_rel*SSq/r^2',
         'source': 'PAPER_115',
         'residual_pct': abs(per - 1.363) / 1.363 * 100,
-        'status': 'OPEN_RULING',
+        'ruling_b25': 'RULED B25 2026-09-01: COMPOSITE 1.5 CANONICAL - per-reversal = (1+SSq*2/pi)*(1+F_TRZ) = 1.363*1.1 = 1.4992 (0.056% from 1.5); the SSq mean-phase amplification times the B26-ruled multiplicative TRZ boost; N=12 -> R = 129.7 > 100 CONFIRMS papers own L106 line (1.5)^12 ~ 129 [N=12]; printed 95.2 = 1.5^12/1.363 EXACT = off-by-one boost count, printed (1.363)^12/(1.363)^13 rows = crossed-ladder drift; radius slip corrected 65 kpc = 2.0e21 m (paper used 2.0e23), U_bi = F_rel*SSq/r^2 = 6.11e-10 N/m2; Q-111/a/b/c CLOSED',
+        'status': 'RULED_2026-09-01 (Q-111 closed: composite 1.5 ladder canonical, crossed-ladder + radius drift corrected)',
     }
 
 
@@ -35734,7 +35780,8 @@ def _paper_117(dataset):
         'formula': 'n = log10(E/1e-20); S_n/E_8 = 2*SSq; Z_magic = A_5 + D_crit - D_phys',
         'source': 'PAPER_117',
         'residual_pct': abs(lvl(10 * MeV) - 8.205) / 8.205 * 100,
-        'status': 'OPEN_RULING',
+        'ruling_batch4': 'RULED B24 2026-09-01 (FULL READ): recomputed n-values canonical (1st excited 7.109 - the printed 6.91 was EP-02 electron-row copy-paste; 2nd 7.270; S_n 8.072; BE 10.415); Z=82 canonical route = A_5 + D_crit - D_phys = 82 EXACT (predecessor primitive identity), the asserted sub-ladder mapping relabeled heuristic; Q-113a/b CLOSED',
+        'status': 'RULED_BATCH4_2026-09-01 (B24: table prints were offset/copy-paste slips; Z=82 EXACT primitive route adopted)',
     }
 
 
@@ -37354,6 +37401,7 @@ def _paper_146(dataset):
         'formula': '12 term forms registered; aDPM = FDPM*fDPM*Evac*c*Vsys; FDPM = I*A*(w1-w2)',
         'source': 'PAPER_146',
         'residual_pct': abs(2 * _m.pi / 1e-8 / YEAR_S - 19.9) / 19.9 * 100,
+        'ruling_batch4': 'B26 RULED 2026-09-01: fTRZ SCOPED RESOLUTION canonized (PAPER_153) - additive ONLY in topology-normalized contexts, multiplicative (1+fTRZ) in acceleration contexts (PAPER_148 SGR1745 refutation honored); Term-6 direct vacuum term RENAMED Ug4d (PAPER_139/121 inverse keeps Ug4i); Q-142a/b CLOSED',
         'status': 'OPEN_RULING',
     }
 
@@ -37742,6 +37790,7 @@ def _paper_153(dataset):
         'formula': 'b = 0.9 r0^2/r + 0.1 r0 e^-k(r-r0); r0 = sqrt(c^2/8piG rho v^2)',
         'source': 'PAPER_153',
         'residual_pct': abs(r0 * 1000 - 2.32) / 2.32 * 100,
+        'ruling_batch4': 'B26 RULED 2026-09-01: this papers scoped fTRZ resolution IS the canonical form (Q-149a CLOSED jointly with Q-142a)',
         'status': 'OPEN_RULING',
     }
 
@@ -37799,6 +37848,7 @@ def _paper_154(dataset):
         'formula': 'du/dt + (u.grad)u = -grad p/rho + nu lap u + v_SCm F_TRZ z_hat + g_MUGE r_hat',
         'source': 'PAPER_154',
         'residual_pct': abs(1e8 * F_TRZ - 1e7) / 1e7 * 100,
+        'ruling_batch4': 'B27 RULED 2026-09-01 (FULL READ): jet identity trio CANONIZED - f_jet = v_SCm*F_TRZ = 1e7 m/s EXACT, T_Osc = 1/(F_TRZ*kappa) = 54.8 yr EXACT (M87 knot match), nu_SCm = v_SCm*lambda_SCm/3; lambda_SCm = 1e-15 m REGISTERED; BOTH 1e46 routes canonical as a JOINT identity via lambda_SCm = rho_A*v_SCm (linking identity registered); Q-150a/b CLOSED',
         'status': 'OPEN_RULING',
     }
 
@@ -38214,7 +38264,8 @@ def _paper_162(dataset):
         'formula': 'B(t) = B_s + 0.4*sin(omega_c*t) + SCm_contrib; delta_def = 0.01',
         'source': 'PAPER_162',
         'residual_pct': abs(1.4 / 0.6 - 2.33) / 2.33 * 100,
-        'status': 'OPEN_RULING',
+        'ruling_batch3': 'RULED B17 2026-09-01: B(t) = B_s*(1 + 0.4*sin(omega_c*t)) RELATIVE 40pct canonical (boxed/C++ absolute form = drift); period 6,283 s confirmed (printed 6.3 s = mantissa-exponent slip); SCm_contrib requires PER-BODY CALIBRATION (paper 1e-10 coefficient gives 1e5 T for the Sun, not ~B_s/100); Q-158a/b/c CLOSED',
+        'status': 'RULED_BATCH3_2026-09-01 (B17: relative 40pct amplitude canonical; period 6283 s; SCm_contrib per-body)',
     }
 
 
@@ -41151,7 +41202,8 @@ def _paper_218(dataset):
         'formula': 'g = G*M/r^2 * (1+H_0*t) * (1-B/B_crit) * (1-P(t)); P=0.15 -> (1-P)=0.85',
         'source': 'PAPER_218',
         'residual_pct': 0.0,
-        'status': 'OPEN_RULING',
+        'ruling_batch3': 'RULED B16 2026-09-01: recomputed values canonical - g_base = 7.22e-14 m/s2 (paper print 8.52e-52 = 38-order slip), (1-B/B_crit) ~ 1.0 (print 0.9999977), P(t)=0.15 is a 15pct reduction (print said 5pct); Q-214 CLOSED for this paper',
+        'status': 'RULED_BATCH3_2026-09-01 (B16: worked-example prints were transcription slips; recomputed values stand)',
     }
 
 
@@ -41216,6 +41268,7 @@ def _paper_219(dataset):
         'formula': 'g_M16 = G*M/r^2*(1+H*t)*(1-B/B_crit)*(1+M_sf) - E_rad; E_rad = L_UV/(4*pi*r^2*c)',
         'source': 'PAPER_219',
         'residual_pct': 0.0,
+        'ruling_q216b': 'RULED Q-216b 2026-09-01: additive-term bridge = rung-12 conjugate pair sigma_ref = lambda_vac_sw * L_Ug1-layer = F_TRZ^12 * F_TRZ^-12 = 1 kg/m2 EXACT (PAPER_2259 landmark; legs canonized in PAPER_2139 + B18); E_rad pass-through vindicated as physics; Q-215 worked-example arithmetic REMAINS OPEN',
         'status': 'OPEN_RULING',
     }
 
@@ -41290,7 +41343,8 @@ def _paper_220(dataset):
         'formula': 'F_wind = E_sd/(c*4*pi*r^2); M_mag = mu0*m/(4*pi*r^3); r(t) = r0 + v_exp*t',
         'source': 'PAPER_220',
         'residual_pct': 0.0,
-        'status': 'OPEN_RULING',
+        'ruling_q216b': 'RULED Q-216b 2026-09-01: additive-term bridge = rung-12 conjugate pair sigma_ref = lambda_vac_sw * L_Ug1-layer = F_TRZ^12 * F_TRZ^-12 = 1 kg/m2 EXACT (PAPER_2259 landmark; legs canonized in PAPER_2139 quartet + B18 Ug1 amplitude ladder); F_wind/M_mag pass-through vindicated as division by the rung-12 vacuum column at unit SI magnitude; magnetic column reference disclosed as normalization (open derivation target)',
+        'status': 'RULED_2026-09-01 (Q-216 fully closed: B5 form + Q-216b conjugate-pair reference; PAPER_2259)',
     }
 
 

@@ -17,7 +17,7 @@ service orchestration, convenience helpers, or implementation-facing adapters.
 Those belong in omnibase_spi (interface contracts) or omnibase_infra (implementations).
 """
 
-__version__ = "0.5.2"
+__version__ = "0.5.7"
 
 from omnibase_compat.routing.model_routing_degraded_event import ModelRoutingDegradedEvent
 from omnibase_compat.routing.model_routing_policy import ModelCiOverridePolicy, ModelRoutingPolicy

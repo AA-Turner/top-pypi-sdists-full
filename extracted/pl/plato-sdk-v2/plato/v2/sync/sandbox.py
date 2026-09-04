@@ -39,7 +39,6 @@ from plato._generated.api.v1.sandbox import start_worker
 from plato._generated.api.v1.simulator import get_env_flows as simulator_get_env_flows
 from plato._generated.api.v1.simulator import get_plato_config as simulator_get_plato_config
 from plato._generated.api.v1.simulator import get_simulator_versions as simulator_get_simulator_versions
-from plato._generated.api.v2.artifacts import get_artifact
 from plato._generated.api.v2.jobs import add_ssh_key as jobs_add_ssh_key
 from plato._generated.api.v2.jobs import checkpoint as jobs_checkpoint
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
@@ -68,7 +67,6 @@ from plato._generated.models import (
     AppSchemasBuildModelsSimConfigDataset,
     ArtifactCredential,
     ArtifactCredentials,
-    ArtifactInfoResponse,
     ArtifactMcpConfig,
     CloseSessionResponse,
     CreateCheckpointRequest,
@@ -104,6 +102,7 @@ from plato.v2.sandbox_store import (
     slugify,
     stop_heartbeat,
 )
+from plato.v2.sync.artifact import ArtifactManager
 from plato.v2.types import Env, EnvFromArtifact, EnvFromResource, EnvFromSimulator, SimConfigCompute
 
 logger = logging.getLogger(__name__)
@@ -973,6 +972,7 @@ class SandboxClient:
             base_url=self.base_url,
             timeout=httpx.Timeout(timeout),
         )
+        self.artifacts = ArtifactManager(self._http, self.api_key)
 
     def _get_plato_dir(self) -> Path:
         return Path(self.working_dir) / self.PLATO_DIR
@@ -1927,10 +1927,6 @@ class SandboxClient:
                     break
 
         return response
-
-    def artifact_info(self, artifact_id: str) -> ArtifactInfoResponse:
-        """Artifact record (status, parent, stored credentials, ...) — GET /api/v2/artifacts/{id}."""
-        return get_artifact.sync(client=self._http, artifact_id=artifact_id, x_api_key=self.api_key)
 
     def _record_artifact_id(self, artifact_id: str) -> None:
         """Record a fresh artifact on the sandbox slot this client is driving."""

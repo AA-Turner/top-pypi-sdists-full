@@ -283,6 +283,9 @@ class IDictionary(typing.Generic[System_Collections_Generic_IDictionary_TKey, Sy
     def __contains__(self, key: System_Collections_Generic_IDictionary_TKey) -> bool:
         ...
 
+    def __delitem__(self, key: System_Collections_Generic_IDictionary_TKey) -> None:
+        ...
+
     def __getitem__(self, key: System_Collections_Generic_IDictionary_TKey) -> System_Collections_Generic_IDictionary_TValue:
         ...
 
@@ -610,6 +613,9 @@ class ISet(typing.Generic[System_Collections_Generic_ISet_T], System.Collections
 
 class IList(typing.Generic[System_Collections_Generic_IList_T], System.Collections.Generic.ICollection[System_Collections_Generic_IList_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+    def __delitem__(self, index: int) -> None:
+        ...
 
     def __getitem__(self, index: int) -> System_Collections_Generic_IList_T:
         ...

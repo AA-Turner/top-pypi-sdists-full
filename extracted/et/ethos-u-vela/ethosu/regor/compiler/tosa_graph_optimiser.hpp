@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -49,7 +49,6 @@ private:
     // into ofmConn->quantization
     Operation *RewriteRescaleInputs(Graph *const graph, Operation *const operation);
 
-public:
     // The graph optimisation steps.
     // Order matters, array of rewrites processed in order.
     // clang-format off
@@ -92,10 +91,10 @@ public:
     }};
     // clang-format on
 
+    const GraphOptStepArray &GraphOptimisationSteps() const { return _graphOptimisationSteps; }
+
 public:
     explicit TosaGraphOptimiser(IArchitectureConstraints *constraints, const GraphOptimiserOptions &options, OptimiserDatabase *db);
-
-    const GraphOptStepArray &GraphOptimisationSteps() const { return _graphOptimisationSteps; }
 
     void OptimiseGraph(Graph *graph);
 };

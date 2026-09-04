@@ -18,11 +18,13 @@ from ._interceptor_sync import (
     ClientStreamInterceptorSync,
     InterceptorSync,
     MetadataInterceptorInvokerSync,
+    MetadataInterceptorsRunSync,
     MetadataInterceptorSync,
     ServerStreamInterceptorSync,
     UnaryInterceptorSync,
+    split_leading_metadata_interceptors,
 )
-from ._protocol import ConnectWireError, HTTPException, ServerProtocol
+from ._protocol import ConnectWireError, HTTPError, ServerProtocol
 from ._protocol_connect import (
     CONNECT_UNARY_CONTENT_TYPE_PREFIX,
     ConnectServerProtocol,
@@ -30,6 +32,7 @@ from ._protocol_connect import (
 )
 from ._protocol_server import negotiate_server_protocol
 from ._server_shared import (
+    DEFAULT_READ_MAX_BYTES,
     EndpointBidiStreamSync,
     EndpointClientStreamSync,
     EndpointServerStreamSync,
@@ -95,6 +98,7 @@ def prepare_response_headers(
 
     Returns:
         The final response headers with content-encoding set.
+
     """
     headers = base_headers.copy()
 
@@ -155,7 +159,7 @@ class ConnectWSGIApplication(ABC):
         *,
         endpoints: Mapping[str, EndpointSync],
         interceptors: Iterable[InterceptorSync] = (),
-        read_max_bytes: int | None = None,
+        read_max_bytes: int | None = DEFAULT_READ_MAX_BYTES,
         compressions: Iterable[Compression] | None = None,
         codecs: Iterable[Codec] | None = None,
     ) -> None:
@@ -170,8 +174,12 @@ class ConnectWSGIApplication(ABC):
                           If set to empty, disables compression.
             codecs: The codecs supported by the server. If unset, defaults to Protocol Buffers
                     binary and JSON codecs.
+
         """
         super().__init__()
+        self._metadata_interceptors, interceptors = split_leading_metadata_interceptors(
+            interceptors
+        )
         if interceptors:
             interceptors = [
                 MetadataInterceptorInvokerSync(interceptor)
@@ -204,7 +212,7 @@ class ConnectWSGIApplication(ABC):
                 endpoint = self._endpoints.get(self.path + path)
 
             if not endpoint:
-                raise HTTPException(HTTPStatus.NOT_FOUND, [])
+                raise HTTPError(HTTPStatus.NOT_FOUND, [])
 
             http_method = environ["REQUEST_METHOD"]
             http_scheme = environ.get("wsgi.url_scheme", "http")
@@ -238,7 +246,7 @@ class ConnectWSGIApplication(ABC):
                 environ, start_response, send_trailers, protocol, headers, endpoint, ctx
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 # invoking user callback
             _drain_request_body(environ)
             _maybe_log_exception(environ, e)
             return self._handle_error(e, ctx, start_response)
@@ -252,14 +260,30 @@ class ConnectWSGIApplication(ABC):
         ctx: RequestContext[_REQ, _RES],
         headers: Headers,
     ) -> Iterable[bytes]:
-        # Handle request based on method
-        if http_method == "GET":
-            request, codec = self._handle_get_request(environ, endpoint)
-        else:
-            request, codec = self._handle_post_request(environ, endpoint, headers)
+        metadata_run = MetadataInterceptorsRunSync(self._metadata_interceptors, ctx)
+        response: _RES | None = None
+        codec: Codec | None = None
+        error: Exception | None = None
+        try:
+            metadata_run.start()
+            # Handle request based on method
+            if http_method == "GET":
+                request, codec = self._handle_get_request(environ, endpoint)
+            else:
+                request, codec = self._handle_post_request(environ, endpoint, headers)
 
-        # Process request
-        response = endpoint.function(request, ctx)
+            # Process request
+            response = endpoint.function(request, ctx)
+        except Exception as e:  # noqa: BLE001 # re-raised after ending the run
+            error = e
+        finally:
+            # End the run before sending the response so on_end can still modify
+            # response metadata.
+            error = metadata_run.end(error)
+        if error is not None:
+            raise error
+        assert response is not None  # noqa: S101 # no error means function returned
+        assert codec is not None  # noqa: S101 # no error means request was parsed
 
         # Encode response
         res_bytes = codec.encode(response)
@@ -290,13 +314,12 @@ class ConnectWSGIApplication(ABC):
         request_headers: Headers,
     ) -> tuple[_REQ, Codec]:
         """Handle POST request with body."""
-
         codec_name = codec_name_from_content_type(
             request_headers.get("content-type", ""), stream=False
         )
         codec = self._codecs.get(codec_name)
         if not codec:
-            raise HTTPException(
+            raise HTTPError(
                 HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
                 [("Accept-Post", "application/json, application/proto")],
             )
@@ -305,35 +328,47 @@ class ConnectWSGIApplication(ABC):
             content_length = environ.get("CONTENT_LENGTH")
             content_length = 0 if not content_length else int(content_length)
             if content_length > 0:
+                if (
+                    self._read_max_bytes is not None
+                    and content_length > self._read_max_bytes
+                ):
+                    raise ConnectError(
+                        Code.RESOURCE_EXHAUSTED,
+                        f"message is larger than configured max {self._read_max_bytes}",
+                    )
                 req_body = _read_body_with_content_length(environ, content_length)
             else:
-                req_body = b"".join(_read_body(environ))
+                chunks: list[bytes] = []
+                read_bytes = 0
+                for chunk in _read_body(environ):
+                    read_bytes += len(chunk)
+                    if (
+                        self._read_max_bytes is not None
+                        and read_bytes > self._read_max_bytes
+                    ):
+                        raise ConnectError(
+                            Code.RESOURCE_EXHAUSTED,
+                            f"message is larger than configured max {self._read_max_bytes}",
+                        )
+                    chunks.append(chunk)
+                req_body = b"".join(chunks)
 
             # Handle compression if specified
             compression_name = environ.get("HTTP_CONTENT_ENCODING", "identity").lower()
-            if compression_name != "identity":
-                compression = self._compressions.get(compression_name)
-                if not compression:
-                    raise ConnectError(
-                        Code.UNIMPLEMENTED,
-                        f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
-                    )
-                try:
-                    req_body = compression.decompress(req_body)
-                except Exception as e:
-                    raise ConnectError(
-                        Code.INVALID_ARGUMENT,
-                        f"Failed to decompress request body: {e!s}",
-                    ) from e
-
-            if (
-                self._read_max_bytes is not None
-                and len(req_body) > self._read_max_bytes
-            ):
+            compression = self._compressions.get(compression_name)
+            if not compression:
                 raise ConnectError(
-                    Code.RESOURCE_EXHAUSTED,
-                    f"message is larger than configured max {self._read_max_bytes}",
+                    Code.UNIMPLEMENTED,
+                    f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
                 )
+            try:
+                req_body = compression.decompress(req_body, self._read_max_bytes)
+            except ConnectError:
+                raise
+            except Exception as e:
+                raise ConnectError(
+                    Code.INVALID_ARGUMENT, f"Failed to decompress request body: {e!s}"
+                ) from e
 
             try:
                 return codec.decode(req_body, endpoint.method.input), codec
@@ -379,13 +414,15 @@ class ConnectWSGIApplication(ABC):
             # Handle compression if specified
             if "compression" in params:
                 compression_name = params["compression"][0]
-                compression = self._compressions.get(compression_name)
-                if not compression:
-                    raise ConnectError(
-                        Code.UNIMPLEMENTED,
-                        f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
-                    )
-                message = compression.decompress(message)
+            else:
+                compression_name = "identity"
+            compression = self._compressions.get(compression_name)
+            if not compression:
+                raise ConnectError(
+                    Code.UNIMPLEMENTED,
+                    f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
+                )
+            message = compression.decompress(message, self._read_max_bytes)
 
             codec_name = params.get("encoding", ("",))[0]
             codec = self._codecs.get(codec_name)
@@ -397,11 +434,12 @@ class ConnectWSGIApplication(ABC):
             try:
                 # TODO - Use content type from queryparam
                 request = codec.decode(message, endpoint.method.input)
-                return request, codec
             except Exception as e:
                 raise ConnectError(
                     Code.INVALID_ARGUMENT, f"Failed to decode message: {e!s}"
                 ) from e
+            else:
+                return request, codec
 
         except Exception as e:
             if not isinstance(e, ConnectError):
@@ -427,7 +465,7 @@ class ConnectWSGIApplication(ABC):
         )
         codec = self._codecs.get(codec_name)
         if not codec:
-            raise HTTPException(
+            raise HTTPError(
                 HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
                 [
                     (
@@ -437,7 +475,9 @@ class ConnectWSGIApplication(ABC):
                 ],
             )
         writer = protocol.create_envelope_writer(codec, resp_compression)
+        metadata_run = MetadataInterceptorsRunSync(self._metadata_interceptors, ctx)
         try:
+            metadata_run.start()
             if not req_compression:
                 raise ConnectError(
                     Code.UNIMPLEMENTED, "Unrecognized request compression"
@@ -453,9 +493,15 @@ class ConnectWSGIApplication(ABC):
                 case _server_shared.EndpointUnarySync():
                     request = _consume_single_request(request_stream)
                     response = endpoint.function(request, ctx)
+                    # End the run before sending the response so on_end can still
+                    # modify response metadata.
+                    if (end_error := metadata_run.end(None)) is not None:
+                        raise end_error
                     response_stream = iter([response])
                 case _server_shared.EndpointClientStreamSync():
                     response = endpoint.function(request_stream, ctx)
+                    if (end_error := metadata_run.end(None)) is not None:
+                        raise end_error
                     response_stream = iter([response])
                 case _server_shared.EndpointServerStreamSync():
                     request = _consume_single_request(request_stream)
@@ -473,9 +519,14 @@ class ConnectWSGIApplication(ABC):
             if first_response is None:
                 # It's valid for a service method to return no messages, finish the response
                 # without error.
+                error = metadata_run.end(None)
                 return [
                     _end_response(
-                        writer.end(ctx.response_trailers, None), send_trailers
+                        writer.end(
+                            ctx.response_trailers,
+                            ConnectWireError.from_exception(error) if error else None,
+                        ),
+                        send_trailers,
                     )
                 ]
 
@@ -485,21 +536,29 @@ class ConnectWSGIApplication(ABC):
             # been called in time. So we return the response stream as a separate generator
             # function. This means some duplication of error handling.
             return _response_stream(
-                first_response, environ, response_stream, writer, send_trailers, ctx
+                first_response,
+                environ,
+                response_stream,
+                writer,
+                send_trailers,
+                ctx,
+                metadata_run,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 # invoking user callback
             # Exception before any response message was returned. An error after the first
             # response message will be handled by _response_stream, so here we have a
             # full error-only response.
+            error = metadata_run.end(e)
+            assert error is not None  # noqa: S101 # end never discards an error
             _drain_request_body(environ)
-            _maybe_log_exception(environ, e)
+            _maybe_log_exception(environ, error)
             _send_stream_response_headers(
                 start_response, protocol, codec, resp_compression.name(), ctx
             )
             return [
                 _end_response(
                     writer.end(
-                        ctx.response_trailers, ConnectWireError.from_exception(e)
+                        ctx.response_trailers, ConnectWireError.from_exception(error)
                     ),
                     send_trailers,
                 )
@@ -512,7 +571,7 @@ class ConnectWSGIApplication(ABC):
         headers: list[tuple[str, str]]
         body: list[bytes]
         status: str
-        if isinstance(exc, HTTPException):
+        if isinstance(exc, HTTPError):
             headers = exc.headers
             body = []
             status = f"{exc.status.value} {exc.status.phrase}"
@@ -584,6 +643,7 @@ def _response_stream(
     writer: EnvelopeWriter,
     send_trailers: Callable[[list[tuple[str, str]]], None] | None,
     ctx: RequestContext,
+    metadata_run: MetadataInterceptorsRunSync,
 ) -> Iterable[bytes]:
     error: Exception | None = None
     try:
@@ -592,9 +652,13 @@ def _response_stream(
         for message in response_stream:
             body = writer.write(message)
             yield body
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 # invoking user callback
         error = e
         _drain_request_body(environ)
+    finally:
+        # End the run before ending the response so on_end can still modify
+        # response trailers. This is a no-op if the run already ended.
+        error = metadata_run.end(error)
 
     yield _end_response(
         writer.end(
@@ -662,7 +726,7 @@ def _drain_request_body(environ: WSGIEnvironment) -> None:
 
 
 def _maybe_log_exception(environ: WSGIEnvironment, exc: Exception) -> None:
-    if isinstance(exc, (ConnectError, HTTPException)):
+    if isinstance(exc, (ConnectError, HTTPError)):
         return
     errors: ErrorStream = environ["wsgi.errors"]
     errors.write(

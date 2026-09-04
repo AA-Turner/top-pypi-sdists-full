@@ -10,8 +10,8 @@ import aiohttp
 import click
 import click_log
 
-from .. import BUGTRACKER_HOME
-from .. import __version__
+from vdirsyncer import BUGTRACKER_HOME
+from vdirsyncer import __version__
 
 cli_logger = logging.getLogger(__name__)
 click_log.basic_config("vdirsyncer")
@@ -131,10 +131,10 @@ def sync(ctx, collections, force_delete):
     async def main(collection_names):
         async with aiohttp.TCPConnector(limit_per_host=16) as conn:
             tasks = []
-            for pair_name, collections in collection_names:
+            for pair_name, pair_collections in collection_names:
                 async for collection, config in prepare_pair(
                     pair_name=pair_name,
-                    collections=collections,
+                    collections=pair_collections,
                     config=ctx.config,
                     connector=conn,
                 ):
@@ -147,7 +147,14 @@ def sync(ctx, collections, force_delete):
                         )
                     )
 
-            await asyncio.gather(*tasks)
+            # `return_exceptions=True` ensures that the event loop lives long enough for
+            # backoffs to be able to finish
+            gathered = await asyncio.gather(*tasks, return_exceptions=True)
+            # but now we need to manually check for and propogate a single failure after
+            # allowing all tasks to finish in order to keep exit status non-zero
+            failures = [e for e in gathered if isinstance(e, BaseException)]
+            if failures:
+                raise failures[0]
 
     asyncio.run(main(collections))
 
@@ -167,10 +174,10 @@ def metasync(ctx, collections):
 
     async def main(collection_names):
         async with aiohttp.TCPConnector(limit_per_host=16) as conn:
-            for pair_name, collections in collection_names:
-                collections = prepare_pair(
+            for pair_name, pair_collections in collection_names:
+                prepared = prepare_pair(
                     pair_name=pair_name,
-                    collections=collections,
+                    collections=pair_collections,
                     config=ctx.config,
                     connector=conn,
                 )
@@ -182,7 +189,7 @@ def metasync(ctx, collections):
                             general=config,
                             connector=conn,
                         )
-                        async for collection, config in collections
+                        async for collection, config in prepared
                     ]
                 )
 

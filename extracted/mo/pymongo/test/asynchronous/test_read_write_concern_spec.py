@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Run the read and write concern tests."""
+
 from __future__ import annotations
 
 import json
@@ -22,10 +23,6 @@ import warnings
 from pathlib import Path
 
 sys.path[0:0] = [""]
-
-from test.asynchronous import AsyncIntegrationTest, async_client_context, unittest
-from test.asynchronous.unified_format import generate_test_classes, get_test_path
-from test.utils_shared import OvertCommandListener
 
 from pymongo import DESCENDING
 from pymongo.asynchronous.mongo_client import AsyncMongoClient
@@ -39,6 +36,9 @@ from pymongo.errors import (
 from pymongo.operations import IndexModel, InsertOne
 from pymongo.read_concern import ReadConcern
 from pymongo.write_concern import WriteConcern
+from test.asynchronous import AsyncIntegrationTest, async_client_context, unittest
+from test.asynchronous.unified_format import generate_test_classes, get_test_path
+from test.utils_shared import OvertCommandListener
 
 _IS_SYNC = False
 
@@ -108,7 +108,7 @@ class TestReadWriteConcernSpec(AsyncIntegrationTest):
             w=wc["w"], wTimeoutMS=wc["wtimeout"], socketTimeoutMS=30000
         )
         db = client.get_database("pymongo_test")
-        coll = db.test
+        coll = db.coll
 
         async def insert_command():
             await coll.database.command(
@@ -194,12 +194,12 @@ class TestReadWriteConcernSpec(AsyncIntegrationTest):
         async with self.fail_point(cause_wce):
             # Write concern error on insert includes errInfo.
             with self.assertRaises(WriteConcernError) as ctx:
-                await self.db.test.insert_one({})
+                await self.db.coll.insert_one({})
             self.assertEqual(ctx.exception.details, expected_wce)
 
             # Test bulk_write as well.
             with self.assertRaises(BulkWriteError) as ctx:
-                await self.db.test.bulk_write([InsertOne({})])
+                await self.db.coll.bulk_write([InsertOne({})])
             expected_details = {
                 "writeErrors": [],
                 "writeConcernErrors": [expected_wce],
@@ -221,9 +221,9 @@ class TestReadWriteConcernSpec(AsyncIntegrationTest):
         db = client.errinfotest
         self.addAsyncCleanup(client.drop_database, "errinfotest")
         validator = {"x": {"$type": "string"}}
-        await db.create_collection("test", validator=validator)
+        await db.create_collection("coll", validator=validator)
         with self.assertRaises(WriteError) as ctx:
-            await db.test.insert_one({"x": 1})
+            await db.coll.insert_one({"x": 1})
         self.assertEqual(ctx.exception.code, 121)
         self.assertIsNotNone(ctx.exception.details)
         assert ctx.exception.details is not None

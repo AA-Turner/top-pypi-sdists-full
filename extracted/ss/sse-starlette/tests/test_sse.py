@@ -2,7 +2,6 @@ import asyncio
 import logging
 import math
 from functools import partial
-from types import SimpleNamespace
 
 import anyio
 import anyio.lowlevel
@@ -38,23 +37,7 @@ def mock_memory_channels():
     return setup
 
 
-@pytest.fixture
-def disable_ping(monkeypatch):
-    """Keep serialization tests independent of wall-clock heartbeat timing.
-
-    Scheduler delays can move a real ping across an assertion boundary and make
-    an unrelated formatting test flaky. Ping cadence is covered separately with
-    controlled timer ticks, so these tests only need a cancellable ping task.
-    """
-
-    async def wait_until_cancelled(_response, _send):
-        await anyio.Event().wait()
-
-    monkeypatch.setattr(EventSourceResponse, "_ping", wait_until_cancelled)
-
-
 class TestEventSourceResponse:
-    @pytest.mark.usefixtures("disable_ping")
     @pytest.mark.parametrize(
         "input_type,separator,expected_output",
         [
@@ -86,7 +69,8 @@ class TestEventSourceResponse:
                 async for value in generator:
                     yield await format_output(value)
 
-            response = EventSourceResponse(generate(), sep=separator)
+            # ping=0: keep serialization assertions independent of heartbeat timing
+            response = EventSourceResponse(generate(), sep=separator, ping=0)
             await response(scope, receive, send)
 
         # Act
@@ -96,7 +80,6 @@ class TestEventSourceResponse:
         # Assert
         assert expected_output in response.content
 
-    @pytest.mark.usefixtures("disable_ping")
     @pytest.mark.parametrize(
         "producer_output,expected_sse_response",
         [
@@ -153,6 +136,7 @@ class TestEventSourceResponse:
                 data_sender_callable=partial(
                     stream_numbers, send_chan, 1, 5
                 ),  # Producer writes to send channel
+                ping=0,  # keep assertions independent of heartbeat timing
             )
             await response(scope, receive, send)
 
@@ -285,10 +269,7 @@ class TestEventSourceResponse:
             if len(sent_messages) == expected_ping_count:
                 response.active = False
 
-        monkeypatch.setattr(
-            "sse_starlette.sse.anyio",
-            SimpleNamespace(sleep=counted_sleep),
-        )
+        monkeypatch.setattr("sse_starlette.sse.anyio.sleep", counted_sleep)
 
         # Act
         await response._ping(send)
@@ -301,6 +282,78 @@ class TestEventSourceResponse:
             "more_body": True,
         }
         assert sent_messages == [expected_ping_message] * expected_ping_count
+
+    @pytest.mark.anyio
+    async def test_ping_whenSendTimesOut_thenRaisesSendTimeoutError(self, monkeypatch):
+        """Heartbeats must honor the response's per-send timeout.
+
+        The ping interval is advanced by a logical tick, following
+        test_ping_whenTimerTicks_thenSendsOneMessagePerTick, so send_timeout is
+        the only real timer in play and the result does not depend on machine
+        load. fail_after is a hang watchdog, not an assertion, so it is set
+        generously.
+        """
+
+        # Arrange
+        send_timeout = 0.05
+
+        async def instant_sleep(_interval):
+            await anyio.lowlevel.checkpoint()
+
+        monkeypatch.setattr("sse_starlette.sse.anyio.sleep", instant_sleep)
+
+        response = EventSourceResponse([], ping=10, send_timeout=send_timeout)
+
+        async def blocked_send(_message):
+            await anyio.sleep_forever()
+
+        # Act & Assert
+        with anyio.fail_after(5):
+            with pytest.raises(SendTimeoutError):
+                await response._ping(blocked_send)
+
+    @pytest.mark.anyio
+    async def test_ping_whenSendTimesOut_thenTearsDownResponseAndRunsCleanup(self):
+        """A heartbeat timeout must tear down the whole response, not just _ping.
+
+        This is the frozen-client case the send timeout exists for: the peer keeps
+        the socket open but stops reading, so no http.disconnect ever arrives and
+        the heartbeat is the only traffic. Unlike the unit test above, this drives
+        the full ASGI entrypoint and asserts the generator's cleanup still runs.
+        """
+
+        # Arrange
+        cleanup_executed = False
+
+        async def event_publisher():
+            try:
+                await anyio.sleep_forever()
+                yield {"event": "test", "data": "data"}
+            finally:
+                nonlocal cleanup_executed
+                cleanup_executed = True
+
+        async def mock_send(message):
+            if message["type"] == "http.response.start":
+                return
+            await anyio.sleep_forever()
+
+        async def mock_receive():
+            await anyio.sleep_forever()
+
+        response = EventSourceResponse(event_publisher(), ping=0.05, send_timeout=0.05)
+
+        # Act & Assert
+        with anyio.fail_after(5):
+            with pytest.raises(SendTimeoutError):
+                with collapse_excgroups():
+                    await response(
+                        {"type": "http", "method": "GET", "headers": []},
+                        mock_receive,
+                        mock_send,
+                    )
+
+        assert cleanup_executed, "Generator cleanup must run when a heartbeat times out"
 
     @pytest.mark.anyio
     async def test_ping_whenConcurrentWithEvents_thenRespectsLocking(self):
@@ -369,8 +422,55 @@ class TestEventSourceResponse:
         negative_interval = -42
 
         # Act & Assert
-        with pytest.raises(ValueError, match="ping interval must be greater than 0"):
+        with pytest.raises(ValueError, match=r"ping interval must be >= 0"):
             response.ping_interval = negative_interval
+
+    def test_pingInterval_whenZero_thenAcceptedAsDisabled(self):
+        # Arrange
+        response = EventSourceResponse(0)
+
+        # Act
+        response.ping_interval = 0
+
+        # Assert
+        assert response.ping_interval == 0
+
+    @pytest.mark.anyio
+    async def test_ping_whenIntervalIsZero_thenNoPingTaskIsStarted(self):
+        """Issue #206: ping=0 must disable pings, not busy-spin on sleep(0).
+
+        Before the fix, ``_ping`` looped on ``anyio.sleep(0)`` — a bare
+        checkpoint — emitting tens of thousands of pings per second and
+        contending for ``_send_lock`` with the data stream.
+        """
+
+        # Arrange
+        async def gen():
+            for i in range(3):
+                await anyio.sleep(0.01)
+                yield {"data": i}
+
+        response = EventSourceResponse(gen(), ping=0)
+        bodies = []
+
+        async def send(message):
+            if message["type"] == "http.response.body":
+                bodies.append(message["body"])
+
+        async def receive():
+            await anyio.sleep(math.inf)
+            return {"type": "http.disconnect"}  # pragma: no cover
+
+        # Act
+        await response({"type": "http", "method": "GET", "headers": []}, receive, send)
+
+        # Assert
+        assert not any(b": ping" in body for body in bodies)
+        assert [b for b in bodies if b] == [
+            b"data: 0\r\n\r\n",
+            b"data: 1\r\n\r\n",
+            b"data: 2\r\n\r\n",
+        ]
 
     def test_compression_whenEnabled_thenRaisesNotImplemented(self):
         # Arrange

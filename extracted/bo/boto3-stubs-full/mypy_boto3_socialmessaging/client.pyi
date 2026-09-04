@@ -56,6 +56,8 @@ from .type_defs import (
     GetLinkedWhatsAppBusinessAccountOutputTypeDef,
     GetLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef,
     GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef,
+    GetWhatsAppBusinessPublicKeyInputTypeDef,
+    GetWhatsAppBusinessPublicKeyOutputTypeDef,
     GetWhatsAppFlowInputTypeDef,
     GetWhatsAppFlowOutputTypeDef,
     GetWhatsAppFlowPreviewInputTypeDef,
@@ -80,6 +82,7 @@ from .type_defs import (
     PostWhatsAppMessageMediaOutputTypeDef,
     PublishWhatsAppFlowInputTypeDef,
     PutWhatsAppBusinessAccountEventDestinationsInputTypeDef,
+    PutWhatsAppBusinessPublicKeyInputTypeDef,
     SendWhatsAppConversionEventInputTypeDef,
     SendWhatsAppConversionEventOutputTypeDef,
     SendWhatsAppMessageInputTypeDef,
@@ -283,6 +286,16 @@ class EndUserMessagingSocialClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#get_linked_whatsapp_business_account_phone_number)
         """
 
+    def get_whatsapp_business_public_key(
+        self, **kwargs: Unpack[GetWhatsAppBusinessPublicKeyInputTypeDef]
+    ) -> GetWhatsAppBusinessPublicKeyOutputTypeDef:
+        """
+        Retrieves the business public key for a phone number and its signature status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_whatsapp_business_public_key.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#get_whatsapp_business_public_key)
+        """
+
     def get_whatsapp_flow(
         self, **kwargs: Unpack[GetWhatsAppFlowInputTypeDef]
     ) -> GetWhatsAppFlowOutputTypeDef:
@@ -414,6 +427,17 @@ class EndUserMessagingSocialClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/put_whatsapp_business_account_event_destinations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#put_whatsapp_business_account_event_destinations)
+        """
+
+    def put_whatsapp_business_public_key(
+        self, **kwargs: Unpack[PutWhatsAppBusinessPublicKeyInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sets the business public key used to encrypt the data exchanged with the
+        endpoint of a data exchange Flow.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/put_whatsapp_business_public_key.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#put_whatsapp_business_public_key)
         """
 
     def send_whatsapp_conversion_event(

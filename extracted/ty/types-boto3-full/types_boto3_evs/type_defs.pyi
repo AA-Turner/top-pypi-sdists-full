@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_evs.type_defs import AssociateEipToVlanRequestTypeDef
+    from types_boto3_evs.type_defs import AccountSettingTypeDef
 
-    data: AssociateEipToVlanRequestTypeDef = ...
+    data: AccountSettingTypeDef = ...
     ```
 """
 
@@ -40,6 +40,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AccountSettingTypeDef",
     "AssociateEipToVlanRequestTypeDef",
     "AssociateEipToVlanResponseTypeDef",
     "CheckTypeDef",
@@ -70,6 +71,7 @@ __all__ = (
     "EnvironmentSummaryTypeDef",
     "EnvironmentTypeDef",
     "ErrorDetailTypeDef",
+    "GetAccountSettingsResponseTypeDef",
     "GetDepotUrlRequestTypeDef",
     "GetDepotUrlResponseTypeDef",
     "GetEnvironmentRequestTypeDef",
@@ -100,6 +102,8 @@ __all__ = (
     "ListVmEntitlementsResponseTypeDef",
     "NetworkInterfaceTypeDef",
     "PaginatorConfigTypeDef",
+    "PutAccountSettingsRequestTypeDef",
+    "PutAccountSettingsResponseTypeDef",
     "ResponseMetadataTypeDef",
     "SecretTypeDef",
     "ServiceAccessSecurityGroupsOutputTypeDef",
@@ -114,6 +118,10 @@ __all__ = (
     "VlanTypeDef",
     "VmEntitlementTypeDef",
 )
+
+class AccountSettingTypeDef(TypedDict):
+    name: str
+    value: str
 
 class AssociateEipToVlanRequestTypeDef(TypedDict):
     environmentId: str
@@ -322,6 +330,13 @@ class UpdateEnvironmentConnectorRequestTypeDef(TypedDict):
     applianceFqdn: NotRequired[str]
     secretIdentifier: NotRequired[str]
 
+class PutAccountSettingsRequestTypeDef(TypedDict):
+    settings: Sequence[AccountSettingTypeDef]
+
+class GetAccountSettingsResponseTypeDef(TypedDict):
+    settings: list[AccountSettingTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetDepotUrlResponseTypeDef(TypedDict):
     depotUrl: str
     token: str
@@ -329,6 +344,10 @@ class GetDepotUrlResponseTypeDef(TypedDict):
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutAccountSettingsResponseTypeDef(TypedDict):
+    settings: list[AccountSettingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ConnectivityInfoUnionTypeDef = Union[ConnectivityInfoTypeDef, ConnectivityInfoOutputTypeDef]

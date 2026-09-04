@@ -13,16 +13,14 @@ import jq
 from aiohttp.web_exceptions import HTTPNotFound
 from django.conf import settings
 from django.contrib.postgres.fields import HStoreField
-from django.contrib.postgres.indexes import OpClass, SpGistIndex
 from django.db import DatabaseError, IntegrityError, models, transaction
 from django.utils import timezone
-from django_lifecycle import AFTER_CREATE, AFTER_UPDATE, BEFORE_CREATE, BEFORE_DELETE, hook
+from django_lifecycle import AFTER_CREATE, AFTER_UPDATE, BEFORE_DELETE, hook
 from rest_framework.exceptions import APIException
 from url_normalize import url_normalize
 
 from pulpcore.app.files import PulpTemporaryUploadedFile
 from pulpcore.app.models import AutoAddObjPermsMixin
-from pulpcore.app.models.fields import RelativePathField
 from pulpcore.app.util import cache_key, get_domain_pk, get_url, retain_distributed_pub_enabled
 from pulpcore.cache import Cache
 from pulpcore.responses import ArtifactResponse
@@ -177,20 +175,6 @@ class Publication(MasterModel):
             except Publication.DoesNotExist:
                 pass
 
-            # A distribution serving this publication's version directly (repository_version)
-            # resolves to the latest publication of that version. Invalidate those distributions
-            # when this is that latest publication.
-            try:
-                version_latest = Publication.objects.filter(
-                    repository_version=self.repository_version, complete=True
-                ).latest("pulp_created")
-                if self.pk == version_latest.pk:
-                    base_paths |= Distribution.objects.filter(
-                        repository_version=self.repository_version
-                    ).values_list("base_path", flat=True)
-            except Publication.DoesNotExist:
-                pass
-
             # Invalidate cache for all distributions serving this publication
             if base_paths:
                 Cache().delete(base_key=cache_key(base_paths))
@@ -248,16 +232,17 @@ class Publication(MasterModel):
                 self.delete()
                 raise
 
-            # Refresh distributed publications for the auto-publish scenario. A distribution can
-            # distribute this publication indirectly either through its repository (latest
-            # publication of the latest version) or through its repository_version (latest
-            # publication of that version), without the distribution itself changing.
+            # Create distributed publication for repository auto-publish scenario
             if retain_distributed_pub_enabled():
-                for distro in Distribution.objects.filter(
-                    models.Q(repository=self.repository_version.repository)
-                    | models.Q(repository_version=self.repository_version)
-                ):
-                    distro.set_distributed_publication()
+                for distro in Distribution.objects.filter(repository=self.repository):
+                    detail_distro = distro.cast()
+                    if not detail_distro.SERVE_FROM_PUBLICATION:
+                        continue
+                    _, _, latest_repo_publication = (
+                        detail_distro.get_repository_publication_and_version()
+                    )
+                    if self == latest_repo_publication:
+                        DistributedPublication(distribution=distro, publication=self).save()
 
             # Unmark old checkpoints if retention is configured
             if self.checkpoint:
@@ -267,8 +252,7 @@ class Publication(MasterModel):
             # invalidate cache
             if settings.CACHE_ENABLED:
                 base_paths = Distribution.objects.filter(
-                    models.Q(repository=self.repository_version.repository)
-                    | models.Q(repository_version=self.repository_version)
+                    repository=self.repository_version.repository
                 ).values_list("base_path", flat=True)
                 if base_paths:
                     Cache().delete(base_key=cache_key(base_paths))
@@ -286,7 +270,7 @@ class PublishedArtifact(BaseModel):
         publication (models.ForeignKey): The publication in which the artifact is included.
     """
 
-    relative_path = RelativePathField()
+    relative_path = models.TextField()
 
     content_artifact = models.ForeignKey("ContentArtifact", on_delete=models.CASCADE)
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE)
@@ -309,7 +293,7 @@ class PublishedMetadata(Content):
 
     TYPE = "publishedmetadata"
 
-    relative_path = RelativePathField()
+    relative_path = models.TextField()
 
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE)
 
@@ -625,13 +609,13 @@ class Distribution(MasterModel):
 
     This master model can be used by plugin writers to create detail Distribution objects.
 
-    The `name` must be unique.
+    The ``name`` must be unique.
 
-    The `base_path` must have no overlapping components. So if a Distribution with `base_path`
-    of `a/path/foo` existed, you could not make a second Distribution with a `base_path` of
-    `a/path` or `a` because both are subpaths of `a/path/foo`.
+    The ``base_path`` must have no overlapping components. So if a Distribution with ``base_path``
+    of ``a/path/foo`` existed, you could not make a second Distribution with a ``base_path`` of
+    ``a/path`` or ``a`` because both are subpaths of ``a/path/foo``.
 
-    Subclasses are expected to use either the `publication` or `repository_version` field, but
+    Subclasses are expected to use either the ``publication`` or ``repository_version`` field, but
     not both. The content app that serves content is not prepared to serve content both ways at the
     same time.
 
@@ -658,7 +642,7 @@ class Distribution(MasterModel):
 
     name = models.TextField(db_index=True)
     pulp_labels = HStoreField(default=dict)
-    base_path = RelativePathField()
+    base_path = models.TextField()
     pulp_domain = models.ForeignKey("Domain", default=get_domain_pk, on_delete=models.PROTECT)
     hidden = models.BooleanField(default=False, null=True)
     checkpoint = models.BooleanField(default=False)
@@ -673,13 +657,6 @@ class Distribution(MasterModel):
 
     class Meta:
         unique_together = (("name", "pulp_domain"), ("base_path", "pulp_domain"))
-        indexes = [
-            SpGistIndex(
-                OpClass("base_path", name="text_ops"),
-                include=("pulp_domain",),
-                name="%(app_label)s_%(class)s_base_path_text",
-            ),  # Allows fast startswith (^@) lookups.
-        ]
 
     def get_repository_publication_and_version(self):
         """
@@ -754,31 +731,6 @@ class Distribution(MasterModel):
         """
         return set()
 
-    def content_handler_json(self, path):
-        """
-        Handler to serve a JSON representation of the content at `path` for this Distribution.
-
-        This is the JSON counterpart to :meth:`content_handler`. It is invoked instead of (and
-        checked before) the generic, plugin-agnostic JSON directory listing whenever the
-        client's `Accept` header indicates a preference for JSON over HTML. Plugins override
-        this to provide type-specific JSON (e.g. package metadata, a de-duplicated "package"
-        listing, etc.) rather than falling back to the generic file/size/date listing that
-        pulpcore builds automatically for every Distribution.
-
-        The default implementation returns `None` for every path, which is safe for any
-        Distribution subclass that doesn't override it: pulpcore's generic JSON directory
-        listing (or the normal HTML/binary behavior) is used instead.
-
-        Args:
-            path (str): The path being requested
-        Returns:
-            None if there is no JSON representation to serve at path. Otherwise, a
-            JSON-serializable object (dict/list) to be returned to the client, or an
-            aiohttp.web.StreamResponse (e.g. built via aiohttp.web.json_response) for full
-            control over headers/status.
-        """
-        return None
-
     def content_headers_for(self, path):
         """
         Opportunity for Distribution to specify response-headers for a specific path
@@ -831,19 +783,6 @@ class Distribution(MasterModel):
                     return pa.content_artifact
         return None
 
-    @hook(BEFORE_CREATE)
-    def _set_default_content_guard(self):
-        """Apply the domain's default content guard when none is explicitly set.
-
-        If the distribution is created without a `content_guard` and its domain has a
-        `default_content_guard` configured, that guard is assigned automatically. An
-        explicitly provided `content_guard` always takes precedence.
-        """
-        if self.content_guard_id is None:
-            default_content_guard_id = self.pulp_domain.default_content_guard_id
-            if default_content_guard_id is not None:
-                self.content_guard_id = default_content_guard_id
-
     @hook(AFTER_CREATE)
     @hook(
         AFTER_UPDATE,
@@ -852,50 +791,14 @@ class Distribution(MasterModel):
         is_not=None,
     )
     def set_distributed_publication(self):
-        """
-        Track the publication currently served by this distribution.
-
-        Records a DistributedPublication for the publication this distribution resolves to
-        (directly, or indirectly via its repository/repository_version). Idempotent: does
-        nothing if the active DistributedPublication already points at that publication.
-        """
+        """Track the publication being served when a distribution is created or changed."""
         detail = self.cast()
         if not detail.SERVE_FROM_PUBLICATION or not retain_distributed_pub_enabled():
             return
         _, _, pub = detail.get_repository_publication_and_version()
         if pub is None:
             return
-
-        # Fast path: check if already active without locking (handles most calls)
-        if DistributedPublication.objects.filter(
-            distribution=self, publication=pub, expires_at__isnull=True
-        ).exists():
-            return
-
-        # Slow path: create or reactivate under a lock. We lock the Distribution row rather
-        # than the DP row because the DP may not exist yet, and SELECT FOR UPDATE cannot lock
-        # a nonexistent row -- without this, two concurrent writers could both insert an active
-        # DP, violating the "at most one active DP per distribution" invariant.
-        with transaction.atomic():
-            Distribution.objects.select_for_update().get(pk=self.pk)
-
-            dp = DistributedPublication.objects.filter(distribution=self, publication=pub).first()
-            if dp is None:
-                # No DP exists; creating one fires the AFTER_CREATE cleanup hook, which
-                # expires the previously-active DP(s) for this distribution.
-                DistributedPublication(distribution=self, publication=pub).save()
-            elif dp.expires_at is None:
-                # Already active (raced past the fast path); nothing to do.
-                return
-            else:
-                # Reactivate an expiring DP. The AFTER_CREATE cleanup hook does not run on an
-                # update, so expire the other active DP(s) here to keep a single active DP.
-                dp.expires_at = None
-                dp.save(skip_hooks=True)
-                retention = settings.DISTRIBUTED_PUBLICATION_RETENTION_PERIOD
-                DistributedPublication.objects.filter(
-                    distribution=self, expires_at__isnull=True
-                ).exclude(pk=dp.pk).update(expires_at=timezone.now() + timedelta(seconds=retention))
+        DistributedPublication(distribution=self, publication=pub).save()
 
     @hook(
         AFTER_UPDATE,

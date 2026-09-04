@@ -19,21 +19,34 @@
 from __future__ import annotations
 
 import io
+import re
 import time
+from itertools import pairwise
 from typing import cast
 
 import pytest
 from extra_platforms.pytest import skip_windows
 
-from click_extra import SPINNERS, Spinner, Style
+from click_extra import SPINNERS, Spinner, Style, unstyle
 from click_extra.recording import (
+    DEFAULT_SUBMIT,
     Frame,
     ScreenRecorder,
     TerminalScreen,
+    ansi_prefix,
     quantize,
+    record_and_render,
     record_command,
+    type_line,
 )
-from click_extra.screenshot import animation_digest, render_svg
+from click_extra.screenshot import (
+    CELL_HEIGHT,
+    CELL_WIDTH,
+    LINE_HEIGHT,
+    animation_digest,
+    render_svg,
+)
+from click_extra.screenshot_presets import Cursor
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -83,6 +96,12 @@ def snapshots(stream: str) -> list[str]:
         pytest.param(f"{HIDE_CURSOR}fig{SHOW_CURSOR}", "fig", id="cursor-visibility"),
         pytest.param("\x1b[2;5Hfig", "fig", id="an-unfollowed-sequence-is-dropped"),
         pytest.param("one\rtwo\nthree", "two\nthree", id="return-then-newline"),
+        pytest.param("one\r\ntwo", "one\ntwo", id="return-newline-keeps-the-row"),
+        pytest.param(
+            f"spin{CLEAR_LINE}\r{CLEAR_LINE}done\r\n\rnext{CLEAR_LINE}",
+            "done\nnext",
+            id="trail-choreography",
+        ),
     ),
 )
 def test_screen_replays_a_stream(stream, expected):
@@ -95,9 +114,10 @@ def test_screen_replays_a_stream(stream, expected):
 def test_screen_keeps_a_color_set_between_a_return_and_its_text():
     """A color opened after the cursor comes back still wraps what follows.
 
-    An animation writes the return, then its color, then the text. Redrawing the
-    row when the *text* lands rather than when the cursor comes back throws that
-    color away, and the frame draws in the terminal's default ink.
+    An animation writes the return, then its color, then the text. The redraw
+    is deferred until something lands on the row, and the color is the first
+    thing to land: it must trigger the clear and survive it, or the frame
+    draws in the terminal's default ink.
     """
     screen = TerminalScreen()
     screen.feed(f"apricot\r{GREEN}fig{RESET}{CLEAR_LINE}")
@@ -279,6 +299,86 @@ def test_record_command_recovers_a_foreign_animation():
     assert all(frame.duration > 0 for frame in frames)
 
 
+SPLIT_GLYPH_SCRIPT = """
+import sys, time
+raw = sys.stdout.buffer
+glyph = "\u2570".encode("UTF-8")
+raw.write(glyph[:1])
+raw.flush()
+time.sleep(0.2)
+raw.write(glyph[1:] + b" ripe")
+raw.flush()
+"""
+"""A box-drawing corner flushed one byte at a time, as a busy pty read splits it."""
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_record_command_reassembles_a_glyph_split_across_reads():
+    """A multi-byte glyph straddling two pty reads decodes whole.
+
+    A pseudo-terminal hands the stream back in kernel-buffer-sized chunks, so
+    a heavy redraw regularly splits a box-drawing glyph or an emoji across two
+    reads. Decoding each chunk on its own mangles both halves into `U+FFFD`;
+    the recorder must hold the partial sequence until its tail arrives.
+    """
+    frames = record_command(
+        ("python", "-c", SPLIT_GLYPH_SCRIPT),
+        columns=40,
+        duration=5.0,
+    )
+
+    assert frames, "the command drew nothing"
+    assert frames[-1].text == "\u2570 ripe"
+    assert all("\ufffd" not in frame.text for frame in frames)
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_record_and_render_draws_the_prompt_on_every_frame():
+    """The stated invocation leads each frame, styled as a shell prompt."""
+    svg, returncode = record_and_render(
+        ("python", "-c", BAR_SCRIPT),
+        columns=40,
+        prompt="basket ripen --all",
+        unique_id="pantry-run",
+    )
+    assert returncode == 0
+    assert "basket" in svg
+    assert "ripen" in svg
+    # Four bar frames recorded, plus the blank frame closing the cycle.
+    assert svg.count('"pantry-run-clip"') == 1
+    assert "pantry-run-f4" in svg
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_record_and_render_hides_an_empty_prompt():
+    """An empty --prompt draws no invocation at all."""
+    svg, _returncode = record_and_render(
+        ("python", "-c", BAR_SCRIPT),
+        columns=40,
+        prompt="",
+        unique_id="bare-run",
+    )
+    assert "python" not in svg
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_record_and_render_reports_the_exit_code():
+    """The command's own verdict travels beside the picture of it."""
+    _svg, returncode = record_and_render(
+        ("python", "-c", "import sys; print('rotten'); sys.exit(3)"),
+        columns=40,
+        prompt="",
+    )
+    assert returncode == 3
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_record_and_render_refuses_an_empty_recording():
+    """A command that drew nothing leaves nothing to animate."""
+    with pytest.raises(ValueError, match="drew no screen"):
+        record_and_render(("python", "-c", "pass"), columns=40)
+
+
 @pytest.mark.parametrize(
     ("recorded", "expected"),
     (
@@ -350,3 +450,204 @@ def test_a_changed_command_moves_the_recording():
     cycle = ["[", "[#", "[##"]
     beats = (0.08,) * len(cycle)
     assert animation_digest(cycle, beats) != animation_digest(["(", "(#", "(##"], beats)
+
+
+TYPED_PROMPT = "\x1b[90m$\x1b[0m \x1b[97mbasket\x1b[0m ripen --all"
+"""A styled prompt line, as `format_cli_prompt` composes one."""
+
+
+@pytest.mark.parametrize(
+    ("count", "expected"),
+    (
+        pytest.param(0, "\x1b[0m", id="nothing-typed-yet"),
+        pytest.param(1, "\x1b[90m$\x1b[0m", id="one-character"),
+        pytest.param(3, "\x1b[90m$\x1b[0m \x1b[97mb\x1b[0m", id="into-the-next-style"),
+        pytest.param(
+            99,
+            "\x1b[90m$\x1b[0m \x1b[97mbasket\x1b[0m ripen --all\x1b[0m",
+            id="past-the-end",
+        ),
+    ),
+)
+def test_ansi_prefix_keeps_the_styling_in_force(count, expected):
+    """An escape is drawn nowhere, so every one before the cut still applies."""
+    assert ansi_prefix(TYPED_PROMPT, count) == expected
+
+
+@pytest.mark.parametrize("count", range(len("$ basket ripen --all") + 1))
+def test_ansi_prefix_never_cuts_an_escape(count):
+    """A half-written escape lands on the screen as the digits it is made of."""
+    prefix = ansi_prefix(TYPED_PROMPT, count)
+    assert "\x1b" not in re.sub(r"\x1b\[[0-9;?]*[a-zA-Z]", "", prefix)
+    assert unstyle(prefix) == unstyle(TYPED_PROMPT)[:count]
+
+
+def test_type_line_makes_one_frame_per_character():
+    """A keystroke is a screen, so a character is a frame."""
+    typed = type_line(TYPED_PROMPT, typing=0.05)
+    assert len(typed) == len(unstyle(TYPED_PROMPT))
+    assert [unstyle(frame.text) for frame in typed[:3]] == ["$", "$ ", "$ b"]
+    assert unstyle(typed[-1].text) == unstyle(TYPED_PROMPT)
+
+
+def test_type_line_holds_the_finished_line_for_the_submit_beat():
+    """The pause before the return key, and only on the frame that waits it."""
+    typed = type_line(TYPED_PROMPT, typing=0.05, submit=0.4)
+    assert {frame.duration for frame in typed[:-1]} == {0.05}
+    assert typed[-1].duration == 0.4
+
+
+def test_type_line_types_nothing_for_an_empty_line():
+    """A recording carrying no prompt has no opening to play."""
+    assert type_line("") == ()
+    assert type_line("\x1b[90m\x1b[0m") == ()
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        pytest.param({"typing": 0}, "not a typing speed", id="typing-zero"),
+        pytest.param({"typing": -1}, "not a typing speed", id="typing-backwards"),
+        pytest.param({"submit": 0}, "not a pause", id="submit-zero"),
+        pytest.param({"submit": -1}, "not a pause", id="submit-backwards"),
+    ),
+)
+def test_type_line_rejects_a_beat_going_nowhere(kwargs, message):
+    """Seconds run forwards, and a frame lasting none is never shown."""
+    with pytest.raises(ValueError, match=message):
+        type_line(TYPED_PROMPT, **kwargs)
+
+
+def test_a_typed_opening_walks_its_cursor_one_cell_at_a_time():
+    """The caret is the cursor, and it follows the text with no code of its own.
+
+    What the design rests on: a cursor is drawn as part of the row it stands on,
+    read off that row's text, so an animation typing a line gets its caret for
+    nothing.
+    """
+    typed = type_line(TYPED_PROMPT, typing=0.05)
+    svg = render_svg(
+        columns=40,
+        unique_id="basket",
+        frames=[frame.text for frame in typed],
+        interval=[frame.duration for frame in typed],
+        cursor=Cursor(),
+    )
+    lefts = [
+        float(left)
+        for left in re.findall(
+            r'<rect class="basket-blink" fill="[^"]*" x="([\d.]+)"', svg
+        )
+    ]
+    assert len(lefts) == len(typed)
+    steps = {round(after - before, 1) for before, after in pairwise(lefts)}
+    assert steps == {round(CELL_WIDTH, 1)}
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_a_recording_types_its_prompt_when_asked():
+    """The typed opening leads the recorded frames, under the prompt it types."""
+    plain, _ = record_and_render(
+        ("python", "-c", BAR_SCRIPT),
+        columns=40,
+        prompt="basket ripen --all",
+        unique_id="orchard",
+    )
+    typed, _ = record_and_render(
+        ("python", "-c", BAR_SCRIPT),
+        columns=40,
+        prompt="basket ripen --all",
+        unique_id="orchard",
+        typing=0.05,
+        submit=DEFAULT_SUBMIT,
+    )
+
+    def frame_count(svg: str) -> int:
+        found = re.search(r"frames=(\d+)", svg)
+        assert found, svg
+        return int(found.group(1))
+
+    assert frame_count(typed) - frame_count(plain) == len("$ basket ripen --all")
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_a_recording_types_nothing_unless_asked():
+    """The default opens on the finished prompt, as every recording so far does."""
+    svg, _ = record_and_render(
+        ("python", "-c", BAR_SCRIPT),
+        columns=40,
+        prompt="basket ripen --all",
+        unique_id="orchard",
+    )
+    assert "orchard-blink" not in svg
+
+
+RIPENED_SCRIPT = """\
+import sys, time
+for filled in range(4):
+    sys.stderr.write('\\r[' + '#' * filled + ']\\x1b[K')
+    sys.stderr.flush()
+    time.sleep(0.05)
+sys.stderr.write('\\r\\x1b[Kripe\\n')
+"""
+"""The same bar, ending on a newline the way a finished command does."""
+
+
+def last_drawn_row(svg: str) -> int:
+    """Index of the lowest row a capture draws a glyph on, counted from zero.
+
+    Matched on the styled runs alone: the caption and the credit line are
+    `<text>` too, and both sit outside the grid this measures.
+    """
+    baselines = [
+        float(y) for y in re.findall(r'<text class="[\w-]+-r\d+"[^>]*y="([\d.]+)"', svg)
+    ]
+    assert baselines, svg
+    return round((max(baselines) - CELL_HEIGHT) / LINE_HEIGHT)
+
+
+def window_height(svg: str) -> float:
+    """How tall the capture is, in pixels."""
+    found = re.search(r'viewBox="0 0 [\d.]+ ([\d.]+)"', svg)
+    assert found, svg
+    return float(found.group(1))
+
+
+def recorded(script: str, **kwargs: object) -> str:
+    """Record one script, however the capture is asked to close."""
+    svg, _returncode = record_and_render(
+        ("python", "-c", script),
+        columns=40,
+        prompt="basket ripen --all",
+        unique_id="orchard",
+        cursor=Cursor(),
+        **kwargs,  # type: ignore[arg-type]
+    )
+    return svg
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_a_closing_prompt_fills_the_row_the_cursor_waited_on():
+    """A command closing on a newline already left the row the shell wants.
+
+    Which is what makes the pair free: the window is the same height either
+    way, and the row holding nothing but a cursor holds a prompt instead.
+    """
+    plain = recorded(RIPENED_SCRIPT)
+    closed = recorded(RIPENED_SCRIPT, closing_prompt=True)
+    assert window_height(closed) == window_height(plain)
+    # Unclosed, that bottom row carries the cursor and no glyph at all.
+    assert last_drawn_row(closed) == last_drawn_row(plain) + 1
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_a_closing_prompt_opens_a_row_under_a_screen_left_mid_line():
+    """A command that never ended its line is given one, as a shell gives it.
+
+    The free case above is the common one and not the only one: a progress bar
+    redrawing in place leaves the cursor mid-line, so the shell coming back
+    costs the row it prints its own newline onto.
+    """
+    plain = recorded(BAR_SCRIPT)
+    closed = recorded(BAR_SCRIPT, closing_prompt=True)
+    assert window_height(closed) - window_height(plain) == pytest.approx(LINE_HEIGHT)

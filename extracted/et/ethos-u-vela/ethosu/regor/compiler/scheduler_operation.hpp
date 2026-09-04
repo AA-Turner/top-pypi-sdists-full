@@ -220,9 +220,15 @@ public:
     Buffering buffering = Buffering::None;
 
     int PartialAllocationSizeBytes() const { return TensorAllocationBytes(shape, tensor->format, tensor->dataType); }
-    const Shape &SliceShape() const { return slice.shape.IsEmpty() ? shape : slice.shape; }
+    const Shape &SliceShape() const { return !slice.shape ? shape : slice.shape; }
+    const Shape &SliceOffset() const { return !slice.offset ? Shape::ConstZero(shape.Size()) : slice.offset; }
     void SetType(DataType dt) { dataType = dt; }
     DataType Type() const { return dataType == DataType::None ? tensor->dataType : dataType; }
+    SchedulerConnection &Set(const RoundMode &r)
+    {
+        rounding = r;
+        return *this;
+    }
 };
 
 enum class AccumulatorSource

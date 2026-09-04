@@ -13,7 +13,7 @@ from querysource.types.dt import transforms as qsdfunctions
 from ...exceptions import ComponentError
 from ...parsers.maps import open_map, open_model
 from ..TransformRows import functions as tfunctions
-from ...utils.executor import getFunction
+from ...utils.executor import getFunction, get_program_function
 from ...interfaces.flow import FlowComponent
 from . import functions as tmapfn
 
@@ -338,6 +338,14 @@ class tMap(FlowComponent):
                             if self.replace_columns is True:
                                 df.drop(col, axis="columns", inplace=True)
             elif isinstance(field, dict):
+                if "user_function" in field:
+                    # Dynamically load and call a Python function declared on
+                    # programs/<program>/functions/<user_function>.py, letting
+                    # a Task extend tMap without adding code to Flowtask itself.
+                    df, mapped = await self.call_user_function(field, column, df)
+                    if mapped is not None:
+                        it[column] = mapped
+                    continue
                 # direct calling of Transform Function
                 val = list(field.keys())[0]
                 operation = field[val]
@@ -455,3 +463,62 @@ class tMap(FlowComponent):
         else:
             logging.warning(f"tMap: Function {func} is not callable.")
             return df
+
+    async def call_user_function(
+        self,
+        field: dict,
+        column: str,
+        df: pd.DataFrame,
+    ) -> tuple:
+        """call_user_function.
+
+        Dynamically load and call a Python function declared on
+        ``programs/<program>/functions/<name>.py`` (see
+        ``flowtask.utils.executor.get_program_function``), passing it the
+        whole working DataFrame. Any sibling keys besides ``user_function``
+        are forwarded as keyword arguments.
+
+        Example:
+
+        ```yaml
+        map:
+          lift_calc:
+            user_function: calc_lift
+        ```
+
+        The target function is expected to accept ``df`` (and optionally
+        ``field``/``**kwargs``) and return either a DataFrame—any new or
+        updated columns land directly on the working DataFrame—or a Series,
+        which is assigned to ``column``. A simpler ``def calc_lift(df):``
+        signature (e.g. copied verbatim from a Jupyter notebook) is also
+        supported.
+        """
+        function_name = field["user_function"]
+        args = {k: v for k, v in field.items() if k != "user_function"}
+        func = get_program_function(self._program, function_name)
+        try:
+            result = func(df=df, field=column, **args) if args else func(df=df, field=column)
+        except TypeError:
+            # Fallback for simple, notebook-style functions: def fn(df): ...
+            try:
+                result = func(df)
+            except TypeError as exc:
+                raise ComponentError(
+                    f"tMap: user_function '{function_name}' has an "
+                    f"incompatible signature: {exc}"
+                ) from exc
+        if isinstance(result, pd.DataFrame):
+            df = result
+            if column in df.columns:
+                mapped = df[column]
+                df = df.drop(columns=[column])
+            else:
+                mapped = None
+            return df, mapped
+        elif isinstance(result, pd.Series):
+            return df, result
+        else:
+            raise ComponentError(
+                f"tMap: user_function '{function_name}' must return a "
+                f"Pandas DataFrame or Series, got {type(result)}"
+            )

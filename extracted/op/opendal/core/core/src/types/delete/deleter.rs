@@ -83,27 +83,33 @@ use crate::*;
 /// ```
 pub struct Deleter {
     deleter: oio::Deleter,
+    scheme: &'static str,
+    capability: Capability,
 }
 
 impl Deleter {
     pub(crate) fn create(ctx: OperationContext, srv: Servicer) -> Result<Self> {
+        let scheme = srv.info().scheme();
+        let capability = srv.capability();
         let deleter = srv.delete(&ctx)?;
 
-        Ok(Self { deleter })
+        Ok(Self {
+            deleter,
+            scheme,
+            capability,
+        })
     }
 
-    /// Delete a path.
+    /// Delete a path with default or per-entry options.
+    ///
+    /// Pass a path directly to use [`options::DeleteOptions::default`]. Pass
+    /// `(String, DeleteOptions)` when this entry needs version or condition
+    /// options.
     pub async fn delete(&mut self, input: impl IntoDeleteInput) -> Result<()> {
-        let input = input.into_delete_input();
-        let mut op = OpDelete::default();
-        if let Some(version) = &input.version {
-            op = op.with_version(version);
-        }
-        if input.recursive {
-            op = op.with_recursive(true);
-        }
-
-        self.deleter.delete(&input.path, op).await?;
+        let (path, options) = input.into_delete_input();
+        let op = OpDelete::from_options(&self.capability, options)
+            .map_err(|err| err.with_context("service", self.scheme))?;
+        self.deleter.delete(&path, op).await?;
         Ok(())
     }
 
@@ -235,6 +241,8 @@ mod tests {
 
         let deleter = Deleter {
             deleter: Box::new(mock),
+            scheme: "memory",
+            capability: Capability::default(),
         };
         let mut sink = deleter.into_sink::<String>();
 

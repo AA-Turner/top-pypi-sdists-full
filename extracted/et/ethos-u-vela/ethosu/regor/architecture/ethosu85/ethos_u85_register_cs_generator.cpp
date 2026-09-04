@@ -159,7 +159,7 @@ bool EthosU85Emitter::IsOp(uint16_t key)
 /// </summary>
 namespace
 {
-const std::unordered_map<OpType, elementwise_mode> kElementwiseMap = {
+const std::unordered_map<OpType, elementwise_mode> s_ElementwiseMap = {
     {OpType::Add, elementwise_mode::ADD},
     {OpType::Sub, elementwise_mode::SUB},
     {OpType::Abs, elementwise_mode::ABS},
@@ -342,7 +342,6 @@ round_mode_ifm GetIfmRoundingMode(const HLCOperation *op, int index)
 pooling_mode GetPoolingMode(const HLCOperation *op)
 {
     OpType opType = op->type;
-    assert(IsPooling(opType) || opType == OpType::NullPool);
     pooling_mode mode;
     if ( opType == OpType::AvgPool )
     {
@@ -372,10 +371,13 @@ pooling_mode GetPoolingMode(const HLCOperation *op)
     {
         mode = pooling_mode::NONE;
     }
+    else if ( opType == OpType::ReduceSum )
+    {
+        mode = pooling_mode::REDUCE_SUM;
+    }
     else
     {
-        assert(opType == OpType::ReduceSum);
-        mode = pooling_mode::REDUCE_SUM;
+        mode = pooling_mode::SUM;  // For UseAvgPoolNop
     }
     return mode;
 }
@@ -399,7 +401,7 @@ uint32_t EthosU85RCSGenerator::IdRegister()
 
 bool EthosU85RCSGenerator::IsSupportedElementwise(const OpType opType)
 {
-    return kElementwiseMap.count(opType) != 0;
+    return s_ElementwiseMap.count(opType) != 0;
 }
 
 EthosU85RCSGenerator::EthosU85RCSGenerator(ArchEthosU85 *arch) : _arch(arch)
@@ -800,7 +802,7 @@ void EthosU85RCSGenerator::GenerateScalingForElementwise(HLCOperation *op)
 // BLOCKDEP calculation
 //----------------------------------------------------------------------
 
-static Shape CalcIFMJobShape(const Shape &ofmBlock, Kernel *kernel, int ifmBlockDepth, Point2i stepXY)
+static Shape CalcIFMJobShape(const Shape &ofmBlock, const Kernel *kernel, int ifmBlockDepth, Point2i stepXY)
 {
     Point2i dilatedSize = kernel->DilatedWH();
     // TODO MLBEDSW-8498: Consider ifm_upscale_mode for job-shape calculations
@@ -847,6 +849,35 @@ void EthosU85RCSGenerator::GetJobs(const Box &area, const Shape &jobShape, int n
     }
 }
 
+// Finds the highest BLOCKDEP from previous/current job overlap
+int EthosU85RCSGenerator::CheckOverlap(const std::vector<Box> &lastPrevJobs, const std::vector<Box> &firstCurrJobs, int maxJobs)
+{
+    // Find the highest blockdep such that there is no overlap between
+    // any job from the previous op with any job from the current op during blockdep jobs
+    int sz = int(std::min(lastPrevJobs.size(), firstCurrJobs.size()));
+    sz = std::min(maxJobs, sz);
+    int prevLastIx = int(lastPrevJobs.size()) - 1;
+    for ( int blockdep = 0; blockdep < sz; ++blockdep )
+    {
+        bool overlaps = false;
+        for ( int i = 0; !overlaps && i <= blockdep; ++i )
+        {
+            for ( int j = blockdep - i; !overlaps && i + j <= blockdep; ++j )
+            {
+                if ( firstCurrJobs[i].Overlaps(lastPrevJobs[prevLastIx - j]) )
+                {
+                    overlaps = true;
+                }
+            }
+        }
+        if ( overlaps )
+        {
+            return blockdep;
+        }
+    }
+    return sz;
+}
+
 // Calculates the value for the BLOCKDEP register
 int EthosU85RCSGenerator::CalcBlockDep(HLCStripe *prevStripe, HLCStripe *stripe)
 {
@@ -878,34 +909,6 @@ int EthosU85RCSGenerator::CalcBlockDep(HLCStripe *prevStripe, HLCStripe *stripe)
         return 0;
     }
 
-    int ifmIndex = (op->ifm.size() > 1 && op->ifm[1].address == prevOfm.address && op->ifm[1].memArea == prevOfm.memArea) ? 1 : 0;
-    const auto &ifm = op->ifm[ifmIndex];
-    int maxJobs = _arch->MaxBlockdep();
-    if ( ifm.address != prevOfm.address || ifm.memArea != prevOfm.memArea )
-    {
-        for ( const auto &fm : op->ifm )
-        {
-            if ( fm.memArea == prevOfm.memArea &&
-                 Overlaps(fm.address, fm.address + fm.AllocationSizeBytes(), prevOfm.address, prevOfm.address + prevOfm.AllocationSizeBytes()) )
-            {
-                // Previous OFM overlaps with current IFM
-                return 0;
-            }
-        }
-        // Previous operation does not produce current operation's IFM
-        return maxJobs;
-    }
-    if ( op->ifm.size() > 1 && ifm.AllocationSizeBytes() < op->ifm[1 - ifmIndex].AllocationSizeBytes() )
-    {
-        // Prev OFM produces IFM2 which is broadcasted (this should be rare)
-        return 0;
-    }
-    if ( prevOfm.shape != ifm.shape )
-    {
-        // OFM has been reshaped; the job overlap calculations below do not work in this case
-        return 0;
-    }
-    // Previous operation produces current operations IFM
     auto prevConfig = static_cast<EthosU85OpConfig *>(prevOp->config);
     if ( !prevConfig )
     {
@@ -919,40 +922,91 @@ int EthosU85RCSGenerator::CalcBlockDep(HLCStripe *prevStripe, HLCStripe *stripe)
         // Current operation doesn't have a block config
         return 0;
     }
+
     // Get the last few jobs from the previous operation (each job produces a part of the current op's IFM)
     std::vector<Box> lastPrevJobs;
     Shape prevOfmJobShape = CalcOFMJobShape(prevBlock, prevOfm.stepXY);
-    assert(!prevStripe->stripeAreas.empty());
-    GetJobs(prevStripe->stripeAreas[0].ofmArea, prevOfmJobShape, maxJobs, false, lastPrevJobs);
-    // Get the first few jobs from the current operation (each job consumes a part of the current op's IFM)
+    GetJobs(prevStripe->stripeAreas[prevOp->subOps.size()].ofmArea, prevOfmJobShape, _arch->MaxBlockdep(), false, lastPrevJobs);
+
+    const auto &subOps = op->subOps;
+    const HLCSubOperation *candidateOp = op.get();
+    const StripeArea *stripeArea = &stripe->stripeAreas[0];
     std::vector<Box> firstCurrJobs;
-    Shape ifmJobShape = CalcIFMJobShape(config->OfmBlock(), &op->kernel, config->IfmBlock().Depth(), ifm.stepXY);
-    assert(!stripe->stripeAreas.empty());
-    GetJobs(stripe->stripeAreas[0].ifmAreas.at(ifmIndex), ifmJobShape, maxJobs, true, firstCurrJobs);
-    // Find the highest blockdep such that there is no overlap between
-    // any job from the previous op with any job from the current op during blockdep jobs
-    int sz = int(std::min(lastPrevJobs.size(), firstCurrJobs.size()));
-    int prevLastIx = int(lastPrevJobs.size()) - 1;
-    for ( int blockdep = 0; blockdep < sz; ++blockdep )
+    int minBlockdep = _arch->MaxBlockdep();
+    int subOpIdx = -1;
+    do
     {
-        bool overlaps = false;
-        for ( int i = 0; !overlaps && i <= blockdep; ++i )
+
+        const Kernel *kernel;
+        int ifmBlockDepth;
+        if ( IsElementwise(candidateOp->type) )
         {
-            for ( int j = blockdep - i; !overlaps && i + j <= blockdep; ++j )
+            kernel = &Kernel::UnitKernel();
+            ifmBlockDepth = config->OfmBlock().Depth();
+        }
+        else
+        {
+            kernel = &op->kernel;
+            ifmBlockDepth = config->IfmBlock().Depth();
+        }
+
+        for ( auto it = candidateOp->ifm.begin(); it != candidateOp->ifm.end(); it++ )
+        {
+            size_t fmIdx = size_t(std::distance(candidateOp->ifm.begin(), it));
+            const auto &fm = *it;
+
+            if ( fm.memArea.memory != prevOfm.memArea.memory )
             {
-                if ( firstCurrJobs[i].Overlaps(lastPrevJobs[prevLastIx - j]) )
+                continue;
+            }
+
+            if ( fm.address < 0 )
+            {
+                // Address is given -1 for intermediate, unallocated, tensors used for fused/chained ops
+                continue;
+            }
+
+            if ( fm.address == prevOfm.address )
+            {
+                if ( IsBinaryElementwise(candidateOp->type) && fm.shape != candidateOp->ofm.shape )
                 {
-                    overlaps = true;
+                    // Prev OFM produces IFM which is broadcasted. Job overlap calculations do not support this case
+                    return 0;
+                }
+
+                if ( prevOfm.shape != fm.shape )
+                {
+                    // OFM has been reshaped; the job overlap calculations below do not work in this case
+                    return 0;
+                }
+
+                firstCurrJobs.clear();
+                Shape ifmJobShape = CalcIFMJobShape(config->OfmBlock(), kernel, ifmBlockDepth, fm.stepXY);
+                assert(fmIdx < stripeArea->ifmAreas.size());
+                GetJobs(stripeArea->ifmAreas[fmIdx], ifmJobShape, _arch->MaxBlockdep(), true, firstCurrJobs);
+                int candidateBlockdep = CheckOverlap(lastPrevJobs, firstCurrJobs, _arch->MaxBlockdep());
+                if ( candidateBlockdep < minBlockdep )
+                {
+                    minBlockdep = candidateBlockdep;
                 }
             }
+            else if (
+                Overlaps(fm.address, fm.address + fm.AllocationSizeBytes(), prevOfm.address, prevOfm.address + prevOfm.AllocationSizeBytes()) )
+            {
+                // Previous OFM overlaps with current IFM
+                return 0;
+            }
         }
-        if ( overlaps )
+
+        subOpIdx++;
+        if ( subOpIdx < int(subOps.size()) )
         {
-            return blockdep;
+            candidateOp = &subOps[subOpIdx];
+            stripeArea = &stripe->stripeAreas[subOpIdx + 1];
         }
-    }
-    // No overlap found
-    return sz;
+    } while ( subOpIdx < int(subOps.size()) );
+
+    return minBlockdep;
 }
 
 //----------------------------------------------------------------------
@@ -1011,12 +1065,16 @@ void EthosU85RCSGenerator::GenerateActivation(const HLCStripe *stripe, MemoryAcc
     auto clipRange = DataTypeSizeBits(clipDataType) > 16 ? activation_clip_range::NONE : activation_clip_range::B16;
     if ( ofm.quantization.quantMin.size() )
     {
+        if ( ofm.dataType == DataType::Int32 && ofm.quantization.quantMin[0] >= quantizedMin )
+            clipRange = activation_clip_range::B16;  // Force clipping of int32 activation
         if ( ofm.quantization.quantMin[0] > std::numeric_limits<int64_t>::min() )
             quantizedMin = std::max(quantizedMin, ofm.quantization.quantMin[0]);
         else clipRange = activation_clip_range::NONE;
     }
     if ( ofm.quantization.quantMax.size() )
     {
+        if ( ofm.dataType == DataType::Int32 && ofm.quantization.quantMax[0] <= quantizedMax )
+            clipRange = activation_clip_range::B16;  // Force clipping of int32 activation
         if ( ofm.quantization.quantMax[0] < std::numeric_limits<int64_t>::max() )
             quantizedMax = std::min(quantizedMax, ofm.quantization.quantMax[0]);
         else clipRange = activation_clip_range::NONE;
@@ -1612,7 +1670,7 @@ std::unique_ptr<HLCDMA> EthosU85RCSGenerator::CreateLUTDMA(const HLCSubOperation
         dma->srcAddress = lutTens.address;
         dma->length = lutTens.sizeBytes;
         dma->destMemArea = _arch->LUTMemory();
-        dma->destAddress = slot * ArchEthosU85::LUT_SLOT_SIZE;
+        dma->destAddress = Address(slot) * ArchEthosU85::LUT_SLOT_SIZE;
         return dma;
     }
     return nullptr;
@@ -1670,45 +1728,39 @@ EthosU85RCSGenerator::InsertLUTDMACommands(std::vector<std::unique_ptr<HighLevel
 // Generates NPU_OP_* command
 void EthosU85RCSGenerator::GenerateOperationCode(const HLCOperation *op)
 {
-    auto opType = op->type;
-    if ( opType == OpType::Resize )
+    auto hwOp = ArchEthosU85::GetHWOp(op->type);
+    bool useNullPool = _arch->UseNullPool(op->type, DataTypeSizeBits(op->ifm[0].dataType));
+
+    if ( hwOp == EthosU85NpuOp::Resize )
     {
         resize_mode mode = ToResizeMode(op->parameters.resize.mode);
         Emit(isa::npu_op_resize_t(mode));
     }
-    else if ( IsPooling(opType) || opType == OpType::NullPool )
+    else if ( hwOp == EthosU85NpuOp::Pooling || hwOp == EthosU85NpuOp::ReduceSum || hwOp == EthosU85NpuOp::ReduceMinMax || hwOp == EthosU85NpuOp::ArgMax || useNullPool )
     {
-        Emit(isa::npu_op_pool_t(GetPoolingMode(op)));
+        Emit(isa::npu_op_pool_t(useNullPool ? pooling_mode::NONE : GetPoolingMode(op)));
     }
-    else if ( IsDepthwise(opType) )
+    else if ( hwOp == EthosU85NpuOp::Depthwise )
     {
         Emit(isa::npu_op_depthwise_t());
     }
-    else if ( IsConvolution(opType) || IsVectorProduct(opType) )
+    else if ( hwOp == EthosU85NpuOp::Convolution )
     {
         // Dynamic weights when op->ifm.size() == 2 and acc source != ifm2, _weights_ifm2 parameter should be True
         auto accSource = static_cast<EthosU85OpConfig *>(op->config)->AccSource();
         Emit(isa::npu_op_conv_t(op->ifm.size() == 2 && accSource != ArchAccumulatorSource::Ifm2));
     }
-    else if ( IsElementwise(opType) )
+    else if ( hwOp == EthosU85NpuOp::Elementwise )
     {
-        const auto &item = kElementwiseMap.find(opType);
-        if ( item == kElementwiseMap.end() )
-        {
-            assert(false && "Unsupported elementwise operator");
-        }
-        else
+        const auto &item = s_ElementwiseMap.find(op->type);
+        if ( VERIFY(item != s_ElementwiseMap.end()) )
         {
             Emit(isa::npu_op_elementwise_t(item->second));
         }
     }
-    else if ( opType == OpType::Scatter || opType == OpType::Gather )
+    else if ( hwOp == EthosU85NpuOp::Dma )
     {
         Emit(isa::npu_op_dma_start_t());
-    }
-    else if ( _arch->UseAvgPoolNop(opType) || opType == OpType::Rescale )
-    {
-        Emit(isa::npu_op_pool_t(_arch->UseNullPool(opType, DataTypeSizeBits(op->ifm[0].dataType)) ? pooling_mode::NONE : pooling_mode::SUM));
     }
     else
     {
@@ -1957,7 +2009,7 @@ bool EthosU85RCSGenerator::GenerateStripe(HLCStripe *stripe, MemoryAccesses &mem
     {
         GeneratePoolingOp(stripe, memoryAccesses);
     }
-    else if ( npuOp == EthosU85NpuOp::Depthwise || npuOp == EthosU85NpuOp::Convolution || npuOp == EthosU85NpuOp::VectorProduct )
+    else if ( npuOp == EthosU85NpuOp::Depthwise || npuOp == EthosU85NpuOp::Convolution )
     {
         GenerateConvolutionOp(stripe, memoryAccesses);
     }
@@ -2022,16 +2074,6 @@ bool EthosU85RCSGenerator::GenerateOpGroup(HLCStripe *stripe, HLCStripe *prevOp,
         subOps.end() !=
         std::find_if(subOps.begin(), subOps.end(), [](const auto &subOp) { return IsElementwise(subOp.type); });
 
-    int blockdep = 0;
-    if ( isChained )
-    {
-        _emit.ClearChainingRegisters();
-        // TODO MLBEDSW-9162: calculate block-dependency for chained operations
-    }
-    else
-    {
-        blockdep = CalcBlockDep(prevOp, stripe);
-    }
 
     // TODO MLBEDSW-9144 Compute MemoryAccesses for whole chain
     // and emit DMA waits for the whole chain before the first op.
@@ -2040,6 +2082,12 @@ bool EthosU85RCSGenerator::GenerateOpGroup(HLCStripe *stripe, HLCStripe *prevOp,
     int idx = -1;
     HLCStripe *primaryStripe = stripe;
     std::shared_ptr<HLCStripe> subStripe = nullptr;
+    int blockdep = CalcBlockDep(prevOp, stripe);
+    if ( isChained )
+    {
+        _emit.ClearChainingRegisters();
+    }
+    Emit(isa::npu_set_blockdep_t(blockdep));
     while ( idx < int(subOps.size()) )
     {
         int emitStart = _emit.Position();
@@ -2066,8 +2114,6 @@ bool EthosU85RCSGenerator::GenerateOpGroup(HLCStripe *stripe, HLCStripe *prevOp,
         {
             return false;
         }
-
-        Emit(isa::npu_set_blockdep_t(blockdep));
 
         GenerateWaits(false, memoryAccesses, outstandingDmaAccesses);
         GenerateOperationCode(stripe->operation.get());

@@ -120,12 +120,13 @@ struct EstimatedPerf
     double IfmRatio() const { return weightReadCycles ? double(ifmReadCycles) / weightReadCycles : 1.0; }
 };
 
-enum class StagingPref
+enum class StagingPref : uint8_t
 {
     None = 0x00,
     IFM = 0x01,
     Weights = 0x02,
     OFM = 0x04,
+    RequireOFM = 0x40,
 };
 
 /// <summary>
@@ -244,6 +245,7 @@ private:
         cycles = other.cycles;
         elementAccess = other.elementAccess;
         perf = other.perf;
+        stagingPreference = other.stagingPreference & StagingPref::RequireOFM;
     }
 };
 
@@ -280,6 +282,11 @@ public:
     const std::string &Name() const { return _name; }
     int Start() const { return _subScheduleStart; }
     int End() const { return _subScheduleEnd; }
+    void SetSubrange(size_t start, size_t end)
+    {
+        _subScheduleStart = int(start);
+        _subScheduleEnd = int(end);
+    }
 
     void SetCost(UniqueId id, std::unique_ptr<SchedulerOpInfo> opInfo) { _costMap[id] = std::move(opInfo); }
 
@@ -385,6 +392,8 @@ public:
     static PerformanceQuery InitPerfQuery(const SchedulerOperation *op, ArchitectureOpConfig *config, int ofm_depth = -1,
         WeightFormat wgtFormat = WeightFormat::Default, const SchedulerOpInfo *cost = nullptr, Schedule *schedule = nullptr);
 
+    void ApplySchedule(Schedule *schedule);
+
 private:
     Shape AlignStripe(const SchedulerOperation *schedOp, const Shape &stripe);
 
@@ -398,8 +407,6 @@ private:
         const std::unique_ptr<SchedulerOpInfo> &parentInfo = nullptr);
 
     std::unique_ptr<Schedule> CreateInitialSchedule();
-
-    void MoveConstantData(Schedule *refSchedule);
 
     bool AllocateAddresses(Schedule *schedule);
 
@@ -433,8 +440,6 @@ private:
     Address EstimateScheduleMemoryUsage(Schedule *schedule, const std::unordered_map<UniqueId, int> &nonLocalMem);
 
     std::shared_ptr<Schedule> OptimizeSubSchedule(const CascadeInfo &cascadeInfo, Schedule *refSchedule, Address stagingLimitBytes);
-
-    void ApplySchedule(Schedule *schedule);
 
     void CoalesceWeightBufferTensors(Schedule *schedule);
 
@@ -474,6 +479,8 @@ private:
 
     WeightScaleEncoding EncodeBestWeightFormat(SchedulerOperation *op, Shape &ifmShape, Shape &ifm2Shape,
         Shape &ofmShape, Flags<WeightFormat> supportedFormats);
+
+    std::unique_ptr<SchedulerOperation> TryExplicitBuffering(SchedulerOperation *schedOp, const SchedulerOpInfo &cost, int &stagingLimit);
 };
 
 bool ParseSchedulerOptions(SchedulerOptions &opt, IniReader &reader);

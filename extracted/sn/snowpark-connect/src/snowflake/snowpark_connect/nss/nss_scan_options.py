@@ -13,7 +13,8 @@ The ``OPTIONS`` blob carries three client-produced keys:
   ``DataType.sqlAsDataType()`` to materialize the GS column; ``SPARK_DATA_TYPE`` is opaque
   to GS and passed through to the sandbox Spark reader. Nested types are rendered as
   Snowflake structured-type strings (``OBJECT(...)`` / ``ARRAY(...)`` / ``MAP(...)``) with
-  unquoted field names and no ``NOT NULL`` (the grammar has no per-field null marker;
+  field names quoted only when required by Snowflake identifier rules and no ``NOT NULL``
+  (the grammar has no per-field null marker;
   top-level nullability is the ``NULLABLE`` field). ``ORDER_ID`` is 0-based and contiguous.
 * ``READER_OPTIONS`` — the Spark ``DataFrameReader`` options, filtered to each
   format's read-only allow-list.
@@ -26,6 +27,7 @@ does not emit either.
 """
 
 import json
+from contextlib import suppress
 from typing import Callable, NamedTuple
 
 from pyspark.sql.types import (
@@ -39,7 +41,11 @@ from pyspark.sql.types import (
 )
 
 from snowflake.snowpark import DataFrame
-from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
+from snowflake.snowpark._internal.analyzer.analyzer_utils import (
+    quote_name_without_upper_casing,
+    unquote_if_quoted,
+)
+from snowflake.snowpark.exceptions import SnowparkSQLException
 from snowflake.snowpark.types import (
     ArrayType,
     DataType,
@@ -48,10 +54,18 @@ from snowflake.snowpark.types import (
     StructType,
     TimestampType,
 )
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.type_mapping import (
     TIMESTAMP_TZ_TO_SF_TYPE,
     map_pyspark_types_to_snowpark_types,
     map_type_to_snowflake_type,
+)
+from snowflake.snowpark_connect.utils.identifiers import (
+    is_valid_unquoted_snowflake_identifier,
+)
+from snowflake.snowpark_connect.utils.telemetry import (
+    SnowparkConnectNotImplementedError,
 )
 
 
@@ -67,6 +81,22 @@ class NssColumn(NamedTuple):
     name: str
     spark_type: str
     nullable: bool
+
+
+# STAGE_FILE_READER rejects DATA_SCHEMA: [] (GS 001422). ``nss_empty_schema_dummy_columns``
+# stands in for a genuinely empty StructType([]): a missing nullable field the caller hides
+# from the Spark schema, preserving one zero-column row per source record on the NSS path.
+_EMPTY_SCHEMA_DUMMY_COLUMN_NAME = "__SPARK_CONNECT_EMPTY_SCHEMA_DUMMY"
+
+
+def nss_empty_schema_dummy_columns() -> list[NssColumn]:
+    return [
+        NssColumn(
+            name=_EMPTY_SCHEMA_DUMMY_COLUMN_NAME,
+            spark_type='"string"',
+            nullable=True,
+        )
+    ]
 
 
 # Spark JSON *read* options (lowercased) the real JsonFileFormat accepts on read.
@@ -182,6 +212,236 @@ def sql_quote_literal(value: str) -> str:
     Only the quote body is escaped — the caller supplies the surrounding quotes.
     """
     return value.replace("'", "\\'")
+
+
+# GS error codes for the three LOCATIONS rejections, as ``sql_error_code`` ints.
+#
+# * ErrorCode000000.NOT_YET_IMPLEMENTED("000002") — the argument exists but
+#   ENABLE_FIX_3993064_NSS_TVF_LOCATIONS is off (InferStageFileSchemaImpl:307,
+#   StageFileReaderImpl:229). Renders as ``Unsupported feature 'LOCATIONS'.``
+#   (``gs_error_messages.properties``: ``000002=Unsupported feature ''{0}''.``).
+# * ErrorCode000000.INVALID_ARGUMENT_FOR_FUNCTION("000937") — the backend's argument list
+#   *predates* LOCATIONS, so ``SqlTableFunction.validate`` rejects the alias before the TVF
+#   body runs at all (SqlTableFunction.java:794-801; the alias is neither a parameter name
+#   nor a positional index <= maxArguments). Renders as ``invalid argument for function
+#   [STAGE_FILE_READER] unexpected argument [LOCATIONS] at position N``. A *different* code
+#   from the gate-off case, which is why one code check cannot cover both.
+# * ErrorCode001900.INVALID_OPERATION("002008") — the element count exceeds
+#   NSS_TVF_MAX_LOCATIONS (NssTvfUtils:127-130).
+#
+# No code is unique to LOCATIONS: 000002 covers every unsupported ``OPTIONS.<key>``, 000937
+# every misspelled argument of any TVF, and 002008 also carries the cross-stage rejection
+# (``LOCATIONS requires all locations on one stage; got '%s' and '%s'``,
+# NssTvfUtils:155-159). So a *known* code narrows and the message disambiguates within it;
+# when the code is absent — a re-wrapped exception — the message alone decides, and a code
+# that is present but none of these three is a different failure and never matches. Same
+# code-then-message shape as ``_is_json_parse_error``.
+_LOCATIONS_NOT_IMPLEMENTED_CODE = 2
+_LOCATIONS_UNKNOWN_ARGUMENT_CODE = 937
+_LOCATIONS_INVALID_OPERATION_CODE = 2008
+
+# The TVF argument name, as it appears in GS error text.
+LOCATIONS_ARG = "LOCATIONS"
+
+# Lowercased fragments of the two "the backend will not take LOCATIONS at all" wordings.
+_GATE_OFF_WORDING = f"unsupported feature '{LOCATIONS_ARG.lower()}'"
+# 000937 is raised for *any* misspelled TVF argument, so the argument name itself must be
+# checked too — otherwise a misspelled FILE_FORMAT/OPTIONS argument would misreport as a
+# LOCATIONS rejection.
+_UNKNOWN_ARGUMENT_WORDING = (
+    "invalid argument for function",
+    f"unexpected argument [{LOCATIONS_ARG.lower()}]",
+)
+
+# Lowercased fragments of the element-cap wording ("LOCATIONS accepts at most 100 locations;
+# got 137"). Chosen so the cross-stage message, which shares code 002008, cannot match.
+_ELEMENT_CAP_WORDING = ("at most", "locations")
+
+_LOCATIONS_FALLBACK_HINT = (
+    "Reading multiple paths on the NSS path requires the STAGE_FILE_READER LOCATIONS "
+    "argument (SNOW-3993064). To read these paths now, turn the next-gen reader off for "
+    'this session: spark.conf.set("snowflake.file.nextGenReader.enabled", "false").'
+)
+
+
+def _sql_error_code_of(exc: SnowparkSQLException) -> int | None:
+    """``exc``'s Snowflake ``sql_error_code`` as an ``int``, or ``None`` when it is absent or
+    unusable (a re-wrapped exception can carry a non-numeric placeholder)."""
+    error_code = getattr(exc, "sql_error_code", None)
+    with suppress(TypeError, ValueError):
+        return int(error_code) if error_code is not None else None
+    return None
+
+
+def _is_locations_unsupported_error(exc: SnowparkSQLException) -> bool:
+    """The backend will not take ``LOCATIONS`` at all — either its gate is off, or the
+    argument predates LOCATIONS entirely.
+
+    Matched on ``sql_error_code`` first: 000002 is the gate-off case, 000937 the
+    predates-LOCATIONS case (a different failure with a different code, so one code check
+    cannot cover both). A code present but neither of these is a different failure and never
+    matches. When the code is absent — a re-wrapped exception — fall back to either wording.
+    """
+    text = str(exc)
+    lowered = text.lower()
+    code = _sql_error_code_of(exc)
+    if code == _LOCATIONS_NOT_IMPLEMENTED_CODE:
+        return _GATE_OFF_WORDING in lowered
+    if code == _LOCATIONS_UNKNOWN_ARGUMENT_CODE:
+        return all(w in lowered for w in _UNKNOWN_ARGUMENT_WORDING)
+    if code is not None:
+        return False
+    return _GATE_OFF_WORDING in lowered or all(
+        w in lowered for w in _UNKNOWN_ARGUMENT_WORDING
+    )
+
+
+def _is_locations_cap_exceeded_error(exc: SnowparkSQLException) -> bool:
+    """More elements than ``NSS_TVF_MAX_LOCATIONS`` allows.
+
+    ``002008`` also carries the cross-stage rejection, so the wording is what separates them.
+    A code present but not 002008 is a different failure and never matches; when the code is
+    absent, the wording alone decides.
+    """
+    lowered = str(exc).lower()
+    has_cap_wording = all(w in lowered for w in _ELEMENT_CAP_WORDING)
+    code = _sql_error_code_of(exc)
+    if code is not None:
+        return code == _LOCATIONS_INVALID_OPERATION_CODE and has_cap_wording
+    return has_cap_wording
+
+
+def raise_if_locations_unsupported(exc: SnowparkSQLException, path_count: int) -> None:
+    """Re-raise a GS ``LOCATIONS`` rejection as a message the customer can act on.
+
+    Two backend failures are reachable purely by reading several paths, and both arrive as
+    raw GS text that says nothing about what to do:
+
+    * the gate being off — and it **defaults to false**, so this is the state of any
+      deployment that has not opted in, not a rare window;
+    * exceeding ``NSS_TVF_MAX_LOCATIONS`` (default 100), reachable without the user passing
+      100 paths because ``expand_paths_for_modification_time_filter`` replaces a directory
+      read with one explicit path per file.
+
+    Deliberately narrow: this only rewrites the message and re-raises, so control flow is
+    unchanged and nothing is swallowed — an unrelated failure returns and the caller re-raises
+    it untouched. It does **not** silently fall back to COPY, which is what would actually
+    risk hiding a real error.
+
+    The suggested lever is the session conf, not ``SCOS_NSS_ENABLED``: the env var is the
+    operator's, and a customer cannot set it.
+    """
+    if _is_locations_unsupported_error(exc):
+        exception = SnowparkConnectNotImplementedError(
+            f"NSS multi-path read not supported by this deployment "
+            f"({path_count} paths given): the backend rejected LOCATIONS. "
+            f"{_LOCATIONS_FALLBACK_HINT}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception from exc
+    if _is_locations_cap_exceeded_error(exc):
+        exception = SnowparkConnectNotImplementedError(
+            f"NSS multi-path read exceeded the backend's LOCATIONS limit with {path_count} "
+            f"paths given. If you did not pass that many paths, note that a "
+            f"modifiedBefore/modifiedAfter filter expands a directory into one path per "
+            f"file, so a large directory can exceed the limit without you passing many "
+            f"paths. {_LOCATIONS_FALLBACK_HINT}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception from exc
+
+
+def normalize_locations(stage_paths: list[str] | None) -> list[str]:
+    """The distinct stage paths a ``LOCATIONS`` payload would carry, in first-seen order.
+
+    Both TVF builders (``nss_stage_file_reader`` / ``nss_infer_schema``) must decide
+    ``LOCATION`` vs. ``LOCATIONS`` on this same deduped count, and must feed the identical
+    list into :func:`build_locations_json` — which dedups internally regardless. Computing
+    the count from a *different* (non-deduped) list than the payload builder sees would let
+    the branch and the payload disagree: a caller passing two copies of the same path would
+    branch into the multi-path arm on the raw count while the payload collapses to one
+    element, sending ``LOCATIONS`` with a single entry that GS treats identically to
+    ``LOCATION`` but that skips this module's own dedup-driven reasoning about what count is
+    actually being sent.
+    """
+    return list(dict.fromkeys(stage_paths or []))
+
+
+def normalize_stage_paths(paths: list[str]) -> list[str]:
+    """The read handlers' stage-path list: unquoted one layer, then deduped.
+
+    Paths arrive SQL-quoted (see ``map_read._quote_stage_path`` / ``_quoted_listed_path``) and
+    the NSS TVF builders re-quote, so one layer has to come off here or the query carries a
+    doubled quote. Deduping *after* that unquote keeps the handlers' own
+    ``len(stage_paths) > 1`` reasoning — the pre-read log line and the LOCATIONS error-
+    translation gates — on the same count the builders branch on: two paths that collapse to
+    one string (two globs in a directory both reduce to its scan prefix) must take the scalar
+    ``LOCATION`` arm, not emit a one-element ``LOCATIONS``. GS also rejects a repeated element
+    outright, where Spark dedups silently.
+
+    Kept separate from :func:`normalize_locations` rather than folded into it because the two
+    have different input domains: this one consumes ``map_read``'s *request-boundary* quoted
+    representation, while ``normalize_locations`` consumes already-resolved stage paths
+    straight from the builders. Unquoting inside the builders would silently rewrite a stage
+    path that legitimately begins and ends with ``'``, at the layer with the least context to
+    notice.
+    """
+    return normalize_locations(
+        [p[1:-1] if p.startswith("'") and p.endswith("'") else p for p in paths]
+    )
+
+
+def build_locations_json(stage_paths: list[str]) -> str:
+    """Build the ``LOCATIONS`` payload for a multi-path read (SNOW-3993064).
+
+    A JSON array of ``{"LOCATION": <path>}`` elements, which GS resolves into a single
+    file set so schema inference observes every path at once rather than one at a time.
+
+    Only bare ``LOCATION`` elements are emitted. The per-element ``FILES`` and ``PATTERN``
+    keys are deliberately unused here: they carry *different* bases (``FILES`` is relative
+    to the element's ``LOCATION``, ``PATTERN`` is not), and an element ``PATTERN`` that is
+    not suffix-anchored silently matches nothing — the same quiet-empty-result failure the
+    glob-metacharacter rejection exists to prevent.
+
+    Note this means an NSS multi-path read does **not** narrow to a glob's pattern; it scans
+    each glob's whole scan-prefix directory. That is not a regression introduced here — it is
+    the pre-existing single-path behaviour (NSS does not enforce ``recursiveFileLookup`` /
+    ``pathGlobFilter`` during the stage scan, see ``nss_infer_schema`` /
+    ``stage_location_has_spark_visible_files``). There is no top-level ``OPTIONS.PATTERN`` to
+    fall back on: ``build_stage_file_reader_options`` emits only ``DATA_SCHEMA`` /
+    ``READER_OPTIONS`` / ``SPARK_CONF``, and GS rejects ``LOCATIONS`` combined with a
+    top-level ``OPTIONS.PATTERN`` anyway. Two known limitations follow from this, both
+    documentation-only for now (no measured repro justifying a third translation arm or a
+    client-side pre-check):
+
+    * A metacharacter in an element's *first* path segment (e.g. ``@stg/a[1].csv``) collapses
+      that element to the **stage root**, since the scan-prefix collapse it inherits from the
+      single-path case has nowhere shallower to stop at. Under ``LOCATIONS`` this is worse than
+      the single-path case: one such element widens the *entire union* to the whole stage, so
+      every other element's narrowing becomes irrelevant too.
+    * An *escaped* glob metacharacter (SCOS supports these as literals per SNOW-3594869, e.g.
+      ``'@stg/data\\*.json'``) survives ``_path_for_stage_mapping`` unchanged and reaches GS as
+      a literal ``LOCATION``. GS's own metacharacter check
+      (``NssTvfUtils.GLOB_METACHARACTERS`` / ``requireElementLocation``) does not know about the
+      escape and rejects it with ``INVALID_PROPERTY_VALUE_WITH_REASON`` (**001435**) — a code
+      ``raise_if_locations_unsupported`` does not handle, so it propagates as a raw GS error
+      instead of the actionable message the other two rejections get. This is multi-path-only:
+      scalar ``LOCATION`` has no such check.
+
+    **Duplicates are collapsed, preserving first-seen order.** GS rejects a repeated element
+    ``LOCATION`` outright (``NssTvfUtils.parseLocations`` keeps a ``seenLocations`` set and
+    raises ``DUPLICATE_PROPERTY``), whereas Spark dedups silently —
+    ``PartitioningAwareFileIndex.leafFiles()`` is keyed by path. Without this, reads that are
+    legal in Spark become compile errors here, and not only for a literally repeated path:
+    ``_path_for_stage_mapping`` collapses a glob to its scan prefix, so
+    ``spark.read.csv("@stg/dir/*.csv", "@stg/dir/*.json")`` arrives as two copies of
+    ``@stg/dir/``. Deduping matches Spark and keeps the resolved file set identical, since GS
+    counts an overlapping file once regardless.
+
+    The caller is responsible for not mixing stages: cross-stage ``LOCATIONS`` is rejected
+    by GS, since one stage reference is synthesized from the elements' common prefix.
+    """
+    return json.dumps([{"LOCATION": p} for p in normalize_locations(stage_paths)])
 
 
 def quote_options_literal(payload: str) -> str:
@@ -341,15 +601,31 @@ def cache_if_corrupt_record_present(
     return df
 
 
+def _sf_struct_field_name(name: str) -> str:
+    """Render a nested struct field name for ``SF_DATA_TYPE`` ``OBJECT(...)`` grammar.
+
+    ``name`` must be the raw ``StructField._name`` (not ``.name``), which preserves
+    mixed-case for valid unquoted identifiers. Invalid unquoted identifiers (spaces,
+    leading digits, dots, embedded quotes) must be double-quoted so GS
+    ``DataType.sqlAsDataType()`` can parse them (SNOW-3992670).
+    """
+    bare = unquote_if_quoted(name)
+    if is_valid_unquoted_snowflake_identifier(bare):
+        return bare
+    return quote_name_without_upper_casing(bare)
+
+
 def _sf_data_type(dt: DataType) -> str:
     """Render a Snowpark type as the ``SF_DATA_TYPE`` string the backend parses via
     ``DataType.sqlAsDataType()`` (SNOW-3780862 / PR #481112).
 
-    Structured types use Snowflake ``OBJECT`` / ``ARRAY`` / ``MAP`` with **unquoted**
-    field names and **no** ``NOT NULL`` — nested nullability is not expressed in
-    ``SF_DATA_TYPE`` (the backend's structured-type grammar has no per-field null marker;
-    top-level nullability travels in the record's ``NULLABLE`` field). This matches the
-    backend UT examples exactly, e.g. ``OBJECT(id INT, addr OBJECT(city VARCHAR, zip INT))``,
+    Structured types use Snowflake ``OBJECT`` / ``ARRAY`` / ``MAP`` with field names
+    quoted only when Snowflake identifier rules require it (SNOW-3992670) and **no**
+    ``NOT NULL`` —
+    nested nullability is not expressed in ``SF_DATA_TYPE`` (the backend's structured-type
+    grammar has no per-field null marker; top-level nullability travels in the record's
+    ``NULLABLE`` field). Simple identifiers stay unquoted, e.g.
+    ``OBJECT(id INT, addr OBJECT(city VARCHAR, zip INT))``,
     ``ARRAY(OBJECT(event_id INT, event_type VARCHAR))``, ``MAP(VARCHAR, INT)``, ``ARRAY(INT)``.
     Timestamps are rendered variant-faithfully via ``TIMESTAMP_TZ_TO_SF_TYPE`` (DEFAULT
     stays bare ``TIMESTAMP`` so the session's TIMESTAMP_TYPE_MAPPING applies —
@@ -367,7 +643,9 @@ def _sf_data_type(dt: DataType) -> str:
         return f"MAP({_sf_data_type(dt.key_type)}, {_sf_data_type(dt.value_type)})"
     if isinstance(dt, StructType) and dt.fields:
         fields = ", ".join(
-            f"{unquote_if_quoted(f.name)} {_sf_data_type(f.datatype)}"
+            # Use ``._name``, not ``.name``: for ``_is_column=True`` fields, ``.name``
+            # uppercases via ``column_identifier`` (see ``_unquote_nested_field_names``).
+            f"{_sf_struct_field_name(f._name)} {_sf_data_type(f.datatype)}"
             for f in dt.fields
         )
         return f"OBJECT({fields})"
@@ -394,7 +672,8 @@ def _sf_data_type_from_spark_json(spark_type_json: str) -> str:
 def _snowpark_type_from_spark_json(spark_type_json: str) -> DataType:
     """Convert a Spark ``DataType.json()`` string to its Snowpark equivalent."""
     # Quote nested struct field names before the snowpark hop so their original case is
-    # preserved (an unquoted name would be upper-cased); ``_sf_data_type`` unquotes them.
+    # preserved (an unquoted name would be upper-cased); ``_sf_data_type`` renders them
+    # as valid SQL identifiers (quoted only when required).
     py_dt = _quote_py(_parse_datatype_json_string(spark_type_json))
     return map_pyspark_types_to_snowpark_types(py_dt)
 
@@ -403,8 +682,9 @@ def _unquote_nested_field_names(dt: DataType) -> DataType:
     """Rebuild a Snowpark type with its nested struct field names unquoted.
 
     ``_snowpark_type_from_spark_json`` double-quotes nested struct field names so the
-    pyspark -> Snowpark hop preserves their case, and ``_sf_data_type`` unquotes them
-    again when it renders ``DATA_SCHEMA``. A *reported* type must carry the raw name
+    pyspark -> Snowpark hop preserves their case; ``_sf_data_type`` emits the bare name
+    when it is a valid unquoted Snowflake identifier. A *reported* type must carry the
+    raw name
     instead: a nested field literally named ``"field1"`` matches no key in the column the
     reader returns, so every leaf under it reads back NULL.
 

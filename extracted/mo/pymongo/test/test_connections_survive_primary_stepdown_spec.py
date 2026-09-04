@@ -13,13 +13,20 @@
 # limitations under the License.
 
 """Test compliance with the connections survive primary step down spec."""
+
 from __future__ import annotations
 
 import sys
+
 from test.utils import ensure_all_connected
 
 sys.path[0:0] = [""]
 
+from bson import SON
+from pymongo import monitoring
+from pymongo.errors import NotPrimaryError
+from pymongo.synchronous.collection import Collection
+from pymongo.write_concern import WriteConcern
 from test import (
     IntegrationTest,
     client_context,
@@ -29,12 +36,6 @@ from test.helpers import repl_set_step_down
 from test.utils_shared import (
     CMAPListener,
 )
-
-from bson import SON
-from pymongo import monitoring
-from pymongo.errors import NotPrimaryError
-from pymongo.synchronous.collection import Collection
-from pymongo.write_concern import WriteConcern
 
 _IS_SYNC = True
 
@@ -73,7 +74,6 @@ class TestConnectionsSurvivePrimaryStepDown(IntegrationTest):
     def verify_pool_not_cleared(self):
         self.assertEqual(self.listener.event_count(monitoring.PoolClearedEvent), 0)
 
-    @client_context.require_version_min(4, 2, -1)
     def test_get_more_iteration(self):
         # Insert 5 documents with WC majority.
         self.coll.insert_many([{"data": k} for k in range(5)])
@@ -117,17 +117,14 @@ class TestConnectionsSurvivePrimaryStepDown(IntegrationTest):
         # Always retry here to ensure discovery of new primary.
         self.coll.insert_one({"test": 1})
 
-    @client_context.require_version_min(4, 2, -1)
     @client_context.require_test_commands
     def test_not_primary_keep_connection_pool(self):
         self.run_scenario(10107, True, self.verify_pool_not_cleared)
 
-    @client_context.require_version_min(4, 2, 0)
     @client_context.require_test_commands
     def test_shutdown_in_progress(self):
         self.run_scenario(91, False, self.verify_pool_cleared)
 
-    @client_context.require_version_min(4, 2, 0)
     @client_context.require_test_commands
     def test_interrupted_at_shutdown(self):
         self.run_scenario(11600, False, self.verify_pool_cleared)

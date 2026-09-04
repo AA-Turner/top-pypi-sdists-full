@@ -1062,8 +1062,16 @@ def portal_publish_mocks(config_path, repo: str, tracking_issue: int) -> None:
     for iterating on a local ``coord acceptance mock ... --amend`` before
     it's merged, or re-publishing after a manual edit. This uploads whatever
     is currently on THIS machine's local checkout — ``contract.md`` plus
-    every ``mocks/*.html`` fixture, uncommitted changes included — no merge
-    required. That's the whole point of "on demand".
+    every matching ``mocks/`` fixture, uncommitted changes included — no
+    merge required. That's the whole point of "on demand".
+
+    #3068: "every ``mocks/*.html`` fixture" is the ``web-playwright`` case,
+    not a constant — which fixtures get published is the repo's own
+    ``acceptance.drivers.<repo>.mock`` glob, and a repo whose driver renders
+    something no browser can open (``*.screen``, ``*.out``) is refused here
+    rather than published as a mock-less design round. Resolved through the
+    same :func:`coord.mock_author.resolve_viewable_mock_glob` the
+    merge-triggered path uses, so the two answers can't drift.
 
     Reuses PDR-3's shared upload+enqueue helper
     (:func:`coord.portal_sync.push_design_round_bundle`) as-is — only where
@@ -1092,6 +1100,7 @@ def portal_publish_mocks(config_path, repo: str, tracking_issue: int) -> None:
 
     from coord import github_ops, portal_store  # noqa: PLC0415
     from coord.acceptance import issue_dirname, ms_dirname  # noqa: PLC0415
+    from coord.mock_author import resolve_viewable_mock_glob  # noqa: PLC0415
     from coord.portal_sync import PortalSyncError, push_design_round_bundle  # noqa: PLC0415
     from coord.test_orchestrator import find_local_repo_path  # noqa: PLC0415
 
@@ -1142,8 +1151,27 @@ def portal_publish_mocks(config_path, repo: str, tracking_issue: int) -> None:
         )
         raise SystemExit(1)
 
+    # #3068: which fixtures count as "the mocks" is the repo's own acceptance
+    # driver glob, not a hardcoded `*.html` — and a repo whose driver renders
+    # something no browser can open must be refused here rather than
+    # published as a contract-only design round with a green success line.
+    # Same shared resolver the merge-triggered auto-push uses, so the two
+    # paths answer this identically; loud (this command is operator-invoked)
+    # where that one skips with an event.
+    mock_glob, refuse_reason = resolve_viewable_mock_glob(cfg.acceptance, repo_cfg.name)
+    if mock_glob is None:
+        click.secho(
+            f"{refuse_reason} — a design round is a customer-facing artifact "
+            "and needs mocks they can open in a browser, so nothing was "
+            f"published for {target_desc}. Set `acceptance.drivers."
+            f"{repo_cfg.name}.mock` in coordinator.yml to a browser-viewable "
+            "glob (e.g. `*.html`) if this repo really does render one.",
+            fg="red",
+        )
+        raise SystemExit(1)
+
     try:
-        files = _collect_local_mock_bundle_files(repo_dir, bundle_dirname)
+        files = _collect_local_mock_bundle_files(repo_dir, bundle_dirname, mock_glob)
     except _MockBundleReadError as exc:
         click.secho(f"could not read local mock bundle: {exc}", fg="red")
         raise SystemExit(1) from exc
@@ -1191,7 +1219,9 @@ class _MockBundleReadError(Exception):
     """
 
 
-def _collect_local_mock_bundle_files(repo_dir, bundle_dirname: str) -> dict:
+def _collect_local_mock_bundle_files(
+    repo_dir, bundle_dirname: str, driver_mock_glob: str
+) -> dict:
     """Read a rendered Gate-A bundle off the LOCAL checkout at *repo_dir*.
 
     *bundle_dirname* is the acceptance subdirectory name — ``ms_dirname(N)``
@@ -1205,20 +1235,28 @@ def _collect_local_mock_bundle_files(repo_dir, bundle_dirname: str) -> dict:
     currently on disk, uncommitted changes included.
 
     Same ``{relative_path: content}`` shape: ``"contract.md"`` plus every
-    ``mocks/*.html`` fixture — which, if #2512 (master index page) has
-    landed, automatically picks up ``mocks/index.html`` too, since this
-    globs everything under ``mocks/`` rather than naming files. The suffix
-    match is case-INSENSITIVE (``SCREEN.HTML`` counts) so that this stays
-    aligned with the TUI's `gate_a_mocks_dir_exists_for` enablement gate
-    (#2513 review follow-up) — a file that lights the menu item up must be
-    a file this command actually publishes, or the operator gets an
-    enabled button whose dispatch dies with "nothing to publish". Empty when
-    the acceptance directory doesn't exist locally at all — callers treat
-    that as an error (unlike the merge-triggered path's "nothing to push",
-    this command is operator-invoked and should say why it did nothing
-    rather than no-op quietly).
+    ``mocks/`` fixture matching *driver_mock_glob* — the repo's own resolved
+    ``acceptance.drivers.<repo>.mock`` (#3068), NOT a hardcoded ``*.html``,
+    since only ``web-playwright`` renders HTML and this path reaches a
+    paying customer. Matching goes through the shared
+    :func:`coord.mock_author.mock_matches_glob` so this and the
+    merge-triggered collector always publish the same file set (and so the
+    match stays case-INSENSITIVE, keeping it aligned with the TUI's
+    `gate_a_mocks_dir_exists_for` enablement gate, #2513 review follow-up —
+    a file that lights the menu item up must be a file this command actually
+    publishes, or the operator gets an enabled button whose dispatch dies
+    with "nothing to publish"). If #2512's master index page has landed it
+    rides along automatically, since this globs everything under ``mocks/``
+    rather than naming files.
+
+    Empty when the acceptance directory doesn't exist locally at all —
+    callers treat that as an error (unlike the merge-triggered path's
+    "nothing to push", this command is operator-invoked and should say why
+    it did nothing rather than no-op quietly).
     """
     from pathlib import Path  # noqa: PLC0415
+
+    from coord.mock_author import mock_matches_glob  # noqa: PLC0415
 
     bundle_dir = Path(repo_dir) / "tests" / "acceptance" / bundle_dirname
     files: dict = {}
@@ -1228,7 +1266,7 @@ def _collect_local_mock_bundle_files(repo_dir, bundle_dirname: str) -> dict:
     mocks_dir = bundle_dir / "mocks"
     if mocks_dir.is_dir():
         for p in sorted(mocks_dir.iterdir()):
-            if p.is_file() and p.suffix.lower() == ".html":
+            if p.is_file() and mock_matches_glob(p.name, driver_mock_glob):
                 files[f"mocks/{p.name}"] = _read_text_or_raise(p)
     return files
 
@@ -2107,6 +2145,141 @@ def portal_ledger(submission_id: str, as_json: bool) -> None:
         click.echo(json.dumps(payload, indent=2, sort_keys=True))
         return
     click.echo(_render_ledger_text(payload))
+
+
+# ── #3071: `coord journal` — one submission's run, in order ────────────────
+#
+# Top-level, not under `coord portal`, on purpose: the question it answers
+# ("what is happening with my project") is asked BY a client and answered
+# mid-screen-share, not by an operator already thinking in bridge internals.
+# It is also read-only and never-raises, unlike most of this file.
+
+
+#: Kinds rendered with a friendlier label than their raw wire `kind`. Anything
+#: missing falls through to the wire value, so a kind added later (the schema
+#: comment in `coord.db` is explicit that `kind` stays open-ended) still
+#: renders — unlabelled, never dropped.
+_JOURNAL_KIND_LABELS = {
+    "question_pushed": "asked",
+    "question_answered": "answered",
+    "answer_confirmed": "confirmed",
+    "operator_note": "note",
+    "draft_edited": "draft edited",
+    "draft_approved": "draft approved",
+    "draft_rejected": "draft rejected",
+    "status_changed": "status",
+    "design_round_published": "design round",
+    "signoff_recorded": "sign-off",
+    "preview_published": "preview",
+    "work_started": "work started",
+    "work_shipped": "shipped",
+    "dispatched": "dispatched",
+    "merged": "merged",
+}
+
+
+def _journal_when(ts) -> str:
+    """*ts* as ``YYYY-MM-DD HH:MM UTC``, or ``"?"`` for an unreadable stamp.
+
+    Degrades rather than raising, same as every other read on this path: an
+    entry with a broken timestamp still belongs on the timeline.
+    """
+    try:
+        return datetime.datetime.fromtimestamp(
+            float(ts), tz=datetime.timezone.utc
+        ).strftime("%Y-%m-%d %H:%M UTC")
+    except (TypeError, ValueError, OverflowError, OSError):
+        return "?"
+
+
+def _render_journal_text(payload: dict) -> str:
+    """The human render of :func:`coord.portal_store.render_journal_payload`.
+
+    Gaps are printed, not hidden: "the audit trail could not be read" is
+    itself part of the answer to "what happened", and a silently short
+    timeline is exactly the failure mode this command exists to end.
+    """
+    lines = [f"# Journal — {payload.get('submission_id', '')}"]
+    link = payload.get("link")
+    if link:
+        scope = (
+            f"ms-{link.get('milestone_number')}"
+            if link.get("milestone_number") is not None
+            else f"issue #{link.get('issue_number')}"
+        )
+        lines.append(f"linked to {link.get('repo_name')} {scope}")
+
+    entries = payload.get("entries") or []
+    lines.append("")
+    if not entries:
+        lines.append("(no recorded activity yet)")
+    for entry in entries:
+        label = _JOURNAL_KIND_LABELS.get(entry.get("kind", ""), entry.get("kind", ""))
+        actor = entry.get("actor") or ""
+        who = f" [{actor}]" if actor else ""
+        lines.append(f"{_journal_when(entry.get('ts')):<20} {label}{who}")
+        text = (entry.get("text") or "").strip()
+        if text:
+            for line in text.splitlines():
+                lines.append(f"    {line}")
+        if entry.get("artifact"):
+            lines.append(f"    → {entry['artifact']}")
+
+    gaps = payload.get("gaps") or []
+    if gaps:
+        lines += ["", "## Gaps"]
+        lines += [f"- {g}" for g in gaps]
+    return "\n".join(lines)
+
+
+@click.command("journal")
+@click.argument("submission_id")
+@click.option("--json", "as_json", is_flag=True, default=False)
+def journal(submission_id: str, as_json: bool) -> None:
+    """Print SUBMISSION_ID's run as one ordered timeline (#3071).
+
+    Intake to shipped, in the order it happened: questions and answers, the
+    design rounds published and what the customer signed off, previews, the
+    status transitions, and the dispatch/merge rows from the business tier of
+    the audit trail. Until now that answer had to be assembled by hand out of
+    `coord audit --tier business`, the outbox, the mirrored `customer_json`
+    and `coord report run usage`, none of which join up.
+
+    **Never fails.** An unlinked or unknown submission prints an empty
+    timeline and exits 0; an unreadable source becomes a line under "Gaps"
+    rather than a traceback. `--json` is the shape a renderer should build
+    against — every entry has `ts`, `kind`, `actor`, `text` and an `artifact`
+    that is null or a URL. A design round's `artifact` is null against real
+    data (coord only ever learns a bare R2 object key for a bundle, not a
+    fetchable URL — see `coord.portal_store._JOURNAL_ARTIFACT_KEYS`); the key
+    is still visible in that entry's text and `details`. A merge's `artifact`
+    is the real PR URL when one is on file, null otherwise.
+
+    Reads the portal tables on THIS machine. On a thin client (one with
+    `board_service` set) those are empty by construction — the bridge's state
+    lives on the daemon host — so a note says so rather than letting an empty
+    timeline read as "nothing happened". The audit half routes to the daemon
+    on its own (`coord.state.list_audit_log`) and is correct either way.
+    """
+    from coord import board_service, portal_store  # noqa: PLC0415
+
+    payload = portal_store.render_journal_payload(submission_id)
+
+    if board_service.is_remote():
+        payload = {
+            **payload,
+            "gaps": [
+                *payload.get("gaps", []),
+                "this machine is a thin client — the portal ledger, outbox and "
+                "event inbox live on the daemon host, so run `coord journal` "
+                "there for the portal half of the timeline (#2336)",
+            ],
+        }
+
+    if as_json:
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    click.echo(_render_journal_text(payload))
 
 
 @portal_group.command("note")

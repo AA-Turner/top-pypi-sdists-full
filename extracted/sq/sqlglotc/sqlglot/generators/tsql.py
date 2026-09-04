@@ -103,7 +103,16 @@ def qualify_derived_table_outputs(expression: exp.Expr) -> exp.Expr:
 def _json_extract_sql(
     self: TSQLGenerator, expression: exp.JSONExtract | exp.JSONExtractScalar
 ) -> str:
+    # JSON_QUERY returns objects and arrays, JSON_VALUE returns scalars. A scalar-only
+    # extraction maps to JSON_VALUE; a source that also returns non-scalar values as
+    # text (e.g. SQLite's ->>) needs to try both, like a generic JSONExtract does
+    if isinstance(expression, exp.JSONExtractScalar) and expression.args.get("scalar_only"):
+        return self.func("JSON_VALUE", expression.this, expression.expression)
+
     json_query = self.func("JSON_QUERY", expression.this, expression.expression)
+    if expression.args.get("json_query"):
+        return json_query
+
     json_value = self.func("JSON_VALUE", expression.this, expression.expression)
     return self.func("ISNULL", json_query, json_value)
 
@@ -596,7 +605,8 @@ class TSQLGenerator(generator.Generator):
 
     def drop_sql(self, expression: exp.Drop) -> str:
         if expression.args["kind"] == "VIEW":
-            expression.this.set("catalog", None)
+            for table in expression.args.get("tables") or []:
+                table.set("catalog", None)
         return super().drop_sql(expression)
 
     def options_modifier(self, expression: exp.Expr) -> str:

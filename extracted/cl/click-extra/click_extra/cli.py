@@ -61,8 +61,17 @@ from .prebake import (
     prebake_dunder,
     prebake_version,
 )
+from .recording import (
+    DEFAULT_RECORDING_BLANK,
+    DEFAULT_RECORDING_HOLD,
+    DEFAULT_ROWS,
+    DEFAULT_SUBMIT,
+    record_and_render,
+)
 from .screenshot import (
     AUTO_COLUMNS,
+    AUTO_CURSOR,
+    AUTO_HOLD,
     DEFAULT_BORDER_WIDTH,
     DEFAULT_COLUMNS,
     DEFAULT_MARGIN,
@@ -79,7 +88,7 @@ from .screenshot import (
     capture,
     format_from_path,
 )
-from .screenshot_presets import PRESETS
+from .screenshot_presets import PRESETS, Cursor, CursorShape
 from .spinner import (
     _DEFAULT_SHOWCASE,
     OperationTrail,
@@ -111,7 +120,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any
 
-    from .screenshot import TColumns
+    from .screenshot import TColumns, THold
 
 logger = logging.getLogger(__name__)
 
@@ -450,7 +459,7 @@ def _parse_columns(
     ctx: click.Context,
     param: click.Parameter,
     value: str,
-) -> int | str:
+) -> TColumns:
     """Read `--columns` into a width, or into the sentinel asking for none.
 
     A width and {data}`~click_extra.screenshot.AUTO_COLUMNS` are the two things
@@ -745,6 +754,27 @@ def capture_options(
     return decorate
 
 
+def _parse_hold(
+    ctx: click.Context,
+    param: click.Parameter,
+    value: str | None,
+) -> THold | None:
+    """Read `--hold` into seconds or the `auto` sentinel, keeping unset as-is."""
+    if value is None:
+        return None
+    if value.strip().lower() == AUTO_HOLD:
+        return AUTO_HOLD
+    try:
+        hold = float(value)
+    except ValueError:
+        raise click.UsageError(
+            f"{value!r} is not a hold, which is seconds or 'auto'."
+        ) from None
+    if hold < 0:
+        raise click.UsageError(f"{value} is not a pause, which is never negative.")
+    return hold
+
+
 @command(name="screenshot")
 @argument("command_line", nargs=-1, required=True, type=click.UNPROCESSED)
 @capture_options(
@@ -778,7 +808,86 @@ def capture_options(
     "--timeout",
     type=FloatRange(min=0, min_open=True),
     default=None,
-    help="Seconds before the command is killed. Waits forever by default.",
+    help="Seconds before the command is killed. Waits forever by default. "
+    "With --record, this is also where the recording stops.",
+)
+@option(
+    "--record",
+    is_flag=True,
+    help="Run the command under a pseudo-terminal and write an animated SVG "
+    "of the screens it draws, spinners and progress bars included. Needs an "
+    ".svg --output and a numeric --columns. Unix only.",
+)
+@option(
+    "--rows",
+    type=IntRange(min=1),
+    default=None,
+    help=f"With --record, the height of the terminal the command runs in, in "
+    f"characters.  [default: {DEFAULT_ROWS}]",
+)
+@option(
+    "--hold",
+    default=None,
+    callback=_parse_hold,
+    help=f"With --record, extra seconds the last frame stays up before the "
+    f"animation starts over, or {AUTO_HOLD} to scale them to that frame's line "
+    f"count.  [default: {DEFAULT_RECORDING_HOLD}]",
+)
+@option(
+    "--blank",
+    type=FloatRange(min=0),
+    default=None,
+    help=f"With --record, seconds of empty screen closing the cycle.  "
+    f"[default: {DEFAULT_RECORDING_BLANK}]",
+)
+@option(
+    "--cursor",
+    type=click.Choice(
+        (AUTO_CURSOR, *(shape.value for shape in CursorShape)),
+        case_sensitive=False,
+    ),
+    is_flag=False,
+    flag_value=AUTO_CURSOR,
+    default=None,
+    help="Draw a terminal cursor where the command left it. Bare, it takes "
+    "the shape the --preset terminal draws; name one to override that. "
+    "Omitted, no cursor is drawn.",
+)
+@option(
+    "--blink",
+    type=FloatRange(min=0),
+    default=None,
+    help=f"With --cursor, seconds one blink takes. Pass 0 to draw a steady "
+    f"cursor.  [default: {Cursor().blink}]",
+)
+@option(
+    "--closing-prompt/--no-closing-prompt",
+    default=False,
+    help="Draw the shell's prompt on the row under the output, where it comes "
+    "back once the command exits. Costs no height alongside --cursor, which "
+    "already leaves that row for the cursor to wait on.",
+)
+@option(
+    "--typing",
+    type=FloatRange(min=0, min_open=True),
+    default=None,
+    help="With --record, open the animation by typing the command line out, "
+    "this many seconds per character. Omitted, the prompt stands there from "
+    "the first frame.",
+)
+@option(
+    "--submit",
+    type=FloatRange(min=0, min_open=True),
+    default=None,
+    help=f"With --typing, seconds the finished command line waits before its "
+    f"output starts.  [default: {DEFAULT_SUBMIT}]",
+)
+@option(
+    "--speed",
+    type=FloatRange(min=0, min_open=True),
+    default=None,
+    help="With --record, how much faster to play than recorded: 2 halves "
+    "every frame's time.  [default: 1.0]",
 )
 def screenshot_cmd(
     command_line: tuple[str, ...],
@@ -807,6 +916,16 @@ def screenshot_cmd(
     fragment: bool,
     wrap: bool,
     timeout: float | None,
+    record: bool,
+    rows: int | None,
+    hold: THold | None,
+    blank: float | None,
+    cursor: str | None,
+    blink: float | None,
+    closing_prompt: bool,
+    typing: float | None,
+    submit: float | None,
+    speed: float | None,
 ) -> None:
     """Capture a command's colored output and write it as an image or HTML.
 
@@ -833,8 +952,55 @@ def screenshot_cmd(
     would otherwise slide the columns out of place.
 
     Neither format needs an optional dependency.
+
+    --record runs the command under a pseudo-terminal instead, and writes an
+    animated SVG of every screen it drew: the frames a spinner or a progress
+    bar asks a terminal for, which a plain capture never sees. The invocation
+    is drawn above every frame, and the loop pauses on the final screen for as
+    long as its line count asks, see --hold.
     """
     capture_format = resolve_capture_format(output, fragment)
+
+    if record:
+        if capture_format is not CaptureFormat.SVG:
+            raise click.UsageError(
+                "--record draws an animated SVG: point --output at an .svg file."
+            )
+        if columns == AUTO_COLUMNS:
+            raise click.UsageError(
+                "--record pins its terminal width up front: give --columns a number."
+            )
+        if merge_stderr:
+            raise click.UsageError(
+                "--record already folds the streams: a pseudo-terminal has one."
+            )
+        if head is not None or tail is not None:
+            raise click.UsageError(
+                "--head and --tail do not apply to --record, which keeps whole screens."
+            )
+    else:
+        for name, given in (
+            ("--rows", rows is not None),
+            ("--hold", hold is not None),
+            ("--blank", blank is not None),
+            ("--speed", speed is not None),
+            ("--typing", typing is not None),
+            ("--submit", submit is not None),
+        ):
+            if given:
+                raise click.UsageError(f"{name} requires --record.")
+    if blink is not None and cursor is None:
+        raise click.UsageError("--blink requires --cursor.")
+    if submit is not None and typing is None:
+        raise click.UsageError("--submit requires --typing.")
+
+    drawn_cursor = None
+    if cursor is not None:
+        drawn_cursor = Cursor(
+            # The bare flag names no shape, which is what leaves the preset to.
+            shape=None if cursor == AUTO_CURSOR else CursorShape(cursor),
+            blink=Cursor().blink if blink is None else blink,
+        )
 
     if wrap:
         # Reached through the installed console script, never through
@@ -857,37 +1023,78 @@ def screenshot_cmd(
             prompt = shlex.join(("click-extra", "wrap", "--", *command_line))
         command_line = (executable, "wrap", "--", *command_line)
 
-    try:
-        document, returncode = capture(
-            list(command_line),
-            format=capture_format,
-            columns=columns,
-            prompt=prompt,
-            head=head,
-            tail=tail,
-            truncation=truncation,
-            merge_stderr=merge_stderr,
-            timeout=timeout,
-            line_numbers=line_numbers,
-            emphasize=emphasize,
-            title=title,
-            unique_id=output.stem,
-            full=not fragment,
-            background=background,
-            preset=None if preset is None else PRESETS[preset.lower()],
-            border=border,
-            border_width=border_width,
-            radius=radius,
-            backdrop=backdrop,
-            shadow=shadow,
-            margin=margin,
-            padding=padding,
-            opacity=opacity,
-            watermark=watermark,
-            watermark_color=watermark_color,
-        )
-    except ImportError as error:
-        raise ClickException(str(error)) from error
+    if record:
+        # A recording pins its width up front, which the guard above enforced:
+        # a pseudo-terminal is opened before the command writes anything, so
+        # there is no output yet to size the screen against.
+        assert columns != AUTO_COLUMNS
+        try:
+            document, returncode = record_and_render(
+                list(command_line),
+                columns=columns,
+                rows=DEFAULT_ROWS if rows is None else rows,
+                background=background,
+                prompt=prompt,
+                duration=timeout,
+                hold=DEFAULT_RECORDING_HOLD if hold is None else hold,
+                blank=DEFAULT_RECORDING_BLANK if blank is None else blank,
+                speed=1.0 if speed is None else speed,
+                typing=0.0 if typing is None else typing,
+                submit=DEFAULT_SUBMIT if submit is None else submit,
+                cursor=drawn_cursor,
+                closing_prompt=closing_prompt,
+                line_numbers=line_numbers,
+                emphasize=emphasize,
+                title=title,
+                unique_id=output.stem,
+                preset=None if preset is None else PRESETS[preset.lower()],
+                border=border,
+                border_width=border_width,
+                radius=radius,
+                backdrop=backdrop,
+                shadow=shadow,
+                margin=margin,
+                padding=padding,
+                opacity=opacity,
+                watermark=watermark,
+                watermark_color=watermark_color,
+            )
+        except (NotImplementedError, ValueError) as error:
+            raise ClickException(str(error)) from error
+    else:
+        try:
+            document, returncode = capture(
+                list(command_line),
+                format=capture_format,
+                columns=columns,
+                prompt=prompt,
+                head=head,
+                tail=tail,
+                truncation=truncation,
+                merge_stderr=merge_stderr,
+                timeout=timeout,
+                line_numbers=line_numbers,
+                emphasize=emphasize,
+                cursor=drawn_cursor,
+                closing_prompt=closing_prompt,
+                title=title,
+                unique_id=output.stem,
+                full=not fragment,
+                background=background,
+                preset=None if preset is None else PRESETS[preset.lower()],
+                border=border,
+                border_width=border_width,
+                radius=radius,
+                backdrop=backdrop,
+                shadow=shadow,
+                margin=margin,
+                padding=padding,
+                opacity=opacity,
+                watermark=watermark,
+                watermark_color=watermark_color,
+            )
+        except ImportError as error:
+            raise ClickException(str(error)) from error
 
     if returncode:
         logger.warning(f"{command_line[0]} exited with code {returncode}.")

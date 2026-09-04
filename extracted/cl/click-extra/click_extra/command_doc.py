@@ -79,6 +79,7 @@ from .parameters import (
     param_spellings,
     resolve_param_help,
     search_params,
+    split_option_groups,
 )
 from .version import resolve_author, resolve_distribution
 
@@ -356,6 +357,31 @@ class DocOptionItem:
     """Whether the option's value is optional (a bare flag is allowed). Rendered as
     the attached `[=METAVAR]` form instead of a space-separated metavar."""
 
+    choices: tuple[str, ...] = ()
+    """Every value the option accepts, for an option whose type enumerates them.
+
+    Recorded whatever the metavar shows, so a JSON consumer never has to parse
+    `[a|b|c]` back out of it. See {attr}`unlisted_choices` for the rendered
+    subset.
+    """
+
+    @property
+    def unlisted_choices(self) -> tuple[str, ...]:
+        """The choices the metavar does not already spell out.
+
+        A `Choice` renders as `[a|b|c]` by default, putting every value on
+        screen already, and repeating them below the help would say the same
+        thing twice. An option overriding that with a short placeholder
+        (`--table-format FORMAT`) hides them instead, and this is what the man
+        page and the Markdown render add back.
+        """
+        if not self.choices:
+            return ()
+        metavar = self.metavar or ""
+        if all(choice in metavar for choice in self.choices):
+            return ()
+        return self.choices
+
     def to_roff(self) -> list[str]:
         """Render this option as a roff tagged paragraph (`.TP`)."""
         tag = " / ".join(_bold(name) for name in self.names)
@@ -373,6 +399,13 @@ class DocOptionItem:
                 tag += " " + _italic(self.metavar)
         lines = [".TP", tag]
         lines.extend(_emit_help(self.help or ""))
+        if self.unlisted_choices:
+            # Every token goes through the hyphen escape, so a value like
+            # `colon-grid` renders as a copy-pasteable minus sign rather than a
+            # typographic hyphen.
+            values = ", ".join(_roff_escape(c) for c in self.unlisted_choices)
+            lines.append(".br")
+            lines.append(f"[values: {values}]")
         if self.required:
             lines.append(".br")
             lines.append("[required]")
@@ -408,6 +441,9 @@ class DocOptionItem:
         help_text = _markdown_inline(pre)
         if help_text:
             item += f": {help_text}"
+        if self.unlisted_choices:
+            values = ", ".join(f"`{choice}`" for choice in self.unlisted_choices)
+            item += f" Values: {values}."
         lines = [item]
 
         post = inspect.cleandoc(post).strip("\n")
@@ -425,10 +461,31 @@ class DocOptionItem:
             "names": list(self.names),
             "spec": self.spec,
             "metavar": self.metavar,
+            "choices": list(self.choices) or None,
             "help": _clean_help(self.help or "") or None,
             "required": self.required,
             "optional_value": self.optional_value,
         }
+
+
+@dataclass
+class DocSubcommand:
+    """One COMMANDS entry: a subcommand as its parent lists it."""
+
+    name: str
+    """The name the subcommand is invoked under."""
+
+    short_help: str
+    """Its one-line description, from
+    {func}`~click_extra.parameters.full_short_help`."""
+
+    aliases: tuple[str, ...] = ()
+    """The other names it answers to, a Cloup feature.
+
+    Drawn in parentheses after the name, the way the help screen and `--tree`
+    draw them: a reader of a generated page learns the short spelling from the
+    same place they learn the command exists.
+    """
 
 
 @dataclass
@@ -515,8 +572,8 @@ class CommandDoc:
     """The OPTIONS entries, partitioned into one or more groups. A command
     without explicit option groups carries a single untitled group."""
 
-    subcommands: tuple[tuple[str, str], ...] = ()
-    """For groups: `(name, short_help)` pairs for the COMMANDS section."""
+    subcommands: tuple[DocSubcommand, ...] = ()
+    """For groups: the COMMANDS section entries, in listing order."""
 
     environment: tuple[tuple[str, str], ...] = ()
     """ENVIRONMENT entries as `(variable_name, help)` pairs."""
@@ -603,10 +660,13 @@ class CommandDoc:
 
         if self.subcommands:
             lines.append(".SH COMMANDS")
-            for sub_name, sub_help in self.subcommands:
+            for sub in self.subcommands:
                 lines.append(".TP")
-                lines.append(_bold(sub_name))
-                lines.extend(_emit_help(sub_help))
+                names = _bold(sub.name)
+                if sub.aliases:
+                    names += " ({})".format(", ".join(map(_bold, sub.aliases)))
+                lines.append(names)
+                lines.extend(_emit_help(sub.short_help))
 
         if self.environment:
             lines.append(".SH ENVIRONMENT")
@@ -700,9 +760,13 @@ class CommandDoc:
 
         if self.subcommands:
             lines.extend(("## Commands", ""))
-            for sub_name, sub_help in self.subcommands:
-                item = f"- `{sub_name}`"
-                rendered = _markdown_inline(sub_help)
+            for sub in self.subcommands:
+                item = f"- `{sub.name}`"
+                if sub.aliases:
+                    item += " ({})".format(
+                        ", ".join(f"`{alias}`" for alias in sub.aliases)
+                    )
+                rendered = _markdown_inline(sub.short_help)
                 lines.append(f"{item}: {rendered}" if rendered else item)
             lines.append("")
 
@@ -773,8 +837,12 @@ class CommandDoc:
             ],
             "option_groups": [group.to_dict() for group in self.option_groups],
             "subcommands": [
-                {"name": name, "short_help": _clean_help(help_text) or None}
-                for name, help_text in self.subcommands
+                {
+                    "name": sub.name,
+                    "aliases": list(sub.aliases),
+                    "short_help": _clean_help(sub.short_help) or None,
+                }
+                for sub in self.subcommands
             ],
             "examples": [
                 {"description": description, "command": command_line}
@@ -841,9 +909,15 @@ def _resolve_authors(ctx: Context) -> str | None:
     return resolve_author(metadata.metadata(name)) if name else None
 
 
-def _config_default(config_option: ConfigOption, ctx: Context) -> str | None:
-    """The portable, home-relative `--config` search pattern (as shown in help)."""
-    return config_option.get_help_extra(ctx).get("default")
+def _config_default(config_option: ConfigOption, ctx: Context) -> str:
+    """The portable, home-relative `--config` search pattern.
+
+    The help screen collapses an inherited format set down to its folder, which a
+    `FILES` section does not want: it exists to name the files the command reads,
+    and roff has the room to print them. See
+    {meth}`~click_extra.config.option.ConfigOption.collapse_default`.
+    """
+    return config_option.render_default(ctx)
 
 
 def _resolve_files(command: Command, ctx: Context) -> tuple[str, ...]:
@@ -879,12 +953,16 @@ def _option_item(param: Parameter, ctx: Context) -> DocOptionItem:
     attached `[=METAVAR]` form, and a regular option a space-separated metavar.
     """
     kind = option_value_kind(param)
+    # `Choice` and its subclasses expose the accepted values; every other type
+    # leaves the attribute out, which reads as an empty set here.
+    choices = getattr(param.type, "choices", ()) or ()
     return DocOptionItem(
         names=param_spellings(param),
         metavar=None if kind == "flag" else param.make_metavar(ctx=ctx),
         help=resolve_param_help(param, ctx),
         required=param.required,
         optional_value=kind == "optional",
+        choices=tuple(str(choice) for choice in choices),
     )
 
 
@@ -897,39 +975,53 @@ def _build_option_groups(
 
     Cloup commands expose explicit option groups: each visible one becomes a
     titled {class}`DocOptionGroup` (a roff `.SS`), with the ungrouped
-    remainder gathered under Cloup's default-group title (`Other options`),
-    mirroring the `--help` screen. A command with no explicit
-    `@option_group` collapses to a single untitled group, rendered as a flat
-    list exactly as before.
+    remainder gathered under Cloup's default-group title, mirroring the
+    `--help` screen. The sections are ordered by
+    {meth}`click_extra.commands.Command.split_option_groups`, so the ungrouped
+    remainder sits between the groups a CLI author declared and the ones Click
+    Extra injects. A command with no option group at all collapses to a single
+    untitled group, rendered as a flat list.
 
     Group membership is matched by option identity, not name: Click Extra's
     `--config` / `--no-config` pair shares the `config` destination name,
-    so a name-keyed lookup would drop one of them.
+    so a name-keyed lookup would drop one of them. The ungrouped remainder is
+    read off `option_items` rather than off the default group, whose `--help`
+    Click rebuilds on every call and would never match by identity.
     """
     items_by_id = {id(param): item for param, item in option_items}
 
-    if isinstance(command, OptionGroupMixin) and command.option_groups:
-        explicit: list[DocOptionGroup] = []
-        claimed: set[int] = set()
-        for group in command.option_groups:
-            claimed.update(id(opt) for opt in group.options)
+    def build(groups: Sequence[Any]) -> list[DocOptionGroup]:
+        built: list[DocOptionGroup] = []
+        for group in groups:
             if group.hidden:
                 continue
             members = tuple(
                 items_by_id[id(opt)] for opt in group.options if id(opt) in items_by_id
             )
             if members:
-                explicit.append(
+                built.append(
                     DocOptionGroup(options=members, title=group.title, help=group.help)
                 )
+        return built
+
+    if isinstance(command, OptionGroupMixin) and command.option_groups:
+        own_groups, extra_groups = split_option_groups(command)
+        claimed = {id(opt) for group in command.option_groups for opt in group.options}
         ungrouped = tuple(
             item for param, item in option_items if id(param) not in claimed
         )
-        if explicit:
+
+        before = build(own_groups)
+        after = build(extra_groups)
+        if before or after:
+            middle: list[DocOptionGroup] = []
             if ungrouped:
-                title = command.get_default_option_group(ctx).title
-                explicit.append(DocOptionGroup(options=ungrouped, title=title))
-            return tuple(explicit)
+                title = command.get_default_option_group(
+                    ctx,
+                    is_the_only_visible_option_group=not before,
+                ).title
+                middle.append(DocOptionGroup(options=ungrouped, title=title))
+            return (*before, *middle, *after)
         return (DocOptionGroup(options=ungrouped),) if ungrouped else ()
 
     items = tuple(item for _, item in option_items)
@@ -975,8 +1067,13 @@ def extract_command_doc(
             seen_envvars.add(var)
             environment.append((var, resolve_param_help(param, ctx) or ""))
 
-    subcommands: list[tuple[str, str]] = [
-        (name, full_short_help(sub)) for name, sub in iter_subcommands(command, ctx)
+    subcommands: list[DocSubcommand] = [
+        DocSubcommand(
+            name=name,
+            short_help=full_short_help(sub),
+            aliases=tuple(getattr(sub, "aliases", None) or ()),
+        )
+        for name, sub in iter_subcommands(command, ctx)
     ]
 
     return CommandDoc(

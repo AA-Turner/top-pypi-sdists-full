@@ -85,6 +85,7 @@ __all__ = (
     "ReplicationStatusType",
     "ResourceServiceName",
     "ServiceName",
+    "SourceServerArchitectureType",
     "TargetInstanceTypeRightSizingMethodType",
     "VolumeStatusType",
 )
@@ -309,6 +310,7 @@ ReplicationConfigurationReplicatedDiskStagingDiskTypeType = Literal[
 ]
 ReplicationDirectionType = Literal["FAILBACK", "FAILOVER"]
 ReplicationStatusType = Literal["ERROR", "IN_PROGRESS", "PROTECTED", "STOPPED"]
+SourceServerArchitectureType = Literal["arm64", "x86_64"]
 TargetInstanceTypeRightSizingMethodType = Literal["BASIC", "IN_AWS", "NONE"]
 VolumeStatusType = Literal[
     "CONTAINS_MARKETPLACE_PRODUCT_CODES",

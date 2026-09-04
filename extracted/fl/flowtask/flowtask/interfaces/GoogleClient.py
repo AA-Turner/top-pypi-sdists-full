@@ -1,7 +1,9 @@
+import asyncio
+import json
 from pathlib import Path, PurePath
-from typing import Union, List, Dict, Callable
+from typing import Any, Union, List, Dict, Callable
 from abc import ABC
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from navconfig import BASE_DIR
 from ..exceptions import ComponentError, ConfigError
@@ -60,23 +62,23 @@ class GoogleClient(ABC):
 
     def connection(self):
         if self.credentials_file:
-            self.credentials = ServiceAccountCredentials.from_json_keyfile_name(
-                self.credentials_file,
+            self.credentials = service_account.Credentials.from_service_account_file(
+                str(self.credentials_file),
                 scopes=self.scopes,
             )
         elif self.credentials_dict:
-            self.credentials = ServiceAccountCredentials.from_json_keyfile_dict(
+            self.credentials = service_account.Credentials.from_service_account_info(
                 self.credentials_dict,
                 scopes=self.scopes
             )
         elif self.credentials_str:
-            self.credentials = ServiceAccountCredentials.from_json(
-                self.credentials_str,
+            self.credentials = service_account.Credentials.from_service_account_info(
+                json.loads(self.credentials_str),
                 scopes=self.scopes
             )
         else:
-            self.credentials = ServiceAccountCredentials.from_json_keyfile_name(
-                GOOGLE_CREDENTIALS_FILE,
+            self.credentials = service_account.Credentials.from_service_account_file(
+                str(GOOGLE_CREDENTIALS_FILE),
                 scopes=self.scopes
             )
         return self
@@ -107,6 +109,22 @@ class GoogleClient(ABC):
     def get_sheets_client(self):
         """Shortcut for accessing the Google Sheets client."""
         return self.get_service("sheets", "v4")
+
+    async def execute_request(self, request_factory: Callable[[], Any]) -> Any:
+        """Build and execute a googleapiclient request fully off the event loop.
+
+        Args:
+            request_factory: A zero-arg callable that both builds the
+                request object and calls ``.execute()`` on it. The whole
+                callable runs inside ``asyncio.to_thread`` so neither the
+                request construction nor the blocking ``.execute()`` call
+                ever runs on the event loop thread.
+
+        Returns:
+            Whatever ``request_factory()`` returns (typically the parsed
+            JSON response from ``.execute()``).
+        """
+        return await asyncio.to_thread(request_factory)
 
     def close(self):
         """Clears cached credentials and services."""

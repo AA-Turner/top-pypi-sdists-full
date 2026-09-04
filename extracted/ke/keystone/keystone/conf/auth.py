@@ -105,6 +105,42 @@ authentication plugin.
     ),
 )
 
+additional_primary_auth_methods = cfg.ListOpt(
+    'additional_primary_auth_methods',
+    default=[],
+    help=utils.fmt(
+        """
+Auth method names, beyond keystone's own built-in primary methods
+(password, totp, mapped, saml2, openid, external, kerberos, x509, token),
+that authenticate a user directly rather than via a delegated credential.
+Set this if you run a custom, third-party auth plugin (for example a
+site-specific SSO integration) so that tokens issued through it are not
+mistaken for a delegated credential (application credential, OAuth1
+access token, EC2 credential) by the guards that block delegated tokens
+from managing trusts, application credentials, OAuth1 access tokens,
+credentials, or exchanging a token for another token. Without this, a
+token issued via an unlisted custom method is treated as delegated and
+rejected from those actions by default.
+"""
+    ),
+)
+
+ban_ec2credential_tokens = cfg.BoolOpt(
+    'ban_ec2credential_tokens',
+    default=True,
+    help=utils.fmt(
+        """
+EC2 credentials are supported by keystone only to allow Swift to implement
+the S3 protocol against keystone identities. When enabled (the default), a
+token issued via EC2 credential authentication (ec2credential) is rejected
+by the auth middleware for every keystone API operation except validating
+the token, which Swift's S3 support needs. Disable only if a deployment
+has an existing, legitimate dependency on using EC2-derived tokens
+directly against the keystone API.
+"""
+    ),
+)
+
 
 GROUP_NAME = __name__.split('.')[-1]
 ALL_OPTS = [
@@ -115,6 +151,8 @@ ALL_OPTS = [
     oauth1,
     mapped,
     application_credential,
+    additional_primary_auth_methods,
+    ban_ec2credential_tokens,
 ]
 
 

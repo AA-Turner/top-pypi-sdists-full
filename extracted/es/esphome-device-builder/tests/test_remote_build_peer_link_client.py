@@ -77,10 +77,12 @@ from esphome_device_builder.controllers.remote_build.peer_link_client import (
     preview_pair,
     request_pair,
 )
+from esphome_device_builder.controllers.remote_build.peer_link_client._wake import (
+    _mdns_record_name,
+)
 from esphome_device_builder.controllers.remote_build.peer_link_client.client import (
     _LOCAL_CLOSE_AUTH_REJECTED,
     _LOCAL_CLOSE_RECEIVER_REJECTED,
-    _mdns_record_name,
 )
 from esphome_device_builder.controllers.remote_build.peer_link_lifecycle import (
     spawn_peer_link_client,
@@ -858,6 +860,7 @@ def _make_offloader_controller(*, config_dir: Path) -> OffloaderController:
     db.settings.config_dir = config_dir
     db.settings.on_ha_addon = False
     db.peer_link_identity_store = PeerLinkIdentityStore(config_dir)
+    db.apply_remote_build_enabled = AsyncMock(return_value=False)
     controller = OffloaderController(db)
     _CREATED_OFFLOADERS.append(controller)
     return controller

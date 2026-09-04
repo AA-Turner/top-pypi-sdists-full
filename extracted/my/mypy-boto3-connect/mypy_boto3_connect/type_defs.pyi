@@ -1164,6 +1164,10 @@ __all__ = (
     "PhoneNumberStatusTypeDef",
     "PhoneNumberSummaryTypeDef",
     "PostAcceptTimeoutConfigTypeDef",
+    "PreEvaluationFilterTypeDef",
+    "PreEvaluationFiltersOutputTypeDef",
+    "PreEvaluationFiltersTypeDef",
+    "PreEvaluationFiltersUnionTypeDef",
     "PredefinedAttributeConfigurationTypeDef",
     "PredefinedAttributeSearchCriteriaPaginatorTypeDef",
     "PredefinedAttributeSearchCriteriaTypeDef",
@@ -4240,6 +4244,13 @@ class PhoneNumberQuickConnectConfigTypeDef(TypedDict):
 class PostAcceptTimeoutConfigTypeDef(TypedDict):
     DurationInSeconds: int
 
+class PreEvaluationFilterTypeDef(TypedDict):
+    ResourceType: Literal["CONTACT"]
+    FilterType: Literal["TAG"]
+    FilterKey: str
+    FilterValue: str
+    Operator: Literal["EQUALS"]
+
 class PredefinedAttributeConfigurationTypeDef(TypedDict):
     EnableValueValidationOnAssociation: NotRequired[bool]
     IsReadOnly: NotRequired[bool]
@@ -6116,19 +6127,6 @@ class UpdateQueueOutboundEmailConfigRequestTypeDef(TypedDict):
     QueueId: str
     OutboundEmailConfig: OutboundEmailConfigTypeDef
 
-class RuleSearchSummaryTypeDef(TypedDict):
-    Name: str
-    RuleId: str
-    RuleArn: str
-    TriggerEventSource: RuleTriggerEventSourceTypeDef
-    ActionSummaries: list[ActionSummaryTypeDef]
-    PublishStatus: RulePublishStatusType
-    CreatedTime: datetime
-    LastUpdatedTime: datetime
-    LastUpdatedBy: str
-    RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
-    Tags: NotRequired[dict[str, str]]
-
 class ListSecurityProfileFlowModulesResponseTypeDef(TypedDict):
     AllowedFlowModules: list[FlowModuleTypeDef]
     LastModifiedTime: datetime
@@ -7214,6 +7212,12 @@ class PreviewTypeDef(TypedDict):
     PostAcceptTimeoutConfig: PostAcceptTimeoutConfigTypeDef
     AllowedUserActions: Sequence[AllowedUserActionType]
 
+class PreEvaluationFiltersOutputTypeDef(TypedDict):
+    AndConditions: NotRequired[list[PreEvaluationFilterTypeDef]]
+
+class PreEvaluationFiltersTypeDef(TypedDict):
+    AndConditions: NotRequired[Sequence[PreEvaluationFilterTypeDef]]
+
 class PredefinedAttributeTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[PredefinedAttributeValuesOutputTypeDef]
@@ -7793,12 +7797,6 @@ class SearchQueuesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class SearchRulesResponseTypeDef(TypedDict):
-    Rules: list[RuleSearchSummaryTypeDef]
-    ApproximateTotalCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class RoutingProfileTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     Name: NotRequired[str]
@@ -8176,6 +8174,24 @@ class AgentFirstOutputTypeDef(TypedDict):
     Preview: NotRequired[PreviewOutputTypeDef]
 
 PreviewUnionTypeDef = Union[PreviewTypeDef, PreviewOutputTypeDef]
+
+class RuleSearchSummaryTypeDef(TypedDict):
+    Name: str
+    RuleId: str
+    RuleArn: str
+    TriggerEventSource: RuleTriggerEventSourceTypeDef
+    ActionSummaries: list[ActionSummaryTypeDef]
+    PublishStatus: RulePublishStatusType
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    LastUpdatedBy: str
+    RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersOutputTypeDef]
+    Tags: NotRequired[dict[str, str]]
+
+PreEvaluationFiltersUnionTypeDef = Union[
+    PreEvaluationFiltersTypeDef, PreEvaluationFiltersOutputTypeDef
+]
 
 class DescribePredefinedAttributeResponseTypeDef(TypedDict):
     PredefinedAttribute: PredefinedAttributeTypeDef
@@ -8965,6 +8981,12 @@ class OutboundStrategyConfigOutputTypeDef(TypedDict):
 class AgentFirstTypeDef(TypedDict):
     Preview: NotRequired[PreviewUnionTypeDef]
 
+class SearchRulesResponseTypeDef(TypedDict):
+    Rules: list[RuleSearchSummaryTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class GranularAccessControlConfigurationOutputTypeDef(TypedDict):
     DataTableAccessControlConfiguration: NotRequired[
         DataTableAccessControlConfigurationOutputTypeDef
@@ -9241,6 +9263,7 @@ class RuleTypeDef(TypedDict):
     LastUpdatedTime: datetime
     LastUpdatedBy: str
     RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersOutputTypeDef]
     Tags: NotRequired[dict[str, str]]
 
 class SearchUsersRequestPaginateTypeDef(TypedDict):
@@ -9875,7 +9898,9 @@ class CreateRuleRequestTypeDef(TypedDict):
     Function: str
     Actions: Sequence[RuleActionUnionTypeDef]
     PublishStatus: RulePublishStatusType
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersUnionTypeDef]
     ClientToken: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
 
 class UpdateRuleRequestTypeDef(TypedDict):
     RuleId: str
@@ -9884,6 +9909,7 @@ class UpdateRuleRequestTypeDef(TypedDict):
     Function: str
     Actions: Sequence[RuleActionUnionTypeDef]
     PublishStatus: RulePublishStatusType
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersUnionTypeDef]
 
 EvaluationFormQuestionTypePropertiesTypeDef = TypedDict(
     "EvaluationFormQuestionTypePropertiesTypeDef",

@@ -30,7 +30,7 @@ import cloup
 from boltons.pathutils import shrinkuser
 from click import ParamType, get_current_context
 from click._utils import UNSET
-from click.core import ParameterSource
+from click.core import ParameterSource, _format_deprecated_label
 from deepmerge import always_merger
 
 from . import context
@@ -156,7 +156,8 @@ def full_short_help(command: click.Command) -> str:
 
     The lookup mirrors Click's order: an explicit `short_help` wins, otherwise the
     first paragraph of `command.help` is joined into one line. A truthy
-    `deprecated` flag prepends `(Deprecated)` so the flag stays visible.
+    `deprecated` flag appends Click's own label, so a listing reads the same
+    marker Click's `get_short_help_str()` produces, reason string included.
     """
     if command.short_help:
         text = command.short_help.strip()
@@ -169,7 +170,8 @@ def full_short_help(command: click.Command) -> str:
     else:
         text = ""
     if command.deprecated:
-        text = f"(Deprecated) {text}".strip()
+        label = _format_deprecated_label(command.deprecated)
+        text = f"{text} {label}".strip()
     return text
 
 
@@ -204,6 +206,46 @@ def resolve_param_help(param: click.Parameter, ctx: click.Context) -> str | None
     return text.strip() or None
 
 
+def canonical_param_name(name: str) -> str:
+    """Fold a spelling to the parameter name Click would derive from it.
+
+    Applies Click's own derivation, minus the option prefix its callers strip
+    first: hyphens become underscores and the result is case-folded, so
+    `Foo-Bar` answers `foo_bar`. Use it to resolve an outside spelling (a
+    configuration key, an argfile declaration) against the names a CLI
+    already has.
+
+    ```{caution}
+    The fold is many-to-one, so it identifies a name and never reconstructs a
+    spelling. `--foo-bar`, `--Foo-Bar` and `--FOO-BAR` answer the same name,
+    as do `--foo--bar` and `--foo__bar`, and `--K` (the Kelvin sign, `U+212A`)
+    lands on the same `k` as `--k`. Case folding reaches every script and is
+    not length-preserving: `--ẞ` answers `ß`, whose upper case is the two
+    letters `SS`, and a composed `café` answers a different name than a
+    decomposed one that renders identically.
+    ```
+
+    ```{caution}
+    A folded spelling is a *candidate*, never an answer on its own. Click
+    takes an identifier declaration verbatim, so `@option("--x", "Foo_Bar")`
+    names its parameter `Foo_Bar`, which this function would never produce.
+    Match the fold against the names a CLI declares and keep the CLI's own
+    spelling, rather than storing what this returns.
+    ```
+
+    ```{todo}
+    Upstream [pallets/click#3827](https://github.com/pallets/click/pull/3827)
+    asks whether `Option` should keep the case of an identifier declaration,
+    as it does today, or fold it the way `Argument` already does. Should Click
+    fold both, no parameter can be named `Foo_Bar` any more: drop the caution
+    above, and with it the ambiguity branch of `_merge_into_template` in
+    `click_extra.config.schema`, which exists only to tell two such names
+    apart.
+    ```
+    """
+    return name.replace("-", "_").lower()
+
+
 def param_spellings(param: click.Parameter) -> tuple[str, ...]:
     """All literal spellings of a parameter: primary `opts` then `secondary_opts`.
 
@@ -233,7 +275,7 @@ def option_value_kind(
     - `"optional"`: the value may be omitted. Click models this as
       `is_flag=False` with a `flag_value` set, so a bare `--color` stands for
       the flag value while `--color=never` passes an explicit one.
-    - `"required"`: consumes a value (`--config CONFIG_PATH`).
+    - `"required"`: consumes a value (`--config LOCATION`).
 
     ```{note}
     The discriminator is Click's `is_flag` (plus `count`), not
@@ -600,10 +642,11 @@ def get_param_spec(param: click.Parameter, ctx: click.Context) -> str | None:
     ```
 
     ```{todo}
-    Submit a PR to Click to separate production of param spec and help
-    record. That way we can always produce the param spec even if the
-    parameter is hidden.
-    See: https://github.com/kdeldycke/click-extra/issues/689
+    Upstream [pallets/click#3821](https://github.com/pallets/click/pull/3821)
+    splits the spec half of `Option.get_help_record()` into its own
+    `get_help_spec()` method, which returns it even for hidden options.
+    Once a Click release ships it, drop the monkey-patching below and call
+    that method directly.
     ```
     """
     if not hasattr(param, "hidden"):
@@ -698,10 +741,23 @@ def format_param_row(
             "confirmation_prompt": confirmation_prompt,
         }
 
-    # Lazy import to avoid circular dependency with theme.
+    # Lazy imports to avoid circular dependency with theme, which highlight
+    # reaches in turn.
+    from .highlight import DEPRECATED_RE, highlight
     from .theme import KO_GLYPH, OK_GLYPH, get_current_theme
 
     active_theme = get_current_theme()
+
+    def styled_help(text):
+        """Paint the deprecation marker, leaving the author's own prose alone.
+
+        The marker is the one part of this column Click Extra puts there itself,
+        and the help screen paints it: a table whose every other column is themed
+        would otherwise be the one render that draws it flat.
+        """
+        if text is None:
+            return None
+        return highlight(text, [DEPRECATED_RE], active_theme.deprecated)
 
     def styled_bool(value):
         """Render a boolean attribute as a themed glyph, or `None` if absent."""
@@ -716,7 +772,7 @@ def format_param_row(
     return {
         "id": active_theme.invoked_command(path),
         "spec": active_theme.option(param_spec) if param_spec else param_spec,
-        "help": resolve_param_help(param, ctx),
+        "help": styled_help(resolve_param_help(param, ctx)),
         "class": class_str,
         "param_type": type_str,
         "python_type": active_theme.metavar(python_type_name),
@@ -778,6 +834,30 @@ def iter_subcommands(
         yield name, sub
 
 
+def split_option_groups(
+    command: cloup.OptionGroupMixin,
+) -> tuple[tuple[cloup.OptionGroup, ...], tuple[cloup.OptionGroup, ...]]:
+    """A command's explicit option groups, split around its ungrouped section.
+
+    Hands back the groups drawn *before* the ungrouped options, then those drawn
+    *after*. A Click Extra command decides that split itself, through
+    {meth}`click_extra.commands.Command.split_option_groups`, so its own sections
+    land past the ungrouped ones. A plain Cloup command has no such method and
+    keeps every group ahead of the ungrouped section, which is Cloup's own rule.
+
+    Every renderer reading a command's sections goes through this, so the split is
+    resolved in one place whatever the command class.
+
+    :param command: the command whose groups are read.
+    :return: the groups drawn before the ungrouped section, then those after it.
+    """
+    splitter = getattr(command, "split_option_groups", None)
+    if splitter is None:
+        return tuple(command.option_groups), ()
+    own_groups, extra_groups = splitter()
+    return own_groups, extra_groups
+
+
 def iter_params_for_display(
     command: click.Command,
     ctx: click.Context,
@@ -787,11 +867,12 @@ def iter_params_for_display(
     A Click Extra command keeps two orders apart: `command.params` is the
     processing order, which decides when each callback fires, while the help screen
     reads the presentation order Cloup caches in `arguments`, `option_groups` and
-    `ungrouped_options` (see
-    {meth}`click_extra.commands.Command.param_priority`). Reading `get_params()`
-    therefore renders a man page, a Markdown document or a completion spec whose
-    flags no longer match the `--help` its reader just saw. This is the accessor
-    every such renderer should go through.
+    `ungrouped_options`, sectioned by
+    {meth}`click_extra.commands.Command.split_option_groups` and sorted within a
+    section by {meth}`~click_extra.commands.Command.param_priority`. Reading
+    `get_params()` therefore renders a man page, a Markdown document or a
+    completion spec whose flags no longer match the `--help` its reader just saw.
+    This is the accessor every such renderer should go through.
 
     Falls back to `get_params()` for a command that carries no Cloup option groups,
     where the two orders are the same list. Any parameter attached after
@@ -803,10 +884,12 @@ def iter_params_for_display(
         return
 
     seen: set[int] = set()
+    own_groups, extra_groups = split_option_groups(command)
     ordered: list[click.Parameter] = [
         *command.arguments,
-        *(option for group in command.option_groups for option in group.options),
+        *(option for group in own_groups for option in group.options),
         *command.get_ungrouped_options(ctx),
+        *(option for group in extra_groups for option in group.options),
     ]
     for param in ordered:
         if id(param) not in seen:
@@ -1408,7 +1491,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
             description=(
                 "The configuration file the effective value was loaded from, "
                 "when `Source` reports `DEFAULT_MAP`. With "
-                "[`cascade=True`](config.md#cascading-configuration-files) "
+                "[`cascade=True`](config-discovery.md#cascading-configuration-files) "
                 "several files are layered and this column names the one that "
                 "won the parameter; with a single loaded file, every "
                 "config-sourced parameter names that file. Empty for every "

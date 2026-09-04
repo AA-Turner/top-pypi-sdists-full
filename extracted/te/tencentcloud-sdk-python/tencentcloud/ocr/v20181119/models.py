@@ -5205,6 +5205,135 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeQuestionSplitJobRequest(AbstractModel):
+    r"""DescribeQuestionSplitJob请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: <p>任务唯一ID。由服务端生成。</p>
+        :type JobId: str
+        """
+        self._JobId = None
+
+    @property
+    def JobId(self):
+        r"""<p>任务唯一ID。由服务端生成。</p>
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeQuestionSplitJobResponse(AbstractModel):
+    r"""DescribeQuestionSplitJob返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _QuestionInfo: <p>切题详情</p>
+        :type QuestionInfo: list of QuestionInfo
+        :param _ErrorCode: <p>任务执行错误码。当任务状态不为 FAIL 时，该值为&quot;&quot;。</p>
+        :type ErrorCode: str
+        :param _ErrorMessage: <p>任务执行错误信息。当任务状态不为 FAIL 时，该值为&quot;&quot;。</p>
+        :type ErrorMessage: str
+        :param _JobStatus: <p>任务状态。</p><p>枚举值：</p><ul><li>WAIT： 等待中</li><li>RUN： 执行中</li><li>FAIL： 任务失败</li><li>DONE： 任务成功</li></ul>
+        :type JobStatus: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._QuestionInfo = None
+        self._ErrorCode = None
+        self._ErrorMessage = None
+        self._JobStatus = None
+        self._RequestId = None
+
+    @property
+    def QuestionInfo(self):
+        r"""<p>切题详情</p>
+        :rtype: list of QuestionInfo
+        """
+        return self._QuestionInfo
+
+    @QuestionInfo.setter
+    def QuestionInfo(self, QuestionInfo):
+        self._QuestionInfo = QuestionInfo
+
+    @property
+    def ErrorCode(self):
+        r"""<p>任务执行错误码。当任务状态不为 FAIL 时，该值为&quot;&quot;。</p>
+        :rtype: str
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
+    @property
+    def ErrorMessage(self):
+        r"""<p>任务执行错误信息。当任务状态不为 FAIL 时，该值为&quot;&quot;。</p>
+        :rtype: str
+        """
+        return self._ErrorMessage
+
+    @ErrorMessage.setter
+    def ErrorMessage(self, ErrorMessage):
+        self._ErrorMessage = ErrorMessage
+
+    @property
+    def JobStatus(self):
+        r"""<p>任务状态。</p><p>枚举值：</p><ul><li>WAIT： 等待中</li><li>RUN： 执行中</li><li>FAIL： 任务失败</li><li>DONE： 任务成功</li></ul>
+        :rtype: str
+        """
+        return self._JobStatus
+
+    @JobStatus.setter
+    def JobStatus(self, JobStatus):
+        self._JobStatus = JobStatus
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("QuestionInfo") is not None:
+            self._QuestionInfo = []
+            for item in params.get("QuestionInfo"):
+                obj = QuestionInfo()
+                obj._deserialize(item)
+                self._QuestionInfo.append(obj)
+        self._ErrorCode = params.get("ErrorCode")
+        self._ErrorMessage = params.get("ErrorMessage")
+        self._JobStatus = params.get("JobStatus")
+        self._RequestId = params.get("RequestId")
+
+
 class DetailInformationOfAirTicketTupleList(AbstractModel):
     r"""机票详细信息元组
 
@@ -7829,27 +7958,30 @@ class Element(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Text: 元素内容，当type为figure时该字段内容为图片的位置
+        :param _Text: <p>元素内容，当type为figure时该字段内容为图片的位置</p>
         :type Text: str
-        :param _Coord: 元素坐标
+        :param _Coord: <p>元素坐标</p>
         :type Coord: :class:`tencentcloud.ocr.v20181119.models.Polygon`
-        :param _GroupType: 元素group类型，包括multiple-choice(选择题)、fill-in-the-blank(填空题)、problem-solving(解答题)、arithmetic(算术题)
+        :param _GroupType: <p>元素group类型，包括multiple-choice(选择题)、fill-in-the-blank(填空题)、problem-solving(解答题)、arithmetic(算术题)</p>
         :type GroupType: str
-        :param _ResultList: 结果列表
+        :param _ResultList: <p>结果列表</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type ResultList: list of ResultList
-        :param _Index: 元素索引
+        :param _Index: <p>元素索引</p>
         :type Index: int
+        :param _PageIndex: <p>元素所在页</p><p>单位：页</p><p>默认值：1</p>
+        :type PageIndex: int
         """
         self._Text = None
         self._Coord = None
         self._GroupType = None
         self._ResultList = None
         self._Index = None
+        self._PageIndex = None
 
     @property
     def Text(self):
-        r"""元素内容，当type为figure时该字段内容为图片的位置
+        r"""<p>元素内容，当type为figure时该字段内容为图片的位置</p>
         :rtype: str
         """
         return self._Text
@@ -7860,7 +7992,7 @@ class Element(AbstractModel):
 
     @property
     def Coord(self):
-        r"""元素坐标
+        r"""<p>元素坐标</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.Polygon`
         """
         return self._Coord
@@ -7871,7 +8003,7 @@ class Element(AbstractModel):
 
     @property
     def GroupType(self):
-        r"""元素group类型，包括multiple-choice(选择题)、fill-in-the-blank(填空题)、problem-solving(解答题)、arithmetic(算术题)
+        r"""<p>元素group类型，包括multiple-choice(选择题)、fill-in-the-blank(填空题)、problem-solving(解答题)、arithmetic(算术题)</p>
         :rtype: str
         """
         return self._GroupType
@@ -7882,7 +8014,7 @@ class Element(AbstractModel):
 
     @property
     def ResultList(self):
-        r"""结果列表
+        r"""<p>结果列表</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of ResultList
         """
@@ -7894,7 +8026,7 @@ class Element(AbstractModel):
 
     @property
     def Index(self):
-        r"""元素索引
+        r"""<p>元素索引</p>
         :rtype: int
         """
         return self._Index
@@ -7902,6 +8034,17 @@ class Element(AbstractModel):
     @Index.setter
     def Index(self, Index):
         self._Index = Index
+
+    @property
+    def PageIndex(self):
+        r"""<p>元素所在页</p><p>单位：页</p><p>默认值：1</p>
+        :rtype: int
+        """
+        return self._PageIndex
+
+    @PageIndex.setter
+    def PageIndex(self, PageIndex):
+        self._PageIndex = PageIndex
 
 
     def _deserialize(self, params):
@@ -7917,6 +8060,7 @@ class Element(AbstractModel):
                 obj._deserialize(item)
                 self._ResultList.append(obj)
         self._Index = params.get("Index")
+        self._PageIndex = params.get("PageIndex")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -19015,56 +19159,58 @@ class NonTaxIncomeBill(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Title: 发票名称
+        :param _Title: <p>发票名称</p>
         :type Title: str
-        :param _Number: 发票号码
+        :param _Number: <p>发票号码</p>
         :type Number: str
-        :param _Code: 发票代码
+        :param _Code: <p>发票代码</p>
         :type Code: str
-        :param _CheckCode: 校验码
+        :param _CheckCode: <p>校验码</p>
         :type CheckCode: str
-        :param _Date: 开票日期
+        :param _Date: <p>开票日期</p>
         :type Date: str
-        :param _Total: 价税合计（小写）
+        :param _Total: <p>价税合计（小写）</p>
         :type Total: str
-        :param _TotalCn: 价税合计（大写）
+        :param _TotalCn: <p>价税合计（大写）</p>
         :type TotalCn: str
-        :param _Buyer: 交款人名称
+        :param _Buyer: <p>交款人名称</p>
         :type Buyer: str
-        :param _BuyerTaxID: 交款人纳税人识别号
+        :param _BuyerTaxID: <p>交款人纳税人识别号</p>
         :type BuyerTaxID: str
-        :param _Seller: 收款人名称
+        :param _Seller: <p>收款人名称</p>
         :type Seller: str
-        :param _SellerCompany: 收款单位名称
+        :param _SellerCompany: <p>收款单位名称</p>
         :type SellerCompany: str
-        :param _Remark: 备注
+        :param _Remark: <p>备注</p>
         :type Remark: str
-        :param _CurrencyCode: 币种
+        :param _CurrencyCode: <p>币种</p>
         :type CurrencyCode: str
-        :param _Reviewer: 复核人
+        :param _Reviewer: <p>复核人</p>
         :type Reviewer: str
-        :param _QRCodeMark: 是否存在二维码（1：有，0：无）
+        :param _QRCodeMark: <p>是否存在二维码（1：有，0：无）</p>
         :type QRCodeMark: int
-        :param _OtherInfo: 其他信息
+        :param _OtherInfo: <p>其他信息</p>
         :type OtherInfo: str
-        :param _PaymentCode: 缴款码
+        :param _PaymentCode: <p>缴款码</p>
         :type PaymentCode: str
-        :param _ReceiveUnitCode: 执收单位编码
+        :param _ReceiveUnitCode: <p>执收单位编码</p>
         :type ReceiveUnitCode: str
-        :param _Receiver: 执收单位名称
+        :param _Receiver: <p>执收单位名称</p>
         :type Receiver: str
-        :param _Operator: 经办人
+        :param _Operator: <p>经办人</p>
         :type Operator: str
-        :param _PayerAccount: 付款人账号
+        :param _PayerAccount: <p>付款人账号</p>
         :type PayerAccount: str
-        :param _PayerBank: 付款人开户银行
+        :param _PayerBank: <p>付款人开户银行</p>
         :type PayerBank: str
-        :param _ReceiverAccount: 收款人账号
+        :param _ReceiverAccount: <p>收款人账号</p>
         :type ReceiverAccount: str
-        :param _ReceiverBank: 收款人开户银行
+        :param _ReceiverBank: <p>收款人开户银行</p>
         :type ReceiverBank: str
-        :param _NonTaxItems: 条目
+        :param _NonTaxItems: <p>条目</p>
         :type NonTaxItems: list of NonTaxItem
+        :param _BillName: <p>票据名称</p>
+        :type BillName: str
         """
         self._Title = None
         self._Number = None
@@ -19091,10 +19237,11 @@ class NonTaxIncomeBill(AbstractModel):
         self._ReceiverAccount = None
         self._ReceiverBank = None
         self._NonTaxItems = None
+        self._BillName = None
 
     @property
     def Title(self):
-        r"""发票名称
+        r"""<p>发票名称</p>
         :rtype: str
         """
         return self._Title
@@ -19105,7 +19252,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Number(self):
-        r"""发票号码
+        r"""<p>发票号码</p>
         :rtype: str
         """
         return self._Number
@@ -19116,7 +19263,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Code(self):
-        r"""发票代码
+        r"""<p>发票代码</p>
         :rtype: str
         """
         return self._Code
@@ -19127,7 +19274,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def CheckCode(self):
-        r"""校验码
+        r"""<p>校验码</p>
         :rtype: str
         """
         return self._CheckCode
@@ -19138,7 +19285,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Date(self):
-        r"""开票日期
+        r"""<p>开票日期</p>
         :rtype: str
         """
         return self._Date
@@ -19149,7 +19296,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Total(self):
-        r"""价税合计（小写）
+        r"""<p>价税合计（小写）</p>
         :rtype: str
         """
         return self._Total
@@ -19160,7 +19307,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def TotalCn(self):
-        r"""价税合计（大写）
+        r"""<p>价税合计（大写）</p>
         :rtype: str
         """
         return self._TotalCn
@@ -19171,7 +19318,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Buyer(self):
-        r"""交款人名称
+        r"""<p>交款人名称</p>
         :rtype: str
         """
         return self._Buyer
@@ -19182,7 +19329,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def BuyerTaxID(self):
-        r"""交款人纳税人识别号
+        r"""<p>交款人纳税人识别号</p>
         :rtype: str
         """
         return self._BuyerTaxID
@@ -19193,7 +19340,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Seller(self):
-        r"""收款人名称
+        r"""<p>收款人名称</p>
         :rtype: str
         """
         return self._Seller
@@ -19204,7 +19351,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def SellerCompany(self):
-        r"""收款单位名称
+        r"""<p>收款单位名称</p>
         :rtype: str
         """
         return self._SellerCompany
@@ -19215,7 +19362,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Remark(self):
-        r"""备注
+        r"""<p>备注</p>
         :rtype: str
         """
         return self._Remark
@@ -19226,7 +19373,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def CurrencyCode(self):
-        r"""币种
+        r"""<p>币种</p>
         :rtype: str
         """
         return self._CurrencyCode
@@ -19237,7 +19384,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Reviewer(self):
-        r"""复核人
+        r"""<p>复核人</p>
         :rtype: str
         """
         return self._Reviewer
@@ -19248,7 +19395,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def QRCodeMark(self):
-        r"""是否存在二维码（1：有，0：无）
+        r"""<p>是否存在二维码（1：有，0：无）</p>
         :rtype: int
         """
         return self._QRCodeMark
@@ -19259,7 +19406,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def OtherInfo(self):
-        r"""其他信息
+        r"""<p>其他信息</p>
         :rtype: str
         """
         return self._OtherInfo
@@ -19270,7 +19417,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def PaymentCode(self):
-        r"""缴款码
+        r"""<p>缴款码</p>
         :rtype: str
         """
         return self._PaymentCode
@@ -19281,7 +19428,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def ReceiveUnitCode(self):
-        r"""执收单位编码
+        r"""<p>执收单位编码</p>
         :rtype: str
         """
         return self._ReceiveUnitCode
@@ -19292,7 +19439,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Receiver(self):
-        r"""执收单位名称
+        r"""<p>执收单位名称</p>
         :rtype: str
         """
         return self._Receiver
@@ -19303,7 +19450,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def Operator(self):
-        r"""经办人
+        r"""<p>经办人</p>
         :rtype: str
         """
         return self._Operator
@@ -19314,7 +19461,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def PayerAccount(self):
-        r"""付款人账号
+        r"""<p>付款人账号</p>
         :rtype: str
         """
         return self._PayerAccount
@@ -19325,7 +19472,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def PayerBank(self):
-        r"""付款人开户银行
+        r"""<p>付款人开户银行</p>
         :rtype: str
         """
         return self._PayerBank
@@ -19336,7 +19483,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def ReceiverAccount(self):
-        r"""收款人账号
+        r"""<p>收款人账号</p>
         :rtype: str
         """
         return self._ReceiverAccount
@@ -19347,7 +19494,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def ReceiverBank(self):
-        r"""收款人开户银行
+        r"""<p>收款人开户银行</p>
         :rtype: str
         """
         return self._ReceiverBank
@@ -19358,7 +19505,7 @@ class NonTaxIncomeBill(AbstractModel):
 
     @property
     def NonTaxItems(self):
-        r"""条目
+        r"""<p>条目</p>
         :rtype: list of NonTaxItem
         """
         return self._NonTaxItems
@@ -19366,6 +19513,17 @@ class NonTaxIncomeBill(AbstractModel):
     @NonTaxItems.setter
     def NonTaxItems(self, NonTaxItems):
         self._NonTaxItems = NonTaxItems
+
+    @property
+    def BillName(self):
+        r"""<p>票据名称</p>
+        :rtype: str
+        """
+        return self._BillName
+
+    @BillName.setter
+    def BillName(self, BillName):
+        self._BillName = BillName
 
 
     def _deserialize(self, params):
@@ -19399,6 +19557,7 @@ class NonTaxIncomeBill(AbstractModel):
                 obj = NonTaxItem()
                 obj._deserialize(item)
                 self._NonTaxItems.append(obj)
+        self._BillName = params.get("BillName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -26661,26 +26820,28 @@ class ResultList(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Question: 题干
+        :param _Question: <p>题干</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type Question: list of Element
-        :param _Option: 选项
+        :param _Option: <p>选项</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type Option: list of Element
-        :param _Figure: 插图
+        :param _Figure: <p>插图</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type Figure: list of Element
-        :param _Table: 表格
+        :param _Table: <p>表格</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type Table: list of Element
-        :param _Answer: 答案
+        :param _Answer: <p>答案</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type Answer: list of Element
-        :param _Parse: 解析
+        :param _Parse: <p>解析</p>
         :type Parse: list of Element
-        :param _Coord: 整题的坐标
+        :param _Coord: <p>整题的坐标，多页单题跨页/单页单题跨栏场景下，存在一道题有多个坐标</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type Coord: list of Polygon
+        :param _CoordPageIndex: <p>多坐标返回，显示坐标所在页</p><p>默认值：[]</p>
+        :type CoordPageIndex: list of int
         """
         self._Question = None
         self._Option = None
@@ -26689,10 +26850,11 @@ class ResultList(AbstractModel):
         self._Answer = None
         self._Parse = None
         self._Coord = None
+        self._CoordPageIndex = None
 
     @property
     def Question(self):
-        r"""题干
+        r"""<p>题干</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of Element
         """
@@ -26704,7 +26866,7 @@ class ResultList(AbstractModel):
 
     @property
     def Option(self):
-        r"""选项
+        r"""<p>选项</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of Element
         """
@@ -26716,7 +26878,7 @@ class ResultList(AbstractModel):
 
     @property
     def Figure(self):
-        r"""插图
+        r"""<p>插图</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of Element
         """
@@ -26728,7 +26890,7 @@ class ResultList(AbstractModel):
 
     @property
     def Table(self):
-        r"""表格
+        r"""<p>表格</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of Element
         """
@@ -26740,7 +26902,7 @@ class ResultList(AbstractModel):
 
     @property
     def Answer(self):
-        r"""答案
+        r"""<p>答案</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of Element
         """
@@ -26752,7 +26914,7 @@ class ResultList(AbstractModel):
 
     @property
     def Parse(self):
-        r"""解析
+        r"""<p>解析</p>
         :rtype: list of Element
         """
         return self._Parse
@@ -26763,7 +26925,7 @@ class ResultList(AbstractModel):
 
     @property
     def Coord(self):
-        r"""整题的坐标
+        r"""<p>整题的坐标，多页单题跨页/单页单题跨栏场景下，存在一道题有多个坐标</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of Polygon
         """
@@ -26772,6 +26934,17 @@ class ResultList(AbstractModel):
     @Coord.setter
     def Coord(self, Coord):
         self._Coord = Coord
+
+    @property
+    def CoordPageIndex(self):
+        r"""<p>多坐标返回，显示坐标所在页</p><p>默认值：[]</p>
+        :rtype: list of int
+        """
+        return self._CoordPageIndex
+
+    @CoordPageIndex.setter
+    def CoordPageIndex(self, CoordPageIndex):
+        self._CoordPageIndex = CoordPageIndex
 
 
     def _deserialize(self, params):
@@ -26817,6 +26990,7 @@ class ResultList(AbstractModel):
                 obj = Polygon()
                 obj._deserialize(item)
                 self._Coord.append(obj)
+        self._CoordPageIndex = params.get("CoordPageIndex")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -29757,6 +29931,130 @@ class SubmitQuestionMarkAgentJobResponse(AbstractModel):
                 self._QuestionInfo.append(obj)
         self._QuestionCount = params.get("QuestionCount")
         self._OriginalImageUrl = params.get("OriginalImageUrl")
+        self._RequestId = params.get("RequestId")
+
+
+class SubmitQuestionSplitJobRequest(AbstractModel):
+    r"""SubmitQuestionSplitJob请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ImageUrlList: <p>批量ImageUrl图片入口。要求Base64不超过10M，分辨率建议600*800以上，支持PNG、JPG、JPEG、BMP、PDF格式。图片的 ImageUrl、ImageBase64 必须提供一个，如果都提供，只使用 ImageUrl。</p><p>入参限制：要求pdf只能有一个url或base64</p>
+        :type ImageUrlList: list of str
+        :param _ImageBase64List: <p>批量base64图片入口。要求图片经Base64编码后不超过10M，分辨率建议600*800以上，支持PNG、JPG、JPEG、BMP、PDF格式。图片下载时间不超过 3 秒。图片存储于腾讯云的 Url 可保障更高的下载速度和稳定性，建议图片存储于腾讯云。非腾讯云存储的 Url 速度和稳定性可能受一定影响。</p><p>入参限制：要求pdf只能有一个url或base64</p>
+        :type ImageBase64List: list of str
+        :param _ModelType: <p>选择切题模型</p><p>枚举值：</p><ul><li>youtu_crop： 轻量化切题模型，运算速度更快，适合常规切题</li><li>youtu_crop_pro： 属于切题精调大模型，针对双栏、跨栏等复杂版式识别精度大幅提升，但推理耗时更长</li></ul><p>默认值：youtu_crop</p>
+        :type ModelType: str
+        """
+        self._ImageUrlList = None
+        self._ImageBase64List = None
+        self._ModelType = None
+
+    @property
+    def ImageUrlList(self):
+        r"""<p>批量ImageUrl图片入口。要求Base64不超过10M，分辨率建议600*800以上，支持PNG、JPG、JPEG、BMP、PDF格式。图片的 ImageUrl、ImageBase64 必须提供一个，如果都提供，只使用 ImageUrl。</p><p>入参限制：要求pdf只能有一个url或base64</p>
+        :rtype: list of str
+        """
+        return self._ImageUrlList
+
+    @ImageUrlList.setter
+    def ImageUrlList(self, ImageUrlList):
+        self._ImageUrlList = ImageUrlList
+
+    @property
+    def ImageBase64List(self):
+        r"""<p>批量base64图片入口。要求图片经Base64编码后不超过10M，分辨率建议600*800以上，支持PNG、JPG、JPEG、BMP、PDF格式。图片下载时间不超过 3 秒。图片存储于腾讯云的 Url 可保障更高的下载速度和稳定性，建议图片存储于腾讯云。非腾讯云存储的 Url 速度和稳定性可能受一定影响。</p><p>入参限制：要求pdf只能有一个url或base64</p>
+        :rtype: list of str
+        """
+        return self._ImageBase64List
+
+    @ImageBase64List.setter
+    def ImageBase64List(self, ImageBase64List):
+        self._ImageBase64List = ImageBase64List
+
+    @property
+    def ModelType(self):
+        r"""<p>选择切题模型</p><p>枚举值：</p><ul><li>youtu_crop： 轻量化切题模型，运算速度更快，适合常规切题</li><li>youtu_crop_pro： 属于切题精调大模型，针对双栏、跨栏等复杂版式识别精度大幅提升，但推理耗时更长</li></ul><p>默认值：youtu_crop</p>
+        :rtype: str
+        """
+        return self._ModelType
+
+    @ModelType.setter
+    def ModelType(self, ModelType):
+        self._ModelType = ModelType
+
+
+    def _deserialize(self, params):
+        self._ImageUrlList = params.get("ImageUrlList")
+        self._ImageBase64List = params.get("ImageBase64List")
+        self._ModelType = params.get("ModelType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SubmitQuestionSplitJobResponse(AbstractModel):
+    r"""SubmitQuestionSplitJob返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: <p>任务唯一ID。由服务端生成。</p>
+        :type JobId: str
+        :param _ImageZipUrl: <p>PDF 转完之后的图片压缩包列表地址。</p>
+        :type ImageZipUrl: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._JobId = None
+        self._ImageZipUrl = None
+        self._RequestId = None
+
+    @property
+    def JobId(self):
+        r"""<p>任务唯一ID。由服务端生成。</p>
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def ImageZipUrl(self):
+        r"""<p>PDF 转完之后的图片压缩包列表地址。</p>
+        :rtype: str
+        """
+        return self._ImageZipUrl
+
+    @ImageZipUrl.setter
+    def ImageZipUrl(self, ImageZipUrl):
+        self._ImageZipUrl = ImageZipUrl
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._ImageZipUrl = params.get("ImageZipUrl")
         self._RequestId = params.get("RequestId")
 
 
@@ -35411,6 +35709,8 @@ class VatElectronicItemInfo(AbstractModel):
         :type DateStart: str
         :param _DateEnd: <p>通行日期止</p>
         :type DateEnd: str
+        :param _VinNo: <p>车架号</p>
+        :type VinNo: str
         """
         self._Name = None
         self._Quantity = None
@@ -35435,6 +35735,7 @@ class VatElectronicItemInfo(AbstractModel):
         self._TravelLevel = None
         self._DateStart = None
         self._DateEnd = None
+        self._VinNo = None
 
     @property
     def Name(self):
@@ -35689,6 +35990,17 @@ class VatElectronicItemInfo(AbstractModel):
     def DateEnd(self, DateEnd):
         self._DateEnd = DateEnd
 
+    @property
+    def VinNo(self):
+        r"""<p>车架号</p>
+        :rtype: str
+        """
+        return self._VinNo
+
+    @VinNo.setter
+    def VinNo(self, VinNo):
+        self._VinNo = VinNo
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -35714,6 +36026,7 @@ class VatElectronicItemInfo(AbstractModel):
         self._TravelLevel = params.get("TravelLevel")
         self._DateStart = params.get("DateStart")
         self._DateEnd = params.get("DateEnd")
+        self._VinNo = params.get("VinNo")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

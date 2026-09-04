@@ -34,6 +34,9 @@ class EditCopilotConfigJsonBody:
         free_tier (Union[Unset, EditCopilotConfigJsonBodyFreeTier]): Read-only. Present when the workspace has no AI
             provider of its own and is running on Windmill's free tier. Ignored on write.
         model_pricing (Union[Unset, EditCopilotConfigJsonBodyModelPricing]):
+        copilot_disabled (Union[Unset, bool]): Hides the Windmill AI assistant (chat, sessions, code generation,
+            completion, fixes) from the workspace UI. Read from the workspace's own settings even when the providers served
+            fall back to the instance config. AI agent steps and the AI sandbox in flows are unaffected.
     """
 
     providers: Union[Unset, "EditCopilotConfigJsonBodyProviders"] = UNSET
@@ -44,6 +47,7 @@ class EditCopilotConfigJsonBody:
     max_tokens_per_model: Union[Unset, "EditCopilotConfigJsonBodyMaxTokensPerModel"] = UNSET
     free_tier: Union[Unset, "EditCopilotConfigJsonBodyFreeTier"] = UNSET
     model_pricing: Union[Unset, "EditCopilotConfigJsonBodyModelPricing"] = UNSET
+    copilot_disabled: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -79,6 +83,8 @@ class EditCopilotConfigJsonBody:
         if not isinstance(self.model_pricing, Unset):
             model_pricing = self.model_pricing.to_dict()
 
+        copilot_disabled = self.copilot_disabled
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -98,6 +104,8 @@ class EditCopilotConfigJsonBody:
             field_dict["free_tier"] = free_tier
         if model_pricing is not UNSET:
             field_dict["model_pricing"] = model_pricing
+        if copilot_disabled is not UNSET:
+            field_dict["copilot_disabled"] = copilot_disabled
 
         return field_dict
 
@@ -173,6 +181,8 @@ class EditCopilotConfigJsonBody:
         else:
             model_pricing = EditCopilotConfigJsonBodyModelPricing.from_dict(_model_pricing)
 
+        copilot_disabled = d.pop("copilot_disabled", UNSET)
+
         edit_copilot_config_json_body = cls(
             providers=providers,
             default_model=default_model,
@@ -182,6 +192,7 @@ class EditCopilotConfigJsonBody:
             max_tokens_per_model=max_tokens_per_model,
             free_tier=free_tier,
             model_pricing=model_pricing,
+            copilot_disabled=copilot_disabled,
         )
 
         edit_copilot_config_json_body.additional_properties = d

@@ -5,6 +5,7 @@ from __future__ import absolute_import
 # import apis into api package
 from phrase_api.api.accounts_api import AccountsApi
 from phrase_api.api.authorizations_api import AuthorizationsApi
+from phrase_api.api.automation_events_api import AutomationEventsApi
 from phrase_api.api.automations_api import AutomationsApi
 from phrase_api.api.blacklisted_keys_api import BlacklistedKeysApi
 from phrase_api.api.branches_api import BranchesApi
@@ -27,6 +28,7 @@ from phrase_api.api.job_locales_api import JobLocalesApi
 from phrase_api.api.job_template_locales_api import JobTemplateLocalesApi
 from phrase_api.api.job_templates_api import JobTemplatesApi
 from phrase_api.api.jobs_api import JobsApi
+from phrase_api.api.key_format_annotations_api import KeyFormatAnnotationsApi
 from phrase_api.api.keys_api import KeysApi
 from phrase_api.api.keys_figma_attachments_api import KeysFigmaAttachmentsApi
 from phrase_api.api.linked_keys_api import LinkedKeysApi
@@ -38,6 +40,7 @@ from phrase_api.api.notifications_api import NotificationsApi
 from phrase_api.api.orders_api import OrdersApi
 from phrase_api.api.organization_job_template_locales_api import OrganizationJobTemplateLocalesApi
 from phrase_api.api.organization_job_templates_api import OrganizationJobTemplatesApi
+from phrase_api.api.pre_translations_api import PreTranslationsApi
 from phrase_api.api.projects_api import ProjectsApi
 from phrase_api.api.quality_performance_score_api import QualityPerformanceScoreApi
 from phrase_api.api.release_triggers_api import ReleaseTriggersApi

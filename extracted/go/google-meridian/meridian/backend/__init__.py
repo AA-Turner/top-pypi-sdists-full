@@ -54,6 +54,26 @@ if TYPE_CHECKING:
 
 SeedType = Any
 
+__all__ = [
+    "ExtensionType",
+    "RNGHandler",
+    "Tensor",
+    "TensorShape",
+    "adstock_process",
+    "computation_backend",
+    "computation_precision",
+    "config",
+    "make_ndarray",
+    "make_tensor_proto",
+    "result_type",
+    "set_random_seed",
+    "stabilize_rf_roi_grid",
+    "standardize_dtype",
+    "to_tensor",
+    "vectorized_map",
+    "xla_windowed_adaptive_nuts",
+]
+
 
 def standardize_dtype(dtype: Any) -> str:
   """Converts a backend-specific dtype to a standard string representation.
@@ -702,7 +722,7 @@ def _jax_convert_to_tensor(data, dtype=None):
     return data
 
   # If the user provides float64 data but does not request a specific dtype,
-  # and JAX 64-bit mode is disabled (default), JAX would implicitly truncate.
+  # and JAX 64-bit mode is disabled, JAX would implicitly truncate.
   # We cast to float32 and warn the user to prevent silent mismatches.
   if dtype is None:
     is_float64_input = hasattr(data, "dtype") and data.dtype == np.float64
@@ -855,8 +875,11 @@ if _BACKEND == config.Backend.JAX:
             "U",
         )
         is_plain_string = isinstance(v, str)
+        is_string_sequence = isinstance(v, (tuple, list)) and all(
+            isinstance(x, str) for x in v
+        )
 
-        if is_numpy_string or is_plain_string:
+        if is_numpy_string or is_plain_string or is_string_sequence:
           aux[k] = v
         else:
           children.append(v)
@@ -1130,7 +1153,7 @@ if _BACKEND == config.Backend.JAX:
   _DEFAULT_FLOAT = "float64" if jax.config.jax_enable_x64 else "float32"
   bool_ = _ops.bool_
   newaxis = _ops.newaxis
-  TensorShape = _jax_tensor_shape
+  TensorShape = _jax_tensor_shape  # pylint: disable=invalid-name
   int32 = _ops.int32
   string = np.bytes_
 
@@ -1558,7 +1581,7 @@ else:
   raise ImportError(f"RNGHandler not implemented for backend: {_BACKEND}")
 
 
-def to_tensor(data: Any, dtype: Optional[Any] = None) -> Tensor:  # type: ignore
+def to_tensor(data: Any, dtype: Optional[Any] = None) -> Tensor:
   """Converts input data to the currently active backend tensor type.
 
   Args:

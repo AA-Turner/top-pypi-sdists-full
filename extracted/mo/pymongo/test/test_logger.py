@@ -14,18 +14,31 @@
 from __future__ import annotations
 
 import os
-from test import IntegrationTest, client_context, unittest
 from unittest.mock import patch
 
 from bson import json_util
 from pymongo.errors import OperationFailure
-from pymongo.logger import _DEFAULT_DOCUMENT_LENGTH
+from pymongo.logger import _DEFAULT_DOCUMENT_LENGTH, _CommandStatusMessage
+from test import IntegrationTest, client_context, unittest
 
 _IS_SYNC = True
 
 
 # https://github.com/mongodb/specifications/tree/master/source/command-logging-and-monitoring/tests#prose-tests
 class TestLogger(IntegrationTest):
+    def tearDown(self) -> None:
+        self.db.coll.drop()
+        super().tearDown()
+
+    def _get_command_log(self, records, command_name, status):
+        # PyPy's GC is non-deterministic, so cleanup commands from earlier tests can pollute the logs,
+        # filter for the specific command and status we want
+        for record in records:
+            log = json_util.loads(record.getMessage())
+            if log.get("commandName") == command_name and log.get("message") == status:
+                return log
+        self.fail(f"no {status!r} log found for command {command_name!r}")
+
     def test_default_truncation_limit(self):
         docs = [{"x": "y"} for _ in range(100)]
         db = self.db
@@ -33,17 +46,23 @@ class TestLogger(IntegrationTest):
         with patch.dict("os.environ"):
             os.environ.pop("MONGOB_LOG_MAX_DOCUMENT_LENGTH", None)
             with self.assertLogs("pymongo.command", level="DEBUG") as cm:
-                db.test.insert_many(docs)
+                db.coll.insert_many(docs)
 
-                cmd_started_log = json_util.loads(cm.records[0].getMessage())
+                cmd_started_log = self._get_command_log(
+                    cm.records, "insert", _CommandStatusMessage.STARTED
+                )
                 self.assertEqual(len(cmd_started_log["command"]), _DEFAULT_DOCUMENT_LENGTH + 3)
 
-                cmd_succeeded_log = json_util.loads(cm.records[1].getMessage())
+                cmd_succeeded_log = self._get_command_log(
+                    cm.records, "insert", _CommandStatusMessage.SUCCEEDED
+                )
                 self.assertLessEqual(len(cmd_succeeded_log["reply"]), _DEFAULT_DOCUMENT_LENGTH + 3)
 
             with self.assertLogs("pymongo.command", level="DEBUG") as cm:
-                db.test.find({}).to_list()
-                cmd_succeeded_log = json_util.loads(cm.records[1].getMessage())
+                db.coll.find({}).to_list()
+                cmd_succeeded_log = self._get_command_log(
+                    cm.records, "find", _CommandStatusMessage.SUCCEEDED
+                )
                 self.assertEqual(len(cmd_succeeded_log["reply"]), _DEFAULT_DOCUMENT_LENGTH + 3)
 
     def test_configured_truncation_limit(self):
@@ -53,14 +72,20 @@ class TestLogger(IntegrationTest):
             with self.assertLogs("pymongo.command", level="DEBUG") as cm:
                 db.command(cmd)
 
-                cmd_started_log = json_util.loads(cm.records[0].getMessage())
+                cmd_started_log = self._get_command_log(
+                    cm.records, "hello", _CommandStatusMessage.STARTED
+                )
                 self.assertEqual(len(cmd_started_log["command"]), 5 + 3)
 
-                cmd_succeeded_log = json_util.loads(cm.records[1].getMessage())
+                cmd_succeeded_log = self._get_command_log(
+                    cm.records, "hello", _CommandStatusMessage.SUCCEEDED
+                )
                 self.assertLessEqual(len(cmd_succeeded_log["reply"]), 5 + 3)
                 with self.assertRaises(OperationFailure):
                     db.command({"notARealCommand": True})
-                cmd_failed_log = json_util.loads(cm.records[-1].getMessage())
+                cmd_failed_log = self._get_command_log(
+                    cm.records, "notARealCommand", _CommandStatusMessage.FAILED
+                )
                 self.assertEqual(len(cmd_failed_log["failure"]), 5 + 3)
 
     def test_truncation_multi_byte_codepoints(self):
@@ -75,8 +100,10 @@ class TestLogger(IntegrationTest):
         for length in document_lengths:
             with patch.dict("os.environ", {"MONGOB_LOG_MAX_DOCUMENT_LENGTH": length}):
                 with self.assertLogs("pymongo.command", level="DEBUG") as cm:
-                    self.db.test.insert_one({"x": multi_byte_char_str})
-                    cmd_started_log = json_util.loads(cm.records[0].getMessage())["command"]
+                    self.db.coll.insert_one({"x": multi_byte_char_str})
+                    cmd_started_log = self._get_command_log(
+                        cm.records, "insert", _CommandStatusMessage.STARTED
+                    )["command"]
 
                     cmd_started_log = cmd_started_log[:-3]
                     last_3_bytes = cmd_started_log.encode()[-3:].decode()
@@ -87,18 +114,18 @@ class TestLogger(IntegrationTest):
         c = self.single_client()
         self.assertEqual(len(c._event_listeners.event_listeners()), 0)
         with self.assertLogs("pymongo.connection", level="DEBUG") as cm:
-            c.db.test.insert_one({"x": "1"})
+            c.db.coll.insert_one({"x": "1"})
             self.assertGreater(len(cm.records), 0)
         with self.assertLogs("pymongo.command", level="DEBUG") as cm:
-            c.db.test.insert_one({"x": "1"})
+            c.db.coll.insert_one({"x": "1"})
             self.assertGreater(len(cm.records), 0)
         with self.assertLogs("pymongo.serverSelection", level="DEBUG") as cm:
-            c.db.test.insert_one({"x": "1"})
+            c.db.coll.insert_one({"x": "1"})
             self.assertGreater(len(cm.records), 0)
 
     @client_context.require_failCommand_fail_point
     def test_logging_retry_read_attempts(self):
-        self.db.test.insert_one({"x": "1"})
+        self.db.coll.insert_one({"x": "1"})
 
         with self.fail_point(
             {
@@ -111,7 +138,7 @@ class TestLogger(IntegrationTest):
             }
         ):
             with self.assertLogs("pymongo.command", level="DEBUG") as cm:
-                self.db.test.find_one({"x": "1"})
+                self.db.coll.find_one({"x": "1"})
 
         retry_messages = [
             r.getMessage() for r in cm.records if "Retrying read attempt" in r.getMessage()
@@ -132,7 +159,7 @@ class TestLogger(IntegrationTest):
             }
         ):
             with self.assertLogs("pymongo.command", level="DEBUG") as cm:
-                self.db.test.insert_one({"x": "1"})
+                self.db.coll.insert_one({"x": "1"})
 
         retry_messages = [
             r.getMessage() for r in cm.records if "Retrying write attempt" in r.getMessage()

@@ -54,6 +54,7 @@ from .type_defs import (
     DeleteEnvironmentResponseTypeDef,
     DisassociateEipFromVlanRequestTypeDef,
     DisassociateEipFromVlanResponseTypeDef,
+    GetAccountSettingsResponseTypeDef,
     GetDepotUrlRequestTypeDef,
     GetDepotUrlResponseTypeDef,
     GetEnvironmentRequestTypeDef,
@@ -71,6 +72,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     ListVmEntitlementsRequestTypeDef,
     ListVmEntitlementsResponseTypeDef,
+    PutAccountSettingsRequestTypeDef,
+    PutAccountSettingsResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateEnvironmentConnectorRequestTypeDef,
@@ -232,6 +235,15 @@ class EVSClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/client/#disassociate_eip_from_vlan)
         """
 
+    def get_account_settings(self) -> GetAccountSettingsResponseTypeDef:
+        """
+        Returns the configured EVS settings for your Amazon Web Services account in the
+        specified Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/get_account_settings.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/client/#get_account_settings)
+        """
+
     def get_depot_url(
         self, **kwargs: Unpack[GetDepotUrlRequestTypeDef]
     ) -> GetDepotUrlResponseTypeDef:
@@ -322,6 +334,17 @@ class EVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/list_vm_entitlements.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/client/#list_vm_entitlements)
+        """
+
+    def put_account_settings(
+        self, **kwargs: Unpack[PutAccountSettingsRequestTypeDef]
+    ) -> PutAccountSettingsResponseTypeDef:
+        """
+        Creates or updates account-level EVS settings for your Amazon Web Services
+        account in the specified Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/put_account_settings.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/client/#put_account_settings)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:

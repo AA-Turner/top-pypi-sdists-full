@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opendal
-Version: 0.47.6
+Version: 0.47.7
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 License-File: LICENSE

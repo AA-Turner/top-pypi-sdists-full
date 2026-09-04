@@ -7,6 +7,7 @@ import queue  # noqa: F401
 import sys
 import time
 
+from esp_pylib.logger import log
 from serial.tools.miniterm import Console  # noqa: F401
 
 from .console_parser import ConsoleParser  # noqa: F401
@@ -20,14 +21,14 @@ class ConsoleReader(StoppableThread):
     until stopped.
     """
 
-    def __init__(self, console, event_queue, cmd_queue, parser, test_mode):
-        # type: (Console, queue.Queue, queue.Queue, ConsoleParser, bool) -> None
+    def __init__(self, console, event_queue, cmd_queue, parser):
+        # type: (Console, queue.Queue, queue.Queue, ConsoleParser) -> None
         super().__init__()
         self.console = console
         self.event_queue = event_queue
         self.cmd_queue = cmd_queue
         self.parser = parser
-        self.test_mode = test_mode
+        self.cmd_stop_count = 0
         if sys.platform == 'win32':
             # This is a workaround for multi-byte characters causing the console to be killed by OS.
             # Miniterm is setting the code page to UTF-8 which in combination with multibyte Unicode characters
@@ -54,7 +55,7 @@ class ConsoleReader(StoppableThread):
         try:
             while self.alive:
                 try:
-                    if os.name == 'nt' and not self.test_mode:
+                    if os.name == 'nt':
                         # Windows kludge: because the console.cancel() method doesn't
                         # seem to work to unblock getkey() on the Windows implementation.
                         #
@@ -65,13 +66,6 @@ class ConsoleReader(StoppableThread):
                             time.sleep(0.1)
                         if not self.alive:
                             break
-                    elif self.test_mode:
-                        # In testing mode the stdin is connected to PTY but is not used for input anything. For PTY
-                        # the canceling by fcntl.ioctl isn't working and would hang in self.console.getkey().
-                        # Therefore, we avoid calling it.
-                        while self.alive:
-                            time.sleep(0.1)
-                        break
                     c = self.console.getkey()
                 except KeyboardInterrupt:
                     c = '\x03'
@@ -82,6 +76,22 @@ class ConsoleReader(StoppableThread):
                         # stop command should be executed last
                         if tag == TAG_CMD and cmd != CMD_STOP:
                             self.cmd_queue.put(ret)
+                        elif cmd == CMD_STOP:
+                            self.cmd_stop_count += 1
+                            if self.cmd_stop_count >= 2:
+                                log.print('Multiple stop commands received, forcing quit monitor', style='yellow')
+                                # event_queue normally contains data from the chip. Moving the CMD_STOP to the cmd_queue
+                                # should make the monitor quit sooner, as this takes priority and we assume the queue is
+                                # usually empty. This is not a proper force quit, as there might be some data in the
+                                # cmd_queue as well, only an escalation of the stop command.
+                                self.cmd_queue.put(ret)
+                            else:
+                                if self.event_queue.qsize() > 100:
+                                    log.note(
+                                        'IDF Monitor will decode all received data and close. '
+                                        'If you want to stop the monitor immediately, press exit key again.'
+                                    )
+                                self.event_queue.put(ret)
                         else:
                             self.event_queue.put(ret)
 

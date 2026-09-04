@@ -99,6 +99,7 @@ from .command_doc import (
 )
 from .commands import (
     Command,
+    ExtraOptionGroup,
     Group,
     HelpCommand,
     LazyGroup,
@@ -346,6 +347,7 @@ __all__ = [
     "EnumChoice",
     "ExportConfigOption",
     "ExtraOption",
+    "ExtraOptionGroup",
     "File",
     "FileError",
     "FloatRange",
@@ -600,13 +602,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "9.0.0"
+__version__ = "9.1.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "7cb84013f6e6b8636b652b3bc791896911f46faf"
+__git_tag_sha__ = "ff9f120819055a74ce31d7b780bc6c2e45ffe265"
 
 
 _LAZY_TEST_TOOLING = {

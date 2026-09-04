@@ -23,6 +23,7 @@ import altair as alt
 from meridian import constants as c
 from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis import summary_text
+from meridian.common import currency as currency_module
 from meridian.common import errors
 from meridian.model import model
 from meridian.templates import formatter
@@ -357,9 +358,9 @@ class ModelDiagnostics:
 
     # If the MCMC sampling fails, the r-hat value calculated will be very large.
     if (rhat[c.RHAT] > 1e10).any():
-      max_rhat = max(rhat[c.RHAT])
+      max_r_hat = max(rhat[c.RHAT])
       raise model.MCMCSamplingError(
-          f'MCMC sampling failed with a maximum R-hat value of {max_rhat}.'
+          f'MCMC sampling failed with a maximum R-hat value of {max_r_hat}.'
       )
 
     # Drop any parameters with a deterministic prior, such as slope_m, which
@@ -419,6 +420,8 @@ class ModelFit:
     self._model_fit_data = self._analyzer.expected_vs_actual_data(
         use_kpi=self._use_kpi, confidence_level=confidence_level
     )
+    currency_code = getattr(self._meridian.input_data, 'currency_code', None)
+    self._currency = currency_module.get_currency_symbol(currency_code)
 
   @property
   def model_fit_data(self) -> xr.Dataset:
@@ -528,7 +531,9 @@ class ModelFit:
                 domain=False,
                 tickCount=5,
                 labelPadding=c.PADDING_10,
-                labelExpr=formatter.compact_number_expr(),
+                labelExpr=formatter.compact_number_expr(
+                    currency=self._currency if not self._use_kpi else ''
+                ),
                 **formatter.Y_AXIS_TITLE_CONFIG,  # pyrefly: ignore[bad-argument-type]
             ),
         ),
@@ -941,6 +946,10 @@ class MediaEffects:
 
     self._by_reach = by_reach
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    currency_code = getattr(
+        self._analyzer.model_context.input_data, 'currency_code', None
+    )
+    self._currency = currency_module.get_currency_symbol(currency_code)
 
   @functools.lru_cache(maxsize=128)
   def response_curves_data(
@@ -1144,7 +1153,9 @@ class MediaEffects:
                 f'{c.SPEND}:Q',
                 title=summary_text.SPEND_LABEL,
                 axis=alt.Axis(
-                    labelExpr=formatter.compact_number_expr(),
+                    labelExpr=formatter.compact_number_expr(
+                        currency=self._currency
+                    ),
                     **formatter.AXIS_CONFIG,  # pyrefly: ignore[bad-argument-type]
                 ),
             ),
@@ -1152,7 +1163,9 @@ class MediaEffects:
                 f'{c.MEAN}:Q',
                 title=y_axis_label,
                 axis=alt.Axis(
-                    labelExpr=formatter.compact_number_expr(),
+                    labelExpr=formatter.compact_number_expr(
+                        currency=self._currency if not self._use_kpi else ''
+                    ),
                     **formatter.Y_AXIS_TITLE_CONFIG,  # pyrefly: ignore[bad-argument-type]
                 ),
             ),
@@ -1541,6 +1554,8 @@ class MediaSummary:
     self._marginal_roi_by_reach = marginal_roi_by_reach
     self._non_media_baseline_values = non_media_baseline_values
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    currency_code = getattr(self._meridian.input_data, 'currency_code', None)
+    self._currency = currency_module.get_currency_symbol(currency_code)
 
   @property
   def paid_summary_metrics(self):
@@ -1618,7 +1633,7 @@ class MediaSummary:
       include_prior: bool = True,
       include_posterior: bool = True,
       include_non_paid_channels: bool = False,
-      currency: str = c.DEFAULT_CURRENCY,
+      currency: str | None = None,
   ) -> pd.DataFrame:
     """Returns a formatted dataframe table of the summary metrics.
 
@@ -1635,11 +1650,25 @@ class MediaSummary:
         reported. If `False`, only the paid channels (media, reach and
         frequency) are included but the summary contains also the metrics
         dependent on spend. Default: `False`.
-      currency: The currency to use for the monetary values. Default: `'$'`.
+      currency: (Deprecated) The currency to use for the monetary values. If
+        `None`, defaults to resolving the currency symbol from the model's
+        `input_data.currency_code` (falling back to
+        `constants.DEFAULT_CURRENCY_SYMBOL`).
 
     Returns:
       pandas.DataFrame of formatted summary metrics.
     """
+    if currency is None:
+      currency_code = getattr(self._meridian.input_data, 'currency_code', None)
+      currency = currency_module.get_currency_symbol(currency_code)
+    else:
+      warnings.warn(
+          'Passing `currency` explicitly is deprecated and will be removed in a'
+          ' future version. Specify `currency_code` on `InputData` instead.',
+          DeprecationWarning,
+          stacklevel=2,
+      )
+
     if not (include_posterior or include_prior):
       raise ValueError(
           'At least one of `include_posterior` or `include_prior` must be True.'
@@ -1837,7 +1866,9 @@ class MediaSummary:
                     domain=False,
                     tickCount=5,
                     labelPadding=c.PADDING_10,
-                    labelExpr=formatter.compact_number_expr(),
+                    labelExpr=formatter.compact_number_expr(
+                        currency=self._currency if not self._use_kpi else ''
+                    ),
                     **formatter.Y_AXIS_TITLE_CONFIG,  # pyrefly: ignore[bad-argument-type]
                 ),
                 scale=alt.Scale(domainMin=min_y, clamp=True),

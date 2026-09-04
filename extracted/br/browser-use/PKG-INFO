@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: browser-use
-Version: 0.13.8
+Version: 0.13.10
 Summary: Make websites accessible for AI agents
 Project-URL: Homepage, https://browser-use.com
 Project-URL: Documentation, https://docs.browser-use.com
@@ -17,11 +17,11 @@ Requires-Python: <4.0,>=3.11
 Requires-Dist: aiohttp==3.14.3
 Requires-Dist: anthropic==0.76.0
 Requires-Dist: anyio==4.12.1
-Requires-Dist: browser-harness==0.1.9
+Requires-Dist: browser-harness==0.1.13
 Requires-Dist: browser-use-sdk==3.4.2
 Requires-Dist: bubus==1.5.6
 Requires-Dist: cdp-use==1.4.5
-Requires-Dist: click==8.3.1
+Requires-Dist: click==8.3.3
 Requires-Dist: cloudpickle==3.1.2
 Requires-Dist: google-api-core==2.29.0
 Requires-Dist: google-api-python-client==2.188.0
@@ -32,16 +32,17 @@ Requires-Dist: groq==1.0.0
 Requires-Dist: httpx==0.28.1
 Requires-Dist: inquirerpy==0.3.4
 Requires-Dist: markdownify==1.2.2
-Requires-Dist: mcp==1.26.0
+Requires-Dist: mcp==2.1.1
 Requires-Dist: ollama==0.6.1
-Requires-Dist: openai==2.16.0
+Requires-Dist: openai==2.26.0
 Requires-Dist: pillow==12.3.0
 Requires-Dist: posthog==7.7.0
 Requires-Dist: psutil==7.2.2
-Requires-Dist: pydantic==2.12.5
+Requires-Dist: pydantic-settings==2.15.0
+Requires-Dist: pydantic==2.13.5
 Requires-Dist: pyobjc==12.1; platform_system == 'darwin'
 Requires-Dist: pyotp==2.9.0
-Requires-Dist: pypdf==6.14.2
+Requires-Dist: pypdf==6.16.2
 Requires-Dist: python-docx==1.2.0
 Requires-Dist: python-dotenv==1.2.2
 Requires-Dist: reportlab==4.4.9
@@ -55,7 +56,7 @@ Requires-Dist: agentmail==0.0.59; extra == 'all'
 Requires-Dist: boto3==1.42.37; extra == 'all'
 Requires-Dist: botocore==1.42.37; extra == 'all'
 Requires-Dist: imgcat==0.6.0; extra == 'all'
-Requires-Dist: langchain-openai==1.1.7; extra == 'all'
+Requires-Dist: langchain-openai==1.1.14; extra == 'all'
 Requires-Dist: oci==2.166.0; extra == 'all'
 Provides-Extra: aws
 Requires-Dist: boto3==1.42.37; extra == 'aws'
@@ -70,14 +71,14 @@ Requires-Dist: browser-use-core==0.13.3; (sys_platform == 'linux' and platform_m
 Requires-Dist: browser-use-core==0.13.3; (sys_platform == 'win32' and (platform_machine == 'AMD64' or platform_machine == 'x86_64')) and extra == 'core'
 Provides-Extra: eval
 Requires-Dist: anyio==4.12.1; extra == 'eval'
-Requires-Dist: datamodel-code-generator==0.53.0; extra == 'eval'
+Requires-Dist: datamodel-code-generator==0.75.1; extra == 'eval'
 Requires-Dist: lmnr[all]==0.7.42; extra == 'eval'
 Requires-Dist: psutil==7.2.2; extra == 'eval'
 Provides-Extra: examples
 Requires-Dist: agentmail==0.0.59; extra == 'examples'
 Requires-Dist: botocore==1.42.37; extra == 'examples'
 Requires-Dist: imgcat==0.6.0; extra == 'examples'
-Requires-Dist: langchain-openai==1.1.7; extra == 'examples'
+Requires-Dist: langchain-openai==1.1.14; extra == 'examples'
 Provides-Extra: oci
 Requires-Dist: oci==2.166.0; extra == 'oci'
 Provides-Extra: video
@@ -229,6 +230,7 @@ Browser Use is also **#1 on the [Odysseys leaderboard](https://odysseysbench.com
 - Best stealth with proxy rotation and captcha solving
 - 1000+ integrations (Gmail, Slack, Notion, and more)
 - Persistent filesystem and memory
+- Rerunnable scripts fetch live data, even when sites change ([guide](https://docs.browser-use.com/cloud/agent/scripts))
 
 ```sh
 curl -X POST https://api.browser-use.com/api/v4/runs \

@@ -17,8 +17,8 @@
 
 use bytes::Buf;
 use fastpool::bounded;
-use futures::AsyncWrite;
-use futures::AsyncWriteExt;
+use tokio::io::AsyncWrite;
+use tokio::io::AsyncWriteExt;
 
 use super::core::Manager;
 use super::core::format_ftp_error;
@@ -110,7 +110,7 @@ impl oio::Write for FtpWriter {
             }
         }
 
-        Ok(Metadata::default())
+        Ok(MetadataBuilder::unknown().build())
     }
 
     async fn abort(&mut self) -> Result<()> {

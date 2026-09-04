@@ -35,20 +35,20 @@ class LinkedKeysApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
-    def key_links_batch_destroy(self, project_id, id, key_links_batch_destroy_parameters, **kwargs):  # noqa: E501
+    def key_links_batch_destroy(self, project_id, id, **kwargs):  # noqa: E501
         """Batch unlink child keys from a parent key  # noqa: E501
 
-        Unlinks multiple child keys from a given parent key in a single operation.  # noqa: E501
+        Removes one or more child keys from a parent key's linked-key group, or dissolves the entire group by setting unlink_parent to true.  Use this when you need to detach specific child keys from a shared translation source, or to fully break apart a linked-key group so each key manages its own translations independently. When child keys are unlinked, their translations are updated with a copy of the parent's current content (strategy keep_content, the default) or cleared (strategy remove_content).  This operation is only available on main projects. It returns 422 when a child key in `child_key_ids` is not currently linked to the parent, or when a translation update fails while unlinking.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.key_links_batch_destroy(project_id, id, key_links_batch_destroy_parameters, async_req=True)
+        >>> thread = api.key_links_batch_destroy(project_id, id, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
         :param str project_id: Project ID (required)
         :param str id: Parent Translation Key ID (required)
-        :param KeyLinksBatchDestroyParameters key_links_batch_destroy_parameters: (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
+        :param KeyLinksBatchDestroyParameters key_links_batch_destroy_parameters:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -56,27 +56,27 @@ class LinkedKeysApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: None
+        :return: KeyLink
                  If the method is called asynchronously,
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
-        return self.key_links_batch_destroy_with_http_info(project_id, id, key_links_batch_destroy_parameters, **kwargs)  # noqa: E501
+        return self.key_links_batch_destroy_with_http_info(project_id, id, **kwargs)  # noqa: E501
 
-    def key_links_batch_destroy_with_http_info(self, project_id, id, key_links_batch_destroy_parameters, **kwargs):  # noqa: E501
+    def key_links_batch_destroy_with_http_info(self, project_id, id, **kwargs):  # noqa: E501
         """Batch unlink child keys from a parent key  # noqa: E501
 
-        Unlinks multiple child keys from a given parent key in a single operation.  # noqa: E501
+        Removes one or more child keys from a parent key's linked-key group, or dissolves the entire group by setting unlink_parent to true.  Use this when you need to detach specific child keys from a shared translation source, or to fully break apart a linked-key group so each key manages its own translations independently. When child keys are unlinked, their translations are updated with a copy of the parent's current content (strategy keep_content, the default) or cleared (strategy remove_content).  This operation is only available on main projects. It returns 422 when a child key in `child_key_ids` is not currently linked to the parent, or when a translation update fails while unlinking.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.key_links_batch_destroy_with_http_info(project_id, id, key_links_batch_destroy_parameters, async_req=True)
+        >>> thread = api.key_links_batch_destroy_with_http_info(project_id, id, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
         :param str project_id: Project ID (required)
         :param str id: Parent Translation Key ID (required)
-        :param KeyLinksBatchDestroyParameters key_links_batch_destroy_parameters: (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
+        :param KeyLinksBatchDestroyParameters key_links_batch_destroy_parameters:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -86,7 +86,7 @@ class LinkedKeysApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: None
+        :return: tuple(KeyLink, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -96,8 +96,8 @@ class LinkedKeysApi(object):
         all_params = [
             'project_id',
             'id',
-            'key_links_batch_destroy_parameters',
-            'x_phrase_app_otp'
+            'x_phrase_app_otp',
+            'key_links_batch_destroy_parameters'
         ]
         all_params.extend(
             [
@@ -124,10 +124,6 @@ class LinkedKeysApi(object):
         if self.api_client.client_side_validation and ('id' not in local_var_params or  # noqa: E501
                                                         local_var_params['id'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `id` when calling `key_links_batch_destroy`")  # noqa: E501
-        # verify the required parameter 'key_links_batch_destroy_parameters' is set
-        if self.api_client.client_side_validation and ('key_links_batch_destroy_parameters' not in local_var_params or  # noqa: E501
-                                                        local_var_params['key_links_batch_destroy_parameters'] is None):  # noqa: E501
-            raise ApiValueError("Missing the required parameter `key_links_batch_destroy_parameters` when calling `key_links_batch_destroy`")  # noqa: E501
 
         collection_formats = {}
 
@@ -168,7 +164,7 @@ class LinkedKeysApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type=None,  # noqa: E501
+            response_type='KeyLink',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -179,7 +175,7 @@ class LinkedKeysApi(object):
     def key_links_create(self, project_id, id, key_links_create_parameters, **kwargs):  # noqa: E501
         """Link child keys to a parent key  # noqa: E501
 
-        Creates links between a given parent key and one or more child keys.  # noqa: E501
+        Designates a translation key as a parent and links one or more child keys to it. Once linked, child keys receive a special reference marker as their translation content, signalling that their translations are derived from the parent. Use this when you want to group related keys — for example, a short label and its long-form variant — so translators see them in context together.  Pass an empty child_key_ids array to mark the key as a parent without linking any children yet. Both the parent key and every child key must belong to the main project; branch keys cannot participate in key links. A child key can have at most one parent at a time; attempting to link a child that already has a parent returns a 422 error with code CHILD_IS_ALREADY_LINKED. Parent and child key plurality must match — linking a plural child to a non-plural parent (or vice versa) also returns a 422.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.key_links_create(project_id, id, key_links_create_parameters, async_req=True)
@@ -207,7 +203,7 @@ class LinkedKeysApi(object):
     def key_links_create_with_http_info(self, project_id, id, key_links_create_parameters, **kwargs):  # noqa: E501
         """Link child keys to a parent key  # noqa: E501
 
-        Creates links between a given parent key and one or more child keys.  # noqa: E501
+        Designates a translation key as a parent and links one or more child keys to it. Once linked, child keys receive a special reference marker as their translation content, signalling that their translations are derived from the parent. Use this when you want to group related keys — for example, a short label and its long-form variant — so translators see them in context together.  Pass an empty child_key_ids array to mark the key as a parent without linking any children yet. Both the parent key and every child key must belong to the main project; branch keys cannot participate in key links. A child key can have at most one parent at a time; attempting to link a child that already has a parent returns a 422 error with code CHILD_IS_ALREADY_LINKED. Parent and child key plurality must match — linking a plural child to a non-plural parent (or vice versa) also returns a 422.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.key_links_create_with_http_info(project_id, id, key_links_create_parameters, async_req=True)
@@ -320,7 +316,7 @@ class LinkedKeysApi(object):
     def key_links_destroy(self, project_id, id, child_key_id, **kwargs):  # noqa: E501
         """Unlink a child key from a parent key  # noqa: E501
 
-        Unlinks a single child key from a given parent key.  # noqa: E501
+        Removes a single child key from a parent key's link group. A link group is the relationship model that keeps child keys synchronized with a parent: while linked, a child key's translations are derived from the parent's content. When you call this endpoint, the child key leaves the group and becomes independent — its existing translations are updated with the parent's current content and then marked unverified, signalling that reviewers should confirm the content is still appropriate for the child's context.  Use this endpoint when you need to detach one specific child key while keeping other children linked. To detach multiple children at once, use the batch unlink endpoint. This operation is only available on main projects.  It returns 422 when the child key is not currently linked to the specified parent key, or when a translation update fails during the unlink process.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.key_links_destroy(project_id, id, child_key_id, async_req=True)
@@ -329,7 +325,7 @@ class LinkedKeysApi(object):
         :param async_req bool: execute request asynchronously
         :param str project_id: Project ID (required)
         :param str id: Parent Translation Key ID (required)
-        :param str child_key_id: The ID of the child key to unlink. (required)
+        :param str child_key_id: The ID of the child translation key to unlink from the parent. (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
@@ -348,7 +344,7 @@ class LinkedKeysApi(object):
     def key_links_destroy_with_http_info(self, project_id, id, child_key_id, **kwargs):  # noqa: E501
         """Unlink a child key from a parent key  # noqa: E501
 
-        Unlinks a single child key from a given parent key.  # noqa: E501
+        Removes a single child key from a parent key's link group. A link group is the relationship model that keeps child keys synchronized with a parent: while linked, a child key's translations are derived from the parent's content. When you call this endpoint, the child key leaves the group and becomes independent — its existing translations are updated with the parent's current content and then marked unverified, signalling that reviewers should confirm the content is still appropriate for the child's context.  Use this endpoint when you need to detach one specific child key while keeping other children linked. To detach multiple children at once, use the batch unlink endpoint. This operation is only available on main projects.  It returns 422 when the child key is not currently linked to the specified parent key, or when a translation update fails during the unlink process.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.key_links_destroy_with_http_info(project_id, id, child_key_id, async_req=True)
@@ -357,7 +353,7 @@ class LinkedKeysApi(object):
         :param async_req bool: execute request asynchronously
         :param str project_id: Project ID (required)
         :param str id: Parent Translation Key ID (required)
-        :param str child_key_id: The ID of the child key to unlink. (required)
+        :param str child_key_id: The ID of the child translation key to unlink from the parent. (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
         :param _return_http_data_only: response data without head status code
                                        and headers
@@ -457,7 +453,7 @@ class LinkedKeysApi(object):
     def key_links_index(self, project_id, id, **kwargs):  # noqa: E501
         """List child keys of a parent key  # noqa: E501
 
-        Returns detailed information about a parent key, including its linked child keys.  # noqa: E501
+        Returns the key link record for a parent key, including all child keys associated with it. Key linking lets translation keys share translations — a child key inherits content from its designated parent. Use this endpoint to inspect which keys are linked under a given parent before unlinking them or auditing translation consistency across related keys.  The key identified by `id` must be designated as a parent key (it must have at least one child key linked to it). Listing the links of a key that is not a parent returns 400.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.key_links_index(project_id, id, async_req=True)
@@ -484,7 +480,7 @@ class LinkedKeysApi(object):
     def key_links_index_with_http_info(self, project_id, id, **kwargs):  # noqa: E501
         """List child keys of a parent key  # noqa: E501
 
-        Returns detailed information about a parent key, including its linked child keys.  # noqa: E501
+        Returns the key link record for a parent key, including all child keys associated with it. Key linking lets translation keys share translations — a child key inherits content from its designated parent. Use this endpoint to inspect which keys are linked under a given parent before unlinking them or auditing translation consistency across related keys.  The key identified by `id` must be designated as a parent key (it must have at least one child key linked to it). Listing the links of a key that is not a parent returns 400.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.key_links_index_with_http_info(project_id, id, async_req=True)

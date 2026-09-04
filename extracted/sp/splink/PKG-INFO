@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: splink
-Version: 4.0.16
+Version: 4.0.17
 Summary: Fast probabilistic data linkage at scale
 Project-URL: Homepage, https://github.com/moj-analytical-services/splink
 Project-URL: Repository, https://github.com/moj-analytical-services/splink
@@ -8,7 +8,7 @@ Author: Sam Lindsay, Theodore Manassis, Tom Hepworth, Andy Bond, Ross Kennedy
 Author-email: Robin Linacre <robinlinacre@hotmail.com>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: <4.0.0,>=3.9.0
+Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: altair>=5.0.1
 Requires-Dist: duckdb>=0.9.2
 Requires-Dist: igraph>=0.11.2
@@ -60,15 +60,15 @@ Splink's linkage algorithm is based on Fellegi-Sunter's model of record linkage,
 
 Consider the following records that lack a unique person identifier:
 
-![tables showing what splink does](https://raw.githubusercontent.com/moj-analytical-services/splink/master/docs/img/README/what_does_splink_do_1.drawio.png)
+![Input records that lack a unique person identifier](https://raw.githubusercontent.com/moj-analytical-services/splink/splink4_maintenance/docs/img/README/splink_01_input_records.png)
 
 Splink predicts which rows link together:
 
-![tables showing what splink does](https://raw.githubusercontent.com/moj-analytical-services/splink/master/docs/img/README/what_does_splink_do_2.drawio.png)
+![Pairwise predictions with match probabilities](https://raw.githubusercontent.com/moj-analytical-services/splink/splink4_maintenance/docs/img/README/splink_02_pairwise_links.png)
 
 and clusters these links to produce an estimated person ID:
 
-![tables showing what splink does](https://raw.githubusercontent.com/moj-analytical-services/splink/master/docs/img/README/what_does_splink_do_3.drawio.png)
+![Clusters of linked records forming estimated person IDs](https://raw.githubusercontent.com/moj-analytical-services/splink/splink4_maintenance/docs/img/README/splink_03_clusters.png)
 
 ## What data does Splink work best with?
 

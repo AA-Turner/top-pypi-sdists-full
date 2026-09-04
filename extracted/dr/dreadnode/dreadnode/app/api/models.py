@@ -1280,6 +1280,12 @@ class HealthResponse(BaseModel):
     """Why startup failed, when ``stage`` is ``failed``."""
     elapsed_sec: float | None = None
     """Seconds since deferred startup began."""
+    timings: dict[str, float] | None = None
+    """Startup marks, each as seconds since the process started."""
+    durations: dict[str, float] | None = None
+    """How long named startup steps took, in seconds (install steps, per capability)."""
+    timing_anchor: str | None = None
+    """What ``timings`` count from: ``process`` (kernel start time) or ``import``."""
 
 
 class ToolInfo(BaseModel):

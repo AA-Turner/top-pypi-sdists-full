@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ujson
-Version: 5.13.0
+Version: 6.0.0
 Summary: Ultra fast JSON encoder and decoder for Python
 Author: Jonas Tarnstrom
 License-Expression: BSD-3-Clause AND TCL

@@ -792,7 +792,9 @@ def create(
         max_steps: Maximum agent tool/generation steps per sample.
             Enforced via a headless session policy; the task timeout still
             applies as a wall-clock bound.
-        cleanup_policy: Sandbox cleanup policy.
+        cleanup_policy: Sandbox cleanup policy. Hosted E2B evaluations support
+            only ``always``; ``on_success`` is available on Docker and
+            OpenSandbox deployments.
         judge_model: Override the judge model for all tasks in this evaluation.
         egress: Additional outbound destination for this run's sandboxes, as an
             FQDN, a '*.suffix' wildcard, an IP, or a CIDR (repeatable). Unions

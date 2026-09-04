@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test the Load Balancer unified spec tests."""
+
 from __future__ import annotations
 
 import asyncio
@@ -22,21 +23,22 @@ import pathlib
 import sys
 import threading
 from asyncio import Event
-from test.asynchronous.helpers import ConcurrentRunner, ExceptionCatchingTask
-from test.asynchronous.utils import async_get_pool
 
 import pytest
 
+from test.asynchronous.helpers import ConcurrentRunner, ExceptionCatchingTask
+from test.asynchronous.utils import async_get_pool
+
 sys.path[0:0] = [""]
 
+from pymongo.asynchronous.helpers import anext
+from pymongo.cursor_shared import CursorType
 from test.asynchronous import AsyncIntegrationTest, async_client_context, unittest
 from test.asynchronous.unified_format import generate_test_classes, get_test_path
 from test.utils_shared import (
     async_wait_until,
     create_async_event,
 )
-
-from pymongo.asynchronous.helpers import anext
 
 _IS_SYNC = False
 
@@ -49,22 +51,36 @@ globals().update(generate_test_classes(get_test_path("load_balancer"), module=__
 class TestLB(AsyncIntegrationTest):
     RUN_ON_LOAD_BALANCER = True
 
-    async def test_connections_are_only_returned_once(self):
-        if "PyPy" in sys.version:
-            # Tracked in PYTHON-3011
-            self.skipTest("Test is flaky on PyPy")
+    async def test_exhaust_cursor(self):
+        coll = self.db.coll
+        await coll.drop()
+        await coll.insert_many([{} for _ in range(150)])
         pool = await async_get_pool(self.client)
         n_conns = len(pool.conns)
-        await self.db.test.find_one({})
+        docs = await coll.find(cursor_type=CursorType.EXHAUST, batch_size=10).to_list()
+        self.assertEqual(len(docs), 150)
+        # The pinned connection is returned once the stream is exhausted.
+        await async_wait_until(lambda: len(pool.conns) == n_conns, "return the exhaust connection")
+
+    async def test_connections_are_only_returned_once(self):
+        pool = await async_get_pool(self.client)
+        n_conns = len(pool.conns)
+        await self.db.coll.find_one({})
+        # On PyPy it can take a few rounds to collect the cursor.
+        for _ in range(3):
+            gc.collect()
         self.assertEqual(len(pool.conns), n_conns)
-        await (await self.db.test.aggregate([{"$limit": 1}])).to_list()
+        await (await self.db.coll.aggregate([{"$limit": 1}])).to_list()
+        # On PyPy it can take a few rounds to collect the cursor.
+        for _ in range(3):
+            gc.collect()
         self.assertEqual(len(pool.conns), n_conns)
 
     @async_client_context.require_load_balancer
     async def test_unpin_committed_transaction(self):
         client = await self.async_rs_client()
         pool = await async_get_pool(client)
-        coll = client[self.db.name].test
+        coll = client[self.db.name].coll
         async with client.start_session() as session:
             async with await session.start_transaction():
                 self.assertEqual(pool.active_sockets, 0)
@@ -94,7 +110,7 @@ class TestLB(AsyncIntegrationTest):
     async def _test_no_gc_deadlock(self, create_resource):
         client = await self.async_rs_client()
         pool = await async_get_pool(client)
-        coll = client[self.db.name].test
+        coll = client[self.db.name].coll
         await coll.insert_many([{} for _ in range(10)])
         self.assertEqual(pool.active_sockets, 0)
         # Cause the initial find attempt to fail to induce a reference cycle.
@@ -156,7 +172,7 @@ class TestLB(AsyncIntegrationTest):
 
         await async_wait_until(lambda: pool.active_sockets == 0, "return socket")
         # Run another operation to ensure the socket still works.
-        await client[self.db.name].test.delete_many({})
+        await client[self.db.name].coll.delete_many({})
 
 
 class PoolLocker(ExceptionCatchingTask):

@@ -47,7 +47,7 @@ V = TypeVar("V", bound=Message)
 
 class Codec(Protocol[T_contra, U]):
     def name(self) -> str:
-        """Returns the name of the codec.
+        """Return the name of the codec.
 
         This corresponds to the content-type used in requests.
         """
@@ -72,15 +72,22 @@ class ProtoBinaryCodec(Codec[Message, V]):
         return message.to_binary()
 
     def decode(self, data: bytes | bytearray, message_class: type[V]) -> V:
-        return message_class.from_binary(data)
+        return message_class.from_binary(data)  # ty: ignore[invalid-argument-type] # TODO: Fix type in protobuf-py
 
 
 class ProtoJSONCodec(Codec[Message, V]):
     """Codec for the Protocol Buffers JSON format."""
 
-    def __init__(self, name: str = "json", registry: Registry | None = None) -> None:
+    def __init__(
+        self,
+        name: str = "json",
+        *,
+        registry: Registry | None = None,
+        ignore_unknown_fields: bool = True,
+    ) -> None:
         self._name = name
         self._registry = registry or DEFAULT_REGISTRY
+        self._ignore_unknown_fields = ignore_unknown_fields
 
     def name(self) -> str:
         return self._name
@@ -89,7 +96,11 @@ class ProtoJSONCodec(Codec[Message, V]):
         return message.to_json(registry=self._registry).encode()
 
     def decode(self, data: bytes | bytearray, message_class: type[V]) -> V:
-        return message_class.from_json(data, registry=self._registry)
+        return message_class.from_json(
+            data,
+            registry=self._registry,
+            ignore_unknown_fields=self._ignore_unknown_fields,
+        )
 
 
 _proto_binary_codec = ProtoBinaryCodec()
@@ -102,17 +113,26 @@ def get_default_codecs() -> list[Codec]:
 
 
 def proto_binary_codec() -> Codec:
-    """Returns the Protocol Buffers binary codec."""
+    """Return the Protocol Buffers binary codec."""
     return _proto_binary_codec
 
 
-def proto_json_codec(registry: Registry | None = None) -> Codec:
-    """Returns the Protocol Buffers JSON codec.
+def proto_json_codec(
+    registry: Registry | None = None, *, ignore_unknown_fields: bool = True
+) -> Codec:
+    """Return the Protocol Buffers JSON codec.
 
     Args:
         registry: An optional protobuf Registry to use for marshaling Any and extensions in messages.
                   If not provided, a default registry containing WKTs will be used.
+        ignore_unknown_fields: Whether to ignore unknown fields when decoding JSON messages. If not
+                  provided, defaults to True.
+
     """
-    if registry:
-        return ProtoJSONCodec(name=CODEC_NAME_JSON, registry=registry)
+    if registry or not ignore_unknown_fields:
+        return ProtoJSONCodec(
+            name=CODEC_NAME_JSON,
+            registry=registry,
+            ignore_unknown_fields=ignore_unknown_fields,
+        )
     return _proto_json_codec

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-otbr-api
-Version: 2.10.0
+Version: 3.0.0
 Summary: API to interact with an OTBR via its REST API
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License: MIT

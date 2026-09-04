@@ -3,6 +3,8 @@ import typing as t
 
 from loguru import logger
 
+# First so the startup anchor lands before the rest of the import chain.
+from dreadnode.core import startup_clock as _startup_clock  # noqa: F401
 from dreadnode.version import VERSION
 
 if t.TYPE_CHECKING:

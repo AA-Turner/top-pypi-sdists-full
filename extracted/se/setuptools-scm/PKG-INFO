@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools-scm
-Version: 10.2.2
+Version: 10.2.3
 Summary: the blessed package to manage your versions by scm tags
 Author-email: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>
 License: MIT

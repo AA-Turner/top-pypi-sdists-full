@@ -11,6 +11,7 @@ if typing.TYPE_CHECKING:
         SpeechToTextRealtimeStreamingEndpointing,
         SpeechToTextRealtimeStreamingLanguageCode,
         SpeechToTextRealtimeStreamingMode,
+        SpeechToTextRealtimeStreamingModel,
         SpeechToTextRealtimeStreamingReturnTimestamps,
         SpeechToTextRealtimeStreamingStreamType,
     )
@@ -19,6 +20,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SpeechToTextRealtimeStreamingEndpointing": ".types",
     "SpeechToTextRealtimeStreamingLanguageCode": ".types",
     "SpeechToTextRealtimeStreamingMode": ".types",
+    "SpeechToTextRealtimeStreamingModel": ".types",
     "SpeechToTextRealtimeStreamingReturnTimestamps": ".types",
     "SpeechToTextRealtimeStreamingStreamType": ".types",
 }
@@ -50,6 +52,7 @@ __all__ = [
     "SpeechToTextRealtimeStreamingEndpointing",
     "SpeechToTextRealtimeStreamingLanguageCode",
     "SpeechToTextRealtimeStreamingMode",
+    "SpeechToTextRealtimeStreamingModel",
     "SpeechToTextRealtimeStreamingReturnTimestamps",
     "SpeechToTextRealtimeStreamingStreamType",
 ]

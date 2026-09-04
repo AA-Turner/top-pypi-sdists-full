@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow-skinny
-Version: 3.15.2
+Version: 3.16.0
 Summary: MLflow is an open source platform for the complete machine learning lifecycle
 Maintainer-email: Databricks <mlflow-oss-maintainers@googlegroups.com>
 License: Copyright 2018 Databricks, Inc.  All rights reserved.
@@ -224,6 +224,7 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Requires-Dist: anyio!=4.15.0,<5,>=3.6.2
 Requires-Dist: cachetools<8,>=5.0.0
 Requires-Dist: click<9,>=7.0
 Requires-Dist: cloudpickle<4
@@ -293,7 +294,7 @@ Requires-Dist: mlflow-jfrog-plugin; extra == "jfrog"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes; extra == "kubernetes"
 Provides-Extra: langchain
-Requires-Dist: langchain<=1.3.14,>=1.0.0; extra == "langchain"
+Requires-Dist: langchain<=1.3.17,>=1.0.0; extra == "langchain"
 Provides-Extra: auth
 Requires-Dist: Flask-WTF<2; extra == "auth"
 Dynamic: license-file
@@ -616,6 +617,7 @@ MLflow can be used in a variety of environments, including your local environmen
     <td align="center" width="130"><a href="https://aws.amazon.com/sagemaker-ai/experiments/"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/amazon-sagemaker-logo.png" height="40"><br><sub><b>Amazon SageMaker</b></sub></a></td>
     <td align="center" width="130"><a href="https://learn.microsoft.com/en-us/azure/machine-learning/concept-mlflow?view=azureml-api-2"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/azure-ml-logo.png" height="40"><br><sub><b>Azure ML</b></sub></a></td>
     <td align="center" width="130"><a href="https://nebius.com/services/managed-mlflow"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/nebius-logo.png" height="40"><br><sub><b>Nebius</b></sub></a></td>
+    <td align="center" width="130"><a href="https://www.redhat.com/en/products/ai/openshift-ai"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/rhoai-logo.png" height="40"><br><sub><b>Red Hat OpenShift AI</b></sub></a></td>
     <td align="center" width="130"><a href="https://mlflow.org/docs/latest/ml/tracking/"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/kubernetes-logo.png" height="40"><br><sub><b>Self-Hosted</b></sub></a></td>
   </tr>
 </table>

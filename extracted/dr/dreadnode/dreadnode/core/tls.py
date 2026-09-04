@@ -41,7 +41,7 @@ _GENERATED_MARKER = "# dreadnode-generated trust bundle (system + operator CA)"
 #   CURL_CA_BUNDLE ............... curl
 #   GIT_SSL_CAINFO ............... git
 #   NODE_EXTRA_CA_CERTS .......... Node, Bun, Claude Code CLI, agent-browser
-#   AWS_CA_BUNDLE ................ botocore, s3fs, mount-s3
+#   AWS_CA_BUNDLE ................ botocore, Python s3fs
 #   GRPC_DEFAULT_SSL_ROOTS_FILE_PATH ... the OTLP span exporter
 TRUST_FILE_ENV_VARS: tuple[str, ...] = (
     "SSL_CERT_FILE",

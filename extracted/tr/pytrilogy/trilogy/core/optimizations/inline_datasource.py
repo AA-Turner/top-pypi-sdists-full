@@ -33,17 +33,16 @@ def _rename_fold_plan(
     missing: set[str],
     root_outputs: set[str],
 ) -> list[tuple[int, BuildConcept]] | None:
-    """Plan to render consumer outputs that read a parent-scan RENAME — an
-    address the raw datasource cannot supply — from lineage after the fold.
+    """Plan to render consumer outputs that read a parent-scan rename (an
+    address the raw datasource cannot supply) from lineage after the fold.
 
     Each qualifying output is a bare reference to a parent column that is
-    itself a single-hop rename of a datasource column (`S_STORE_ID as
-    "s_store_id1"`): pin the consumer's column to the rename's base object
-    (see rebind_rename_to_consumed) and drop its source_map entry, so the
-    merged CTE renders `<raw column> as <name>` exactly as the scan did.
-    Returns None when any missing address is not such a rename (a derived
-    expression like `x is not null` needs re-derivation this fold cannot
-    prove), which keeps the historical refusal."""
+    itself a single-hop rename of a datasource column: pin the consumer's
+    column to the rename's base object (see rebind_rename_to_consumed) and
+    drop its source_map entry, so the merged CTE renders `<raw column> as
+    <name>` exactly as the scan did. Returns None when any missing address is
+    not such a rename; a derived expression needs re-derivation this fold
+    cannot prove."""
     by_address: dict[str, tuple[int, BuildConcept]] = {}
     for i, col in enumerate(cte.output_columns):
         by_address.setdefault(col.address, (i, col))
@@ -67,6 +66,25 @@ def _rename_fold_plan(
             return None
         plan.append((i, rebind_rename_to_consumed(col, base)))
     return plan
+
+
+def _join_key_demand(cte: CTE, parent_name: str) -> set[str]:
+    """Addresses the consumer renders from ``parent_name`` as a join key.
+
+    Join legs resolve their column through ``CTEConceptPair.cte`` /
+    ``Join.right_cte``, never through ``source_map``, so a key can be demanded
+    from a parent the source_map does not attribute it to (the synthesized
+    ``__preql_internal.all_rows`` broadcast constant is the common case)."""
+    demand: set[str] = set()
+    for join in cte.joins:
+        if not isinstance(join, Join):
+            continue
+        for pair in join.joinkey_pairs or []:
+            if pair.cte is not None and pair.cte.name == parent_name:
+                demand.add(pair.left.address)
+            if join.right_cte.name == parent_name:
+                demand.add(pair.right.address)
+    return demand
 
 
 class InlineDatasource(OptimizationRule):
@@ -128,35 +146,34 @@ class InlineDatasource(OptimizationRule):
                     f"Cannot inline: Parent {parent_cte.name} datasource is not inlineable"
                 )
                 continue
-            # A merged key physically present as one datasource column also
-            # satisfies its pseudonym addresses: a fact FK `web_sales.date.id`
-            # also covers the canonical `date.id` a consumer inherited through a
-            # `left join web_sales.date.id = date.id` merge. Without expanding,
-            # a bare fact scan that advertises the canonical can't fold into its
-            # consumer (q2.1 juicy/quizzical) -- the base datasource only declares
-            # the native address. Same physical column, so the inline renders it
-            # correctly; the join resolver is pseudonym-aware.
+            # A merged key present as one datasource column also satisfies its
+            # pseudonym addresses (a fact FK covers the canonical dim key it was
+            # merged with); the base datasource only declares the native
+            # address, and the join resolver is pseudonym-aware.
             #
-            # Gated to a SINGLE-consumer scan: inlining a scan shared by >1
-            # consumer duplicates it into each (a multiselect's arms sharing one
-            # `facts` scan -> two scans). A shared scan is cheaper kept as one CTE,
-            # so only expand pseudonyms when this scan feeds exactly one consumer
-            # (canonical_collision keeps its single unified `facts` scan).
+            # Gated to a single-consumer scan: inlining a scan shared by more
+            # than one consumer duplicates it into each, and a shared scan is
+            # cheaper kept as one CTE.
             root_outputs = {x.address for x in root.output_concepts}
             if len(inverse_map.get(parent_cte.name, [])) <= 1:
                 for x in root.output_concepts:
                     root_outputs |= x.pseudonyms
+            join_demand = _join_key_demand(cte, parent_cte.name) - root_outputs
+            if join_demand:
+                self.log(
+                    f"Cannot inline: join keys {join_demand} read from "
+                    f"{parent_cte.name} are not columns of the raw datasource"
+                )
+                continue
             inherited = {
                 x for x, v in cte.source_map.items() if v and parent_cte.name in v
             }
             if not inherited.issubset(root_outputs):
                 # A source_map entry the consumer never renders from this parent
-                # is metadata, not a requirement: the bridge attaches derived
-                # concepts (e.g. gcat's `org.flag` / `vehicle.full_name`) to the
-                # scan that COULD compute them, but the consumer computes them
-                # from raw columns itself and later hides them as unused —
-                # hide runs after this rule, so consult the rendered used-map
-                # (what the consumer actually reads per parent) instead.
+                # is metadata, not a requirement: derived concepts get attached
+                # to the scan that could compute them while the consumer computes
+                # them from raw columns itself. Hiding runs after this rule, so
+                # consult the rendered used-map instead.
                 consumed = render_cte_used_map(cte).get(parent_cte.name, set())
                 cte_missing = (inherited & consumed) - root_outputs
                 if (
@@ -175,12 +192,18 @@ class InlineDatasource(OptimizationRule):
                 continue
             to_inline.append(parent_cte)
 
-        optimized = False
+        # Register every candidate before inlining any, so the cutoff count
+        # reflects all consumers of a raw source.
+        registered = False
         for replaceable in to_inline:
             if replaceable.name not in self.candidates[cte.name]:
                 self.candidates[cte.name].add(replaceable.name)
                 self.count[replaceable.source.identifier] += 1
-                return True, None
+                registered = True
+        if registered:
+            return True, None
+        optimized = False
+        for replaceable in to_inline:
             if (
                 self.count[replaceable.source.identifier]
                 > CONFIG.optimizations.constant_inline_cutoff
@@ -191,13 +214,20 @@ class InlineDatasource(OptimizationRule):
                 continue
             replaceable_base = replaceable.source.base_datasource
             assert replaceable_base is not None  # checked above
-            # Recompute the rename-fold plan at apply time — candidacy was
+            # Recompute the rename-fold plan at apply time: candidacy was
             # established on a prior visit and other merges may have shifted
             # this CTE's source_map since.
             root_outputs = {x.address for x in replaceable_base.output_concepts}
             if len(inverse_map.get(replaceable.name, [])) <= 1:
                 for x in replaceable_base.output_concepts:
                     root_outputs |= x.pseudonyms
+            join_demand = _join_key_demand(cte, replaceable.name) - root_outputs
+            if join_demand:
+                self.log(
+                    f"Failed to inline {replaceable.name}: join keys {join_demand} "
+                    "are not columns of the raw datasource"
+                )
+                continue
             inherited = {
                 x for x, v in cte.source_map.items() if v and replaceable.name in v
             }
@@ -218,10 +248,9 @@ class InlineDatasource(OptimizationRule):
             result = cte.inline_parent_datasource(replaceable, force_group=False)
             if result:
                 for i, new_col in plan:
-                    # Render the rename from lineage post-fold: the pinned base
-                    # object resolves against the inlined datasource; a stale
-                    # source_map entry would win over lineage and point at a
-                    # column the raw table does not have.
+                    # Render the rename from lineage post-fold; a stale source_map
+                    # entry would win over lineage and point at a column the raw
+                    # table does not have.
                     cte.output_columns[i] = new_col
                     cte.source_map.pop(new_col.address, None)
                 if replaceable.condition is not None:

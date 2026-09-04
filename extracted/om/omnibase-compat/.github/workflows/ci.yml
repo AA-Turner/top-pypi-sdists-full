@@ -34,6 +34,16 @@ jobs:
       - name: Compat no-infra-edge gate (OMN-12599)
         run: uv run python scripts/check_no_infra_edge.py
       - run: uv run python scripts/check_compat_retention.py
+      # OMN-15541: test-root collection guard. Lives in the REQUIRED `validate`
+      # context (not in the test job) so it cannot itself be skipped by the
+      # very test-selection defect it guards -- a guard reachable only through
+      # the selector would be unreachable exactly when the selector is broken.
+      # Fails closed on a positional path in the full-suite pytest step, a
+      # selector that stops deriving its roots from pyproject `testpaths`, a
+      # tests/ dir outside every declared root, or a declared root missing from
+      # disk. Same script the pre-commit hook runs.
+      - name: Test-root collection guard (OMN-15541)
+        run: uv run python scripts/validation/validate_test_root_collection.py
       - run: uv run ruff check src/
       - run: uv run mypy src/omnibase_compat --strict
       - run: uv build
@@ -141,8 +151,25 @@ jobs:
 
       - name: Run pytest (full suite)
         if: vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true'
+        # OMN-15541: NO positional path is passed to pytest here, deliberately.
+        # This step used to say `uv run pytest src/omnibase_compat/tests/`,
+        # which made this workflow — not pyproject.toml — the real definition of
+        # "the full suite". A positional path overrides `testpaths` entirely, so
+        # every fail-closed escalation (MAIN_BRANCH, MERGE_GROUP, SHARED_MODULE,
+        # TEST_INFRASTRUCTURE, THRESHOLD_MODULES, FEATURE_FLAG_OFF, SCHEDULED)
+        # collected 141 tests and ZERO of the 277 under the top-level `tests/`
+        # tree — including tests/unit/test_omn_15373_no_ungated_linear_done_policy.py
+        # and tests/unit/test_no_infra_edge.py. The escalation that exists to be
+        # the safety net when narrowing cannot be proven safe was collecting
+        # strictly LESS than the narrow fallback.
+        #
+        # With no positional argument pytest inherits `testpaths` from
+        # pyproject.toml verbatim, so there is exactly one place to add a root.
+        # scripts/validation/validate_test_root_collection.py fails closed if a
+        # positional path is re-introduced here. Use --ignore to exclude,
+        # never a positional include. Same fix as omnibase_infra's OMN-15410.
         run: |
-          uv run pytest src/omnibase_compat/tests/ \
+          uv run pytest \
             --splits ${{ needs.detect-changes.outputs.split_count }} \
             --group ${{ matrix.split }} \
             --tb=short \
@@ -165,13 +192,41 @@ jobs:
       - name: Evaluate test results
         run: |
           result="${{ needs.test-parallel.result }}"
-          if [[ "$result" == "success" || "$result" == "skipped" ]]; then
-            echo "Tests Gate: PASSED ($result)"
-            exit 0
-          else
-            echo "Tests Gate: FAILED ($result)"
-            exit 1
-          fi
+          echo "test-parallel: $result"
+
+          # OMN-15315 (OMN-15304 vector 6 — result triage). The previous pass
+          # condition was `"$result" == "success" || "$result" == "skipped"`,
+          # which rendered this REQUIRED context green on a SKIPPED upstream.
+          # `skipped` is the ABSENCE of a verdict exactly like `cancelled`, and
+          # it is precisely the state a conditional `if:` or a needs-cascade
+          # produces — so vector 5 and vector 6 composed into a bypass: strand
+          # `test-parallel`, and the gate that was supposed to catch it reports
+          # green with no test result in existence.
+          #
+          # PER-UPSTREAM SKIP POLICY: `test-parallel` carries no job-level `if:`
+          # and its matrix is never empty (scripts/ci/detect_test_paths.py
+          # always emits split_count >= 1, falling back to `tests/`), so it can
+          # only be skipped by a non-success `validate` / `detect-changes`
+          # upstream — a state that must fail this gate, not pass it. The policy
+          # table is therefore empty: every non-`success` value fails closed,
+          # including an unrecognised future result value (`*`).
+          case "$result" in
+            success)
+              echo "Tests Gate: PASSED ($result)"
+              ;;
+            failure)
+              echo "::error::Tests Gate FAILED — test-parallel reported failure."
+              exit 1
+              ;;
+            cancelled|skipped)
+              echo "::error::Tests Gate FAILED — test-parallel produced no verdict (result: $result); the absence of a test result is not a passing one."
+              exit 1
+              ;;
+            *)
+              echo "::error::Tests Gate FAILED — unrecognised test-parallel result '$result'; failing closed."
+              exit 1
+              ;;
+          esac
 
   contract-compliance:
     name: Contract Compliance Check
@@ -179,6 +234,8 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
       - name: Clone onex_change_control
         run: git clone --depth=1 https://github.com/OmniNode-ai/onex_change_control.git /tmp/onex_change_control
       - name: Install onex_change_control and dependencies
@@ -209,14 +266,45 @@ jobs:
           EMERGENCY_BYPASS: ${{ secrets.EMERGENCY_BYPASS || '' }}
           GH_TOKEN: ${{ github.token }}
 
+  no-noncanonical-lifecycle-classes:
+    name: no-noncanonical-lifecycle-classes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.3"
+      - name: Ratchet non-canonical lifecycle-word classes against frozen allowlist (OMN-14350)
+        run: |
+          uv run --no-project \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@63635097705d832e0ee9c4811093efb31349105c' \
+            python -m omnibase_core.validators.no_noncanonical_lifecycle_classes \
+            --check-stale \
+            --allowlist .onex_ratchets/noncanonical_class_allowlist.yaml \
+            src/omnibase_compat
+
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [validate, tests-gate, contract-compliance]
+    needs: [validate, tests-gate, contract-compliance, no-noncanonical-lifecycle-classes]
     if: always()
     steps:
       - name: Check all jobs passed
         run: |
+          # OMN-14350: strict fail-closed gate on the non-canonical lifecycle-class
+          # ratchet - only 'success' passes; skipped/cancelled/failure ALL block. It is
+          # in needs: so this job WAITS for it (no race).
+          if [[ "${{ needs.no-noncanonical-lifecycle-classes.result }}" != "success" ]]; then
+            echo "::error::no-noncanonical-lifecycle-classes ratchet did not pass (result: ${{ needs.no-noncanonical-lifecycle-classes.result }}) - fail-closed (OMN-14350)"
+            exit 1
+          fi
           if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
             echo "One or more required jobs failed or were cancelled"
             exit 1

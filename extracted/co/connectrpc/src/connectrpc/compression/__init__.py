@@ -1,3 +1,5 @@
+"""Protocol for defining compression to use with Connect."""
+
 from __future__ import annotations
 
 __all__ = ["Compression"]
@@ -20,8 +22,10 @@ class Compression(Protocol):
     """
 
     def name(self) -> str:
-        """Returns the name of the compression method. This value is used in HTTP
-        headers to indicate accepted and used compression.
+        """Return the name of the compression method.
+
+        This value is used in HTTP headers to indicate accepted and used
+        compression.
         """
         ...
 
@@ -29,6 +33,20 @@ class Compression(Protocol):
         """Compress the given data."""
         ...
 
-    def decompress(self, data: bytes | bytearray | memoryview) -> bytes:
-        """Decompress the given data."""
+    def decompress(
+        self, data: bytes | bytearray | memoryview, read_max_bytes: int | None = None
+    ) -> bytes:
+        """Decompress the given data.
+
+        Args:
+            data: The data to decompress.
+            read_max_bytes: The limit on the number of uncompressed bytes.
+
+        Raises:
+            ConnectError: (RESOURCE_EXHAUSTED) If the decompressed data exceeds the limit.
+
+        Returns:
+            The decompressed data.
+
+        """
         ...

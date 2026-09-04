@@ -27,6 +27,7 @@ from wafer._base import (
     _tmd_browser_attempt_timeout,
     _tmd_punish_url_from_body,
     _to_method,
+    is_certificate_verify_failure,
 )
 from wafer._challenge import (
     JS_ONLY_CHALLENGES,
@@ -166,7 +167,9 @@ class AsyncSession(BaseSession):
         fingerprint can trigger WAF flags. For rotate_every (unlinkable
         request sequences), cookie loss is the desired isolation property.
         """
-        self._client = wreq.Client(**self._build_client_kwargs())
+        self._client = self._publish_under_generation(
+            lambda: wreq.Client(**self._build_client_kwargs())
+        )
         self._client_generation += 1
         self._hydrate_jar_from_cache()
         logger.debug("Client rebuilt with emulation=%s", self.emulation)
@@ -180,7 +183,9 @@ class AsyncSession(BaseSession):
             self._fingerprint.reset()
         if self._cookie_cache:
             await asyncio.to_thread(self._clear_cached_cookies, domain)
-        self._client = wreq.Client(**self._build_client_kwargs())
+        self._client = self._publish_under_generation(
+            lambda: wreq.Client(**self._build_client_kwargs())
+        )
         self._client_generation += 1
         self._hydrate_jar_from_cache()
         self._domain_failures.pop(domain, None)
@@ -1568,6 +1573,13 @@ class AsyncSession(BaseSession):
             if attempt_limit is not None:
                 kwargs["timeout"] = datetime.timedelta(seconds=attempt_limit)
 
+            # Withdraw any anchor that has passed its notAfter before using
+            # the client. A trust anchor's own validity is not checked by the
+            # verifier, and a session that never rotates would otherwise hold
+            # an expired one for as long as it lives. One timestamp compare
+            # when nothing is due, and nothing at all when nothing was chased.
+            self._expire_aia_anchors_if_due()
+
             # Make the request. When a resolve pin is set, canonicalize the
             # URL host (lowercase + trailing-dot strip) so wreq's DnsOptions -
             # which matches its map against the URL host verbatim - can't miss
@@ -1600,6 +1612,31 @@ class AsyncSession(BaseSession):
                 # WaferTimeout rather than a bare ConnectionFailed. The loop-top
                 # deadline check still bounds the total time.
                 attempt_timed_out = isinstance(e, wreq.exceptions.TimeoutError)
+                # A certificate path failure is not a network problem and no
+                # amount of retrying or rotating fixes it -- the server sent an
+                # incomplete chain. Complete it from the intermediate the leaf
+                # names, then retry on the same budget. The probe and the AIA
+                # fetch are blocking socket work, so they go to a thread rather
+                # than stalling the event loop for every other request in
+                # flight. Only runs after a handshake already failed
+                # verification, and only once per host.
+                if is_certificate_verify_failure(e):
+                    if await asyncio.to_thread(
+                        self._complete_chain_via_aia,
+                        current_url,
+                        max(0.0, deadline - time.monotonic()),
+                    ):
+                        # The chase installed certificates and republished the
+                        # client, so this is worth one more attempt.
+                        continue
+                    # The chase could not help. Fall through to the ordinary
+                    # retry path rather than failing outright: a certificate
+                    # error is deterministic for one server, but a host behind
+                    # several addresses can have a single node serving a stale
+                    # certificate after a partial deploy, and a retry
+                    # re-resolves onto a healthy one. Multi-address hosts are
+                    # common, so treating this as terminal would trade a
+                    # few seconds of waste for lost recovery.
                 # The wall-clock limit this attempt actually ran under (for
                 # logging); attempt_limit is the min(cap, remaining) bound.
                 timed_out_after = (

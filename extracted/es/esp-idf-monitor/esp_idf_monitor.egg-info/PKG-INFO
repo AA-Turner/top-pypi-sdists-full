@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esp-idf-monitor
-Version: 1.9.0
+Version: 1.10.0
 Summary: Serial monitor for esp-idf
 Author: Espressif Systems
 License: Apache-2.0
@@ -11,7 +11,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Environment :: Console
 Classifier: Topic :: Software Development :: Embedded Systems
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -30,12 +29,16 @@ Requires-Dist: pyserial>=3.3
 Requires-Dist: esp-coredump~=1.2
 Requires-Dist: esp-idf-panic-decoder~=1.4
 Requires-Dist: pyelftools
+Requires-Dist: esp-pylib[cli,serial]>=1.1.1
+Requires-Dist: rich
+Requires-Dist: rich-click
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: czespressif; python_version >= "3.9" and extra == "dev"
 Requires-Dist: coverage[toml]; extra == "dev"
 Provides-Extra: ide
-Requires-Dist: websocket-client; extra == "ide"
+Requires-Dist: esp-pylib[ide]; python_version >= "3.8" and extra == "ide"
+Requires-Dist: websocket-client; python_version < "3.8" and extra == "ide"
 Provides-Extra: target-test
 Requires-Dist: SimpleWebSocketServer; extra == "target-test"
 Requires-Dist: pytest; extra == "target-test"
@@ -65,10 +68,11 @@ Other advanced topics like configuration file will be described in the following
 
 - [Installation](#installation)
 - [Usage](#usage)
+- [Non-Interactive (Scripting) Mode](#non-interactive-scripting-mode)
 - [Configuration File](#configuration-file)
   - [File Location](#file-location)
   - [Configuration Options](#configuration-options)
-    - [Custom Reset Sequence](#custom-reset-sequence)
+    - [Custom Reset Sequences](#custom-reset-sequences)
       - [Share Configuration Across Tools](#share-configuration-across-tools)
   - [Syntax](#syntax)
 - [Embedded Command Execution](#embedded-command-execution)
@@ -108,6 +112,81 @@ python -m esp_idf_monitor
 
 For all parameters and their function please see `idf-monitor --help`.
 
+## Non-Interactive (Scripting) Mode
+
+The interactive key bindings require a terminal (TTY) on standard input. When standard input is **not** a TTY — for example a pipe, a file, or when the monitor runs in a CI job or a Docker container — the monitor automatically switches to a **non-interactive command mode** instead of exiting with an error. In this mode it reads line-based commands from standard input, so the monitor can be driven by a shell script, a CI job, or another program, while keeping all of its added value (log decoding, coloring, logging to a file).
+
+There are no extra command-line options: the mode is selected automatically based on whether standard input is a TTY.
+
+```sh
+printf 'reset\nexpect ALL TESTS PASSED\n' | idf-monitor /dev/ttyUSB0
+```
+
+### Commands
+
+| Command | Action |
+| --- | --- |
+| `reset` | Hard-reset the chip via the RTS line |
+| `flash` | Run the make / `idf.py` `flash` target (fast reflash by default with ESP-IDF 6.1+) |
+| `flash-all` | Run the `flash` target with full flash (disable fast reflash; equivalent to `idf.py flash -a`, ESP-IDF 6.1+) |
+| `app-flash` | Run the make / `idf.py` `app-flash` target |
+| `send <text>` | Send `<text>` followed by the end-of-line to the device |
+| `sleep <seconds>` | Pause the script for the given time while serial output keeps flowing (accepts floats and `inf`) |
+| `expect <regex>` | Block the script until a serial line matches the [regular expression](https://docs.python.org/3/library/re.html) (using `re.search`) |
+| `expect --timeout <seconds> <regex>` | Like `expect`, but give up after `<seconds>` (a positive float) instead of waiting forever; giving up reports an error and aborts the script |
+| `output` | Toggle printing of the serial output |
+| `log` | Toggle saving the output into a file |
+| `timestamps` | Toggle prepending timestamps to the output |
+| `bootloader` | Reset the chip into the download (bootloader) mode |
+| `exit` | Quit the monitor; pending serial output is drained first |
+
+Empty lines and lines starting with `#` are ignored. Every processed command is echoed to **standard error**, so the progress of the script stays visible even when standard output is redirected to a file.
+
+The line ending is stripped before an `expect` match, so a `$` anchor works regardless of whether the device terminates lines with `LF` or `CRLF`.
+
+### Examples
+
+**Wait for a pattern, then exit (exit-on-pattern).** As the last command of a script, `expect` turns the end of the script into an exit-on-pattern condition:
+
+```sh
+printf 'expect ALL TESTS PASSED\n' | idf-monitor /dev/ttyUSB0 > test.log
+```
+
+**Wait for a pattern with a timeout.** Without `--timeout` a script that never sees its pattern hangs forever. With it, the monitor reports an error on standard error after 10 seconds and stops, draining and flushing the log on the way out:
+
+```sh
+printf 'reset\nexpect --timeout 10 Hello world!\n' | idf-monitor /dev/ttyUSB0 > boot.log
+```
+
+The remaining commands of the script are **not** executed after a timeout: the expected output never arrived, so anything following it would run at a wrong moment. The process exits with code `110` so CI can distinguish a timeout from a clean run.
+
+**Reset and capture a few seconds of the boot log.** No `exit` is needed — reaching the end of the script (EOF on standard input) ends the session:
+
+```sh
+printf 'reset\nsleep 10\n' | idf-monitor /dev/ttyUSB0 > boot.log
+```
+
+**Drive a console application.** `expect` works mid-script too, including on prompts printed without a line ending:
+
+```sh
+idf-monitor /dev/ttyUSB0 <<'EOF'
+reset
+expect esp>
+send free
+expect \d+
+exit
+EOF
+```
+
+**Watch-only mode in CI / Docker.** When standard input is empty from the start (for example `/dev/null`, or `docker run` without `-i`), there is no script to follow, so the monitor just watches the serial output until it is stopped from the outside (`Ctrl+C`, or `SIGTERM` from `docker stop` or a CI job timeout). A log file, if enabled, is flushed and closed on exit:
+
+```sh
+idf-monitor --save-log /dev/ttyUSB0 < /dev/null
+```
+
+> [!NOTE]
+> Because there is no terminal, an interactive GDB session cannot be started from the chip-side GDB stub while running in non-interactive mode.
+
 ## Configuration File
 
 `esp-idf-monitor` is using [C0 control codes](https://en.wikipedia.org/wiki/C0_and_C1_control_codes) to interact with the console. Characters from the config file are converted to their C0 control codes. Available characters include the English alphabet (A-Z) and special symbols: `[`, `]`, `\`, `^`, `_`.
@@ -141,25 +220,27 @@ A different location for the configuration file can be specified with the `ESP_I
 
 Below is a table listing the available configuration options:
 
-| Option Name                | Description                                              | Default Value  |
-|----------------------------|----------------------------------------------------------|----------------|
-| `menu_key`                 | Key to access the main menu.                             | `T`            |
-| `exit_key`                 | Key to exit the monitor.                                 | `]`            |
-| `chip_reset_key`           | Key to initiate a chip reset.                            | `R`            |
-| `recompile_upload_key`     | Key to recompile and upload.                             | `F`            |
-| `recompile_upload_app_key` | Key to recompile and upload just the application.        | `A`            |
-| `toggle_output_key`        | Key to toggle the output display.                        | `Y`            |
-| `toggle_log_key`           | Key to toggle the logging feature.                       | `L`            |
-| `toggle_timestamp_key`     | Key to toggle timestamp display.                         | `I`            |
-| `chip_reset_bootloader_key`| Key to reset the chip to bootloader mode.                | `P`            |
-| `exit_menu_key`            | Key to exit the monitor from the menu.                   | `X`            |
-| `skip_menu_key`            | Pressing the menu key can be skipped for menu commands.  | `False`        |
-| `reconnect_delay`          | Delay between reconnect retries (in seconds)             | 0.5            |
-| `custom_reset_sequence`    | Custom reset sequence for resetting into the bootloader. | N/A            |
+| Option Name                  | Description                                                | Default Value  |
+|------------------------------|------------------------------------------------------------|----------------|
+| `menu_key`                   | Key to access the main menu.                               | `T`            |
+| `exit_key`                   | Key to exit the monitor.                                   | `]`            |
+| `chip_reset_key`             | Key to initiate a chip reset.                              | `R`            |
+| `recompile_upload_key`       | Key to recompile and flash (fast reflash on ESP-IDF 6.1+). | `F`            |
+| `recompile_upload_app_key`   | Key to recompile and flash just the application.           | `A`            |
+| `recompile_upload_all_key`   | Key to recompile and full flash (ESP-IDF 6.1+).            | `E`            |
+| `toggle_output_key`          | Key to toggle the output display.                          | `Y`            |
+| `toggle_log_key`             | Key to toggle the logging feature.                         | `L`            |
+| `toggle_timestamp_key`       | Key to toggle timestamp display.                           | `I`            |
+| `chip_reset_bootloader_key`  | Key to reset the chip to bootloader mode.                  | `P`            |
+| `exit_menu_key`              | Key to exit the monitor from the menu.                     | `X`            |
+| `skip_menu_key`              | Pressing the menu key can be skipped for menu commands.    | `False`        |
+| `reconnect_delay`            | Delay between reconnect retries (in seconds).              | 0.5            |
+| `custom_reset_sequence`      | Custom reset sequence for resetting into the bootloader.   | N/A            |
+| `custom_hard_reset_sequence` | Custom reset sequence for hard resetting the chip.         | N/A            |
 
-#### Custom Reset Sequence
+#### Custom Reset Sequences
 
-For more advanced users or specific use cases, IDF Monitor supports the configuration of a custom reset sequence using [configuration file](#configuration-file). This is particularly useful in extreme edge cases where the default sequence may not suffice.
+For more advanced users or specific use cases, IDF Monitor supports the configuration of custom reset sequences using [configuration file](#configuration-file). This is particularly useful in extreme edge cases where the default sequence may not suffice.
 
 The sequence is defined with a string in the following format:
 
@@ -180,7 +261,7 @@ Example:
 custom_reset_sequence = U0,1|W0.1|D1|R0|W0.5|D0
 ```
 
-Refer to [custom reset sequence](https://docs.espressif.com/projects/esptool/en/latest/esptool/configuration-file.html#custom-reset-sequence) from Esptool documentation for further details. Please note that `custom_reset_sequence` is the only used value from the Esptool configuration, and others will be ignored in IDF Monitor.
+Refer to [custom reset sequence](https://docs.espressif.com/projects/esptool/en/latest/esptool/configuration-file.html#custom-reset-sequence) from Esptool documentation for further details. Please note that `custom_reset_sequence` and `custom_hard_reset_sequence` are the only used values from the Esptool configuration, and others will be ignored in IDF Monitor.
 
 ##### Share Configuration Across Tools
 
@@ -195,10 +276,11 @@ skip_menu_key = True
 
 [esptool]
 custom_reset_sequence = U0,1|W0.1|D1|R0|W0.5|D0
+custom_hard_reset_sequence = R1|W0.1|R0
 ```
 
 > [!NOTE]
-> When using the `custom_reset_sequence` parameter in both the `[esp-idf-monitor]` section and the `[esptool]` section, the configuration from the `[esp-idf-monitor]` section will take precedence in IDF Monitor. Any conflicting configuration in the `[esptool]` section will be ignored.
+> When using the `custom_reset_sequence` or `custom_hard_reset_sequence` parameter in both the `[esp-idf-monitor]` section and the `[esptool]` section, the configuration from the `[esp-idf-monitor]` section will take precedence in IDF Monitor. Any conflicting configuration in the `[esptool]` section will be ignored.
 >
 > This precedence rule also applies when the configuration is spread across multiple files. The global esp-idf-monitor configuration will take precedence over the local esptool configuration.
 
@@ -214,6 +296,7 @@ exit_key = ]
 chip_reset_key = R
 recompile_upload_key = F
 recompile_upload_app_key = A
+recompile_upload_all_key = E
 toggle_output_key = Y
 toggle_log_key = L
 toggle_timestamp_key = I

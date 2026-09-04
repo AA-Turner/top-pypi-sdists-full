@@ -449,7 +449,7 @@ class SmartSheetClient(CredentialsInterface):
         column_filter: dict = None,
         use_row_number: bool = False
     ) -> dict:
-        """
+        r"""
         Download attachments from a SmartSheet sheet or specific row.
 
         NOTE: SmartSheet API requires TWO API calls per attachment:

@@ -20,8 +20,6 @@ VERSION:=$(shell grep "Version:" patoolib/configuration.py | cut -d '"' -f2)
 AUTHOR:=$(shell grep "MyName:" patoolib/configuration.py | cut -d '"' -f2)
 APPNAME:=$(shell grep "AppName:" patoolib/configuration.py | cut -d '"' -f2)
 
-# exclude packages that are newer than this
-EXCLUDE_NEWER:="7 days"
 # Pytest options:
 # -s: do not capture stdout/stderr (some tests fail otherwise)
 # --full-trace: print full stacktrace on keyboard interrupts
@@ -34,6 +32,8 @@ TESTS ?= tests/
 TESTOPTS=
 # python files and directories
 PY_FILES_DIRS:=setup.py patoolib tests doc/web/source
+# python files and directories
+SH_FILES_DIRS:=scripts/*.sh
 
 # Release configuration
 ARCHIVE_SOURCE:=$(APPNAME)-$(VERSION).tar.gz
@@ -182,8 +182,19 @@ checkchangelog: ## check changelog before release
 ############ Linting and syntax checks ############
 
 .PHONY: lint
-lint: ## lint python code
+lint: lint-py lint-md lint-sh ## run various linters
+
+.PHONY: lint-py
+lint-py:	## lint python files
 	ruff check $(PY_FILES_DIRS)
+
+.PHONY: lint-md
+lint-md:	## lint markdown files
+	rumdl check *.md doc/*.md
+
+.PHONY: lint-sh
+lint-sh:        ## lint shell scripts
+	shellcheck -x $(SH_FILES_DIRS)
 
 .PHONY: audit
 audit: ## run audit checks
@@ -194,29 +205,38 @@ audit: ## run audit checks
 reformat: ## format the python code
 	ruff check --fix $(PY_FILES_DIRS)
 	ruff format $(PY_FILES_DIRS)
+	shfmt -w scripts/
+	tombi format pyproject.toml
 
 .PHONY: checkoutdated checkoutdated-py checkoutdated-gh
-checkoutdated: checkoutdated-py checkoutdated-gh
+checkoutdated: checkoutdated-gh checkoutdated-py
 
 checkoutdated-py:	## Check for outdated package requirements
 	puc \
-	  --exclude-newer $(EXCLUDE_NEWER) \
-	  --exclude-newer-package "python-update-checker=1 minute" \
+	  --constraint constraints.txt \
 	  check pyproject.toml uv.lock
 
-checkoutdated-gh:	## check for outdated github projects
+checkoutdated-gh: checkratelimit-gh	## check for outdated github projects
 # github-check-outdated is a local tool which compares a given version with the latest available github release version
 # see https://gist.github.com/wummel/ef14989766009effa4e262b01096fc8c for an example implementation
 	@echo "Check for outdated Github tools"
 	github-check-outdated astral-sh uv "$(shell uv --version | cut -f2 -d" ")"
 	github-check-outdated python cpython v$(shell python --version | cut -f2 -d" ") '^v3\.14\.[0-9]+$$'
 
+.PHONY: checkratelimit-gh
+checkratelimit-gh: ## check for rate limiting
+	@(
+		set +e
+		github-check-outdated --check astral-sh uv 0 >/dev/null
+		if [ "$$?" == 2 ]; then exit 1; fi
+	)
+
 
 .PHONY: upgradeoutdated
 upgradeoutdated:	upgradeoutdated-gh upgradeoutdated-py
 
 .PHONY: upgradeoutdated-gh
-upgradeoutdated-gh:
+upgradeoutdated-gh:	checkratelimit-gh ## upgrade github project versions
 	sed -i -e 's/uv_version_dev = ".*"/uv_version_dev = "$(shell github-check-outdated astral-sh uv 0 | cut -f4 -d" ")"/' pyproject.toml
 	sed -i -e 's/ version: ".*"/ version: "$(shell github-check-outdated astral-sh uv 0 | cut -f4 -d" ")"/' .github/workflows/python-package.yml
 	sed -i -e 's/python_version_dev = ".*"/python_version_dev = "$(shell github-check-outdated python cpython 0 '^v3\.14\.[0-9]+$$' | cut -f4 -d" " | cut -b2-)"/' pyproject.toml
@@ -225,15 +245,8 @@ upgradeoutdated-gh:
 .PHONY: upgradeoutdated-py
 upgradeoutdated-py:	## upgrade dependencies in pyproject.toml and uv.lock
 	puc \
-	  --exclude-newer $(EXCLUDE_NEWER) \
-	  --exclude-newer-package "python-update-checker=1 minute" \
-	  update pyproject.toml
-	uv lock \
-	  --exclude-newer $(EXCLUDE_NEWER) \
-	  --exclude-newer-package "python-update-checker=1 minute" \
-	  --upgrade
+	  update pyproject.toml uv.lock
 	$(MAKE) init
-
 
 ############ Testing ############
 

@@ -23,6 +23,7 @@ Usage::
         ListCodeInterpretersPaginator,
         ListConfigurationBundleVersionsPaginator,
         ListConfigurationBundlesPaginator,
+        ListConsentPortalsPaginator,
         ListDatasetExamplesPaginator,
         ListDatasetVersionsPaginator,
         ListDatasetsPaginator,
@@ -66,6 +67,7 @@ Usage::
     list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
     list_configuration_bundle_versions_paginator: ListConfigurationBundleVersionsPaginator = client.get_paginator("list_configuration_bundle_versions")
     list_configuration_bundles_paginator: ListConfigurationBundlesPaginator = client.get_paginator("list_configuration_bundles")
+    list_consent_portals_paginator: ListConsentPortalsPaginator = client.get_paginator("list_consent_portals")
     list_dataset_examples_paginator: ListDatasetExamplesPaginator = client.get_paginator("list_dataset_examples")
     list_dataset_versions_paginator: ListDatasetVersionsPaginator = client.get_paginator("list_dataset_versions")
     list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
@@ -126,6 +128,8 @@ from .type_defs import (
     ListConfigurationBundlesResponseTypeDef,
     ListConfigurationBundleVersionsRequestPaginateTypeDef,
     ListConfigurationBundleVersionsResponseTypeDef,
+    ListConsentPortalsRequestPaginateTypeDef,
+    ListConsentPortalsResponseTypeDef,
     ListDatasetExamplesRequestPaginateTypeDef,
     ListDatasetExamplesResponseTypeDef,
     ListDatasetsRequestPaginateTypeDef,
@@ -200,6 +204,7 @@ __all__ = (
     "ListCodeInterpretersPaginator",
     "ListConfigurationBundleVersionsPaginator",
     "ListConfigurationBundlesPaginator",
+    "ListConsentPortalsPaginator",
     "ListDatasetExamplesPaginator",
     "ListDatasetVersionsPaginator",
     "ListDatasetsPaginator",
@@ -466,6 +471,27 @@ class ListConfigurationBundlesPaginator(_ListConfigurationBundlesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListConfigurationBundles.html#BedrockAgentCoreControl.Paginator.ListConfigurationBundles.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listconfigurationbundlespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListConsentPortalsPaginatorBase = Paginator[ListConsentPortalsResponseTypeDef]
+else:
+    _ListConsentPortalsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListConsentPortalsPaginator(_ListConsentPortalsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListConsentPortals.html#BedrockAgentCoreControl.Paginator.ListConsentPortals)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listconsentportalspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConsentPortalsRequestPaginateTypeDef]
+    ) -> PageIterator[ListConsentPortalsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListConsentPortals.html#BedrockAgentCoreControl.Paginator.ListConsentPortals.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listconsentportalspaginator)
         """
 
 

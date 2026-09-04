@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 import logging
 import re
 from collections.abc import Sequence
@@ -17,7 +18,7 @@ from hypothesis.strategies import (
     text,
     tuples,
 )
-from jsonschema import RefResolver
+from jsonschema import RefResolver  # pylint: disable=no-name-in-module
 
 from ..jsonutils.utils import schema_merge
 

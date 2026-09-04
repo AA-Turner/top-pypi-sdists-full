@@ -568,6 +568,8 @@ class TestDuckDB(Validator):
             "SELECT * FROM t1 WHERE NOT EXISTS(SELECT * FROM t2 WHERE t2.id = t1.id)",
         )
         self.validate_identity("x -> '$.family'")
+        self.validate_identity("SELECT a -> 'it''s' FROM t")
+        self.validate_identity("SELECT a ->> 'it''s' FROM t")
         self.validate_identity("CREATE TABLE color (name ENUM('RED', 'GREEN', 'BLUE'))")
         self.validate_identity("SELECT * FROM foo WHERE bar > $baz AND bla = $bob")
         self.validate_identity("SUMMARIZE tbl").assert_is(exp.Summarize)
@@ -689,6 +691,10 @@ class TestDuckDB(Validator):
         self.validate_identity(
             """SELECT '{"foo": [1, 2, 3]}' -> 'foo' -> 0""",
             """SELECT '{"foo": [1, 2, 3]}' -> '$.foo' -> '$[0]'""",
+        )
+        self.validate_all(
+            "SELECT a -> ('x' || 'y')",
+            read={"duckdb": "SELECT JSON_EXTRACT(a, 'x' || 'y')"},
         )
         self.validate_identity(
             "SELECT ($$hello)'world$$)",

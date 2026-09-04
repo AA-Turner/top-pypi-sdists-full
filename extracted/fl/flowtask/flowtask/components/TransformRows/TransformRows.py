@@ -15,7 +15,7 @@ from ...exceptions import (
     DataNotFound,
     ConfigError
 )
-from ...utils.executor import getFunction
+from ...utils.executor import getFunction, get_program_function
 from ...utils.functions import check_empty
 from ...interfaces.flow import FlowComponent
 
@@ -260,6 +260,65 @@ class TransformRows(FlowComponent):
         # TODO: add more conditions to check
         return True
 
+    async def _apply_user_function(
+        self,
+        it: pandas.DataFrame,
+        field: str,
+        function_name: str,
+        val: dict,
+        conditions: dict,
+    ) -> pandas.DataFrame:
+        """_apply_user_function.
+
+        Calls a Python function dynamically loaded from
+        ``programs/<program>/functions/<function_name>.py`` (see
+        ``flowtask.utils.executor.get_program_function``), passing it the
+        working DataFrame. Any sibling keys on the field's definition
+        (besides ``user_function``, ``value`` and ``conditions``) are
+        forwarded as keyword arguments.
+
+        Example:
+
+        ```yaml
+        fields:
+          lift_calc:
+            user_function: calc_lift
+        ```
+
+        The target function is expected to accept ``df`` (and optionally
+        ``field``/``**kwargs``) and return the (possibly modified) DataFrame.
+        A simpler ``def calc_lift(df):`` signature—e.g. copied verbatim from
+        a Jupyter notebook—is also supported.
+        """
+        if not await self._check_condition(it, field, "user_function", conditions):
+            self._logger.warning(
+                f"Column {field} not met conditions {conditions}"
+            )
+            return it
+        args = {
+            k: v for k, v in val.items()
+            if k not in ("value", "conditions", "user_function")
+        }
+        func = get_program_function(self._program, function_name)
+        self._applied.append(f"user_function: {function_name} args: {args}")
+        try:
+            result = func(df=it, field=field, **args) if args else func(df=it, field=field)
+        except TypeError:
+            # Fallback for simple, notebook-style functions: def fn(df): ...
+            try:
+                result = func(it)
+            except TypeError as exc:
+                raise ComponentError(
+                    f"TransformRows: user_function '{function_name}' has an "
+                    f"incompatible signature: {exc}"
+                ) from exc
+        if not isinstance(result, pandas.DataFrame):
+            raise ComponentError(
+                f"TransformRows: user_function '{function_name}' must return "
+                f"a Pandas DataFrame, got {type(result)}"
+            )
+        return result.copy()
+
     async def _apply_one(
         self,
         it: pandas.DataFrame,
@@ -278,6 +337,15 @@ class TransformRows(FlowComponent):
                 self._logger.warning(
                     f"TranformRows conditions need to be a dictionary, got {type(conditions)}"
                 )
+
+        if isinstance(val, dict) and "user_function" in val:
+            # Dynamically load and call a Python function declared on
+            # programs/<program>/functions/<user_function>.py, letting a Task
+            # extend TransformRows without adding code to Flowtask itself.
+            return await self._apply_user_function(
+                it, field, val["user_function"], val, conditions
+            )
+
         args = {}
         if isinstance(val, dict):
             args = {k: v for k, v in val.items() if k not in ("value", "conditions")}
@@ -474,7 +542,7 @@ class TransformRows(FlowComponent):
             elif isinstance(val, (int, float, bool)):
                 it[field] = val
                 continue
-            elif isinstance(val, dict) and 'value' in val:
+            elif isinstance(val, dict) and ('value' in val or 'user_function' in val):
                 # Function to be applied:
                 it = await self._apply_one(it, field, val)
                 continue

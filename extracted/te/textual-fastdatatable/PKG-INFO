@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: textual-fastdatatable
-Version: 0.19.1
+Version: 0.19.2
 Summary: A performance-focused reimplementation of Textual's DataTable widget, with a pluggable data storage backend.
 Project-URL: Repository, https://github.com/tconbeer/textual-fastdatatable
 Author-email: Ted Conbeer <tconbeer@users.noreply.github.com>

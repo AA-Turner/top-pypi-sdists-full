@@ -16,14 +16,14 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+
 from test.unified_format import generate_test_classes, get_test_path
 
 sys.path[0:0] = [""]
 
+from pymongo.server_api import ServerApi
 from test import IntegrationTest, client_context, unittest
 from test.utils_shared import OvertCommandListener
-
-from pymongo.server_api import ServerApi
 
 _IS_SYNC = True
 
@@ -46,7 +46,7 @@ class TestServerApiIntegration(IntegrationTest):
     def test_command_options(self):
         listener = OvertCommandListener()
         client = self.rs_or_single_client(server_api=ServerApi("1"), event_listeners=[listener])
-        coll = client.test.test
+        coll = client.db.coll
         coll.insert_many([{} for _ in range(100)])
         self.addCleanup(coll.delete_many, {})
         coll.find(batch_size=25).to_list()
@@ -58,7 +58,7 @@ class TestServerApiIntegration(IntegrationTest):
     def test_command_options_txn(self):
         listener = OvertCommandListener()
         client = self.rs_or_single_client(server_api=ServerApi("1"), event_listeners=[listener])
-        coll = client.test.test
+        coll = client.db.coll
         coll.insert_many([{} for _ in range(100)])
         self.addCleanup(coll.delete_many, {})
 
@@ -66,7 +66,7 @@ class TestServerApiIntegration(IntegrationTest):
         with client.start_session() as s, s.start_transaction():
             coll.insert_many([{} for _ in range(100)], session=s)
             coll.find(batch_size=25, session=s).to_list()
-            client.test.command("find", "test", session=s)
+            client.db.command("find", "coll", session=s)
             self.assertServerApiInAllCommands(listener.started_events)
 
 

@@ -13,11 +13,12 @@ from lxml import etree
 from lxml.etree import _Element
 
 from caldav.calendarobjectresource import FreeBusy
+from caldav.compatibility_hints import at_spelling_is_significant
 from caldav.elements import cdav, dav
 from caldav.elements.base import BaseElement
 from caldav.lib import error
 from caldav.lib.python_utilities import to_normal_str
-from caldav.lib.url import URL
+from caldav.lib.url import URL, unquote_preserving_at
 
 if TYPE_CHECKING:
     Response = Any
@@ -63,19 +64,27 @@ class SyncCollectionResult:
 # ---------------------------------------------------------------------------
 
 
-def _normalize_href(text: str) -> str:
+def _normalize_href(text: str, preserve_at: bool = False) -> str:
     """Normalize an href string from a DAV response element.
 
     Handles the Confluence double-encoding bug (%2540 → %40) and converts
     absolute URLs to path-only strings so callers always work with paths.
+
+    ``preserve_at`` - set for a server whose ``url.encode-at.identity`` says
+    the two spellings are two resources - stops the ``%40`` being decoded with
+    everything else.  This is the first thing to touch an href, and an href is
+    the server naming a resource, so on such a server decoding it here renames
+    it and nothing downstream can recover what was lost.  Off by default, which
+    is the unconditional decode this has always done.
     """
     # Fix for https://github.com/python-caldav/caldav/issues/471
     if "%2540" in text:
         text = text.replace("%2540", "%40")
-    href = unquote(text)
+    decode = unquote_preserving_at if preserve_at else unquote
+    href = decode(text)
     # Ref https://github.com/python-caldav/caldav/issues/435
     if ":" in href:
-        href = unquote(URL(href).path)
+        href = decode(URL(href).path)
     return href
 
 
@@ -116,22 +125,38 @@ def _strip_to_multistatus(tree: _Element) -> "_Element | list[_Element]":
     return [tree]
 
 
-def _extract_properties(propstats: "list[_Element]") -> "dict[str, Any]":
-    """Extract properties from propstat elements into a flat dict."""
-    properties: dict[str, Any] = {}
+def _collect_prop_elements(propstats: "list[_Element]") -> "dict[str, _Element]":
+    """Collect ``{proptag: element}`` from a list of propstat elements.
+
+    Each propstat status is validated first: anything but 200/201/207/404
+    raises :class:`error.ResponseError`, since a ``500``/``403``/``507``
+    propstat means the server failed to answer, not that the property is
+    unset.  Swallowing it would hand the caller a silently-empty value.
+
+    Propstats whose status reports 404 are then skipped — that is the single,
+    shared expression of the "a 404 propstat means the property is absent on
+    the resource" quirk.  This helper is the one place both the dataclass
+    parsers (via :func:`_extract_properties`) and the legacy
+    :meth:`DAVResponse._find_objects_and_props` collect prop children, so both
+    the validation and the quirk stop having to be maintained in two parallel
+    loops (code-review §5.7).
+    """
+    collected: dict[str, _Element] = {}
     for propstat in propstats:
         status_elem = propstat.find(dav.Status.tag)
-        if status_elem is not None and status_elem.text and " 404 " in status_elem.text:
-            continue
-        prop = propstat.find(dav.Prop.tag)
-        if prop is None:
-            continue
-        for child in prop:
-            if len(child) == 0:
-                properties[child.tag] = child.text
-            else:
-                properties[child.tag] = _element_to_value(child)
-    return properties
+        if status_elem is not None and status_elem.text:
+            _validate_status(status_elem.text)
+            if " 404 " in status_elem.text:
+                continue
+        for prop in propstat.iterfind(dav.Prop.tag):
+            for child in prop:
+                collected[child.tag] = child
+    return collected
+
+
+def _extract_properties(propstats: "list[_Element]") -> "dict[str, Any]":
+    """Extract properties from propstat elements into a flat dict of parsed values."""
+    return {tag: _element_to_value(el) for tag, el in _collect_prop_elements(propstats).items()}
 
 
 def _element_to_value(elem: _Element) -> Any:
@@ -274,7 +299,12 @@ class DAVResponse:
                 # We'll try to parse the content as XML no matter the content type.
                 self.tree = etree.XML(
                     self._raw,
-                    parser=etree.XMLParser(remove_blank_text=True, huge_tree=self.huge_tree),
+                    parser=etree.XMLParser(
+                        remove_blank_text=True,
+                        huge_tree=self.huge_tree,
+                        resolve_entities=False,
+                        no_network=True,
+                    ),
                 )
             except Exception:
                 # Content wasn't XML.  What does the content-type say?
@@ -452,6 +482,12 @@ class DAVResponse:
             )
         return SyncCollectionResult(changed=changed, deleted=deleted, sync_token=sync_token)
 
+    @property
+    def _preserve_at(self) -> bool:
+        """Whether this connection's server makes the ``@`` spelling significant."""
+        features = getattr(self.davclient, "features", None)
+        return at_spelling_is_significant(features) if features is not None else False
+
     def _parse_response(self, response: _Element) -> tuple[str, list[_Element], Any | None]:
         """
         One response should contain one or zero status children, one
@@ -471,31 +507,26 @@ class DAVResponse:
                 self.validate_status(status)
             elif elem.tag == dav.Href.tag:
                 error.assert_(not href)
-                href = _normalize_href(elem.text or "")
+                href = _normalize_href(elem.text or "", self._preserve_at)
             elif elem.tag == dav.PropStat.tag:
                 propstats.append(elem)
-            elif elem.tag == "{DAV:}responsedescription":
-                ## This happens with Stalwart on a 404.
-                ## This code is mostly moot, but in debug
-                ## mode I want to be sure we do not toss away any data
-                error.assert_(elem.text == "No resources found")
-                check_404 = True
-            elif elem.tag == "{DAV:}error":
-                ## This happens with purelymail on a 404.
-                ## This code is mostly moot, but in debug
-                ## mode I want to be sure we do not toss away any data
-                children = elem.getchildren()
-                error.assert_(len(children) == 1)
-                error.assert_(children[0].tag == "{https://purelymail.com}does-not-exist")
+            elif elem.tag in ("{DAV:}responsedescription", "{DAV:}error"):
+                ## Both are optional children of <response> per RFC 4918
+                ## and carry server-defined content.  We've seen them on
+                ## 404s (Stalwart sends <responsedescription>No resources
+                ## found</responsedescription>, purelymail sends
+                ## <error><…:does-not-exist/></error>).
                 check_404 = True
             else:
-                ## i.e. purelymail may contain one more tag, <error>...</error>
-                ## This is probably not a breach of the standard.  It may
-                ## probably be ignored.  But it's something we may want to
-                ## know.
+                ## A tag we don't recognise at all (e.g. a server inventing
+                ## an <errortext> element).  Not necessarily a standards
+                ## breach and probably ignorable, but worth surfacing.
                 error.weirdness("unexpected element found in response", elem)
         error.assert_(href)
-        if check_404:
+        if check_404 and status:
+            ## We've only ever observed <error>/<responsedescription> on
+            ## 404s; flag it in debug mode if a server pairs them with some
+            ## other status so we notice and revisit this handling.
             error.assert_("404" in status)
         return (cast(str, href), propstats, status)
 
@@ -579,6 +610,35 @@ class DAVResponse:
     ## protocol.xml_parsers layer is a better approach.  Look for more
     ## cases of old code that was is still remaining after the
     ## protocol layer refactoring
+    def all_responses_not_found(self) -> bool:
+        """True if the multistatus consists solely of response-level 404s.
+
+        RFC 4918 §14.24 lets a ``<response>`` carry a bare ``<status>``
+        instead of one or more ``<propstat>`` elements, so a server may
+        report "this resource does not exist" inside a 207 Multi-Status
+        rather than as a transport-level 404.  Xandikos answers PROPFIND on
+        a missing collection that way (while answering REPORT on the very
+        same URL with a plain 404).
+
+        A 404 for one href among several is normal on ``Depth: 1`` and must
+        not be treated as "the resource is gone", hence the requirement that
+        *every* response reports 404 and none carries properties.
+        """
+        if self.tree is None:
+            return False
+        responses = [r for r in self._strip_to_multistatus() if r.tag == dav.Response.tag]
+        if not responses:
+            return False
+        for response in responses:
+            ## a direct-child <status>; the ones nested inside <propstat>
+            ## are a different thing and handled by _collect_prop_elements
+            if response.find(dav.PropStat.tag) is not None:
+                return False
+            status = response.find(dav.Status.tag)
+            if status is None or "404" not in (status.text or ""):
+                return False
+        return True
+
     def _find_objects_and_props(self) -> dict[str, dict[str, _Element]]:
         """Internal implementation of find_objects_and_props without deprecation warning."""
         self.objects: dict[str, dict[str, _Element]] = {}
@@ -606,27 +666,11 @@ class DAVResponse:
                 self.objects[href] = {}
                 self.statuses[href] = status
 
-            ## The properties may be delivered either in one
-            ## propstat with multiple props or in multiple
-            ## propstat
-            for propstat in propstats:
-                cnt = 0
-                status = propstat.find(dav.Status.tag)
-                error.assert_(status is not None)
-                if status is not None and status.text is not None:
-                    error.assert_(len(status) == 0)
-                    cnt += 1
-                    self.validate_status(status.text)
-                    ## if a prop was not found, ignore it
-                    if " 404 " in status.text:
-                        continue
-                for prop in propstat.iterfind(dav.Prop.tag):
-                    cnt += 1
-                    for theprop in prop:
-                        self.objects[href][theprop.tag] = theprop
-
-                ## there shouldn't be any more elements except for status and prop
-                error.assert_(cnt == len(propstat))
+            ## The properties may be delivered either in one propstat
+            ## with multiple props or in multiple propstats; the 404-skip
+            ## quirk is shared with the dataclass parsers via
+            ## _collect_prop_elements (code-review §5.7).
+            self.objects[href].update(_collect_prop_elements(propstats))
 
         return self.objects
 

@@ -13,11 +13,12 @@
 
 from __future__ import absolute_import
 
-__version__ = "3.25.0"
+__version__ = "3.26.0"
 
 # import apis into sdk package
 from phrase_api.api.accounts_api import AccountsApi
 from phrase_api.api.authorizations_api import AuthorizationsApi
+from phrase_api.api.automation_events_api import AutomationEventsApi
 from phrase_api.api.automations_api import AutomationsApi
 from phrase_api.api.blacklisted_keys_api import BlacklistedKeysApi
 from phrase_api.api.branches_api import BranchesApi
@@ -40,6 +41,7 @@ from phrase_api.api.job_locales_api import JobLocalesApi
 from phrase_api.api.job_template_locales_api import JobTemplateLocalesApi
 from phrase_api.api.job_templates_api import JobTemplatesApi
 from phrase_api.api.jobs_api import JobsApi
+from phrase_api.api.key_format_annotations_api import KeyFormatAnnotationsApi
 from phrase_api.api.keys_api import KeysApi
 from phrase_api.api.keys_figma_attachments_api import KeysFigmaAttachmentsApi
 from phrase_api.api.linked_keys_api import LinkedKeysApi
@@ -51,6 +53,7 @@ from phrase_api.api.notifications_api import NotificationsApi
 from phrase_api.api.orders_api import OrdersApi
 from phrase_api.api.organization_job_template_locales_api import OrganizationJobTemplateLocalesApi
 from phrase_api.api.organization_job_templates_api import OrganizationJobTemplatesApi
+from phrase_api.api.pre_translations_api import PreTranslationsApi
 from phrase_api.api.projects_api import ProjectsApi
 from phrase_api.api.quality_performance_score_api import QualityPerformanceScoreApi
 from phrase_api.api.release_triggers_api import ReleaseTriggersApi
@@ -93,6 +96,8 @@ from phrase_api.models.authorization_create_parameters import AuthorizationCreat
 from phrase_api.models.authorization_update_parameters import AuthorizationUpdateParameters
 from phrase_api.models.authorization_with_token import AuthorizationWithToken
 from phrase_api.models.automation import Automation
+from phrase_api.models.automation_event import AutomationEvent
+from phrase_api.models.automation_event_project import AutomationEventProject
 from phrase_api.models.automations_create_parameters import AutomationsCreateParameters
 from phrase_api.models.automations_create_parameters1 import AutomationsCreateParameters1
 from phrase_api.models.blacklisted_key import BlacklistedKey
@@ -144,6 +149,7 @@ from phrase_api.models.glossary_term_translation_update_parameters import Glossa
 from phrase_api.models.glossary_term_update_parameters import GlossaryTermUpdateParameters
 from phrase_api.models.glossary_update_parameters import GlossaryUpdateParameters
 from phrase_api.models.icu import Icu
+from phrase_api.models.icu_skeleton_error import IcuSkeletonError
 from phrase_api.models.icu_skeleton_parameters import IcuSkeletonParameters
 from phrase_api.models.invitation import Invitation
 from phrase_api.models.invitation_create_parameters import InvitationCreateParameters
@@ -180,10 +186,10 @@ from phrase_api.models.job_template_preview import JobTemplatePreview
 from phrase_api.models.job_template_update_parameters import JobTemplateUpdateParameters
 from phrase_api.models.job_update_parameters import JobUpdateParameters
 from phrase_api.models.key_create_parameters import KeyCreateParameters
+from phrase_api.models.key_format_annotations_list200_response_inner import KeyFormatAnnotationsList200ResponseInner
 from phrase_api.models.key_link import KeyLink
 from phrase_api.models.key_links_batch_destroy_parameters import KeyLinksBatchDestroyParameters
 from phrase_api.models.key_links_create_parameters import KeyLinksCreateParameters
-from phrase_api.models.key_links_index400_response import KeyLinksIndex400Response
 from phrase_api.models.key_preview import KeyPreview
 from phrase_api.models.key_update_parameters import KeyUpdateParameters
 from phrase_api.models.keys_exclude_parameters import KeysExcludeParameters
@@ -222,6 +228,8 @@ from phrase_api.models.organization_job_template_details import OrganizationJobT
 from phrase_api.models.organization_job_template_locale_update_parameters import OrganizationJobTemplateLocaleUpdateParameters
 from phrase_api.models.organization_job_template_locales_create_parameters import OrganizationJobTemplateLocalesCreateParameters
 from phrase_api.models.organization_job_template_update_parameters import OrganizationJobTemplateUpdateParameters
+from phrase_api.models.pre_translation import PreTranslation
+from phrase_api.models.pre_translation_create_parameters import PreTranslationCreateParameters
 from phrase_api.models.project import Project
 from phrase_api.models.project_create_parameters import ProjectCreateParameters
 from phrase_api.models.project_details import ProjectDetails

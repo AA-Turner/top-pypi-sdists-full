@@ -3,8 +3,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from trilogy.core.enums import (
-    BooleanOperator,
-    Derivation,
     JoinType,
     Modifier,
     SetOperator,
@@ -14,7 +12,6 @@ from trilogy.core.functions import propagates_argument_nulls
 from trilogy.core.models.build import (
     BoolExpr,
     BuildConcept,
-    BuildConditional,
     BuildDatasource,
     BuildGrain,
     BuildOrderBy,
@@ -124,8 +121,6 @@ def resolve_existence_map(
 def get_all_parent_partial(
     all_concepts: list[BuildConcept], parents: list["StrategyNode"]
 ) -> list[BuildConcept]:
-    # Index each parent's partial concepts by address once, rather than
-    # rebuilding the address list for every concept (was an O(n^2) rescan).
     partial_addrs = [{x.address for x in p.partial_concepts} for p in parents]
     return unique(
         [
@@ -144,24 +139,20 @@ def get_all_parent_nullable(
     all_concepts: list[BuildConcept],
     parents: Sequence["StrategyNode | QueryDatasource | BuildDatasource"],
 ) -> list[BuildConcept]:
-    """Accepts nodes or RESOLVED sources — only `nullable_concepts` is read.
+    """Accepts nodes or RESOLVED sources; only `nullable_concepts` is read.
     Prefer resolved sources where available: a node's attribute is a
     construction-time snapshot that grows at its first resolve."""
     for x in parents:
         if not x:
             raise ValueError(parents)
-    # Index each parent's nullable concepts by address once (was an O(n^2)
-    # rescan rebuilding the address list per concept).
     nullable_addrs = [{x.address for x in p.nullable_concepts} for p in parents]
     return unique(
         [
             c
             for c in all_concepts
             if any(c.address in addrs for addrs in nullable_addrs)
-            # a scalar derivation of a nullable input is itself nullable
-            # (`l_key + 1` is NULL wherever `l_key` is): infer it at the node
-            # that computes the derivation so address-based propagation carries
-            # it upward from here
+            # a scalar derivation of a nullable input is itself nullable; infer
+            # it at the computing node so address-based propagation carries it up
             or (
                 propagates_argument_nulls(c)
                 and any(
@@ -181,13 +172,16 @@ class StrategyNode:
     # that set this take their parents' grain when none was passed, rather than
     # deriving one from their own outputs; see `_default_grain`.
     inherits_parent_grain: bool = False
+    # Only UnionNode carries a non-default combinator; it must be set at
+    # construction so QueryDatasource.__post_init__ preserves arm order for
+    # EXCEPT.
+    set_operator: SetOperator = SetOperator.UNION_ALL
 
     def __init__(
         self,
         input_concepts: list[BuildConcept],
         output_concepts: list[BuildConcept],
         environment: BuildEnvironment,
-        whole_grain: bool = False,
         parents: list["StrategyNode"] | None = None,
         partial_concepts: list[BuildConcept] | None = None,
         rollup_concepts: list[BuildConcept] | None = None,
@@ -199,7 +193,6 @@ class StrategyNode:
         grain: BuildGrain | None = None,
         hidden_concepts: set[str] | None = None,
         existence_concepts: list[BuildConcept] | None = None,
-        virtual_output_concepts: list[BuildConcept] | None = None,
         ordering: BuildOrderBy | None = None,
     ):
         self.input_concepts: list[BuildConcept] = (
@@ -210,7 +203,6 @@ class StrategyNode:
         self.output_lcl = LooseBuildConceptList(concepts=self.output_concepts)
 
         self.environment = environment
-        self.whole_grain = whole_grain
         self.parents = parents or []
         self.resolution_cache: QueryDatasource | None = None
 
@@ -231,10 +223,8 @@ class StrategyNode:
         # pushed WHERE could apply post-join); the merge must regroup to its
         # output grain or the deferred normalization is silently lost.
         self.group_deferred = False
-        self.tainted = False
         self.hidden_concepts = hidden_concepts or set()
         self.existence_concepts = existence_concepts or []
-        self.virtual_output_concepts = virtual_output_concepts or []
         self.preexisting_conditions = preexisting_conditions
         if self.conditions and not self.preexisting_conditions:
             self.preexisting_conditions = self.conditions
@@ -252,7 +242,6 @@ class StrategyNode:
         )
         self.rollup_concepts = rollup_concepts or []
         self.validate_inputs()
-        self.log = True
 
     def validate_inputs(self):
         if not self.parents:
@@ -270,12 +259,9 @@ class StrategyNode:
                     non_hidden.add(psd)
             for z in x.hidden_concepts:
                 hidden.add(z)
-        # Accept inputs that match a parent's output by canonical_address (same
-        # lineage hash). Two distinct addresses can resolve to the same canonical
-        # concept (e.g. an inline `year(flight_date)` used alongside the
-        # attribute-access form `flight_date.year`); both project from the same
-        # SQL expression at render time, so the parent producing one canonically
-        # satisfies the other.
+        # Inputs may match a parent's output by canonical_address: two addresses
+        # with the same lineage render from the same SQL expression, so a parent
+        # producing one satisfies the other.
         missing = [
             x.address
             for x in self.input_concepts
@@ -293,49 +279,15 @@ class StrategyNode:
         self.partial_concepts = self.derive_partials(None)
         return self
 
-    def set_preexisting_conditions(
-        self,
-        conditions: BoolExpr,
-    ):
-        self.preexisting_conditions = conditions
-        return self
-
-    def add_condition(
-        self,
-        condition: BoolExpr,
-    ):
-        if self.conditions and condition == self.conditions:
-            return self
-        if self.conditions:
-            self.conditions = BuildConditional(
-                left=self.conditions, right=condition, operator=BooleanOperator.AND
-            )
-        else:
-            self.conditions = condition
-        self.set_preexisting_conditions(condition)
-        self._refine_nullable_for_conditions()
-        self.rebuild_cache()
-        return self
-
     def _refine_nullable_for_conditions(self) -> None:
         """Strip concepts from ``nullable_concepts`` that this node's own
-        ``conditions`` null-rejects.
+        ``conditions`` null-rejects, so each node's nullability reflects its own
+        rows and downstream nodes inherit that via ``get_all_parent_nullable``.
 
-        Built-in propagation (``get_all_parent_nullable``) carries up every
-        parent's nullable column without inspecting the local WHERE — so a
-        union branch that filters ``customer_id is not null`` still claims
-        customer_id is nullable, and that pessimism poisons every downstream
-        consumer. Refining here means each node's ``nullable_concepts``
-        reflects the truth on its own rows, and downstream nodes inherit the
-        improved view via ``get_all_parent_nullable`` without ever looking
-        downstream themselves.
-
-        Caveat for consumers: after this refinement, absence from
-        ``nullable_concepts`` conflates "never nullable" with "nullable but
-        proven non-null by this node's own condition". Anything that reasons
-        about the condition itself (e.g. ``StripRedundantNotNull``) must not
-        treat absence as ground truth — the q78 bug stripped the very
-        ``IS NOT NULL`` whose presence caused the refinement.
+        After this refinement, absence from ``nullable_concepts`` conflates
+        "never nullable" with "proven non-null by this node's own condition".
+        Anything that reasons about the condition itself (e.g.
+        ``StripRedundantNotNull``) must not treat absence as ground truth.
         """
         if not self.conditions or not self.nullable_concepts:
             return
@@ -349,8 +301,6 @@ class StrategyNode:
     def derive_partials(
         self, partial_concepts: list[BuildConcept] | None = None
     ) -> list[BuildConcept]:
-        # validate parents exist
-        # assign partial values where needed
         for parent in self.parents:
             if not parent:
                 raise SyntaxError("Unresolvable parent")
@@ -416,19 +366,12 @@ class StrategyNode:
             self.rebuild_cache()
         return self
 
-    def set_visible_concepts(self, concepts: list[BuildConcept]):
-        for x in self.output_concepts:
-            if x.address not in [c.address for c in concepts]:
-                self.hidden_concepts.add(x.address)
-        return self
-
     def set_output_concepts(
         self,
         concepts: list[BuildConcept],
         rebuild: bool = True,
         change_visibility: bool = True,
     ):
-        # exit if no changes
         if self.output_concepts == concepts:
             return self
         self.output_concepts = concepts
@@ -442,9 +385,6 @@ class StrategyNode:
         if rebuild:
             self.rebuild_cache()
         return self
-
-    def add_output_concept(self, concept: BuildConcept, rebuild: bool = True):
-        return self.add_output_concepts([concept], rebuild)
 
     def hide_output_concepts(
         self, concepts: list[BuildConcept] | list[str] | set[str], rebuild: bool = True
@@ -480,10 +420,6 @@ class StrategyNode:
     def all_concepts(self) -> list[BuildConcept]:
         return [*self.output_concepts]
 
-    @property
-    def all_used_concepts(self) -> list[BuildConcept]:
-        return [*self.input_concepts, *self.existence_concepts]
-
     def __repr__(self):
         concepts = self.all_concepts
         addresses = [c.address for c in concepts]
@@ -493,66 +429,14 @@ class StrategyNode:
             contents += f"...{extra} more"
         return f"{self.__class__.__name__}<{contents}>"
 
-    def _repoint_feeder_only_rows(
-        self,
-        parent_sources: list[QueryDatasource | BuildDatasource],
-        source_map: dict[str, set[BuildDatasource | QueryDatasource | UnnestJoin]],
-    ) -> None:
-        """A row source_map entry must never point at a parent reachable only
-        through an existence subselect — it is never joined, so a SELECT column
-        off it dangles at render (``Referenced table ... not found``). Mirrors
-        the MergeNode existence-only ordering guard: when every resolved source
-        of an OUTPUT address is such a feeder and a genuinely-joined parent
-        carries the address as a pseudonym twin (a scoped-join axis handle
-        riding its mate, q29), repoint the row entry at the joined parent — the
-        renderer's pseudonym recovery emits the mate's column under the
-        handle's alias."""
-        if not self.existence_concepts:
-            return
-        existence_addrs = {c.address for c in self.existence_concepts}
-        demand = {c.address for c in self.input_concepts} | {
-            c.address for c in self.output_concepts
-        }
-        feeders = {
-            id(ps)
-            for ps in parent_sources
-            if any(o.address in existence_addrs for o in ps.output_concepts)
-            and all(
-                o.address in existence_addrs
-                for o in ps.output_concepts
-                if o.address in demand
-            )
-        }
-        if not feeders:
-            return
-        for concept in self.output_concepts:
-            sources = source_map.get(concept.address)
-            if not sources or not all(id(s) in feeders for s in sources):
-                continue
-            for ps in parent_sources:
-                if id(ps) in feeders:
-                    continue
-                if any(
-                    (o.address == concept.address or concept.address in o.pseudonyms)
-                    and not (
-                        isinstance(ps, QueryDatasource)
-                        and o.address in ps.hidden_concepts
-                    )
-                    for o in ps.output_concepts
-                ):
-                    source_map[concept.address] = {ps}
-                    break
-
     def _default_grain(
         self, parent_sources: list[QueryDatasource | BuildDatasource]
     ) -> BuildGrain:
         """The grain to declare when the planner passed none.
 
-        Deriving it from ``output_concepts`` states the grain the projection
-        *selects*, which is only the row grain if something deduped to it. For a
-        row-preserving node nothing did, so it reports its parents' rows: a
-        narrowing projection that claims the narrow grain reads as already
-        deduped, and consumers skip the GROUP BY that would make it true.
+        A row-preserving node reports its parents' grain: claiming the grain of
+        its own (possibly narrower) projection would read as already deduped,
+        and consumers would skip the GROUP BY that makes it true.
         """
         if self.inherits_parent_grain and parent_sources and not self.force_group:
             # An existence feeder is read through a subselect: it rejects rows,
@@ -579,17 +463,12 @@ class StrategyNode:
             targets=self.output_concepts,
             inherited_inputs=self.input_concepts + self.existence_concepts,
         )
-        self._repoint_feeder_only_rows(parent_sources, source_map)
 
-        # Nullability is recomputed from the RESOLVED parents, not trusted from
-        # the construction-time snapshot: `get_all_parent_nullable` at
-        # construction reads the parent NODE attribute, which only carries
-        # resolve-time join analysis after the parent's first resolve — so two
-        # copies of one logical node built before/after that resolve would
-        # otherwise resolve to different plans (divergent Nullable join
-        # modifiers, q29's mirrored-base merges). Parents have just resolved
-        # here, so their QDS stamps are authoritative; the node's own
-        # condition-refinement still applies on top.
+        # Nullability is recomputed from the RESOLVED parents rather than the
+        # construction-time snapshot: the parent NODE attribute only carries
+        # join analysis after its first resolve, so copies built before and
+        # after that resolve would otherwise plan differently. The node's own
+        # condition refinement still applies on top.
         nullable = unique(
             self.nullable_concepts
             + get_all_parent_nullable(self.output_concepts, parent_sources),
@@ -605,9 +484,7 @@ class StrategyNode:
             output_concepts=self.output_concepts,
             datasources=parent_sources,
             source_type=self.source_type,
-            # Only UnionNode carries a non-default combinator; it must be set at
-            # construction so __post_init__ preserves arm order for EXCEPT.
-            set_operator=getattr(self, "set_operator", SetOperator.UNION_ALL),
+            set_operator=self.set_operator,
             source_map=source_map,
             existence_source_map=resolve_existence_map(
                 parent_sources, self.existence_concepts
@@ -626,7 +503,6 @@ class StrategyNode:
         )
 
     def rebuild_cache(self) -> QueryDatasource:
-        self.tainted = True
         self.output_lcl = LooseBuildConceptList(concepts=self.output_concepts)
         if not self.resolution_cache:
             return self.resolve()
@@ -638,13 +514,10 @@ class StrategyNode:
             return self.resolution_cache
         qds = self._resolve()
         self.resolution_cache = qds
-        # Nullability computed at resolve time (join-analysis null-extension in
-        # MergeNode, ROLLUP NULL-padding in GroupNode) is stamped onto the
-        # QueryDatasource; downstream nodes read the StrategyNode attribute
-        # (get_all_parent_nullable at construction, the rowset translation's
-        # rename mapping). Sync it back or that nullability is erased at this
-        # boundary and downstream joins render a plain `=` on a null-extended
-        # column, silently deleting rows (q51, q86 rowset variant).
+        # Resolve-time nullability (outer-join null extension, ROLLUP padding) is
+        # stamped on the QueryDatasource, but downstream nodes read the node
+        # attribute; sync it back or joins on a null-extended column render a
+        # plain `=` and silently drop rows.
         self.nullable_concepts = unique(
             self.nullable_concepts + list(qds.nullable_concepts), "address"
         )
@@ -655,7 +528,6 @@ class StrategyNode:
             input_concepts=list(self.input_concepts),
             output_concepts=list(self.output_concepts),
             environment=self.environment,
-            whole_grain=self.whole_grain,
             parents=list(self.parents),
             partial_concepts=list(self.partial_concepts),
             rollup_concepts=list(self.rollup_concepts),
@@ -667,7 +539,6 @@ class StrategyNode:
             grain=self.grain,
             hidden_concepts=set(self.hidden_concepts),
             existence_concepts=list(self.existence_concepts),
-            virtual_output_concepts=list(self.virtual_output_concepts),
             ordering=self.ordering,
         )
         node.limit = self.limit
@@ -680,7 +551,6 @@ class NodeJoin:
     right_node: StrategyNode
     concepts: list[BuildConcept]
     join_type: JoinType
-    filter_to_mutual: bool = False
     concept_pairs: list[ConceptPair] | None = None
     modifiers: list[Modifier] = field(default_factory=list)
 
@@ -689,44 +559,13 @@ class NodeJoin:
             raise SyntaxError("Invalid join, left and right nodes are the same")
         if self.concept_pairs:
             return
-        final_concepts = []
         for concept in self.concepts:
-            include = True
             for ds in [self.left_node, self.right_node]:
                 if concept.address not in [c.address for c in ds.all_concepts]:
-                    if self.filter_to_mutual:
-                        include = False
-                    else:
-                        raise SyntaxError(
-                            f"Invalid join, missing {concept} on {ds!s}, have"
-                            f" {[c.address for c in ds.all_concepts]}"
-                        )
-            if include:
-                final_concepts.append(concept)
-        if not final_concepts and self.concepts:
-            # if one datasource only has constants
-            # we can join on 1=1
-            for ds in [self.left_node, self.right_node]:
-                if all(c.derivation == Derivation.CONSTANT for c in ds.all_concepts):
-                    self.concepts = []
-                    return
-
-            left_keys = [c.address for c in self.left_node.all_concepts]
-            right_keys = [c.address for c in self.right_node.all_concepts]
-            match_concepts = [c.address for c in self.concepts]
-            raise SyntaxError(
-                "No mutual join keys found between"
-                f" {self.left_node} and"
-                f" {self.right_node}, left_keys {left_keys},"
-                f" right_keys {right_keys},"
-                f" provided join concepts {match_concepts}"
-            )
-        self.concepts = final_concepts
-
-    @property
-    def unique_id(self) -> str:
-        nodes = sorted([self.left_node, self.right_node], key=lambda x: str(x))
-        return str(nodes) + self.join_type.value
+                    raise SyntaxError(
+                        f"Invalid join, missing {concept} on {ds!s}, have"
+                        f" {[c.address for c in ds.all_concepts]}"
+                    )
 
     def __str__(self):
         return (
@@ -734,31 +573,3 @@ class NodeJoin:
             f" {self.right_node} on"
             f" {','.join([str(k) for k in self.concepts])}"
         )
-
-
-class WhereSafetyNode(StrategyNode):
-    """Specialized node to be used to pad certain
-    select outputs that can't be immediately used in a where
-    clause; eg window functions. Will remove itself if not required."""
-
-    def resolve(self) -> QueryDatasource:
-        if not self.conditions and len(self.parents) == 1:
-            parent = self.parents[0]
-            parent = parent.copy()
-            # avoid performance hit by not rebuilding until end
-            parent.set_output_concepts(self.output_concepts, rebuild=False)
-
-            # these conditions
-            if self.preexisting_conditions:
-                parent.set_preexisting_conditions(self.preexisting_conditions)
-            # TODO: add a helper for this
-            parent.ordering = self.ordering
-
-            # actually build the node
-            parent.rebuild_cache()
-            resolved = parent.resolve()
-            # mirror the base resolve() nullability sync — downstream nodes
-            # read THIS node's attribute
-            self.nullable_concepts = list(resolved.nullable_concepts)
-            return resolved
-        return super().resolve()

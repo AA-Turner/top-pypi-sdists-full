@@ -130,6 +130,18 @@ def test_changelog_with_changes():
     assert "Added" in result.output
 
 
+def test_breaking_help():
+    result = runner.invoke(app, ["breaking", "--help"])
+    assert result.exit_code == 0
+
+
+def test_breaking_without_changes_exits_zero():
+    fixture = "fixtures/changelog/integration/changelog_integration_v1.yaml"
+    result = runner.invoke(app, ["breaking", fixture, fixture])
+    assert result.exit_code == 0
+    assert "Details" in result.output
+
+
 def test_error_message_keeps_bracketed_text(monkeypatch, capsys):
     """Rich markup must not eat hints like `pip install "botocore[crt]"`."""
     from datacontract import cli
@@ -140,3 +152,21 @@ def test_error_message_keeps_bracketed_text(monkeypatch, capsys):
         cli.main()
 
     assert "botocore[crt]" in capsys.readouterr().out
+
+
+def test_test_publish_empty_string_skips_publish(monkeypatch):
+    """`--publish ''` means "don't publish" — CI templates render it when the URL is unset."""
+    calls = []
+    monkeypatch.setattr(
+        "datacontract.data_contract.publish_test_results_to_entropy_data",
+        lambda *args, **kwargs: calls.append(args),
+    )
+    result = runner.invoke(app, ["test", "--publish", "", "./fixtures/parquet/datacontract.yaml"])
+    assert result.exit_code == 0
+    assert calls == []
+
+
+def test_test_publish_rejects_non_http_url():
+    result = runner.invoke(app, ["test", "--publish", "ftp://foo", "./fixtures/parquet/datacontract.yaml"])
+    assert result.exit_code == 1
+    assert "must start with http:// or https://" in result.stdout

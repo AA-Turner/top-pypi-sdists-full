@@ -29,6 +29,7 @@ approving v1 must not silently approve v2.
 from __future__ import annotations
 
 import getpass
+import logging
 import sys
 from pathlib import Path
 
@@ -37,12 +38,52 @@ import click
 from coord import gate_a as gate_a_mod
 from coord.commands._common import _CONFIG_OPTION, _load_config
 
+log = logging.getLogger(__name__)
+
 
 def _actor() -> str:
     try:
         return getpass.getuser()
     except Exception:  # noqa: BLE001 — no passwd entry in some containers
         return "unknown"
+
+
+def _pending_amend_lines(repo_cfg, tracking_issue: int) -> list[str]:
+    """#3065: also surface any unmerged Gate-A (`type="mock-author"`)
+    branch for this tracking issue — the blind spot `evaluate()` cannot
+    see, since it only ever compares the recorded approval against the
+    contract on the default branch. A branch that's dispatched, reviewed,
+    even approved, but not yet merged is invisible to that comparison, so
+    an operator reading a clean "approved" here would have no way to know
+    one exists.
+
+    Best-effort and silent on failure (no board daemon reachable, no `gh`
+    on PATH, a transient GitHub error): this is pure enrichment on top of
+    the verdict `evaluate()` already computed, never a reason to fail the
+    read.
+    """
+    try:
+        from coord import board_service  # noqa: PLC0415
+        from coord import github_ops  # noqa: PLC0415
+
+        board = board_service.read_board()
+        rows = list(board.active) + list(board.completed)
+        pending = gate_a_mod.find_pending_amends(
+            repo_name=repo_cfg.name,
+            tracking_issue=tracking_issue,
+            all_assignments=rows,
+            is_merged=lambda branch: github_ops.pr_is_merged(
+                repo_cfg.github, branch
+            ),
+        )
+    except Exception:  # noqa: BLE001 — best-effort enrichment only
+        # #3065 review: silent-but-logged, not silent-and-invisible — a
+        # real bug in this path (vs. a transient no-daemon/no-`gh`
+        # condition) should leave a trace somewhere, even though it must
+        # never fail the read itself.
+        log.debug("pending-amend enrichment failed for #%s", tracking_issue, exc_info=True)
+        return []
+    return gate_a_mod.summarise_pending_amends(pending)
 
 
 def _fetch_contract(repo_cfg, config, milestone_number: int) -> str | None:
@@ -164,6 +205,8 @@ def gate_a(
         )
         if decision.approval is not None and decision.approval.note:
             click.echo(f"  note: {decision.approval.note}")
+        for line in _pending_amend_lines(repo_cfg, tracking_issue):
+            click.echo(line)
         if not decision.ok:
             click.echo("")
             click.echo(decision.reason or "")

@@ -307,6 +307,7 @@ impl Service for GoosefsBackend {
     type Lister = oio::PageLister<GoosefsLister>;
     type Deleter = oio::OneShotDeleter<GoosefsDeleter>;
     type Copier = ();
+    type Composer = ();
 
     fn info(&self) -> ServiceInfo {
         self.core.info.clone()
@@ -328,7 +329,7 @@ impl Service for GoosefsBackend {
 
     async fn stat(&self, _ctx: &OperationContext, path: &str, _: OpStat) -> Result<RpStat> {
         let file_info = self.core.get_status(path).await?;
-        Ok(RpStat::new(self.core.file_info_to_metadata(&file_info)))
+        Ok(RpStat::new(self.core.file_info_to_metadata(&file_info)?))
     }
     fn read(&self, _ctx: &OperationContext, path: &str, args: OpRead) -> Result<Self::Reader> {
         let output: oio::StreamReader<GoosefsReader> = {
@@ -376,7 +377,6 @@ impl Service for GoosefsBackend {
         _from: &str,
         _to: &str,
         _args: OpCopy,
-        _opts: OpCopier,
     ) -> Result<Self::Copier> {
         Err(Error::new(
             ErrorKind::Unsupported,

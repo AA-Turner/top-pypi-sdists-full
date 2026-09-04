@@ -830,6 +830,7 @@ def auto_train(
     george_params: dict = None,
     pygrf_params: dict = None,
     gsa_params: dict = None,
+    bnn_params: dict = None,
 ):
     """
     Train a model using specified parameters and optionally perform hyperparameter optimization.
@@ -1383,6 +1384,36 @@ def auto_train(
                         nmcmc=14000, nburn=9000, thin=10)
             bass.update(bass_params or {})
             model = BassRegressor(**bass)
+        elif model_name == "bnn":
+            # Bayesian NN (Ma et al. 2021 RSE): two-headed mean-field
+            # variational torch net -- heteroscedastic sigma head + MC-sampled
+            # epistemic variance, with held-out-newest-year sigma
+            # recalibration inside the wrapper (see ml/bnn.py). Regression
+            # only. kl_weight defaults to 0.05, NOT the paper's 1.0: at 1.0
+            # the sigma head collapses to a near-constant (marginally
+            # calibrated only); 0.05 learns per-region heterogeneity and the
+            # recalibration fixes its scale. Overridable via [ML] bnn_*.
+            if model_type != "REGRESSION":
+                raise ValueError(
+                    "model = 'bnn' supports REGRESSION only; choose catboost "
+                    "or logistic for CLASSIFICATION."
+                )
+            try:
+                from .bnn import BNNYieldRegressor
+            except ImportError as exc:
+                raise ImportError(
+                    "model = 'bnn' requires torch (normally present "
+                    "transitively via the core tabpfn dep; the pixi cluster "
+                    "env ships pytorch-cpu). Install with:\n"
+                    "    pip install torch"
+                ) from exc
+            bnn = dict(
+                epochs=700, batch_size=512, lr=1e-3, prior_sigma=0.1,
+                kl_weight=0.05, warmup_epochs=50, n_mc=100,
+                calibrate_sigma=True, device="auto",
+            )
+            bnn.update(bnn_params or {})
+            model = BNNYieldRegressor(seed=int(seed), **bnn)
         elif model_name == "pygrf":
             # Geographical Random Forest (geoai-lab/PyGRF). Coords come from
             # the lat/lon feature columns; band_width/local_weight default to
@@ -1451,7 +1482,10 @@ def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     # curated_/top<N>_/auto_ variants like their underlying algo.
     model_name = strip_variant_prefix(model_name)
 
-    if model_name in ["ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft"]:
+    # bnn produces its own calibrated predictive sigma (ml/bnn.py) -- wrapping
+    # it in crepes/mapie would replace heteroscedastic intervals with
+    # marginal conformal ones. Its CI path is Geocif._predict_bnn_with_ci.
+    if model_name in ["ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft", "bnn"]:
         return model
     elif model_type == "CLASSIFICATION" and model_name == "catboost":
         return model

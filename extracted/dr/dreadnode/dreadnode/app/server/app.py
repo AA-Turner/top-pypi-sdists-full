@@ -78,6 +78,7 @@ from dreadnode.app.server.websocket import (
     serve_runtime_event_stream,
     serve_runtime_websocket,
 )
+from dreadnode.core import startup_clock
 from dreadnode.tracing.span import bind_session_id
 
 if t.TYPE_CHECKING:
@@ -610,6 +611,31 @@ def create_agent(
 # =============================================================================
 
 
+def _configure_litellm_env() -> None:
+    """Configure litellm through the environment, before anything imports it.
+
+    litellm reads these at import time:
+
+        drop_params   = bool(os.getenv("LITELLM_DROP_PARAMS", False))
+        modify_params = bool(os.getenv("LITELLM_MODIFY_PARAMS", False))
+
+    so setting them configures whoever imports litellm first — the warm thread,
+    or a request that beats it. Going through the environment is what lets the
+    import itself come off the readiness path: this needs no import of its own.
+
+    ``suppress_debug_info`` has no environment hook and is set as an attribute
+    by the warm thread. It only silences debug prints, so the warm window costs
+    noise rather than correctness.
+
+    ``LITELLM_LOCAL_MODEL_COST_MAP`` stops litellm fetching its model-cost map
+    over the network on first import. The platform sets it in the sandbox
+    environment; this covers a local ``dreadnode serve``.
+    """
+    os.environ.setdefault("LITELLM_DROP_PARAMS", "True")
+    os.environ.setdefault("LITELLM_MODIFY_PARAMS", "True")
+    os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+
+
 def _warm_litellm() -> None:
     """Import litellm so the first chat turn doesn't pay the cold-import cost.
 
@@ -621,10 +647,13 @@ def _warm_litellm() -> None:
     """
     _t0 = time.perf_counter()
     try:
-        # Skip the httpx.get() to GitHub for model pricing on import.
-        os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        import litellm
-        import litellm.exceptions
+        # Belt and braces: the lifecycle sets these, but this runs on other
+        # paths too and must never be the one that imports litellm unconfigured.
+        _configure_litellm_env()
+        with startup_clock.timed("litellm.import"):
+            import litellm
+            import litellm.exceptions
+        startup_clock.mark("litellm_imported")
 
         litellm.drop_params = True
         litellm.suppress_debug_info = True  # ty: ignore[invalid-assignment]
@@ -683,6 +712,7 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
         registry.mcp_manager = capability_manager.MCPLifecycleManager(event_bus=state.event_bus)
     if registry and registry.mcp_manager:
         await registry.mcp_manager.start(registry)
+    state.startup.mark("mcp_started")
 
     # Workers start AFTER MCP servers (CAP-WLIF-002)
     if registry and registry.worker_manager is None:
@@ -691,20 +721,22 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
         registry.worker_manager = WorkerLifecycleManager(state.event_bus, app)
     if registry and registry.worker_manager:
         await registry.worker_manager.start(registry)
+    state.startup.mark("workers_started")
 
-    # Set critical litellm flags eagerly (before background import) so they
-    # are active even if a chat request arrives before warmup completes.
-    try:
-        import litellm
+    _configure_litellm_env()
 
-        litellm.drop_params = True
-        litellm.suppress_debug_info = True  # ty: ignore[invalid-assignment]
-    except Exception:  # noqa: S110 - _warm_litellm will retry the full import
-        pass
-
-    # Warm litellm in a background thread so the health endpoint goes live
-    # immediately while the ~2s import finishes in the background.
+    # litellm is deliberately NOT imported here. It was the largest single item
+    # on the readiness path (~1.8s on a laptop, ~4.3s on a sandbox) and it ran
+    # last, so readiness waited on it (ENG-8259). The warm thread below still
+    # shifts the import cost off the first chat turn; it just no longer holds
+    # readiness open while it does.
+    #
+    # The flags this block used to import litellm to set are covered by the
+    # environment above. Note that LiteLLMGenerator.__post_model_init__ looks
+    # like it sets them too, but that is not a pydantic hook and never runs —
+    # see ENG-8259. Do not rely on it.
     warm_future = asyncio.get_running_loop().run_in_executor(None, _warm_litellm)
+    warm_future.add_done_callback(lambda _future: state.startup.mark("litellm_warmed"))
 
     if synchronous:
         wait_started_at = time.perf_counter()
@@ -717,6 +749,7 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
         # warmup logs its own failure; we just want it settled.
         with suppress(Exception):
             await asyncio.wrap_future(warm_future)
+        state.startup.mark("synchronous_settled")
         logger.info(
             "Synchronous startup complete | total_ms={}",
             round((time.perf_counter() - wait_started_at) * 1000),
@@ -779,6 +812,7 @@ async def _deferred_startup(stack: AsyncExitStack, startup: StartupState) -> Non
             await asyncio.to_thread(configure)
         elif not instance._initialized:
             await asyncio.to_thread(instance.configure)
+        startup.mark("configured")
 
         startup.advance(StartupStage.INSTALLING)
         if state.capability_registry is None:
@@ -819,6 +853,7 @@ async def _lifespan(_app_instance: t.Any) -> t.AsyncIterator[None]:
     signal that can tell "still installing" from "startup failed".
     """
     state = get_state()
+    state.startup.mark("lifespan_started")
     stack = AsyncExitStack()
     task = asyncio.create_task(_deferred_startup(stack, state.startup))
 
@@ -973,6 +1008,30 @@ class StartupState:
         self.detail: str | None = None
         self.started_at: float = time.monotonic()
         self.finished_at: float | None = None
+        # Marks live in ``startup_clock`` so code that runs before this object
+        # exists, or that must not import the server, can still record where
+        # its time went. Every mark is seconds since the process started.
+        self.mark("server_module_loaded")
+
+    @property
+    def anchor(self) -> str:
+        return startup_clock.process_start_source()
+
+    @property
+    def marks(self) -> dict[str, float]:
+        return startup_clock.marks()
+
+    @property
+    def durations(self) -> dict[str, float]:
+        return startup_clock.durations()
+
+    def mark(self, name: str) -> None:
+        """Record when ``name`` happened, as seconds since process start. First write wins."""
+        startup_clock.mark(name)
+
+    def record_duration(self, name: str, seconds: float) -> None:
+        """Record how long a named step took, independent of when it ran."""
+        startup_clock.record_duration(name, seconds)
 
     @property
     def is_ready(self) -> bool:
@@ -985,13 +1044,23 @@ class StartupState:
 
     def advance(self, stage: StartupStage) -> None:
         self.stage = stage
+        self.mark(stage.value)
         logger.info("Runtime startup | stage={} | elapsed={}s", stage.value, self.elapsed_sec)
 
     def mark_ready(self) -> None:
         self.finished_at = time.monotonic()
         self.stage = StartupStage.READY
         self.detail = None
-        logger.info("Runtime startup complete | elapsed={}s", self.elapsed_sec)
+        self.mark(StartupStage.READY.value)
+        logger.info(
+            "Runtime startup complete | elapsed={}s | since_process_start={}s | anchor={} "
+            "| marks={} | durations={}",
+            self.elapsed_sec,
+            self.marks.get(StartupStage.READY.value),
+            self.anchor,
+            self.marks,
+            self.durations,
+        )
 
     def mark_failed(self, error: BaseException) -> None:
         self.finished_at = time.monotonic()
@@ -4322,6 +4391,9 @@ async def health_check() -> HealthResponse:
         stage=startup.stage.value,
         detail=startup.detail,
         elapsed_sec=startup.elapsed_sec,
+        timings=dict(startup.marks),
+        durations=dict(startup.durations),
+        timing_anchor=startup.anchor,
     )
 
 
@@ -4342,6 +4414,9 @@ async def readiness_check(response: Response) -> HealthResponse:
         stage=startup.stage.value,
         detail=startup.detail,
         elapsed_sec=startup.elapsed_sec,
+        timings=dict(startup.marks),
+        durations=dict(startup.durations),
+        timing_anchor=startup.anchor,
     )
 
 
@@ -4869,6 +4944,8 @@ def _populate_registry(instance: t.Any) -> None:
     )
 
     state = get_state()
+    startup = state.startup
+    startup.mark("registry_started")
     working_dir = state.ensure_working_directory()
     registry = capability_manager.CapabilityRegistry()
 
@@ -4879,10 +4956,12 @@ def _populate_registry(instance: t.Any) -> None:
     )
     registry.capabilities.update(builtin_capabilities)
     registry.load_failures.extend(builtin_failures)
+    startup.mark("builtins_loaded")
 
     # 1. Sync runtime capabilities if platform credentials are available
     workspace_dir, runtime_bindings = _sync_runtime_capabilities_if_available(instance)
     registry.runtime_bindings = runtime_bindings
+    startup.mark("capabilities_synced")
     # 2. Determine host type: sandbox if runtime binding env is set, local otherwise
     host = "sandbox" if os.environ.get("DREADNODE_RUNTIME_ID", "").strip() else "local"
 
@@ -4897,6 +4976,8 @@ def _populate_registry(instance: t.Any) -> None:
 
             install_specs = preload_dependency_specs(workspace_dir)
             install_report = install_dependencies(install_specs)
+            for step, seconds in install_report.durations.items():
+                startup.record_duration(f"install.{step}", seconds)
             if install_report.installed:
                 logger.info(
                     "Installed dependencies for {} capabilities: {}",
@@ -4912,6 +4993,7 @@ def _populate_registry(instance: t.Any) -> None:
             logger.opt(exception=True).warning(
                 "Capability dependency install pass failed; continuing with discovery"
             )
+    startup.mark("dependencies_installed")
 
     # 4. Discover with host-exclusive source (CAP-LOAD-014)
     shadowed_names: set[str] = set()
@@ -4948,6 +5030,7 @@ def _populate_registry(instance: t.Any) -> None:
         )
     except Exception:
         logger.exception("Failed to discover capabilities")
+    startup.mark("capabilities_discovered")
 
     # A dependency install failure leaves the capability loaded but missing the
     # packages its components import, so discovery alone reports it healthy.
@@ -5130,6 +5213,7 @@ def initialize_app(
     import dreadnode.app.main as main_mod
 
     instance = main_mod.Dreadnode()
+    get_state().startup.mark("configuring")
     instance.configure(
         server=server,
         api_key=api_key,
@@ -5141,6 +5225,7 @@ def initialize_app(
 
     # Store CLI overrides on state so they persist across /reload
     state = get_state()
+    state.startup.mark("configured")
     state.instance = instance
     state.capability_dirs = capability_dirs
     state.enabled_capabilities = enabled_capabilities
@@ -5174,6 +5259,7 @@ def reset_app_state() -> None:
     for session in state.list_sessions():
         session.close()
 
+    startup_clock.reset()
     app.state.server = ServerState(
         working_dir=state.working_dir,
         recreate_missing_working_dir=state.recreate_missing_working_dir,
@@ -5213,7 +5299,8 @@ def run_server(
     # though context creation now also installs trust, because subprocesses the
     # runtime spawns inherit this process's environment and nothing guarantees a
     # context gets built before the first one starts.
-    ensure_trust_installed()
+    with startup_clock.timed("tls.trust_install"):
+        ensure_trust_installed()
 
     if instance is None:
         instance = _get_default_instance()
@@ -5223,6 +5310,7 @@ def run_server(
     # both reach the network, and running them ahead of `uvicorn.run()` is what
     # kept the runtime port closed past the platform's readiness budget.
     state = get_state()
+    state.startup.mark("serve_entered")
     state.instance = instance
     state.deferred_configure = functools.partial(
         instance.configure,

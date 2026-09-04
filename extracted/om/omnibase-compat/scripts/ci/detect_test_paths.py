@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tomllib
 from pathlib import Path
 
 from scripts.ci.test_selection_loader import (
@@ -21,6 +22,52 @@ SRC_PREFIX = "src/omnibase_compat/"
 TEST_UNIT_PREFIX = "src/omnibase_compat/tests/"
 
 FULL_SUITE_BRANCHES = {"main"}
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def collected_test_roots(repo_root: Path = REPO_ROOT) -> list[str]:
+    """Return ``[tool.pytest.ini_options] testpaths``, POSIX with trailing slash.
+
+    OMN-15541. This repo has TWO test roots — ``src/omnibase_compat/tests`` and
+    ``tests`` — and before this function existed three surfaces each named a
+    different subset of them:
+
+    * ``pyproject.toml`` ``testpaths``: both
+    * ``ci.yml`` step "Run pytest (full suite)": ``src/omnibase_compat/tests/``
+    * :func:`_full_suite`: ``["tests/"]``
+
+    The workflow's positional path silently overrode ``testpaths``, so every
+    fail-closed escalation collected 141 tests and ZERO of the 277 under
+    ``tests/`` — including the OMN-15373 policy gate landed by OMN-15523. The
+    escalation collected strictly LESS than the narrow fallback it was supposed
+    to be the safety net for.
+
+    ``testpaths`` is now the single source of truth: the full-suite CI step
+    passes no positional path (so pytest inherits this list verbatim) and this
+    function feeds the selector from the same key. Adding a root is a ONE-place
+    edit. ``scripts/validation/validate_test_root_collection.py`` fails closed
+    on both halves of that seam.
+
+    Fails closed: a missing ``pyproject.toml``, a missing ``testpaths`` key, or
+    an empty list all raise rather than degrade to a default. An empty
+    ``testpaths`` is especially dangerous now that the full-suite step relies on
+    it — bare ``pytest`` would collect from the rootdir, i.e. the whole
+    repository including ``.venv``.
+    """
+    pyproject = repo_root / "pyproject.toml"
+    if not pyproject.is_file():
+        raise FileNotFoundError(
+            f"{pyproject} does not exist; cannot determine collected test roots (OMN-15541)"
+        )
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    paths = data.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("testpaths")
+    if not paths:
+        raise ValueError(
+            f"{pyproject} declares no [tool.pytest.ini_options] testpaths; bare "
+            "`pytest` would collect the whole repository (OMN-15541)"
+        )
+    return [str(p).rstrip("/") + "/" for p in paths]
 
 
 def resolve_test_paths(
@@ -115,7 +162,13 @@ def compute_selection(
     if not selected:
         # Conservative fallback over the full tests tree. Fires for changes
         # that have no unit-test mapping (doc-only, workflow-only).
-        selected = ["tests/"]
+        #
+        # OMN-15541: this used to be the hardcoded `["tests/"]`, which covered
+        # only 277 of the repo's 418 tests — the prose called it "the full tests
+        # tree" while silently omitting every test under
+        # src/omnibase_compat/tests/. Sourced from pyproject `testpaths` now, so
+        # "conservative" means what it says.
+        selected = collected_test_roots()
     split_count = _split_count_for(selected)
 
     return ModelTestSelection(
@@ -129,8 +182,13 @@ def compute_selection(
 
 def _full_suite(reason: EnumFullSuiteReason) -> ModelTestSelection:
     # compat is small — 4 splits is ample for the full suite.
+    #
+    # OMN-15541: `selected_paths` is derived from pyproject `testpaths`, never
+    # hardcoded. ci.yml's full-suite step passes NO positional path (it inherits
+    # the same key directly from pytest), so this value is what the escalation
+    # actually runs rather than a second list that has to be remembered.
     return ModelTestSelection(
-        selected_paths=["tests/"],
+        selected_paths=collected_test_roots(),
         split_count=4,
         is_full_suite=True,
         full_suite_reason=reason,

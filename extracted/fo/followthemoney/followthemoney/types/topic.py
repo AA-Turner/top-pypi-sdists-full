@@ -45,6 +45,7 @@ class TopicType(EnumType):
         "corp.shell": _("Shell company"),
         "corp.public": _("Public listed company"),
         "corp.disqual": _("Disqualified"),
+        "corp.clone": _("Clone of real entity"),
         "gov": _("Government"),
         "gov.national": _("National government"),
         "gov.state": _("State government"),
@@ -98,11 +99,13 @@ class TopicType(EnumType):
         "export.risk": _("Trade risk"),
         "invest.risk": _("Investment risk"),
         "invest.ban": _("Investment ban"),
+        "geo.risk": _("High-risk area"),
         "debarment": _("Debarred"),
         "poi": _("Person of interest"),
     }
 
     RISKS: ClassVar[set[str]] = {
+        "corp.clone",
         "corp.disqual",
         "crime.boss",
         "crime.fin",
@@ -116,6 +119,7 @@ class TopicType(EnumType):
         "export.control",
         "export.control.linked",
         "export.risk",
+        "geo.risk",
         "invest.risk",
         "invest.ban",
         "poi",

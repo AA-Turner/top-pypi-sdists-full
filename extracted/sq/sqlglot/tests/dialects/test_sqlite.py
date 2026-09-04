@@ -23,7 +23,17 @@ class TestSQLite(Validator):
         self.validate_identity("SELECT * FROM t NOT INDEXED")
         self.validate_identity("SELECT match FROM t")
         self.validate_identity("SELECT rowid FROM t1 WHERE t1 MATCH 'lorem'")
+        self.validate_identity("SELECT * FROM t WHERE a REGEXP 'x'")
         self.validate_identity("SELECT RANK() OVER (RANGE CURRENT ROW) FROM tbl")
+        self.validate_identity(
+            "SELECT RANK() OVER (RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM tbl"
+        )
+        self.validate_identity(
+            "SELECT RANK() OVER (RANGE BETWEEN CURRENT ROW AND CURRENT ROW) FROM tbl"
+        )
+        self.validate_identity(
+            "SELECT RANK() OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND 1 + 1 FOLLOWING) FROM tbl"
+        )
         self.validate_identity("UNHEX(a, b)")
         self.validate_identity("SELECT DATE()")
         self.validate_identity("SELECT DATE('now', 'start of month', '+1 month', '-1 day')")
@@ -57,6 +67,11 @@ class TestSQLite(Validator):
         self.validate_identity("SELECT JSON_EXTRACT(a, '$.k') FROM t")
         self.validate_identity("SELECT a -> '$.k' FROM t")
         self.validate_identity("SELECT a ->> '$.k' FROM t")
+        with self.assertLogs(helper_logger, level="WARNING") as logs:
+            self.validate_identity("SELECT a -> 'it''s' FROM t")
+            self.validate_identity("SELECT a ->> 'it''s' FROM t")
+            self.assertEqual(len(logs.output), 2)
+            self.assertTrue(all("Invalid JSON path syntax" in message for message in logs.output))
         self.validate_identity("SELECT JSON_SET('{}', '$.x', JSON_EXTRACT(a, '$.k'))")
         self.validate_identity("SELECT JSON_EXTRACT(a, '$') FROM t")
         self.validate_identity("SELECT JSON_EXTRACT(a, b) FROM t")
@@ -121,6 +136,25 @@ class TestSQLite(Validator):
             read={
                 "postgres": "SELECT GREATEST(a, b) FROM t",
                 "sqlite": "SELECT MAX(a, b) FROM t",
+            },
+        )
+        # CONCAT skips NULL args in these dialects, but || propagates it, so the
+        # operands have to keep the COALESCE wrapping the other targets get.
+        self.validate_all(
+            "SELECT COALESCE(a, '') || COALESCE(b, '') FROM t",
+            read={
+                "duckdb": "SELECT CONCAT(a, b) FROM t",
+                "postgres": "SELECT CONCAT(a, b) FROM t",
+                "tsql": "SELECT CONCAT(a, b) FROM t",
+            },
+        )
+        # CONCAT propagates NULL in these dialects, so || already matches and the
+        # operands are left alone.
+        self.validate_all(
+            "SELECT a || b FROM t",
+            read={
+                "mysql": "SELECT CONCAT(a, b) FROM t",
+                "snowflake": "SELECT CONCAT(a, b) FROM t",
             },
         )
         self.validate_all(

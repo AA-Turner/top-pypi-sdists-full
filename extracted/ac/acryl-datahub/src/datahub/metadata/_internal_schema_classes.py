@@ -5994,6 +5994,7 @@ class EmbeddingModelDataClass(DictWrapper):
         generatedAt: int,
         totalChunks: int,
         chunks: List["EmbeddingChunkClass"],
+        sourceTextSha256: Union[None, str]=None,
         chunkingStrategy: Union[None, str]=None,
         totalTokens: Union[None, int]=None,
     ):
@@ -6001,6 +6002,7 @@ class EmbeddingModelDataClass(DictWrapper):
         
         self.modelVersion = modelVersion
         self.generatedAt = generatedAt
+        self.sourceTextSha256 = sourceTextSha256
         self.chunkingStrategy = chunkingStrategy
         self.totalChunks = totalChunks
         self.totalTokens = totalTokens
@@ -6009,6 +6011,7 @@ class EmbeddingModelDataClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.modelVersion = str()
         self.generatedAt = int()
+        self.sourceTextSha256 = self.RECORD_SCHEMA.fields_dict["sourceTextSha256"].default
         self.chunkingStrategy = self.RECORD_SCHEMA.fields_dict["chunkingStrategy"].default
         self.totalChunks = int()
         self.totalTokens = self.RECORD_SCHEMA.fields_dict["totalTokens"].default
@@ -6034,6 +6037,20 @@ class EmbeddingModelDataClass(DictWrapper):
     @generatedAt.setter
     def generatedAt(self, value: int) -> None:
         self._inner_dict['generatedAt'] = value
+    
+    
+    @property
+    def sourceTextSha256(self) -> Union[None, str]:
+        """SHA-256 hex digest over the UTF-8 bytes of the exact resolved source text these embeddings
+    were generated from (the semanticText override when set, else the entity's body text).
+    Written by the embedding pipeline at generation time so consumers (e.g. coverage reporting)
+    can detect genuinely stale embeddings by comparing against a hash of the current resolved
+    text, instead of relying on modification timestamps that move on non-content writes."""
+        return self._inner_dict.get('sourceTextSha256')  # type: ignore
+    
+    @sourceTextSha256.setter
+    def sourceTextSha256(self, value: Union[None, str]) -> None:
+        self._inner_dict['sourceTextSha256'] = value
     
     
     @property
@@ -7797,13 +7814,19 @@ class SemanticContentClass(_Aspect):
 
     def __init__(self,
         embeddings: Dict[str, "EmbeddingModelDataClass"],
+        skipReason: Union[None, str]=None,
+        skippedAt: Union[None, int]=None,
     ):
         super().__init__()
         
         self.embeddings = embeddings
+        self.skipReason = skipReason
+        self.skippedAt = skippedAt
     
     def _restore_defaults(self) -> None:
         self.embeddings = dict()
+        self.skipReason = self.RECORD_SCHEMA.fields_dict["skipReason"].default
+        self.skippedAt = self.RECORD_SCHEMA.fields_dict["skippedAt"].default
     
     
     @property
@@ -7816,6 +7839,31 @@ class SemanticContentClass(_Aspect):
     @embeddings.setter
     def embeddings(self, value: Dict[str, "EmbeddingModelDataClass"]) -> None:
         self._inner_dict['embeddings'] = value
+    
+    
+    @property
+    def skipReason(self) -> Union[None, str]:
+        """Set (with an empty embeddings map) when the embedding pipeline deliberately declined to
+    embed this entity, so consumers can distinguish never-embeddable entities from indexing
+    lag or failures. Values written today: EMPTY_TEXT (no resolved text),
+    BELOW_MIN_TEXT_LENGTH (resolved text shorter than the recipe's min_text_length),
+    NO_INDEXABLE_CONTENT (text partitioned to no indexable elements). Overwritten with real
+    embeddings when the entity later becomes embeddable and is processed."""
+        return self._inner_dict.get('skipReason')  # type: ignore
+    
+    @skipReason.setter
+    def skipReason(self, value: Union[None, str]) -> None:
+        self._inner_dict['skipReason'] = value
+    
+    
+    @property
+    def skippedAt(self) -> Union[None, int]:
+        """Timestamp (milliseconds since epoch) when the skip decision was recorded."""
+        return self._inner_dict.get('skippedAt')  # type: ignore
+    
+    @skippedAt.setter
+    def skippedAt(self, value: Union[None, int]) -> None:
+        self._inner_dict['skippedAt'] = value
     
     
 class SemanticTextClass(_Aspect):

@@ -10,10 +10,10 @@ from sqlglot.dialects.dialect import (
     DATETIME_DELTA,
     JSON_EXTRACT_TYPE,
     approx_count_distinct_sql,
+    arrow_json_extract_sql,
     array_append_sql,
     array_compact_sql,
     array_concat_sql,
-    arrow_json_extract_sql,
     count_if_to_sum,
     date_delta_to_binary_interval_op,
     datestrtodate_sql,
@@ -2469,13 +2469,6 @@ class DuckDBGenerator(generator.Generator):
 
         return self.sql(result)
 
-    def nthvalue_sql(self, expression: exp.NthValue) -> str:
-        from_first = expression.args.get("from_first", True)
-        if not from_first:
-            self.unsupported("DuckDB's NTH_VALUE doesn't support starting from the end ")
-
-        return self.function_fallback_sql(expression)
-
     def randstr_sql(self, expression: exp.Randstr) -> str:
         """
         Transpile Snowflake's RANDSTR to DuckDB equivalent using deterministic hash-based random.
@@ -4720,9 +4713,14 @@ class DuckDBGenerator(generator.Generator):
 
     def jsonextractscalar_sql(self, expression: exp.JSONExtractScalar) -> str:
         if expression.args.get("scalar_only"):
-            expression = exp.JSONExtractScalar(
+            json_value = exp.JSONExtractScalar(
                 this=rename_func("JSON_VALUE")(self, expression), expression="'$'"
             )
+
+            # `->>` binds looser than most operators, so the wrap logic needs the parent
+            json_value.parent = expression.parent
+            expression = json_value
+
         return _arrow_json_extract_sql(self, expression)
 
     def bitwisenot_sql(self, expression: exp.BitwiseNot) -> str:

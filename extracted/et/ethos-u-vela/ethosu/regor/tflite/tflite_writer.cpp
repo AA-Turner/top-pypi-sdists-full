@@ -159,15 +159,16 @@ std::unique_ptr<const uint8_t[]> TfLiteWriter::SerialiseImpl(const std::vector<s
     const std::vector<TensorAddressMap> &tensor_address_maps, int64_t &output_buffer_offset, size_t &output_buffer_size)
 {
     std::vector<flatbuffers::Offset<tflite::Metadata>> serialised_metadata;
+    std::vector<flatbuffers::Offset<tflite::SignatureDef>> serialised_signature_defs;
 
     for ( const auto &graph : graphs )
     {
         const auto &tensor_address_map = tensor_address_maps.at(_serialised_subgraphs.size());
+        const auto tflite_model = static_cast<const tflite::Model *>(graph->Passthrough());
 
         for ( const auto &operation : graph->ScheduledOrder() )
         {
             const auto tflite_operator = static_cast<const tflite::Operator *>(operation->Passthrough());
-            const auto tflite_model = static_cast<const tflite::Model *>(graph->Passthrough());
 
             OpType type = operation->Type();
             tflite::BuiltinOperator builtin_code;
@@ -308,14 +309,53 @@ std::unique_ptr<const uint8_t[]> TfLiteWriter::SerialiseImpl(const std::vector<s
         }
         for ( const auto &tensor : graph->Outputs() )
         {
-            if ( graph->IsPlaceholder(tensor.get()) ) continue;
+            if ( graph->IsPlaceholder(tensor.get()) || graph->IsPersistent(tensor.get()) ) continue;
 
             outputs.push_back(SerialisedTensorIndex(tensor.get(), tensor_address_map, *graph));
         }
 
+        const uint32_t subGraphIndex = uint32_t(_serialised_subgraphs.size());
         const char *subGraphName = graph->Name().empty() ? nullptr : graph->Name().c_str();
         _serialised_subgraphs.push_back(tflite::CreateSubGraphDirect(
             _flatbuffer, &_serialised_tensors, &inputs, &outputs, &_serialised_operations, subGraphName));
+
+        const auto *signature_defs = tflite_model ? tflite_model->signature_defs() : nullptr;
+        if ( signature_defs )
+        {
+            for ( const auto *signature_def : *signature_defs )
+            {
+                // Ignore signature defs not related to current graph
+                if ( !signature_def || signature_def->subgraph_index() != subGraphIndex ) continue;
+
+                const auto *signature_key = signature_def->signature_key();
+                if ( !signature_key ) continue;
+                const auto key = signature_key->str();
+
+                // Create vector of TensorMaps for a vector of Tensors
+                const auto serialise_tensor_maps = [&](const std::vector<std::shared_ptr<Tensor>> &tensors)
+                {
+                    std::vector<flatbuffers::Offset<tflite::TensorMap>> maps;
+                    for ( const auto &tensor : tensors )
+                    {
+                        for ( const auto &[altkey, altname] : tensor->AlternativeNames() )
+                        {
+                            // Ignore tensors with different signature key
+                            if ( key != altkey ) continue;
+
+                            maps.push_back(tflite::CreateTensorMapDirect(_flatbuffer, altname.c_str(), _tensors[tensor.get()]));
+                        }
+                    }
+                    return maps;
+                };
+
+                // Recreate the SignatureDef with tensors mapped to their new indices
+                const auto input_maps = serialise_tensor_maps(graph->Inputs());
+                const auto output_maps = serialise_tensor_maps(graph->Outputs());
+                if ( !input_maps.empty() || !output_maps.empty() )
+                    serialised_signature_defs.push_back(tflite::CreateSignatureDefDirect(
+                        _flatbuffer, &input_maps, &output_maps, signature_key->c_str(), subGraphIndex));
+            }
+        }
 
         _serialised_operations.clear();
         _serialised_tensors.clear();
@@ -366,9 +406,7 @@ std::unique_ptr<const uint8_t[]> TfLiteWriter::SerialiseImpl(const std::vector<s
         3,  // version
         &_serialised_opcodes, &_serialised_subgraphs, _description, &_serialised_buffers,
         nullptr,  // deprecated metadata_buffer
-        &serialised_metadata
-        // TODO: signature_defs
-    );
+        &serialised_metadata, serialised_signature_defs.empty() ? nullptr : &serialised_signature_defs);
 
     tflite::FinishModelBuffer(_flatbuffer, model);
 

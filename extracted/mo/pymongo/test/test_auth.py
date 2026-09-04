@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Authentication Tests."""
+
 from __future__ import annotations
 
 import asyncio
@@ -23,15 +24,6 @@ from urllib.parse import quote_plus
 
 sys.path[0:0] = [""]
 
-from test import (
-    IntegrationTest,
-    PyMongoTestCase,
-    SkipTest,
-    client_context,
-    unittest,
-)
-from test.utils_shared import AllowListEventListener, delay, ignore_deprecations
-
 import pytest
 
 from pymongo import MongoClient, monitoring
@@ -41,6 +33,14 @@ from pymongo.hello import HelloCompat
 from pymongo.read_preferences import ReadPreference
 from pymongo.saslprep import HAVE_STRINGPREP
 from pymongo.synchronous.auth import HAVE_KERBEROS, _canonicalize_hostname
+from test import (
+    IntegrationTest,
+    PyMongoTestCase,
+    SkipTest,
+    client_context,
+    unittest,
+)
+from test.utils_shared import AllowListEventListener, delay, ignore_deprecations
 
 _IS_SYNC = True
 
@@ -231,7 +231,7 @@ class TestGSSAPI(PyMongoTestCase):
         # collection.find_one with a 1-second delay, forcing it to check out
         # multiple connections from the pool concurrently, proving that
         # auto-authentication works with GSSAPI.
-        collection = db.test
+        collection = db.coll
         if not collection.count_documents({}):
             try:
                 collection.drop()
@@ -340,7 +340,7 @@ class TestSASLPlain(PyMongoTestCase):
             authSource=SASL_DB,
             authMechanism="PLAIN",
         )
-        client.ldap.test.find_one()
+        client.ldap.coll.find_one()
 
         assert SASL_USER is not None
         assert SASL_PASS is not None
@@ -352,7 +352,7 @@ class TestSASLPlain(PyMongoTestCase):
             SASL_DB,
         )
         client = self.simple_client(uri)
-        client.ldap.test.find_one()
+        client.ldap.coll.find_one()
 
         set_name = client_context.replica_set_name
         if set_name:
@@ -365,7 +365,7 @@ class TestSASLPlain(PyMongoTestCase):
                 authSource=SASL_DB,
                 authMechanism="PLAIN",
             )
-            client.ldap.test.find_one()
+            client.ldap.coll.find_one()
 
             uri = "mongodb://%s:%s@%s:%d/?authMechanism=PLAIN;authSource=%s;replicaSet=%s" % (
                 quote_plus(SASL_USER),
@@ -376,7 +376,7 @@ class TestSASLPlain(PyMongoTestCase):
                 str(set_name),
             )
             client = self.simple_client(uri)
-            client.ldap.test.find_one()
+            client.ldap.coll.find_one()
 
     def test_sasl_plain_bad_credentials(self):
         def auth_string(user, password):
@@ -596,13 +596,13 @@ class TestSCRAM(IntegrationTest):
         client.testscram.command("dbstats")
 
         client = self.rs_or_single_client_noauth(
-            username="IX", password="I\u00ADX", authSource="testscram"
+            username="IX", password="I\u00adX", authSource="testscram"
         )
         client.testscram.command("dbstats")
 
         client = self.rs_or_single_client_noauth(
             username="IX",
-            password="I\u00ADX",
+            password="I\u00adX",
             authSource="testscram",
             authMechanism="SCRAM-SHA-256",
         )
@@ -623,7 +623,7 @@ class TestSCRAM(IntegrationTest):
         client.testscram.command("dbstats")
 
         client = self.rs_or_single_client_noauth(
-            "mongodb://IX:I\u00ADX@%s:%d/testscram" % (host, port)
+            "mongodb://IX:I\u00adX@%s:%d/testscram" % (host, port)
         )
         client.testscram.command("dbstats")
         client = self.rs_or_single_client_noauth("mongodb://IX:IX@%s:%d/testscram" % (host, port))
@@ -650,13 +650,13 @@ class TestSCRAM(IntegrationTest):
 
     @client_context.require_sync
     def test_scram_threaded(self):
-        coll = client_context.client.db.test
+        coll = client_context.client.db.coll
         coll.drop()
         coll.insert_one({"_id": 1})
 
         # The first thread to call find() will authenticate
         client = self.rs_or_single_client()
-        coll = client.db.test
+        coll = client.db.coll
         threads = []
         for _ in range(4):
             threads.append(AutoAuthenticateThread(coll))

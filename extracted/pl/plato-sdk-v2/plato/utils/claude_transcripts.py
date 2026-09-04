@@ -35,6 +35,7 @@ from opentelemetry import trace as otel_trace
 from opentelemetry.trace import NonRecordingSpan, Span, SpanContext, TraceFlags, Tracer
 
 from plato.otel import DeferredStepSpan, emit_step, start_deferred_step_span
+from plato.utils.mcp_content import parse_content_blocks
 from plato.utils.tool_execution import (
     ToolExecutionRecorderLike,
     ToolExecutionStatus,
@@ -532,71 +533,30 @@ class ClaudeTranscriptEmitter:
     ) -> tuple[dict[str, Any], str | None, str | None]:
         """Normalize a Claude tool_result block into observation payload + optional image."""
         file_path = tool_call_path(tool_input)
-        text_parts: list[str] = []
         attachments: list[dict[str, Any]] = []
         screenshot: str | None = None
         screenshot_format: str | None = None
 
-        if isinstance(content, list):
-            for item in content:
-                if isinstance(item, str):
-                    text_parts.append(item)
-                    continue
-                if not isinstance(item, dict):
-                    text_parts.append(json.dumps(item, default=str))
-                    continue
-
-                item_type = item.get("type")
-                if item_type == "text":
-                    text_parts.append(item.get("text", ""))
-                    continue
-                if item_type == "image":
-                    source = item.get("source", {})
-                    if isinstance(source, dict):
-                        data = source.get("data")
-                        media_type = source.get("media_type")
-                        if isinstance(data, str) and data:
-                            if screenshot is None:
-                                screenshot = data
-                                screenshot_format = media_type if isinstance(media_type, str) else "image/png"
-                            attachments.append(
-                                {
-                                    "type": "image",
-                                    "base64": data,
-                                    "media_type": media_type,
-                                    **({"file_path": file_path} if file_path else {}),
-                                }
-                            )
-                            continue
-                attachments.append(item)
-        elif isinstance(content, str):
+        if isinstance(content, str):
             # Claude Code delivers MCP tool results as a JSON string shaped like
             # {"content": [{"type": "image", "data": "...", "mimeType": "..."}, ...]}
             # Peek inside to extract a screenshot for atif.step.screenshot without
             # changing what goes into the observation text.
             try:
-                parsed = json.loads(content)
+                parsed_json = json.loads(content)
             except (json.JSONDecodeError, TypeError):
-                parsed = None
-            if isinstance(parsed, dict) and isinstance(parsed.get("content"), list):
-                for item in parsed["content"]:
-                    if isinstance(item, dict) and item.get("type") == "image":
-                        data = item.get("data")
-                        media_type = item.get("mimeType") or item.get("media_type")
-                        if isinstance(data, str) and data and screenshot is None:
-                            screenshot = data
-                            screenshot_format = media_type if isinstance(media_type, str) else "image/jpeg"
-            text_parts.append(content)
+                parsed_json = None
+            if isinstance(parsed_json, dict) and isinstance(parsed_json.get("content"), list):
+                inner = parse_content_blocks(parsed_json["content"], tool_name=tool_name)
+                screenshot, screenshot_format = inner.screenshot, inner.screenshot_format
+            text_content = content.strip()
         else:
-            text_parts.append(json.dumps(content, default=str))
+            parsed = parse_content_blocks(content, tool_name=tool_name, file_path=file_path)
+            text_content = parsed.text
+            attachments = parsed.attachments
+            screenshot, screenshot_format = parsed.screenshot, parsed.screenshot_format
 
-        text_content = "\n".join(part for part in text_parts if part).strip()
         text_content = self._resolve_tool_result_text(text_content)
-        if not text_content:
-            if attachments and file_path:
-                text_content = f"Read image file: {file_path}"
-            elif attachments:
-                text_content = f"{tool_name} returned {len(attachments)} attachment(s)"
 
         result: dict[str, Any] = {
             "source_call_id": tool_use_id,

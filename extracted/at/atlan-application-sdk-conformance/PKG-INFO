@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: atlan-application-sdk-conformance
-Version: 0.26.0
+Version: 0.27.0
 Summary: Conformance suite, remediation programs, and CLI for the Atlan Application SDK
 Author-email: Atlan App Team <connect@atlan.com>
 License-Expression: Apache-2.0

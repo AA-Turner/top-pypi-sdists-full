@@ -64,6 +64,7 @@ from .literals import (
     RecommendationTypeType,
     RegistryRecordStatusType,
     ResourceContentTypeType,
+    ResultDestinationType,
     RoleType,
     SessionStatusType,
     TaskStatusType,
@@ -717,8 +718,10 @@ class FilterValueTypeDef(TypedDict):
 TimestampTypeDef = Union[datetime, str]
 
 class CloudWatchOutputConfigTypeDef(TypedDict):
-    logGroupName: str
-    logStreamName: str
+    logGroupName: NotRequired[str]
+    logStreamName: NotRequired[str]
+    metricsNamespace: NotRequired[str]
+    resultDestination: NotRequired[ResultDestinationType]
 
 class ToolResultStructuredContentTypeDef(TypedDict):
     taskId: NotRequired[str]
@@ -2114,7 +2117,8 @@ class CertificateTypeDef(TypedDict):
 
 class CloudWatchLogsSourceOutputTypeDef(TypedDict):
     serviceNames: list[str]
-    logGroupNames: list[str]
+    logGroupNames: NotRequired[list[str]]
+    logGroupNamePrefixes: NotRequired[list[str]]
     filterConfig: NotRequired[CloudWatchFilterConfigOutputTypeDef]
 
 class CloudWatchLogsRuleOutputTypeDef(TypedDict):
@@ -2436,7 +2440,8 @@ class MemoryRecordUpdateInputTypeDef(TypedDict):
 
 class CloudWatchLogsSourceTypeDef(TypedDict):
     serviceNames: Sequence[str]
-    logGroupNames: Sequence[str]
+    logGroupNames: NotRequired[Sequence[str]]
+    logGroupNamePrefixes: NotRequired[Sequence[str]]
     filterConfig: NotRequired[CloudWatchFilterConfigTypeDef]
 
 class ABTestResultsTypeDef(TypedDict):
@@ -2935,6 +2940,7 @@ class StartBatchEvaluationRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     kmsKeyArn: NotRequired[str]
     description: NotRequired[str]
+    outputConfig: NotRequired[OutputConfigTypeDef]
 
 class CreatePaymentInstrumentResponseTypeDef(TypedDict):
     paymentInstrument: PaymentInstrumentTypeDef

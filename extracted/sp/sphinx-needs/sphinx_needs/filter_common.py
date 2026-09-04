@@ -91,12 +91,12 @@ class FilterBase(SphinxDirective):
 
         # Add the need and all needed information
         collected_filter_options: FilterAttributesType = {
-            "status": status,
+            "status": status,  # ty: ignore[invalid-argument-type]
             "tags": tags,
             "types": types,
-            "filter": self.options.get("filter"),
-            "sort_by": self.options.get("sort_by"),
-            "filter_code": self.content,
+            "filter": self.options.get("filter"),  # ty: ignore[invalid-argument-type]
+            "sort_by": self.options.get("sort_by"),  # ty: ignore[invalid-argument-type]
+            "filter_code": self.content,  # ty: ignore[invalid-argument-type]
             "filter_func": self.options.get("filter-func"),
             "filter_warning": self.options.get("filter_warning"),
         }
@@ -190,10 +190,10 @@ def process_filters(
             # TODO better context type
             context: dict[str, NeedsAndPartsListView] = {
                 "needs": needs_view.to_list_with_parts(),
-                "results": [],  # type: ignore[dict-item]
-            }
+                "results": [],
+            }  # ty: ignore[invalid-assignment]
             exec(filter_code, context)
-            found_dirty_needs = context["results"]  # type: ignore[assignment]
+            found_dirty_needs = context["results"]  # ty: ignore[invalid-assignment]
         elif ff_result:  # code from external file
             full_filter.append(ff_result.sig)
             args = []
@@ -275,6 +275,85 @@ def process_filters(
     return found_needs
 
 
+def filter_scope_ids(
+    needs_view: NeedsView,
+    config: NeedsSphinxConfig,
+    /,
+    *,
+    status: list[str],
+    tags: list[str],
+    types: list[str],
+    filter: str | None,
+    location: nodes.Element,
+    origin_docname: str,
+) -> frozenset[str] | None:
+    """Resolve the selection options of a chart directive into a scope of needs.
+
+    ``needpie`` and ``needbar`` count one filter per content line or grid cell,
+    rather than the single filter the need-listing directives take.
+    The four selection options therefore do not select what such a chart *shows*;
+    they select the needs (and parts) it counts over, once for the whole chart.
+    Each content line is then counted as ``line-result`` intersected with this scope,
+    so a line can only ever count needs that are in the scope,
+    and a literal numeric line is not affected at all.
+
+    The scope is the same set of needs that the same four options select on a
+    need-listing directive such as ``needlist``: each option narrows the view in
+    turn, exactly as ``process_filters`` narrows it there, each one matching
+    any-of its own values; ``:types:`` matches the directive name or the
+    human-readable type title; and ``:filter:`` is evaluated last, over needs
+    *and* parts. Parts follow their need for ``:status:``, ``:tags:`` and
+    ``:types:``, exactly as they do there -- including that the ``id`` fast path
+    admits sibling parts once the view has been narrowed, which is inherited
+    behaviour rather than a property of the scope.
+
+    :param needs_view: all needs of the project, unfiltered.
+    :param config: used to evaluate the ``filter`` expression.
+    :param status: the ``:status:`` option values, empty if the option was not given.
+    :param tags: the ``:tags:`` option values, empty if the option was not given.
+    :param types: the ``:types:`` option values, empty if the option was not given.
+    :param filter: the ``:filter:`` option value, None if the option was not given.
+    :param location: the chart node, used to locate warnings of an invalid ``filter``.
+    :param origin_docname: the document the chart is written on,
+        so that ``c.this_doc()`` can be used in ``filter``.
+
+    :return: the ``id_complete`` of every need and part in the scope,
+        or None if no selection option was given.
+        None means "no scope", which is not the same as an empty scope:
+        an unscoped chart counts its lines over the whole project.
+    """
+    if not (status or tags or types or filter):
+        # no selection option given: the chart counts over the whole project,
+        # exactly as it did before these options existed
+        return None
+
+    # the same narrowing calls, in the same order, that process_filters applies
+    # for a need-listing directive, so that the scope of a chart and the result
+    # of a needlist with the same options hold the same needs
+    filtered_needs = needs_view
+    if status:
+        filtered_needs = filtered_needs.filter_statuses(status)
+    if tags:
+        filtered_needs = filtered_needs.filter_has_tag(tags)
+    if types:
+        filtered_needs = filtered_needs.filter_types(types, or_type_names=True)
+
+    parts = filtered_needs.to_list_with_parts()
+    members: Iterable[NeedItem | NeedPartItem] = (
+        filter_needs_parts(
+            parts,
+            config,
+            filter,
+            location=location,
+            origin_docname=origin_docname,
+        )
+        if filter
+        else parts
+    )
+
+    return frozenset(need["id_complete"] for need in members)
+
+
 def resolve_max_items(max_items: int | None, config: NeedsSphinxConfig) -> int:
     """Resolve the effective item limit of a view directive.
 
@@ -312,7 +391,7 @@ def apply_max_items(
 def filter_needs_mutable(
     needs: NeedsMutable,
     config: NeedsSphinxConfig,
-    filter_string: None | str = "",
+    filter_string: str | None = "",
     current_need: NeedItem | None = None,
     *,
     location: tuple[str, int | None] | nodes.Node | None = None,
@@ -386,16 +465,16 @@ def _analyze_and_apply_expr(
 
             if field == "id":
                 # id == value
-                return needs.filter_ids([value]), False  # type: ignore[list-item]
+                return needs.filter_ids([value]), False  # ty: ignore[invalid-argument-type]
             elif field == "type":
                 # type == value
-                return needs.filter_types([value]), False  # type: ignore[list-item]
+                return needs.filter_types([value]), False  # ty: ignore[invalid-argument-type]
             elif field == "status":
                 # status == value
-                return needs.filter_statuses([value]), False  # type: ignore[list-item]
+                return needs.filter_statuses([value]), False  # ty: ignore[invalid-argument-type]
             elif field == "is_external":
                 # is_external == value
-                return needs.filter_is_external(value), False  # type: ignore[arg-type]
+                return needs.filter_is_external(value), False  # ty: ignore[invalid-argument-type]
 
         elif len(expr.ops) == 1 and isinstance(expr.ops[0], ast.In):
             # <expr1> in <expr2>
@@ -445,7 +524,7 @@ def _analyze_and_apply_expr(
 def filter_needs_view(
     needs: NeedsView,
     config: NeedsSphinxConfig,
-    filter_string: None | str = "",
+    filter_string: str | None = "",
     current_need: NeedItem | None = None,
     *,
     location: tuple[str, int | None] | nodes.Node | None = None,
@@ -486,7 +565,7 @@ def filter_needs_view(
 def filter_needs_parts(
     needs: NeedsAndPartsListView,
     config: NeedsSphinxConfig,
-    filter_string: None | str = "",
+    filter_string: str | None = "",
     current_need: NeedItem | None = None,
     *,
     location: tuple[str, int | None] | nodes.Node | None = None,
@@ -528,14 +607,14 @@ def filter_needs_parts(
 def filter_needs(
     needs: Iterable[NeedItem],
     config: NeedsSphinxConfig,
-    filter_string: None | str = "",
+    filter_string: str | None = "",
     current_need: NeedItem | None = None,
     *,
     location: tuple[str, int | None] | nodes.Node | None = None,
     append_warning: str = "",
     origin_docname: str | None = None,
 ) -> list[NeedItem]:
-    return filter_needs_and_parts(  # type: ignore[return-value]
+    return filter_needs_and_parts(
         needs,
         config,
         filter_string=filter_string,
@@ -543,14 +622,14 @@ def filter_needs(
         location=location,
         append_warning=append_warning,
         origin_docname=origin_docname,
-    )
+    )  # ty: ignore[invalid-return-type]
 
 
 @measure_time("filtering")
 def filter_needs_and_parts(
     needs: Iterable[NeedItem | NeedPartItem],
     config: NeedsSphinxConfig,
-    filter_string: None | str = "",
+    filter_string: str | None = "",
     current_need: NeedItem | NeedPartItem | None = None,
     *,
     location: tuple[str, int | None] | nodes.Node | None = None,

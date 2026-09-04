@@ -2,16 +2,12 @@
 
 import typing
 
-from .. import core
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.batch_write_options import BatchWriteOptions
 from ..types.batch_write_response import BatchWriteResponse
-from ..types.labric_upload_file_schema import LabricUploadFileSchema
 from ..types.query_result import QueryResult
-from ..types.table_schema_info_schema import TableSchemaInfoSchema
-from ..types.tools_file_content_schema import ToolsFileContentSchema
-from ..types.tools_file_info_schema import ToolsFileInfoSchema
+from ..types.queryable_table_schema import QueryableTableSchema
 from .raw_client import AsyncRawToolsClient, RawToolsClient
 from .types.labric_read_schema_mode import LabricReadSchemaMode
 from .types.labric_read_schema_target_type import LabricReadSchemaTargetType
@@ -208,7 +204,9 @@ class ToolsClient:
 
         Runs the query against the organization's read replica, so it cannot
         mutate data. Only SELECT statements are accepted. Supports positional
-        parameters via a params list. Use the schema tool to discover tables
+        parameters: write %s placeholders in the query and pass the values in
+        order in the params list. Named :param placeholders belong to saved
+        dataset queries and are not accepted here. Use the schema tool to discover tables
         first, and reference each column by its sql_column_name — foreign keys
         carry an _id suffix in SQL (e.g. a 'sample' reference is the 'sample_id'
         column).
@@ -243,61 +241,9 @@ class ToolsClient:
         _response = self._raw_client.execute_sql(query=query, params=params, request_options=request_options)
         return _response.data
 
-    def upload_file(
-        self,
-        *,
-        file: core.File,
-        job_execution_id: typing.Optional[str] = OMIT,
-        instrument_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> LabricUploadFileSchema:
-        """
-        Upload a file.
-
-        Accepts a multipart/form-data file upload, stores it in GCS, and returns the
-        created file record. At least one of job_execution_id and instrument_id is
-        required: pass a job_execution_id for an artifact of a job running in a
-        sandbox, which also records provenance linking the file to that execution,
-        and pass an instrument_id for data captured off-platform by an instrument the
-        Sync app cannot reach, which attaches the file to that instrument so
-        instrument triggers and parsers pick it up.
-
-        Requires an API key with the `write` scope.
-
-        Parameters
-        ----------
-        file : core.File
-            See core.File for more documentation
-
-        job_execution_id : typing.Optional[str]
-
-        instrument_id : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        LabricUploadFileSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.upload_file()
-        """
-        _response = self._raw_client.upload_file(
-            file=file, job_execution_id=job_execution_id, instrument_id=instrument_id, request_options=request_options
-        )
-        return _response.data
-
     def get_schema(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[TableSchemaInfoSchema]:
+    ) -> typing.List[QueryableTableSchema]:
         """
         Describe the organization's data schema.
 
@@ -306,8 +252,10 @@ class ToolsClient:
         nullability, uniqueness, and foreign-key targets. Each column carries two
         names: 'name' is what the read and write tools accept, and 'sql_column_name'
         is the physical column for SQL queries (foreign keys carry an _id suffix).
-        This is the map a parser writes into: use it to plan which tables to
-        populate and how rows link.
+        The org's own tables are followed by the platform tables (core_experiment,
+        core_instrument, and similar) that SQL queries can join against; those have
+        no id or semantic category. This is the map a parser writes into: use it to
+        plan which tables to populate and how rows link.
 
         Requires an API key with the `read` scope.
 
@@ -318,7 +266,7 @@ class ToolsClient:
 
         Returns
         -------
-        typing.List[TableSchemaInfoSchema]
+        typing.List[QueryableTableSchema]
             OK
 
         Examples
@@ -331,99 +279,6 @@ class ToolsClient:
         client.tools.get_schema()
         """
         _response = self._raw_client.get_schema(request_options=request_options)
-        return _response.data
-
-    def list_files(
-        self,
-        *,
-        instrument_id: typing.Optional[str] = None,
-        extensions: typing.Optional[str] = None,
-        query: typing.Optional[str] = None,
-        limit: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[ToolsFileInfoSchema]:
-        """
-        List source data files available for parser development.
-
-        Returns a representative set of uploaded files for the org, newest first.
-        Filter by instrument_id, comma-separated file extensions (e.g. "csv,txt"),
-        or a substring of the file name. Use the file-content tool to inspect a
-        file's raw contents.
-
-        Requires an API key with the `read` scope.
-
-        Parameters
-        ----------
-        instrument_id : typing.Optional[str]
-
-        extensions : typing.Optional[str]
-
-        query : typing.Optional[str]
-
-        limit : typing.Optional[int]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[ToolsFileInfoSchema]
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.list_files()
-        """
-        _response = self._raw_client.list_files(
-            instrument_id=instrument_id,
-            extensions=extensions,
-            query=query,
-            limit=limit,
-            request_options=request_options,
-        )
-        return _response.data
-
-    def get_file_content(
-        self, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ToolsFileContentSchema:
-        """
-        Fetch a source file's content for inspecting raw instrument output.
-
-        Returns a presigned download URL plus a best-effort UTF-8 text preview of
-        the start of the file. Large files return a URL only (no inline preview);
-        fetch the full bytes via the URL when needed.
-
-        Requires an API key with the `read` scope.
-
-        Parameters
-        ----------
-        file_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsFileContentSchema
-            OK
-
-        Examples
-        --------
-        from labric import Labric
-
-        client = Labric(
-            api_key="YOUR_API_KEY",
-        )
-        client.tools.get_file_content(
-            file_id="file_id",
-        )
-        """
-        _response = self._raw_client.get_file_content(file_id, request_options=request_options)
         return _response.data
 
     def batch_write(
@@ -683,7 +538,9 @@ class AsyncToolsClient:
 
         Runs the query against the organization's read replica, so it cannot
         mutate data. Only SELECT statements are accepted. Supports positional
-        parameters via a params list. Use the schema tool to discover tables
+        parameters: write %s placeholders in the query and pass the values in
+        order in the params list. Named :param placeholders belong to saved
+        dataset queries and are not accepted here. Use the schema tool to discover tables
         first, and reference each column by its sql_column_name — foreign keys
         carry an _id suffix in SQL (e.g. a 'sample' reference is the 'sample_id'
         column).
@@ -726,69 +583,9 @@ class AsyncToolsClient:
         _response = await self._raw_client.execute_sql(query=query, params=params, request_options=request_options)
         return _response.data
 
-    async def upload_file(
-        self,
-        *,
-        file: core.File,
-        job_execution_id: typing.Optional[str] = OMIT,
-        instrument_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> LabricUploadFileSchema:
-        """
-        Upload a file.
-
-        Accepts a multipart/form-data file upload, stores it in GCS, and returns the
-        created file record. At least one of job_execution_id and instrument_id is
-        required: pass a job_execution_id for an artifact of a job running in a
-        sandbox, which also records provenance linking the file to that execution,
-        and pass an instrument_id for data captured off-platform by an instrument the
-        Sync app cannot reach, which attaches the file to that instrument so
-        instrument triggers and parsers pick it up.
-
-        Requires an API key with the `write` scope.
-
-        Parameters
-        ----------
-        file : core.File
-            See core.File for more documentation
-
-        job_execution_id : typing.Optional[str]
-
-        instrument_id : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        LabricUploadFileSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.upload_file()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.upload_file(
-            file=file, job_execution_id=job_execution_id, instrument_id=instrument_id, request_options=request_options
-        )
-        return _response.data
-
     async def get_schema(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[TableSchemaInfoSchema]:
+    ) -> typing.List[QueryableTableSchema]:
         """
         Describe the organization's data schema.
 
@@ -797,8 +594,10 @@ class AsyncToolsClient:
         nullability, uniqueness, and foreign-key targets. Each column carries two
         names: 'name' is what the read and write tools accept, and 'sql_column_name'
         is the physical column for SQL queries (foreign keys carry an _id suffix).
-        This is the map a parser writes into: use it to plan which tables to
-        populate and how rows link.
+        The org's own tables are followed by the platform tables (core_experiment,
+        core_instrument, and similar) that SQL queries can join against; those have
+        no id or semantic category. This is the map a parser writes into: use it to
+        plan which tables to populate and how rows link.
 
         Requires an API key with the `read` scope.
 
@@ -809,7 +608,7 @@ class AsyncToolsClient:
 
         Returns
         -------
-        typing.List[TableSchemaInfoSchema]
+        typing.List[QueryableTableSchema]
             OK
 
         Examples
@@ -830,115 +629,6 @@ class AsyncToolsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_schema(request_options=request_options)
-        return _response.data
-
-    async def list_files(
-        self,
-        *,
-        instrument_id: typing.Optional[str] = None,
-        extensions: typing.Optional[str] = None,
-        query: typing.Optional[str] = None,
-        limit: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[ToolsFileInfoSchema]:
-        """
-        List source data files available for parser development.
-
-        Returns a representative set of uploaded files for the org, newest first.
-        Filter by instrument_id, comma-separated file extensions (e.g. "csv,txt"),
-        or a substring of the file name. Use the file-content tool to inspect a
-        file's raw contents.
-
-        Requires an API key with the `read` scope.
-
-        Parameters
-        ----------
-        instrument_id : typing.Optional[str]
-
-        extensions : typing.Optional[str]
-
-        query : typing.Optional[str]
-
-        limit : typing.Optional[int]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[ToolsFileInfoSchema]
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.list_files()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.list_files(
-            instrument_id=instrument_id,
-            extensions=extensions,
-            query=query,
-            limit=limit,
-            request_options=request_options,
-        )
-        return _response.data
-
-    async def get_file_content(
-        self, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ToolsFileContentSchema:
-        """
-        Fetch a source file's content for inspecting raw instrument output.
-
-        Returns a presigned download URL plus a best-effort UTF-8 text preview of
-        the start of the file. Large files return a URL only (no inline preview);
-        fetch the full bytes via the URL when needed.
-
-        Requires an API key with the `read` scope.
-
-        Parameters
-        ----------
-        file_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ToolsFileContentSchema
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from labric import AsyncLabric
-
-        client = AsyncLabric(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.tools.get_file_content(
-                file_id="file_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_file_content(file_id, request_options=request_options)
         return _response.data
 
     async def batch_write(

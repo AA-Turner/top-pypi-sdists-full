@@ -110,7 +110,7 @@ def test_pretty_printed_hook_json_is_accepted(
     assert payload == {"decision": "allow", "policy_action": "warn"}
 
 
-def test_timeout_denies_grok_when_watch_has_expired(
+def test_timeout_allows_grok_when_watch_has_expired(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -143,7 +143,7 @@ def test_timeout_denies_grok_when_watch_has_expired(
 
     payload = _json_object(output.getvalue())
     assert returncode == 0
-    assert payload["decision"] == "deny"
+    assert payload["decision"] == "allow"
 
 
 def test_oversized_input_allows_grok_when_watch(
@@ -191,3 +191,24 @@ def test_oversized_input_preserves_kimi_event_when_watch(
     assert isinstance(hook_output, dict)
     assert hook_output["hookEventName"] == "UserPromptSubmit"
     assert hook_output["permissionDecision"] == "allow"
+
+
+def test_timeout_continues_post_tool_for_grok(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        bounded_cli_hook_bridge,
+        "run_isolated_hook_process",
+        _runner_result(BoundedHookProcessResult(None, "", False, True)),
+    )
+    output = io.StringIO()
+    with redirect_stdout(output):
+        returncode = bounded_cli_hook_bridge.run_bounded_cli_hook(
+            _config(tmp_path, harness="grok"),
+            input_text=json.dumps({"hook_event_name": "PostToolUse"}),
+        )
+
+    payload = _json_object(output.getvalue())
+    assert returncode == 0
+    assert payload["decision"] == "allow"

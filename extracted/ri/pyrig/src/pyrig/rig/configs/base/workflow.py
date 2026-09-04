@@ -29,7 +29,10 @@ class WorkflowConfigFile(YMLDictConfigFile):
     overriding the trigger, default, and environment methods. The base class
     provides composable building blocks for jobs, steps, strategies,
     triggers, and expression helpers so subclasses can assemble complete
-    workflows without writing raw YAML.
+    workflows without writing raw YAML. Workflows deny all `GITHUB_TOKEN`
+    permissions by default; jobs that check out the repository must explicitly
+    request `self.permission_contents()` (or a broader permission when
+    required).
 
     Attributes:
         UBUNTU_LATEST: Runner label for Ubuntu (`"ubuntu-latest"`).
@@ -43,6 +46,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
         ...     def jobs(self) -> dict[str, Any]:
         ...         return self.job(
         ...             self.jobs,
+        ...             permissions=self.permission_contents(),
         ...             steps=self.steps_core_installed_setup(),
         ...         )
         ...
@@ -79,17 +83,116 @@ class WorkflowConfigFile(YMLDictConfigFile):
 
         Returns:
             Top-level workflow configuration with `name`, `on`,
-            `defaults`, `env`, `run-name`, and `jobs` keys populated from
-            the overridable methods.
+            `permissions`, `concurrency`, `defaults`, `env`, `run-name`, and
+            `jobs` keys populated from the overridable methods. The default
+            permissions policy denies all `GITHUB_TOKEN` access.
         """
         return {
             "name": self.workflow_name(),
             "on": self.workflow_triggers(),
+            "permissions": self.permissions(),
+            "concurrency": self.concurrency(),
             "defaults": self.defaults(),
             "env": self.global_env(),
             "run-name": self.run_name(),
             "jobs": self.jobs(),
         }
+
+    def permissions(self) -> dict[str, Any]:
+        """Return the workflow's default `GITHUB_TOKEN` permissions.
+
+        Denies all permissions by default so that jobs receive no token
+        access unless they explicitly declare what they need, rather than
+        relying on the ambient repository/organization default (which is
+        not visible from the workflow file and can be broader than expected).
+
+        Returns:
+            Empty dict, denying every permission.
+        """
+        return {}
+
+    def permission_contents(self, *, write: bool = False) -> dict[str, str]:
+        """Return the permission needed to read or write repository contents.
+
+        Args:
+            write: Whether the permission should be write (`True`) or read (`False`).
+
+        Returns:
+            Dict with the "contents" permission set to either "write" or "read".
+        """
+        return self.permission("contents", write=write)
+
+    def permission_id_token(self, *, write: bool = False) -> dict[str, str]:
+        """Return the permission needed to mint an OIDC token.
+
+        Args:
+            write: Whether the permission should be write (`True`) or read (`False`).
+
+        Returns:
+            Dict with the "id-token" permission set to either "write" or "read".
+        """
+        return self.permission("id-token", write=write)
+
+    def permission_pages(self, *, write: bool = False) -> dict[str, str]:
+        """Return the permission needed to deploy to GitHub Pages, optionally as write.
+
+        Args:
+            write: Whether the permission should be write (`True`) or read (`False`).
+
+        Returns:
+            Dict with the "pages" permission set to either "write" or "read".
+        """
+        return self.permission("pages", write=write)
+
+    def permission_packages(self, *, write: bool = False) -> dict[str, str]:
+        """Return the permission needed to read or write GitHub Packages.
+
+        Args:
+            write: Whether the permission should be write (`True`) or read (`False`).
+
+        Returns:
+            Dict with the "packages" permission set to either "write" or "read".
+        """
+        return self.permission("packages", write=write)
+
+    def permission(self, name: str, *, write: bool = False) -> dict[str, str]:
+        """Return a permission dictionary for the given permission name.
+
+        Args:
+            name: The name of the permission.
+            write: Whether the permission should be write (`True`) or read (`False`).
+
+        Returns:
+            Dict with the permission name mapped to either "write" or "read".
+        """
+        return {name: "write" if write else "read"}
+
+    def concurrency(self) -> dict[str, Any]:
+        """Return the workflow's concurrency setting.
+
+        Groups runs by workflow and ref so that superseded runs are queued
+        or cancelled instead of running redundantly alongside newer ones.
+
+        Returns:
+            Dict of concurrency settings.
+        """
+        return {
+            "group": self.insert_github_workflow_and_ref(),
+            "cancel-in-progress": self.concurrency_cancel_in_progress(),
+        }
+
+    def concurrency_cancel_in_progress(self) -> bool:
+        """Return whether superseded runs of this workflow should be cancelled.
+
+        Override to `False` for workflows that mutate external state (e.g.
+        publishing a release or package) and therefore shouldn't be
+        interrupted mid-run; such runs are still serialized via the shared
+        concurrency group, just not cancelled.
+
+        Returns:
+            `True` by default.
+        """
+        return True
 
     def parent_path(self) -> Path:
         """Return the GitHub Actions workflows directory."""
@@ -168,19 +271,20 @@ class WorkflowConfigFile(YMLDictConfigFile):
         Returns:
             Dict mapping the derived job ID to its configuration.
         """
-        job = {}
+        job_id = self.job_id_from_method(method)
+        job = {"name": self.name_from_id(job_id)}
+        if permissions is not None:
+            job["permissions"] = permissions
         if if_condition is not None:
             job["if"] = if_condition
         if needs is not None:
             job["needs"] = needs
-        if permissions is not None:
-            job["permissions"] = permissions
         job["runs-on"] = runs_on
         if strategy is not None:
             job["strategy"] = strategy
         if steps is not None:
             job["steps"] = steps
-        return {self.job_id_from_method(method): job}
+        return {job_id: job}
 
     def step(  # noqa: PLR0913
         self,
@@ -533,7 +637,8 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """Build the base checkout and environment setup steps.
 
         Checks out the repository and installs the package manager (`uv`) with
-        the specified Python version.
+        the specified Python version. The containing job must grant at least
+        `contents: read` through `permission_contents()`.
 
         Args:
             python_version: Python version string for `uv`. Defaults to the
@@ -556,7 +661,9 @@ class WorkflowConfigFile(YMLDictConfigFile):
 
         Uses `actions/checkout@main`, which authenticates with the automatic
         `GITHUB_TOKEN`. Credential persistence is disabled since no later
-        step needs the checked-out git credentials.
+        step needs the checked-out git credentials. The containing job must
+        grant at least `contents: read` through
+        `permission_contents()`.
 
         Returns:
             Step using `actions/checkout@main`.
@@ -691,6 +798,31 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return self.insert_expression("matrix.python-version")
 
+    def insert_github_workflow(self) -> str:
+        """Return the expression that resolves to the current workflow's name.
+
+        Returns:
+            GitHub Actions expression for `github.workflow`.
+        """
+        return self.insert_expression("github.workflow")
+
+    def insert_github_ref(self) -> str:
+        """Return the expression that resolves to the triggering ref.
+
+        Returns:
+            GitHub Actions expression for `github.ref`.
+        """
+        return self.insert_expression("github.ref")
+
+    def insert_github_workflow_and_ref(self) -> str:
+        """Return the workflow name and ref joined into one group key.
+
+        Returns:
+            The `insert_github_workflow()` and `insert_github_ref()`
+            expressions joined by a hyphen.
+        """
+        return f"{self.insert_github_workflow()}-{self.insert_github_ref()}"
+
     def shell_insert_expression(self, var: str) -> str:
         """Wrap an expression in shell command substitution `$( ... )` syntax.
 
@@ -723,10 +855,9 @@ class WorkflowConfigFile(YMLDictConfigFile):
             GitHub Actions condition, true when the triggering workflow run
             both succeeded and was itself triggered by a push event.
         """
-        return self.combined_if(
+        return self.combined_if_and(
             self.if_workflow_run_is_success(),
             self.if_workflow_run_is_push_triggered(),
-            operator="&&",
         )
 
     def if_workflow_run_is_success(self) -> str:
@@ -753,6 +884,22 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return "github.event.workflow_run.event == 'push'"
 
+    def combined_if_and(self, *conditions: str) -> str:
+        """Combine bare GitHub Actions conditions with a logical AND.
+
+        Returns:
+            The combined condition, one input condition per line.
+        """
+        return self.combined_if(*conditions, operator="&&")
+
+    def combined_if_or(self, *conditions: str) -> str:
+        """Combine bare GitHub Actions conditions with a logical OR.
+
+        Returns:
+            The combined condition, one input condition per line.
+        """
+        return self.combined_if(*conditions, operator="||")
+
     def combined_if(self, *conditions: str, operator: str) -> str:
         """Combine bare GitHub Actions conditions with a logical operator.
 
@@ -763,7 +910,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
         an expression automatically, and only the bare form supports
         splitting a condition across multiple lines — a `${{ }}`-wrapped
         multi-line value is read as a literal string instead of being
-        evaluated.
+        evaluated. If one condition is provided, it is returned unchanged.
 
         Args:
             *conditions: Bare condition expressions (no `${{ }}` wrapper).

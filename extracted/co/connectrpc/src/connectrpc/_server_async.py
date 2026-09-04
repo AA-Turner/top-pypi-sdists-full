@@ -18,14 +18,17 @@ from ._interceptor_async import (
     BidiStreamInterceptor,
     ClientStreamInterceptor,
     Interceptor,
+    MetadataInterceptorsRun,
     ServerStreamInterceptor,
     UnaryInterceptor,
     resolve_interceptors,
+    split_leading_metadata_interceptors,
 )
-from ._protocol import ConnectWireError, HTTPException, ServerProtocol
+from ._protocol import ConnectWireError, HTTPError, ServerProtocol
 from ._protocol_connect import CONNECT_UNARY_CONTENT_TYPE_PREFIX, ConnectServerProtocol
 from ._protocol_server import negotiate_server_protocol
 from ._server_shared import (
+    DEFAULT_READ_MAX_BYTES,
     EndpointBidiStream,
     EndpointClientStream,
     EndpointServerStream,
@@ -89,7 +92,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
         service: _SVC | AsyncGenerator[_SVC],
         endpoints: Callable[[_SVC], Mapping[str, Endpoint]],
         interceptors: Iterable[Interceptor] = (),
-        read_max_bytes: int | None = None,
+        read_max_bytes: int | None = DEFAULT_READ_MAX_BYTES,
         compressions: Iterable[Compression] | None = None,
         codecs: Iterable[Codec] | None = None,
     ) -> None:
@@ -106,11 +109,14 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                           If set to empty, disables compression.
             codecs: The codecs supported by the server. If unset, defaults to Protocol Buffers
                     binary and JSON codecs.
+
         """
         super().__init__()
         self._service = service
         self._endpoints = endpoints
-        self._interceptors = interceptors
+        self._metadata_interceptors, self._interceptors = (
+            split_leading_metadata_interceptors(interceptors)
+        )
         self._resolved_endpoints = None
         self._read_max_bytes = read_max_bytes
         self._compressions = resolve_compressions(compressions)
@@ -137,7 +143,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                             )
                             try:
                                 service = await anext(service_iter)
-                            except Exception as e:
+                            except Exception as e:  # noqa: BLE001 # invoking user callback
                                 await send(
                                     {
                                         "type": "lifespan.startup.failed",
@@ -153,7 +159,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                         if service_iter is not None:
                             try:
                                 await service_iter.aclose()
-                            except Exception as e:
+                            except Exception as e:  # noqa: BLE001 # invoking user callback
                                 await send(
                                     {
                                         "type": "lifespan.shutdown.failed",
@@ -183,7 +189,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                 path = path.removeprefix(scope["root_path"])
                 endpoint = endpoints.get(path)
             if not endpoint:
-                raise HTTPException(HTTPStatus.NOT_FOUND, [])
+                raise HTTPError(HTTPStatus.NOT_FOUND, [])
 
             http_method = scope["method"]
             http_scheme = scope.get("scheme", "http")
@@ -215,7 +221,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                 )
             codec = self._codecs.get(codec_name)
             if not codec:
-                raise HTTPException(
+                raise HTTPError(
                     HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
                     [("Accept-Post", "application/json, application/proto")],
                 )
@@ -233,7 +239,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                 )
         except Exception as e:
             await self._handle_error(e, ctx, send)
-            if not isinstance(e, (ConnectError, HTTPException)):
+            if not isinstance(e, (ConnectError, HTTPError)):
                 raise
             return None
 
@@ -256,12 +262,27 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
         accept_encoding = headers.get("accept-encoding", "")
         compression = negotiate_compression(accept_encoding, self._compressions)
 
-        if http_method == "GET":
-            request = await self._read_get_request(endpoint, codec, query_params)
-        else:
-            request = await self._read_post_request(endpoint, receive, codec, headers)
-
-        response_data = await endpoint.function(request, ctx)
+        metadata_run = MetadataInterceptorsRun(self._metadata_interceptors, ctx)
+        response_data: _RES | None = None
+        error: Exception | None = None
+        try:
+            await metadata_run.start()
+            if http_method == "GET":
+                request = await self._read_get_request(endpoint, codec, query_params)
+            else:
+                request = await self._read_post_request(
+                    endpoint, receive, codec, headers
+                )
+            response_data = await endpoint.function(request, ctx)
+        except Exception as e:  # noqa: BLE001 # re-raised after ending the run
+            error = e
+        finally:
+            # End the run before sending the response so on_end can still modify
+            # response metadata.
+            error = await metadata_run.end(error)
+        if error is not None:
+            raise error
+        assert response_data is not None  # noqa: S101 # no error means function returned
 
         res_bytes = codec.encode(response_data)
         response_headers: list[tuple[bytes, bytes]] = [
@@ -327,7 +348,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
 
         # Decompress and decode message
         if message:  # Don't decompress empty messages
-            message = compression.decompress(message)
+            message = compression.decompress(message, self._read_max_bytes)
 
         # Get the appropriate decoder for the endpoint
         return codec.decode(message, endpoint.method.input)
@@ -340,9 +361,17 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
         headers: Headers,
     ) -> _REQ:
         """Handle POST request with body."""
-
         # Get request body
-        chunks: list[bytes] = [chunk async for chunk in _read_body(receive)]
+        chunks: list[bytes] = []
+        read_bytes = 0
+        async for chunk in _read_body(receive):
+            read_bytes += len(chunk)
+            if self._read_max_bytes is not None and read_bytes > self._read_max_bytes:
+                raise ConnectError(
+                    Code.RESOURCE_EXHAUSTED,
+                    f"message is larger than configured max {self._read_max_bytes}",
+                )
+            chunks.append(chunk)
         req_body = b"".join(chunks)
 
         # Handle compression if specified
@@ -355,13 +384,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
             )
 
         if req_body:  # Don't decompress empty body
-            req_body = compression.decompress(req_body)
-
-        if self._read_max_bytes is not None and len(req_body) > self._read_max_bytes:
-            raise ConnectError(
-                Code.RESOURCE_EXHAUSTED,
-                f"message is larger than configured max {self._read_max_bytes}",
-            )
+            req_body = compression.decompress(req_body, self._read_max_bytes)
 
         return codec.decode(req_body, endpoint.method.input)
 
@@ -381,9 +404,11 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
 
         writer = protocol.create_envelope_writer(codec, resp_compression)
 
+        metadata_run = MetadataInterceptorsRun(self._metadata_interceptors, ctx)
         error: Exception | None = None
         sent_headers = False
         try:
+            await metadata_run.start()
             if not req_compression:
                 raise ConnectError(
                     Code.UNIMPLEMENTED, "Unrecognized request compression"
@@ -403,9 +428,15 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                 case EndpointUnary():
                     request = await _consume_single_request(request_stream)
                     response = await endpoint.function(request, ctx)
+                    # End the run before sending the response so on_end can still
+                    # modify response metadata.
+                    if (end_error := await metadata_run.end(None)) is not None:
+                        raise end_error
                     response_stream = _yield_single_response(response)
                 case EndpointClientStream():
                     response = await endpoint.function(request_stream, ctx)
+                    if (end_error := await metadata_run.end(None)) is not None:
+                        raise end_error
                     response_stream = _yield_single_response(response)
                 case EndpointServerStream():
                     request = await _consume_single_request(request_stream)
@@ -456,9 +487,12 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                     await aclose()
         except CancelledError as e:
             raise ConnectError(Code.CANCELED, "Request was cancelled") from e
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 # invoking user callback
             error = e
         finally:
+            # End the run before ending the response so on_end can still modify
+            # response trailers. This is a no-op if the run already ended.
+            error = await metadata_run.end(error)
             end_message = writer.end(
                 ctx.response_trailers,
                 ConnectWireError.from_exception(error) if error else None,
@@ -499,7 +533,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
         headers: list[tuple[bytes, bytes]]
         body: bytes
         status: int
-        if isinstance(exc, HTTPException):
+        if isinstance(exc, HTTPError):
             status = exc.status.value
             headers = [(k.encode("utf-8"), v.encode("utf-8")) for k, v in exc.headers]
             body = b""

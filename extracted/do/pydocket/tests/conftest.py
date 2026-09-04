@@ -278,7 +278,7 @@ async def _fresh_memory_server() -> AsyncGenerator[None, None]:  # pyright: igno
     while the event loop is still alive), then clears the cache so the next
     test gets a fresh instance.
     """
-    from docket._redis import clear_memory_servers
+    from docket._redis_memory import clear_memory_servers
 
     await clear_memory_servers()
     yield
@@ -389,6 +389,9 @@ async def key_leak_checker(docket: Docket) -> AsyncGenerator[KeyCountChecker, No
             for task_name in docket.tasks:
                 await r.zrem(docket.task_workers_set(task_name), temp_worker.name)
             await r.delete(docket.worker_tasks_set(temp_worker.name))
+            # Release the sweep lease the temp worker took, so the test's own
+            # worker can win it and sweep instead of waiting it out.
+            await r.delete(docket.redelivery_sweep_key)
 
     await checker.capture_baseline()
 

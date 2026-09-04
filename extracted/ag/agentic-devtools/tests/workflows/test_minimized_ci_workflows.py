@@ -71,12 +71,12 @@ class TestMinimizedCiWorkflows:
         assert 'git config user.name "AMARSNIK_swica"' in content
         assert 'git config user.email "AMARSNIK_swica@users.noreply.github.com"' in content
 
-    def test_speckit_trigger_is_dispatch_only(self) -> None:
+    def test_speckit_trigger_bootstraps_local_guard_without_remote_clone(self) -> None:
         content = SPECKIT_TRIGGER.read_text(encoding="utf-8")
         assert "timeout-minutes: 5" in content
-        assert "actions/setup-python" not in content
-        assert "pip install" not in content
-        assert "actions/checkout" not in content
+        assert "python -m pip install ." in content
+        assert "actions/checkout@v5" in content
+        assert "uvx --from" not in content
 
     def test_ai_pr_loop_has_concurrency_group(self) -> None:
         content = AI_PR_LOOP.read_text(encoding="utf-8")

@@ -990,7 +990,7 @@ class SharepointClient(O365Client):
         self._drive_id = None
 
     def _pattern_is_api_safe(self, pattern: str) -> bool:
-        """
+        r"""
         Return True if 'pattern' can be safely passed to Graph search (no wildcards/regex),
         otherwise False (e.g., contains * ? [ ] { } ( ) ^ $ | \ ).
         """

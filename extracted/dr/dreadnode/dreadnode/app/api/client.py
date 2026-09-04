@@ -64,6 +64,12 @@ _TRANSPORT_ERRORS = (
 # timeout we can report, not a connection the edge drops out from under us.
 RUNTIME_PROVISION_TIMEOUT_SECONDS = 240.0
 
+# Inference-key provisioning runs several sequential LiteLLM admin calls
+# (list deployments, team sync, budget sync, delete + create virtual key)
+# inside one request, so it routinely outlasts the 30s default. Give it room
+# to complete rather than surfacing a spurious ReadTimeout to dn/ callers.
+INFERENCE_KEY_PROVISION_TIMEOUT_SECONDS = 120.0
+
 
 class AuthenticationError(RuntimeError):
     """Raised when the platform returns HTTP 401."""
@@ -422,6 +428,7 @@ class ApiClient:
             "POST",
             f"/org/{org_key}/inference/keys",
             json_data={"client_id": client_id},
+            timeout=INFERENCE_KEY_PROVISION_TIMEOUT_SECONDS,
         )
         return t.cast("dict[str, t.Any]", response.json())
 

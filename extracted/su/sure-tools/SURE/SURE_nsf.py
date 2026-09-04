@@ -266,7 +266,7 @@ class SURENF(nn.Module):
             self.context_tokens = nn.ModuleList()
             for context_size in self.context_sizes:
                 self.context_tokens.append(MLP(
-                        [context_size + self.latent_dim] + self.decoder_hidden_layers + [self.latent_dim],
+                        [context_size] + self.decoder_hidden_layers + [self.latent_dim],
                         activation=activate_fct,
                         output_activation=None,
                         post_layer_fct=post_layer_fct,
@@ -276,7 +276,7 @@ class SURENF(nn.Module):
                     )
                 )
             self.context_effect = MLP(
-                        [self.latent_dim] + self.decoder_hidden_layers + [self.latent_dim],
+                        [self.latent_dim+self.latent_dim] + self.decoder_hidden_layers + [self.latent_dim],
                         activation=activate_fct,
                         output_activation=None,
                         post_layer_fct=post_layer_fct,
@@ -287,7 +287,7 @@ class SURENF(nn.Module):
         
         if self.perturb_size>0:
             self.perturb_token = MLP(
-                [self.perturb_size + self.latent_dim] + self.decoder_hidden_layers + [self.latent_dim],
+                [self.perturb_size] + self.decoder_hidden_layers + [self.latent_dim],
                 activation=activate_fct,
                 output_activation=None,
                 post_layer_fct=post_layer_fct,
@@ -296,7 +296,7 @@ class SURENF(nn.Module):
                 use_cuda=self.use_cuda,
             )
             self.perturb_effect = MLP(
-                [self.latent_dim] + self.decoder_hidden_layers + [self.latent_dim],
+                [self.latent_dim+self.latent_dim] + self.decoder_hidden_layers + [self.latent_dim],
                 activation=activate_fct,
                 output_activation=None,
                 post_layer_fct=post_layer_fct,
@@ -485,17 +485,19 @@ class SURENF(nn.Module):
             zs = torch.zeros_like(zns)
             zs += zns
             if (np.sum(self.context_sizes)>0) and (cs is not None):
-                zcs = torch.zeros_like(zs)
+                zct = torch.zeros_like(zs)
                 shift = 0
                 for i, context_size in enumerate(self.context_sizes):
                     cs_i = cs[:,shift:(shift+context_size)]
-                    zcs += self.context_tokens[i]([cs_i,zs])
+                    zct += self.context_tokens[i](cs_i)
                     shift += context_size
-                zs += self.context_effect(zcs)
+                zcs = self.context_effect([zs,zct])
+                zs += zcs
 
             if (self.perturb_size>0) and (ps is not None):
-                zps = self.perturb_token([ps, zs])
-                zs += self.perturb_effect(zps)
+                zpt = self.perturb_token(ps)
+                zps = self.perturb_effect([zs,zpt])
+                zs += zps 
                 
             if (np.sum(self.covariate_sizes)>0) and (fs is not None):
                 zfs_ = torch.zeros(batch_size, self.covariate_dim).to(self.get_device())
@@ -685,20 +687,18 @@ class SURENF(nn.Module):
         z_basal = self.get_cell_embedding(xs, batch_size=batch_size, show_progress=show_progress)
         return z_basal
     
-    def get_context_token(self, z_basal, cs, i, batch_size=1024, show_progress=True):
-        z_basal = convert_to_tensor(z_basal, dtype=self.dtype, device='cpu')
+    def get_context_token(self, cs, i, batch_size=1024, show_progress=True):
         cs = convert_to_tensor(cs, dtype=self.dtype, device='cpu')
         
-        dataset = CustomDataset(z_basal)
+        dataset = CustomDataset(cs)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
         A = []
         with tqdm(total=len(dataloader), disable=not show_progress, desc='', unit='batch') as pbar:
-            for Z_batch, idx in dataloader:
-                Z_batch = Z_batch.to(self.get_device())
-                C_batch = cs[idx].to(self.get_device())
+            for C_batch, idx in dataloader:
+                C_batch = C_batch.to(self.get_device())
                 
-                dzs = self.context_tokens[i]([C_batch,Z_batch])
+                dzs = self.context_tokens[i](C_batch)
                 
                 A.append(tensor_to_numpy(dzs))
                 pbar.update(1)
@@ -706,7 +706,8 @@ class SURENF(nn.Module):
         A = np.concatenate(A)
         return A
     
-    def get_context_effect(self, zcs, batch_size=1024, show_progress=True):
+    def get_context_effect(self, zs, zcs, batch_size=1024, show_progress=True):
+        zs = convert_to_tensor(zs, dtype=self.dtype, device='cpu')
         zcs = convert_to_tensor(zcs, dtype=self.dtype, device='cpu')
         
         dataset = CustomDataset(zcs)
@@ -714,10 +715,11 @@ class SURENF(nn.Module):
 
         A = []
         with tqdm(total=len(dataloader), disable=not show_progress, desc='', unit='batch') as pbar:
-            for Z_batch, idx in dataloader:
-                Z_batch = Z_batch.to(self.get_device())
+            for C_batch, idx in dataloader:
+                C_batch = C_batch.to(self.get_device())
+                Z_batch = zs[idx].to(self.get_device())
                 
-                dzs = self.context_effect(Z_batch)
+                dzs = self.context_effect([Z_batch,C_batch])
                 
                 A.append(tensor_to_numpy(dzs))
                 pbar.update(1)
@@ -725,22 +727,18 @@ class SURENF(nn.Module):
         A = np.concatenate(A)
         return A
     
-    def get_perturb_token(self, z_basal, zcs, ps, batch_size=1024, show_progress=True):
-        z_basal = convert_to_tensor(z_basal, dtype=self.dtype, device='cpu')
-        zcs = convert_to_tensor(zcs, dtype=self.dtype, device='cpu')
+    def get_perturb_token(self, ps, batch_size=1024, show_progress=True):
         ps = convert_to_tensor(ps, dtype=self.dtype, device='cpu')
         
-        dataset = CustomDataset(z_basal)
+        dataset = CustomDataset(ps)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
         A = []
         with tqdm(total=len(dataloader), disable=not show_progress, desc='', unit='batch') as pbar:
-            for Z_batch, idx in dataloader:
-                Z_batch = Z_batch.to(self.get_device())
-                C_batch = zcs[idx].to(self.get_device())
-                P_batch = ps[idx].to(self.get_device())
+            for P_batch, idx in dataloader:
+                P_batch = P_batch.to(self.get_device())
                 
-                dzs = self.perturb_token([P_batch,Z_batch+C_batch])
+                dzs = self.perturb_token(P_batch)
                 
                 A.append(tensor_to_numpy(dzs))
                 pbar.update(1)
@@ -748,18 +746,20 @@ class SURENF(nn.Module):
         A = np.concatenate(A)
         return A
     
-    def get_perturb_effect(self, zps, batch_size=1024, show_progress=True):
+    def get_perturb_effect(self, zs, zps, batch_size=1024, show_progress=True):
+        zs = convert_to_tensor(zs, dtype=self.dtype, device='cpu')
         zps = convert_to_tensor(zps, dtype=self.dtype, device='cpu')
         
-        dataset = CustomDataset(zps)
+        dataset = CustomDataset(zs)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
         A = []
         with tqdm(total=len(dataloader), disable=not show_progress, desc='', unit='batch') as pbar:
             for Z_batch, idx in dataloader:
                 Z_batch = Z_batch.to(self.get_device())
+                P_batch = zps[idx].to(self.get_device())
                 
-                dzs = self.perturb_effect(Z_batch)
+                dzs = self.perturb_effect([Z_batch,P_batch])
                 
                 A.append(tensor_to_numpy(dzs))
                 pbar.update(1)
@@ -824,20 +824,22 @@ class SURENF(nn.Module):
                 
                 z_basal = self._get_cell_embedding(X_batch)
                 
-                zcs = torch.zeros_like(z_basal)
+                zct = torch.zeros_like(z_basal)
                 if cs_list is not None:
                     C_batch = cs[idx].to(self.get_device())
                     shift = 0
                     for i, context_size in enumerate(self.context_sizes):
                         C_batch_i = C_batch[:, shift:(shift+context_size)]
-                        zcs += self.context_tokens[i]([C_batch_i,z_basal])
+                        zct += self.context_tokens[i](C_batch_i)
                         shift += context_size
-                    z_basal += self.context_effect(zcs)
+                    zcs = self.context_effect([z_basal,zct])
+                    z_basal += zcs
                     
                 if ps is not None:
                     P_batch = ps[idx].to(self.get_device())
-                    zps = self.perturb_token([P_batch, z_basal])
-                    z_basal += self.perturb_effect(zps)
+                    zpt = self.perturb_token(P_batch)
+                    zps = self.perturb_effect([z_basal,zpt])
+                    z_basal += zps 
                     
                 zfs = torch.zeros(X_batch.shape[0], self.latent_dim).to(self.get_device())
                 if fs_list is not None:
@@ -900,20 +902,22 @@ class SURENF(nn.Module):
                 
                 z_basal = self._get_cell_embedding(X_batch)
                 
-                zcs = torch.zeros_like(z_basal)
+                zct = torch.zeros_like(z_basal)
                 if cs_list is not None:
                     C_batch = cs[idx].to(self.get_device())
                     shift = 0
                     for i, context_size in enumerate(self.context_sizes):
                         C_batch_i = C_batch[:, shift:(shift+context_size)]
-                        zcs += self.context_tokens[i]([C_batch_i,z_basal])
+                        zct += self.context_tokens[i](C_batch_i)
                         shift += context_size
-                    z_basal += self.context_effect(zcs)
+                    zcs = self.context_effect([z_basal,zct])
+                    z_basal += zcs
                     
                 if ps is not None:
                     P_batch = ps[idx].to(self.get_device())
-                    zps = self.perturb_token([P_batch, z_basal])
-                    z_basal += self.perturb_effect(zps)
+                    zpt = self.perturb_token(P_batch)
+                    zps = self.perturb_effect([z_basal,zpt])
+                    z_basal += zps
                     
                 zfs = torch.zeros(X_batch.shape[0], self.latent_dim).to(self.get_device())
                 if fs_list is not None:

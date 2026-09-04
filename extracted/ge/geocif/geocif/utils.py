@@ -35,6 +35,7 @@ MODEL_DISPLAY_NAMES = {
     "merf": "MERF",
     "desreg": "DesReg",
     "gpr": "GPR",
+    "bnn": "BNN",
     # Ensemble blend pseudo-models emitted by yield_outlook:
     "inv_rmse": "Inv-RMSE Stack",   # 1/RMSE weighted blend (engineering flavor)
     "bma":      "BMA (BIC)",        # proper Bayesian Model Averaging via BIC weights
@@ -445,10 +446,28 @@ def to_db(db_path, table_name, df, max_retries=10):
                 df=df,
                 table_name=table_name,
                 if_row_exists="update",
+                # pangres defaults add_new_columns to False, so the table can
+                # NEVER gain a column after whichever model writes first fixes
+                # the schema. Any later model carrying an extra column then
+                # fails EVERY row with "table X has no column named Y" — and
+                # because the handler below swallows the exception, the run
+                # still exits 0 and logs "complete" with an empty table.
+                # That silently produced 0 rows for the whole CLASSIFICATION
+                # mode ("no column named CI") and caused the earlier
+                # "no column named alpha".
+                add_new_columns=True,
                 chunksize=20,
             )
             return
         except Exception as e:
+            # add_new_columns=True is NOT concurrency-safe: geocif writes from
+            # many model workers at once, so several can each see the column
+            # missing and race to ALTER TABLE. One wins, the rest raise
+            # "duplicate column name". The column now exists, so simply retry
+            # the upsert — without this the losing workers drop their rows and
+            # the run still reports success.
+            if "duplicate column name" in str(e) and attempt < max_retries - 1:
+                continue
             if "database is locked" in str(e) and attempt < max_retries - 1:
                 from geocif.progress import pwrite
                 wait = 2 ** attempt + random.uniform(0, 1)

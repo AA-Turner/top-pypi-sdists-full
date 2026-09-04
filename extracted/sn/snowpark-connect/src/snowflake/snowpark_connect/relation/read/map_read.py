@@ -584,6 +584,14 @@ def _read_file(
     # branches to depth-0 -- both filters are joined into one PATTERN
     # so there's no override race between them. See SNOW-3428536 /
     # SNOW-3295580 and ``relation.read.path_anchoring`` for details.
+    # Capture the user's raw ``pathGlobFilter`` BEFORE ``inject_anchor_pattern`` runs: when the user
+    # did NOT set it, that call overwrites ``options["pathGlobFilter"]`` with a machine-generated
+    # anchor regex, so reading it afterwards would no longer be the user's glob. The Parquet Direct
+    # path threads this raw glob into the PD table's ``PATTERN`` so PD honors ``pathGlobFilter`` like
+    # the COPY / reference-Spark path (today PD ignores it). ``None`` when the user didn't set it.
+    user_path_glob_filter = next(
+        (options[k] for k in options if k.lower() == "pathglobfilter"), None
+    )
     if not mod_time_expanded_paths:
         inject_anchor_pattern(
             clean_source_paths,
@@ -626,7 +634,23 @@ def _read_file(
             from snowflake.snowpark_connect.relation.read.map_read_parquet import (
                 map_read_parquet,
             )
+            from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+                resolve_parquet_direct_read,
+            )
 
+            # Single, authoritative Parquet-Direct routing decision (see resolve_parquet_direct_read):
+            # an ELIGIBLE read goes through PD or raises (never a silent fallback); the opt-in
+            # single-path external-table read is classified EXTERNAL_TABLE_BRANCH (a kept non-PD path);
+            # every other reason takes the normal COPY/INFER path. pd_read_reason flows to
+            # map_read_parquet purely for read-path telemetry.
+            pd_read_reason, pd_direct = resolve_parquet_direct_read(
+                session,
+                clean_source_paths,
+                paths,
+                path_classifications,
+                is_recursive=is_recursive,
+                path_glob_filter=user_path_glob_filter,
+            )
             result = map_read_parquet(
                 rel,
                 schema,
@@ -634,6 +658,8 @@ def _read_file(
                 paths,
                 ParquetReaderConfig(options),
                 skip_partition_discovery=skip_partition_discovery,
+                pd_direct=pd_direct,
+                pd_read_reason=pd_read_reason,
             )
         case "text":
             from snowflake.snowpark_connect.relation.read.map_read_text import (

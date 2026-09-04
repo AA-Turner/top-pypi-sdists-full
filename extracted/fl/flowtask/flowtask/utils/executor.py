@@ -4,12 +4,44 @@ Function Executor.
 import logging
 import traceback
 import importlib
+import importlib.util
 from typing import Any
 import builtins
 from collections.abc import Callable
 from querysource.types.validators import Entity
 import querysource.utils.functions as qsfunctions
 from . import functions as ffunctions
+from ..exceptions import ComponentError
+
+
+def get_program_function(program: str, function: str) -> Callable:
+    """
+    get_program_function.
+
+    Dynamically load a Python function declared in a Task Program's
+    ``functions/`` directory (``programs/<program>/functions/<function>.py``).
+
+    This lets Tasks extend components such as TransformRows/tMap (via the
+    ``user_function`` operation) or UserFunc with custom, per-program logic
+    without touching Flowtask's own codebase.
+    """
+    # local import: avoids coupling this module to project-level settings
+    # at import time (and any circular-import risk that would create).
+    from settings.settings import TASK_STORAGES
+    storage = TASK_STORAGES["default"]
+    fn_path = storage.path.joinpath(program, "functions", f"{function}.py")
+    try:
+        spec = importlib.util.spec_from_file_location(function, fn_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return getattr(module, function)
+    except (ImportError, FileNotFoundError, AttributeError) as e:
+        logging.error(
+            f"get_program_function: No Function {function} was Found on program {program}"
+        )
+        raise ComponentError(
+            f"get_program_function: No Python Function {function} was Found on {fn_path}"
+        ) from e
 
 
 def getFunction(fname: str) -> callable:

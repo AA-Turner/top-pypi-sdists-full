@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test the change_stream module."""
+
 from __future__ import annotations
 
 import asyncio
@@ -28,21 +29,6 @@ from typing import no_type_check
 
 sys.path[0:0] = [""]
 
-from test import (
-    IntegrationTest,
-    PyMongoTestCase,
-    Version,
-    client_context,
-    unittest,
-)
-from test.unified_format import generate_test_classes, get_test_path
-from test.utils_shared import (
-    AllowListEventListener,
-    EventListener,
-    OvertCommandListener,
-    wait_until,
-)
-
 from bson import SON, ObjectId, Timestamp, encode
 from bson.binary import ALL_UUID_REPRESENTATIONS, PYTHON_LEGACY, STANDARD, Binary
 from bson.raw_bson import DEFAULT_RAW_BSON_OPTIONS, RawBSONDocument
@@ -57,6 +43,20 @@ from pymongo.read_concern import ReadConcern
 from pymongo.synchronous.command_cursor import CommandCursor
 from pymongo.synchronous.helpers import next
 from pymongo.write_concern import WriteConcern
+from test import (
+    IntegrationTest,
+    PyMongoTestCase,
+    Version,
+    client_context,
+    unittest,
+)
+from test.unified_format import generate_test_classes, get_test_path
+from test.utils_shared import (
+    AllowListEventListener,
+    EventListener,
+    OvertCommandListener,
+    wait_until,
+)
 
 _IS_SYNC = True
 
@@ -263,7 +263,6 @@ class APITestsMixin:
 
     # $changeStream.startAtOperationTime was added in 4.0.0.
     @no_type_check
-    @client_context.require_version_min(4, 2, 0)
     def test_start_at_operation_time(self):
         optime = self.get_start_at_operation_time()
 
@@ -432,7 +431,6 @@ class APITestsMixin:
             self._test_get_invalidate_event(change_stream)
 
     @no_type_check
-    @client_context.require_version_min(4, 2, 0)
     def test_start_after(self):
         resume_token = self.get_resume_token(invalidate=True)
 
@@ -448,7 +446,6 @@ class APITestsMixin:
             self.assertEqual(change["fullDocument"], {"_id": 2})
 
     @no_type_check
-    @client_context.require_version_min(4, 2, 0)
     def test_start_after_resume_process_with_changes(self):
         resume_token = self.get_resume_token(invalidate=True)
 
@@ -467,7 +464,6 @@ class APITestsMixin:
             self.assertEqual(change["fullDocument"], {"_id": 3})
 
     @no_type_check
-    @client_context.require_version_min(4, 2)
     def test_start_after_resume_process_without_changes(self):
         resume_token = self.get_resume_token(invalidate=True)
 
@@ -553,12 +549,10 @@ class ProseSpecTestsMixin:
                 )
 
     # Prose test no. 1
-    @client_context.require_version_min(4, 2, 0)
     def test_update_resume_token(self):
         self._test_update_resume_token(self._get_expected_resume_token)
 
     # Prose test no. 2
-    @client_context.require_version_min(4, 2, 0)
     def test_raises_error_on_missing_id_418plus(self):
         # Server returns an error on 4.1.8+
         self._test_raises_error_on_missing_id(OperationFailure)
@@ -626,7 +620,6 @@ class ProseSpecTestsMixin:
 
     # Prose test no. 11
     @no_type_check
-    @client_context.require_version_min(4, 2, 0)
     def test_resumetoken_empty_batch(self):
         client, listener = self._client_with_listener("getMore")
         with self.change_stream_with_client(client) as change_stream:
@@ -638,7 +631,6 @@ class ProseSpecTestsMixin:
 
     # Prose test no. 11
     @no_type_check
-    @client_context.require_version_min(4, 2, 0)
     def test_resumetoken_exhausted_batch(self):
         client, listener = self._client_with_listener("getMore")
         with self.change_stream_with_client(client) as change_stream:
@@ -689,13 +681,11 @@ class ProseSpecTestsMixin:
     # Prose test no. 14
     @no_type_check
     @client_context.require_no_mongos
-    @client_context.require_version_min(4, 2, 0)
     def test_resumetoken_uniterated_nonempty_batch_startafter(self):
         self._test_resumetoken_uniterated_nonempty_batch("start_after")
 
     # Prose test no. 17
     @no_type_check
-    @client_context.require_version_min(4, 2, 0)
     def test_startafter_resume_uses_startafter_after_empty_getMore(self):
         # Resume should use startAfter after no changes have been returned.
         resume_point = self.get_resume_token()
@@ -713,7 +703,6 @@ class ProseSpecTestsMixin:
 
     # Prose test no. 18
     @no_type_check
-    @client_context.require_version_min(4, 2, 0)
     def test_startafter_resume_uses_resumeafter_after_nonempty_getMore(self):
         # Resume should use resumeAfter after some changes have been returned.
         resume_point = self.get_resume_token()
@@ -758,7 +747,6 @@ class ProseSpecTestsMixin:
 class TestClusterChangeStream(TestChangeStreamBase, APITestsMixin):
     dbs: list
 
-    @client_context.require_version_min(4, 2, 0)  # type:ignore[untyped-decorator]
     @client_context.require_change_streams  # type:ignore[untyped-decorator]
     def setUp(self) -> None:
         super().setUp()
@@ -818,7 +806,6 @@ class TestClusterChangeStream(TestChangeStreamBase, APITestsMixin):
 
 
 class TestDatabaseChangeStream(TestChangeStreamBase, APITestsMixin):
-    @client_context.require_version_min(4, 2, 0)  # type:ignore[untyped-decorator]
     @client_context.require_change_streams  # type:ignore[untyped-decorator]
     def setUp(self) -> None:
         super().setUp()
@@ -908,7 +895,7 @@ class TestCollectionChangeStream(TestChangeStreamBase, APITestsMixin, ProseSpecT
         super().setUp()
         # Use a new collection for each test.
         self.watched_collection().drop()
-        self.watched_collection().insert_one({})
+        self.db.create_collection(self.watched_collection().name)
 
     def change_stream_with_client(self, client, *args, **kwargs):
         return (
@@ -978,7 +965,6 @@ class TestCollectionChangeStream(TestChangeStreamBase, APITestsMixin, ProseSpecT
             self.assertEqual(change["ns"]["coll"], self.watched_collection().name)
             self.assertEqual(change["fullDocument"], raw_doc)
 
-    @client_context.require_version_min(4, 0)  # Needed for start_at_operation_time.
     def test_uuid_representations(self):
         """Test with uuid document _ids and different uuid_representation."""
         optime = (self.db.command("ping"))["operationTime"]

@@ -6,24 +6,18 @@ from rest_framework.validators import UniqueValidator
 
 from pulpcore.app import models
 from pulpcore.app.serializers import (
-    ContentArtifactChecksumField,
-    ContentArtifactsField,
-    DetailIdentityField,
     DetailRelatedField,
-    IdentityField,
-    ModelSerializer,
-    PulpLabelsField,
     RelatedField,
-    RelativePathField,
-    SingleContentArtifactField,
+    base,
+    fields,
     pulp_labels_validator,
 )
 from pulpcore.app.util import get_domain
 
 
-class NoArtifactContentSerializer(ModelSerializer):
-    pulp_href = DetailIdentityField(view_name_pattern=r"contents(-.*/.*)-detail")
-    pulp_labels = PulpLabelsField(
+class NoArtifactContentSerializer(base.ModelSerializer):
+    pulp_href = base.DetailIdentityField(view_name_pattern=r"contents(-.*/.*)-detail")
+    pulp_labels = fields.PulpLabelsField(
         help_text=_(
             "A dictionary of arbitrary key/value pairs used to describe a specific "
             "Content instance."
@@ -145,7 +139,7 @@ class NoArtifactContentSerializer(ModelSerializer):
 
     class Meta:
         model = models.Content
-        fields = ModelSerializer.Meta.fields + (
+        fields = base.ModelSerializer.Meta.fields + (
             "repository",
             "overwrite",
             "pulp_labels",
@@ -154,12 +148,13 @@ class NoArtifactContentSerializer(ModelSerializer):
 
 
 class SingleArtifactContentSerializer(NoArtifactContentSerializer):
-    artifact = SingleContentArtifactField(
+    artifact = fields.SingleContentArtifactField(
         help_text=_("Artifact file representing the physical content"),
     )
 
-    relative_path = RelativePathField(
+    relative_path = serializers.CharField(
         help_text=_("Path where the artifact is located relative to distributions base_path"),
+        validators=[fields.relative_path_validator],
         write_only=True,
     )
 
@@ -188,7 +183,7 @@ class SingleArtifactContentSerializer(NoArtifactContentSerializer):
 
 
 class MultipleArtifactContentSerializer(NoArtifactContentSerializer):
-    artifacts = ContentArtifactsField(
+    artifacts = fields.ContentArtifactsField(
         help_text=_(
             "A dict mapping relative paths inside the Content to the corresponding"
             "Artifact URLs. E.g.: {'relative/path': "
@@ -213,39 +208,39 @@ class ContentChecksumSerializer(serializers.Serializer):
         Content.objects.prefetch_related("_artifacts").all()
     """
 
-    md5 = ContentArtifactChecksumField(
+    md5 = fields.ContentArtifactChecksumField(
         help_text=_("The MD5 checksum if available."),
         checksum="md5",
     )
 
-    sha1 = ContentArtifactChecksumField(
+    sha1 = fields.ContentArtifactChecksumField(
         help_text=_("The SHA-1 checksum if available."),
         checksum="sha1",
     )
 
-    sha224 = ContentArtifactChecksumField(
+    sha224 = fields.ContentArtifactChecksumField(
         help_text=_("The SHA-224 checksum if available."),
         checksum="sha224",
     )
 
-    sha256 = ContentArtifactChecksumField(
+    sha256 = fields.ContentArtifactChecksumField(
         help_text=_("The SHA-256 checksum if available."),
         checksum="sha256",
     )
 
-    sha384 = ContentArtifactChecksumField(
+    sha384 = fields.ContentArtifactChecksumField(
         help_text=_("The SHA-384 checksum if available."),
         checksum="sha384",
     )
 
-    sha512 = ContentArtifactChecksumField(
+    sha512 = fields.ContentArtifactChecksumField(
         help_text=_("The SHA-512 checksum if available."),
         checksum="sha512",
     )
 
     class Meta:
         model = models.Content
-        fields = ModelSerializer.Meta.fields + (
+        fields = base.ModelSerializer.Meta.fields + (
             "md5",
             "sha1",
             "sha224",
@@ -255,8 +250,8 @@ class ContentChecksumSerializer(serializers.Serializer):
         )
 
 
-class ArtifactSerializer(ModelSerializer):
-    pulp_href = IdentityField(view_name="artifacts-detail")
+class ArtifactSerializer(base.ModelSerializer):
+    pulp_href = base.IdentityField(view_name="artifacts-detail")
 
     file = serializers.FileField(help_text=_("The stored file."), allow_empty_file=True)
 
@@ -346,7 +341,7 @@ class ArtifactSerializer(ModelSerializer):
 
     class Meta:
         model = models.Artifact
-        fields = ModelSerializer.Meta.fields + (
+        fields = base.ModelSerializer.Meta.fields + (
             "file",
             "size",
             "md5",
@@ -358,12 +353,12 @@ class ArtifactSerializer(ModelSerializer):
         )
 
 
-class SigningServiceSerializer(ModelSerializer):
+class SigningServiceSerializer(base.ModelSerializer):
     """
     A serializer for the model declaring a signing service.
     """
 
-    pulp_href = IdentityField(view_name="signing-services-detail")
+    pulp_href = base.IdentityField(view_name="signing-services-detail")
     name = serializers.CharField(help_text=_("A unique name used to recognize a script."))
     public_key = serializers.CharField(
         help_text=_("The value of a public key used for the repository verification.")
@@ -375,7 +370,7 @@ class SigningServiceSerializer(ModelSerializer):
 
     class Meta:
         model = models.SigningService
-        fields = ModelSerializer.Meta.fields + (
+        fields = base.ModelSerializer.Meta.fields + (
             "name",
             "public_key",
             "pubkey_fingerprint",

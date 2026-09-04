@@ -1518,6 +1518,8 @@ _NO_PROGRESS_MARKERS = (
     "This tool's credential is no longer shared",
     # vault-binding person-only credential in an unattended run (same module, byte-matched)
     "This credential is set to run as the person asking",
+    # aws-operator unconfigured on the controller (connector_proxy.py - byte-matched)
+    "This AWS connector call was not sent",
     "Org-wide sharing is turned off for this agent",
     # live-surface audience refusal when the agent's sharing flag is off (controller live_surfaces)
     "Sharing is switched off for this agent",

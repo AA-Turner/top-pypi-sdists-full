@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -36,8 +36,8 @@ using namespace regor;
 namespace
 {
 
-std::shared_ptr<Operation> CreateOperation(OpType opType, Shape ifmShape, DataType ifmType, Shape ifm2Shape,
-    DataType ifm2Type, Shape ofmShape, DataType ofmType)
+std::shared_ptr<Operation> CreateOperation(OpType opType, const Shape &ifmShape, DataType ifmType,
+    const Shape &ifm2Shape, DataType ifm2Type, const Shape &ofmShape, DataType ofmType)
 {
     auto ifm = CreateTensor("IFM", ifmShape, ifmType);
     auto ofm = CreateTensor("OFM", ofmShape, ofmType);
@@ -56,7 +56,7 @@ std::shared_ptr<Operation> CreateOperation(OpType opType, Shape ifmShape, DataTy
     return op;
 };
 
-std::shared_ptr<Operation> CreateOperation(OpType opType, Shape ifmShape, DataType ifmType, Shape ofmShape, DataType ofmType)
+std::shared_ptr<Operation> CreateOperation(OpType opType, const Shape &ifmShape, DataType ifmType, const Shape &ofmShape, DataType ofmType)
 {
     return CreateOperation(opType, ifmShape, ifmType, Shape(), DataType::None, ofmShape, ofmType);
 };
@@ -651,5 +651,42 @@ TEST_CASE("Supported operators EthosU85")
             REQUIRE(supportedOps->Check(op.get()) == true);
             op->Disconnect();
         }
+    }
+
+    SECTION("ConstraintVariableDtypes")
+    {
+        auto resource = CreateTensor("resource", Shape(), DataType::Resource);
+        auto dataInt = CreateTensor("data", Shape(1, 8, 8, 1), DataType::Int8);
+        auto dataFloat = CreateTensor("data", Shape(1, 8, 8, 1), DataType::Float32);
+
+        auto variableOp = std::make_shared<Operation>(OpType::Variable);
+        variableOp->ConnectOutput(TensorUsage::OFM, resource);
+        // Variable handles are lowered before supported operator checks
+        REQUIRE(supportedOps->Check(variableOp.get()) == false);
+        variableOp->Disconnect();
+
+        auto readOp = std::make_shared<Operation>(OpType::VariableRead);
+        readOp->ConnectInput(TensorUsage::Params, resource);
+        readOp->ConnectOutput(TensorUsage::OFM, dataInt);
+        REQUIRE(supportedOps->Check(readOp.get()) == true);
+        readOp->Disconnect();
+
+        auto writeOp = std::make_shared<Operation>(OpType::VariableWrite);
+        writeOp->ConnectInput(TensorUsage::Params, resource);
+        writeOp->ConnectInput(TensorUsage::IFM, dataInt);
+        REQUIRE(supportedOps->Check(writeOp.get()) == true);
+        writeOp->Disconnect();
+
+        auto writeFloatOp = std::make_shared<Operation>(OpType::VariableWrite);
+        writeFloatOp->ConnectInput(TensorUsage::Params, resource);
+        writeFloatOp->ConnectInput(TensorUsage::IFM, dataFloat);
+        REQUIRE(supportedOps->Check(writeFloatOp.get()) == false);
+        writeFloatOp->Disconnect();
+
+        auto readFloatOp = std::make_shared<Operation>(OpType::VariableRead);
+        readFloatOp->ConnectInput(TensorUsage::Params, resource);
+        readFloatOp->ConnectOutput(TensorUsage::OFM, dataFloat);
+        REQUIRE(supportedOps->Check(readFloatOp.get()) == false);
+        readFloatOp->Disconnect();
     }
 }

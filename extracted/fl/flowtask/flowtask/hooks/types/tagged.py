@@ -9,7 +9,7 @@ class TaggedImapWatcher(ImapWatcher):
 
     def process_email(self, email_id, **kwargs):
         # Explicitly mark the email as SEEN
-        self.imap_server.store(email_id, "+FLAGS", "\SEEN")
+        self.imap_server.store(email_id, "+FLAGS", "\\SEEN")
         typ, _ = self.imap_server.fetch(email_id, "(FLAGS)")
         if typ != "OK":
             self._logger.warning(f"Cannot mark email {email_id} as read (SEEN)")

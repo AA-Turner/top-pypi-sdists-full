@@ -34,6 +34,22 @@ from godot_ai.transport.origin_guard import make_websocket_request_guard
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 9500
+## Keepalive: `websockets` pings every editor peer and closes the session
+## with 1011 "keepalive ping timeout" when the pong is late. The editor can
+## only answer a ping from `McpConnection._process` -> `WebSocketPeer.poll()`
+## on the Godot main thread, so any stall longer than the deadline reaps a
+## session whose editor is merely busy: a long synchronous editor operation
+## the exclusive-run servicing does not cover, or a CPU-starved CI runner
+## where the editor and the game subprocess both software-render under
+## lavapipe (#958 -- the pong went missing for >20s right after
+## `run_project`). The interval keeps the library default so ping cadence is
+## unchanged; only the tolerance for a late pong is widened, to a budget that
+## comfortably exceeds the smoke's 45s session-loss grace. A stall past this
+## is a genuinely hung editor. A dead editor process still closes the socket
+## immediately -- this deadline only bounds how long a *silent* peer keeps
+## its session.
+DEFAULT_KEEPALIVE_PING_INTERVAL_SECONDS = 20.0
+DEFAULT_KEEPALIVE_PING_TIMEOUT_SECONDS = 60.0
 
 ## RFC 6455 reserves 4000-4999 for application-defined close codes; we use
 ## 4001 to flag a handshake rejected for duplicate session_id so a debugging
@@ -160,6 +176,10 @@ class GodotWebSocketServer:
                 "127.0.0.1",
                 self.port,
                 max_size=4 * 1024 * 1024,  # 4 MB for screenshot base64
+                ## Explicit, not the library default: see the constants'
+                ## rationale (#958). Pinned by tests/unit/test_websocket_keepalive.py.
+                ping_interval=DEFAULT_KEEPALIVE_PING_INTERVAL_SECONDS,
+                ping_timeout=DEFAULT_KEEPALIVE_PING_TIMEOUT_SECONDS,
                 # Reject DNS-rebinding attempts before the upgrade — see
                 # godot_ai.transport.origin_guard. Native plugin clients
                 # carry a loopback Host and no Origin, so they pass through.
@@ -542,10 +562,37 @@ class GodotWebSocketServer:
         ## pops on the happy path, so this is a no-op there; on `ws.send`
         ## raise / TimeoutError / cancellation it prevents Futures leaking
         ## into _pending forever.
+        ## The deadline covers the SEND as well as the response wait. When the
+        ## transport is write-paused by TCP backpressure — an editor that has
+        ## stopped reading its socket — `ws.send` blocks for the whole stall, and
+        ## with the timeout wrapped around the future alone it never even
+        ## started: the tool call hung unbounded instead of failing with an
+        ## actionable message. Nothing else bounds it; websockets' own keepalive
+        ## ping queues behind the same paused drain.
+        ##
+        ## The two legs get distinct messages, because they mean opposite things
+        ## to a caller deciding whether to retry. `websockets` hands the COMPLETE
+        ## frame to the transport before awaiting `drain()`, so a send-leg
+        ## timeout leaves a well-formed request buffered — the editor executes it
+        ## in full once it drains. Reporting that as a plain timeout invites a
+        ## retry that duplicates the mutation. A response-leg timeout means the
+        ## request was delivered and the reply did not arrive in budget, which is
+        ## the ordinary case. Conflating the two is the same failure the
+        ## disconnect-vs-timeout split below exists to prevent.
+        sent = False
         try:
-            await ws.send(request.model_dump_json())
-            return await asyncio.wait_for(future, timeout=timeout)
+            async with asyncio.timeout(timeout):
+                await ws.send(request.model_dump_json())
+                sent = True
+                return await future
         except asyncio.TimeoutError:
+            if not sent:
+                raise TimeoutError(
+                    f"Command {command} timed out after {timeout}s on session {session_id} "
+                    "before the request left the socket (transport write-paused). "
+                    "It may still execute when the editor resumes reading — do not "
+                    "retry a mutating command without checking editor state first."
+                )
             raise TimeoutError(
                 f"Command {command} timed out after {timeout}s on session {session_id}"
             )

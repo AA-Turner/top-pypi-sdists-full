@@ -289,6 +289,16 @@ class CompletionSignal:
     record and every material number in the body to be declared in the sidecar.
     Its ``value`` is the severity - ``""``/``"strict"`` (an unanchored figure
     fails completion) or ``"warn"`` (downgrade for exploratory work).
+
+    ``absence_verified`` (issue #3650) is the only absence-shaped type: every
+    other one asserts that something is present, so a task whose real result is
+    "no occurrences found" had no way to state that as a checkable claim. Its
+    ``value`` is the ``tool_call_id`` of the call that reported the absence, and
+    it passes only when that call's recorded coverage payload (issue #3769)
+    hash-matches the lineage coverage entry anchored to the same
+    ``tool_call_id`` (issue #3770) and describes a complete, exit-checked walk.
+    Its evaluator is
+    :func:`bernstein.core.quality.absence_coverage.verify_anchored_absence_claim`.
     """
 
     type: Literal[
@@ -302,8 +312,11 @@ class CompletionSignal:
         "criteria_match",
         "hash_stable",
         "figures_grounded",
+        "absence_verified",
     ]
-    value: str  # path, glob pattern, test command, search string, review instruction, criterion payload, or severity
+    # path, glob, test command, search string, review instruction,
+    # criterion payload, severity, or tool_call_id
+    value: str
 
 
 @dataclass(frozen=True)
@@ -1244,6 +1257,16 @@ class AgentSession:
     spawn_prompt_tokens: int = 0  # estimated token count of assembled prompt at spawn
     spawn_prompt_utilization_pct: float = 0.0  # percentage of context window consumed by prompt
     spawn_prompt_over_budget: bool = False  # True when prompt exceeded the budget threshold
+
+    # Endpoint identity resolved at spawn time (issue #4908):
+    # - adapter: the adapter name that actually served this spawn
+    # - model: the model that actually served this spawn
+    # - base_url: the normalized endpoint base URL (api_key_env value excluded)
+    # - endpoint_profile_name: the local_endpoints profile name when one applied
+    endpoint_adapter_name: str = ""  # adapter name
+    endpoint_model: str = ""  # model served
+    endpoint_base_url: str = ""  # normalized base_url (no secrets)
+    endpoint_profile_name: str = ""  # local_endpoints profile name
 
 
 class IsolationMode(StrEnum):

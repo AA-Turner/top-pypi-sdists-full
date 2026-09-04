@@ -1,19 +1,19 @@
 Metadata-Version: 2.5
 Name: dagster-snowflake
-Version: 0.29.20
+Version: 0.29.21
 Summary: Package for Snowflake Dagster framework components.
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-snowflake
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster==1.13.20
+Requires-Dist: dagster==1.13.21
 Requires-Dist: pyopenssl>=22.1.0
 Requires-Dist: snowflake-connector-python>=3.4.0
 Requires-Dist: snowflake-core>=1.8.0
 Requires-Dist: snowflake-snowpark-python>=1.24.0
 Provides-Extra: dbt
-Requires-Dist: dagster-dbt==0.29.20; extra == 'dbt'
+Requires-Dist: dagster-dbt==0.29.21; extra == 'dbt'
 Provides-Extra: pandas
 Requires-Dist: pandas<3.0.0; extra == 'pandas'
 Requires-Dist: snowflake-connector-python[pandas]>=3.4.0; extra == 'pandas'

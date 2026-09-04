@@ -85,6 +85,20 @@ def _build_search_records_body(
     query: Any | None,
     wrap_dense_vector: bool = True,
 ) -> dict[str, Any]:
+    """Build the request body shared by the three public ``search()`` surfaces.
+
+    Accepts either the legacy ``query=SearchQuery(...)`` form or the flat
+    keyword arguments, and normalizes a dense query vector into the shape the
+    surface expects. ``method_name`` only names the caller in error messages.
+
+    Raises:
+        :exc:`TypeError`: If ``query`` is passed alongside any of the flat
+            keyword arguments it replaces — the two forms are mutually
+            exclusive — or if ``query`` is neither a :class:`SearchQuery` nor a
+            mapping. The message names the arguments that conflicted.
+        :exc:`PineconeValueError`: If ``rerank`` omits ``model`` or
+            ``rank_fields``, or if neither ``top_k`` nor ``query`` was given.
+    """
     if rerank is not None:
         if "model" not in rerank:
             raise ValidationError("rerank requires 'model' to be specified")
@@ -175,3 +189,21 @@ def _vector_to_dict(v: Vector) -> dict[str, Any]:
     if v.metadata is not None:
         return {"id": id_, "values": vals, "metadata": v.metadata}
     return {"id": id_, "values": vals}
+
+
+def _limiter_host_key(host: str) -> str:
+    """The bare-hostname key the adaptive limiter registry is keyed by.
+
+    Throttle callbacks report under the bare hostname; a scheme-prefixed
+    key would register a limiter that never sees a throttle (issue #60).
+    Interim shim: the bulk-core rewrite (#69) moves this normalization
+    inside the registry so call sites cannot miss it.
+    """
+    bare = host
+    for prefix in ("https://", "http://"):
+        if bare.startswith(prefix):
+            bare = bare[len(prefix) :]
+            break
+    for separator in (":", "/"):
+        bare = bare.split(separator, 1)[0]
+    return bare

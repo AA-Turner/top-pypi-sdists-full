@@ -12,45 +12,43 @@ import logging
 import sys
 import time
 import warnings
+from collections.abc import Mapping
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import unquote
 
-# Try niquests first (preferred), fall back to requests
-_USE_NIQUESTS = False
-_USE_REQUESTS = False
-
-try:
-    import niquests as requests
-    from niquests.auth import AuthBase
-    from niquests.models import Response
-    from niquests.structures import CaseInsensitiveDict
-
-    _USE_NIQUESTS = True
-except ImportError:
-    import requests
-    from requests.auth import AuthBase
-    from requests.models import Response
-    from requests.structures import CaseInsensitiveDict
-
-    _USE_REQUESTS = True
-
-from collections.abc import Mapping
-
-from caldav import __version__
+from caldav import __version__, config
 from caldav.base_client import BaseDAVClient
 from caldav.base_client import get_calendars as _base_get_calendars
 from caldav.base_client import get_davclient as _base_get_davclient
 from caldav.collection import Calendar, Principal
-from caldav.compatibility_hints import FeatureSet
+from caldav.compatibility_hints import FeatureSet, at_spellings_are_aliased
+from caldav.lib import error, http_sync
 
-# Re-export CONNKEYS for backward compatibility
-from caldav.config import CONNKEYS  # noqa: F401
-from caldav.lib import error
+## The HTTP library is imported in caldav.lib.http_sync and nowhere else.
+from caldav.lib.http_sync import (
+    AuthBase,
+    CaseInsensitiveDict,
+    requests,
+)
 from caldav.lib.python_utilities import to_wire
 from caldav.lib.url import URL
 from caldav.requests import HTTPBearerAuth
 from caldav.response import DAVResponse
+
+## Names that used to live here, back when davclient did the HTTP-library
+## import itself, and that nothing in the library uses any more.  Assignments
+## rather than imports on purpose: an unused import is what every linter and
+## code-quality bot goes looking for, and a re-export is by definition unused
+## where it sits.
+##
+## ``CONNKEYS`` is read by tests/test_caldav.py; ``Response`` has no consumer
+## at all and is here only because it has been importable from this module
+## since 2023 and shipped that way in v3.0 and v3.2.  Both are pinned by
+## tests/test_http_libraries.py.  The two ``_USE_*`` flags used to sit here
+## too - see caldav.lib.http_sync for those.
+CONNKEYS = config.CONNKEYS
+Response = http_sync.Response
 
 log = logging.getLogger("caldav")
 
@@ -223,7 +221,12 @@ class DAVClient(BaseDAVClient):
                        preventing DNS-based downgrade attacks where malicious DNS could
                        redirect to unencrypted HTTP. Set to False ONLY if you need to
                        support non-TLS servers and trust your DNS infrastructure.
-                       This parameter has no effect if enable_rfc6764=False.
+                       SCOPE: this only gates the RFC6764 discovery path. It has no
+                       effect when enable_rfc6764=False, and does NOT reject an
+                       explicitly-passed http:// URL (e.g. url="http://your.server.example.com/dav/"
+                       still connects over plaintext despite require_tls=True).
+                       Making enforcement global is deferred to 4.0 — see
+                       https://github.com/python-caldav/caldav/issues/687
           rate_limit_handle: boolean, whether to automatically sleep and retry when the server
                              responds with 429 Too Many Requests or 503 Service Unavailable.
                              Default: False (raise RateLimitError immediately).
@@ -271,6 +274,11 @@ class DAVClient(BaseDAVClient):
 
         log.debug("url: " + str(url))
         self.url = URL.objectify(url)
+        ## Whether this server aliases the two "@" spellings travels with the
+        ## URL, and every URL the library builds is joined onto this one, so
+        ## setting it here reaches canonical(), __eq__ and __hash__ everywhere
+        ## without threading the feature set through them.
+        self.url = self.url.with_alias_at(at_spellings_are_aliased(self.features))
         # Prepare proxy info
         if proxy is not None:
             _proxy = proxy
@@ -297,9 +305,16 @@ class DAVClient(BaseDAVClient):
             }
         )
         self.headers.update(headers or CaseInsensitiveDict())
-        if self.url.username is not None:
+        ## An explicit username discards the URL credentials wholesale: they
+        ## belong to a different account, and merging them field by field
+        ## would let DAVClient(url="https://bob:hunter2@cal.example.com/",
+        ## username="alice") ship alice's login with bob's password.
+        ## Overriding only the password is a different thing - the username
+        ## still comes from the URL, so the pair stays coherent.
+        if self.url.username is not None and username is None:
             username = unquote(self.url.username)
-            password = unquote(self.url.password)
+            if password is None and self.url.password is not None:
+                password = unquote(self.url.password)
 
         # Use discovered username if no explicit username was provided
         if username is None and discovered_username is not None:
@@ -331,19 +346,9 @@ class DAVClient(BaseDAVClient):
 
         self._principal = None
 
-        rate_limit = self.features.is_supported("rate-limit", dict)
-        if rate_limit_handle is None:
-            if rate_limit and rate_limit.get("enable"):
-                rate_limit_handle = True
-                if "default_sleep" in rate_limit:
-                    rate_limit_default_sleep = rate_limit["default_sleep"]
-                if "max_sleep" in rate_limit:
-                    rate_limit_max_sleep = rate_limit["max_sleep"]
-            else:
-                rate_limit_handle = False
-        self.rate_limit_handle = rate_limit_handle
-        self.rate_limit_default_sleep = rate_limit_default_sleep
-        self.rate_limit_max_sleep = rate_limit_max_sleep
+        self._init_rate_limit_config(
+            rate_limit_handle, rate_limit_default_sleep, rate_limit_max_sleep
+        )
 
     def __enter__(self) -> Self:
         ## Used for tests, to set up a temporarily test server
@@ -466,13 +471,6 @@ class DAVClient(BaseDAVClient):
             for cal in calendars:
                 print(f"Calendar: {cal.get_display_name()}")
         """
-        from caldav.collection import (
-            _extract_calendar_home_set_from_results as extract_home_set,
-        )
-        from caldav.collection import (
-            _extract_calendars_from_propfind_results as extract_calendars,
-        )
-
         if principal is None:
             principal = self.principal()
 
@@ -482,14 +480,7 @@ class DAVClient(BaseDAVClient):
             props=self.CALENDAR_HOME_SET_PROPS,
             depth=0,
         )
-        calendar_home_url = extract_home_set(response.results)
-        if not calendar_home_url:
-            # Fall back to the principal URL as calendar home
-            # (some servers like GMX don't support calendar-home-set)
-            calendar_home_url = str(principal.url)
-
-        # Make URL absolute if relative
-        calendar_home_url = self._make_absolute_url(calendar_home_url)
+        calendar_home_url = self._calendar_home_url(response, principal)
 
         # Fetch calendars via PROPFIND
         response = self.propfind(
@@ -498,14 +489,7 @@ class DAVClient(BaseDAVClient):
             depth=1,
         )
 
-        # Process results using shared helper
-        calendar_infos = extract_calendars(response.results)
-
-        # Convert CalendarInfo objects to Calendar objects
-        return [
-            Calendar(client=self, url=info.url, name=info.name, id=info.cal_id)
-            for info in calendar_infos
-        ]
+        return self._build_calendars_from_propfind(response)
 
     def search_calendar(
         self,
@@ -825,20 +809,7 @@ class DAVClient(BaseDAVClient):
         try:
             return self._sync_request(url, method, body, headers)
         except error.RateLimitError as e:
-            if not self.rate_limit_handle:
-                raise
-            sleep_seconds = error.compute_sleep_seconds(
-                e.retry_after_seconds,
-                self.rate_limit_default_sleep,
-                self.rate_limit_max_sleep,
-            )
-            if rate_limit_time_slept:
-                sleep_seconds += rate_limit_time_slept / 2
-            if sleep_seconds is None or (
-                self.rate_limit_max_sleep is not None
-                and rate_limit_time_slept > self.rate_limit_max_sleep
-            ):
-                raise
+            sleep_seconds = self._rate_limit_sleep_seconds(e, rate_limit_time_slept)
             time.sleep(sleep_seconds)
             return self.request(url, method, body, headers, rate_limit_time_slept + sleep_seconds)
 

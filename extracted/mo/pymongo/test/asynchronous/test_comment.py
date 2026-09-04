@@ -21,12 +21,12 @@ import sys
 
 sys.path[0:0] = [""]
 from inspect import iscoroutinefunction
-from test.asynchronous import AsyncIntegrationTest, async_client_context, unittest
-from test.utils_shared import OvertCommandListener
 
 from bson.dbref import DBRef
 from pymongo.asynchronous.command_cursor import AsyncCommandCursor
 from pymongo.operations import IndexModel
+from test.asynchronous import AsyncIntegrationTest, async_client_context, unittest
+from test.utils_shared import OvertCommandListener
 
 _IS_SYNC = False
 
@@ -118,7 +118,7 @@ class AsyncTestComment(AsyncIntegrationTest):
     async def test_collection_helpers(self):
         listener = OvertCommandListener()
         db = (await self.async_rs_or_single_client(event_listeners=[listener]))[self.db.name]
-        coll = db.get_collection("test")
+        coll = db.get_collection("coll")
 
         helpers = [
             (coll.list_indexes, []),

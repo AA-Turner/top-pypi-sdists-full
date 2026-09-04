@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Run the sdam monitoring spec tests."""
+
 from __future__ import annotations
 
 import asyncio
@@ -24,13 +25,6 @@ from pathlib import Path
 
 sys.path[0:0] = [""]
 
-from test.asynchronous import AsyncIntegrationTest, async_client_context, client_knobs, unittest
-from test.utils_shared import (
-    ServerAndTopologyEventListener,
-    async_wait_until,
-    server_name_to_type,
-)
-
 from bson.json_util import object_hook
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.collection import AsyncCollection
@@ -40,6 +34,12 @@ from pymongo.errors import ConnectionFailure, NotPrimaryError
 from pymongo.hello import Hello
 from pymongo.server_description import ServerDescription
 from pymongo.topology_description import TOPOLOGY_TYPE
+from test.asynchronous import AsyncIntegrationTest, async_client_context, client_knobs, unittest
+from test.utils_shared import (
+    ServerAndTopologyEventListener,
+    async_wait_until,
+    server_name_to_type,
+)
 
 _IS_SYNC = False
 
@@ -89,7 +89,7 @@ def compare_events(expected_dict, actual):
         if expected["address"] != "{}:{}".format(*actual.server_address):
             return (
                 False,
-                "ServerOpeningEvent published with wrong address (expected" " {}, got {}".format(
+                "ServerOpeningEvent published with wrong address (expected {}, got {}".format(
                     expected["address"], actual.server_address
                 ),
             )
@@ -100,7 +100,7 @@ def compare_events(expected_dict, actual):
         if expected["address"] != "{}:{}".format(*actual.server_address):
             return (
                 False,
-                "ServerDescriptionChangedEvent has wrong address" " (expected {}, got {}".format(
+                "ServerDescriptionChangedEvent has wrong address (expected {}, got {}".format(
                     expected["address"], actual.server_address
                 ),
             )
@@ -121,7 +121,7 @@ def compare_events(expected_dict, actual):
         if expected["address"] != "{}:{}".format(*actual.server_address):
             return (
                 False,
-                "ServerClosedEvent published with wrong address" " (expected {}, got {}".format(
+                "ServerClosedEvent published with wrong address (expected {}, got {}".format(
                     expected["address"], actual.server_address
                 ),
             )
@@ -295,11 +295,13 @@ class TestSdamMonitoring(AsyncIntegrationTest):
         self.test_client = await self.async_rs_or_single_client(
             event_listeners=[self.listener], retryWrites=retry_writes
         )
-        self.coll = self.test_client[self.client.db.name].test
-        await self.coll.insert_one({})
+        self.coll = self.test_client[self.client.db.name].coll
+        await self.coll.drop()  # necessary for first test run
+        await self.coll.database.create_collection(self.coll.name)
         self.listener.reset()
 
     async def asyncTearDown(self):
+        await self.coll.drop()
         await super().asyncTearDown()
 
     async def _test_app_error(self, fail_command_opts, expected_error):
@@ -353,15 +355,6 @@ class TestSdamMonitoring(AsyncIntegrationTest):
 
     async def test_network_error_publishes_events(self):
         await self._test_app_error({"closeConnection": True}, ConnectionFailure)
-
-    # In 4.4+, not primary errors from failCommand don't cause SDAM state
-    # changes because topologyVersion is not incremented.
-    @async_client_context.require_version_max(4, 3)
-    async def test_not_primary_error_publishes_events(self):
-        await self._test_app_error(
-            {"errorCode": 10107, "closeConnection": False, "errorLabels": ["RetryableWriteError"]},
-            NotPrimaryError,
-        )
 
     async def test_shutdown_error_publishes_events(self):
         await self._test_app_error(

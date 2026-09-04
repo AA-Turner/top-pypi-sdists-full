@@ -147,6 +147,7 @@ class Generator:
         exp.AssumeColumnConstraint: lambda self, e: f"ASSUME ({self.sql(e, 'this')})",
         exp.AutoRefreshProperty: lambda self, e: f"AUTO REFRESH {self.sql(e, 'this')}",
         exp.BackupProperty: lambda self, e: f"BACKUP {self.sql(e, 'this')}",
+        exp.BinaryColumnConstraint: lambda *_: "BINARY",
         exp.CaseSpecificColumnConstraint: lambda _, e: (
             f"{'NOT ' if e.args.get('not_') else ''}CASESPECIFIC"
         ),
@@ -206,6 +207,7 @@ class Generator:
         exp.Int64: lambda self, e: self.sql(exp.cast(e.this, exp.DType.BIGINT)),
         exp.JSONBContainsAnyTopKeys: lambda self, e: self.binary(e, "?|"),
         exp.JSONBContainsAllTopKeys: lambda self, e: self.binary(e, "?&"),
+        exp.JSONBContainsTopKey: lambda self, e: self.binary(e, "?"),
         exp.JSONBDeleteAtPath: lambda self, e: self.binary(e, "#-"),
         exp.JSONBPathExists: lambda self, e: self.binary(e, "@?"),
         exp.JSONObject: lambda self, e: self._jsonobject_sql(e),
@@ -350,6 +352,9 @@ class Generator:
 
     # The separator for grouping sets and rollups
     GROUPINGS_SEP = ","
+
+    # Whether GROUPING SETS can follow GROUP BY expressions without a comma
+    SUPPORTS_GROUPING_SETS_AS_SUFFIX = False
 
     # The string used for creating an index on a table
     INDEX_ON = "ON"
@@ -849,6 +854,16 @@ class Generator:
     EXPRESSIONS_WITHOUT_NESTED_CTES: t.ClassVar[set[type[exp.Expr]]] = set()
 
     RESPECT_IGNORE_NULLS_UNSUPPORTED_EXPRESSIONS: t.ClassVar[tuple[type[exp.Expr], ...]] = ()
+
+    MOD_OPERATOR = "%"
+
+    # Infix operators that bind at least as tightly as %, so a Mod on their right side needs parentheses
+    MOD_PAREN_PARENT_TYPES: t.ClassVar[tuple[type[exp.Expr], ...]] = (
+        exp.Mul,
+        exp.Div,
+        exp.IntDiv,
+        exp.Mod,
+    )
 
     SAFE_JSON_PATH_KEY_RE: t.ClassVar = exp.SAFE_IDENTIFIER_RE
 
@@ -1826,7 +1841,7 @@ class Generator:
         return self.prepend_ctes(expression, f"DELETE{hint}{tables}{expression_sql}")
 
     def drop_sql(self, expression: exp.Drop) -> str:
-        this = self.sql(expression, "this")
+        tables = self.expressions(expression, key="tables", flat=True)
         expressions = self.expressions(expression, flat=True)
         expressions = f" ({expressions})" if expressions else ""
         kind = expression.args["kind"]
@@ -1848,7 +1863,7 @@ class Generator:
         purge = " PURGE" if expression.args.get("purge") else ""
         sync = " SYNC" if expression.args.get("sync") else ""
         force = " FORCE" if expression.args.get("force") else ""
-        return f"DROP{temporary}{materialized}{iceberg} {kind}{concurrently_sql}{exists_sql}{this}{on_cluster}{expressions}{cascade}{restrict}{constraints}{purge}{sync}{force}"
+        return f"DROP{temporary}{materialized}{iceberg} {kind}{concurrently_sql}{exists_sql}{tables}{on_cluster}{expressions}{cascade}{restrict}{constraints}{purge}{sync}{force}"
 
     def set_operation(self, expression: exp.SetOperation) -> str:
         op_type = type(expression)
@@ -2819,7 +2834,18 @@ class Generator:
             and groupings
             and groupings.strip() not in ("WITH CUBE", "WITH ROLLUP")
         ):
-            group_by = f"{group_by}{self.GROUPINGS_SEP}"
+            add_separator = True
+
+            if grouping_sets and not expression.args.get("grouping_sets_as_group_by_element"):
+                if self.SUPPORTS_GROUPING_SETS_AS_SUFFIX:
+                    add_separator = False
+                else:
+                    self.unsupported(
+                        "GROUPING SETS without a comma after GROUP BY expressions is not supported"
+                    )
+
+            if add_separator:
+                group_by = f"{group_by}{self.GROUPINGS_SEP}"
 
         return f"{group_by}{groupings}"
 
@@ -4587,7 +4613,15 @@ class Generator:
         return self.binary(expression, "<=")
 
     def mod_sql(self, expression: exp.Mod) -> str:
-        return self.binary(expression, "%")
+        this = self.sql(expression, "this")
+        expr = self.sql(expression, "expression")
+        sql = f"{this} {self.maybe_comment(self.MOD_OPERATOR, comments=expression.comments)} {expr}"
+
+        parent = expression.parent
+        if isinstance(parent, self.MOD_PAREN_PARENT_TYPES) and parent.expression is expression:
+            return f"({sql})"
+
+        return sql
 
     def mul_sql(self, expression: exp.Mul) -> str:
         return self.binary(expression, "*")
@@ -5035,6 +5069,12 @@ class Generator:
 
         return self.sql(case)
 
+    def nthvalue_sql(self, expression: exp.NthValue) -> str:
+        if expression.args.get("from_first") is False:
+            self.unsupported("NTH_VALUE FROM LAST is not supported")
+
+        return self.function_fallback_sql(expression)
+
     def comprehension_sql(self, expression: exp.Comprehension) -> str:
         this = self.sql(expression, "this")
         expr = self.sql(expression, "expression")
@@ -5395,9 +5435,11 @@ class Generator:
 
         if self.IGNORE_NULLS_IN_FUNC and not expression.meta_get("inline"):
             if self.IGNORE_NULLS_BEFORE_ORDER:
+                from sqlglot.optimizer.scope import find_all_in_scope
+
                 # The first modifier here will be the one closest to the AggFunc's arg
                 mods = sorted(
-                    expression.find_all(exp.HavingMax, exp.Order, exp.Limit),
+                    find_all_in_scope(expression, exp.HavingMax, exp.Order, exp.Limit),
                     key=lambda x: (
                         0
                         if isinstance(x, exp.HavingMax)
@@ -6037,8 +6079,8 @@ class Generator:
         options = f" {options}" if options else ""
         kind = self.sql(expression, "kind")
         kind = f" {kind}" if kind else ""
-        this = self.sql(expression, "this")
-        this = f" {this}" if this else ""
+        tables = self.expressions(expression, key="tables", flat=True)
+        tables = f" {tables}" if tables else ""
         mode = self.sql(expression, "mode")
         mode = f" {mode}" if mode else ""
         properties = self.sql(expression, "properties")
@@ -6047,7 +6089,7 @@ class Generator:
         partition = f" {partition}" if partition else ""
         inner_expression = self.sql(expression, "expression")
         inner_expression = f" {inner_expression}" if inner_expression else ""
-        return f"ANALYZE{options}{kind}{this}{partition}{mode}{inner_expression}{properties}"
+        return f"ANALYZE{options}{kind}{tables}{partition}{mode}{inner_expression}{properties}"
 
     def xmltable_sql(self, expression: exp.XMLTable) -> str:
         this = self.sql(expression, "this")

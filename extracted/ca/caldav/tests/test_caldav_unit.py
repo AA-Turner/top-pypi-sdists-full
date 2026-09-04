@@ -8,6 +8,7 @@ to emulate server communication.
 
 import pickle
 from datetime import date, datetime, timedelta, timezone
+from typing import Any
 from unittest import mock
 from urllib.parse import urlparse
 
@@ -336,6 +337,26 @@ class MockedDAVClient(DAVClient):
         return MockedDAVResponse(self.xml_returned)
 
 
+class GetRefusedDAVClient(DAVClient):
+    """
+    For unit testing - a mocked DAVClient that refuses a plain GET with 403
+    and answers a REPORT with some specific content.  This is the Robur
+    shape: the server answers 403 rather than 404 for anything that does
+    not exist, but a calendar-multiget REPORT against the existing parent
+    collection still reports the missing href.
+    """
+
+    def __init__(self, report_xml):
+        self.report_xml = report_xml
+        DAVClient.__init__(self, url="https://somwhere.in.the.universe.example/some/caldav/root")
+
+    def request(self, *largs, **kwargs):
+        raise error.AuthorizationError(url=largs[0] if largs else None, reason="Forbidden")
+
+    def report(self, *largs, **kwargs):
+        return MockedDAVResponse(self.report_xml)
+
+
 class TestCalDAV:
     """
     Test class for "pure" unit tests (small internal tests, testing that
@@ -445,6 +466,142 @@ class TestCalDAV:
         with pytest.raises(error.NotFoundError):
             object.load_by_multiget()
 
+    MULTIGET_FOUND = """
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:response>
+    <D:href>/calendar/robur/found.ics</D:href>
+    <D:propstat>
+      <D:prop>
+        <C:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:found@example.com
+DTSTAMP:20260826T120000Z
+DTSTART:20260827T120000Z
+SUMMARY:found through multiget
+END:VEVENT
+END:VCALENDAR
+</C:calendar-data>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>"""
+
+    MULTIGET_NOT_FOUND = """
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/calendar/robur/gone.ics</D:href>
+    <D:status>HTTP/1.1 404 Not Found</D:status>
+  </D:response>
+</D:multistatus>"""
+
+    MULTIGET_FORBIDDEN = """
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/calendar/robur/secret.ics</D:href>
+    <D:status>HTTP/1.1 403 Forbidden</D:status>
+  </D:response>
+</D:multistatus>"""
+
+    def _robur_object(self, report_xml, path):
+        client = GetRefusedDAVClient(report_xml)
+        calendar = Calendar(client, url="/calendar/robur/")
+        return Event(url=path, parent=calendar)
+
+    def testLoadFallsBackToMultigetByDefault(self):
+        """A GET refused with 403 is retried as a calendar-multiget REPORT.
+
+        This is what makes Robur look like a well-behaved server from the
+        outside: the object is loaded even though the GET was refused.
+        """
+        object = self._robur_object(self.MULTIGET_FOUND, "/calendar/robur/found.ics")
+        object.load()
+        assert "found through multiget" in object.data
+
+    def testLoadWithoutMultigetFallbackRaisesTheServersOwnError(self):
+        """load(multiget_fallback=False) surfaces what the server actually said.
+
+        Without this, no caller can tell a server that answers 404 from one
+        that answers 403 and is rescued by the REPORT - which is precisely
+        what "non-existing-raises-not-found" is supposed to describe.
+        """
+        object = self._robur_object(self.MULTIGET_FOUND, "/calendar/robur/found.ics")
+        with pytest.raises(error.AuthorizationError):
+            object.load(multiget_fallback=False)
+
+    def testTheMultigetFallbackDoesNotLaunderARealForbidden(self):
+        """A genuine 403 does not come out of the multiget fallback as a 404.
+
+        The fallback only turns a refused GET into NotFoundError when the
+        REPORT itself reports the href as missing: _extract_multiget_results
+        raises NotFoundError on an inner 404, and _post_load_by_multiget
+        raises it on an empty result set.  An inner 403 hits neither -
+        validate_status rejects it, and the caller gets a ResponseError.  So
+        "it is forbidden" and "it is not there" stay distinguishable, which
+        is why non-existing-raises-not-found can be observed at all.
+        """
+        object = self._robur_object(self.MULTIGET_FORBIDDEN, "/calendar/robur/secret.ics")
+        with pytest.raises(error.ResponseError):
+            object.load()
+
+    def testLoadFallsBackToNotFoundWhenTheReportSaysSo(self):
+        """A refused GET plus a REPORT reporting an inner 404 gives NotFoundError."""
+        object = self._robur_object(self.MULTIGET_NOT_FOUND, "/calendar/robur/gone.ics")
+        with pytest.raises(error.NotFoundError):
+            object.load()
+
+    def testPropfindResponseLevelNotFound(self):
+        """A PROPFIND answered with a response-level 404 must raise NotFoundError.
+
+        RFC 4918 section 14.24 lets a <response> carry either propstat
+        elements or a bare <status>, so a server may report "this resource
+        does not exist" inside a 207 Multi-Status rather than as a transport
+        level 404.  Xandikos does exactly that for PROPFIND on a missing
+        collection (while answering REPORT on the very same URL with a plain
+        404).  We used to look only at the propstats, find none, and hand the
+        caller a None value for every requested property.
+        """
+        xml = """
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/calendars/shouldnotexist/</D:href>
+    <D:status>HTTP/1.1 404 Not Found</D:status>
+  </D:response>
+</D:multistatus>"""
+        client = MockedDAVClient(xml)
+        calendar = Calendar(client, url="/calendars/shouldnotexist/")
+        with pytest.raises(error.NotFoundError):
+            calendar.get_display_name()
+        with pytest.raises(error.NotFoundError):
+            calendar.get_properties([dav.DisplayName()])
+
+    def testPropfindResponseLevelNotFoundOnlyWhenAllAreMissing(self):
+        """A 404 for one href among several must NOT raise.
+
+        On a Depth: 1 PROPFIND a single missing child is a normal, expected
+        part of the reply - only a reply where nothing at all was found means
+        the requested resource is gone.
+        """
+        xml = """
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/calendars/</D:href>
+    <D:propstat>
+      <D:prop><D:displayname>calendars</D:displayname></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/calendars/vanished/</D:href>
+    <D:status>HTTP/1.1 404 Not Found</D:status>
+  </D:response>
+</D:multistatus>"""
+        client = MockedDAVClient(xml)
+        calendar = Calendar(client, url="/calendars/")
+        props = calendar.get_properties([dav.DisplayName()], depth=1)
+        assert props[dav.DisplayName.tag] == "calendars"
+
     @mock.patch("caldav.davclient.requests.Session.request")
     def testRequestCustomHeaders(self, mocked):
         """
@@ -485,7 +642,8 @@ class TestCalDAV:
         mocked().status_code = 200
         mocked().headers = {"Content-Type": "text/xml"}
         mocked().content = ""
-        client = DAVClient(url="AsdfasDF").request("/")
+        response = DAVClient(url="AsdfasDF").request("/")
+        assert response.status == 200
 
     @mock.patch("caldav.davclient.requests.Session.request")
     def testNonValidXMLNoContentLength(self, mocked):
@@ -656,6 +814,14 @@ class TestCalDAV:
     def _load(self, only_if_unloaded=True):
         self.data = todo6
 
+    def _batch_load(self, objects):
+        ## Search results are batch-loaded via a single calendar-multiget REPORT
+        ## (Calendar._batch_load_objects); the mocked server returns no
+        ## calendar-data, so inject todo6 here the same way _load does per object.
+        for obj in objects:
+            obj.data = todo6
+
+    @mock.patch("caldav.collection.Calendar._batch_load_objects", new=_batch_load)
     @mock.patch("caldav.calendarobjectresource.CalendarObjectResource.load", new=_load)
     def testDateSearch(self):
         """
@@ -708,6 +874,8 @@ class TestCalDAV:
 """
         client = MockedDAVClient(xml)
         calendar = Calendar(client, url="/principals/calendar/home@petroski.example.com/963/")
+        ## expand=False does no client-side time-range filtering, so all three
+        ## server-returned hrefs are returned regardless of the search window.
         with pytest.deprecated_call():
             results = calendar.date_search(datetime(2021, 2, 1), datetime(2021, 2, 7), expand=False)
             assert len(results) == 3
@@ -1150,6 +1318,14 @@ END:VCALENDAR
                 "{urn:ietf:params:xml:ns:caldav}calendar-data": None,
             },
         }
+        ## This assert was missing: the XML and the expected dict above were
+        ## built and then never compared.  Note the third href is
+        ## percent-encoded in the XML and plain in the expected keys, so this
+        ## also covers the unquoting.
+        assert (
+            MockedDAVResponse(xml).expand_simple_props(props=[dav.GetEtag(), cdav.CalendarData()])
+            == expected_results
+        )
 
     def testHugeTreeParam(self):
         """
@@ -1461,12 +1637,12 @@ END:VCALENDAR
         assert isinstance(event._state, RawDataState)
 
         # edit_icalendar_instance() SHOULD change state to IcalendarState
-        with event.edit_icalendar_instance() as cal:
+        with event.edit_icalendar_instance():
             pass
         assert isinstance(event._state, IcalendarState)
 
         # edit_vobject_instance() SHOULD change state to VobjectState
-        with event.edit_vobject_instance() as vobj:
+        with event.edit_vobject_instance():
             pass
         assert isinstance(event._state, VobjectState)
 
@@ -1503,6 +1679,85 @@ END:VCALENDAR
         assert event._get_component_type_cheap() is None
         assert event._has_data() is False
 
+    def test_set_data_updates_state_cache(self) -> None:
+        """§2.9: _set_data (raw string branch) must reset _state so that
+        get_data()/get_icalendar_instance()/id return the new content.
+
+        Bug: _set_data cleared _data/_vobject_instance/_icalendar_instance
+        but never updated self._state.  Once _state was cached by an earlier
+        call to _ensure_state() (e.g. via event.id or is_loaded()), all
+        subsequent reads through the new API served stale content.
+        """
+        from caldav.datastate import RawDataState
+
+        client = DAVClient(url="http://cal.example.com/")
+        ev2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VEVENT
+UID:updated-uid@example.com
+DTSTAMP:20260101T000000Z
+DTSTART:20260601T100000Z
+DTEND:20260601T110000Z
+SUMMARY:Updated Event
+END:VEVENT
+END:VCALENDAR
+"""
+        event = Event(client, data=ev1)
+
+        # Prime the state cache — simulates the common scenario where the
+        # object is accessed before a reload (e.g. event.id or is_loaded())
+        assert event.id == "20010712T182145Z-123401@example.com"
+        assert isinstance(event._state, RawDataState)
+
+        # Simulate what load() does: assign new raw data
+        event.data = ev2
+
+        # _state must now reflect the new data
+        assert isinstance(event._state, RawDataState)
+        assert event.get_data() == ev2, "get_data() returned stale pre-reload content"
+        assert event.id == "updated-uid@example.com", "id returned stale UID after reload"
+        assert "Updated Event" in event.get_data()
+
+    def test_vfreebusy_component_type_detection(self) -> None:
+        """§2.10: RawDataState.get_component_type() tested for 'BEGIN:FREEBUSY'
+        but real iCalendar data uses 'BEGIN:VFREEBUSY', so FreeBusy objects
+        got component_type=None → is_loaded()/has_component() False → save()
+        silent no-op and load(only_if_unloaded=True) spuriously reloads.
+        Also fixes get_uid()/get_component_type() in DataState base class
+        which listed 'FREEBUSY' instead of 'VFREEBUSY' as comp.name.
+        """
+        from caldav.datastate import RawDataState
+
+        freebusy_data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VFREEBUSY
+UID:freebusy@example.com
+DTSTAMP:20240101T120000Z
+DTSTART:20240601T090000Z
+DTEND:20240601T110000Z
+FREEBUSY:20240601T090000Z/20240601T100000Z
+END:VFREEBUSY
+END:VCALENDAR
+"""
+        state = RawDataState(freebusy_data)
+        assert state.get_component_type() == "VFREEBUSY", (
+            "RawDataState.get_component_type() returned None for VFREEBUSY data "
+            "(was checking for 'BEGIN:FREEBUSY' instead of 'BEGIN:VFREEBUSY')"
+        )
+        assert state.get_uid() == "freebusy@example.com"
+
+        # Also verify via the base class parsers (IcalendarState path)
+        import icalendar
+
+        from caldav.datastate import IcalendarState
+
+        ical = icalendar.Calendar.from_ical(freebusy_data)
+        istate = IcalendarState(ical)
+        assert istate.get_component_type() == "VFREEBUSY"
+        assert istate.get_uid() == "freebusy@example.com"
+
     def testDataAPIEdgeCases(self):
         """Test edge cases in the data API (issue #613)."""
         cal_url = "http://me:hunter2@calendar.example:80/"
@@ -1532,9 +1787,9 @@ END:VCALENDAR
         # Test that nested borrowing (even same type) raises error
         # This prevents confusing ownership semantics
         event2 = Event(client, data=ev1)
-        with event2.edit_icalendar_instance() as cal1:
+        with event2.edit_icalendar_instance():
             with pytest.raises(RuntimeError):
-                with event2.edit_icalendar_instance() as cal2:
+                with event2.edit_icalendar_instance():
                     pass
 
         # Test sequential edits work fine
@@ -1566,7 +1821,13 @@ END:VCALENDAR
         assert my_todo2.get_duration() == timedelta(days=6)
         assert my_todo2.get_due() == orig_start
         assert my_todo3.get_duration() == timedelta(days=5)
-        foo6 = my_todo3.get_due().strftime("%s") == "1177945200"
+        ## This used to read `foo6 = ...strftime("%s") == "1177945200"`: an
+        ## assertion assigned to a variable and never checked.  It could not have
+        ## been asserted as written either - "%s" is a glibc extension that
+        ## ignores tzinfo, so the comparison only holds in the author's own
+        ## timezone (1177945200 is 2007-04-30T16:00+02:00; in UTC the same
+        ## datetime gives 1177948800).  Asserted on the value instead.
+        assert my_todo3.get_due() == datetime(2007, 4, 30, 16, 0, tzinfo=timezone.utc)
         some_date = date(2011, 1, 1)
 
         my_todo1.set_due(some_date)
@@ -1624,6 +1885,31 @@ END:VCALENDAR
         assert "DTSTART" not in my_todo4.component
         assert "DUE" not in my_todo4.component
         assert my_todo4.component["duration"].dt == timedelta(2)
+
+    def testTodoDurationTimedDtstart(self):
+        """§2.11: _get_duration must return timedelta(0) for a VTODO with a timed DTSTART
+        and no DUE/DURATION — not timedelta(days=1).
+
+        isinstance(i["DTSTART"], datetime) tested the vDDDTypes wrapper (always False),
+        so the date-vs-datetime branch always took the 'is a date' path, returning 1 day.
+        Fix: test isinstance(i["DTSTART"].dt, datetime) instead.
+        """
+        cal_url = "http://me:hunter2@calendar.example:80/"
+        client = DAVClient(url=cal_url)
+        todo_timed_dtstart = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//EN
+BEGIN:VTODO
+UID:timed-dtstart@example.com
+DTSTAMP:20240101T000000Z
+DTSTART:20240601T100000Z
+SUMMARY:Todo with timed DTSTART only
+END:VTODO
+END:VCALENDAR"""
+        todo_item = Todo(client, data=todo_timed_dtstart)
+        assert todo_item.get_duration() == timedelta(0), (
+            f"Expected timedelta(0) for timed DTSTART with no DUE, got {todo_item.get_duration()}"
+        )
 
     def testURL(self):
         """Exercising the URL class"""
@@ -1722,6 +2008,28 @@ END:VCALENDAR
             == URL("//www.example.com/bar/").canonical()
         )
 
+        # 9b) canonical() must strip credentials (§2.5a)
+        cred_url = URL("https://user:pass@example.com/cal/")
+        canon = cred_url.canonical()
+        assert "user" not in str(canon), "canonical() leaked username"
+        assert "pass" not in str(canon), "canonical() leaked password"
+
+        # 9c) canonical() must not mutate self (§2.5b):
+        #     a URL with no auth — unauth() returns self, canonical() must
+        #     still return a fresh object and leave self unchanged.
+        plain_url = URL("http://example.com/cal/path/")
+        before = str(plain_url)
+        _ = plain_url.canonical()
+        assert str(plain_url) == before, "canonical() mutated self"
+
+        # 9d) __eq__ calls canonical() — must not mutate self (§2.5b)
+        #     A literal '+' in the path would become '%2B' after quote(unquote()),
+        #     silently changing what resource subsequent requests target.
+        plus_url = URL("http://example.com/cal/foo+bar/")
+        before_plus = str(plus_url)
+        _ = plus_url == URL("http://example.com/cal/foo+bar/")
+        assert str(plus_url) == before_plus, "__eq__ mutated URL containing '+'"
+
         # 10) pickle
         assert pickle.loads(pickle.dumps(url1)) == url1
 
@@ -1733,7 +2041,11 @@ END:VCALENDAR
                 )
             )
         )
-        # print(filter)
+        filter_xml = str(filter)
+        assert 'name="VCALENDAR"' in filter_xml
+        assert 'name="VEVENT"' in filter_xml
+        assert 'name="UID"' in filter_xml
+        assert "pouet" in filter_xml
 
         crash = cdav.CompFilter()
         value = None
@@ -1781,6 +2093,9 @@ END:VCALENDAR
                 "basic",
                 "digest",
             }
+            # §1.8: trailing comma (seen in the wild) must not raise IndexError
+            assert client.extract_auth_types("Basic,") == {"basic"}
+            assert client.extract_auth_types('Basic realm="x",') == {"basic"}
 
     def testAutoUrlEcloudWithEmailUsername(self) -> None:
         """
@@ -2095,8 +2410,8 @@ END:VCALENDAR"""
 
         created = []
         original_create = CalendarObjectResource._create
-        CalendarObjectResource._create = (
-            lambda self_, id=None, path=None, retry_on_failure=True: created.append(True)
+        CalendarObjectResource._create = lambda self_, id=None, path=None, retry_on_failure=True: (
+            created.append(True)
         )
         try:
             calendar.add_object(Event, self._orphan_ical)
@@ -2756,6 +3071,77 @@ class TestRateLimiting:
                 client.request("/")
 
 
+class TestAsyncProbeResponseNotReturnedAsReal:
+    """§2.15: async _async_request: when the probe GET for issue-#158 workaround does
+    not receive a 401+WWW-Authenticate response, the original exception must be re-raised.
+
+    Before the fix, a probe response with status != 401 (e.g. 200 HTML login page) fell
+    through to response = DAVResponse(r, self), returning the probe GET response as if
+    it were the real request's response — status 200 for a PUT that never happened.
+    """
+
+    @pytest.mark.asyncio
+    async def test_probe_200_reraises_original_exception(self):
+        """If the probe GET returns 200 (not a 401 challenge), the original error must propagate."""
+        from unittest.mock import AsyncMock, patch
+
+        from caldav.async_davclient import AsyncDAVClient
+
+        client = AsyncDAVClient(url="http://cal.example.com/", password="secret")
+
+        probe_resp = mock.MagicMock()
+        probe_resp.status_code = 200
+        probe_resp.reason = "OK"
+        probe_resp.headers = {"Content-Type": "text/html"}
+        probe_resp.reason_phrase = "OK"
+
+        original_error = ConnectionError("server aborted connection")
+
+        async def mock_request(*args, **kwargs):
+            if kwargs.get("method") == "GET" and not kwargs.get("auth"):
+                return probe_resp
+            raise original_error
+
+        with patch.object(client.session, "request", side_effect=mock_request):
+            with pytest.raises((ConnectionError, Exception)):
+                await client._async_request("/some/resource", "PUT", "data", {})
+
+
+class TestRateLimitNoPlusNone:
+    """§1.3: rate-limit retry must not raise TypeError when second 429 has no usable Retry-After.
+
+    sleep_seconds += rate_limit_time_slept / 2 executed before the is-None check,
+    so None += 2.5 raised TypeError instead of the documented RateLimitError.
+    """
+
+    def _make_response(self, status_code, headers=None):
+        r = mock.MagicMock()
+        r.status_code = status_code
+        r.headers = headers or {}
+        r.reason = "Too Many Requests"
+        return r
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_second_429_without_retry_after_raises_rate_limit_error(self, mocked):
+        """Second 429 with Retry-After: 0 (compute_sleep_seconds → None) must raise
+        RateLimitError, not TypeError."""
+        ok = mock.MagicMock()
+        ok.status_code = 200
+        ok.headers = {}
+        mocked.side_effect = [
+            self._make_response(429, {"Retry-After": "5"}),
+            self._make_response(429, {"Retry-After": "0"}),  # compute_sleep_seconds → None
+        ]
+        client = DAVClient(
+            url="http://cal.example.com/",
+            rate_limit_handle=True,
+            rate_limit_default_sleep=None,
+        )
+        with mock.patch("caldav.davclient.time.sleep"):
+            with pytest.raises(error.RateLimitError):
+                client.request("/")
+
+
 class TestDateToUtcConversion:
     """
     RFC 4791 §9.9: time-range start/end MUST be UTC datetime values.
@@ -2896,6 +3282,26 @@ class TestExpandConfigSection:
             "all": {"contains": ["ab", "c"]},
         }
         assert set(expand_config_section(config, "all")) == {"a", "b", "c"}
+
+    def test_missing_section_returns_empty(self):
+        """§1.9: expand_config_section(config, "default") when "default" is absent must
+        return [] rather than raising KeyError."""
+        from caldav.config import expand_config_section
+
+        config = {"work": {"caldav_url": "https://work.example.com/"}}
+        # Requesting a section that doesn't exist should return [] (no match), not crash
+        assert expand_config_section(config, "default") == []
+
+    def test_disable_respected_for_named_sections(self):
+        """§2.17: disable:true must suppress named sections, not just glob '*' results.
+
+        The old code used the literal string 'section' instead of the variable,
+        so disable was only effective under the '*' glob path.
+        """
+        from caldav.config import expand_config_section
+
+        config = {"work": {"caldav_url": "https://work.example.com/", "disable": True}}
+        assert expand_config_section(config, "work") == []
 
 
 class TestConfigSectionInheritance:
@@ -3047,6 +3453,50 @@ class TestGetAllFileConnectionParams:
         assert len(results) == 1
         assert results[0]["calendar_url"] == "/dav/user/mycalendar/"
 
+    def test_section_with_features_but_no_url(self, tmp_path):
+        """A section without caldav_url is usable when it has features —
+        the client constructor resolves the URL from auto-connect.url hints."""
+        import json
+
+        from caldav.config import get_all_file_connection_params
+
+        config = {
+            "ecloud": {
+                "caldav_username": "user@e.email",
+                "caldav_password": "pass",
+                "features": "ecloud",
+            }
+        }
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(json.dumps(config))
+        results = get_all_file_connection_params(str(config_file), "ecloud")
+        assert len(results) == 1
+        assert results[0]["username"] == "user@e.email"
+        assert results[0]["features"]
+
+    def test_get_connection_params_features_but_no_url(self, tmp_path):
+        """Same as above, but through get_connection_params — the code path
+        used by get_davclient(config_section=...)."""
+        import json
+
+        from caldav.config import get_connection_params
+
+        config = {
+            "ecloud": {
+                "caldav_username": "user@e.email",
+                "caldav_password": "pass",
+                "features": "ecloud",
+            }
+        }
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(json.dumps(config))
+        params = get_connection_params(
+            config_file=str(config_file), config_section="ecloud", environment=False
+        )
+        assert params is not None
+        assert params["username"] == "user@e.email"
+        assert params["features"]
+
     def test_meta_section_returns_multiple_dicts(self, tmp_path):
         import json
 
@@ -3072,6 +3522,97 @@ class TestGetAllFileConnectionParams:
             "https://work.example.com/dav/",
             "https://personal.example.com/dav/",
         }
+
+
+class TestExplicitParamsMerge:
+    """§2.18: get_connection_params explicit kwargs must be merged with env/file config.
+
+    The old code only returned explicit_params when 'url' or 'features' was present;
+    params like password-only were silently discarded when an env/file source was found.
+    """
+
+    def test_explicit_password_merged_with_env_url(self, monkeypatch):
+        """get_connection_params(password='secret') with CALDAV_URL in env must include the password."""
+        from caldav.config import get_connection_params
+
+        monkeypatch.setenv("CALDAV_URL", "https://env.example.com/")
+        monkeypatch.setenv("CALDAV_USERNAME", "envuser")
+        # Unset file config to avoid config-file interference
+        monkeypatch.delenv("CALDAV_CONFIG_FILE", raising=False)
+        result = get_connection_params(password="secret", check_config_file=False)
+        assert result is not None
+        assert result.get("password") == "secret"
+        assert result.get("url") == "https://env.example.com/"
+
+    def test_explicit_none_does_not_clobber_env_url(self, monkeypatch):
+        """Gate finding F8: a kwarg that is explicitly None is "not supplied",
+        not "unset it".
+
+        The common CLI wrapper -- get_davclient(url=args.url,
+        username=args.user, password=args.password) where the user only gave
+        --password -- overlaid url=None on top of the winning source and
+        wiped CALDAV_URL."""
+        from caldav.config import get_connection_params
+
+        monkeypatch.setenv("CALDAV_URL", "https://env.example.com/")
+        monkeypatch.setenv("CALDAV_USERNAME", "envuser")
+        monkeypatch.delenv("CALDAV_CONFIG_FILE", raising=False)
+        result = get_connection_params(
+            url=None, username=None, password="secret", check_config_file=False
+        )
+        assert result is not None
+        assert result.get("url") == "https://env.example.com/"
+        assert result.get("username") == "envuser"
+        assert result.get("password") == "secret"
+
+    def test_empty_string_username_is_still_explicit(self, monkeypatch):
+        """An empty username is meaningful (servers with no auth) and must
+        not be discarded along with the Nones."""
+        from caldav.config import get_connection_params
+
+        monkeypatch.setenv("CALDAV_URL", "https://env.example.com/")
+        monkeypatch.setenv("CALDAV_USERNAME", "envuser")
+        monkeypatch.delenv("CALDAV_CONFIG_FILE", raising=False)
+        result = get_connection_params(username="", check_config_file=False)
+        assert result is not None
+        assert result.get("username") == ""
+
+    def test_explicit_params_merged_with_test_server_config(self, monkeypatch):
+        """Gate finding F8: the testconfig branch returned the test-server
+        config verbatim, dropping the explicit kwargs entirely."""
+        from caldav import config as config_module
+        from caldav.config import get_connection_params
+
+        monkeypatch.setattr(
+            config_module,
+            "_get_test_server_config",
+            lambda *a, **kw: {"url": "https://testserver.example.com/", "username": "testuser"},
+        )
+        result = get_connection_params(testconfig=True, password="secret")
+        assert result is not None
+        assert result.get("url") == "https://testserver.example.com/"
+        assert result.get("password") == "secret"
+
+
+class TestResolveFeaturesMutation:
+    """§2.19: resolve_features and testing.py server classes must deepcopy hint dicts.
+
+    Returning or shallow-copying a module-level dict then mutating a nested key
+    permanently corrupts the module-level dict for all subsequent users.
+    """
+
+    def test_resolve_features_string_returns_independent_copy(self):
+        """resolve_features('xandikos') must return a deep copy, not the module object."""
+        from caldav import compatibility_hints as hints
+        from caldav.config import resolve_features
+
+        original_domain = hints.xandikos.get("auto-connect.url", {}).get("domain", "<sentinel>")
+        result = resolve_features("xandikos")
+        # Mutate the returned copy
+        if "auto-connect.url" in result and isinstance(result["auto-connect.url"], dict):
+            result["auto-connect.url"]["domain"] = "MUTATED:9999"
+        # Original must be unchanged
+        assert hints.xandikos.get("auto-connect.url", {}).get("domain") == original_domain
 
 
 class TestResolveProperties:
@@ -3245,3 +3786,499 @@ END:VCALENDAR
         ev = self._make_event_with_mock_client("just_a_username")
         with pytest.raises(caldav_error.NotFoundError):
             ev.change_attendee_status(partstat="ACCEPTED")
+
+
+class TestAddAttendee:
+    """§1.6: add_attendee() crashes with UnboundLocalError on uppercase MAILTO: scheme.
+
+    RFC 3986 §3.1 specifies URI schemes are case-insensitive, so "MAILTO:user@example.com"
+    is valid and common in real-world iCalendar data.  The old code only matched lowercase
+    "mailto:" — uppercase fell through all string branches, leaving attendee_obj unassigned.
+    """
+
+    _base_event = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:test-add-attendee@example.com
+DTSTAMP:20240101T000000Z
+DTSTART:20240601T100000Z
+DTEND:20240601T110000Z
+SUMMARY:Test event
+END:VEVENT
+END:VCALENDAR
+"""
+
+    def test_add_attendee_uppercase_mailto(self):
+        """add_attendee('MAILTO:user@example.com') must not raise UnboundLocalError."""
+        ev = Event(data=self._base_event)
+        ev.add_attendee("MAILTO:user@example.com")
+        attendee = ev.icalendar_component["attendee"]
+        assert "user@example.com" in str(attendee).lower()
+
+    def test_add_attendee_mixed_case_mailto(self):
+        """Mixed-case scheme variants like 'Mailto:' must also work."""
+        ev = Event(data=self._base_event)
+        ev.add_attendee("Mailto:user@example.com")
+        attendee = ev.icalendar_component["attendee"]
+        assert "user@example.com" in str(attendee).lower()
+
+
+class TestChangeAttendeeStatusNoAttendees:
+    """§1.7: change_attendee_status() raises bare KeyError when event has no ATTENDEE property.
+
+    ical_obj["attendee"] raises KeyError when the key is absent; the NotFoundError-catching
+    loop in the Principal branch never sees it, so the "Principal is not invited" message
+    is unreachable and callers get an unexpected KeyError instead.
+
+    Also: the not-found message contained a literal '%s' placeholder that was never
+    substituted.
+    """
+
+    _event_no_attendees = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:test-no-attendees@example.com
+DTSTAMP:20240101T000000Z
+DTSTART:20240601T100000Z
+DTEND:20240601T110000Z
+SUMMARY:Event with no attendees
+END:VEVENT
+END:VCALENDAR
+"""
+
+    def test_change_attendee_status_no_attendees_raises_not_found(self):
+        """Calling change_attendee_status on an event with no ATTENDEE must raise
+        NotFoundError, not KeyError."""
+        ev = Event(data=self._event_no_attendees)
+        with pytest.raises(error.NotFoundError):
+            ev.change_attendee_status("mailto:nobody@example.com", partstat="ACCEPTED")
+
+    def test_change_attendee_status_error_message_contains_attendee(self):
+        """The not-found error message must contain the attendee address, not a literal '%s'."""
+        ev = Event(data=self._event_no_attendees)
+        with pytest.raises(error.NotFoundError) as exc_info:
+            ev.change_attendee_status("mailto:nobody@example.com", partstat="ACCEPTED")
+        assert "%s" not in str(exc_info.value)
+        assert "nobody@example.com" in str(exc_info.value)
+
+
+class TestFeatureSetCopyFeatureSet:
+    """§1.10 + §1.11: FeatureSet.copyFeatureSet() correctness bugs.
+
+    §1.10: Merging a plain-string feature over an existing string-valued feature raised
+    bare AssertionError because the 'support' not in server_node guard prevented the
+    update branch from running.
+
+    §1.11: An unknown feature name produced a UserWarning but was still stored in
+    _server_features; a later collapse()/is_supported() then hit a message-less
+    AssertionError far from the originating config.  Unknown features must be skipped
+    (continue after warning) so bad keys never contaminate the feature set.
+    """
+
+    def test_string_feature_can_be_overridden(self):
+        """copyFeatureSet must accept a string value that overrides an existing string."""
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet({"scheduling": "unsupported"})
+        fs.copyFeatureSet({"scheduling": "fragile"})
+        assert fs.is_supported("scheduling") is False  # fragile → False per is_supported semantics
+
+    def test_string_feature_full_override(self):
+        """Overriding 'unsupported' with 'full' must make is_supported return True."""
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet({"scheduling": "unsupported"})
+        fs.copyFeatureSet({"scheduling": "full"})
+        assert fs.is_supported("scheduling") is True
+
+    def test_unknown_feature_warns_and_does_not_store(self):
+        """An unknown feature name must emit UserWarning and must NOT be stored."""
+        import warnings
+
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet({})
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            fs.copyFeatureSet({"totally_nonexistent_feature_xyz": "full"})
+
+        assert any("totally_nonexistent_feature_xyz" in str(warning.message) for warning in w)
+        # The bad key must NOT be in the internal feature dict
+        assert "totally_nonexistent_feature_xyz" not in fs._server_features
+
+
+class TestXMLEntityHardening:
+    """§3.2: XML parser must not expand entity references from untrusted server data.
+
+    etree.XMLParser without resolve_entities=False expands inline DOCTYPE
+    entities, allowing a malicious server to inject arbitrary text into
+    parsed values.  With resolve_entities=False the entity reference is
+    left as-is (text becomes None for element content).
+    """
+
+    def test_xml_entity_not_expanded(self):
+        """Entity defined in DOCTYPE must NOT be expanded into element text."""
+        xml = b"""<?xml version="1.0"?>
+<!DOCTYPE foo [<!ENTITY xxe "INJECTED">]>
+<multistatus xmlns="DAV:">
+  <response>
+    <href>/</href>
+    <propstat>
+      <prop><displayname>&xxe;</displayname></prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>"""
+        resp = MockedDAVResponse(xml)
+        assert resp.tree is not None
+        displayname_el = resp.tree.find(".//{DAV:}displayname")
+        assert displayname_el is not None
+        assert displayname_el.text != "INJECTED", (
+            "XML entity was expanded — resolve_entities=False is missing from the parser"
+        )
+
+
+class TestDAVClientCredentialPrecedence:
+    """§1.2: DAVClient credential handling bugs.
+
+    - URL with username but no password (user@host) crashed with TypeError inside
+      urllib.parse.unquote(None).
+    - URL credentials had higher precedence than explicit kwargs; async client was
+      the opposite (explicit kwargs win).  Now sync matches async: explicit kwargs win.
+    """
+
+    def test_url_with_user_but_no_password_does_not_crash(self):
+        """DAVClient(url='https://user@host/', password='p') must not raise TypeError."""
+        client = DAVClient(url="https://user@cal.example.com/dav/", password="secret")
+        assert client.username == "user"
+        assert client.password == b"secret"
+
+    def test_explicit_kwargs_take_precedence_over_url_credentials(self):
+        """Explicit username/password kwargs must override credentials embedded in the URL."""
+        client = DAVClient(
+            url="https://urluser:urlpass@cal.example.com/dav/",
+            username="kwarguser",
+            password="kwargpass",
+        )
+        assert client.username == "kwarguser"
+        assert client.password == b"kwargpass"
+
+    def test_explicit_username_does_not_borrow_url_password(self):
+        """Gate finding F6: credentials are a pair, not two independent fields.
+
+        Merging them field by field produced ``username="alice"`` with
+        ``password="hunter2"`` — alice's login shipping bob's password."""
+        client = DAVClient(
+            url="https://bob:hunter2@cal.example.com/dav/",
+            username="alice",
+        )
+        assert client.username == "alice"
+        assert client.password is None
+
+    def test_explicit_password_still_pairs_with_the_url_username(self):
+        """Overriding only the password keeps the pair coherent: the username
+        still comes from the URL, so there is no account mismatch."""
+        client = DAVClient(
+            url="https://bob:hunter2@cal.example.com/dav/",
+            password="s3cret",
+        )
+        assert client.username == "bob"
+        assert client.password == b"s3cret"
+
+
+class TestPropstatStatusValidation:
+    """Gate finding F7: a failing propstat status must raise, not vanish.
+
+    Deduplicating the propstat loops dropped the per-propstat
+    ``validate_status()`` call, so a ``500``/``403``/``507`` propstat yielded
+    a silently-empty value instead of a ``ResponseError`` -- and the calendar
+    was then dropped from ``get_calendars()`` with only a log line.
+    ``_validate_status`` raises unconditionally; it is not an assert, so
+    ``python -O`` does not disable it either.
+    """
+
+    XML = """
+<multistatus xmlns="DAV:">
+  <response>
+    <href>/dav/calendars/user/broken/</href>
+    <propstat>
+      <prop><displayname/></prop>
+      <status>HTTP/1.1 500 Internal Server Error</status>
+    </propstat>
+  </response>
+</multistatus>
+"""
+
+    def test_server_error_propstat_raises(self):
+        with pytest.raises(error.ResponseError):
+            MockedDAVResponse(self.XML).expand_simple_props(props=[dav.DisplayName()])
+
+    def test_insufficient_storage_propstat_raises(self):
+        xml = self.XML.replace("500 Internal Server Error", "507 Insufficient Storage")
+        with pytest.raises(error.ResponseError):
+            MockedDAVResponse(xml).expand_simple_props(props=[dav.DisplayName()])
+
+    def test_404_propstat_is_still_a_missing_property(self):
+        """The 404 quirk must survive: a 404 propstat means "not set here",
+        not "the request failed"."""
+        xml = self.XML.replace("500 Internal Server Error", "404 Not Found")
+        result = MockedDAVResponse(xml).expand_simple_props(props=[dav.DisplayName()])
+        assert result == {"/dav/calendars/user/broken/": {"{DAV:}displayname": None}}
+
+
+class TestAsyncDAVClientCredentialPairing:
+    """Gate finding F6, async twin: same field-by-field merge, same result."""
+
+    def test_explicit_username_does_not_borrow_url_password(self):
+        from caldav.async_davclient import AsyncDAVClient
+
+        client = AsyncDAVClient(
+            url="https://bob:hunter2@cal.example.com/dav/",
+            username="alice",
+        )
+        assert client.username == "alice"
+        assert client.password is None
+
+    def test_explicit_password_still_pairs_with_the_url_username(self):
+        from caldav.async_davclient import AsyncDAVClient
+
+        client = AsyncDAVClient(
+            url="https://bob:hunter2@cal.example.com/dav/",
+            password="s3cret",
+        )
+        assert client.username == "bob"
+        assert client.password == "s3cret"
+
+
+class TestPostPutRedirect:
+    """§1.1: 302 response to PUT must update event.url from Location header.
+
+    Bug: `[x[1] for x in r.headers if x[0] == "location"]` iterates the
+    headers dict yielding key *strings*, so x[0] is the first character of
+    each header name — never "location".  The list is always empty and any
+    302 raises IndexError.
+    """
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_302_put_updates_url_from_location_header(self, mocked):
+        try:
+            from niquests.structures import CaseInsensitiveDict
+        except ImportError:
+            from requests.structures import CaseInsensitiveDict
+
+        new_url = "http://cal.example.com/cal/new-location.ics"
+        resp = mock.MagicMock()
+        resp.status_code = 302
+        resp.headers = CaseInsensitiveDict({"Location": new_url})
+        resp.reason = "Found"
+        resp.content = b""
+        mocked.return_value = resp
+
+        client = DAVClient(url="http://cal.example.com/")
+        cal = Calendar(client=client, url="http://cal.example.com/cal/")
+        event = Event(
+            client=client,
+            url="http://cal.example.com/cal/event.ics",
+            data=ev1,
+            parent=cal,
+        )
+        event.save()
+        assert str(event.url) == new_url
+
+
+class TestWarnUnreadableDisplayName:
+    """§5 (DRY): the shared helper backing the sync/async name-matching loops.
+
+    Warn unless we positively know the server can't read DAV:displayname via
+    PROPFIND (propfind.displayname non-supported); warn when the feature is
+    supported or when there is no feature matrix to consult.
+    """
+
+    @staticmethod
+    def _client(features):
+        client = mock.MagicMock()
+        client.features = features
+        return client
+
+    def test_warns_when_feature_supported(self, caplog):
+        from caldav.base_client import _warn_unreadable_display_name
+        from caldav.compatibility_hints import FeatureSet
+
+        cal = mock.MagicMock()
+        cal.url = "http://cal.example.com/cal/"
+        with caplog.at_level("WARNING", logger="caldav"):
+            _warn_unreadable_display_name(
+                self._client(FeatureSet()), cal, "Work", Exception("boom")
+            )
+        assert any("Could not read display name" in r.message for r in caplog.records)
+
+    def test_silent_when_feature_unsupported(self, caplog):
+        from caldav.base_client import _warn_unreadable_display_name
+        from caldav.compatibility_hints import FeatureSet
+
+        features = FeatureSet({"propfind.displayname": {"support": "unsupported"}})
+        with caplog.at_level("WARNING", logger="caldav"):
+            _warn_unreadable_display_name(
+                self._client(features), mock.MagicMock(), "Work", Exception("boom")
+            )
+        assert not caplog.records
+
+    def test_silent_when_parent_propfind_unsupported(self, caplog):
+        from caldav.base_client import _warn_unreadable_display_name
+        from caldav.compatibility_hints import FeatureSet
+
+        # propfind.displayname falls back to the propfind parent when not probed
+        features = FeatureSet({"propfind": {"support": "unsupported"}})
+        with caplog.at_level("WARNING", logger="caldav"):
+            _warn_unreadable_display_name(
+                self._client(features), mock.MagicMock(), "Work", Exception("boom")
+            )
+        assert not caplog.records
+
+    def test_warns_when_no_feature_matrix(self, caplog):
+        from caldav.base_client import _warn_unreadable_display_name
+
+        client = mock.MagicMock()
+        client.features = None
+        with caplog.at_level("WARNING", logger="caldav"):
+            _warn_unreadable_display_name(client, mock.MagicMock(), "Work", Exception("boom"))
+        assert any("Could not read display name" in r.message for r in caplog.records)
+
+
+class TestRecurringCompleteHelpers:
+    """Pure (no-I/O) unit tests for the recurring-task completion helpers.
+
+    These exercise the icalendar-mutation logic shared by the sync and async
+    ``complete()`` paths without touching a server.
+    ref https://github.com/python-caldav/caldav code-review §5.6
+    """
+
+    def _make_todo(self, data: str = todo6) -> Todo:
+        client = MockedDAVClient("")
+        cal_url = "https://somwhere.in.the.universe.example/some/caldav/root/cal/"
+        calendar = Calendar(client, url=cal_url)
+        return Todo(client, data=data, parent=calendar, url=cal_url + "t.ics")
+
+    def test_prepare_thisandfuture_advances_series(self) -> None:
+        todo = self._make_todo()
+        before = len(todo.icalendar_instance.subcomponents)
+        todo._prepare_recurring_thisandfuture(datetime(2026, 6, 14, tzinfo=timezone.utc))
+        subs = todo.icalendar_instance.subcomponents
+        ## a completed recurrence + a new THISANDFUTURE instance were added
+        assert len(subs) == before + 2
+        last = subs[-1]
+        assert last["RECURRENCE-ID"].params.get("RANGE") == "THISANDFUTURE"
+        ## one of the recurrences is now marked COMPLETED
+        assert any(str(s.get("STATUS")) == "COMPLETED" for s in subs)
+
+    def test_build_safe_completed_returns_completed_copy(self) -> None:
+        todo = self._make_todo()
+        orig_dtstart = todo.icalendar_component["DTSTART"].dt
+        completed = todo._build_recurring_safe_completed(datetime(2026, 6, 14, tzinfo=timezone.utc))
+        assert completed is not None
+        ## the standalone copy is completed and no longer recurring
+        assert str(completed.icalendar_component["STATUS"]) == "COMPLETED"
+        assert "RRULE" not in completed.icalendar_component
+        ## the master task advanced to its next occurrence and stays recurring
+        assert todo.icalendar_component["DTSTART"].dt > orig_dtstart
+        assert "RRULE" in todo.icalendar_component
+
+    def test_build_safe_completed_none_when_count_one(self) -> None:
+        ## A recurring task with COUNT=1 is not really recurring
+        todo = self._make_todo()
+        todo.icalendar_component["RRULE"]["COUNT"] = [1]
+        assert (
+            todo._build_recurring_safe_completed(datetime(2026, 6, 14, tzinfo=timezone.utc)) is None
+        )
+
+    def test_safe_completion_issues_two_puts(self, monkeypatch: Any) -> None:
+        """The standalone completed copy must not be PUT twice.
+
+        The old async twin had drifted into saving the completed copy once
+        as still-pending and again as completed (3 PUTs total for the
+        operation).  Completing in memory first means one PUT per object.
+        """
+        saves: list[Todo] = []
+
+        def fake_save(self: Todo, *a: Any, **k: Any) -> Todo:
+            saves.append(self)
+            return self
+
+        monkeypatch.setattr(Todo, "save", fake_save)
+        todo = self._make_todo()
+        todo._complete_recurring_safe(datetime(2026, 6, 14, tzinfo=timezone.utc))
+        ## one PUT for the standalone completed copy, one for the advanced master
+        assert len(saves) == 2
+
+
+class TestAdoptCanonicalUrl:
+    """Gate finding F4: after creating a calendar on a server where
+    ``create-calendar.stable-url`` is unsupported, the canonical URL is
+    discovered by display name.  When two calendars share that name the
+    docstring promises the requested URL is kept -- adopting one of them at
+    random can re-point a freshly created calendar at a *pre-existing*
+    unrelated calendar, so every later ``add_event()``, ``search()`` and
+    ``delete()`` would hit the wrong calendar and the new one would be
+    orphaned."""
+
+    REQUESTED = "https://cal.example.com/dav/requested-id/"
+
+    def _make_calendar(self, *relocated_urls: str) -> Calendar:
+        client = mock.Mock(spec=DAVClient)
+        client.url = URL("https://cal.example.com/")
+        calendar = Calendar(client=client, url=self.REQUESTED)
+
+        others = []
+        for url in relocated_urls:
+            other = mock.Mock()
+            other.url = URL(url)
+            other.get_display_name.return_value = "My Calendar"
+            other.get_display_name.side_effect = None
+            others.append(other)
+
+        parent = mock.Mock()
+        parent.calendars.return_value = others
+        calendar.parent = parent
+        return calendar
+
+    def test_single_match_is_adopted(self) -> None:
+        calendar = self._make_calendar("https://cal.example.com/dav/canonical/")
+        calendar._adopt_canonical_url("My Calendar")
+        assert str(calendar.url) == "https://cal.example.com/dav/canonical/"
+
+    def test_ambiguous_name_keeps_requested_url(self) -> None:
+        calendar = self._make_calendar(
+            "https://cal.example.com/dav/canonical/",
+            "https://cal.example.com/dav/some-old-calendar/",
+        )
+        calendar._adopt_canonical_url("My Calendar")
+        assert str(calendar.url) == self.REQUESTED
+
+    def _make_async_calendar(self, *relocated_urls: str) -> Calendar:
+        calendar = self._make_calendar(*relocated_urls)
+        others = calendar.parent.calendars.return_value
+        for other in others:
+            other.get_display_name = mock.AsyncMock(return_value="My Calendar")
+        calendar.parent.calendars = mock.AsyncMock(return_value=others)
+        return calendar
+
+    def test_async_single_match_is_adopted(self) -> None:
+        import asyncio
+
+        calendar = self._make_async_calendar("https://cal.example.com/dav/canonical/")
+        asyncio.run(calendar._async_adopt_canonical_url("My Calendar"))
+        assert str(calendar.url) == "https://cal.example.com/dav/canonical/"
+
+    def test_async_ambiguous_name_keeps_requested_url(self) -> None:
+        import asyncio
+
+        calendar = self._make_async_calendar(
+            "https://cal.example.com/dav/canonical/",
+            "https://cal.example.com/dav/some-old-calendar/",
+        )
+        asyncio.run(calendar._async_adopt_canonical_url("My Calendar"))
+        assert str(calendar.url) == self.REQUESTED

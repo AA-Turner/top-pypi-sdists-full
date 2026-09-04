@@ -18,9 +18,6 @@ import os
 import pathlib
 import time
 import unittest
-from test.asynchronous import AsyncIntegrationTest
-from test.asynchronous.unified_format import generate_test_classes, get_test_path
-from test.utils_shared import CMAPListener
 from typing import Any, Optional
 
 import pytest
@@ -28,6 +25,9 @@ import pytest
 from pymongo import AsyncMongoClient
 from pymongo.driver_info import DriverInfo
 from pymongo.monitoring import ConnectionClosedEvent
+from test.asynchronous import AsyncIntegrationTest
+from test.asynchronous.unified_format import generate_test_classes, get_test_path
+from test.utils_shared import CMAPListener
 
 try:
     from mockupdb import MockupDB, OpMsgReply
@@ -193,7 +193,7 @@ class TestClientMetadataProse(AsyncIntegrationTest):
         )
 
         # send initial metadata
-        name, version, platform, metadata = await self.send_ping_and_get_metadata(client, True)
+        name, version, platform, _metadata = await self.send_ping_and_get_metadata(client, True)
         self.assertIsNotNone(name)
         self.assertIsNotNone(version)
         self.assertIsNotNone(platform)
@@ -229,8 +229,8 @@ class TestClientMetadataProse(AsyncIntegrationTest):
         await client.admin.command("ping")
 
         # Assert that for every handshake document intercepted:
-        # the document has a field `backpressure` whose value is `true`.
-        self.assertEqual(self.handshake_req["backpressure"], True)
+        # the document has a field `backpressure` whose value is `"2"`.
+        self.assertEqual(self.handshake_req["backpressure"], "2")
 
 
 if __name__ == "__main__":

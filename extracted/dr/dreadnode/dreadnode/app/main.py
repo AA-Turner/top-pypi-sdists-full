@@ -260,14 +260,16 @@ class Dreadnode:
 
         # Resolve credentials + context: explicit args > env vars > saved profile
         from dreadnode.app.cli.args import PlatformScopeArgs
+        from dreadnode.core import startup_clock
 
-        resolved = PlatformScopeArgs(
-            server=server,
-            api_key=api_key,
-            organization=str(organization) if organization else None,
-            workspace=str(workspace) if workspace else None,
-            project=str(project) if project else None,
-        ).resolve()
+        with startup_clock.timed("configure.resolve_profile"):
+            resolved = PlatformScopeArgs(
+                server=server,
+                api_key=api_key,
+                organization=str(organization) if organization else None,
+                workspace=str(workspace) if workspace else None,
+                project=str(project) if project else None,
+            ).resolve()
 
         self.server = resolved.url
         self.api_key = resolved.api_key
@@ -280,7 +282,8 @@ class Dreadnode:
 
             # Auto-resolve organization if not specified
             if not self.organization:
-                orgs = self._api.list_user_organizations()
+                with startup_clock.timed("configure.list_organizations"):
+                    orgs = self._api.list_user_organizations()
                 if len(orgs) == 1:
                     resolved = resolved.with_overrides(organization=orgs[0].key)
                     self.organization = orgs[0].key
@@ -294,7 +297,8 @@ class Dreadnode:
                     raise RuntimeError("No organizations found for this API key.")
 
             try:
-                resolved.validate_scope(self._api)
+                with startup_clock.timed("configure.validate_scope"):
+                    resolved.validate_scope(self._api)
             except Exception as exc:
                 from dreadnode.app.config import _is_transient_network_error
 
@@ -317,15 +321,16 @@ class Dreadnode:
                 ws_key = self._profile.workspace
                 if ws_key:
                     try:
-                        self._api.create_project(
-                            str(self.organization),
-                            str(ws_key),
-                            name=str(self.project),
-                            key=str(self.project),
-                        )
-                        # Re-validate to pick up the newly created project
-                        resolved = resolved.with_overrides(project=str(self.project))
-                        resolved.validate_scope(self._api)
+                        with startup_clock.timed("configure.create_project"):
+                            self._api.create_project(
+                                str(self.organization),
+                                str(ws_key),
+                                name=str(self.project),
+                                key=str(self.project),
+                            )
+                            # Re-validate to pick up the newly created project
+                            resolved = resolved.with_overrides(project=str(self.project))
+                            resolved.validate_scope(self._api)
                         self._profile = resolved
                     except Exception as proj_exc:
                         logging.getLogger("dreadnode").debug(

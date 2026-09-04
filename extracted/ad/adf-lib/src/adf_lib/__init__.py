@@ -2,8 +2,11 @@ from .models.document import ADF
 from .models.text import Text
 from .models.table import Table
 from .models.link import Link
+from .models.mark import Mark
+from .models.node import Node
 from .constants.enums import (
     ContentType,
+    NodeType,
     TextType,
     HeadingLevel,
     MarkType,
@@ -11,13 +14,16 @@ from .constants.enums import (
     TableDisplayMode,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.3.1"
 __all__ = [
     "ADF",
     "Text",
     "Table",
     "Link",
+    "Mark",
+    "Node",
     "ContentType",
+    "NodeType",
     "TextType",
     "HeadingLevel",
     "MarkType",

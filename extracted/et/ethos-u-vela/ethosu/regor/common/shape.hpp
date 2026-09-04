@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2021-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2021-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -200,6 +200,7 @@ public:
 
     bool operator==(const Shape &other) const
     {
+        if ( &other == this ) return true;
         if ( other._last != _last )
         {
             return false;
@@ -655,10 +656,11 @@ public:
         return true;
     }
 
-    // Returns true if two shapes are equal, ignoring leading dimensions that are 1
+    // Returns true if two shapes are equal, ignoring leading dimensions that are LEADING_VALUE
+    template<int LEADING_VALUE = 1>
     static bool IsReducedEqual(const Shape &a, const Shape &b)
     {
-        return MaxAxisFunc<std::not_equal_to<int32_t>, 1>(a, b) == 0;
+        return MaxAxisFunc<std::not_equal_to<int32_t>, LEADING_VALUE>(a, b) == 0;
     }
 
     template<typename TYPE>
@@ -939,6 +941,16 @@ public:
     static Shape GetStridesForShape(const Shape &shape, int elementBytes)
     {
         return GetStridesForShape(shape, Shape(elementBytes));
+    }
+
+    static const Shape &ConstZero(int size)
+    {
+        // Common static sizes
+        static const Shape zeroes[] = {{nullptr, 1}, {nullptr, 2}, {nullptr, 3}, {nullptr, 4}, {nullptr, 5},
+            {nullptr, 6}, {nullptr, 7}, {nullptr, 8}};
+        if ( size > 0 && size <= int(std::size(zeroes)) ) return zeroes[size - 1];
+        assert(size < int(std::size(zeroes)));
+        return zeroes[std::size(zeroes) - 1];
     }
 
     static Shape GetStridesForShape(const Shape &shape, const Shape &granularity)

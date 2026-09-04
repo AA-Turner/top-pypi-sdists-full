@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prefect-client
-Version: 3.8.4
+Version: 3.8.5
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -64,7 +64,7 @@ Requires-Dist: uvicorn!=0.29.0,>=0.14.0
 Requires-Dist: websockets<17.0,>=15.0.1
 Requires-Dist: whenever<0.11.0,>=0.7.3; python_version >= '3.13'
 Provides-Extra: notifications
-Requires-Dist: apprise<2.0.0,>=1.1.0; extra == 'notifications'
+Requires-Dist: apprise<2.0.0,>=1.13.0; extra == 'notifications'
 Description-Content-Type: text/markdown
 
 <p align="center"><img src="https://github.com/PrefectHQ/prefect/assets/3407835/c654cbc6-63e8-4ada-a92a-efd2f8f24b85" width=1000></p>

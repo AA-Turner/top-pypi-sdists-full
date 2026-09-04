@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.262
+Version: 0.3.263
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -38,6 +38,7 @@ Requires-Dist: jsonpatch>=1.32
 Requires-Dist: jsonpath-ng>=1.8.0
 Requires-Dist: jsonref>=1.1.0
 Requires-Dist: jsonschema>3.1.1
+Requires-Dist: markdown-it-py>=2.2.0
 Requires-Dist: mmh3>3.1.0
 Requires-Dist: nest_asyncio2>=1.7.2
 Requires-Dist: numpy
@@ -68,7 +69,7 @@ Requires-Dist: apprise; extra == "dev"
 Requires-Dist: aws-bedrock-token-generator; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
-Requires-Dist: google-genai>=1.69.0; extra == "dev"
+Requires-Dist: google-genai>=2.14.0; extra == "dev"
 Requires-Dist: griffe>=2; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
 Requires-Dist: huggingface_hub>=1.6.0; extra == "dev"

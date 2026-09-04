@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.412.0"
-description = "Star-Magic UQFF calculator v0.412.0: THE FRONT DOOR SHIP (Qt) - one installable command (star-magic: calc/gate/well/docs/gui), uqff_paths corpus discovery on every layout, the fidelity gate passes FROM SITE-PACKAGES (proven from an empty cwd), calc prints LIVE vs INHERITED honesty flags in plain terminal, Qt shell (Papers/Wells/Gate/Export/Geology), full repo mirror on the wheel, list_wired crash fixed. 2,254 papers, gate 6,031/0, acceptance 89/89. Next: PAPER_2259."
+version = "0.415.2"
+description = "Star-Magic UQFF calculator v0.415.2: THE TAG-CHAIN SHIP (all contexts fixed) - SHIP GUARD v9 ties the version ledger to the git tag chain; ship.ps1 pre-flight + post-push remote-tag verification. v0.415.0: branch CI fetches no tags; v0.415.1: tag-push CI fetches exactly ONE tag, so zero-tags-skip was not enough. Guard now enforces only on full checkouts (GITHUB_ACTIONS or <100 tags = skip). 2,255 papers, gate 6,046/0, acceptance 89/89."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -100,6 +100,8 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "README.md",
     "RULINGS_BATCH_1.md",
     "RULINGS_BATCH_2.md",
+    "RULINGS_BATCH_3.md",
+    "RULINGS_BATCH_4.md",
     "RULINGS_QUEUE.md",
     "SESSION_LOG.md",
     "SHIP_MESSAGE.txt",
@@ -2012,6 +2014,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "whitepapers/PAPER_2256_THE_UQFF_DOWNHOLE_SIMULATOR_FIRST_INDUSTRY_APPLICATION_MODULE_CANONICAL_LOCK_KNOB_RULING_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2257_THE_TWO_STREAM_ARCHITECTURE_CLOSED_STREAM_FINDS_OFFSET_UNDERVALUED_LIVE_DATA_TOOL_LIBRARY_PORTS_RECONCILER_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2258_THE_UQFF_SUBSURFACE_SURVEYING_TOOL_PARTS_1_3_EARTH_MODEL_SENSING_KERNELS_INVERSE_ENGINE_FIRST_SCORED_STRATA_PREDICTION_REFUTATION_AS_DESIGNED_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2259_RUNG12_CONJUGATE_PAIR_BRIDGE_SIGMA_REF_LAMBDA_VAC_SW_TIMES_UG1_LAYER_EQUALS_1_KG_M2_EXACT_PRESSURE_TO_ACCELERATION_MEDIATION_UQFF_LANDMARK.md",
     "whitepapers/PAPER_225_Early_Universe_Relativistic_UV_UQFF.md",
     "whitepapers/PAPER_226_MagnetarSGR0501_11Term_MUGE_UQFF.md",
     "whitepapers/PAPER_227_Tapestry_LMC_Stellar_Wind_UQFF.md",

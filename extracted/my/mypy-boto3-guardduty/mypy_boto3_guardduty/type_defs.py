@@ -121,6 +121,7 @@ __all__ = (
     "AccountStatisticsTypeDef",
     "AccountTypeDef",
     "ActionTypeDef",
+    "ActivityTypeDef",
     "ActorProcessTypeDef",
     "ActorTypeDef",
     "AdditionalInfoTypeDef",
@@ -131,6 +132,7 @@ __all__ = (
     "AnomalyObjectTypeDef",
     "AnomalyTypeDef",
     "AnomalyUnusualTypeDef",
+    "ApiCallTypeDef",
     "ArchiveFindingsRequestTypeDef",
     "AssociationDetailTypeDef",
     "AssociationSummaryTypeDef",
@@ -669,6 +671,13 @@ class KubernetesRoleDetailsTypeDef(TypedDict):
     Kind: NotRequired[str]
     Name: NotRequired[str]
     Uid: NotRequired[str]
+
+
+class ApiCallTypeDef(TypedDict):
+    Operation: NotRequired[str]
+    Service: NotRequired[str]
+    Error: NotRequired[str]
+    UserAgent: NotRequired[str]
 
 
 class ActorProcessTypeDef(TypedDict):
@@ -1907,6 +1916,13 @@ UserTypeDef = TypedDict(
         "Account": NotRequired[AccountTypeDef],
     },
 )
+ActivityTypeDef = TypedDict(
+    "ActivityTypeDef",
+    {
+        "Type": Literal["API_CALL"],
+        "Api": NotRequired[ApiCallTypeDef],
+    },
+)
 
 
 class ItemDetailsTypeDef(TypedDict):
@@ -2508,27 +2524,6 @@ class MalwareProtectionFindingsScanConfigurationTypeDef(TypedDict):
     IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
 
 
-SignalTypeDef = TypedDict(
-    "SignalTypeDef",
-    {
-        "Uid": str,
-        "Type": SignalTypeType,
-        "Name": str,
-        "CreatedAt": datetime,
-        "UpdatedAt": datetime,
-        "FirstSeenAt": datetime,
-        "LastSeenAt": datetime,
-        "Count": int,
-        "Description": NotRequired[str],
-        "Severity": NotRequired[float],
-        "ResourceUids": NotRequired[list[str]],
-        "ActorIds": NotRequired[list[str]],
-        "EndpointIds": NotRequired[list[str]],
-        "SignalIndicators": NotRequired[list[IndicatorTypeDef]],
-    },
-)
-
-
 class InvestigationMetadataTypeDef(TypedDict):
     Version: str
     Product: ProductTypeDef
@@ -2789,6 +2784,28 @@ class ActorTypeDef(TypedDict):
     User: NotRequired[UserTypeDef]
     Session: NotRequired[SessionTypeDef]
     Process: NotRequired[ActorProcessTypeDef]
+
+
+SignalTypeDef = TypedDict(
+    "SignalTypeDef",
+    {
+        "Uid": str,
+        "Type": SignalTypeType,
+        "Name": str,
+        "CreatedAt": datetime,
+        "UpdatedAt": datetime,
+        "FirstSeenAt": datetime,
+        "LastSeenAt": datetime,
+        "Count": int,
+        "Description": NotRequired[str],
+        "Severity": NotRequired[float],
+        "ResourceUids": NotRequired[list[str]],
+        "ActorIds": NotRequired[list[str]],
+        "EndpointIds": NotRequired[list[str]],
+        "SignalIndicators": NotRequired[list[IndicatorTypeDef]],
+        "Activities": NotRequired[list[ActivityTypeDef]],
+    },
+)
 
 
 class ScanResultThreatTypeDef(TypedDict):

@@ -13,15 +13,19 @@
 # limitations under the License.
 
 """Test built in connection-pooling with threads."""
+
 from __future__ import annotations
 
 import asyncio
 import gc
+import os
+import platform
 import random
 import socket
+import ssl
 import sys
 import time
-from test.utils import flaky, get_pool, joinall
+from unittest.mock import patch
 
 from bson.codec_options import DEFAULT_CODEC_OPTIONS
 from bson.son import SON
@@ -29,15 +33,23 @@ from pymongo import MongoClient, message, timeout
 from pymongo.errors import AutoReconnect, ConnectionFailure, DuplicateKeyError
 from pymongo.hello import HelloCompat
 from pymongo.lock import _create_lock
+from pymongo.monitoring import _EventListeners
+from test.utils import flaky, get_pool, joinall
 
 sys.path[0:0] = [""]
 
-from test import IntegrationTest, client_context, unittest
-from test.helpers import ConcurrentRunner
-from test.utils_shared import delay
-
 from pymongo.socket_checker import SocketChecker
 from pymongo.synchronous.pool import Pool, PoolOptions
+from test import IntegrationTest, client_context, unittest
+from test.helpers import ConcurrentRunner
+from test.utils_shared import CMAPListener, delay
+
+try:
+    import OpenSSL
+
+    _HAVE_PYOPENSSL = True
+except ImportError:
+    _HAVE_PYOPENSSL = False
 
 _IS_SYNC = True
 
@@ -158,9 +170,9 @@ class _TestPoolingBase(IntegrationTest):
         self.c = self.rs_or_single_client()
         db = self.c[DB]
         db.unique.drop()
-        db.test.drop()
+        db.coll.drop()
         db.unique.insert_one({"_id": "jesse"})
-        db.test.insert_many([{} for _ in range(10)])
+        db.coll.insert_many([{} for _ in range(10)])
 
     def create_pool(self, pair=None, *args, **kwargs):
         if pair is None:
@@ -212,6 +224,58 @@ class TestPooling(_TestPoolingBase):
             self.assertEqual(conn, new_connection)
 
         self.assertEqual(1, len(cx_pool.conns))
+
+    def test_checkout_event_listener_failure_no_leak(self):
+        # Connection is returned to the pool when publish_connection_checked_out raises.
+        cx_pool = self.create_pool(
+            max_pool_size=1, event_listeners=_EventListeners([CMAPListener()])
+        )
+
+        with patch.object(
+            cx_pool.opts._event_listeners,
+            "publish_connection_checked_out",
+            side_effect=RuntimeError("simulated failure"),
+        ):
+            with self.assertRaises(RuntimeError):
+                with cx_pool.checkout():
+                    pass
+
+        # Connection was returned to the pool — not leaked.
+        self.assertEqual(1, len(cx_pool.conns))
+        self.assertEqual(0, cx_pool.active_sockets)
+
+        # Pool is still functional.
+        with cx_pool.checkout():
+            pass
+
+    def test_get_conn_reused_connection_rolls_back_on_cancel(self):
+        # _get_conn's reused-connection bookkeeping (registering the
+        # cancel_context for a connection popped from the idle queue) must
+        # roll back pool accounting on failure, the same all-or-nothing
+        # contract _get_conn already provides when connect() fails for a
+        # brand new connection.
+        cx_pool = self.create_pool(max_pool_size=1)
+
+        with cx_pool.checkout() as conn:
+            pass
+        self.assertEqual(1, len(cx_pool.conns))
+        reused_context = conn.cancel_context
+
+        class _CancelOnReusedContext(set):
+            def add(self, item):
+                if item is reused_context:
+                    raise asyncio.CancelledError()
+                super().add(item)
+
+        cx_pool.active_contexts = _CancelOnReusedContext(cx_pool.active_contexts)
+
+        with self.assertRaises(asyncio.CancelledError):
+            with cx_pool.checkout():
+                pass
+
+        # Bookkeeping must be rolled back, not left half-updated.
+        self.assertEqual(0, cx_pool.active_sockets)
+        self.assertEqual(0, cx_pool.requests)
 
     def test_pool_removes_closed_socket(self):
         # Test that Pool removes explicitly closed socket.
@@ -267,9 +331,7 @@ class TestPooling(_TestPoolingBase):
         self.assertTrue(socket_checker.select(s, write=True, timeout=0))
         self.assertTrue(socket_checker.select(s, write=True, timeout=0.05))
         # Make the socket readable
-        _, msg, _ = message._query(
-            0, "admin.$cmd", 0, -1, SON([("ping", 1)]), None, DEFAULT_CODEC_OPTIONS
-        )
+        _, msg, _, _ = message._op_msg(0, SON([("ping", 1)]), "admin", None, DEFAULT_CODEC_OPTIONS)
         s.sendall(msg)
         # Block until the socket is readable.
         self.assertTrue(socket_checker.select(s, read=True, timeout=None))
@@ -346,13 +408,13 @@ class TestPooling(_TestPoolingBase):
         with pool.checkout() as s1:
             t = SocketGetter(self.c, pool)
             t.start()
-            while t.state != "get_socket":
+            while t.state != "get_socket":  # noqa: ASYNC110, RUF100
                 time.sleep(0.1)
 
             time.sleep(1)
             self.assertEqual(t.state, "get_socket")
 
-        while t.state != "connection":
+        while t.state != "connection":  # noqa: ASYNC110, RUF100
             time.sleep(0.1)
 
         self.assertEqual(t.state, "connection")
@@ -396,14 +458,14 @@ class TestPooling(_TestPoolingBase):
 
     def test_maxConnecting(self):
         client = self.rs_or_single_client()
-        self.client.test.test.insert_one({})
-        self.addCleanup(self.client.test.test.delete_many, {})
+        self.client.db.coll.insert_one({})
+        self.addCleanup(self.client.db.coll.delete_many, {})
         pool = get_pool(client)
         docs = []
 
         # Run 50 short running operations
         def find_one():
-            docs.append(client.test.test.find_one({}))
+            docs.append(client.db.coll.find_one({}))
 
         tasks = [ConcurrentRunner(target=find_one) for _ in range(50)]
         for task in tasks:
@@ -444,12 +506,12 @@ class TestPooling(_TestPoolingBase):
             },
         }
 
-        client.db.t.insert_one({"x": 1})
+        client.db.coll.insert_one({"x": 1})
 
         with self.fail_point(mock_connection_timeout):
             with self.assertRaises(Exception) as error:
                 with timeout(0.5):
-                    client.db.t.find_one({"$where": delay(2)})
+                    client.db.coll.find_one({"$where": delay(2)})
 
         self.assertIn("(configured timeouts: timeoutMS: 500.0ms", str(error.exception))
 
@@ -468,11 +530,11 @@ class TestPooling(_TestPoolingBase):
             },
         }
 
-        client.db.t.insert_one({"x": 1})
+        client.db.coll.insert_one({"x": 1})
 
         with self.fail_point(mock_connection_timeout):
             with self.assertRaises(Exception) as error:
-                client.db.t.find_one({"$where": delay(2)})
+                client.db.coll.find_one({"$where": delay(2)})
 
         self.assertIn(
             "(configured timeouts: socketTimeoutMS: 500.0ms, connectTimeoutMS: 20000.0ms)",
@@ -519,7 +581,7 @@ class TestPooling(_TestPoolingBase):
         coll.insert_many([{"x": 1} for _ in range(10)])
         t = SocketGetter(self.c, pool)
         t.start()
-        while t.state != "connection":
+        while t.state != "connection":  # noqa: ASYNC110, RUF100
             time.sleep(0.1)
 
         assert not t.sock.conn_closed()
@@ -546,10 +608,14 @@ class TestPooling(_TestPoolingBase):
 
 
 class TestPoolMaxSize(_TestPoolingBase):
+    @unittest.skipIf(
+        sys.platform == "darwin" and "CI" in os.environ,
+        "PYTHON-5861: $where is too slow on macOS CI",
+    )
     def test_max_pool_size(self):
         max_pool_size = 4
         c = self.rs_or_single_client(maxPoolSize=max_pool_size)
-        collection = c[DB].test
+        collection = c[DB].coll
 
         # Need one document.
         collection.drop()
@@ -582,9 +648,13 @@ class TestPoolMaxSize(_TestPoolingBase):
         self.assertGreater(len(cx_pool.conns), 1)
         self.assertEqual(0, cx_pool.requests)
 
+    @unittest.skipIf(
+        sys.platform == "darwin" and "CI" in os.environ,
+        "PYTHON-5861: $where is too slow on macOS CI",
+    )
     def test_max_pool_size_none(self):
         c = self.rs_or_single_client(maxPoolSize=None)
-        collection = c[DB].test
+        collection = c[DB].coll
 
         # Need one document.
         collection.drop()
@@ -639,6 +709,52 @@ class TestPoolMaxSize(_TestPoolingBase):
             # is sufficient right *now* to catch a semaphore leak. But that
             # seems error-prone, so check the message too.
             self.assertNotIn("waiting for socket from pool", str(context.exception))
+
+
+class TestPoolHandleConnectionError(unittest.TestCase):
+    """PYTHON-5919: PyOpenSSL raises OpenSSL.SSL.SysCallError/ZeroReturnError
+    (not ssl.SSLEOFError/ssl.SSLZeroReturnError) when the server closes the
+    socket during the TLS handshake, e.g. when an ingress rate limiter rejects
+    a connection. Pool._handle_connection_error must recognize these as
+    handshake-EOF errors and still add the SystemOverloadedError label.
+    """
+
+    def _make_pool(self):
+        return Pool(("localhost", 27017), PoolOptions())
+
+    def test_stdlib_ssl_eof_error_is_labeled_overloaded(self):
+        pool = self._make_pool()
+        err = AutoReconnect("connection closed")
+        err.__cause__ = ssl.SSLEOFError("EOF occurred in violation of protocol")
+        pool._handle_connection_error(err)
+        self.assertTrue(err.has_error_label("SystemOverloadedError"))
+
+    @unittest.skipUnless(_HAVE_PYOPENSSL, "PyOpenSSL is not available.")
+    def test_pyopenssl_syscall_error_is_labeled_overloaded(self):
+        from OpenSSL.SSL import SysCallError
+
+        pool = self._make_pool()
+        err = AutoReconnect("connection closed")
+        err.__cause__ = SysCallError(-1, "Unexpected EOF")
+        pool._handle_connection_error(err)
+        self.assertTrue(err.has_error_label("SystemOverloadedError"))
+
+    @unittest.skipUnless(_HAVE_PYOPENSSL, "PyOpenSSL is not available.")
+    def test_pyopenssl_zero_return_error_is_labeled_overloaded(self):
+        from OpenSSL.SSL import ZeroReturnError
+
+        pool = self._make_pool()
+        err = AutoReconnect("connection closed")
+        err.__cause__ = ZeroReturnError()
+        pool._handle_connection_error(err)
+        self.assertTrue(err.has_error_label("SystemOverloadedError"))
+
+    def test_certificate_error_is_not_labeled_overloaded(self):
+        pool = self._make_pool()
+        err = AutoReconnect("connection closed")
+        err.__cause__ = ssl.SSLCertVerificationError("certificate verify failed")
+        pool._handle_connection_error(err)
+        self.assertFalse(err.has_error_label("SystemOverloadedError"))
 
 
 if __name__ == "__main__":

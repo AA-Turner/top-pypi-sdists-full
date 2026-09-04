@@ -29,6 +29,7 @@
 #include "faststorage_allocator.hpp"
 #include "live_range.hpp"
 #include "scheduler_decompose.hpp"
+#include "scheduler_packing.hpp"
 #include "tensor_allocator.hpp"
 
 #include <cassert>
@@ -96,9 +97,6 @@ std::shared_ptr<Schedule> Scheduler::Process()
     // Create the Max schedule template
     _maxSchedule = CreateInitialSchedule();
 
-    // TODO: Disabled until fully implemented
-    // MoveConstantData( _maxSchedule.get() );
-
     // Create the optimised Max schedule
     UpdateOpMemorySnapshot(_maxSchedule.get());
     auto optMaxSchedule = ProposeScheduleBuffering(_maxSchedule.get(), std::numeric_limits<int>::max());
@@ -123,7 +121,7 @@ std::shared_ptr<Schedule> Scheduler::Process()
         std::unordered_map<UniqueId, int> opLocalMemUsage;
         auto nonLocal = ComputeNonLocalUsage(minSchedule.get(), &liveRanges, &opLocalMemUsage);
 
-        CascadeBuilder cascadeBuilder(_ops, nonLocal, opLocalMemUsage, liveRanges, _spilling);
+        CascadeBuilder cascadeBuilder(_ops, nonLocal, opLocalMemUsage, liveRanges, _arch->StagingMemory(), _spilling);
         cascadeBuilder.BuildCascades(minSchedule.get(), _maxSchedule.get(), initialStagingLimit);
         UpdateOpMemorySnapshot(minSchedule.get());
 
@@ -813,9 +811,108 @@ std::unique_ptr<SchedulerOpInfo> Scheduler::CreateSchedulerOpInfo(
     return opInfo;
 }
 
+
+std::unique_ptr<SchedulerOperation> Scheduler::TryExplicitBuffering(SchedulerOperation *schedOp, const SchedulerOpInfo &cost, int &stagingLimit)
+{
+    auto *ifm = schedOp->IFM(0);
+    auto *ofm = schedOp->OFM();
+    assert(ifm);
+
+    auto staging = _arch->StagingMemory();
+
+    // Is it input to a command stream
+    if ( !(ifm->tensor->isGraphInput ||
+             (ifm->tensor->hasCPUWriters && !ifm->tensor->hasNPUWriters && !ifm->tensor->hasCPUReaders && ifm->tensor->hasNPUReaders)) )
+    {
+        return {};
+    }
+
+    // Does it need to be moved, will it fit, does it meet base improvement criteria
+    if ( ifm->tensor->memArea.Compatible(staging) || !IsNone(ifm->transpose) || (ifm->tensor->consumers.size() > 1) ||
+         (stagingLimit < cost.perf.ifmSizeBytes) || !IsConvolution(schedOp->Type()) ||
+         cost.perf.ifmReadBytes <= cost.perf.ifmSizeBytes || cost.perf.OpDominated() )
+    {
+        return {};
+    }
+
+    // Smallest estimated startup-weights transfer for comparison against the IFM
+    int minWgtSize = cost.npuWeightsTensor->totalWeightBytes / DivRoundUp(ofm->SliceShape().Depth(), 16);
+    int64_t wgtTransferCycles =
+        minWgtSize && (cost.perf.weightReadCycles > cost.perf.ifmReadCycles) ?
+            _arch->Performance()->MemToMemCycles(staging.memory, cost.npuWeightsTensor->memArea.memory, minWgtSize) :
+            0;
+    int64_t wgtStagedReadCycles = _arch->Performance()->MinReadCycles(
+        staging.memory, cost.perf.weightReadBytes, TensorUsage::Weights, schedOp->Type(), false);
+
+    // If buffered weights reads take longer than both the transfer and the ifm read (so
+    // buffering that ifm read time is less relevant)
+    if ( wgtStagedReadCycles > wgtTransferCycles + cost.perf.ifmReadCycles )
+    {
+        return {};
+    }
+
+    // Pre-cost the buffering operator performance
+    ArchitectureConfigQuery aq{};
+    aq.ofmShape = Shape::PadAxes(ifm->SliceShape(), 3, 1);
+    aq.ifmShape[0] = ifm->SliceShape();
+    aq.ofmBits = aq.ifmBits = DataTypeSizeBits(ifm->Type());
+    aq.kernel = &Kernel::UnitKernel();
+    auto opConfig = _arch->GetOpConfig(OpType::MemoryCopy, aq);
+
+    PerformanceQuery query{};
+    query.type = OpType::MemoryCopy;
+    query.kernel = &Kernel::UnitKernel();
+    query.ofm = Set(query.ifm[0], ifm);
+    query.ofm.memory = staging.memory;
+    query.config = opConfig.get();
+
+    int64_t ifmTransferCycles = _arch->Performance()->MeasureCycleCost(query).opCycles;
+    int64_t ifmStagedReadCycles = _arch->Performance()->MinReadCycles(
+        staging.memory, cost.perf.ifmReadBytes, TensorUsage::IFM, schedOp->Type(), false);
+
+    // Is IFM copy+read better than just IFM read
+    if ( ifmTransferCycles + ifmStagedReadCycles >= cost.perf.ifmReadCycles )
+    {
+        return {};
+    }
+
+    std::shared_ptr<SchedulerTensor> inputTensor = ifm->tensor;
+    std::shared_ptr<SchedulerTensor> bufferedTensor = std::make_shared<SchedulerTensor>(
+        inputTensor->dataType, ifm->SliceShape(), inputTensor->format);
+    bufferedTensor->SetInternalName(std::string("input_buffer_") + inputTensor->internalName);
+    bufferedTensor->memArea = staging;
+    stagingLimit -= bufferedTensor->AllocationSizeBytes();
+
+    std::unique_ptr<SchedulerOperation> bufferingOp = std::make_unique<SchedulerOperation>(OpType::MemoryCopy);
+    bufferingOp->SetNpuOp(true);  // We have already completed the packing phase, this op must now be set NPU executable
+    bufferingOp->_srcKey = schedOp->_srcKey;
+    bufferingOp->ConnectOutput(TensorUsage::OFM, bufferedTensor);
+    auto *newIfm = bufferingOp->ConnectInput(TensorUsage::IFM, inputTensor);
+    newIfm->shape = ifm->shape;
+    newIfm->slice = ifm->slice;
+
+    auto group = _arch->CreateOpGroup(CreateOpGroupQuery(bufferingOp.get()));
+    bufferingOp->SetOpGroup(std::move(group));
+
+    Shape shape = ifm->SliceShape();
+    schedOp->ConnectInput(TensorUsage::IFM, bufferedTensor);
+    ifm->shape = shape;
+    ifm->slice = TensorSlice{};  // Reset to source entire tensor (now a copy of the subtensor)
+
+    return bufferingOp;
+}
+
+
 std::unique_ptr<Schedule> Scheduler::CreateInitialSchedule()
 {
-    auto schedule = std::make_unique<Schedule>(_name + "_MAX", 0, _ops.size());
+    auto schedule = std::make_unique<Schedule>(_name + "_MAX", 0, 0);
+    std::vector<std::unique_ptr<SchedulerOperation>> out;
+    out.reserve(_ops.size() + 4);
+    bool tryInputBuffering = (_arch->StagingMemory().memory != _arch->FeatureMapMemory().memory) && !_options.disabled.All(SchedulerFeature::FMStaging);
+    int stagingLimit = _options.optimizationStagingLimit;
+
+    // Create operator cost information for each op in the schedule
+    int index = 0;
     for ( auto &op : _ops )
     {
         const auto ofm = op->OFM();
@@ -836,62 +933,32 @@ std::unique_ptr<Schedule> Scheduler::CreateInitialSchedule()
             cost->cycles = _arch->Performance()->MeasureCycleCost(query);
             cost->elementAccess = _arch->Performance()->MeasureElementAccess(query);
             cost->perf = EstimateSlicedOpPerformance(op.get(), cost.get(), cost->stripe.WH(), 0, Buffering::None);
-        }
 
-        schedule->SetCost(*op, std::move(cost));
-    }
-    return schedule;
-}
-
-
-void Scheduler::MoveConstantData(Schedule *refSchedule)
-{
-    auto permanentStorageMemory = _arch->ReadonlyMemory();
-    const bool moveConstantData = permanentStorageMemory != _arch->FeatureMapMemory();
-
-    // Determine if data can be moved from permanent storage to another memory area. A difference in source tensor
-    // and target tensor memory area will generate a DMA command in the command stream.
-    for ( auto &schedOp : _ops )
-    {
-        // Ignore CPU ops
-        if ( !schedOp->IsNpuOp() )
-        {
-            continue;
-        }
-
-        auto cost = refSchedule->Cost(schedOp.get());
-        int maxIfmShramAvail = cost->Config()->MaxIFMBuffering() / 2;
-        for ( auto pos : schedOp->inputs.pairs() )
-        {
-            SchedulerConnection *conn = &pos.second;
-            if ( !conn->tensor->IsConstant() )
+            // Attempt to add explicit buffering to operations
+            if ( tryInputBuffering )
             {
-                continue;
-            }
-
-            // Determine whether or not to move data from permanent storage to more suitable
-            // storage before use.
-            bool moveData = false;
-            if ( conn->tensor->memArea == permanentStorageMemory && moveConstantData )
-            {
-                moveData = std::any_of(conn->tensor->consumers.begin(), conn->tensor->consumers.end(),
-                    [](const SchedulerOperation *op) { return op->Type() != OpType::FullyConnected; });
-
-                // Check if broadcast elementwise can be buffered
-                if ( IsIFM(pos.first) && IsElementwise(schedOp->Type()) && (conn->shape != schedOp->OFM()->shape) &&
-                     conn->tensor->bufferView.Buffer()->Size() > maxIfmShramAvail )
+                auto bufferingOp = TryExplicitBuffering(op.get(), *cost, stagingLimit);
+                if ( bufferingOp )
                 {
-                    moveData = true;
+                    cost->perf = EstimateSlicedOpPerformance(op.get(), cost.get(), cost->stripe.WH(), 0, Buffering::None);
+                    // Cost the buffering for the schedule
+                    auto bufCost = CreateSchedulerOpInfo(bufferingOp.get(), bufferingOp->OFM()->SliceShape());
+                    bufCost->stagingPreference.Set(StagingPref::RequireOFM);
+                    bufCost->perf = EstimateSlicedOpPerformance(bufferingOp.get(), bufCost.get(), bufCost->stripe.WH(), 0, Buffering::None);
+                    bufferingOp->_index = index++;
+                    schedule->SetCost(*bufferingOp, std::move(bufCost));
+                    out.push_back(std::move(bufferingOp));
                 }
             }
-
-            if ( moveData )
-            {
-                // Set scheduler tensor to different memory area i.e. move from srcTensor to (scheduler) tensor
-                conn->tensor->memArea = _arch->StagingMemory();
-            }
         }
+
+        op->_index = index++;
+        schedule->SetCost(*op, std::move(cost));
+        out.push_back(std::move(op));
     }
+    _ops = std::move(out);
+    schedule->SetSubrange(0, _ops.size());
+    return schedule;
 }
 
 
@@ -920,6 +987,7 @@ void Scheduler::AllocateReadOnlyAddresses(Schedule *schedule, IncrementalLinearA
     LiveRangeGraph lrGraph{false};
     lrGraph.ExtractLiveRangesFromCascades(_ops, schedule, _arch->ReadonlyMemory(), false);
     auto totalSize = readOnlyAllocator.Allocate(&lrGraph, NPUTensorAlignment, _options.verboseAllocation);
+    assert(totalSize <= std::numeric_limits<int>::max() && "Memory usage overflow");
     schedule->memoryUsage[_arch->ReadonlyMemory()] = int(totalSize);
 }
 
@@ -1246,8 +1314,9 @@ EstimatedPerf Scheduler::EstimateSlicedOpPerformance(
     auto *ofm = schedOp->OFM();
 
     const int untransposedFullDepth = ofm->shape.Unpermute(uint32_t(ofm->transpose)).Depth();
+    const bool preTransposeDepth = IsConvolution(schedOp->Type()) || schedOp->Type() == OpType::FullyConnected;
     const std::vector<int> &untransposedDepthSlices =
-        (ofm->transpose & TransposeType::MaskC) != TransposeType::C ? std::vector<int>{0, untransposedFullDepth} : cost->ofmDepthSlices;
+        ((ofm->transpose & TransposeType::MaskC) != TransposeType::C && preTransposeDepth) ? std::vector<int>{0, untransposedFullDepth} : cost->ofmDepthSlices;
 
     return EstimateSlicedOpPerformance(schedOp, untransposedDepthSlices, cost->Config(), cost->npuWeightsTensor.get(),
         cost->stagingPreference, stripe, slackCycles, buffering);
@@ -1263,7 +1332,8 @@ EstimatedPerf Scheduler::EstimateSlicedOpPerformance(SchedulerOperation *schedOp
 
     // There must be either no transpose, or single-slice transpose
     const int untransposedFullDepth = ofm->shape.Unpermute(uint32_t(ofm->transpose)).Depth();
-    assert((ofm->transpose & TransposeType::MaskC) == TransposeType::C || (untransposedFullDepth == depthSlices[1]));
+    const bool preTransposeDepth = IsConvolution(schedOp->Type()) || schedOp->Type() == OpType::FullyConnected;
+    assert((ofm->transpose & TransposeType::MaskC) == TransposeType::C || !preTransposeDepth || (untransposedFullDepth == depthSlices[1]));
 
     double stripeRepeats = std::max(1.0, double(ofm->SliceShape().Height()) / stripe.y);
     Flags<WeightFormat> weightFormat;
@@ -1277,13 +1347,13 @@ EstimatedPerf Scheduler::EstimateSlicedOpPerformance(SchedulerOperation *schedOp
     auto query = InitPerfQuery(schedOp, opConfig, 1, weightFormat, nullptr, nullptr);
     query.weightStagingMemory = wgtMemory;  // TODO: Design out - stop passing weights via const[]
 
-    if ( stageFlags % StagingPref::IFM ) query.ifmMemory[0] = _arch->StagingMemory().memory;
+    if ( stageFlags % StagingPref::IFM ) query.ifm[0].memory = _arch->StagingMemory().memory;
 
     // Striped OFM dimensions
-    query.ofmShape = Shape(1, stripe.y, stripe.x, 0);
-    auto inputArea = GetStripeInputRequirement(query.ofmShape, schedOp->Kernel(), ifm->stepXY, ifm->resamplingMode);
+    query.ofm.shape = Shape(1, stripe.y, stripe.x, 0);
+    auto inputArea = GetStripeInputRequirement(query.ofm.shape, schedOp->Kernel(), ifm->stepXY, ifm->resamplingMode);
     inputArea = Point2i::Min(inputArea, ifm->SliceShape().WH());
-    query.ifmShape[0] = Shape(1, inputArea.y, inputArea.x, ifm->SliceShape().Depth());
+    query.ifm[0].shape = Shape(1, inputArea.y, inputArea.x, ifm->SliceShape().Depth());
 
     assert(depthSlices.size() > 1);
     const unsigned slices = depthSlices.size() - 1;
@@ -1299,9 +1369,9 @@ EstimatedPerf Scheduler::EstimateSlicedOpPerformance(SchedulerOperation *schedOp
         {
             int depth = depthSlices[i + 1] - depthSlices[i];
             // Cache results for same-depth slices
-            if ( query.ofmShape[-1] != depth )
+            if ( query.ofm.shape[-1] != depth )
             {
-                query.ofmShape[-1] = depth;
+                query.ofm.shape[-1] = depth;
                 elementAccess = _arch->Performance()->MeasureElementAccess(query);
                 ifmRd = DataTypeStorageSizeBytes(ifm->Type(), elementAccess.ifmRead[0]);
             }
@@ -1313,7 +1383,7 @@ EstimatedPerf Scheduler::EstimateSlicedOpPerformance(SchedulerOperation *schedOp
             }
         }
 
-        result.ifmSizeBytes = DataTypeStorageSizeBytes(ifm->Type(), query.ifmShape[0].Elements());
+        result.ifmSizeBytes = DataTypeStorageSizeBytes(ifm->Type(), query.ifm[0].shape.Elements());
     }
 
     // Calculate the full, sliced, operator runtime taking into account
@@ -1329,7 +1399,7 @@ EstimatedPerf Scheduler::EstimateSlicedOpPerformance(SchedulerOperation *schedOp
         int depth = depthSlices[i + 1] - depthSlices[i];
         if ( i == slices - 1 && i != 0 ) sched = OpScheduling::Last;
 
-        query.ofmShape[-1] = depth;
+        query.ofm.shape[-1] = depth;
         query.scheduling = sched;
 
         sliceCycles = _arch->Performance()->MeasureCycleCost(query).opCycles;
@@ -1360,7 +1430,7 @@ EstimatedPerf Scheduler::EstimateSlicedOpPerformance(SchedulerOperation *schedOp
     }
 
     result.ifmReadCycles = _arch->Performance()->MinReadCycles(
-        query.ifmMemory[0], result.ifmReadBytes, TensorUsage::IFM, schedOp->Type(), false);
+        query.ifm[0].memory, result.ifmReadBytes, TensorUsage::IFM, schedOp->Type(), false);
 
     result.weightReadCycles = int64_t(stripeRepeats * result.weightReadCycles);
     result.weightReadBytes = int64_t(stripeRepeats * result.weightReadBytes);
@@ -1688,7 +1758,7 @@ bool Scheduler::ProposeSlicedWeightBuffering(SchedulerConnection *weights, Sched
 
             // Compare to IFM only if IFM can be moved.
             if ( !ifm->tensor->producers.empty() && !cost->SourcesCascadeBuffer() &&
-                 !IsDataLayout(ifm->tensor->producers[0]->Type()) )
+                 !IsDataLayout(ifm->tensor->producers[0]->Type()) && !ifm->tensor->memArea.Compatible(_arch->StagingMemory()) )
             {
                 bool bothFit = (perf.ifmSizeBytes + partSizes[0] + partSizes[1]) <= bufferLimitBytes;
 
@@ -2079,7 +2149,7 @@ std::shared_ptr<Schedule> Scheduler::OptimizeSubSchedule(const CascadeInfo &casc
     std::unordered_map<UniqueId, LiveRangeSummary> liveRanges;
     std::unordered_map<UniqueId, int> opLocalMemUsage;
     ComputeNonLocalUsage(refSchedule, &liveRanges, &opLocalMemUsage);
-    CascadeBuilder cascadeBuilder(subOps, nonLocalMemUsage, opLocalMemUsage, liveRanges, _spilling);
+    CascadeBuilder cascadeBuilder(subOps, nonLocalMemUsage, opLocalMemUsage, liveRanges, _arch->StagingMemory(), _spilling);
 
     // Start by adding buffering
     auto bufferedSubSchedule = ProposeScheduleBuffering(subSchedule.get(), stagingLimitBytes);
@@ -2234,26 +2304,14 @@ PerformanceQuery Scheduler::InitPerfQuery(const SchedulerOperation *op, Architec
     query.config = config;
 
     const SchedulerConnection *ifm0 = op->IFM(0);
-    query.ifmShape[0] = ifm0->SliceShape();
-    query.ifmMemory[0] = ifm0->tensor->memArea.memory;
-    query.ifmType[0] = ifm0->Type();
-    query.ifmFormat[0] = ifm0->tensor->format;
+    Set(query.ifm[0], ifm0);
 
     const SchedulerConnection *ifm1 = op->TryIFM(1);
-    if ( ifm1 )
-    {
-        query.ifmShape[1] = ifm1->SliceShape();
-        query.ifmMemory[1] = ifm1->tensor->memArea.memory;
-        query.ifmType[1] = ifm1->Type();
-        query.ifmFormat[1] = ifm1->tensor->format;
-    }
+    Set(query.ifm[1], ifm1);
 
     const SchedulerConnection *ofm = op->OFM();
     ofmDepth = (ofmDepth >= 0) ? ofmDepth : ofm->SliceShape().Depth();
-    query.ofmShape = ofm->SliceShape().WithDepth(ofmDepth);
-    query.ofmMemory = ofm->tensor->memArea.memory;
-    query.ofmType = ofm->Type();
-    query.ofmFormat = ofm->tensor->format;
+    Set(query.ofm, ofm).shape = ofm->SliceShape().WithDepth(ofmDepth);
 
     const SchedulerConnection *scratch = op->TryInput(TensorUsage::Scratch);
     if ( scratch )
@@ -2264,7 +2322,7 @@ PerformanceQuery Scheduler::InitPerfQuery(const SchedulerOperation *op, Architec
     const SchedulerConnection *scales = op->TryInput(TensorUsage::Scales);
     if ( scales )
     {
-        query.constShape = Shape(1, 1, 1, query.ofmShape.Depth());
+        query.constShape = Shape(1, 1, 1, query.ofm.shape.Depth());
         query.constMemory = scales->tensor->memArea.memory;
     }
 

@@ -147,12 +147,12 @@ TEST_CASE("Cascade builder requests rolling-buffer reuse for binary op with prim
     arch->CheckConfiguration(err);
     REQUIRE(err == "noerror");
 
-    const MemArea fast = arch->StagingMemory();
-    auto tensA = CreateTestTensor("bin_a", Shape(8, 8, 16), fast);
-    auto tensB = CreateTestTensor("bin_b", Shape(8, 8, 16), fast);
-    auto tensX = CreateTestTensor("bin_x", Shape(8, 8, 16), fast);
-    auto tensC = CreateTestTensor("bin_c", Shape(8, 8, 16), fast);
-    auto tensD = CreateTestTensor("bin_d", Shape(8, 8, 16), fast);
+    const MemArea fm = arch->FeatureMapMemory();
+    auto tensA = CreateTestTensor("bin_a", Shape(8, 8, 16), fm);
+    auto tensB = CreateTestTensor("bin_b", Shape(8, 8, 16), fm);
+    auto tensX = CreateTestTensor("bin_x", Shape(8, 8, 16), fm);
+    auto tensC = CreateTestTensor("bin_c", Shape(8, 8, 16), fm);
+    auto tensD = CreateTestTensor("bin_d", Shape(8, 8, 16), fm);
 
     std::vector<std::unique_ptr<SchedulerOperation>> ops;
     ops.push_back(CreateTestSchedulerOperation(arch, OpType::Abs, TensorUsage::IFM, tensA, TensorUsage::OFM, tensB));
@@ -173,15 +173,22 @@ TEST_CASE("Cascade builder requests rolling-buffer reuse for binary op with prim
     std::unordered_map<UniqueId, int> nonLocalMemUsage;
     std::unordered_map<UniqueId, LiveRangeSummary> liveRanges;
 
+    // Cannot test spilling unless memories differ.
+    bool spilling = arch->StagingMemory() != arch->FeatureMapMemory();
+    REQUIRE(spilling);
     const int rollingBufferSize = DataTypeStorageSizeBytes(
         tensB->dataType, Shape(2, fullStripe.Width(), fullStripe.Depth()).Elements());
-    CascadeBuilder cascadeBuilder(ops, nonLocalMemUsage, opLocalMemUsage, liveRanges, true);
+    CascadeBuilder cascadeBuilder(ops, nonLocalMemUsage, opLocalMemUsage, liveRanges, arch->StagingMemory(), spilling);
     cascadeBuilder.BuildCascades(refSchedule.get(), fallbackSchedule.get(), rollingBufferSize);
 
     REQUIRE(refSchedule->Cost(ops[1].get())->ofmEquivalenceId == tensB->equivalenceId);
 
-    LiveRangeGraph lrGraph{false};
-    AllocateTensors(ops, refSchedule.get(), lrGraph, fast, TensorAllocator::LinearAlloc, 16, false);
+    // Apply schedule memory choices
+    Scheduler scheduler(arch.get(), {}, "graph", ops, {});
+    scheduler.ApplySchedule(refSchedule.get());
 
-    REQUIRE(tensB->AllocatedAddress() == tensC->AllocatedAddress());
+    LiveRangeGraph lrGraph{false};
+    AllocateTensors(ops, refSchedule.get(), lrGraph, arch->StagingMemory(), TensorAllocator::LinearAlloc, 16, false);
+
+    REQUIRE((tensB->AllocatedAddress() >= 0 && tensB->AllocatedAddress() == tensC->AllocatedAddress()));
 }

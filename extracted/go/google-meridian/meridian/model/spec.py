@@ -21,6 +21,7 @@ from typing import Sequence
 import warnings
 from meridian import constants
 from meridian.model import prior_distribution
+from meridian.model.calibration import base as calibration_base
 import numpy as np
 
 __all__ = [
@@ -372,6 +373,35 @@ class ModelSpec:
           f"Unsupported type for `knots` parameter: {type(self.knots)}."
       )
 
+    if (
+        not isinstance(self.max_lag, int)
+        or isinstance(self.max_lag, bool)
+        or self.max_lag < 0
+    ):
+      raise ValueError(
+          f"'max_lag' must be a non-negative integer. Got: {self.max_lag}."
+      )
+
+    valid_decays = set(constants.ADSTOCK_DECAY_FUNCTIONS)
+    if isinstance(self.adstock_decay_spec, str):
+      if self.adstock_decay_spec not in valid_decays:
+        raise ValueError(
+            f"The `adstock_decay_spec` parameter {self.adstock_decay_spec!r}"
+            f" must be one of {sorted(valid_decays)}."
+        )
+    elif isinstance(self.adstock_decay_spec, Mapping):
+      for channel, decay in self.adstock_decay_spec.items():
+        if decay not in valid_decays:
+          raise ValueError(
+              f"The `adstock_decay_spec` for channel {channel!r} must be"
+              f" one of {sorted(valid_decays)}, but got {decay!r}."
+          )
+    else:
+      raise ValueError(
+          "Unsupported type for `adstock_decay_spec` parameter:"
+          f" {type(self.adstock_decay_spec)}."
+      )
+
     valid_saturations = {e.value for e in SaturationType}
     if isinstance(self.saturation_spec, str):
       if self.saturation_spec not in valid_saturations:
@@ -391,6 +421,74 @@ class ModelSpec:
           "Unsupported type for `saturation_spec` parameter:"
           f" {type(self.saturation_spec)}."
       )
+    self._validate_calibrated_priors()
+
+  def _validate_calibrated_priors(self) -> None:
+    """Validates that calibrated distribution metadata matches ModelSpec settings."""
+    if self.prior is None:
+      return
+
+    priors_to_check = []
+    if dataclasses.is_dataclass(self.prior):
+      for field in dataclasses.fields(self.prior):
+        priors_to_check.append(getattr(self.prior, field.name))
+    elif isinstance(self.prior, Mapping):
+      priors_to_check.extend(self.prior.values())
+    else:
+      for attr in (
+          constants.ROI_M,
+          constants.ROI_RF,
+          constants.MROI_M,
+          constants.MROI_RF,
+          constants.BETA_M,
+          constants.BETA_RF,
+          constants.CONTRIBUTION_M,
+          constants.CONTRIBUTION_RF,
+      ):
+        if hasattr(self.prior, attr):
+          priors_to_check.append(getattr(self.prior, attr))
+
+    for dist in priors_to_check:
+      while hasattr(dist, "distribution"):
+        dist = dist.distribution
+      if not isinstance(dist, calibration_base.CalibratedDistribution):
+        continue
+
+      for output in dist.calibration_outputs:
+        if output is None:
+          continue
+
+        if output.max_lag != self.max_lag:
+          raise ValueError(
+              f"The `max_lag` for calibrated channel '{output.channel_name}'"
+              f" ({output.max_lag}) does not match the ModelSpec `max_lag`"
+              f" ({self.max_lag}). `max_lag` is used to calculate the"
+              " duration adjustment during prior calibration. To fix this, set"
+              " `ModelSpec(max_lag=...)` to match the value used during prior"
+              " calibration, or recalibrate the prior using the desired"
+              " `max_lag`."
+          )
+
+        if isinstance(self.adstock_decay_spec, str):
+          expected_decay = self.adstock_decay_spec
+        elif isinstance(self.adstock_decay_spec, Mapping):
+          expected_decay = self.adstock_decay_spec.get(
+              output.channel_name, constants.GEOMETRIC_DECAY
+          )
+        else:
+          expected_decay = constants.GEOMETRIC_DECAY
+
+        if output.adstock_decay_spec != expected_decay:
+          raise ValueError(
+              "The `adstock_decay_spec` for calibrated channel"
+              f" '{output.channel_name}' ('{output.adstock_decay_spec}') does"
+              " not match the ModelSpec `adstock_decay_spec`"
+              f" ('{expected_decay}'). `adstock_decay_spec` is used to"
+              " calculate the duration adjustment during prior calibration. To"
+              " fix this, set `ModelSpec(adstock_decay_spec=...)` to match the"
+              " value used during prior calibration, or recalibrate the prior"
+              " using the desired `adstock_decay_spec`."
+          )
 
   @property
   def effective_media_prior_type(self) -> str:

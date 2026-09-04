@@ -16,7 +16,10 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models, transaction
 from django.db.models import Model, TextChoices
 from django.utils.translation import gettext_lazy
-from drf_spectacular.extensions import OpenApiSerializerExtension
+from drf_spectacular.extensions import (
+    OpenApiSerializerExtension,
+    OpenApiSerializerFieldExtension,
+)
 from drf_spectacular.plumbing import build_basic_type, build_object_type
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -32,7 +35,13 @@ from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.reverse import reverse
 
-from weblate.accounts.models import Profile, Subscription
+from weblate.accounts.models import (
+    LISTING_COLUMN_CHOICES,
+    MAX_LISTING_COLUMNS,
+    Profile,
+    Subscription,
+    validate_listing_columns,
+)
 from weblate.accounts.utils import get_all_user_mails
 from weblate.addons.base import is_public_addon_change_details
 from weblate.addons.models import ADDONS, Addon
@@ -818,6 +827,27 @@ class AllowedComponentListField(serializers.Field):
         )
 
 
+class ListingColumnsField(serializers.ListField):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(
+            child=serializers.ChoiceField(choices=LISTING_COLUMN_CHOICES),
+            max_length=MAX_LISTING_COLUMNS,
+            validators=[validate_listing_columns],
+            **kwargs,
+        )
+
+
+class ListingColumnsFieldExtension(OpenApiSerializerFieldExtension):
+    target_class = ListingColumnsField
+
+    def map_serializer_field(self, auto_schema: AutoSchema, direction):
+        schema = auto_schema._map_serializer_field(  # ruff: ignore[private-member-access]
+            self.target, direction, bypass_extensions=True
+        )
+        schema["uniqueItems"] = True
+        return schema
+
+
 class ProfileSerializer(serializers.ModelSerializer[Profile]):
     languages = serializers.HyperlinkedIdentityField(
         view_name="api:language-detail",
@@ -838,6 +868,11 @@ class ProfileSerializer(serializers.ModelSerializer[Profile]):
     commit_email = ProfileEmailChoiceField()
     public_email = ProfileEmailChoiceField()
     commit_name = ProfileCommitNameChoiceField()
+    listing_columns = ListingColumnsField(
+        required=False,
+        label=Profile._meta.get_field("listing_columns").verbose_name,  # ruff: ignore[private-member-access]
+        help_text=Profile._meta.get_field("listing_columns").help_text,  # ruff: ignore[private-member-access]
+    )
 
     class Meta:
         model = Profile
@@ -854,6 +889,7 @@ class ProfileSerializer(serializers.ModelSerializer[Profile]):
             "secondary_in_zen",
             "hide_source_secondary",
             "wide_tables",
+            "listing_columns",
             "editor_link",
             "translate_mode",
             "zen_mode",
@@ -2119,6 +2155,7 @@ class ComponentSerializer(RemovableSerializer[Component]):
             "source_language",
             "project",
             "vcs",
+            "vcs_params",
             "repo",
             "git_export",
             "branch",
@@ -2248,6 +2285,7 @@ class ComponentSerializer(RemovableSerializer[Component]):
         user = self.context["request"].user
         if not user.has_perm("vcs.view", instance):
             result["vcs"] = None
+            result["vcs_params"] = None
             result["repo"] = None
             result["branch"] = None
             result["filemask"] = None
@@ -2793,8 +2831,25 @@ class BooleanResultSerializer(ReadOnlySerializer):
     result = serializers.BooleanField()
 
 
-class RepositoryOperationSerializer(BooleanResultSerializer):
+class RepositoryOperationSerializer(ReadOnlySerializer):
+    result = serializers.BooleanField(required=False)
     detail = serializers.CharField(required=False)
+    included_components = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Full paths of project components included in the operation.",
+    )
+    skipped_components = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Full paths of project components skipped by the operation.",
+    )
+    permission_blockers = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Full paths of components preventing access to skipped repositories.",
+    )
+    task_url = serializers.URLField(required=False)
 
 
 class UploadResultSerializer(BooleanResultSerializer):
@@ -3005,6 +3060,7 @@ class RepoRequestSerializer(ReadOnlySerializer):
     operation = serializers.ChoiceField(
         choices=RepoOperations.choices,
     )
+    background = serializers.BooleanField(required=False, default=False)
 
 
 class CommitInfoSerializer(ReadOnlySerializer):
@@ -3080,6 +3136,21 @@ class RepositorySerializer(ReadOnlySerializer):
     )
     needs_push = serializers.BooleanField(
         help_text="Whether the repository has commits that need to be pushed."
+    )
+    included_components = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Full paths of project components included in the status.",
+    )
+    skipped_components = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Full paths of project components skipped from the status.",
+    )
+    permission_blockers = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Full paths of components preventing access to skipped repositories.",
     )
     url = serializers.CharField(help_text="URL to the repository API endpoint.")
     remote_commit = CommitInfoSerializer(
@@ -4279,6 +4350,7 @@ class TaskSerializer(ReadOnlySerializer):
     progress = serializers.IntegerField(min_value=0, max_value=100)
     result = TaskResultField()
     log = serializers.CharField(allow_blank=True)
+    cancellable = serializers.BooleanField()
 
 
 @extend_schema_serializer(

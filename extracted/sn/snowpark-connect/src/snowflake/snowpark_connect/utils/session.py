@@ -35,6 +35,9 @@ from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.spark_session_cache import (
     init_spark_session_cache_registry,
 )
+from snowflake.snowpark_connect.utils.table_metadata_cache import (
+    instrument_session_for_table_metadata_cache,
+)
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 from snowflake.snowpark_connect.utils.udf_cache import init_builtin_udf_cache
 
@@ -463,6 +466,42 @@ def configure_snowpark_session(session: snowpark.Session):
         except SnowparkSQLException:
             session._enable_scos_feature = False
 
+        # SNOW-3748550: enable the Parquet Direct read-path server parameters for the
+        # SCOS session. They are rollout-gated (and some may be account-scope on older
+        # builds); they are set together best-effort below and their failure must not
+        # break session configuration. ENABLE_SCOS_FEATURE is set above.
+        _pd_session_params = (
+            "ENABLE_SCOS_PARQUET_DIRECT_AUTO_CATALOG",
+            "ENABLE_PARQUET_DIRECT_EXTERNAL_STAGE",
+            "ENABLE_UNMANAGED_TABLE_LOOSE_PARQUET_SOURCE",
+            "ENABLE_PARQUET_DIRECT_SPLIT_INFER_SCHEMA_OPTION",
+            "ENABLE_MATCH_BY_COLUMN_NAME_TABLE_OPTION",
+            "ENABLE_ALLOW_MULTIPLE_PARQUET_NAME_MAPPINGS",
+            "ENABLE_HIVE_ONLY_PARTITION_INFERENCE_AND_EVOLUTION",
+            "ENABLE_PARQUET_DIRECT_INITIAL_NAME_MAPPING_FOR_EXPLICIT_COLUMNS",
+            "ENABLE_SUPPORT_SPARK_LEGACY_INT96_REBASE_MODE",
+        )
+        # Set them all in one round-trip (the batched ALTER SESSION idiom used above for the
+        # CTE/other params) instead of one statement per param. Best-effort: on a build where any
+        # param is unavailable or not session-settable the whole batch fails, so the failure is
+        # logged (previously swallowed with a bare pass -- PD could be switched on with its server
+        # params silently absent and nothing reported) but not re-raised, since these are rollout-
+        # gated and must not break session configuration for the default-off feature.
+        _pd_set_clause = ", ".join(f"{p} = true" for p in _pd_session_params)
+        try:
+            collect_without_telemetry(
+                session.sql(f"ALTER SESSION SET {_pd_set_clause}")
+            )
+        except SnowparkSQLException as batch_exc:
+            # Warn (not debug): the batch is all-or-nothing, so a failure means the session is
+            # configured with Parquet Direct's server params ABSENT -- reads may still enable PD via
+            # the Spark config and then behave unexpectedly, so the operator needs this visible.
+            logger.warning(
+                "PD ALTER SESSION params not fully settable (Parquet Direct server params "
+                "may be absent for this session): %s",
+                batch_exc,
+            )
+
     # SNOW-3484790: Kick off aggregation metadata prefetch in SCOS session initialization.
     # SNOW-3619967: user might have snowpark version that don't have this function.
     try:
@@ -474,6 +513,7 @@ def configure_snowpark_session(session: snowpark.Session):
 
     # Instrument the snowpark session to use a cache for describe queries.
     instrument_session_for_describe_cache(session)
+    instrument_session_for_table_metadata_cache(session)
     instrument_session_for_scos_query_tag(session)
 
     # Detect CLD context from the session's current database. `get_cld_info`

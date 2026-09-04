@@ -169,6 +169,7 @@ const std::map<tflite::BuiltinOperator, OpType> TfLiteMapping::_builtinOperatorT
     {tflite::BuiltinOperator::FLOOR_MOD,                        OpType::FloorMod},
     {tflite::BuiltinOperator::RANGE,                            OpType::Range},
     {tflite::BuiltinOperator::RESIZE_NEAREST_NEIGHBOR,          OpType::ResizeNearestNeighbor},
+    {tflite::BuiltinOperator::GELU,                             OpType::Gelu},
     {tflite::BuiltinOperator::LEAKY_RELU,                       OpType::LeakyRelu},
     {tflite::BuiltinOperator::SQUARED_DIFFERENCE,               OpType::SquaredDifference},
     {tflite::BuiltinOperator::MIRROR_PAD,                       OpType::MirrorPad},
@@ -200,7 +201,10 @@ const std::map<tflite::BuiltinOperator, OpType> TfLiteMapping::_builtinOperatorT
     {tflite::BuiltinOperator::BATCH_MATMUL,                     OpType::BatchMatMul},
     {tflite::BuiltinOperator::CUMSUM,                           OpType::Cumsum},
     {tflite::BuiltinOperator::REDUCE_ALL,                       OpType::ReduceAll},
-    {tflite::BuiltinOperator::RELU_0_TO_1,                      OpType::Relu0To1}
+    {tflite::BuiltinOperator::VAR_HANDLE,                       OpType::Variable},
+    {tflite::BuiltinOperator::READ_VARIABLE,                    OpType::VariableRead},
+    {tflite::BuiltinOperator::ASSIGN_VARIABLE,                  OpType::VariableWrite},
+    {tflite::BuiltinOperator::RELU_0_TO_1,                      OpType::Relu0To1},
     // clang-format on
 };
 
@@ -468,6 +472,7 @@ const std::multimap<OpType, TensorUsage> TfLiteMapping::_inputTensorIndices = {
     {OpType::FullyConnected,                    TensorUsage::IFM0},
     {OpType::FullyConnected,                    TensorUsage::Weights},
     {OpType::FullyConnected,                    TensorUsage::Scales},
+    {OpType::Gelu,                              TensorUsage::IFM0},
     {OpType::GatherNd,                          TensorUsage::IFM0},
     {OpType::GatherNd,                          TensorUsage::IFM1},
     {OpType::GatherV2,                          TensorUsage::IFM0},
@@ -661,6 +666,10 @@ const std::multimap<OpType, TensorUsage> TfLiteMapping::_inputTensorIndices = {
     {OpType::UnidirectionalSequenceRnn,         TensorUsage::IFM0},
     {OpType::UnidirectionalSequenceRnn,         TensorUsage::Weights},
     {OpType::Unpack,                            TensorUsage::IFM0},
+    // Variable                                 None
+    {OpType::VariableWrite,                     TensorUsage::Params},
+    {OpType::VariableWrite,                     TensorUsage::IFM0},
+    {OpType::VariableRead,                      TensorUsage::Params},
     {OpType::Where,                             TensorUsage::IFM0},
     // While                                    None
     {OpType::ZerosLike,                         TensorUsage::IFM0},

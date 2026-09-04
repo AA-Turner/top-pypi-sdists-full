@@ -162,7 +162,7 @@ from .utils import (
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
-from .utils._http import _httpx_follow_relative_redirects_with_backoff
+from .utils._http import _httpx_follow_hub_redirects_with_backoff
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
@@ -3694,7 +3694,8 @@ class HfApi:
                 `None` or `"model"` if it is a model. Default is `None`.
             revision (`str`, *optional*):
                 The revision to resolve. Can be a branch name, a tag, a PR ref or a commit hash. Defaults to the
-                default branch. If a [`ResolvedRevision`] is passed, it is returned as is.
+                default branch. If a [`ResolvedRevision`] is passed, it is returned as is - unless it was resolved
+                against another repo, in which case the revision it initially requested is resolved again.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
             local_files_only (`bool`, *optional*, defaults to `False`):
@@ -3728,13 +3729,18 @@ class HfApi:
             >>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
             ```
         """
-        if isinstance(revision, ResolvedRevision):
-            return revision
-        if revision is not None and REGEX_COMMIT_HASH.match(revision):
-            return ResolvedRevision(resolved=revision, initial=revision)
-
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
+
+        if isinstance(revision, ResolvedRevision):
+            # A commit hash means nothing outside of the repo it was resolved for. `_repo_id=None` means the repo is
+            # unknown (instance built by hand), in which case it is assumed to fit any repo.
+            if revision._repo_id is None or (revision._repo_id, revision._repo_type) == (repo_id, repo_type):
+                return revision  # already resolved for this repo => nothing to do
+            revision = revision.initial  # resolved for another repo => resolve what was initially requested
+        if revision is not None and REGEX_COMMIT_HASH.match(revision):
+            return ResolvedRevision(resolved=revision, initial=revision, repo_id=repo_id, repo_type=repo_type)
+
         if cache_dir is None:
             cache_dir = constants.HF_HUB_CACHE
         storage_folder = str(
@@ -3752,7 +3758,7 @@ class HfApi:
                     )
                 except OSError as e:
                     logger.warning(f"Ignored error while caching commit hash for '{repo_id}': {e}.")
-                return ResolvedRevision(resolved=sha, initial=revision)
+                return ResolvedRevision(resolved=sha, initial=revision, repo_id=repo_id, repo_type=repo_type)
             except httpx.ProxyError:
                 # Actually raise on proxy error: a misconfigured proxy is not an unreachable Hub
                 raise
@@ -3768,7 +3774,9 @@ class HfApi:
         if ref_path.is_file():
             if error is not None:
                 logger.warning(f"Could not reach the Hub ({error}). Using cached commit hash for '{repo_id}'.")
-            return ResolvedRevision(resolved=ref_path.read_text().strip(), initial=revision)
+            return ResolvedRevision(
+                resolved=ref_path.read_text().strip(), initial=revision, repo_id=repo_id, repo_type=repo_type
+            )
 
         reason = (
             "'local_files_only=True' is set"
@@ -13053,6 +13061,7 @@ class HfApi:
     def list_scheduled_jobs(
         self,
         *,
+        labels: dict[str, str] | None = None,
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -13061,6 +13070,10 @@ class HfApi:
         List scheduled compute Jobs on Hugging Face infrastructure.
 
         Args:
+            labels (`dict[str, str]`, *optional*):
+                Only return scheduled Jobs that have all the given `key=value` labels, e.g.
+                `{"env": "prod", "team": "ml"}`.
+
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
@@ -13071,16 +13084,33 @@ class HfApi:
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `list[ScheduledJobInfo]`: a list of [`ScheduledJobInfo`] objects.
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        params: dict[str, Any] = {}
+        if labels:
+            # The endpoint only supports a single `label` filter server-side. Send the first one to keep the
+            # payload small, then filter the remaining ones client-side.
+            key, value = next(iter(labels.items()))
+            params["label"] = f"{key}={value}"
         response = get_session().get(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}",
             headers=self._build_hf_headers(token=token),
+            params=params or None,
             timeout=timeout,
         )
         hf_raise_for_status(response)
-        return [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
+        scheduled_jobs = [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
+        if labels:
+            scheduled_jobs = [
+                scheduled_job
+                for scheduled_job in scheduled_jobs
+                if all((scheduled_job.job_spec.labels or {}).get(key) == value for key, value in labels.items())
+            ]
+        return scheduled_jobs
 
     def inspect_scheduled_job(
         self,
@@ -14733,7 +14763,7 @@ class HfApi:
             42000
             ```
         """
-        response = _httpx_follow_relative_redirects_with_backoff(
+        response = _httpx_follow_hub_redirects_with_backoff(
             "HEAD",
             f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
             headers=self._build_hf_headers(token=token),

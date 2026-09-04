@@ -154,7 +154,7 @@ struct StripeArea
     std::array<Box, 2> ifmAreas;
     Box ofmArea;
 
-    void AddIfm(Box ifm) { ifmAreas.at(ifmCount++) = ifm; }
+    void AddIfm(const Box &ifm) { ifmAreas.at(ifmCount++) = ifm; }
 };
 
 /// <summary>

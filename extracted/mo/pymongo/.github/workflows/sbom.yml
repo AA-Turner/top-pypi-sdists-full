@@ -8,7 +8,7 @@ name: Generate SBOM
 on:
   workflow_dispatch: {}
   push:
-    branches: ['master']
+    branches: ['main']
     paths:
       - 'requirements.txt'
       - 'requirements/**.txt'
@@ -29,12 +29,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.10"
 
@@ -74,7 +74,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0  # v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore: Update SBOM after dependency changes'

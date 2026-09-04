@@ -180,6 +180,19 @@ def df_cache_map_pop(key: Tuple[str, any]) -> None:
         df_cache_map.pop(key, None)
 
 
+def df_cache_map_clear_session(session_id: str) -> None:
+    """Drop all memoized read/plan containers for one Spark session.
+
+    Required when session-scoped runtime configs (e.g. ``spark.sql.caseSensitive``)
+    change: ``df_cache_map`` keys only ``(session_id, plan_id)`` and NSS reads bake
+    the effective SPARK_CONF into ``STAGE_FILE_READER`` at first resolution.
+    """
+    with _cache_map_lock:
+        for key in list(df_cache_map):
+            if key[0] == session_id:
+                df_cache_map.pop(key, None)
+
+
 # Per-session cache: (session_id, sql_proto_bytes) -> DataFrameContainer.
 # Keyed on the serialized bytes of the SQL sub-message (query + args, no plan_id),
 # so the same spark.sql(text) call reuses the plan across all 4 RPCs that follow it.

@@ -21,7 +21,13 @@ from inspect_ai._util.path import pretty_path
 from inspect_ai._util.platform import platform_init as init_platform
 from inspect_ai._util.rich import clean_control_characters
 from inspect_ai.model._generate_config import GenerateConfig
-from inspect_ai.model._model import Model, init_model_usage, model_usage, resolve_models
+from inspect_ai.model._model import (
+    Model,
+    ModelRoles,
+    init_model_usage,
+    model_usage,
+    resolve_models,
+)
 from inspect_ai.model._model_config import (
     model_config_to_model,
     model_roles_config_to_model_roles,
@@ -44,6 +50,7 @@ from inspect_scout._transcript.local_files_cache import (
 )
 from inspect_scout._util.attachments import resolve_event_attachments
 from inspect_scout._util.refusal import RefusalError
+from inspect_scout._validation.predicates import PredicateFn
 from inspect_scout._validation.types import ValidationSet
 from inspect_scout._validation.validate import validate
 from inspect_scout._view.notify import view_notify_scan
@@ -100,7 +107,7 @@ def scan(
     model_config: GenerateConfig | None = None,
     model_base_url: str | None = None,
     model_args: dict[str, Any] | str | None = None,
-    model_roles: dict[str, str | Model] | None = None,
+    model_roles: ModelRoles | None = None,
     max_transcripts: int | None = None,
     max_processes: int | None = None,
     limit: int | None = None,
@@ -192,7 +199,7 @@ async def scan_async(
     model_config: GenerateConfig | None = None,
     model_base_url: str | None = None,
     model_args: dict[str, Any] | str | None = None,
-    model_roles: dict[str, str | Model] | None = None,
+    model_roles: ModelRoles | None = None,
     max_transcripts: int | None = None,
     max_processes: int | None = None,
     limit: int | None = None,
@@ -346,6 +353,7 @@ def scan_resume(
     display: DisplayType | None = None,
     log_level: str | None = None,
     fail_on_error: bool = False,
+    predicate_overrides: Mapping[str, PredicateFn] | None = None,
 ) -> Status:
     """Resume a previous scan.
 
@@ -355,6 +363,8 @@ def scan_resume(
        log_level: Level for logging to the console: "debug", "http", "sandbox",
             "info", "warning", "error", "critical", or "notset" (defaults to "warning")
        fail_on_error: Re-raise exceptions instead of capturing them in results.
+       predicate_overrides: Trusted custom validation predicates keyed by scanner
+            name. Required when the portable scan spec cannot recreate a predicate.
 
     Returns:
        ScanStatus: Status of scan (spec, completion, summary, errors, etc.)
@@ -362,13 +372,19 @@ def scan_resume(
     top_level_sync_init(display)
     return run_coroutine(
         scan_resume_async(
-            scan_location, log_level=log_level, fail_on_error=fail_on_error
+            scan_location,
+            log_level=log_level,
+            fail_on_error=fail_on_error,
+            predicate_overrides=predicate_overrides,
         )
     )
 
 
 async def scan_resume_async(
-    scan_location: str, log_level: str | None = None, fail_on_error: bool = False
+    scan_location: str,
+    log_level: str | None = None,
+    fail_on_error: bool = False,
+    predicate_overrides: Mapping[str, PredicateFn] | None = None,
 ) -> Status:
     """Resume a previous scan.
 
@@ -377,6 +393,8 @@ async def scan_resume_async(
        log_level: Level for logging to the console: "debug", "http", "sandbox",
             "info", "warning", "error", "critical", or "notset" (defaults to "warning")
        fail_on_error: Re-raise exceptions instead of capturing them in results.
+       predicate_overrides: Trusted custom validation predicates keyed by scanner
+            name. Required when the portable scan spec cannot recreate a predicate.
 
     Returns:
        ScanStatus: Status of scan (spec, completion, summary, errors, etc.)
@@ -384,7 +402,7 @@ async def scan_resume_async(
     top_level_async_init(log_level or read_project().log_level)
 
     # resume job
-    scan = await resume_scan(scan_location)
+    scan = await resume_scan(scan_location, predicate_overrides)
 
     # can't resume a job with non-deterministic shuffling
     if scan.spec.options.shuffle is True:
@@ -756,7 +774,14 @@ async def _scan_async_inner(
                         )
                         maybe_start_results_sync()
 
+                    # the store ignores writes once closed (see _Store); this
+                    # guard additionally keeps a late trailing-edge fire away
+                    # from the finished display.
+                    scan_finished = False
+
                     def update_metrics(metrics: ScanMetrics) -> None:
+                        if scan_finished:
+                            return
                         active_store.put_metrics(scan.spec.scan_id, metrics)
                         scan_display.metrics(metrics)
 
@@ -792,6 +817,7 @@ async def _scan_async_inner(
                             await recorder.location(), complete=len(errors) == 0
                         )
                     finally:
+                        scan_finished = True
                         active_store.delete_current()
 
         # report scan complete
@@ -851,8 +877,8 @@ def init_scan_model_context(
     model_config: GenerateConfig | None = None,
     model_base_url: str | None = None,
     model_args: dict[str, Any] | str | None = None,
-    model_roles: Mapping[str, str | Model] | None = None,
-) -> tuple[Model, dict[str, Any], dict[str, Model] | None]:
+    model_roles: ModelRoles | None = None,
+) -> tuple[Model, dict[str, Any], dict[str, Model | list[Model]] | None]:
     # resolve from inspect eval model env var if rquired
     if model is None:
         model = os.getenv("SCOUT_SCAN_MODEL", None)
@@ -878,7 +904,12 @@ def init_scan_model_context(
 async def handle_scan_interrupted(
     message_or_exc: str | Exception, spec: ScanSpec, recorder: ScanRecorder
 ) -> Status:
-    scan_status = await recorder.sync(await recorder.location(), complete=False)
+    # on interrupt this runs inside an already-cancelled scope, where an
+    # unshielded await re-raises the cancellation before the sync can
+    # complete (#578) -- shield it so the interrupted status gets written
+    # and reported rather than tripping the not-None assert upstream
+    with anyio.CancelScope(shield=True):
+        scan_status = await recorder.sync(await recorder.location(), complete=False)
     display().scan_interrupted(message_or_exc, scan_status)
     return scan_status
 
@@ -1035,6 +1066,7 @@ async def _scan_one(
         try:
             type_and_ids = get_input_type_and_ids(loader_result)
             if type_and_ids is None:
+                init_model_usage(initial_usage={})
                 continue
 
             # do scan
@@ -1085,6 +1117,7 @@ async def _scan_one(
                     model_usage=model_usage(),
                 )
             )
+        init_model_usage(initial_usage={})
 
     return results
 

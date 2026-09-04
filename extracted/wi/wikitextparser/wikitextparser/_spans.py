@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Callable, Dict, List, Union
+from typing import Callable, Union
 
 from regex import DOTALL, IGNORECASE, REVERSE, Match, compile as rc
 
@@ -20,7 +20,7 @@ from ._config import (
 rc = partial(rc, cache_pattern=False)
 # According to https://www.mediawiki.org/wiki/Manual:$wgLegalTitleChars
 # illegal title characters are: r'[]{}|#<>[\u0000-\u0020]'
-VALID_TITLE_CHARS = rb'[^\|\{\}\[\2\]\3<>\n]*+'
+VALID_TITLE_CHARS = rb'[^\|\{\}\[\2\]\3<>\r\n]*+'
 # Parser functions
 # According to https://www.mediawiki.org/wiki/Help:Magic_words
 # See also:
@@ -49,7 +49,7 @@ PF_TL_FINDITER = rc(
     + rb'\}\})'
 ).finditer
 # External links
-INVALID_URL_CHARS = rb' \t\n"<>\[\]'
+INVALID_URL_CHARS = rb' \t\r\n"<>\[\]'
 VALID_URL_CHARS = rb'[^' + INVALID_URL_CHARS + rb']++'
 # See more info on literal IPv6 see:
 # https://en.wikipedia.org/wiki/IPv6_address#Literal_IPv6_addresses_in_network_resource_identifiers
@@ -67,7 +67,7 @@ BARE_EXTERNAL_LINK = BARE_EXTERNAL_LINK_SCHEMES + EXTERNAL_LINK_URL_TAIL
 # Wikilinks
 # https://www.mediawiki.org/wiki/Help:Links#Internal_links
 WIKILINK_PARAM_FINDITER = rc(
-    rb'(?<!(?>^|[^\[\0])(?:(?>\[\0*+){2})*+\[\0*+)'  # != 2N + 1
+    rb'(?<!(?>\A|[^\[\0])(?:(?>\[\0*+){2})*+\[\0*+)'  # != 2N + 1
     rb'\[\0*\['
     rb'(?![\ \0]*+' + BARE_EXTERNAL_LINK + rb')' + VALID_TITLE_CHARS + rb'(?>'
     rb'\|'
@@ -97,12 +97,12 @@ WIKILINK_PARAM_FINDITER = rc(
     rb')++\}\}\}',
     REVERSE,
 ).finditer
-image_pattern_search = rc(
-    rb'^\[\[[ \t]*+' + regex_pattern(FILE_NAMESACE) + rb'[ \t]*+:',
+image_pattern_match = rc(
+    rb'\[\[[ \t]*+' + regex_pattern(FILE_NAMESACE) + rb'[ \t]*+:',
     IGNORECASE,
-).search
+).match
 MARKUP = b''.maketrans(b"=|[]'{}", b'\1_\2\3___')
-BRACES_PIPE_NEWLINE = b''.maketrans(b'|{}\n', b'____')
+BRACES_PIPE_NEWLINE = b''.maketrans(b'|{}\r\n', b'_____')
 BRACKETS = b''.maketrans(b'[]', b'__')
 
 PARSABLE_TAG_EXTENSION_NAME = regex_pattern(_parsable_tag_extensions)
@@ -232,7 +232,7 @@ HTML_END_TAG_FINDITER = rc(
 
 
 # [stan_start: int, span_end: int, Match, byte_array]
-TypeToSpans = Dict[Union[str, int], List[List]]
+TypeToSpans = dict[Union[str, int], list[list]]
 
 
 def parse_to_spans(byte_array: bytearray) -> TypeToSpans:
@@ -366,7 +366,7 @@ def _parse_sub_spans(
                 ms, me = match.span()
                 if match[1] is None:
                     m0 = match[0]
-                    if image_pattern_search(m0) or b'\x02\x02' not in m0:
+                    if image_pattern_match(m0) or b'\x02\x02' not in m0:
                         wls_append([ms, me, match, byte_array[ms:me]])
                     _parse_sub_spans(
                         byte_array,

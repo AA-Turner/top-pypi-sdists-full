@@ -2647,7 +2647,7 @@ class Selector(SelectorBase, _SignatureSelector[_T]):
         object.__setattr__(self, 'check_on_set', check_on_set)
 
         instantiate = params.pop("instantiate", Undefined)
-        params["instantiate"] = False if instantiate is Undefined else instantiate  # pyrefly: ignore[bad-typed-dict-key]
+        params["instantiate"] = False if instantiate is Undefined else instantiate  # pyrefly: ignore[bad-assignment]
         super().__init__(default=default, **params)
         # Required as Parameter sets allow_None=True if default is None
         if allow_None is Undefined:
@@ -2846,7 +2846,7 @@ class FileSelector(Selector[_T]):
         self.default = self.objects[0] if self.objects else None
 
     def get_range(self) -> dict[str, str | PathLike]:
-        return _abbreviate_paths(self.path,super().get_range())
+        return _abbreviate_paths(self.path, super().get_range())
 
 
 class ListSelector(Selector):
@@ -3731,7 +3731,7 @@ class List(Parameter[_T]):
             if is_instance and not isinstance(v, item_type):
                 err_kind = "instances"
                 obj_display = lambda v: type(v)
-            elif not is_instance and (type(v) is not type or not issubclass(v, item_type)):
+            elif not is_instance and (not isinstance(v, type) or not issubclass(v, item_type)):
                 err_kind = "subclasses"
             if err_kind:
                 raise TypeError(

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test the bulk API."""
+
 from __future__ import annotations
 
 import sys
@@ -23,9 +24,6 @@ from pymongo.asynchronous.mongo_client import AsyncMongoClient
 
 sys.path[0:0] = [""]
 
-from test.asynchronous import AsyncIntegrationTest, async_client_context, remove_all_users, unittest
-from test.utils_shared import async_wait_until
-
 from bson.binary import Binary, UuidRepresentation
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
@@ -34,6 +32,8 @@ from pymongo.common import partition_node
 from pymongo.errors import BulkWriteError, ConfigurationError, InvalidOperation, OperationFailure
 from pymongo.operations import *
 from pymongo.write_concern import WriteConcern
+from test.asynchronous import AsyncIntegrationTest, async_client_context, remove_all_users, unittest
+from test.utils_shared import async_wait_until
 
 _IS_SYNC = False
 
@@ -44,7 +44,7 @@ class AsyncBulkTestBase(AsyncIntegrationTest):
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
-        self.coll = self.db.test
+        self.coll = self.db.coll
         await self.coll.drop()
         self.coll_w0 = self.coll.with_options(write_concern=WriteConcern(w=0))
 
@@ -165,7 +165,6 @@ class AsyncTestBulk(AsyncBulkTestBase):
     async def test_update_many(self):
         await self._test_update_many({"$set": {"foo": "bar"}})
 
-    @async_client_context.require_version_min(4, 2, 0)
     async def test_update_many_pipeline(self):
         await self._test_update_many([{"$set": {"foo": "bar"}}])
 
@@ -206,7 +205,6 @@ class AsyncTestBulk(AsyncBulkTestBase):
     async def test_update_one(self):
         await self._test_update_one({"$set": {"foo": "bar"}})
 
-    @async_client_context.require_version_min(4, 2, 0)
     async def test_update_one_pipeline(self):
         await self._test_update_one([{"$set": {"foo": "bar"}}])
 
@@ -794,7 +792,7 @@ class AsyncBulkAuthorizationTestBase(AsyncBulkTestBase):
             privileges=[
                 {
                     "actions": ["insert", "update", "find"],
-                    "resource": {"db": "pymongo_test", "collection": "test"},
+                    "resource": {"db": "pymongo_test", "collection": "coll"},
                 }
             ],
             roles=[],
@@ -901,7 +899,7 @@ class AsyncTestBulkAuthorization(AsyncBulkAuthorizationTestBase):
         cli = await self.async_rs_or_single_client_noauth(
             username="readonly", password="pw", authSource="pymongo_test"
         )
-        coll = cli.pymongo_test.test
+        coll = cli.pymongo_test.coll
         await coll.find_one()
         with self.assertRaises(OperationFailure):
             await coll.bulk_write([InsertOne({"x": 1})])
@@ -912,7 +910,7 @@ class AsyncTestBulkAuthorization(AsyncBulkAuthorizationTestBase):
         cli = await self.async_rs_or_single_client_noauth(
             username="noremove", password="pw", authSource="pymongo_test"
         )
-        coll = cli.pymongo_test.test
+        coll = cli.pymongo_test.coll
         await coll.find_one()
         requests = [
             InsertOne({"x": 1}),
@@ -947,17 +945,18 @@ class AsyncTestBulkWriteConcern(AsyncBulkTestBase):
         if not async_client_context.test_commands_enabled:
             self.skipTest("Test commands must be enabled.")
 
-        # Use the rsSyncApplyStop failpoint to pause replication on a
+        # Use the stopReplProducer failpoint to pause replication on a
         # secondary which will cause a wtimeout error.
-        await self.secondary.admin.command("configureFailPoint", "rsSyncApplyStop", mode="alwaysOn")
+        await self.secondary.admin.command(
+            "configureFailPoint", "stopReplProducer", mode="alwaysOn"
+        )
 
         try:
             coll = self.coll.with_options(write_concern=WriteConcern(w=self.w, wtimeout=1))
             return await coll.bulk_write(requests, ordered=ordered)
         finally:
-            await self.secondary.admin.command("configureFailPoint", "rsSyncApplyStop", mode="off")
+            await self.secondary.admin.command("configureFailPoint", "stopReplProducer", mode="off")
 
-    @async_client_context.require_version_max(7, 1)  # PYTHON-4560
     @async_client_context.require_replica_set
     @async_client_context.require_secondaries_count(1)
     async def test_write_concern_failure_ordered(self):
@@ -1039,7 +1038,6 @@ class AsyncTestBulkWriteConcern(AsyncBulkTestBase):
         failed = details["writeErrors"][0]
         self.assertIn("duplicate", failed["errmsg"])
 
-    @async_client_context.require_version_max(7, 1)  # PYTHON-4560
     @async_client_context.require_replica_set
     @async_client_context.require_secondaries_count(1)
     async def test_write_concern_failure_unordered(self):

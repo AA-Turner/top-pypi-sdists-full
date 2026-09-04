@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test the CSOT unified spec tests."""
+
 from __future__ import annotations
 
 import os
@@ -21,13 +22,12 @@ from pathlib import Path
 
 sys.path[0:0] = [""]
 
-from test import IntegrationTest, client_context, unittest
-from test.unified_format import generate_test_classes, get_test_path
-from test.utils import flaky
-
 import pymongo
 from pymongo import _csot
 from pymongo.errors import PyMongoError
+from test import IntegrationTest, client_context, unittest
+from test.unified_format import generate_test_classes, get_test_path
+from test.utils import flaky
 
 _IS_SYNC = True
 
@@ -78,7 +78,8 @@ class TestCSOT(IntegrationTest):
     @client_context.require_change_streams
     @flaky(reason="PYTHON-3522")
     def test_change_stream_can_resume_after_timeouts(self):
-        coll = self.db.test
+        self.addCleanup(self.db.coll.drop)
+        coll = self.db.coll
         coll.insert_one({})
         with coll.watch() as stream:
             with pymongo.timeout(0.1):
@@ -90,9 +91,6 @@ class TestCSOT(IntegrationTest):
                     stream.try_next()
                 self.assertTrue(ctx.exception.timeout)
                 self.assertTrue(stream.alive)
-            # Resume before the insert on 3.6 because 4.0 is required to avoid skipping documents
-            if client_context.version < (4, 0):
-                stream.try_next()
             coll.insert_one({})
             with pymongo.timeout(10):
                 self.assertTrue(stream.next())

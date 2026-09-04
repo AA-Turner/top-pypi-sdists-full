@@ -4324,6 +4324,8 @@ class Client(OpenApiClient):
             query['PolicyVersion'] = request.policy_version
         if not DaraCore.is_null(request.select_type):
             query['SelectType'] = request.select_type
+        if not DaraCore.is_null(request.server_type):
+            query['ServerType'] = request.server_type
         if not DaraCore.is_null(request.uuid_list):
             query['UuidList'] = request.uuid_list
         req = open_api_util_models.OpenApiRequest(
@@ -4366,6 +4368,8 @@ class Client(OpenApiClient):
             query['PolicyVersion'] = request.policy_version
         if not DaraCore.is_null(request.select_type):
             query['SelectType'] = request.select_type
+        if not DaraCore.is_null(request.server_type):
+            query['ServerType'] = request.server_type
         if not DaraCore.is_null(request.uuid_list):
             query['UuidList'] = request.uuid_list
         req = open_api_util_models.OpenApiRequest(
@@ -61862,6 +61866,8 @@ class Client(OpenApiClient):
             query['PolicyVersion'] = request.policy_version
         if not DaraCore.is_null(request.select_type):
             query['SelectType'] = request.select_type
+        if not DaraCore.is_null(request.server_type):
+            query['ServerType'] = request.server_type
         if not DaraCore.is_null(request.uuid_list):
             query['UuidList'] = request.uuid_list
         req = open_api_util_models.OpenApiRequest(
@@ -61906,6 +61912,8 @@ class Client(OpenApiClient):
             query['PolicyVersion'] = request.policy_version
         if not DaraCore.is_null(request.select_type):
             query['SelectType'] = request.select_type
+        if not DaraCore.is_null(request.server_type):
+            query['ServerType'] = request.server_type
         if not DaraCore.is_null(request.uuid_list):
             query['UuidList'] = request.uuid_list
         req = open_api_util_models.OpenApiRequest(

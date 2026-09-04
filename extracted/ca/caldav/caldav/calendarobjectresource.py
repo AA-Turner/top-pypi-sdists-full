@@ -40,6 +40,7 @@ else:
 from contextlib import contextmanager
 
 from .base_client import ICALH
+from .compatibility_hints import at_spelling_to_mint
 from .datastate import DataState, IcalendarState, NoDataState, RawDataState, VobjectState
 from .davobject import DAVObject
 from .elements import cdav, dav
@@ -51,13 +52,27 @@ from .lib.url import URL
 log = logging.getLogger("caldav")
 
 
-def _quote_uid(uid: str) -> str:
+def _quote_uid(uid: str, features: Any = None) -> str:
     """URL-quote a UID for use in a CalDAV object URL.
 
     Slashes are double-quoted (replaced with %2F before percent-encoding)
     per https://github.com/python-caldav/caldav/issues/143.
+
+    A UID that is an email address puts an ``@`` in the path, and this is one
+    of the two places where the client has no existing spelling to preserve
+    and must pick one.  It picks ``%40`` - not because RFC3986 asks for it
+    (section 3.3 makes ``@`` a legal ``pchar``, so encoding it is a rewrite
+    nobody needs) but because that is where every object this library has ever
+    stored under an email-like UID already lives.  The one server that gets
+    the literal ``@`` instead is one whose ``url.encode-at.encoded`` is
+    declared not to resolve, where ``%40`` is simply not an address.
+
+    See ``compatibility_hints.at_spelling_to_mint``, which is where that rule
+    lives; ``url.encode-at.literal`` is a different question - whether a
+    literal ``@`` the client was *handed* resolves - and is not read here.
     """
-    return quote(uid.replace("/", "%2F"))
+    safe = "/@" if at_spelling_to_mint(features) == "@" else "/"
+    return quote(uid.replace("/", "%2F"), safe=safe)
 
 
 class CalendarObjectResource(DAVObject):
@@ -722,7 +737,7 @@ class CalendarObjectResource(DAVObject):
                 raise NotImplementedError(
                     "do we need to support this anyway?  Should be trivial, but can't figure out how to do it with the icalendar.Event/vCalAddress objects right now"
                 )
-            elif attendee.startswith("mailto:"):
+            elif attendee.lower().startswith("mailto:"):
                 attendee_obj = vCalAddress(attendee)
             elif "@" in attendee and ":" not in attendee and ";" not in attendee:
                 attendee_obj = vCalAddress("mailto:" + attendee)
@@ -934,12 +949,25 @@ class CalendarObjectResource(DAVObject):
 
     ## TODO: move get-logics to a load_by_get method.
     ## The load method should deal with "server quirks".
-    def load(self, only_if_unloaded: bool = False) -> "Self | Coroutine[Any, Any, Self]":
+    def load(
+        self, only_if_unloaded: bool = False, multiget_fallback: bool = True
+    ) -> "Self | Coroutine[Any, Any, Self]":
         """
         (Re)load the object from the caldav server.
 
         For sync clients, loads and returns self.
         For async clients, returns a coroutine that must be awaited.
+
+        :param only_if_unloaded: skip the server round-trip if the object
+            already carries data.
+        :param multiget_fallback: when the GET fails, retry it as a
+            calendar-multiget REPORT against the parent collection.  Some
+            servers do not serve calendar object resources over GET at all,
+            and some (Robur) answer 403 rather than 404 for anything that
+            does not exist, so the fallback is what makes them usable and is
+            on by default.  Pass False to see what the server itself
+            answered - a compatibility checker probing whether a missing
+            object really raises NotFoundError needs the unrescued error.
 
         Example (sync):
             obj.load()
@@ -961,7 +989,9 @@ class CalendarObjectResource(DAVObject):
 
         # Dual-mode support: async clients return a coroutine
         if self.is_async_client:
-            return self._async_load(only_if_unloaded=only_if_unloaded)
+            return self._async_load(
+                only_if_unloaded=only_if_unloaded, multiget_fallback=multiget_fallback
+            )
 
         if self.url is None:
             raise ValueError("Unexpected value None for self.url")
@@ -980,10 +1010,11 @@ class CalendarObjectResource(DAVObject):
             uid = self.id
             if uid:
                 # Fallback 1: try multiget (REPORT may work even when GET fails)
-                try:
-                    return self.load_by_multiget()
-                except Exception:
-                    pass
+                if multiget_fallback:
+                    try:
+                        return self.load_by_multiget()
+                    except Exception:
+                        pass
                 # Fallback 2: re-fetch by UID (server may have changed the URL)
                 if self.parent and hasattr(self.parent, "get_object_by_uid"):
                     try:
@@ -998,16 +1029,16 @@ class CalendarObjectResource(DAVObject):
                         pass
             raise
         except Exception:
+            if not multiget_fallback:
+                raise
             return self.load_by_multiget()
 
-        ## consider refactoring - this is repeated many places now
-        if "Etag" in r.headers:
-            self.props[dav.GetEtag.tag] = r.headers["Etag"]
-        if "Schedule-Tag" in r.headers:
-            self.props[cdav.ScheduleTag.tag] = r.headers["Schedule-Tag"]
+        self._update_tag_props(r)
         return self
 
-    async def _async_load(self, only_if_unloaded: bool = False) -> Self:
+    async def _async_load(
+        self, only_if_unloaded: bool = False, multiget_fallback: bool = True
+    ) -> Self:
         """Async implementation of load."""
         if only_if_unloaded and self.is_loaded():
             return self
@@ -1026,10 +1057,11 @@ class CalendarObjectResource(DAVObject):
             uid = self.id
             if uid:
                 # Fallback 1: try multiget (REPORT may work even when GET fails)
-                try:
-                    return await self.load_by_multiget()
-                except Exception:
-                    pass
+                if multiget_fallback:
+                    try:
+                        return await self.load_by_multiget()
+                    except Exception:
+                        pass
                 # Fallback 2: re-fetch by UID (server may have changed the URL)
                 if self.parent and hasattr(self.parent, "get_object_by_uid"):
                     try:
@@ -1044,12 +1076,11 @@ class CalendarObjectResource(DAVObject):
                         pass
             raise
         except Exception:
+            if not multiget_fallback:
+                raise
             return await self.load_by_multiget()
 
-        if "Etag" in r.headers:
-            self.props[dav.GetEtag.tag] = r.headers["Etag"]
-        if "Schedule-Tag" in r.headers:
-            self.props[cdav.ScheduleTag.tag] = r.headers["Schedule-Tag"]
+        self._update_tag_props(r)
         return self
 
     def load_by_multiget(self) -> "Self | Coroutine[Any, Any, Self]":
@@ -1155,6 +1186,20 @@ class CalendarObjectResource(DAVObject):
             # _post_put returned a retry coroutine (self._put(False) for async client)
             await result
 
+    def _update_tag_props(self, r) -> None:
+        """Capture the ETag / Schedule-Tag response headers into self.props.
+
+        Called after both PUT (`_post_put`) and GET (`load`/`_async_load`);
+        keys are matched case-insensitively by the response header dict.
+        See RFC 6638 for Schedule-Tag.
+        """
+        if not r.headers:
+            return
+        if "Etag" in r.headers:
+            self.props[dav.GetEtag.tag] = r.headers["Etag"]
+        if r.headers.get("Schedule-Tag"):
+            self.props[cdav.ScheduleTag.tag] = r.headers["Schedule-Tag"]
+
     def _post_put(self, r, retry_on_failure):
         if r.status == 412:
             if self.schedule_tag:
@@ -1164,7 +1209,7 @@ class CalendarObjectResource(DAVObject):
             else:
                 raise error.PutError(errmsg(r))
         elif r.status == 302:
-            self.url = URL.objectify([x[1] for x in r.headers if x[0] == "location"][0])
+            self.url = URL.objectify(r.headers.get("location"))
         elif r.status not in (204, 201):
             if retry_on_failure:
                 try:
@@ -1178,31 +1223,7 @@ class CalendarObjectResource(DAVObject):
                 return self._put(False)
             else:
                 raise error.PutError(errmsg(r))
-        if "Etag" in r.headers:
-            self.props[dav.GetEtag.tag] = r.headers["Etag"]
-        if r.headers and r.headers.get("schedule-tag"):
-            self.props[cdav.ScheduleTag.tag] = r.headers["schedule-tag"]
-
-        if r.status == 302:
-            path = [x[1] for x in r.headers if x[0] == "location"][0]
-            self.url = URL.objectify(path)
-        elif r.status not in (204, 201):
-            if retry_on_failure:
-                try:
-                    import vobject  # noqa: F401
-                except ImportError:
-                    retry_on_failure = False
-            if retry_on_failure:
-                ## This seems like a noop, but it may "wash" the object
-                dummy = self.vobject_instance
-                return self._put(False)
-            else:
-                raise error.PutError(errmsg(r))
-        ## TODO: refactor - those code lines are repeated all over the place
-        if "Etag" in r.headers:
-            self.props[dav.GetEtag.tag] = r.headers["Etag"]
-        if r.headers and r.headers.get("schedule-tag"):
-            self.props[cdav.ScheduleTag.tag] = r.headers["schedule-tag"]
+        self._update_tag_props(r)
 
     def _create(
         self, id=None, path=None, retry_on_failure=True
@@ -1221,7 +1242,8 @@ class CalendarObjectResource(DAVObject):
         ## See https://github.com/python-caldav/caldav/issues/143 for the rationale behind double-quoting slashes
         ## TODO: should try to wrap my head around issues that arises when id contains weird characters.  maybe it's
         ## better to generate a new uuid here, particularly if id is in some unexpected format.
-        url = self.parent.url.join(_quote_uid(self.id) + ".ics")
+        features = self.client.features if self.client is not None else None
+        url = self.parent.url.join(_quote_uid(self.id, features) + ".ics")
         assert " " not in str(url)
         return url
 
@@ -1269,7 +1291,12 @@ class CalendarObjectResource(DAVObject):
             return
 
         ical_obj = self.icalendar_component
-        attendee_lines = ical_obj["attendee"]
+        try:
+            attendee_lines = ical_obj["attendee"]
+        except KeyError:
+            raise error.NotFoundError(
+                f"Participant {attendee!r} not found in attendee list (no ATTENDEE properties)"
+            ) from None
         if isinstance(attendee_lines, str):
             attendee_lines = [attendee_lines]
 
@@ -1281,7 +1308,7 @@ class CalendarObjectResource(DAVObject):
                 attendee_line.params.update(kwargs)
                 cnt += 1
         if not cnt:
-            raise error.NotFoundError("Participant %s not found in attendee list")
+            raise error.NotFoundError(f"Participant {attendee!r} not found in attendee list")
         error.assert_(cnt == 1)
 
     def save(
@@ -1302,7 +1329,11 @@ class CalendarObjectResource(DAVObject):
         obj_type is only used in conjunction with no_overwrite and
         no_create.
 
-        is_schedule_tag_match is currently ignored. (TODO - fix or remove)
+        Conditional requests are handled automatically: if a
+        Schedule-Tag or an ETag has been cached for the object, an
+        ``If-Schedule-Tag-Match`` or ``If-Match`` header is sent, and a
+        412 response is raised as ``ScheduleTagMismatchError`` or
+        ``ETagMismatchError``.
 
         The SEQUENCE should be increased when saving a new version of
         the object.  If this behaviour is unwanted, then
@@ -1570,6 +1601,7 @@ class CalendarObjectResource(DAVObject):
         self._data = vcal.fix(data)
         self._vobject_instance = None
         self._icalendar_instance = None
+        self._state = RawDataState(self._data)
         return self
 
     def _get_data(self):
@@ -1684,7 +1716,7 @@ class CalendarObjectResource(DAVObject):
         if not self._icalendar_instance:
             if not self.data:
                 return None
-            self.icalendar_instance = icalendar.Calendar.from_ical(to_unicode(self.data))
+            self.icalendar_instance = vcal.parse_ical(to_unicode(self.data), context=self.url)
         return self._icalendar_instance
 
     icalendar_instance: Any = property(
@@ -1940,7 +1972,7 @@ class CalendarObjectResource(DAVObject):
                 start = datetime(start.year, start.month, start.day)
                 end = datetime(end.year, end.month, end.day)
             return end - start
-        elif "DTSTART" in i and not isinstance(i["DTSTART"], datetime):
+        elif "DTSTART" in i and not isinstance(i["DTSTART"].dt, datetime):
             return timedelta(days=1)
         else:
             return timedelta(0)
@@ -2119,6 +2151,35 @@ class Todo(CalendarObjectResource):
             i["RRULE"]["COUNT"][0] -= 1
         return True
 
+    def _build_recurring_safe_completed(self, completion_timestamp) -> "Todo | None":
+        """Pure (no-I/O) part of the "safe" recurring-completion strategy.
+
+        Advances ``self`` to its next occurrence in memory and returns a
+        freshly-built standalone copy marked as completed.  Returns
+        ``None`` when the task is not (or no longer) recurring, in which
+        case the caller should fall back to a plain completion.  The
+        caller is responsible for saving both ``self`` and the returned
+        copy (one PUT each).
+        """
+        ## If count is one, then it is not really recurring
+        if not self._reduce_count():
+            return None
+        next_dtstart = self._next(completion_timestamp)
+        if not next_dtstart:
+            return None
+
+        completed = self.copy()
+        completed.url = self.parent.url.join(completed.id + ".ics")
+        completed.icalendar_component.pop("RRULE")
+        completed._complete_ical(completion_timestamp=completion_timestamp)
+
+        duration = self.get_duration()
+        i = self.icalendar_component
+        i.pop("DTSTART", None)
+        i.add("DTSTART", next_dtstart)
+        self.set_duration(duration, movable_attr="DUE")
+        return completed
+
     def _complete_recurring_safe(self, completion_timestamp):
         """This mode will create a new independent task which is
         marked as completed, and modify the existing recurring task.
@@ -2126,48 +2187,18 @@ class Todo(CalendarObjectResource):
         recurrence of a recurring task, though the link between the
         completed task and the original task is lost.
         """
-        ## If count is one, then it is not really recurring
-        if not self._reduce_count():
-            return self.complete(handle_rrule=False)
-        next_dtstart = self._next(completion_timestamp)
-        if not next_dtstart:
-            return self.complete(handle_rrule=False)
-
-        completed = self.copy()
-        completed.url = self.parent.url.join(completed.id + ".ics")
-        completed.icalendar_component.pop("RRULE")
+        completed = self._build_recurring_safe_completed(completion_timestamp)
+        if completed is None:
+            self.complete(handle_rrule=False)
+            return
         completed.save()
-        completed.complete()
-
-        duration = self.get_duration()
-        i = self.icalendar_component
-        i.pop("DTSTART", None)
-        i.add("DTSTART", next_dtstart)
-        self.set_duration(duration, movable_attr="DUE")
-
         self.save()
 
-    def _complete_recurring_thisandfuture(self, completion_timestamp) -> None:
-        """The RFC is not much helpful, a lot of guesswork is needed
-        to consider what the "right thing" to do wrg of a completion of
-        recurring tasks is ... but this is my shot at it.
-
-        1) The original, with rrule, will be kept as it is.  The rrule
-        string is fetched from the first subcomponent of the
-        icalendar.
-
-        2) If there are multiple recurrence instances in subcomponents
-        and the last one is marked with RANGE=THISANDFUTURE, then
-        select this one.  If it has the rrule property set, use this
-        rrule rather than the original one.  Drop the RANGE parameter.
-        Calculate the next RECURRENCE-ID from the DTSTART of this
-        object.  Mark task as completed.  Increase SEQUENCE.
-
-        3) Create a new recurrence instance with RANGE=THISANDFUTURE,
-        without RRULE set (Ref
-        https://github.com/Kozea/Radicale/issues/1264).  Set the
-        RECURRENCE-ID to the one calculated in #2.  Calculate the
-        DTSTART based on rrule and completion timestamp/date.
+    def _prepare_recurring_thisandfuture(self, completion_timestamp) -> None:
+        """Pure (no-I/O) in-memory mutation behind
+        ``_complete_recurring_thisandfuture``; see that method for the
+        algorithm description.  The caller does the single
+        ``save(increase_seqno=False)`` that follows.
         """
         recurrences = self.icalendar_instance.subcomponents
         orig = recurrences[0]
@@ -2219,7 +2250,6 @@ class Todo(CalendarObjectResource):
                 [x for x in recurrences if not self.is_pending(x)]
             ):
                 self._complete_ical(recurrences[0], completion_timestamp=completion_timestamp)
-                self.save(increase_seqno=False)
                 return
 
         rrule = rrule2 or rrule
@@ -2231,6 +2261,30 @@ class Todo(CalendarObjectResource):
         thisandfuture.add("DTSTART", next_dtstart)
         self._set_duration(i=thisandfuture, duration=duration, movable_attr="DUE")
         self.icalendar_instance.subcomponents.append(thisandfuture)
+
+    def _complete_recurring_thisandfuture(self, completion_timestamp) -> None:
+        """The RFC is not much helpful, a lot of guesswork is needed
+        to consider what the "right thing" to do wrg of a completion of
+        recurring tasks is ... but this is my shot at it.
+
+        1) The original, with rrule, will be kept as it is.  The rrule
+        string is fetched from the first subcomponent of the
+        icalendar.
+
+        2) If there are multiple recurrence instances in subcomponents
+        and the last one is marked with RANGE=THISANDFUTURE, then
+        select this one.  If it has the rrule property set, use this
+        rrule rather than the original one.  Drop the RANGE parameter.
+        Calculate the next RECURRENCE-ID from the DTSTART of this
+        object.  Mark task as completed.  Increase SEQUENCE.
+
+        3) Create a new recurrence instance with RANGE=THISANDFUTURE,
+        without RRULE set (Ref
+        https://github.com/Kozea/Radicale/issues/1264).  Set the
+        RECURRENCE-ID to the one calculated in #2.  Calculate the
+        DTSTART based on rrule and completion timestamp/date.
+        """
+        self._prepare_recurring_thisandfuture(completion_timestamp)
         self.save(increase_seqno=False)
 
     def complete(
@@ -2284,85 +2338,15 @@ class Todo(CalendarObjectResource):
 
     async def _async_complete_recurring_safe(self, completion_timestamp: datetime) -> None:
         """Async version of _complete_recurring_safe."""
-        if not self._reduce_count():
+        completed = self._build_recurring_safe_completed(completion_timestamp)
+        if completed is None:
             return await self._async_complete(completion_timestamp, handle_rrule=False)
-        next_dtstart = self._next(completion_timestamp)
-        if not next_dtstart:
-            return await self._async_complete(completion_timestamp, handle_rrule=False)
-
-        completed = self.copy()
-        completed.url = self.parent.url.join(completed.id + ".ics")
-        completed.icalendar_component.pop("RRULE")
         await completed.save()
-        completed._complete_ical(completion_timestamp=completion_timestamp)
-        await completed.save()
-
-        duration = self.get_duration()
-        i = self.icalendar_component
-        i.pop("DTSTART", None)
-        i.add("DTSTART", next_dtstart)
-        self.set_duration(duration, movable_attr="DUE")
         await self.save()
 
     async def _async_complete_recurring_thisandfuture(self, completion_timestamp: datetime) -> None:
         """Async version of _complete_recurring_thisandfuture."""
-        recurrences = self.icalendar_instance.subcomponents
-        orig = recurrences[0]
-        if "STATUS" not in orig:
-            orig["STATUS"] = "NEEDS-ACTION"
-
-        if len(recurrences) == 1:
-            just_completed = orig.copy()
-            just_completed.pop("RRULE")
-            just_completed.add("RECURRENCE-ID", orig.get("DTSTART", completion_timestamp))
-            seqno = just_completed.pop("SEQUENCE", 0)
-            just_completed.add("SEQUENCE", seqno + 1)
-            recurrences.append(just_completed)
-
-        prev = recurrences[-1]
-        rrule = prev.get("RRULE", orig["RRULE"])
-        thisandfuture = prev.copy()
-        seqno = thisandfuture.pop("SEQUENCE", 0)
-        thisandfuture.add("SEQUENCE", seqno + 1)
-
-        if len(recurrences) > 2:
-            if prev["RECURRENCE-ID"].params.get("RANGE", None) == "THISANDFUTURE":
-                prev["RECURRENCE-ID"].params.pop("RANGE")
-            else:
-                raise NotImplementedError(
-                    "multiple instances found, but last one is not of type THISANDFUTURE, possibly this has been created by some incompatible client, but we should deal with it"
-                )
-        self._complete_ical(prev, completion_timestamp)
-
-        thisandfuture.pop("RECURRENCE-ID", None)
-        thisandfuture.add("RECURRENCE-ID", self._next(i=prev, rrule=rrule))
-        thisandfuture["RECURRENCE-ID"].params["RANGE"] = "THISANDFUTURE"
-        rrule2 = thisandfuture.pop("RRULE", None)
-
-        if rrule2 is not None:
-            count = rrule2.get("COUNT", None)
-            if count is not None and count[0] in (0, 1):
-                for i in recurrences:
-                    self._complete_ical(i, completion_timestamp=completion_timestamp)
-            thisandfuture.add("RRULE", rrule2)
-        else:
-            count = rrule.get("COUNT", None)
-            if count is not None and count[0] <= len(
-                [x for x in recurrences if not self.is_pending(x)]
-            ):
-                self._complete_ical(recurrences[0], completion_timestamp=completion_timestamp)
-                await self.save(increase_seqno=False)
-                return
-
-        rrule = rrule2 or rrule
-
-        duration = self._get_duration(i=prev)
-        thisandfuture.pop("DTSTART", None)
-        thisandfuture.pop("DUE", None)
-        next_dtstart = self._next(i=prev, rrule=rrule, ts=completion_timestamp)
-        thisandfuture.add("DTSTART", next_dtstart)
-        self._set_duration(i=thisandfuture, duration=duration, movable_attr="DUE")
-        self.icalendar_instance.subcomponents.append(thisandfuture)
+        self._prepare_recurring_thisandfuture(completion_timestamp)
         await self.save(increase_seqno=False)
 
     def _complete_ical(self, i=None, completion_timestamp=None) -> None:

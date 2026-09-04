@@ -1,12 +1,14 @@
 import abc
 import os
+import sys
 import textwrap
+import threading
 import typing
 
 import pytest
 
 import plum
-from plum._function import Function, _convert, _owner_transfer
+from plum._function import Function, _BoundFunction, _convert, _owner_transfer
 from plum._method import Method
 from plum._resolver import (
     AmbiguousLookupError,
@@ -146,6 +148,14 @@ def test_owner_transfer(owner_transfer):
 
 def test_functionmeta():
     assert Function.__doc__ == Function._class_doc
+
+
+@pytest.mark.parametrize("cls", [Function, _BoundFunction])
+def test_class_doc_and_module(cls):
+    # Class access must give each class its own docstring and a real module string:
+    # the descriptors serve the instance values, but `help` and Sphinx read these.
+    assert cls.__doc__ == cls._class_doc
+    assert cls.__module__ == "plum._function"
 
 
 def test_doc(monkeypatch):
@@ -314,8 +324,10 @@ def test_function_multi_dispatch(dispatch: plum.Dispatcher):
     assert f("1") == "float or str"
     assert f._resolver.resolve(("1",)).signature.precedence == 1
 
-    # Check that arguments to `f.dispatch_multi` must be tuples or signatures.
-    with pytest.raises(ValueError):
+    # Check that arguments to `f.dispatch_multi` must be tuples or signatures. This is a
+    # `TypeError` in both the pure-Python and compiled builds (the compiled build raises
+    # it at the typed-vararg C boundary).
+    with pytest.raises(TypeError):
         f.dispatch_multi(1)
 
 
@@ -622,3 +634,68 @@ def test_name_after_clearing_cache(dispatch: plum.Dispatcher):
     some_function_name.clear_cache()
 
     assert some_function_name._resolver.function_name == "some_function_name"
+
+
+def _make_function_with_string_annotations():
+    """Create a new dispatcher and function with string annotations."""
+
+    dispatch = plum.Dispatcher()
+
+    @dispatch
+    def f(x: "int") -> "str":
+        return "int"
+
+    @dispatch
+    def f(x: "str") -> "str":
+        return "str"
+
+    @dispatch
+    def f(x: "float") -> "str":
+        return "float"
+
+    return f
+
+
+def test_resolve_pending_registrations_is_thread_safe():
+    """Test that `_resolve_pending_registrations` is thread-safe.
+
+    Without the lock, this test raises `AssertionError` because `beartype`'s
+    `resolve_pep563` mutates the shared `__annotations__` dict concurrently. See GitHub
+    issue #274.
+    """
+    n_threads = 16
+    # Force frequent GIL hand-offs so the race reliably reproduces pre-fix: the window
+    # is tiny at the default 5ms switch interval.
+    old_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        # The race only occurs on a `Function`'s first resolution, so use a fresh,
+        # unresolved function each iteration and loop enough to trip it reliably.
+        # Without the lock this fails on essentially every iteration.
+        for _ in range(100):
+            f = _make_function_with_string_annotations()
+            barrier = threading.Barrier(n_threads)
+            errors: list[BaseException] = []
+
+            def worker(f=f, barrier=barrier, errors=errors):
+                try:
+                    barrier.wait()  # Release all threads onto resolution together.
+                    f._resolve_pending_registrations()
+                except BaseException as e:  # noqa: BLE001
+                    errors.append(e)
+
+            threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+            assert not errors, errors
+            # Resolution completed exactly once and left a clean, usable state.
+            assert f._pending == []
+            assert len(f._resolver) == 3
+            assert f(1) == "int"
+            assert f("x") == "str"
+            assert f(1.0) == "float"
+    finally:
+        sys.setswitchinterval(old_interval)

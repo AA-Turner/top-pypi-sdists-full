@@ -304,7 +304,7 @@ class interactive_add(bpy.ops._BPyOpsSubModOp):
         /,
         *,
         primitive_type: typing.Literal[
-            "CUBE", "CYLINDER", "CONE", "SPHERE_UV", "SPHERE_ICO"
+            "CUBE", "CYLINDER", "CONE", "SPHERE_UV", "SPHERE_ICO", "SPHERE_QUAD"
         ]
         | None = "CUBE",
         plane_origin_base: typing.Literal["EDGE", "CENTER"] | None = "EDGE",

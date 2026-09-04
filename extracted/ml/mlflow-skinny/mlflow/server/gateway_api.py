@@ -7,6 +7,8 @@ functionality directly into the MLflow tracking server.
 """
 
 import functools
+import io
+import json
 import logging
 import sys
 import time
@@ -17,6 +19,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.environment_variables import MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.budget import check_budget_limit, make_budget_on_complete
 from mlflow.gateway.config import (
@@ -89,6 +92,54 @@ _logger = logging.getLogger(__name__)
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
+def _decompress_zstd(raw_body: bytes) -> bytes:
+    """
+    Decompress a zstd-encoded request body.
+
+    Args:
+        raw_body: The compressed request body.
+
+    Returns:
+        The decompressed request body.
+
+    Raises:
+        HTTPException: If `zstandard` is unavailable, the payload is not valid zstd, or the
+            decompressed body exceeds ``MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE``.
+    """
+    try:
+        import zstandard
+    except ImportError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Received a zstd-encoded request body, but importing the `zstandard` "
+                f"package failed: {e!s}. If it is not installed, install it with: "
+                "pip install zstandard"
+            ),
+        )
+
+    # `ZstdDecompressor.decompress` allocates the size declared in the frame header,
+    # which the client controls, and ignores `max_output_size` when that size is set.
+    # Read incrementally instead, one byte past the cap to detect overflow.
+    max_size = MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE.get()
+    try:
+        with zstandard.ZstdDecompressor().stream_reader(io.BytesIO(raw_body)) as reader:
+            decompressed = reader.read(max_size + 1)
+    except zstandard.ZstdError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid zstd payload: {e!s}")
+
+    if len(decompressed) > max_size:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"Decompressed request body exceeds the maximum allowed size of "
+                f"{max_size} bytes. Set "
+                f"{MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE.name} to raise this limit."
+            ),
+        )
+    return decompressed
+
+
 async def _get_request_body(request: Request) -> dict[str, Any]:
     """
     Get request body, using cached version if available.
@@ -104,12 +155,20 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
         Parsed JSON body as a dictionary.
 
     Raises:
-        HTTPException: If the request body is not valid JSON.
+        HTTPException: If the request body is not valid JSON, cannot be decompressed,
+            or exceeds the decompressed size limit.
     """
     # Check if body was already parsed by auth middleware
     cached_body = getattr(request.state, "cached_body", None)
     if isinstance(cached_body, dict):
         return cached_body
+
+    if request.headers.get("content-encoding", "").lower() == "zstd":
+        decompressed = _decompress_zstd(await request.body())
+        try:
+            return json.loads(decompressed)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
     # Otherwise parse it now
     try:
@@ -136,6 +195,16 @@ def _get_user_metadata(request: Request) -> dict[str, Any]:
     if user_id := getattr(request.state, "user_id", None):
         metadata[TraceMetadataKey.AUTH_USER_ID] = str(user_id)
     return metadata
+
+
+def _get_request_username(request: Request) -> str | None:
+    """Return the authenticated username driving the request, if any.
+
+    Used to enforce USER-scoped budget policies. The auth middleware stores the
+    authenticated user's name in ``request.state.username``; it is ``None`` when
+    auth is disabled.
+    """
+    return getattr(request.state, "username", None)
 
 
 def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
@@ -629,7 +698,9 @@ async def invocations(endpoint_name: str, request: Request):
     _validate_store(store)
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     # Detect request type based on payload structure
@@ -669,7 +740,12 @@ async def invocations(endpoint_name: str, request: Request):
                 output_reducer=aggregate_chat_stream_chunks,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
-                on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+                on_complete=make_budget_on_complete(
+                    store,
+                    workspace,
+                    endpoint_id=endpoint_config.endpoint_id,
+                    username=_get_request_username(request),
+                ),
             )(payload)
             return StreamingResponse(
                 safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
@@ -705,7 +781,10 @@ async def invocations(endpoint_name: str, request: Request):
                     request_headers=headers,
                     request_type=GatewayRequestType.UNIFIED_CHAT,
                     on_complete=make_budget_on_complete(
-                        store, workspace, endpoint_config.endpoint_id
+                        store,
+                        workspace,
+                        endpoint_id=endpoint_config.endpoint_id,
+                        username=_get_request_username(request),
                     ),
                 )(payload)
             except GuardrailViolation as e:
@@ -729,7 +808,12 @@ async def invocations(endpoint_name: str, request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
         )(payload)
 
     else:
@@ -773,7 +857,9 @@ async def chat_completions(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     try:
@@ -805,7 +891,12 @@ async def chat_completions(request: Request):
             output_reducer=aggregate_chat_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
         )(payload)
         return StreamingResponse(
             safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
@@ -840,7 +931,12 @@ async def chat_completions(request: Request):
                 user_metadata,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
-                on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+                on_complete=make_budget_on_complete(
+                    store,
+                    workspace,
+                    endpoint_id=endpoint_config.endpoint_id,
+                    username=_get_request_username(request),
+                ),
             )(payload)
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -881,7 +977,9 @@ async def openai_passthrough_chat(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
@@ -905,7 +1003,12 @@ async def openai_passthrough_chat(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -936,7 +1039,12 @@ async def openai_passthrough_chat(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
         )(body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -973,7 +1081,9 @@ async def openai_passthrough_embeddings(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     try:
@@ -992,7 +1102,12 @@ async def openai_passthrough_embeddings(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
-        on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+        on_complete=make_budget_on_complete(
+            store,
+            workspace,
+            endpoint_id=endpoint_config.endpoint_id,
+            username=_get_request_username(request),
+        ),
     )
     # Post-LLM guardrails are skipped for embeddings: responses are float vectors
     # that content judges cannot meaningfully evaluate.
@@ -1030,7 +1145,9 @@ async def _openai_responses_passthrough_unary(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
@@ -1056,7 +1173,12 @@ async def _openai_responses_passthrough_unary(
             user_metadata,
             request_headers=headers,
             request_type=request_type,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
         )(body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1101,7 +1223,9 @@ async def openai_passthrough_responses(request: Request):
             store, endpoint_name, EndpointType.LLM_V1_CHAT
         )
         _set_gateway_telemetry_state(request, endpoint_config)
-        check_budget_limit(store, endpoint_config, workspace=workspace)
+        check_budget_limit(
+            store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+        )
         guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
         async def _guarded_stream(body: dict[str, Any]):
@@ -1124,7 +1248,12 @@ async def openai_passthrough_responses(request: Request):
             output_reducer=aggregate_openai_responses_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -1217,7 +1346,9 @@ async def anthropic_passthrough_messages(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
@@ -1242,7 +1373,12 @@ async def anthropic_passthrough_messages(request: Request):
             output_reducer=aggregate_anthropic_messages_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
             message_format="anthropic",
         )
         return StreamingResponse(
@@ -1274,7 +1410,12 @@ async def anthropic_passthrough_messages(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
             message_format="anthropic",
         )(body)
     except GuardrailViolation as e:
@@ -1316,7 +1457,9 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
@@ -1344,7 +1487,12 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
-            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
             message_format="gemini",
         )(body)
     except GuardrailViolation as e:
@@ -1386,7 +1534,9 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     # Post-LLM guardrails are not applied to streaming responses.
@@ -1412,7 +1562,12 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         output_reducer=aggregate_gemini_stream_generate_content_chunks,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
-        on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+        on_complete=make_budget_on_complete(
+            store,
+            workspace,
+            endpoint_id=endpoint_config.endpoint_id,
+            username=_get_request_username(request),
+        ),
         message_format="gemini",
     )
     return StreamingResponse(
@@ -1461,7 +1616,9 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     # _do_proxy is always an async generator so maybe_traced_gateway_call can wrap it
@@ -1505,7 +1662,12 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.RAW_PROXY,
-        on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
+        on_complete=make_budget_on_complete(
+            store,
+            workspace,
+            endpoint_id=endpoint_config.endpoint_id,
+            username=_get_request_username(request),
+        ),
     )
 
     gen = traced_proxy(body)

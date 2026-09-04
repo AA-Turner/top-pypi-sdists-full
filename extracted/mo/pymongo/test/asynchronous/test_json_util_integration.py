@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from test.asynchronous import AsyncIntegrationTest
-from typing import Any, List, MutableMapping
+from collections.abc import MutableMapping
+from typing import Any
 
 from bson import Binary, Code, DBRef, ObjectId, json_util
 from bson.binary import USER_DEFINED_SUBTYPE
+from test.asynchronous import AsyncIntegrationTest
 
 _IS_SYNC = False
 
@@ -13,8 +14,9 @@ class TestJsonUtilRoundtrip(AsyncIntegrationTest):
     async def test_cursor(self):
         db = self.db
 
-        await db.drop_collection("test")
-        docs: List[MutableMapping[str, Any]] = [
+        await db.drop_collection("coll")
+        self.addAsyncCleanup(db.drop_collection, "coll")
+        docs: list[MutableMapping[str, Any]] = [
             {"foo": [1, 2]},
             {"bar": {"hello": "world"}},
             {"code": Code("function x() { return 1; }")},
@@ -22,7 +24,7 @@ class TestJsonUtilRoundtrip(AsyncIntegrationTest):
             {"dbref": {"_ref": DBRef("simple", ObjectId("509b8db456c02c5ab7e63c34"))}},
         ]
 
-        await db.test.insert_many(docs)
-        reloaded_docs = json_util.loads(json_util.dumps(await (db.test.find()).to_list()))
+        await db.coll.insert_many(docs)
+        reloaded_docs = json_util.loads(json_util.dumps(await (db.coll.find()).to_list()))
         for doc in docs:
             self.assertIn(doc, reloaded_docs)

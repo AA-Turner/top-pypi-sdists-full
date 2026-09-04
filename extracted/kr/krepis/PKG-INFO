@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: krepis
-Version: 0.59.44
+Version: 0.59.46
 Summary: krepis (Greek κρηπίς — the foundation a structure stands on): general-purpose Python primitives for production data and LLM pipelines on AWS — logging, SSM secrets, Telegram/SNS/Web Push alerts, bounded-backoff HTTP retry, S3 writer locks, the Anthropic payload chokepoint, LLM cost telemetry, the LLM-as-judge transport core, trading-calendar/date helpers, and EC2-spot/SSM resilience.
 Author: Brian McMahon
 License: MIT

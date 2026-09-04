@@ -296,7 +296,7 @@ inline Operation *CreateRescaleAdd(const std::shared_ptr<Tensor> &ifm, const std
 
 inline Operation *CreateFullyConnected(const std::string &name, const std::shared_ptr<Tensor> &ifm,
     const std::shared_ptr<Tensor> &weights, const Quantization &ifmQuantization, const Quantization &weightQuantization,
-    const Quantization &ofmQuantization, const Shape ifmShape, DataType ofmDtype = DataType::None,
+    const Quantization &ofmQuantization, const Shape &ifmShape, DataType ofmDtype = DataType::None,
     std::shared_ptr<Tensor> bias = nullptr, const Quantization &biasQuantization = Quantization::Unit())
 {
     int numOutputs = weights->StorageShape()[0];

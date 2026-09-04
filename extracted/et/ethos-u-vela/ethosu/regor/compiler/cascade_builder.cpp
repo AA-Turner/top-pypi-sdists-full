@@ -110,11 +110,12 @@ public:
 
 CascadeBuilder::CascadeBuilder(vector_span<std::unique_ptr<SchedulerOperation>> ops,
     const std::unordered_map<UniqueId, int> &nonLocalMemUsage, const std::unordered_map<UniqueId, int> &opLocalMemUsage,
-    const std::unordered_map<UniqueId, LiveRangeSummary> &tensorLiveRanges, bool spilling) :
+    const std::unordered_map<UniqueId, LiveRangeSummary> &tensorLiveRanges, const MemArea &staging, bool spilling) :
         _ops(ops),
         _nonLocalMemUsage(nonLocalMemUsage), _opLocalMemUsage(opLocalMemUsage), _tensorLiveRanges(tensorLiveRanges)
 
 {
+    _stagingMemory = staging.memory;
     _spilling = spilling;
 }
 
@@ -173,7 +174,7 @@ void CascadeBuilder::BuildCascades(Schedule *refSchedule, Schedule *fallbackSche
         int weightBufferSize = refCost->bufferedWeightTensor.AllocatedSize();
 
         // The first IFM is stored in full unless spilling disables it.
-        const int ifmStoredSize = _spilling ? 0 : ifm->tensor->AllocationSizeBytes();
+        const int ifmStoredSize = (ifm->tensor->memArea.memory == _stagingMemory) ? ifm->tensor->AllocationSizeBytes() : 0;
 
         // Sum of all intermediate cascade buffers (including weight buffers)
         int cascadeBuffersSize = weightBufferSize;
@@ -307,18 +308,18 @@ void CascadeBuilder::BuildCascades(Schedule *refSchedule, Schedule *fallbackSche
                     CanReuseCascadeRollingBuffer(currentOp, fallbackSchedule->Cost(currentOp), fullIfmBuffer, fullOfmBuffer) ?
                         opFullIfmSize + NonLocalUsage(*currentOp) :
                         opFullIfmSize + opFullOfmSize + NonLocalUsage(*currentOp);
-                bool uncascadedFits = uncascadedStagingUsage < peakStagingUsage;
-                bool buffersExceedPeak = cascadeBuffersSize > peakStagingUsage;
-                if ( uncascadedFits || buffersExceedPeak )
+                int cascadeLocalSize = ifmStoredSize + cascadeBuffersSize;
+                int cascadeSize = cascadeLocalSize + segmentNonLocalMax;
+                // Cascade until an Op fits in its entirety or the accumulated buffers no longer fit
+                if ( (uncascadedStagingUsage < peakStagingUsage) || (cascadeSize > peakStagingUsage) )
                 {
-                    // Cascade until an Op fits in its entirety or the accumulated buffers no longer fit
                     break;
                 }
                 else
                 {
                     opsInBestCascade = opsInCascade;
-                    bestCascadeSize = cascadeBuffersSize;
-                    bestCascadeLocalSize = cascadeBuffersSize;
+                    bestCascadeSize = cascadeSize;
+                    bestCascadeLocalSize = cascadeLocalSize;
                 }
             }
             else

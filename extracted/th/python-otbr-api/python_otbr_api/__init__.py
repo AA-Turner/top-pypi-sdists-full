@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, auto
 from http import HTTPStatus
 from typing import Any
 import json
@@ -11,7 +11,14 @@ import logging
 import aiohttp
 import voluptuous as vol  # type: ignore[import]
 
-from .models import ActiveDataSet, PendingDataSet, Timestamp
+from .models import (
+    ActiveDataSet,
+    EphemeralKeyActivationResult,
+    EphemeralKeyState,
+    EphemeralKeyStatus,
+    PendingDataSet,
+    Timestamp,
+)
 
 # 5 minutes as recommended by
 # https://github.com/openthread/openthread/discussions/8567#discussioncomment-4468920
@@ -72,6 +79,15 @@ class KeyFormat(Enum):
     PASCAL_CASE = "pascal"
 
 
+class _UndefinedType(Enum):
+    """Singleton sentinel distinguishing "not probed yet" from a probed None."""
+
+    UNDEFINED = auto()
+
+
+_UNDEFINED = _UndefinedType.UNDEFINED
+
+
 class OTBRError(Exception):
     """Raised on error."""
 
@@ -88,6 +104,24 @@ class ThreadNetworkActiveError(OTBRError):
     """Raised on attempts to modify the active dataset when thread network is active."""
 
 
+class EphemeralKeyNotSupportedError(OTBRError):
+    """Raised when the router does not support the ephemeral key (ePSKc) feature."""
+
+
+class EphemeralKeyConflictError(OTBRError):
+    """Raised when activating an ephemeral key while the feature is disabled or a
+    key is already active."""
+
+
+class PendingDatasetConflictError(OTBRError):
+    """Raised when a pending dataset write is refused because one is in place.
+
+    Its own type rather than a plain OTBRError: the caller's next step is
+    different from the one a transport or protocol failure calls for, since
+    nothing was written and the state that made the write wrong is readable.
+    """
+
+
 def _rewrite_keys(data: Any, mapping: dict[str, str]) -> Any:
     """Recursively rename dict keys according to mapping; pass through others."""
     if not isinstance(data, dict):
@@ -95,7 +129,7 @@ def _rewrite_keys(data: Any, mapping: dict[str, str]) -> Any:
     return {mapping.get(k, k): _rewrite_keys(v, mapping) for k, v in data.items()}
 
 
-class OTBR:  # pylint: disable=too-few-public-methods
+class OTBR:  # pylint: disable=too-many-public-methods
     """Class to interact with the Open Thread Border Router REST API."""
 
     def __init__(
@@ -111,6 +145,7 @@ class OTBR:  # pylint: disable=too-few-public-methods
         self._url = url
         self._timeout = timeout
         self._key_format = key_format
+        self._api_version: str | None | _UndefinedType = _UNDEFINED
 
     async def _maybe_detect_key_format(self) -> None:
         """Probe the OTBR REST API to determine the JSON key format."""
@@ -301,17 +336,36 @@ class OTBR:  # pylint: disable=too-few-public-methods
 
         The passed in PendingDataSet does not need to be fully populated, any fields
         not set will be automatically set by the open thread border router.
-        Raises if the http status is 400 or higher or if the response is invalid.
+
+        A write while a pending dataset is in flight is refused outright, for the
+        same reasons set_pending_dataset_tlvs refuses it: superseding one races
+        the delay timer on every device that already holds the old dataset, so a
+        late replacement can split the mesh, and it would also silently undo
+        whatever the in-flight dataset was doing, such as a channel change.
+
+        The check runs locally first, and again on the border router for one
+        that honors If-None-Match on this endpoint
+        (https://github.com/openthread/ot-br-posix/pull/3552), where it is
+        atomic with the write; older border routers ignore the header.
+
+        Raises PendingDatasetConflictError when either check refuses the write,
+        and OTBRError if the http status is 400 or higher for any other reason
+        or the response is invalid.
         """
+        if await self.get_pending_dataset_tlvs() is not None:
+            raise PendingDatasetConflictError("a pending dataset is already in place")
         await self._maybe_detect_key_format()
         response = await self._session.put(
             f"{self._url}/node/dataset/pending",
             json=self._encode(dataset.as_json()),
+            headers={"If-None-Match": "*"},
             timeout=aiohttp.ClientTimeout(total=self._timeout),
         )
 
         if response.status == HTTPStatus.CONFLICT:
             raise ThreadNetworkActiveError
+        if response.status == HTTPStatus.PRECONDITION_FAILED:
+            raise PendingDatasetConflictError("a pending dataset is already in place")
         if response.status not in (HTTPStatus.CREATED, HTTPStatus.OK):
             raise OTBRError(f"unexpected http status {response.status}")
 
@@ -346,13 +400,54 @@ class OTBR:  # pylint: disable=too-few-public-methods
         if response.status not in (HTTPStatus.CREATED, HTTPStatus.OK):
             raise OTBRError(f"unexpected http status {response.status}")
 
+    async def set_pending_dataset_tlvs(self, dataset: bytes) -> None:
+        """Set the pending operational dataset, when none is in place yet.
+
+        A write while a pending dataset is in flight is refused outright.
+        Superseding one is never safe to do implicitly: the replacement races
+        the delay timer on every device that already holds the old dataset, so
+        a late replacement can split the mesh, and it would also silently undo
+        whatever the in-flight dataset was doing, such as a channel change.
+        A caller that finds the write refused should surface that to whoever
+        asked for it, not retry.
+
+        The check runs locally first, and again on the border router for one
+        that honors If-None-Match on this endpoint
+        (https://github.com/openthread/ot-br-posix/pull/3552), where it is
+        atomic with the write; older border routers ignore the header.
+
+        Raises PendingDatasetConflictError when either check refuses the
+        write, and OTBRError if the http status is 400 or higher for any
+        other reason or the response is invalid.
+        """
+        if await self.get_pending_dataset_tlvs() is not None:
+            raise PendingDatasetConflictError("a pending dataset is already in place")
+        await self._maybe_detect_key_format()
+        response = await self._session.put(
+            f"{self._url}/node/dataset/pending",
+            data=dataset.hex(),
+            headers={"Content-Type": "text/plain", "If-None-Match": "*"},
+            timeout=aiohttp.ClientTimeout(total=10),
+        )
+
+        if response.status == HTTPStatus.CONFLICT:
+            raise ThreadNetworkActiveError
+        if response.status == HTTPStatus.PRECONDITION_FAILED:
+            raise PendingDatasetConflictError("a pending dataset is already in place")
+        if response.status not in (HTTPStatus.CREATED, HTTPStatus.OK):
+            raise OTBRError(f"unexpected http status {response.status}")
+
     async def set_channel(
         self, channel: int, delay: int = PENDING_DATASET_DELAY_TIMER
     ) -> None:
         """Change the channel
 
         The channel is changed by creating a new pending dataset based on the active
-        dataset.
+        dataset. If a pending dataset is already in place, create_pending_dataset
+        refuses the write and raises PendingDatasetConflictError: stamping from the
+        active dataset alone would make the mesh silently ignore it while the router
+        accepts the write, and superseding the pending dataset would race its delay
+        timer on devices that miss the update.
         """
         if not 11 <= channel <= 26:
             raise OTBRError(f"invalid channel {channel}")
@@ -388,6 +483,134 @@ class OTBR:  # pylint: disable=too-few-public-methods
         except ValueError as exc:
             raise OTBRError("unexpected API response") from exc
 
+    async def get_ephemeral_key_enabled(self) -> bool:
+        """Get whether the ephemeral key (ePSKc) feature is enabled.
+
+        Raises EphemeralKeyNotSupportedError if the router does not support
+        the ephemeral key feature.
+        """
+        await self._maybe_detect_key_format()
+        response = await self._session.get(
+            f"{self._url}/node/ba-epskc/state",
+            timeout=aiohttp.ClientTimeout(total=self._timeout),
+        )
+
+        if response.status == HTTPStatus.NOT_FOUND:
+            raise EphemeralKeyNotSupportedError
+
+        if response.status != HTTPStatus.OK:
+            raise OTBRError(f"unexpected http status {response.status}")
+
+        try:
+            return (await response.json()) == "enabled"
+        except ValueError as exc:
+            raise OTBRError("unexpected API response") from exc
+
+    async def set_ephemeral_key_enabled(self, enabled: bool) -> None:
+        """Enable or disable the ephemeral key (ePSKc) feature.
+
+        The feature must be enabled before an ephemeral key can be activated.
+        Raises EphemeralKeyNotSupportedError if the router does not support
+        the ephemeral key feature.
+        """
+        await self._maybe_detect_key_format()
+        response = await self._session.put(
+            f"{self._url}/node/ba-epskc/state",
+            json="enable" if enabled else "disable",
+            timeout=aiohttp.ClientTimeout(total=self._timeout),
+        )
+
+        if response.status == HTTPStatus.NOT_FOUND:
+            raise EphemeralKeyNotSupportedError
+
+        if response.status != HTTPStatus.OK:
+            raise OTBRError(f"unexpected http status {response.status}")
+
+    async def get_ephemeral_key_status(self) -> EphemeralKeyStatus:
+        """Get the status of the current ephemeral key (ePSKc) session.
+
+        Raises EphemeralKeyNotSupportedError if the router does not support
+        the ephemeral key feature.
+        """
+        await self._maybe_detect_key_format()
+        response = await self._session.get(
+            f"{self._url}/node/ba-epskc/key",
+            timeout=aiohttp.ClientTimeout(total=self._timeout),
+        )
+
+        if response.status == HTTPStatus.NOT_FOUND:
+            raise EphemeralKeyNotSupportedError
+
+        if response.status != HTTPStatus.OK:
+            raise OTBRError(f"unexpected http status {response.status}")
+
+        try:
+            data = await response.json()
+            return EphemeralKeyStatus(
+                state=EphemeralKeyState(data["state"]), port=data["port"]
+            )
+        except (ValueError, KeyError) as exc:
+            raise OTBRError("unexpected API response") from exc
+
+    async def activate_ephemeral_key(
+        self, lifetime: int | None = None, port: int | None = None
+    ) -> EphemeralKeyActivationResult:
+        """Generate and activate an ephemeral key (ePSKc).
+
+        Returns the generated 9-digit Thread Administration Passcode (TAP)
+        and the UDP port the border agent is listening on for the ePSKc
+        session. `lifetime` is the key lifetime in milliseconds and `port`
+        the UDP port to use; both default to the router's own defaults when
+        omitted.
+
+        Raises EphemeralKeyNotSupportedError if the router does not support
+        the ephemeral key feature, and EphemeralKeyConflictError if the
+        feature is disabled or a key is already active.
+        """
+        await self._maybe_detect_key_format()
+        body: dict[str, int] = {}
+        if lifetime is not None:
+            body["lifetime"] = lifetime
+        if port is not None:
+            body["port"] = port
+
+        response = await self._session.post(
+            f"{self._url}/node/ba-epskc/key",
+            json=body,
+            timeout=aiohttp.ClientTimeout(total=self._timeout),
+        )
+
+        if response.status == HTTPStatus.NOT_FOUND:
+            raise EphemeralKeyNotSupportedError
+        if response.status == HTTPStatus.CONFLICT:
+            raise EphemeralKeyConflictError
+        if response.status != HTTPStatus.OK:
+            raise OTBRError(f"unexpected http status {response.status}")
+
+        try:
+            data = await response.json()
+            return EphemeralKeyActivationResult(tap=data["tap"], port=data["port"])
+        except (ValueError, KeyError) as exc:
+            raise OTBRError("unexpected API response") from exc
+
+    async def deactivate_ephemeral_key(self) -> None:
+        """Deactivate the currently active ephemeral key (ePSKc), if any.
+
+        Raises EphemeralKeyNotSupportedError if the router does not support
+        the ephemeral key feature.
+        """
+        await self._maybe_detect_key_format()
+        response = await self._session.delete(
+            f"{self._url}/node/ba-epskc/key",
+            timeout=aiohttp.ClientTimeout(total=self._timeout),
+        )
+
+        if response.status == HTTPStatus.NOT_FOUND:
+            raise EphemeralKeyNotSupportedError
+
+        if response.status != HTTPStatus.OK:
+            raise OTBRError(f"unexpected http status {response.status}")
+
     async def get_coprocessor_version(self) -> str:
         """Get the coprocessor firmware version.
 
@@ -407,3 +630,36 @@ class OTBR:  # pylint: disable=too-few-public-methods
             return await response.json()
         except ValueError as exc:
             raise OTBRError("unexpected API response") from exc
+
+    async def get_api_version(self) -> str | None:
+        """Get the OTBR REST API's semantic version.
+
+        Reads /.well-known/thread/br-rest (ot-br-posix PR #3330). Returns
+        None on routers that don't expose it. Raises OTBRError if the
+        endpoint exists but responds with an unexpected status or a
+        malformed body.
+        """
+        if self._api_version is not _UNDEFINED:
+            return self._api_version
+
+        response = await self._session.get(
+            f"{self._url}/.well-known/thread/br-rest",
+            timeout=aiohttp.ClientTimeout(total=self._timeout),
+        )
+
+        if response.status == HTTPStatus.NOT_FOUND:
+            self._api_version = None
+            return None
+
+        if response.status != HTTPStatus.OK:
+            raise OTBRError(f"unexpected http status {response.status}")
+
+        try:
+            data = await response.json()
+            api_version: str = data["api"]["version"]
+        except (ValueError, KeyError, TypeError) as exc:
+            raise OTBRError("unexpected API response") from exc
+
+        self._api_version = api_version
+        _LOGGER.debug("Detected OTBR REST API version: %s", api_version)
+        return api_version

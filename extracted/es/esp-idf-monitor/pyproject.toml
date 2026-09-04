@@ -7,14 +7,13 @@ name = 'esp-idf-monitor'
 authors = [{name = 'Espressif Systems'}]
 description = 'Serial monitor for esp-idf'
 keywords = ['espressif', 'embedded', 'monitor', 'serial']
-license = {text = 'Apache-2.0'}
+license = { text = 'Apache-2.0' }
 classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Developers',
     'Natural Language :: English',
     'Environment :: Console',
     'Topic :: Software Development :: Embedded Systems',
-    'License :: OSI Approved :: Apache Software License',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
@@ -34,6 +33,9 @@ dependencies = [
     'esp-coredump~=1.2',
     'esp-idf-panic-decoder~=1.4',
     'pyelftools',
+    'esp-pylib[serial,cli]>=1.1.1',
+    'rich',
+    'rich-click',
 ]
 
 [project.scripts]
@@ -52,7 +54,12 @@ dev = [
     'czespressif; python_version >= "3.9"',
     'coverage[toml]',
 ]
-ide = ['websocket-client']
+# esp-pylib's [ide] extra (websockets) requires Python >= 3.8; the legacy
+# websocket-client backend remains the only option on 3.7.
+ide = [
+    "esp-pylib[ide]; python_version >= '3.8'",
+    "websocket-client; python_version < '3.8'",
+]
 target_test = [
     'SimpleWebSocketServer',
     'pytest',
@@ -79,7 +86,7 @@ version = {attr = 'esp_idf_monitor.__version__'}
 
 [tool.commitizen]
 name = 'czespressif'
-version = "1.9.0"
+version = "1.10.0"
 update_changelog_on_bump = true
 tag_format = 'v$version'
 changelog_merge_prerelease = true
@@ -97,6 +104,11 @@ ignore_missing_imports   = true  # Suppress error messages about imports that ca
 python_version           = '3.7' # Specifies the Python version used to parse and check the target program
 warn_no_return           = true  # Shows errors for missing return statements on some execution paths
 warn_return_any          = true  # Shows a warning when returning a value with type Any from a function declared with a non- Any return type
+follow_imports           = 'silent' # Suppresses import resolution errors
+
+[[tool.mypy.overrides]]
+module = ['rich', 'rich.*']
+follow_imports = 'skip'
 
 [tool.coverage.run]
 parallel = true
@@ -113,6 +125,11 @@ source = ['./esp_idf_monitor/', '*/esp_idf_monitor/']
 [tool.codespell]
 write-changes = true
 skip = 'test/host_test/inputs/*'
+
+[tool.pytest.ini_options]
+# idf-ci pre-imports test modules without package context, which breaks
+# ``from .conftest import ...`` in host tests.
+addopts = ['-p', 'no:idf-ci']
 
 [tool.ruff]
 line-length = 120

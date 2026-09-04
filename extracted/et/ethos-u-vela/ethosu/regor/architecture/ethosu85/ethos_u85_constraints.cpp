@@ -50,12 +50,6 @@ static const std::unordered_map<EthosU85NpuOp, std::unordered_map<DataType, read
             {DataType::Int8, s_defaultIntegerTypes},
             {DataType::Int16, s_defaultIntegerTypes},
         }},
-    {EthosU85NpuOp::VectorProduct,
-        {
-            {DataType::UInt8, s_defaultIntegerTypes},
-            {DataType::Int8, s_defaultIntegerTypes},
-            {DataType::Int16, s_defaultIntegerTypes},
-        }},
     {EthosU85NpuOp::Pooling,
         {
             {DataType::Bool8, s_defaultAllTypes},
@@ -201,7 +195,7 @@ bool SupportedOFMQuant(OpType opType, EthosU85NpuOp npuOp, const Quantization &o
     {
         return false;
     }
-    if ( npuOp == EthosU85NpuOp::Convolution || npuOp == EthosU85NpuOp::Depthwise || npuOp == EthosU85NpuOp::VectorProduct ||
+    if ( npuOp == EthosU85NpuOp::Convolution || npuOp == EthosU85NpuOp::Depthwise ||
          npuOp == EthosU85NpuOp::ReduceSum || (npuOp == EthosU85NpuOp::Pooling && opType != OpType::AvgPool) )
     {
         return true;
@@ -416,7 +410,7 @@ bool EthosU85Constraints::SupportedZeroPoint(int64_t zp, TensorUsage usage, Data
 }
 
 // Validate that tensor dimensions are supported
-static bool SupportedTensorDims(OpType opType, Shape ifmShape, Shape ifm2Shape, Shape ofmShape)
+static bool SupportedTensorDims(OpType opType, const Shape &ifmShape, const Shape &ifm2Shape, const Shape &ofmShape)
 {
     for ( const auto &s : {ifmShape, ifm2Shape, ofmShape} )
     {
@@ -436,7 +430,7 @@ static bool SupportedTensorDims(OpType opType, Shape ifmShape, Shape ifm2Shape, 
 }
 
 // Validate that tensor axes are supported
-static bool SupportedTensorAxes(Shape ifmShape, Shape ifm2Shape, Shape ofmShape)
+static bool SupportedTensorAxes(const Shape &ifmShape, const Shape &ifm2Shape, const Shape &ofmShape)
 {
     static constexpr int32_t MAX_AXIS = (1 << 16);
     for ( const auto &s : {ifmShape, ifm2Shape, ofmShape} )

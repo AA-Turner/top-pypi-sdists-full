@@ -43,6 +43,7 @@ class TestPostgres(Validator):
         self.validate_identity("||/ x", "CBRT(x)")
         self.validate_identity("SELECT EXTRACT(QUARTER FROM CAST('2025-04-26' AS DATE))")
         self.validate_identity("SELECT DATE_TRUNC('QUARTER', CAST('2025-04-26' AS DATE))")
+        self.validate_identity("SELECT DATE_TRUNC('DAY', x, 'America/New_York')")
         self.validate_identity("STRING_TO_ARRAY('xx~^~yy~^~zz', '~^~', 'yy')")
         self.validate_identity("SELECT x FROM t WHERE CAST($1 AS TEXT) = 'ok'")
         self.validate_identity("SELECT * FROM t TABLESAMPLE SYSTEM (50) REPEATABLE (55)")
@@ -86,6 +87,13 @@ class TestPostgres(Validator):
         self.validate_identity("SELECT CAST(e'\\176' AS BYTEA)")
         self.validate_identity("SELECT * FROM x WHERE SUBSTRING('Thomas' FROM '...$') IN ('mas')")
         self.validate_identity("SELECT TRIM(' X' FROM ' XXX ')")
+        self.validate_all(
+            "SELECT BTRIM(x, 'ab')",
+            write={
+                "postgres": "SELECT TRIM('ab' FROM x)",
+                "duckdb": "SELECT TRIM(x, 'ab')",
+            },
+        )
         self.validate_identity("SELECT TRIM(LEADING 'bla' FROM ' XXX ' COLLATE utf8_bin)")
         self.validate_identity("""SELECT * FROM JSON_TO_RECORDSET(z) AS y("rank" INT)""")
         self.validate_identity("SELECT ~x")
@@ -224,6 +232,10 @@ class TestPostgres(Validator):
         self.validate_identity(
             "SELECT DATE_PART('isodow'::varchar(6), current_date)",
             "SELECT EXTRACT(CAST('isodow' AS VARCHAR(6)) FROM CURRENT_DATE)",
+        )
+        self.validate_identity(
+            "SELECT DATE_PART('isoyear', ts)",
+            "SELECT EXTRACT(ISOYEAR FROM ts)",
         )
         self.validate_identity(
             "END WORK AND NO CHAIN",
@@ -460,10 +472,11 @@ FROM json_data, field_ids""",
         self.validate_all(
             "x ? y",
             write={
-                "": "JSONB_CONTAINS(x, y)",
+                "": "x ? y",
                 "postgres": "x ? y",
             },
         )
+        self.validate_identity("JSONB_CONTAINS(x, y)").assert_is(exp.JSONBContains)
         self.validate_all(
             "SELECT E'a\\tb'",
             write={
@@ -582,6 +595,20 @@ FROM json_data, field_ids""",
         self.validate_identity("SELECT JSON_EXTRACT_PATH(x, 'k1', k2) FROM t")
         self.validate_identity("SELECT JSON_EXTRACT_PATH_TEXT(x, k1, 'k2') FROM t")
 
+        # A root-only JSON path ($) has no keys, so pass an empty variadic array.
+        self.validate_all(
+            "SELECT JSON_EXTRACT_PATH(a, VARIADIC '{}') FROM t",
+            read={"mysql": "SELECT JSON_EXTRACT(a, '$') FROM t"},
+        )
+        self.validate_all(
+            "SELECT JSON_EXTRACT_PATH_TEXT(a, VARIADIC '{}') FROM t",
+            read={"mysql": "SELECT JSON_EXTRACT_SCALAR(a, '$') FROM t"},
+        )
+        self.validate_all(
+            "SELECT 'prefix' || JSON_EXTRACT_PATH_TEXT(a, VARIADIC '{}') FROM t",
+            read={"postgres": "SELECT 'prefix' || JSON_EXTRACT_SCALAR(a, '$') FROM t"},
+        )
+
         self.validate_all(
             "x #> 'y'",
             read={
@@ -675,17 +702,17 @@ FROM json_data, field_ids""",
         self.validate_all(
             "SELECT DATE_PART('minute', timestamp '2023-01-04 04:05:06.789')",
             write={
-                "postgres": "SELECT EXTRACT(minute FROM CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
-                "redshift": "SELECT EXTRACT(minute FROM CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
-                "snowflake": "SELECT DATE_PART(minute, CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
+                "postgres": "SELECT EXTRACT(MINUTE FROM CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
+                "redshift": "SELECT EXTRACT(MINUTE FROM CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
+                "snowflake": "SELECT DATE_PART(MINUTE, CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
             },
         )
         self.validate_all(
             "SELECT DATE_PART('month', date '20220502')",
             write={
-                "postgres": "SELECT EXTRACT(month FROM CAST('20220502' AS DATE))",
-                "redshift": "SELECT EXTRACT(month FROM CAST('20220502' AS DATE))",
-                "snowflake": "SELECT DATE_PART(month, CAST('20220502' AS DATE))",
+                "postgres": "SELECT EXTRACT(MONTH FROM CAST('20220502' AS DATE))",
+                "redshift": "SELECT EXTRACT(MONTH FROM CAST('20220502' AS DATE))",
+                "snowflake": "SELECT DATE_PART(MONTH, CAST('20220502' AS DATE))",
             },
         )
         self.validate_all(
@@ -956,6 +983,16 @@ FROM json_data, field_ids""",
         self.validate_identity(
             '1::"udt"', 'CAST(1 AS "udt")'
         ).to.this == exp.DataType.Type.USERDEFINED
+
+        # The one-byte "char" type is not CHAR, so its quotes have to be preserved
+        self.validate_identity('CAST(65 AS "char")')
+        self.validate_identity('65::"char"', 'CAST(65 AS "char")')
+        self.validate_identity('CAST(x AS "char"[])')
+        self.validate_identity('CAST(x AS "CHAR")', "CAST(x AS CHAR)")
+        self.assertEqual(
+            self.parse_one('CAST(65 AS "char")').to.this, exp.DataType.Type.USERDEFINED
+        )
+
         self.validate_identity(
             "COPY tbl (col1, col2) FROM 'file' WITH (FORMAT format, HEADER MATCH, FREEZE TRUE)"
         )
@@ -1081,6 +1118,11 @@ FROM json_data, field_ids""",
         self.validate_identity("SELECT * FROM foo WHERE id = %s")
         self.validate_identity("SELECT * FROM foo WHERE id = %(id_param)s")
         self.validate_identity("SELECT * FROM foo WHERE id = ?")
+
+        self.validate_identity("a ? b").assert_is(exp.JSONBContainsTopKey)
+
+        # `@>` is polymorphic in Postgres (arrays, ranges, jsonb), so it parses to ArrayContainsAll
+        self.validate_identity("a @> b").assert_is(exp.ArrayContainsAll)
 
         self.validate_identity("a ?| b").assert_is(exp.JSONBContainsAnyTopKeys)
         self.validate_identity(
@@ -1809,6 +1851,8 @@ CROSS JOIN JSON_ARRAY_ELEMENTS(CAST(JSON_EXTRACT_PATH(tbox, 'boxes') AS JSON)) A
 
     def test_analyze(self):
         self.validate_identity("ANALYZE TBL")
+        self.validate_identity("ANALYZE t1, t2")
+        self.validate_identity("ANALYZE VERBOSE t1, t2")
         self.validate_identity("ANALYZE TBL(col1, col2)")
         self.validate_identity("ANALYZE VERBOSE SKIP_LOCKED TBL(col1, col2)")
         self.validate_identity("ANALYZE BUFFER_USAGE_LIMIT 1337 TBL")
@@ -1824,6 +1868,23 @@ CROSS JOIN JSON_ARRAY_ELEMENTS(CAST(JSON_EXTRACT_PATH(tbox, 'boxes') AS JSON)) A
         )
 
     def test_json_extract(self):
+        self.validate_all(
+            "SELECT a -> ('x' || 'y')",
+            read={"postgres": "SELECT JSON_EXTRACT(a, 'x' || 'y')"},
+        )
+        self.validate_all(
+            "SELECT a -> (1 + 2)",
+            read={"postgres": "SELECT JSON_EXTRACT(a, 1 + 2)"},
+        )
+        self.validate_all(
+            "SELECT a -> (NOT x)",
+            read={"postgres": "SELECT JSON_EXTRACT(a, NOT x)"},
+        )
+        self.validate_all(
+            "SELECT a #> (n IN (1, 2))",
+            read={"postgres": "SELECT JSONB_EXTRACT(a, n IN (1, 2))"},
+        )
+
         for arrow_op in ("->", "->>"):
             with self.subTest(f"Ensure {arrow_op} operator roundtrips int values as subscripts"):
                 self.validate_all(
@@ -1915,6 +1976,12 @@ CROSS JOIN JSON_ARRAY_ELEMENTS(CAST(JSON_EXTRACT_PATH(tbox, 'boxes') AS JSON)) A
         for key_type in ("FOR SHARE", "FOR UPDATE", "FOR NO KEY UPDATE", "FOR KEY SHARE"):
             with self.subTest(f"Test lock type {key_type}"):
                 self.validate_identity(f"SELECT 1 FROM foo AS x {key_type} OF x")
+        self.validate_identity(
+            "LOCK TABLE foo, bar IN SHARE ROW EXCLUSIVE MODE", check_command_warning=True
+        )
+        self.validate_identity(
+            "LOCK foo IN ACCESS EXCLUSIVE MODE NOWAIT", check_command_warning=True
+        )
 
     def test_grant(self):
         grant_cmds = [

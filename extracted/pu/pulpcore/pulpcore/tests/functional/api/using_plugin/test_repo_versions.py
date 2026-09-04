@@ -2,6 +2,7 @@
 
 import uuid
 from random import choice
+from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
 import pytest
@@ -10,15 +11,26 @@ from pulpcore.tests.functional.utils import PulpTaskError, get_files_in_manifest
 
 
 @pytest.fixture
-def file_9_contents(file_bindings, tmp_path):
+def file_9_contents(
+    file_bindings,
+    file_repository_factory,
+    monitor_task,
+):
     """Create 9 content units with relative paths "A" through "I"."""
-    names = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
+    bucket_repo = file_repository_factory()
     content_units = {}
-    for name in names:
-        path = tmp_path / name
-        path.write_bytes(name.encode())
-        uploaded = file_bindings.ContentFilesApi.upload(relative_path=name, file=str(path))
-        content_units[name] = file_bindings.ContentFilesApi.read(uploaded.pulp_href)
+    for name in ["A", "B", "C", "D", "E", "F", "G", "H", "I"]:
+        with NamedTemporaryFile() as tf:
+            tf.write(name.encode())
+            tf.flush()
+            response = file_bindings.ContentFilesApi.create(
+                relative_path=name, file=tf.name, repository=bucket_repo.pulp_href
+            )
+            result = monitor_task(response.task)
+            content_href = next(
+                (item for item in result.created_resources if "content/file/files/" in item)
+            )
+            content_units[name] = file_bindings.ContentFilesApi.read(content_href)
     return content_units
 
 
@@ -476,7 +488,7 @@ def test_create_repo_base_version(
     monitor_task,
 ):
     """Test whether one can create a repository version from any version."""
-    # Test `base_version` for the same repository
+    # Test ``base_version`` for the same repository
     remote = file_remote_ssl_factory(manifest_path=basic_manifest_path, policy="on_demand")
     repo = file_repository_factory()
     monitor_task(
@@ -512,7 +524,7 @@ def test_create_repo_base_version(
     assert latest_content.count == base_content.count
     assert file_random_content_unit.pulp_href not in {c.pulp_href for c in latest_content.results}
 
-    # Test `base_version` for different repositories
+    # Test ``base_version`` for different repositories
     repo2 = file_repository_factory()
     # create a version for repo B using repo A version 1 as base_version
     monitor_task(
@@ -533,7 +545,7 @@ def test_create_repo_base_version(
     assert latest_content2.count == base_content.count
     assert latest_content2.results == base_content.results
 
-    # Test `base_version` can be used together with other parameters
+    # Test ``base_version`` can be used together with other parameters
     repo3 = file_repository_factory()
     # create repo version 2 from version 1
     added_content = file_random_content_unit
@@ -560,7 +572,7 @@ def test_create_repo_base_version(
     # assert that the added content is present on repo version 2
     assert added_content.pulp_href in content3_hrefs
 
-    # Exception is raised when non-existent `base_version` is used
+    # Exception is raised when non-existent ``base_version`` is used
     nonexistant_version = f"{repo.versions_href}5/"
     with pytest.raises(file_bindings.ApiException) as e:
         file_bindings.RepositoriesFileApi.modify(
@@ -861,17 +873,18 @@ def test_repo_version_retention(
 @pytest.mark.parallel
 def test_repo_versions_protected_from_cleanup(
     file_bindings,
+    file_content_unit_with_name_factory,
     file_repository_factory,
     file_distribution_factory,
     gen_object_with_cleanup,
     monitor_task,
-    tmp_path,
 ):
     """Test that distributed repo versions are protected from retain_repo_versions."""
 
-    def _modify_and_validate(repo, content_href, expected_version, expected_total):
+    def _modify_and_validate(repo, expected_version, expected_total):
+        content = file_content_unit_with_name_factory(str(uuid.uuid4()))
         task = file_bindings.RepositoriesFileApi.modify(
-            repo.pulp_href, {"add_content_units": [content_href]}
+            repo.pulp_href, {"add_content_units": [content.pulp_href]}
         ).task
         monitor_task(task)
 
@@ -883,17 +896,6 @@ def test_repo_versions_protected_from_cleanup(
 
         return repo
 
-    content_hrefs = []
-    for i in range(6):
-        path = tmp_path / f"{i}.bin"
-        path.write_bytes(f"{i}".encode())
-        content_hrefs.append(
-            file_bindings.ContentFilesApi.upload(
-                file=str(path), relative_path=f"{uuid.uuid4()}.iso"
-            ).pulp_href
-        )
-    content_hrefs = iter(content_hrefs)
-
     # Setup
     repo = file_repository_factory(retain_repo_versions=1)
 
@@ -904,7 +906,7 @@ def test_repo_versions_protected_from_cleanup(
     file_distribution_factory(publication=publication.pulp_href)
 
     # Version 0 is protected since it's distributed
-    repo = _modify_and_validate(repo, next(content_hrefs), "1", 2)
+    repo = _modify_and_validate(repo, "1", 2)
 
     # Create a new publication and distribution which protects version 1 from deletion
     file_distribution_factory(repository=repo.pulp_href)
@@ -914,10 +916,10 @@ def test_repo_versions_protected_from_cleanup(
     file_distribution_factory(publication=publication.pulp_href)
 
     # Create version 2 and there should be 3 versions now (2 protected)
-    repo = _modify_and_validate(repo, next(content_hrefs), "2", 3)
+    repo = _modify_and_validate(repo, "2", 3)
 
     # Version 2 will be removed since we're creating version 3 and it's not protected
-    repo = _modify_and_validate(repo, next(content_hrefs), "3", 3)
+    repo = _modify_and_validate(repo, "3", 3)
 
     # Publish version 3 as a checkpoint and distribute it
     gen_object_with_cleanup(
@@ -927,7 +929,7 @@ def test_repo_versions_protected_from_cleanup(
     file_distribution_factory(repository=repo.pulp_href, checkpoint=True)
 
     # Version 3 is protected since it's distributed by the checkpoint distribution
-    repo = _modify_and_validate(repo, next(content_hrefs), "4", 4)
+    repo = _modify_and_validate(repo, "4", 4)
 
     # Publish version 4 as a checkpoint (it's already distributed)
     gen_object_with_cleanup(
@@ -936,10 +938,10 @@ def test_repo_versions_protected_from_cleanup(
     )
 
     # Version 4 is protected since it's distributed by the checkpoint distribution
-    repo = _modify_and_validate(repo, next(content_hrefs), "5", 5)
+    repo = _modify_and_validate(repo, "5", 5)
 
     # Version 5 will be removed since it's not protected and we're creating version 6
-    _modify_and_validate(repo, next(content_hrefs), "6", 5)
+    _modify_and_validate(repo, "6", 5)
 
 
 @pytest.mark.parallel

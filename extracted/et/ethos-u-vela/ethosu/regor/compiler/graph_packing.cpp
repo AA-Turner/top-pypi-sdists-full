@@ -218,7 +218,8 @@ void GraphPacking::ConnectTensors(Operation *op, const std::unique_ptr<Scheduler
             Tensor *oldTensor = schedTensor->srcTensor.get();
             const bool isConsumedByNPUOnly = std::all_of(schedTensor->consumers.begin(), schedTensor->consumers.end(), isNpuOp);
             const bool isProducedByNPUOnly = std::all_of(schedTensor->producers.begin(), schedTensor->producers.end(), isNpuOp);
-            if ( isConsumedByNPUOnly && isProducedByNPUOnly && !schedTensor->isGraphInput && !schedTensor->isPersistent )
+            if ( isConsumedByNPUOnly && isProducedByNPUOnly && !schedTensor->isGraphInput &&
+                 !schedTensor->isGraphOutput && !schedTensor->isPersistent )
             {
                 // Remember NPU only tensors so we can add them as placeholder later
                 npuOnly.insert(oldTensor);

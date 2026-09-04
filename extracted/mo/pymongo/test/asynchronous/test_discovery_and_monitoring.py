@@ -13,27 +13,54 @@
 # limitations under the License.
 
 """Test the topology module."""
+
 from __future__ import annotations
 
 import asyncio
 import os
+import platform
 import socketserver
 import sys
 import threading
 import time
 from asyncio import StreamReader, StreamWriter
 from pathlib import Path
-from test.asynchronous.helpers import ConcurrentRunner
-from test.asynchronous.utils import flaky
-from test.utils_shared import delay
 
 from pymongo.asynchronous.pool import AsyncConnection
 from pymongo.errors import ConnectionFailure
 from pymongo.operations import _Op
 from pymongo.server_selectors import writable_server_selector
+from test.asynchronous.helpers import ConcurrentRunner
+from test.asynchronous.utils import flaky
+from test.utils_shared import delay
 
 sys.path[0:0] = [""]
 
+from unittest.mock import patch
+
+from bson import Timestamp, json_util
+from pymongo import common, monitoring
+from pymongo.asynchronous.settings import TopologySettings
+from pymongo.asynchronous.topology import Topology
+from pymongo.asynchronous.uri_parser import parse_uri
+from pymongo.errors import (
+    AutoReconnect,
+    ConfigurationError,
+    NetworkTimeout,
+    NotPrimaryError,
+    OperationFailure,
+)
+from pymongo.hello import Hello, HelloCompat
+from pymongo.helpers_shared import _check_command_response, _check_write_command_response
+from pymongo.monitoring import (
+    ConnectionCheckOutFailedEvent,
+    PoolClearedEvent,
+    ServerHeartbeatFailedEvent,
+    ServerHeartbeatStartedEvent,
+)
+from pymongo.server_description import SERVER_TYPE, ServerDescription
+from pymongo.topology_description import TOPOLOGY_TYPE
+from pymongo.topology_shared import _ErrorContext
 from test.asynchronous import (
     AsyncIntegrationTest,
     AsyncPyMongoTestCase,
@@ -56,30 +83,6 @@ from test.utils_shared import (
     async_wait_until,
     server_name_to_type,
 )
-from unittest.mock import patch
-
-from bson import Timestamp, json_util
-from pymongo import common, monitoring
-from pymongo.asynchronous.settings import TopologySettings
-from pymongo.asynchronous.topology import Topology, _ErrorContext
-from pymongo.asynchronous.uri_parser import parse_uri
-from pymongo.errors import (
-    AutoReconnect,
-    ConfigurationError,
-    NetworkTimeout,
-    NotPrimaryError,
-    OperationFailure,
-)
-from pymongo.hello import Hello, HelloCompat
-from pymongo.helpers_shared import _check_command_response, _check_write_command_response
-from pymongo.monitoring import (
-    ConnectionCheckOutFailedEvent,
-    PoolClearedEvent,
-    ServerHeartbeatFailedEvent,
-    ServerHeartbeatStartedEvent,
-)
-from pymongo.server_description import SERVER_TYPE, ServerDescription
-from pymongo.topology_description import TOPOLOGY_TYPE
 
 _IS_SYNC = False
 
@@ -267,6 +270,22 @@ def create_tests():
             test_name = f"test_{dirname}_{os.path.splitext(filename)[0]}"
 
             new_test.__name__ = test_name
+
+            # Skip scenarios where all mock server responses report a wire
+            # version below the minimum supported (server no longer reachable).
+            max_version = max(
+                (
+                    r[1].get("maxWireVersion", 0)
+                    for phase in scenario_def.get("phases", [])
+                    for r in phase.get("responses", [])
+                ),
+                default=common.MIN_SUPPORTED_WIRE_VERSION,
+            )
+            if max_version < common.MIN_SUPPORTED_WIRE_VERSION:
+                new_test = unittest.skip(
+                    f"Server wire version {max_version} is below minimum {common.MIN_SUPPORTED_WIRE_VERSION}"
+                )(new_test)
+
             setattr(TestAllScenarios, new_test.__name__, new_test)
 
 
@@ -303,6 +322,10 @@ class TestClusterTimeComparison(AsyncPyMongoTestCase):
 
 
 class TestIgnoreStaleErrors(AsyncIntegrationTest):
+    @unittest.skipIf(
+        sys.platform == "darwin" and platform.machine() == "arm64" and "CI" in os.environ,
+        "PYTHON-5861: asyncio.Barrier hangs on macOS ARM64 CI",
+    )
     async def test_ignore_stale_connection_errors(self):
         if not _IS_SYNC and sys.version_info < (3, 11):
             self.skipTest("Test requires asyncio.Barrier (added in Python 3.11)")
@@ -354,8 +377,14 @@ class TestPoolManagement(AsyncIntegrationTest):
     async def test_pool_unpause(self):
         # This test implements the prose test "AsyncConnection Pool Management"
         listener = CMAPHeartbeatListener()
+        # Force polling: streaming's RTT monitor sends its own hello calls with the same
+        # appName, which can consume the failCommand's mode.times budget before the SDAM
+        # heartbeat monitor's hello does, so ServerHeartbeatFailedEvent never fires (PYTHON-6003).
         _ = await self.async_single_client(
-            appName="SDAMPoolManagementTest", heartbeatFrequencyMS=500, event_listeners=[listener]
+            appName="SDAMPoolManagementTest",
+            heartbeatFrequencyMS=500,
+            event_listeners=[listener],
+            serverMonitoringMode="poll",
         )
         # Assert that AsyncConnectionPoolReadyEvent occurs after the first
         # ServerHeartbeatSucceededEvent.
@@ -382,7 +411,7 @@ class TestPoolManagement(AsyncIntegrationTest):
     @async_client_context.require_failCommand_appName
     @async_client_context.require_test_commands
     @async_client_context.require_async
-    @flaky(reason="PYTHON-5428")
+    @flaky(reason="PyPy is slow")
     async def test_connection_close_does_not_block_other_operations(self):
         listener = CMAPHeartbeatListener()
         client = await self.async_single_client(
@@ -399,7 +428,7 @@ class TestPoolManagement(AsyncIntegrationTest):
             "pool initialized with 10 connections",
         )
 
-        await client.db.test.insert_one({"x": 1})
+        await client.db.coll.insert_one({"x": 1})
         close_delay = 0.1
         latencies = []
         should_exit = []
@@ -407,7 +436,7 @@ class TestPoolManagement(AsyncIntegrationTest):
         async def run_task():
             while True:
                 start_time = time.monotonic()
-                await client.db.test.find_one({})
+                await client.db.coll.find_one({})
                 elapsed = time.monotonic() - start_time
                 latencies.append(elapsed)
                 if should_exit:
@@ -451,40 +480,59 @@ class TestPoolManagement(AsyncIntegrationTest):
 
 class TestPoolBackpressure(AsyncIntegrationTest):
     @async_client_context.require_version_min(7, 0, 0)
+    @unittest.skipIf(
+        sys.platform == "darwin" and "CI" in os.environ,
+        "PYTHON-5861: $where is too slow on macOS CI",
+    )
     async def test_connection_pool_is_not_cleared(self):
         listener = CMAPListener()
 
         # Create a client that listens to CMAP events, with maxConnecting=100.
         client = await self.async_rs_or_single_client(maxConnecting=100, event_listeners=[listener])
 
-        # Enable the ingress rate limiter.
-        await client.admin.command(
-            "setParameter", 1, ingressConnectionEstablishmentRateLimiterEnabled=True
-        )
-        await client.admin.command("setParameter", 1, ingressConnectionEstablishmentRatePerSec=20)
-        await client.admin.command(
-            "setParameter", 1, ingressConnectionEstablishmentBurstCapacitySecs=1
-        )
-        await client.admin.command("setParameter", 1, ingressConnectionEstablishmentMaxQueueDepth=1)
+        # setParameter needs to be set on each mongos in a sharded cluster
+        if async_client_context.mongoses:
+            admin_clients = [
+                await self.async_single_client("{}:{}".format(*address))
+                for address in async_client_context.mongoses
+            ]
+        else:
+            admin_clients = [client]
 
         # Disable the ingress rate limiter on teardown.
         # Sleep for 1 second before disabling to avoid the rate limiter.
         async def teardown():
             await asyncio.sleep(1)
-            await client.admin.command(
-                "setParameter", 1, ingressConnectionEstablishmentRateLimiterEnabled=False
-            )
+            for admin_client in admin_clients:
+                await admin_client.admin.command(
+                    "setParameter", 1, ingressConnectionEstablishmentRateLimiterEnabled=False
+                )
 
         self.addAsyncCleanup(teardown)
 
+        # Enable the ingress rate limiter.
+        for admin_client in admin_clients:
+            await admin_client.admin.command(
+                "setParameter", 1, ingressConnectionEstablishmentRateLimiterEnabled=True
+            )
+            await admin_client.admin.command(
+                "setParameter", 1, ingressConnectionEstablishmentRatePerSec=20
+            )
+            await admin_client.admin.command(
+                "setParameter", 1, ingressConnectionEstablishmentBurstCapacitySecs=1
+            )
+            await admin_client.admin.command(
+                "setParameter", 1, ingressConnectionEstablishmentMaxQueueDepth=1
+            )
+
         # Make sure the collection has at least one document.
-        await client.test.test.delete_many({})
-        await client.test.test.insert_one({})
+        await client.db.coll.delete_many({})
+        await client.db.coll.insert_one({})
 
         # Run a slow operation to tie up the connection.
         async def target():
             try:
-                await client.test.test.find_one({"$where": delay(0.1)})
+                await client.db.coll.find_one({"$where": delay(0.1)})
             except ConnectionFailure:
                 pass
 

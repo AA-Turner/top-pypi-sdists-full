@@ -17,7 +17,7 @@ from textual.widgets import DataTable, Static
 
 from dreadnode.app.tui.screens.base import DreadnodeScreen
 from dreadnode.app.tui.spans_reader import RawSpansReader, SpanLineSummary
-from dreadnode.app.tui.theme import FG, FG_FAINTEST, FG_MUTED, FG_SUBTLE, WARNING
+from dreadnode.app.tui.theme import FG, FG_FAINTEST, FG_MUTED, FG_SUBTLE, SYNTAX_THEME, WARNING
 
 if t.TYPE_CHECKING:
     from pathlib import Path
@@ -185,6 +185,6 @@ class RawSpansScreen(DreadnodeScreen):
         renderable = Group(
             self._detail_header(summary),
             Text(""),
-            Syntax(payload, "json", theme="ansi_dark", word_wrap=True),
+            Syntax(payload, "json", theme=SYNTAX_THEME, word_wrap=True),
         )
         self.query_one("#raw-spans-detail", Static).update(renderable)

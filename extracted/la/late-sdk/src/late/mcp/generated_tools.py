@@ -3121,6 +3121,7 @@ def register_generated_tools(mcp, _get_client):
         special_ad_categories: list[str] | None = None,
         special_ad_category_country: list[str] | None = None,
         regional_regulated_categories: list[str] | None = None,
+        regional_regulation_identities: dict[str, Any] | None = None,
         link_url: str | None = None,
         call_to_action: str | None = None,
         spark_auth_code: str | None = None,
@@ -3195,7 +3196,8 @@ def register_generated_tools(mcp, _get_client):
                 tracking: Meta only. Tracking specs (pixel, URL tags).
                 special_ad_categories: Meta only. Required for housing, employment, credit, or political ads.
                 special_ad_category_country: Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires specialAdCategories to be set (400 otherwise).
-                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV). Forwarded to the ad set.
+                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
+                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs for regionalRegulatedCategories. Values are numeric IDs from Meta verification. Keys vary by category (e.g. universal_beneficiary / universal_payer for BRAZIL_REGULATION and THAILAND_UNIVERSAL). If omitted, Meta uses Ads Manager defaults when configured.
                 link_url: Destination URL for the CTA button. Send it together with `callToAction`.
 
         **Meta**: adds a top-level `call_to_action` to the post-reference creative.
@@ -3268,6 +3270,7 @@ def register_generated_tools(mcp, _get_client):
                 special_ad_categories=special_ad_categories,
                 special_ad_category_country=special_ad_category_country,
                 regional_regulated_categories=regional_regulated_categories,
+                regional_regulation_identities=regional_regulation_identities,
                 link_url=link_url,
                 call_to_action=call_to_action,
                 spark_auth_code=spark_auth_code,
@@ -3315,6 +3318,9 @@ def register_generated_tools(mcp, _get_client):
         long_headline: str | None = None,
         body: str | None = None,
         description: str | None = None,
+        bodies: list[str] | None = None,
+        headlines: list[str] | None = None,
+        descriptions: list[str] | None = None,
         call_to_action: str | None = None,
         link_url: str | None = None,
         lead_gen_form_id: str | None = None,
@@ -3350,6 +3356,7 @@ def register_generated_tools(mcp, _get_client):
         special_ad_categories: list[str] | None = None,
         special_ad_category_country: list[str] | None = None,
         regional_regulated_categories: list[str] | None = None,
+        regional_regulation_identities: dict[str, Any] | None = None,
         end_date: str | None = None,
         start_date: str | None = None,
         instagram_account_id: str | None = None,
@@ -3437,7 +3444,18 @@ def register_generated_tools(mcp, _get_client):
                 headline: Required for Meta, Google, Pinterest, LinkedIn, and OpenAI Ads on legacy + attach shapes (skip for multi-creative — use `creatives[].headline`). Ignored for TikTok and X/Twitter. Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title.
                 long_headline: Google Display only — defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided.
                 body: Required on legacy + attach shapes. For X/Twitter this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). On OpenAI Ads this is the chat card's body text. Max: Google=90, Pinterest=500, OpenAI=100.
-                description: Meta only (facebook/instagram). Link description — the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use dynamicCreative.descriptions instead.
+                description: Meta only (facebook/instagram). Link description — the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use `descriptions` (array) instead.
+                bodies: Meta only. Multiple Text Options (Advantage+ Flexible Format): supply 1-5 primary-text
+        variations and Meta optimises delivery across them, WITHOUT enabling full Dynamic Creative
+        (`dynamicCreative`). Uses `optimization_type: DEGREES_OF_FREEDOM` on the asset feed, so
+        multiple ads per ad set are allowed (unlike `dynamicCreative` which is limited to one).
+        Requires `imageUrl` or `video`, `linkUrl`, and `callToAction`. When set, the top-level
+        `body` field is used as the `object_story_spec.link_data.message` (the preview text) and
+        `headlines` must also be present. Mutually exclusive with `dynamicCreative`,
+        `placementAssets`, `carouselCards`, and `creatives[]`.
+                headlines: Meta only. Headline variations for Multiple Text Options. Must be sent alongside `bodies`.
+        The top-level `headline` field is used as the `object_story_spec.link_data.name`.
+                descriptions: Meta only. Optional description variations for Multiple Text Options. Sent alongside `bodies` and `headlines`.
                 call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X/Twitter.
                 link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url).
                 lead_gen_form_id: Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on Meta instant-form lead ads.
@@ -3559,9 +3577,13 @@ def register_generated_tools(mcp, _get_client):
         specialAdCategories to be set (400 otherwise). Ignored when joining an existing campaign via
         existingCampaignId (the existing campaign's category/country already governs it).
                 regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries.
-        Known values: SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV,
-        INDIA_FINSERV, TAIWAN_FINSERV. Meta rejects the ad set without this when the targeting geo
-        includes the corresponding country.
+        Known values: BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL,
+        AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV. Meta rejects the ad set without this when
+        the targeting geo includes the corresponding country.
+                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs for regionalRegulatedCategories. Values are
+        numeric IDs from Meta verification. Keys vary by category (e.g. universal_beneficiary /
+        universal_payer for BRAZIL_REGULATION and THAILAND_UNIVERSAL). If omitted, Meta uses
+        Ads Manager defaults when configured.
                 end_date: Required for lifetime budgets
                 start_date: Meta only. Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the
         ad set's `start_time`. When omitted the ad starts delivering immediately. For lifetime
@@ -3824,6 +3846,9 @@ def register_generated_tools(mcp, _get_client):
                 long_headline=long_headline,
                 body=body,
                 description=description,
+                bodies=bodies,
+                headlines=headlines,
+                descriptions=descriptions,
                 call_to_action=call_to_action,
                 link_url=link_url,
                 lead_gen_form_id=lead_gen_form_id,
@@ -3859,6 +3884,7 @@ def register_generated_tools(mcp, _get_client):
                 special_ad_categories=special_ad_categories,
                 special_ad_category_country=special_ad_category_country,
                 regional_regulated_categories=regional_regulated_categories,
+                regional_regulation_identities=regional_regulation_identities,
                 end_date=end_date,
                 start_date=start_date,
                 instagram_account_id=instagram_account_id,
@@ -5100,6 +5126,38 @@ def register_generated_tools(mcp, _get_client):
                 page=page,
                 sort_by=sort_by,
                 order=order,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Analytics changed since a cursor",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_get_analytics_delta(
+        cursor: str | None = None,
+        limit: int = 50,
+        platform: str | None = None,
+        profile_id: str = "all",
+    ) -> str:
+        """Analytics changed since a cursor
+
+            Args:
+                cursor: Opaque cursor from a previous response's `nextCursor`. Omit it to start from
+        now: the response is then an empty page carrying the feed's current position.
+        Rejected with a `400` when malformed, or when older than the retention window.
+                limit: Page size. Out-of-range values are a 400, never a silent clamp.
+                platform: Filter to a single platform (for example "youtube"). Omit for every platform.
+                profile_id: Filter by profile ID (default "all"). Must be a valid profile ID or "all"."""
+        client = _get_client()
+        try:
+            response = client.analytics.get_analytics_delta(
+                cursor=cursor, limit=limit, platform=platform, profile_id=profile_id
             )
             return _format_response(response)
         except Exception as e:
@@ -11818,7 +11876,7 @@ def register_generated_tools(mcp, _get_client):
         """Get conversation
 
         Args:
-            conversation_id: The conversation ID (id field from list conversations endpoint). This is the platform-specific conversation identifier, not an internal database ID. (required)
+            conversation_id: Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed. (required)
             account_id: The social account ID (required)"""
         client = _get_client()
         try:
@@ -11843,7 +11901,7 @@ def register_generated_tools(mcp, _get_client):
         """Update conversation status
 
         Args:
-            conversation_id: The conversation ID (id field from list conversations endpoint). This is the platform-specific conversation identifier, not an internal database ID. (required)
+            conversation_id: Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed. (required)
             account_id: Social account ID (required)
             status: (required)"""
         client = _get_client()
@@ -11873,7 +11931,7 @@ def register_generated_tools(mcp, _get_client):
         """List messages
 
             Args:
-                conversation_id: The conversation ID (id field from list conversations endpoint). This is the platform-specific conversation identifier, not an internal database ID. (required)
+                conversation_id: Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed. (required)
                 account_id: Social account ID (required)
                 limit: Number of messages to return per page. Default 100, max 100.
                 cursor: Opaque pagination cursor. Pass `pagination.nextCursor` from a prior response verbatim: a cursor we cannot parse returns 400 rather than silently restarting from the first page.
@@ -12351,6 +12409,7 @@ def register_generated_tools(mcp, _get_client):
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
         regional_regulated_categories: list[str] | None = None,
+        regional_regulation_identities: dict[str, Any] | None = None,
     ) -> str:
         """Create click-to-message ad (WhatsApp / Messenger / Instagram Direct)
 
@@ -12467,7 +12526,18 @@ def register_generated_tools(mcp, _get_client):
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
-                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV). Forwarded to the ad set.
+                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
+                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs required alongside regionalRegulatedCategories.
+        Values are numeric IDs from the advertiser's Meta verification/authorization setup.
+        Keys depend on the declared category: BRAZIL_REGULATION and THAILAND_UNIVERSAL use
+        universal_beneficiary / universal_payer; SINGAPORE_UNIVERSAL uses
+        singapore_universal_beneficiary / singapore_universal_payer; TAIWAN_UNIVERSAL uses
+        taiwan_universal_beneficiary / taiwan_universal_payer; TAIWAN_FINSERV uses
+        taiwan_finserv_beneficiary / taiwan_finserv_payer; AUSTRALIA_FINSERV uses
+        australia_finserv_beneficiary / australia_finserv_payer; INDIA_FINSERV uses
+        india_finserv_beneficiary / india_finserv_payer.
+        Both beneficiary and payer must be included. If omitted and the advertiser has
+        set defaults in Meta Ads Manager advertising settings, Meta auto-fills them.
                 destination: Where the conversation opens when the ad is tapped. (required)"""
         client = _get_client()
         try:
@@ -12507,6 +12577,7 @@ def register_generated_tools(mcp, _get_client):
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
                 regional_regulated_categories=regional_regulated_categories,
+                regional_regulation_identities=regional_regulation_identities,
                 destination=destination,
             )
             return _format_response(response)
@@ -12559,6 +12630,7 @@ def register_generated_tools(mcp, _get_client):
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
         regional_regulated_categories: list[str] | None = None,
+        regional_regulation_identities: dict[str, Any] | None = None,
     ) -> str:
         """Create Click-to-Call ad
 
@@ -12675,7 +12747,18 @@ def register_generated_tools(mcp, _get_client):
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
-                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV). Forwarded to the ad set.
+                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
+                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs required alongside regionalRegulatedCategories.
+        Values are numeric IDs from the advertiser's Meta verification/authorization setup.
+        Keys depend on the declared category: BRAZIL_REGULATION and THAILAND_UNIVERSAL use
+        universal_beneficiary / universal_payer; SINGAPORE_UNIVERSAL uses
+        singapore_universal_beneficiary / singapore_universal_payer; TAIWAN_UNIVERSAL uses
+        taiwan_universal_beneficiary / taiwan_universal_payer; TAIWAN_FINSERV uses
+        taiwan_finserv_beneficiary / taiwan_finserv_payer; AUSTRALIA_FINSERV uses
+        australia_finserv_beneficiary / australia_finserv_payer; INDIA_FINSERV uses
+        india_finserv_beneficiary / india_finserv_payer.
+        Both beneficiary and payer must be included. If omitted and the advertiser has
+        set defaults in Meta Ads Manager advertising settings, Meta auto-fills them.
                 phone_number: E.164 number the CALL_NOW CTA dials (e.g. +34600111222). (required)
                 link_url: Website shown as the creative's link. Required: Meta rejects tel: as link_data.link; the phone number rides only the CTA. (required)"""
         client = _get_client()
@@ -12716,6 +12799,7 @@ def register_generated_tools(mcp, _get_client):
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
                 regional_regulated_categories=regional_regulated_categories,
+                regional_regulation_identities=regional_regulation_identities,
                 phone_number=phone_number,
                 link_url=link_url,
             )
@@ -12767,6 +12851,7 @@ def register_generated_tools(mcp, _get_client):
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
         regional_regulated_categories: list[str] | None = None,
+        regional_regulation_identities: dict[str, Any] | None = None,
     ) -> str:
         """Create Click-to-WhatsApp ad (deprecated)
 
@@ -12883,7 +12968,18 @@ def register_generated_tools(mcp, _get_client):
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
-                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV). Forwarded to the ad set."""
+                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
+                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs required alongside regionalRegulatedCategories.
+        Values are numeric IDs from the advertiser's Meta verification/authorization setup.
+        Keys depend on the declared category: BRAZIL_REGULATION and THAILAND_UNIVERSAL use
+        universal_beneficiary / universal_payer; SINGAPORE_UNIVERSAL uses
+        singapore_universal_beneficiary / singapore_universal_payer; TAIWAN_UNIVERSAL uses
+        taiwan_universal_beneficiary / taiwan_universal_payer; TAIWAN_FINSERV uses
+        taiwan_finserv_beneficiary / taiwan_finserv_payer; AUSTRALIA_FINSERV uses
+        australia_finserv_beneficiary / australia_finserv_payer; INDIA_FINSERV uses
+        india_finserv_beneficiary / india_finserv_payer.
+        Both beneficiary and payer must be included. If omitted and the advertiser has
+        set defaults in Meta Ads Manager advertising settings, Meta auto-fills them."""
         client = _get_client()
         try:
             response = client.messaging_ads.create_ctwa_ad(
@@ -12922,6 +13018,7 @@ def register_generated_tools(mcp, _get_client):
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
                 regional_regulated_categories=regional_regulated_categories,
+                regional_regulation_identities=regional_regulation_identities,
             )
             return _format_response(response)
         except Exception as e:
@@ -19060,6 +19157,53 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.whatsapp_flows.deprecate_whats_app_flow(
                 flow_id=flow_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Flows encryption key status",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def whatsapp_flows_get_whats_app_flows_encryption_key(account_id: str) -> str:
+        """Get Flows encryption key status
+
+        Args:
+            account_id: WhatsApp social account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp_flows.get_whats_app_flows_encryption_key(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Register a Flows encryption key",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_flows_set_whats_app_flows_encryption_key(
+        account_id: str, business_public_key: str
+    ) -> str:
+        """Register a Flows encryption key
+
+        Args:
+            account_id: WhatsApp social account ID (required)
+            business_public_key: RSA public key in PEM format. Rejected if it is a private key or not a valid RSA public key PEM. (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp_flows.set_whats_app_flows_encryption_key(
+                account_id=account_id, business_public_key=business_public_key
             )
             return _format_response(response)
         except Exception as e:

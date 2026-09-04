@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: utide
-Version: 0.3.1
+Version: 0.4.0
 Summary: Python distribution of the MatLab package UTide
 Author-email: Wesley Bowman <wesley.bowman23@gmail.com>
 License: MIT
@@ -8,15 +8,15 @@ Project-URL: documentation, https://wesleybowman.github.io/UTide
 Project-URL: homepage, https://github.com/wesleybowman/UTide
 Project-URL: repository, https://github.com/wesleybowman/UTide
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: numpy
+Requires-Dist: numpy>=2
 Requires-Dist: scipy
 Dynamic: license-file
 
@@ -59,13 +59,13 @@ conda install utide --channel conda-forge
 
 The public functions can be imported using
 
-``` python
+```python
 from utide import solve, reconstruct
 ```
 
 A sample call would be
 
-``` python
+```python
 from utide import solve
 
 coef = solve(

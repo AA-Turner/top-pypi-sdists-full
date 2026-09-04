@@ -13,6 +13,7 @@ import shutil
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, cast
@@ -26,7 +27,7 @@ from bernstein.adapters.plugin_sdk import (
 from bernstein.adapters.registry import adapter_name_for_provider, get_adapter
 from bernstein.adapters.skills_injector import inject_skills
 from bernstein.agents.registry import AgentRegistry, get_registry
-from bernstein.bridges.base import AgentState, BridgeError, RuntimeBridge, SpawnRequest
+from bernstein.bridges.base import AgentState, AgentStatus, BridgeError, RuntimeBridge, SpawnRequest
 from bernstein.core.agents import project_context as _project_context
 from bernstein.core.agents.adapter_health import AdapterHealthMonitor
 from bernstein.core.agents.attachment_dispatch import (
@@ -380,6 +381,13 @@ def extract_error_aware_reason(log_text: str, max_chars: int = _FAILURE_REASON_M
 # text is not a boundary: an ungated CLI adapter that ignores the rule writes
 # straight into its cwd (issue #2793).
 _WRITE_BOUNDARY_ROLES = frozenset({"manager"})
+
+# Why a token recorded in a spawn-capability manifest was not part of the
+# chain handed to ``CapabilityRegistry.evaluate_chain``.  The manifest is
+# the artefact an auditor reads, so the held-out set carries its reason
+# rather than leaving it to be inferred from absence (issue #5052).
+_HELD_OUT_OUTER_ENVELOPE = "outer-envelope"
+_HELD_OUT_UNDECLARED = "undeclared-tool"
 
 
 def manager_write_boundary_error(
@@ -1100,6 +1108,7 @@ def _render_prompt_with_receipt(
     meta_messages: list[str] | None = None,
     max_turns: int | None = None,
     mailbox_section: str = "",
+    file_ownership: dict[str, str] | None = None,
     model: str = "",
     context_policy: Any = None,
 ) -> tuple[str, ContextReceipt]:
@@ -1289,6 +1298,18 @@ def _render_prompt_with_receipt(
         named_sections.append(("rich_context", f"\n{rich_context}\n"))
     if file_scope_context:
         named_sections.append(("file_scope", deduplicate_section(f"\n## File-scope context\n{file_scope_context}\n")))
+    # Task context pack (#4522): what this repository's own history already
+    # records about the files this task owns - co-change neighbours, the tests
+    # that landed with them, the nearest AGENTS.md, and the tests the gate has
+    # quarantined. Off unless the operator sets the flag, and an empty pack
+    # renders to nothing, so the prompt is byte-identical without it. The
+    # section's content hash in the receipt below is the run record for the
+    # pack this spawn consumed.
+    from bernstein.core.tasks.context_pack import PACK_SECTION_LABEL, render_pack_section
+
+    context_pack_section = render_pack_section(workdir, [path for task in tasks for path in task.owned_files])
+    if context_pack_section:
+        named_sections.append((PACK_SECTION_LABEL, context_pack_section))
     # Parent context inheritance: inject parent's context summary
     # when a task was created from decomposing a larger parent task.
     parent_ctx_parts = [t.parent_context for t in tasks if t.parent_context]
@@ -1321,6 +1342,16 @@ def _render_prompt_with_receipt(
     # every adapter type receives byte-identical context.
     if mailbox_section and mailbox_section.strip():
         named_sections.append(("mailbox", deduplicate_section(mailbox_section)))
+    file_ownership_section = ""
+    if file_ownership:
+        other_files = {path: owner for path, owner in file_ownership.items() if owner != session_id}
+        if other_files:
+            lines = ["\n## Files currently being edited by other agents (do NOT modify):"]
+            lines.extend(f"- {path} (by {owner})" for path, owner in sorted(other_files.items()))
+            lines.append(
+                "\nIf you need changes in these files, post a bulletin requesting the owning agent to make them.\n"
+            )
+            file_ownership_section = "\n".join(lines)
     try:
         rec_engine = RecommendationEngine(workdir)
         rec_engine.build()
@@ -1471,6 +1502,9 @@ def _render_prompt_with_receipt(
             policy = policy_dict
     else:
         policy = {}
+
+    if file_ownership_section:
+        named_sections.append(("file ownership", file_ownership_section))
 
     receipt = build_context_receipt(named_sections, policy=policy)
 
@@ -1657,6 +1691,7 @@ class AgentSpawner:
         self._workspace = workspace
         self._bulletin = bulletin
         self._context_builder = TaskContextBuilder(workdir)
+        self._file_ownership_provider: Callable[[], dict[str, str]] | None = None
         self._procs: dict[str, subprocess.Popen[bytes] | None] = {}
         # Per-session baseline of operator-checkout untracked paths, captured
         # at manager/planning spawn so the reap-time sweep can quarantine any
@@ -2037,6 +2072,10 @@ class AgentSpawner:
         """
         self._merge_queue = merge_queue
 
+    def set_file_ownership_provider(self, provider: Callable[[], dict[str, str]]) -> None:
+        """Provide the lock-manager ownership snapshot used in spawn prompts."""
+        self._file_ownership_provider = provider
+
     def set_quality_gate_config(self, config: Any) -> None:
         """Wire in the orchestrator's :class:`QualityGatesConfig` (#4393)."""
         self._quality_gate_config = config
@@ -2258,6 +2297,27 @@ class AgentSpawner:
         declared_only = [t for t in catalog_tools if t in registry.tools]
         decision = registry.evaluate_chain(declared_only)
 
+        # The recorded chain is wider than the evaluated one: the adapter
+        # envelope is never fed to the gate (every adapter row carries all
+        # three capabilities, so it would deny every spawn) and undeclared
+        # catalog tools are dropped for the reason above.  Both omissions
+        # are deliberate, but a reader of the manifest must not have to
+        # infer them from absence - record each held-out token with why it
+        # was held out, and keep the evaluated set byte-equal to the chain
+        # the decision actually saw.
+        held_out: list[dict[str, str]] = []
+        accounted: set[str] = set(declared_only)
+        for token in chain:
+            if token in accounted:
+                continue
+            accounted.add(token)
+            held_out.append(
+                {
+                    "tool": token,
+                    "reason": (_HELD_OUT_OUTER_ENVELOPE if token == adapter_token else _HELD_OUT_UNDECLARED),
+                }
+            )
+
         runtime_dir = self._workdir / ".sdd" / "runtime" / "spawn_capabilities"
         try:
             runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -2266,7 +2326,8 @@ class AgentSpawner:
                 "role": role,
                 "timestamp": datetime.now(UTC).isoformat(),
                 "tools": chain,
-                "evaluated": catalog_tools,
+                "evaluated": list(declared_only),
+                "held_out": held_out,
                 "triggered": sorted(c.value for c in decision.triggered),
                 "allowed": decision.allowed,
                 "reason": decision.reason,
@@ -2681,12 +2742,70 @@ class AgentSpawner:
             return cached
 
         adapter = get_adapter(adapter_name)
+        if getattr(adapter, "consumes_host_isolation", False):
+            self._apply_host_isolation(adapter_name, adapter)
         if self._enable_caching:
             from bernstein.adapters.caching_adapter import CachingAdapter
 
             adapter = CachingAdapter(adapter, self._workdir)
         self._adapter_cache[adapter_name] = adapter
         return adapter
+
+    def _apply_host_isolation(self, adapter_name: str, adapter: CLIAdapter) -> None:
+        """Hand the operator's host-isolation declaration to *adapter* (#5341).
+
+        Only adapters that own a vendor sandbox advertise
+        ``consumes_host_isolation``; everything else is left untouched, so an
+        adapter with nothing to drop neither gains an attribute nor produces a
+        record.
+
+        Runs before the :class:`CachingAdapter` wrap so the attributes land on
+        the adapter that actually builds the argv, and behind the adapter cache
+        so one run records the declaration once per adapter rather than once
+        per spawn.
+
+        A misdeclared tier is reported and then dropped: the resolver raises
+        rather than guess, and the safe interpretation of "we could not read
+        the declaration" is that no isolation was declared, which leaves the
+        vendor sandbox on. Wedging every spawn over a typo in a config key
+        would be the worse failure.
+        """
+        from bernstein.core.config.host_isolation import resolve_host_isolation
+
+        try:
+            declaration = resolve_host_isolation(self._workdir)
+        except ValueError as exc:
+            logger.warning(
+                "host isolation declaration ignored for %s: %s; the vendor sandbox stays on",
+                adapter_name,
+                exc,
+            )
+            return
+
+        adapter.host_isolation = declaration.tier  # type: ignore[attr-defined]
+        adapter.host_isolation_evidence = declaration.evidence  # type: ignore[attr-defined]
+
+        try:
+            from bernstein.core.security.audit_chain import (
+                AuditChainStore,
+                record_host_isolation_declaration,
+            )
+
+            record_host_isolation_declaration(
+                chain=AuditChainStore(self._workdir / ".sdd" / "audit"),
+                run_id=getattr(self, "_run_id", ""),
+                adapter=adapter_name,
+                tier=str(declaration.tier),
+                evidence=declaration.evidence,
+                source=str(declaration.source),
+                vendor_sandbox_dropped=bool(adapter.host_isolation_drops_vendor_sandbox()),  # type: ignore[attr-defined]
+            )
+        except Exception as exc:
+            logger.warning(
+                "host isolation recording failed for %s: %s",
+                adapter_name,
+                type(exc).__name__,
+            )
 
     def _run_bridge_call(self, awaitable: Any) -> Any:
         """Run a bridge coroutine from the sync orchestration path."""
@@ -3070,7 +3189,7 @@ class AgentSpawner:
         """
         if self._runtime_bridge is None:
             return False
-        bridge_status = self._run_bridge_call(
+        bridge_status: AgentStatus = self._run_bridge_call(
             self._runtime_bridge.spawn(
                 SpawnRequest(
                     agent_id=session.id,
@@ -3478,7 +3597,7 @@ class AgentSpawner:
 
         profile = PROFILES.get(adapter_name)
         tier_decision = getattr(self, "_pending_tier_decision", None)
-        self._pending_tier_decision = None
+        self._pending_tier_decision: dict[str, Any] | None = None
         if profile is None:
             # Untracked adapter: still record an opt-in tier decision if present.
             if tier_decision is not None:
@@ -4231,6 +4350,7 @@ class AgentSpawner:
                 tasks[0].id,
             )
         else:
+            file_ownership = self._file_ownership_provider() if self._file_ownership_provider is not None else None
             prompt, receipt = _render_prompt_with_receipt(
                 tasks,
                 self._templates_dir,
@@ -4245,6 +4365,7 @@ class AgentSpawner:
                 meta_messages=meta_messages,
                 max_turns=_effective_max_turns,
                 mailbox_section=mailbox_section,
+                file_ownership=file_ownership,
                 model=model_config.model,
                 context_policy=self._context_policy,
             )
@@ -4312,6 +4433,27 @@ class AgentSpawner:
             profile_content_sha256=profile_content_sha,
         )
 
+        # Capture endpoint identity at spawn time (issue #4908):
+        # - adapter: the adapter that actually served this spawn
+        # - model: the model that actually served this spawn
+        # - base_url: the normalized endpoint base_url (api_key_env value excluded)
+        # - endpoint_profile_name: the local_endpoints profile name when one applied
+        # Role-model policy may specify endpoint overrides (base_url/api_key_env).
+        # The model resolved here is the one the adapter actually runs.
+        role_policy = self._role_model_policy.get(tasks[0].role) or {}
+        endpoint_profile_name = role_policy.get("endpoint", "")
+        endpoint_base_url = role_policy.get("base_url", "")
+        # Strip the api_key_env value - only the variable name is acceptable, never its value
+        api_key_env = role_policy.get("api_key_env", "")
+        if api_key_env:
+            # We keep the env var name reference but not its value
+            pass
+        # If profile is set, base_url from profile takes precedence; otherwise use resolved model's base_url
+        resolved_endpoint_base_url = endpoint_base_url
+        resolved_endpoint_profile_name = endpoint_profile_name
+        resolved_endpoint_adapter_name = self._adapter.name()
+        resolved_endpoint_model = model_config.model
+
         session = AgentSession(
             id=session_id,
             role=role,
@@ -4327,6 +4469,11 @@ class AgentSpawner:
             response_profile=style_resolution.style,
             profile_content_sha256=profile_content_sha,
             context_receipt=receipt.to_dict()["entries"] if receipt else [],
+            # Endpoint identity fields (issue #4908)
+            endpoint_adapter_name=resolved_endpoint_adapter_name,
+            endpoint_model=resolved_endpoint_model,
+            endpoint_base_url=resolved_endpoint_base_url,
+            endpoint_profile_name=resolved_endpoint_profile_name,
         )
 
         # Zero-trust: issue a short-lived, task-scoped JWT for this agent.
@@ -4401,9 +4548,23 @@ class AgentSpawner:
             # state baked into a pre-warmed worktree (cached prompt prefixes,
             # half-installed deps, leftover indexes) cannot leak across the
             # restart boundary.
-            warm_entry = (
-                self._warm_pool.claim_slot(role) if self._warm_pool is not None and not fresh_restart_on_retry else None
-            )
+            warm_pool = self._warm_pool
+            warm_entry = warm_pool.claim_slot(role) if warm_pool is not None and not fresh_restart_on_retry else None
+            # A slot with no worktree is not provisioned. `prepare_speculative_warm_pool`
+            # (core/tasks/task_lifecycle.py) adds slots with `worktree_path=""`, and
+            # `Path("")` is the orchestrator's cwd, i.e. the repository root: the agent
+            # then runs at the root, switches the operator checkout to `agent/<session>`
+            # and merges back into whatever branch that leaves checked out. Release the
+            # slot and take the cold path, which the warm-pool design calls the safe
+            # default.
+            if warm_pool is not None and warm_entry is not None and not warm_entry.worktree_path:
+                logger.warning(
+                    "Warm pool slot %s for role=%s has no worktree; releasing it and spawning cold",
+                    warm_entry.slot_id,
+                    role,
+                )
+                warm_pool.release_slot(warm_entry.slot_id)
+                warm_entry = None
             if warm_entry is not None:
                 spawn_cwd = Path(warm_entry.worktree_path)
                 self._worktree_paths[session_id] = spawn_cwd
@@ -4421,10 +4582,15 @@ class AgentSpawner:
                     self._worktree_paths[session_id] = spawn_cwd
                     self._worktree_roots[session_id] = worktree_repo_root
                 except WorktreeError as exc:
-                    raise SpawnError(
-                        f"Cannot create workspace for agent {session_id}: {exc}. "
-                        "Fix: run 'bernstein stop' then restart, or delete .sdd/worktrees/ manually"
-                    ) from exc
+                    logger.warning(
+                        "Worktree creation failed for session %s (%s), falling back to main workdir: %s",
+                        session_id,
+                        exc,
+                        self._workdir,
+                    )
+                    spawn_cwd = self._workdir
+                    self._worktree_paths[session_id] = self._workdir
+                    self._worktree_roots[session_id] = worktree_repo_root
 
         # Leak guard (issue #2996): from here to the success return, any
         # exception that escapes this spawn - a sampling-params refusal, a
@@ -5291,6 +5457,27 @@ class AgentSpawner:
             workdir=self._workdir,
             default_model=self._default_model or _policy_preview.get("model"),
         )
+        # Mirror the model-resolution step from the fresh-spawn path so that
+        # role_model_policy.model overrides (tier-model resolution, effort
+        # mapping) are applied to the resume session's model_config too.
+        _task_metadata = tasks[0].metadata or {}
+        _task_model_is_pinned = bool(_task_metadata.get("pinned_model"))
+        _task_model_blocks_role_policy = bool(tasks[0].model) and _task_model_is_pinned
+        _effective_role_model, _tier_decision_record = self._resolve_tier_model(tasks[0], _policy_preview)
+        if not _task_model_blocks_role_policy and _effective_role_model:
+            model_config = ModelConfig(
+                model=_effective_role_model,
+                effort=_policy_preview.get("effort", model_config.effort),
+                max_tokens=model_config.max_tokens,
+                is_batch=model_config.is_batch,
+            )
+        elif not tasks[0].effort and _policy_preview.get("effort"):
+            model_config = ModelConfig(
+                model=model_config.model,
+                effort=_policy_preview["effort"],
+                max_tokens=model_config.max_tokens,
+                is_batch=model_config.is_batch,
+            )
         role = tasks[0].role
         session_id = f"{role}-resume-{uuid.uuid4().hex[:8]}"
 
@@ -5352,6 +5539,13 @@ class AgentSpawner:
             model_config=model_config,
             status="starting",
             context_receipt=receipt.to_dict()["entries"],
+            # Endpoint identity fields (issue #4908) - resume resolves the
+            # same way the primary spawn path does: role policy overrides
+            # the adapter and model that actually serve this spawn.
+            endpoint_adapter_name=self._adapter.name(),
+            endpoint_model=model_config.model,
+            endpoint_base_url=_policy_preview.get("base_url", ""),
+            endpoint_profile_name=_policy_preview.get("endpoint", ""),
         )
 
         # Record declared context on resume exactly like a fresh spawn

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.60.8
+Version: 0.60.9
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -1250,6 +1250,7 @@ asyncio.run(main())
 * [create_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_employee) - Create an employee
 * [create_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_group) - Create a group
 * [create_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_location) - Create a location
+* [create_hris_taxonomy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_taxonomy) - Create a taxonomy
 * [create_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_timeoff) - Create a timeoff
 * [create_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_timeshift) - Create a timeshift
 * [get_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_attendance) - Retrieve an attendance
@@ -2192,6 +2193,7 @@ asyncio.run(main())
 
 ### [Taxonomy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxonomy/README.md)
 
+* [create_hris_taxonomy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxonomy/README.md#create_hris_taxonomy) - Create a taxonomy
 * [get_hris_taxonomy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxonomy/README.md#get_hris_taxonomy) - Retrieve a taxonomy
 * [list_crm_taxonomies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxonomy/README.md#list_crm_taxonomies) - List all taxonomies
 * [list_hris_taxonomies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxonomy/README.md#list_hris_taxonomies) - List all taxonomies

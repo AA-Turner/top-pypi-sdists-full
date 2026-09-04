@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from ..frozen_runtime_commands import frozen_daemon_recovery_command
+from ..stable_guard_cli import uses_top_level_hook_command as _uses_top_level_hook_command
 from .base import HarnessContext
 from .cursor_hook_config import (
     _MANAGED_HOOK_EVENTS,
@@ -27,6 +28,7 @@ from .cursor_hook_config import (
     _merge_hook_entries,
     _strip_managed_hook_entries,
 )
+from .cursor_hook_guard_cli import HOOK_SCRIPT_TEMPLATE_RESOLVER
 from .cursor_hook_payload import (
     _validated_hol_guard_src_path,
     cursor_hook_requires_approval_center_queue,
@@ -41,7 +43,7 @@ from .cursor_native_approval import ensure_cursor_hook_attestation_secret
 from .guard_cli_attestation import resolve_attested_guard_cli
 from .hook_python import HookPythonAttestation
 
-_HOOK_SCRIPT_TEMPLATE = HOOK_SCRIPT_TEMPLATE_HEAD + HOOK_SCRIPT_TEMPLATE_TAIL
+_HOOK_SCRIPT_TEMPLATE = HOOK_SCRIPT_TEMPLATE_HEAD + HOOK_SCRIPT_TEMPLATE_RESOLVER + HOOK_SCRIPT_TEMPLATE_TAIL
 _INHERIT_ENV_KEYS = (
     "PATH",
     "HOME",
@@ -343,15 +345,6 @@ def _resolve_guard_cli_command(context: HarnessContext) -> list[str]:
     return list(resolve_attested_guard_cli(context).command)
 
 
-def _uses_top_level_hook_command(guard_cli: list[str]) -> bool:
-    if not guard_cli:
-        return False
-    # hol-guard/plugin-guard entrypoints expose `hook` at the top level (combined-mode
-    # hol-guard rewrites `hook` to `guard hook` internally). Only module invocations
-    # need an explicit `guard` prefix.
-    return Path(guard_cli[0]).name in {"hol-guard", "plugin-guard"}
-
-
 def _embedded_guard_hook_argv(context: HarnessContext) -> list[str]:
     guard_argv = [
         "hook",
@@ -517,8 +510,7 @@ def cursor_native_hook_state(context: HarnessContext) -> dict[str, object]:
 def _hook_script_mode_is_executable(mode: int) -> bool:
     """Use POSIX execute bits only on platforms where they govern launch."""
 
-    # Keep this compatibility wrapper in the public module so existing test and
-    # integration monkeypatches of cursor_hooks.os.name continue to work.
+    # Keep this wrapper public so cursor_hooks.os.name monkeypatches still work.
     return os.name == "nt" or bool(mode & stat.S_IXUSR)
 
 

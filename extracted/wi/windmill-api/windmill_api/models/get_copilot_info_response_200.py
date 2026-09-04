@@ -34,6 +34,9 @@ class GetCopilotInfoResponse200:
         free_tier (Union[Unset, GetCopilotInfoResponse200FreeTier]): Read-only. Present when the workspace has no AI
             provider of its own and is running on Windmill's free tier. Ignored on write.
         model_pricing (Union[Unset, GetCopilotInfoResponse200ModelPricing]):
+        copilot_disabled (Union[Unset, bool]): Hides the Windmill AI assistant (chat, sessions, code generation,
+            completion, fixes) from the workspace UI. Read from the workspace's own settings even when the providers served
+            fall back to the instance config. AI agent steps and the AI sandbox in flows are unaffected.
     """
 
     providers: Union[Unset, "GetCopilotInfoResponse200Providers"] = UNSET
@@ -44,6 +47,7 @@ class GetCopilotInfoResponse200:
     max_tokens_per_model: Union[Unset, "GetCopilotInfoResponse200MaxTokensPerModel"] = UNSET
     free_tier: Union[Unset, "GetCopilotInfoResponse200FreeTier"] = UNSET
     model_pricing: Union[Unset, "GetCopilotInfoResponse200ModelPricing"] = UNSET
+    copilot_disabled: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -79,6 +83,8 @@ class GetCopilotInfoResponse200:
         if not isinstance(self.model_pricing, Unset):
             model_pricing = self.model_pricing.to_dict()
 
+        copilot_disabled = self.copilot_disabled
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -98,6 +104,8 @@ class GetCopilotInfoResponse200:
             field_dict["free_tier"] = free_tier
         if model_pricing is not UNSET:
             field_dict["model_pricing"] = model_pricing
+        if copilot_disabled is not UNSET:
+            field_dict["copilot_disabled"] = copilot_disabled
 
         return field_dict
 
@@ -173,6 +181,8 @@ class GetCopilotInfoResponse200:
         else:
             model_pricing = GetCopilotInfoResponse200ModelPricing.from_dict(_model_pricing)
 
+        copilot_disabled = d.pop("copilot_disabled", UNSET)
+
         get_copilot_info_response_200 = cls(
             providers=providers,
             default_model=default_model,
@@ -182,6 +192,7 @@ class GetCopilotInfoResponse200:
             max_tokens_per_model=max_tokens_per_model,
             free_tier=free_tier,
             model_pricing=model_pricing,
+            copilot_disabled=copilot_disabled,
         )
 
         get_copilot_info_response_200.additional_properties = d

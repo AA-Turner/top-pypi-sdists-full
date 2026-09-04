@@ -8,15 +8,17 @@ import wsgiref.simple_server
 import wsgiref.util
 from pathlib import Path
 from threading import Thread
+from typing import ClassVar
 
 import aiohttp
 import click
 
-from .. import exceptions
-from ..utils import atomic_write
-from ..utils import checkdir
-from ..utils import expand_path
-from ..utils import open_graphical_browser
+from vdirsyncer import exceptions
+from vdirsyncer.utils import atomic_write
+from vdirsyncer.utils import checkdir
+from vdirsyncer.utils import expand_path
+from vdirsyncer.utils import open_graphical_browser
+
 from . import base
 from . import dav
 from .google_helpers import _RedirectWSGIApp
@@ -114,8 +116,8 @@ class GoogleSession(dav.DAVSession):
             )
 
         if not self._token:
-            # Some times a task stops at this `async`, and another continues the flow.
-            # At this point, the user has already completed the flow, but is prompeted
+            # Sometimes a task stops at this `async`, and another continues the flow.
+            # At this point, the user has already completed the flow, but is prompted
             # for a second one.
             wsgi_app = _RedirectWSGIApp("Successfully obtained token.")
             wsgiref.simple_server.WSGIServer.allow_reuse_address = False
@@ -129,7 +131,7 @@ class GoogleSession(dav.DAVSession):
             async with self._session as session:
                 # Fail fast if the address is occupied
 
-                authorization_url, state = session.authorization_url(
+                authorization_url, _state = session.authorization_url(
                     TOKEN_URL,
                     # access_type and approval_prompt are Google specific
                     # extra parameters.
@@ -139,7 +141,7 @@ class GoogleSession(dav.DAVSession):
                 click.echo(f"Opening {authorization_url} ...")
                 try:
                     open_graphical_browser(authorization_url)
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     logger.warning(str(e))
 
                 click.echo("Follow the instructions on the page.")
@@ -168,7 +170,7 @@ class GoogleSession(dav.DAVSession):
 class GoogleCalendarStorage(dav.CalDAVStorage):
     class session_class(GoogleSession):
         url = "https://apidata.googleusercontent.com/caldav/v2/"
-        scope = ["https://www.googleapis.com/auth/calendar"]
+        scope: ClassVar[list[str]] = ["https://www.googleapis.com/auth/calendar"]
 
     class discovery_class(dav.CalDiscover):
         @staticmethod
@@ -221,7 +223,7 @@ class GoogleContactsStorage(dav.CardDAVStorage):
         # So we configure the well-known URI here again, such that discovery
         # tries collection enumeration on it directly. That appears to work.
         url = "https://www.googleapis.com/.well-known/carddav"
-        scope = ["https://www.googleapis.com/auth/carddav"]
+        scope: ClassVar[list[str]] = ["https://www.googleapis.com/auth/carddav"]
 
     class discovery_class(dav.CardDiscover):
         # Google CardDAV doesn't return any resourcetype prop.

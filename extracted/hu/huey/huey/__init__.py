@@ -1,6 +1,6 @@
 __author__ = 'Charles Leifer'
 __license__ = 'MIT'
-__version__ = '3.3.4'
+__version__ = '3.4.0'
 
 from huey.api import BlackHoleHuey
 from huey.api import CySqliteHuey
@@ -19,3 +19,4 @@ from huey.api import group
 from huey.exceptions import CancelExecution
 from huey.exceptions import RetryTask
 from huey.utils import Error
+from huey.utils import SKIPPED

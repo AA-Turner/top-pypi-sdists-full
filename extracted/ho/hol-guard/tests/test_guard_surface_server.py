@@ -1426,7 +1426,7 @@ class TestGuardSurfaceServer:
             daemon.stop()
 
         assert response.status == 200
-        assert payload["decision"] == "deny"
+        assert payload["decision"] == "allow"
         assert payload["reason_code"] == "daemon_hook_deadline_exhausted"
 
     def test_guard_daemon_pi_hook_endpoint_rejects_missing_temporary_workspace(self, tmp_path, monkeypatch) -> None:
@@ -1912,14 +1912,14 @@ class TestGuardSurfaceServer:
     @pytest.mark.parametrize(
         ("harness", "event", "expected"),
         [
-            ("pi", "PreToolUse", {"decision": "deny", "reason_code": "daemon_hook_queue_capacity"}),
+            ("pi", "PreToolUse", {"decision": "allow", "reason_code": "daemon_hook_queue_capacity"}),
             (
                 "claude-code",
                 "PreToolUse",
                 {
                     "hookSpecificOutput": {
                         "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
+                        "permissionDecision": "allow",
                     }
                 },
             ),
@@ -1927,13 +1927,13 @@ class TestGuardSurfaceServer:
                 "codex",
                 "PermissionRequest",
                 {
+                    "continue": True,
                     "hookSpecificOutput": {
                         "hookEventName": "PermissionRequest",
-                        "decision": {"behavior": "deny"},
-                    }
+                    },
                 },
             ),
-            ("cursor", "PostToolUse", {"continue": False}),
+            ("cursor", "PostToolUse", {"continue": True}),
         ],
     )
     def test_guard_daemon_hook_capacity_uses_native_fail_safe_response(
@@ -4538,8 +4538,8 @@ class TestGuardDaemonFastHookPath:
             daemon.stop()
             monkeypatch.delenv("HOL_GUARD_HOOK_FAST_PATH", raising=False)
 
-        assert result["decision"] == "deny"
-        assert result["model_output_action"] == "block"
+        assert result["decision"] == "allow"
+        assert result["policy_action"] == "allow"
         assert result["reason_code"] == "daemon_worker_exception"
 
     def test_fast_path_secret_source_file_is_denied(self, tmp_path, monkeypatch) -> None:

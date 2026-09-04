@@ -44,7 +44,7 @@ base_requirements = {
     "sqlalchemy-stubs>=0.4",
     # Actual dependencies.
     "pydantic>=2.4.0,<3.0",
-    "acryl-datahub[datahub-rest]>=1.5.0.15",
+    "acryl-datahub[datahub-rest]>=1.7.0.9",
     # Used for ${VAR:-default} expansion in extra_pip_requirements at executor run time.
     "expandvars>=0.6.5,<2.0.0",
     "loguru>=0.5.0",

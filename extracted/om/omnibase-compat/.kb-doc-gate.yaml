@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# KB doc gate configuration — omnibase_compat. OMN-16602 (Wave-4 doc scrub),
+# gate built by OMN-16589, rolled to this repo by OMN-17172.
+#
+# strict: every tracked markdown file on the branch must be inside the allowed
+# set, whether or not the change under review touched it. This repo's KB Wave-4
+# migration has landed and its residual doc count is zero, which is the
+# precondition the gate's own docs state for flipping strict on.
+#
+# A `mode:` here wins over the `with: mode:` input in
+# .github/workflows/kb-doc-gate.yml; both are set to strict so the two surfaces
+# cannot disagree.
+mode: strict
+
+# 'allowed:' (a '- ' list) is ADDITIVE on top of the validator's default set (root README.md,
+# CLAUDE.md and .claude/**, CHANGELOG*.md, LICENSE*, root SECURITY.md,
+# .github/**, skills|commands|agents/**, tests/**/{fixtures,data,golden}/**).
+#
+# omnibase_compat relies on NO repo-specific addition. Every markdown file that
+# remains is covered by the default set:
+#   README.md               -> default `README.md`
+#   CLAUDE.md               -> default `CLAUDE.md`
+#   CHANGELOG.md            -> default `**/CHANGELOG*.md`
+#   SECURITY.md             -> default `SECURITY.md` (GitHub reads it at root)
+#   .github/CONTRIBUTING.md -> default `**/.github/**` (GitHub reads it there;
+#                              the 2026-09-01 ruling drops root CONTRIBUTING.md
+#                              but keeps the .github/ location, see
+#                              omniclaude/scripts/kb_doc_gate.py DEFAULT_ALLOWED)
+#
+# No 'allowed:' key is set: this repo relies on zero repo-specific additions.
+# Adding one is a decision to keep documentation in this repository — it is not
+# a way to unblock a failing gate.

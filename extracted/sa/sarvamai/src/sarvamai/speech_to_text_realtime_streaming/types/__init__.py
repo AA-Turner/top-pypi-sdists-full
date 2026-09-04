@@ -10,6 +10,7 @@ if typing.TYPE_CHECKING:
     from .speech_to_text_realtime_streaming_endpointing import SpeechToTextRealtimeStreamingEndpointing
     from .speech_to_text_realtime_streaming_language_code import SpeechToTextRealtimeStreamingLanguageCode
     from .speech_to_text_realtime_streaming_mode import SpeechToTextRealtimeStreamingMode
+    from .speech_to_text_realtime_streaming_model import SpeechToTextRealtimeStreamingModel
     from .speech_to_text_realtime_streaming_return_timestamps import SpeechToTextRealtimeStreamingReturnTimestamps
     from .speech_to_text_realtime_streaming_stream_type import SpeechToTextRealtimeStreamingStreamType
 _dynamic_imports: typing.Dict[str, str] = {
@@ -17,6 +18,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SpeechToTextRealtimeStreamingEndpointing": ".speech_to_text_realtime_streaming_endpointing",
     "SpeechToTextRealtimeStreamingLanguageCode": ".speech_to_text_realtime_streaming_language_code",
     "SpeechToTextRealtimeStreamingMode": ".speech_to_text_realtime_streaming_mode",
+    "SpeechToTextRealtimeStreamingModel": ".speech_to_text_realtime_streaming_model",
     "SpeechToTextRealtimeStreamingReturnTimestamps": ".speech_to_text_realtime_streaming_return_timestamps",
     "SpeechToTextRealtimeStreamingStreamType": ".speech_to_text_realtime_streaming_stream_type",
 }
@@ -48,6 +50,7 @@ __all__ = [
     "SpeechToTextRealtimeStreamingEndpointing",
     "SpeechToTextRealtimeStreamingLanguageCode",
     "SpeechToTextRealtimeStreamingMode",
+    "SpeechToTextRealtimeStreamingModel",
     "SpeechToTextRealtimeStreamingReturnTimestamps",
     "SpeechToTextRealtimeStreamingStreamType",
 ]

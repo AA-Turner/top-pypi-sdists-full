@@ -75,14 +75,24 @@ from dreadnode.app.tui.status_messages import STATUS_READY, STATUS_STARTING
 from dreadnode.app.tui.theme import (
     ACCENT,
     BG,
+    BG_LIGHT,
+    BG_LIGHTER,
+    BORDER,
+    BORDER_LIGHT,
     BRAND,
+    CODE,
+    CODE_BG,
     ERROR,
     FG,
     FG_FAINTEST,
     FG_MUTED,
     FG_SUBTLE,
     INFO,
+    IS_LIGHT,
+    LINK,
+    PURPLE,
     SUCCESS,
+    TEAL,
     WARNING,
 )
 from dreadnode.app.tui.turn_lifecycle import TurnLifecycle
@@ -1731,11 +1741,35 @@ class DreadnodeTextualApp(App[None]):
                 warning=WARNING,
                 error=ERROR,
                 success=SUCCESS,
-                dark=True,
+                dark=not IS_LIGHT,
                 background=BG,
                 surface=BG,
-                panel=BG,
+                # $panel is the raised tier Textual paints its own widgets on
+                # (DataTable headers, tooltips, collapsibles). Dark flattens it
+                # onto BG; light needs the real step up, because BG there is
+                # pure white and the surface would otherwise disappear.
+                panel=BG_LIGHT if IS_LIGHT else BG,
                 variables={
+                    "dn-bg": BG,
+                    "dn-bg-light": BG_LIGHT,
+                    "dn-bg-lighter": BG_LIGHTER,
+                    "dn-fg": FG,
+                    "dn-fg-subtle": FG_SUBTLE,
+                    "dn-fg-muted": FG_MUTED,
+                    "dn-fg-faintest": FG_FAINTEST,
+                    "dn-border": BORDER,
+                    "dn-border-light": BORDER_LIGHT,
+                    "dn-code": CODE,
+                    "dn-code-bg": CODE_BG,
+                    "dn-link": LINK,
+                    "dn-info": INFO,
+                    "dn-success": SUCCESS,
+                    "dn-warning": WARNING,
+                    "dn-error": ERROR,
+                    "dn-brand": BRAND,
+                    "dn-accent": ACCENT,
+                    "dn-purple": PURPLE,
+                    "dn-teal": TEAL,
                     # Calm markdown headers — avoid primary orange bleeding in.
                     # H1-H4 share $fg so headings read against $fg-subtle body
                     # copy; H5/H6 step down to $fg-muted.

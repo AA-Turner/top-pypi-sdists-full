@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test MONGODB-OIDC Authentication."""
+
 from __future__ import annotations
 
 import os
@@ -22,16 +23,13 @@ import unittest
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from test import PyMongoTestCase
-from test.helpers import ConcurrentRunner
-from typing import Dict
 
 import pytest
 
-sys.path[0:0] = [""]
+from test import PyMongoTestCase
+from test.helpers import ConcurrentRunner
 
-from test.unified_format import generate_test_classes, get_test_path
-from test.utils_shared import EventListener, OvertCommandListener
+sys.path[0:0] = [""]
 
 from bson import SON
 from pymongo import MongoClient
@@ -50,6 +48,8 @@ from pymongo.synchronous.auth_oidc import (
     _get_authenticator,
 )
 from pymongo.synchronous.uri_parser import parse_uri
+from test.unified_format import generate_test_classes, get_test_path
+from test.utils_shared import EventListener, OvertCommandListener
 
 _IS_SYNC = True
 
@@ -87,7 +87,7 @@ class OIDCTestBase(PyMongoTestCase):
                 token_file = TOKEN_FILE
             else:
                 token_file = os.path.join(TOKEN_DIR, username)
-            with open(token_file) as fid:  # noqa: ASYNC101,RUF100
+            with open(token_file) as fid:  # noqa:RUF100
                 return fid.read()
         elif ENVIRON == "azure":
             opts = parse_uri(self.uri_single)["options"]
@@ -115,6 +115,26 @@ class OIDCTestBase(PyMongoTestCase):
                 "configureFailPoint", cmd_on["configureFailPoint"], mode="off", appName="auth_oidc"
             )
             client.close()
+
+
+class TestOIDCAllowedHostsCache(unittest.TestCase):
+    class HumanCallback(OIDCCallback):
+        def fetch(self, context):
+            return OIDCCallbackResult(access_token="token")
+
+    def test_allowed_hosts_checked_before_cached_authenticator_reuse(self):
+        props = {
+            "OIDC_HUMAN_CALLBACK": self.HumanCallback(),
+            "ALLOWED_HOSTS": ["good.example.com"],
+        }
+        extra = {"authmechanismproperties": props}
+        credentials = _build_credentials_tuple("MONGODB-OIDC", None, "user", None, extra, "test")
+
+        authenticator = _get_authenticator(credentials, ("good.example.com", 27017))
+        self.assertIs(authenticator, credentials.cache.data)
+
+        with self.assertRaisesRegex(ConfigurationError, "evil.example.com"):
+            _get_authenticator(credentials, ("evil.example.com", 27017))
 
 
 class TestAuthOIDCHuman(OIDCTestBase):
@@ -166,7 +186,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         request_cb = kwargs.pop("request_cb", self.create_request_cb(username=username))
         props = kwargs.pop("authmechanismproperties", {"OIDC_HUMAN_CALLBACK": request_cb})
         kwargs["retryReads"] = False
-        if not len(args):
+        if not args:
             args = [self.uri_single]
 
         client = self.simple_client(*args, authmechanismproperties=props, **kwargs)
@@ -177,7 +197,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         # Create default OIDC client with authMechanism=MONGODB-OIDC.
         client = self.create_client()
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Close the client.
         client.close()
 
@@ -185,7 +205,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         # Create a client with MONGODB_URI_SINGLE, a username of test_user1, authMechanism=MONGODB-OIDC, and the OIDC human callback.
         client = self.create_client(username="test_user1")
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Close the client.
         client.close()
 
@@ -195,7 +215,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         # Create a client with MONGODB_URI_MULTI, a username of test_user1, authMechanism=MONGODB-OIDC, and the OIDC human callback.
         client = self.create_client(self.uri_multiple, username="test_user1")
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Close the client.
         client.close()
 
@@ -206,7 +226,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         # Create a client with MONGODB_URI_MULTI, a username of test_user2, authMechanism=MONGODB-OIDC, and the OIDC human callback.
         client = self.create_client(self.uri_multiple, username="test_user2")
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Close the client.
         client.close()
 
@@ -217,24 +237,24 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client(self.uri_multiple)
         # Assert that a find operation fails.
         with self.assertRaises(OperationFailure):
-            client.test.test.find_one()
+            client.test.coll.find_one()
         # Close the client.
         client.close()
 
     def test_1_6_allowed_hosts_blocked(self):
         # Create a default OIDC client, with an ALLOWED_HOSTS that is an empty list.
         request_token = self.create_request_cb()
-        props: Dict = {"OIDC_HUMAN_CALLBACK": request_token, "ALLOWED_HOSTS": []}
+        props: dict = {"OIDC_HUMAN_CALLBACK": request_token, "ALLOWED_HOSTS": []}
         client = self.create_client(authmechanismproperties=props)
         # Assert that a find operation fails with a client-side error.
         with self.assertRaises(ConfigurationError):
-            client.test.test.find_one()
+            client.test.coll.find_one()
         # Close the client.
         client.close()
 
         # Create a client that uses the URL mongodb://localhost/?authMechanism=MONGODB-OIDC&ignored=example.com,
         # a human callback, and an ALLOWED_HOSTS that contains ["example.com"].
-        props: Dict = {
+        props: dict = {
             "OIDC_HUMAN_CALLBACK": request_token,
             "ALLOWED_HOSTS": ["example.com"],
         }
@@ -247,7 +267,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             )
             # Assert that a find operation fails with a client-side error.
             with self.assertRaises(ConfigurationError):
-                client.test.test.find_one()
+                client.test.coll.find_one()
         # Close the client.
         client.close()
 
@@ -269,7 +289,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         # Create a client with MONGODB_URI_SINGLE, a username of test_machine, authMechanism=MONGODB-OIDC, and the OIDC human callback.
         client = self.create_client(username="test_machine")
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Close the client.
         client.close()
 
@@ -278,7 +298,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client()
         # Perform a find operation that succeeds. Verify that the human callback was called with the appropriate inputs, including the timeout parameter if possible.
         # Ensure that there are no unexpected fields.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Close the client.
         client.close()
 
@@ -291,7 +311,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client(request_cb=CustomCB())
         # Perform a find operation that fails.
         with self.assertRaises(ValueError):
-            client.test.test.find_one()
+            client.test.coll.find_one()
         # Close the client.
         client.close()
 
@@ -300,7 +320,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client()
 
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
         # Set a fail point for ``find`` commands.
         with self.fail_point(
@@ -310,7 +330,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a ``find`` operation that succeeds.
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
         # Assert that the callback has been called twice.
         self.assertEqual(self.request_called, 2)
@@ -331,7 +351,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         ):
             # Perform a ``find`` operation that fails.
             with self.assertRaises(AutoReconnect):
-                client.test.test.find_one()
+                client.test.coll.find_one()
 
         # Set a fail point for ``saslStart`` commands.
         with self.fail_point(
@@ -341,7 +361,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a ``find`` operation that succeeds
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
         # Close the client.
         client.close()
@@ -359,7 +379,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         ):
             # Perform a ``find`` operation that fails.
             with self.assertRaises(OperationFailure):
-                client.test.test.find_one()
+                client.test.coll.find_one()
 
         # Close the client.
         client.close()
@@ -372,7 +392,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client(event_listeners=[listener])
 
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
         # Assert that the human callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -388,7 +408,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform another find operation that succeeds.
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
         # Assert that the human callback has been called twice.
         self.assertEqual(self.request_called, 2)
@@ -434,7 +454,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client(request_cb=CustomRequest())
 
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
         # Assert that the human callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -447,7 +467,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a find operation that succeeds.
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
         # Assert that the human callback has been called twice.
         self.assertEqual(self.request_called, 2)
@@ -467,7 +487,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client(request_cb=CustomRequest())
 
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
         # Assert that the human callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -480,7 +500,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a find operation that succeeds.
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
         # Assert that the human callback has been called 2 times.
         self.assertEqual(self.request_called, 2)
@@ -507,7 +527,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client(request_cb=CustomRequest())
 
         # Perform a find operation that succeeds (to force a speculative auth).
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Assert that the human callback has been called once.
         self.assertEqual(self.request_called, 1)
 
@@ -520,7 +540,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         ):
             # Perform a find operation that fails.
             with self.assertRaises(OperationFailure):
-                client.test.test.find_one()
+                client.test.coll.find_one()
 
         # Assert that the human callback has been called three times.
         self.assertEqual(self.request_called, 3)
@@ -535,7 +555,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
 
         client = self.create_client(request_cb=RequestTokenNull())
         with self.assertRaises(ValueError):
-            client.test.test.find_one()
+            client.test.coll.find_one()
         client.close()
 
     def test_request_callback_invalid_result(self):
@@ -545,7 +565,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
 
         client = self.create_client(request_cb=CallbackInvalidToken())
         with self.assertRaises(ValueError):
-            client.test.test.find_one()
+            client.test.coll.find_one()
         client.close()
 
     def test_reauthentication_succeeds_multiple_connections(self):
@@ -556,8 +576,8 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client2 = self.create_client(request_cb=request_cb)
 
         # Perform an insert operation.
-        client1.test.test.insert_many([{"a": 1}, {"a": 1}])
-        client2.test.test.find_one()
+        client1.test.coll.insert_many([{"a": 1}, {"a": 1}])
+        client2.test.coll.find_one()
         self.assertEqual(self.request_called, 2)
 
         # Use the same authenticator for both clients
@@ -568,8 +588,8 @@ class TestAuthOIDCHuman(OIDCTestBase):
             client1.options.pool_options._credentials.cache.data
         )
 
-        client1.test.test.find_one()
-        client2.test.test.find_one()
+        client1.test.coll.find_one()
+        client2.test.coll.find_one()
 
         with self.fail_point(
             {
@@ -577,7 +597,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
                 "data": {"failCommands": ["find"], "errorCode": 391},
             }
         ):
-            client1.test.test.find_one()
+            client1.test.coll.find_one()
 
         self.assertEqual(self.request_called, 3)
 
@@ -587,7 +607,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
                 "data": {"failCommands": ["find"], "errorCode": 391},
             }
         ):
-            client2.test.test.find_one()
+            client2.test.coll.find_one()
 
         self.assertEqual(self.request_called, 3)
         client1.close()
@@ -600,7 +620,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client()
 
         # Perform a find operation.
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
         # Assert that the request callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -612,7 +632,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a bulk write operation.
-            client.test.test.bulk_write([InsertOne({})])  # type:ignore[type-var]
+            client.test.coll.bulk_write([InsertOne({})])  # type:ignore[type-var]
 
         # Assert that the request callback has been called twice.
         self.assertEqual(self.request_called, 2)
@@ -623,10 +643,10 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client()
 
         # Perform a find operation.
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
         # Perform a bulk write operation.
-        client.test.test.bulk_write([InsertOne({})])  # type:ignore[type-var]
+        client.test.coll.bulk_write([InsertOne({})])  # type:ignore[type-var]
 
         # Assert that the request callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -638,7 +658,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a bulk read operation.
-            cursor = client.test.test.find_raw_batches({})
+            cursor = client.test.coll.find_raw_batches({})
             cursor.to_list()
 
         # Assert that the request callback has been called twice.
@@ -650,7 +670,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client()
 
         # Perform an insert operation.
-        client.test.test.insert_one({"a": 1})
+        client.test.coll.insert_one({"a": 1})
 
         # Assert that the request callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -662,7 +682,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a find operation.
-            cursor = client.test.test.find({"a": 1})
+            cursor = client.test.coll.find({"a": 1})
             self.assertGreaterEqual(len(cursor.to_list()), 1)
 
         # Assert that the request callback has been called twice.
@@ -674,7 +694,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client()
 
         # Perform an insert operation.
-        client.test.test.insert_many([{"a": 1}, {"a": 1}])
+        client.test.coll.insert_many([{"a": 1}, {"a": 1}])
 
         # Assert that the request callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -686,7 +706,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a find operation.
-            cursor = client.test.test.find({"a": 1}, batch_size=1)
+            cursor = client.test.coll.find({"a": 1}, batch_size=1)
             self.assertGreaterEqual(len(cursor.to_list()), 1)
 
         # Assert that the request callback has been called twice.
@@ -704,7 +724,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client()
 
         # Perform an insert operation.
-        client.test.test.insert_many([{"a": 1}, {"a": 1}])
+        client.test.coll.insert_many([{"a": 1}, {"a": 1}])
 
         # Assert that the request callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -716,7 +736,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
             }
         ):
             # Perform a find operation.
-            cursor = client.test.test.find({"a": 1}, batch_size=1, cursor_type=CursorType.EXHAUST)
+            cursor = client.test.coll.find({"a": 1}, batch_size=1, cursor_type=CursorType.EXHAUST)
             self.assertGreaterEqual(len(cursor.to_list()), 1)
 
         # Assert that the request callback has been called twice.
@@ -728,7 +748,7 @@ class TestAuthOIDCHuman(OIDCTestBase):
         client = self.create_client()
 
         # Perform an insert operation.
-        client.test.test.insert_one({"a": 1})
+        client.test.coll.insert_one({"a": 1})
 
         # Assert that the request callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -776,7 +796,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         request_cb = kwargs.pop("request_cb", self.create_request_cb())
         props = kwargs.pop("authmechanismproperties", {"OIDC_CALLBACK": request_cb})
         kwargs["retryReads"] = False
-        if not len(args):
+        if not args:
             args = [self.uri_single]
         client = MongoClient(*args, authmechanismproperties=props, **kwargs)
         self.addCleanup(client.close)
@@ -787,7 +807,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         # implements the provider logic.
         client = self.create_client()
         # Perform a ``find`` operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Assert that the callback was called 1 time.
         self.assertEqual(self.request_called, 1)
 
@@ -800,7 +820,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         # Start 10 tasks and run 100 find operations that all succeed in each task.
         def target():
             for _ in range(100):
-                client.test.test.find_one()
+                client.test.coll.find_one()
 
         tasks = []
         for i in range(10):
@@ -816,7 +836,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         # Create a MongoClient configured with an OIDC callback that validates its inputs and returns a valid access token.
         client = self.create_client()
         # Perform a find operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Assert that the OIDC callback was called with the appropriate inputs, including the timeout parameter if possible. Ensure that there are no unexpected fields.
         self.assertEqual(self.request_called, 1)
 
@@ -829,7 +849,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         client = self.create_client(request_cb=CallbackNullToken())
         # Perform a find operation that fails.
         with self.assertRaises(ValueError):
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
     def test_2_3_oidc_callback_returns_missing_data(self):
         # Create a MongoClient configured with an OIDC callback that returns data not conforming to the OIDCCredential with missing fields.
@@ -843,25 +863,25 @@ class TestAuthOIDCMachine(OIDCTestBase):
         client = self.create_client(request_cb=CustomCallback())
         # Perform a find operation that fails.
         with self.assertRaises(ValueError):
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
     def test_2_4_invalid_client_configuration_with_callback(self):
         # Create a MongoClient configured with an OIDC callback and auth mechanism property ENVIRONMENT:test.
         request_cb = self.create_request_cb()
-        props: Dict = {"OIDC_CALLBACK": request_cb, "ENVIRONMENT": "test"}
+        props: dict = {"OIDC_CALLBACK": request_cb, "ENVIRONMENT": "test"}
         # Assert it returns a client configuration error.
         with self.assertRaises(ConfigurationError):
             self.create_client(authmechanismproperties=props)
 
     def test_2_5_invalid_use_of_ALLOWED_HOSTS(self):
         # Create an OIDC configured client with auth mechanism properties `{"ENVIRONMENT": "test", "ALLOWED_HOSTS": []}`.
-        props: Dict = {"ENVIRONMENT": "test", "ALLOWED_HOSTS": []}
+        props: dict = {"ENVIRONMENT": "test", "ALLOWED_HOSTS": []}
         # Assert it returns a client configuration error.
         with self.assertRaises(ConfigurationError):
             self.create_client(authmechanismproperties=props)
 
         # Create an OIDC configured client with auth mechanism properties `{"OIDC_CALLBACK": "<my_callback>", "ALLOWED_HOSTS": []}`.
-        props: Dict = {"OIDC_CALLBACK": self.create_request_cb(), "ALLOWED_HOSTS": []}
+        props: dict = {"OIDC_CALLBACK": self.create_request_cb(), "ALLOWED_HOSTS": []}
         # Assert it returns a client configuration error.
         with self.assertRaises(ConfigurationError):
             self.create_client(authmechanismproperties=props)
@@ -898,13 +918,13 @@ class TestAuthOIDCMachine(OIDCTestBase):
             # Perform a ``find`` operation that fails. This is to force the ``MongoClient``
             # to cache an access token.
             with self.assertRaises(AutoReconnect):
-                client.test.test.find_one()
+                client.test.coll.find_one()
         # Poison the cache of the client.
         client.options.pool_options._credentials.cache.data.access_token = "bad"
         # Reset the request count.
         self.request_called = 0
         # Verify that a find succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
         # Verify that the callback was called 1 time.
         self.assertEqual(self.request_called, 1)
 
@@ -921,7 +941,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         client = self.create_client(request_cb=callback)
         # Perform a ``find`` operation that fails.
         with self.assertRaises(OperationFailure):
-            client.test.test.find_one()
+            client.test.coll.find_one()
         # Verify that the callback was called 1 time.
         self.assertEqual(callback.count, 1)
 
@@ -938,13 +958,13 @@ class TestAuthOIDCMachine(OIDCTestBase):
         ):
             # Perform a ``find`` operation that fails.
             with self.assertRaises(OperationFailure):
-                client.test.test.find_one()
+                client.test.coll.find_one()
 
         # Assert that the callback has been called once.
         self.assertEqual(self.request_called, 1)
 
         # Perform a ``find`` operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
         # Assert that the callback has been called once.
         self.assertEqual(self.request_called, 1)
@@ -963,7 +983,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
             }
         ):
             # Perform a ``find`` operation that succeeds.
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
         # Verify that the callback was called 2 times (once during the connection
         # handshake, and again during reauthentication).
@@ -989,7 +1009,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         client = self.create_client(request_cb=callback)
 
         # Perform a read operation that succeeds.
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
         # Set a fail point for the find command.
         with self.fail_point(
@@ -1000,7 +1020,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         ):
             # Perform a ``find`` operation that fails.
             with self.assertRaises(OperationFailure):
-                client.test.test.find_one()
+                client.test.coll.find_one()
 
         # Verify that the callback was called 2 times.
         self.assertEqual(callback.count, 2)
@@ -1025,7 +1045,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         client = self.create_client(request_cb=callback)
 
         # Perform an insert operation that succeeds.
-        client.test.test.insert_one({})
+        client.test.coll.insert_one({})
 
         # Set a fail point for the find command.
         with self.fail_point(
@@ -1036,7 +1056,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         ):
             # Perform a ``insert`` operation that fails.
             with self.assertRaises(OperationFailure):
-                client.test.test.insert_one({})
+                client.test.coll.insert_one({})
 
         # Verify that the callback was called 2 times.
         self.assertEqual(callback.count, 2)
@@ -1049,7 +1069,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
 
         # Preload the *Client Cache* with a valid access token to enforce Speculative Authentication.
         client2 = self.create_client()
-        client2.test.test.find_one()
+        client2.test.coll.find_one()
         client.options.pool_options._credentials.cache.data = (
             client2.options.pool_options._credentials.cache.data
         )
@@ -1057,7 +1077,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
         self.request_called = 0
 
         # Perform an `insert` operation that succeeds.
-        client.test.test.insert_one({})
+        client.test.coll.insert_one({})
 
         # Assert that the callback was not called.
         self.assertEqual(self.request_called, 0)
@@ -1076,7 +1096,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
             }
         ):
             # Perform an `insert` operation that succeeds.
-            client.test.test.insert_one({})
+            client.test.coll.insert_one({})
 
         # Assert that the callback was called once.
         self.assertEqual(self.request_called, 1)
@@ -1098,7 +1118,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
             # Start a new session.
             with client.start_session() as session:
                 # In the started session perform a `find` operation that succeeds.
-                client.test.test.find_one({}, session=session)
+                client.test.coll.find_one({}, session=session)
 
         # Assert that the callback was called 2 times (once during the connection handshake, and again during reauthentication).
         self.assertEqual(self.request_called, 2)
@@ -1111,7 +1131,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
 
         props = dict(TOKEN_RESOURCE=resource, ENVIRONMENT="azure")
         client = self.create_client(authMechanismProperties=props)
-        client.test.test.find_one()
+        client.test.coll.find_one()
 
     def test_5_2_azure_with_bad_username(self):
         if ENVIRON != "azure":
@@ -1123,11 +1143,11 @@ class TestAuthOIDCMachine(OIDCTestBase):
         props = dict(TOKEN_RESOURCE=token_aud, ENVIRONMENT="azure")
         client = self.create_client(username="bad", authmechanismproperties=props)
         with self.assertRaises(ValueError):
-            client.test.test.find_one()
+            client.test.coll.find_one()
 
     def test_speculative_auth_success(self):
         client1 = self.create_client()
-        client1.test.test.find_one()
+        client1.test.coll.find_one()
         client2 = self.create_client()
         client2._connect()
 
@@ -1144,15 +1164,15 @@ class TestAuthOIDCMachine(OIDCTestBase):
             }
         ):
             # Perform a find operation.
-            client2.test.test.find_one()
+            client2.test.coll.find_one()
 
     def test_reauthentication_succeeds_multiple_connections(self):
         client1 = self.create_client()
         client2 = self.create_client()
 
         # Perform an insert operation.
-        client1.test.test.insert_many([{"a": 1}, {"a": 1}])
-        client2.test.test.find_one()
+        client1.test.coll.insert_many([{"a": 1}, {"a": 1}])
+        client2.test.coll.find_one()
         self.assertEqual(self.request_called, 2)
 
         # Use the same authenticator for both clients
@@ -1163,8 +1183,8 @@ class TestAuthOIDCMachine(OIDCTestBase):
             client1.options.pool_options._credentials.cache.data
         )
 
-        client1.test.test.find_one()
-        client2.test.test.find_one()
+        client1.test.coll.find_one()
+        client2.test.coll.find_one()
 
         with self.fail_point(
             {
@@ -1172,7 +1192,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
                 "data": {"failCommands": ["find"], "errorCode": 391},
             }
         ):
-            client1.test.test.find_one()
+            client1.test.coll.find_one()
 
         self.assertEqual(self.request_called, 3)
 
@@ -1182,7 +1202,7 @@ class TestAuthOIDCMachine(OIDCTestBase):
                 "data": {"failCommands": ["find"], "errorCode": 391},
             }
         ):
-            client2.test.test.find_one()
+            client2.test.coll.find_one()
 
         self.assertEqual(self.request_called, 3)
 

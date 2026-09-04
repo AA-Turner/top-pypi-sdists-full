@@ -110,22 +110,25 @@ impl FsCore {
         } else {
             EntryMode::Unknown
         };
-        let mut m = Metadata::new(mode)
-            .with_content_length(meta.len())
-            .with_last_modified(Timestamp::try_from(
-                meta.modified().map_err(new_std_io_error)?,
-            )?);
+        let mut m = match mode {
+            EntryMode::FILE => MetadataBuilder::file(meta.len()),
+            EntryMode::DIR => MetadataBuilder::dir(),
+            EntryMode::Unknown => MetadataBuilder::unknown(),
+        };
+        m.last_modified(Timestamp::try_from(
+            meta.modified().map_err(new_std_io_error)?,
+        )?);
 
         // Read user metadata from xattr on Unix systems
         #[cfg(unix)]
         {
             let user_metadata = Self::get_user_metadata(&p)?;
             if !user_metadata.is_empty() {
-                m = m.with_user_metadata(user_metadata);
+                m.user_metadata(user_metadata);
             }
         }
 
-        Ok(m)
+        Ok(m.build())
     }
 
     pub async fn fs_open(&self, path: &str) -> Result<File> {
@@ -158,7 +161,10 @@ impl FsCore {
             open_options.truncate(true);
         }
 
-        let f = open_options.open(path).await.map_err(parse_error)?;
+        let f = open_options
+            .open(path)
+            .await
+            .map_err(|err| parse_error(ErrorContext::new(ServiceOperation("OpenForWrite")), err))?;
 
         Ok(f)
     }
@@ -188,7 +194,12 @@ impl FsCore {
         open_options.write(true);
         open_options.truncate(true);
 
-        let f = open_options.open(&tmp_path).await.map_err(parse_error)?;
+        let f = open_options.open(&tmp_path).await.map_err(|err| {
+            parse_error(
+                ErrorContext::new(ServiceOperation("OpenTemporaryFile")),
+                err,
+            )
+        })?;
 
         Ok((f, Some(tmp_path)))
     }
@@ -215,7 +226,7 @@ impl FsCore {
         }
     }
 
-    pub async fn fs_copy(&self, from: &str, to: &str) -> Result<()> {
+    pub async fn fs_copy(&self, from: &str, to: &str) -> Result<u64> {
         let from = self.root_join(from)?;
         // try to get the metadata of the source file to ensure it exists
         tokio::fs::metadata(&from).await.map_err(new_std_io_error)?;
@@ -224,7 +235,7 @@ impl FsCore {
             .ensure_write_abs_path(&self.root, to.trim_end_matches('/'))
             .await?;
 
-        tokio::fs::copy(&from, &to)
+        let size = tokio::fs::copy(&from, &to)
             .await
             .map_err(new_std_io_error)?;
 
@@ -238,7 +249,7 @@ impl FsCore {
             }
         }
 
-        Ok(())
+        Ok(size)
     }
 
     pub async fn fs_rename(&self, from: &str, to: &str) -> Result<()> {
@@ -315,24 +326,31 @@ impl FsCore {
 #[cfg(unix)]
 const XATTR_USER_PREFIX: &str = "user.";
 
-mod error {
-    use opendal_core::raw::*;
-    use opendal_core::*;
+/// Context needed to classify an error from this service.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ErrorContext {
+    service_operation: ServiceOperation,
+}
 
-    /// Parse error response into Error.
-    pub(crate) fn parse_error(e: std::io::Error) -> Error {
-        match e.kind() {
-            std::io::ErrorKind::AlreadyExists => Error::new(
-                ErrorKind::ConditionNotMatch,
-                "The file already exists in the filesystem",
-            )
-            .set_source(e),
-            _ => new_std_io_error(e),
-        }
+impl ErrorContext {
+    pub(crate) const fn new(service_operation: ServiceOperation) -> Self {
+        Self { service_operation }
     }
 }
 
-pub(super) use error::*;
+/// Parse an error using its service operation context.
+pub(crate) fn parse_error(ctx: ErrorContext, err: std::io::Error) -> Error {
+    let err = match err.kind() {
+        std::io::ErrorKind::AlreadyExists => Error::new(
+            ErrorKind::ConditionNotMatch,
+            "The file already exists in the filesystem",
+        )
+        .set_source(err),
+        _ => new_std_io_error(err),
+    };
+
+    err.with_context("service_operation", ctx.service_operation.0)
+}
 
 #[cfg(test)]
 mod tests {

@@ -22,9 +22,12 @@ jobs:
           script: |
             const trustedAssociations = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
             const trustedAuthorLogins = new Set(['github-actions[bot]']);
+            const cloudAgentLogins = new Set(['copilot-swe-agent', 'copilot-swe-agent[bot]']);
             const isTrustedMarkerComment = (comment) =>
               trustedAssociations.has(comment?.author_association || '') ||
               trustedAuthorLogins.has(comment?.user?.login || '');
+            const isCloudAgentLogin = (login) =>
+              typeof login === 'string' && cloudAgentLogins.has(login.toLowerCase());
             const removeCloudLabelsConverged = async (issueNumber, phase) => {
               const labels = [`speckit:agent-assigned-phase-${phase}`, 'speckit:processing'];
               let non404Failure = false;
@@ -59,7 +62,7 @@ jobs:
               }
               return false;
             };
-            const isCopilot = context.payload.pull_request?.user?.login === 'copilot-swe-agent[bot]';
+            const isCopilot = isCloudAgentLogin(context.payload.pull_request?.user?.login);
             const markerRegex = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=(\d+) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
             const headRef = context.payload.pull_request?.head?.ref || '';
             const branchMatch = headRef.match(/^speckit\/(\d+)\/phase-(\d+)-/);
@@ -195,9 +198,12 @@ jobs:
             const twoHours = 2 * 60 * 60 * 1000;
             const trustedAssociations = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
             const trustedAuthorLogins = new Set(['github-actions[bot]']);
+            const cloudAgentLogins = new Set(['copilot-swe-agent', 'copilot-swe-agent[bot]']);
             const isTrustedMarkerComment = (comment) =>
               trustedAssociations.has(comment?.author_association || '') ||
               trustedAuthorLogins.has(comment?.user?.login || '');
+            const isCloudAgentLogin = (login) =>
+              typeof login === 'string' && cloudAgentLogins.has(login.toLowerCase());
             const findMatchingCloudPr = async (issueNumber, phase, markerMatch) => {
               if (!markerMatch || !markerMatch[4]) {
                 return null;
@@ -216,7 +222,7 @@ jobs:
                   repo: context.repo.repo,
                   pull_number: item.number,
                 });
-                if (pr.user?.login !== 'copilot-swe-agent[bot]') {
+                if (!isCloudAgentLogin(pr.user?.login)) {
                   continue;
                 }
                 const prMatch = (pr.body || '').match(cloudMarkerRegex);

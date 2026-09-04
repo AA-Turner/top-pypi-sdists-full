@@ -18,7 +18,7 @@ from any_llm.exceptions import (
     UnsupportedParameterError,
     UnsupportedProviderError,
 )
-from any_llm.tools import prepare_tools
+from any_llm.tools import _flatten_responses_tool, prepare_tools
 from any_llm.types.audio import AudioSpeechParams, AudioTranscriptionParams, Transcription
 from any_llm.types.completion import (
     ChatCompletion,
@@ -29,7 +29,6 @@ from any_llm.types.completion import (
 )
 from any_llm.types.image import ImageGenerationParams, ImagesResponse
 from any_llm.types.messages import (
-    ContentBlockStopEvent,
     MessageDelta,
     MessageDeltaEvent,
     MessageDeltaUsage,
@@ -851,6 +850,7 @@ class AnyLLM(ABC):
         service_tier: str | None = None,
         context_management: dict[str, Any] | None = None,
         betas: list[str] | None = None,
+        container: str | None = None,
         timeout: float | None = None,
         **kwargs: Any,
     ) -> MessageResponse | ParsedMessage[Any] | ParsedBetaMessage[Any] | Iterator[MessageStreamEvent]:
@@ -877,6 +877,7 @@ class AnyLLM(ABC):
                         service_tier=service_tier,
                         context_management=context_management,
                         betas=betas,
+                        container=container,
                         timeout=timeout,
                         **kwargs,
                     ),
@@ -890,6 +891,7 @@ class AnyLLM(ABC):
                 service_tier=service_tier,
                 context_management=context_management,
                 betas=betas,
+                container=container,
                 timeout=timeout,
                 **kwargs,
             ),
@@ -921,6 +923,7 @@ class AnyLLM(ABC):
         service_tier: str | None = None,
         context_management: dict[str, Any] | None = None,
         betas: list[str] | None = None,
+        container: str | None = None,
         output_format: type | dict[str, Any] | None = None,
         timeout: float | None = None,  # noqa: ASYNC109  # forwarded to the provider SDK, which owns the timeout
         **kwargs: Any,
@@ -952,6 +955,7 @@ class AnyLLM(ABC):
                 trigger value must be at least 50,000 when provided; see
                 [Anthropic's compaction documentation](https://platform.claude.com/docs/en/build-with-claude/compaction).
             betas: Anthropic beta identifiers.
+            container: Container identifier for continuing a previous top-level container.
             output_format: Structured output, mirroring Anthropic's ``messages.parse``/
                 ``output_config``. Either a Pydantic ``BaseModel``/dataclass **type** (typed
                 ``parsed_output``) or a raw Anthropic ``output_config`` **dict** for non-Pydantic
@@ -970,8 +974,8 @@ class AnyLLM(ABC):
 
         Raises:
             ValueError: If `output_format` is combined with `stream=True`.
-            NotImplementedError: If `context_management` or `betas` is used with a
-                provider that has no native Anthropic Messages API.
+            NotImplementedError: If `container`, `context_management`, or `betas` is used
+                with a provider that has no native Anthropic Messages API.
 
         """
         if output_format is not None and stream:
@@ -997,6 +1001,7 @@ class AnyLLM(ABC):
             service_tier=service_tier,
             context_management=context_management,
             betas=betas,
+            container=container,
             output_format=output_format,
         )
         self._validate_prompt_cache_key(prompt_cache_key)
@@ -1021,6 +1026,9 @@ class AnyLLM(ABC):
         Providers with native Messages API support (e.g., Anthropic) override this
         for direct pass-through.
         """
+        if params.container is not None:
+            msg = "container requires a provider with a native Anthropic Messages API"
+            raise NotImplementedError(msg)
         if params.context_management is not None or params.betas:
             msg = "context_management and betas require a provider with a native Anthropic Messages API"
             raise NotImplementedError(msg)
@@ -1030,13 +1038,22 @@ class AnyLLM(ABC):
             StreamingState,
             chat_completion_chunk_to_message_stream_events,
             chat_completion_to_message_response,
+            close_open_blocks,
             messages_params_to_completion_params,
             split_cached_input_tokens,
         )
 
         completion_kwargs = messages_params_to_completion_params(params)
         completion_params = CompletionParams(**completion_kwargs)
-        result = await self._acompletion(completion_params, **kwargs)
+        try:
+            result = await self._acompletion(completion_params, **kwargs)
+        except UnsupportedParameterError as exc:
+            # parallel_tool_calls is synthesized here from Anthropic's tool_choice, so a
+            # provider that rejects it would otherwise name a parameter the caller never sent.
+            if exc.parameter_name != "parallel_tool_calls" or "parallel_tool_calls" not in completion_kwargs:
+                raise
+            msg = "tool_choice.disable_parallel_tool_use"
+            raise UnsupportedParameterError(msg, self.PROVIDER_NAME) from exc
 
         if isinstance(result, ChatCompletion):
             return chat_completion_to_message_response(result)
@@ -1069,11 +1086,8 @@ class AnyLLM(ABC):
                 raise
             # Emit the closing events after the full stream is consumed so trailing-chunk usage is included.
             if state.started:
-                if state.current_block_type is not None:
-                    yield ContentBlockStopEvent(
-                        type="content_block_stop",
-                        index=state.current_block_index,
-                    )
+                for stop_event in close_open_blocks(state):
+                    yield stop_event
                 yield usage_delta(state.stop_reason or "end_turn")
                 yield MessageStopEvent(type="message_stop")
 
@@ -1225,6 +1239,7 @@ class AnyLLM(ABC):
         prompt_cache_key: str | None = None,
         prompt_cache_retention: str | None = None,
         conversation: str | dict[str, Any] | None = None,
+        timeout: float | None = None,  # noqa: ASYNC109  # forwarded to the provider SDK, which owns the timeout
         extra_body: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> ResponseResource | Response | AsyncIterator[ResponseStreamEvent] | ParsedResponse[Any]:
@@ -1272,6 +1287,11 @@ class AnyLLM(ABC):
             prompt_cache_key: A key to use when reading from or writing to the prompt cache.
             prompt_cache_retention: How long to retain a prompt cache entry created by this request.
             conversation: The conversation to associate this response with (ID string or ConversationParam object).
+            timeout: Per-request timeout in seconds, passed through to the provider's client/SDK.
+                An explicit ``None`` is treated the same as omitting it (the provider's default
+                applies), so it cannot request an unbounded timeout. Providers that have no
+                per-request timeout raise `UnsupportedParameterError`; set a timeout on their
+                client via `client_args` instead.
             extra_body: Additional fields to merge into an OpenAI-compatible Responses request body.
             **kwargs: Additional provider-specific arguments that will be passed to the provider's API call.
 
@@ -1292,7 +1312,9 @@ class AnyLLM(ABC):
 
         prepared_tools = None
         if tools:
-            prepared_tools = prepare_tools(tools, built_in_tools=self.BUILT_IN_TOOLS)
+            prepared_tools = [
+                _flatten_responses_tool(tool) for tool in prepare_tools(tools, built_in_tools=self.BUILT_IN_TOOLS)
+            ]
 
         params = ResponsesParams(
             model=model,
@@ -1328,6 +1350,7 @@ class AnyLLM(ABC):
         )
 
         provider_kwargs: dict[str, Any] = {}
+        self._validate_and_forward_timeout(timeout, provider_kwargs)
         if extra_body is not None:
             provider_kwargs["extra_body"] = extra_body
         result = await self._aresponses(params, **provider_kwargs)
@@ -1698,7 +1721,7 @@ class AnyLLM(ABC):
 
         Args:
             after: A cursor for pagination. Returns batches after this batch ID.
-            limit: Maximum number of batches to return (default: 20)
+            limit: Maximum number of batches to return. When omitted, the provider's own default applies.
             **kwargs: Additional provider-specific arguments
 
         Returns:

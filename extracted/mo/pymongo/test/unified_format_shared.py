@@ -16,6 +16,7 @@
 
 https://github.com/mongodb/specifications/blob/master/source/unified-test-format/unified-test-format.md
 """
+
 from __future__ import annotations
 
 import binascii
@@ -25,19 +26,8 @@ import os
 import time
 import types
 from collections import abc
-from test.helpers_shared import (
-    AWS_CREDS,
-    AWS_CREDS_2,
-    AWS_TEMP_CREDS,
-    AZURE_CREDS,
-    CA_PEM,
-    CLIENT_PEM,
-    GCP_CREDS,
-    KMIP_CREDS,
-    LOCAL_MASTER_KEY,
-)
-from test.utils_shared import CMAPListener, camel_to_snake, parse_collection_options
-from typing import Any, MutableMapping, Union
+from collections.abc import MutableMapping
+from typing import Any, Union
 
 from bson import (
     RE_TYPE,
@@ -91,6 +81,18 @@ from pymongo.monitoring import (
 from pymongo.results import BulkWriteResult
 from pymongo.server_description import ServerDescription
 from pymongo.topology_description import TopologyDescription
+from test.helpers_shared import (
+    AWS_CREDS,
+    AWS_CREDS_2,
+    AWS_TEMP_CREDS,
+    AZURE_CREDS,
+    CA_PEM,
+    CLIENT_PEM,
+    GCP_CREDS,
+    KMIP_CREDS,
+    LOCAL_MASTER_KEY,
+)
+from test.utils_shared import CMAPListener, camel_to_snake, parse_collection_options
 
 JSON_OPTS = json_util.JSONOptions(tz_aware=False)
 
@@ -126,6 +128,15 @@ for provider_name, provider_data in [
 
         placeholder = f"/autoEncryptOpts/kmsProviders/{provider_name}/{key}"
         PLACEHOLDER_MAP[placeholder] = value
+
+# accessToken kmsProviders (schema 1.28, DRIVERS-3392).
+for provider_name, token_env in [
+    ("azure", "CSFLE_AZURE_ACCESS_TOKEN"),
+    ("gcp", "CSFLE_GCP_ACCESS_TOKEN"),
+]:
+    token = os.environ.get(token_env, "")
+    for opts_root in ("clientEncryptionOpts", "autoEncryptOpts"):
+        PLACEHOLDER_MAP[f"/{opts_root}/kmsProviders/{provider_name}/accessToken"] = token
 
 OIDC_ENV = os.environ.get("OIDC_ENV", "test")
 if OIDC_ENV == "test":

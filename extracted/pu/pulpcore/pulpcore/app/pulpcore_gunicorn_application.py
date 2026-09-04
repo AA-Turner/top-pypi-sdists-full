@@ -5,34 +5,18 @@ from gunicorn.app.base import Application
 
 
 def handle_control_interface_feature(options):
-    """Drop control_socket/control_socket_disable from options if gunicorn<25.1."""
+    """Drop control_socket from options if gunicorn<25.1, which introduced the feature."""
     # TODO: remove this function when gunicorn lowerbound>=25.1
-    has_control_socket = options.get("control_socket") is not None
-    has_control_socket_disable = options.get("control_socket_disable") is True
-
-    if not has_control_socket and not has_control_socket_disable:
+    if options.get("control_socket") is None:
         return
-
-    if has_control_socket and has_control_socket_disable:
-        sys.stderr.write(
-            "Error: --control-socket and --no-control-socket are mutually exclusive.\n"
-        )
-        exit(1)
 
     gunicorn_version = tuple(int(x) for x in pkg_version("gunicorn").split(".")[:2])
     if gunicorn_version < (25, 1):
-        if has_control_socket:
-            sys.stderr.write(
-                "Warning: --control-socket requires gunicorn>=25.1, ignoring "
-                f"(installed: {'.'.join(str(x) for x in gunicorn_version)}).\n"
-            )
-            options["control_socket"] = None
-        if has_control_socket_disable:
-            sys.stderr.write(
-                "Warning: --no-control-socket requires gunicorn>=25.1, ignoring "
-                f"(installed: {'.'.join(str(x) for x in gunicorn_version)}).\n"
-            )
-            options["control_socket_disable"] = None
+        sys.stderr.write(
+            "Warning: --control-socket requires gunicorn>=25.1, ignoring "
+            f"(installed: {'.'.join(str(x) for x in gunicorn_version)}).\n"
+        )
+        options["control_socket"] = None
 
 
 class PulpcoreGunicornApplication(Application):

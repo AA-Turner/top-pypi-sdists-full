@@ -120,6 +120,33 @@ class ThpcClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def BindClusterVpc(self, request):
+        r"""本接口 (BindClusterVpc) 用于为IDC集群绑定VPC和子网。
+
+        * 绑定VPC后，集群可在该VPC内开启专线/VPN代理。
+        * VpcId和SubnetId为必填参数，且子网必须属于指定的VPC。
+        * 若集群已开通代理，需先关闭代理（DisableClusterDedicatedProxy）再变更VPC绑定。
+
+        :param request: Request instance for BindClusterVpc.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.BindClusterVpcRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.BindClusterVpcResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("BindClusterVpc", params, headers=headers)
+            response = json.loads(body)
+            model = models.BindClusterVpcResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateCluster(self, request):
         r"""本接口 (CreateCluster) 用于创建并启动集群。
 
@@ -136,6 +163,29 @@ class ThpcClient(AbstractClient):
             body = self.call("CreateCluster", params, headers=headers)
             response = json.loads(body)
             model = models.CreateClusterResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateScheduledAction(self, request):
+        r"""为指定集群队列创建定时伸缩任务，按计划时间自动调整队列的节点数量。
+
+        :param request: Request instance for CreateScheduledAction.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.CreateScheduledActionRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.CreateScheduledActionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateScheduledAction", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateScheduledActionResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -286,6 +336,29 @@ class ThpcClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteScheduledAction(self, request):
+        r"""删除指定的定时伸缩任务。
+
+        :param request: Request instance for DeleteScheduledAction.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.DeleteScheduledActionRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.DeleteScheduledActionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteScheduledAction", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteScheduledActionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeAutoScalingConfiguration(self, request):
         r"""本接口(DescribeAutoScalingConfiguration)用于查询集群弹性伸缩配置信息。本接口仅适用于弹性伸缩类型为THPC_AS的集群。
 
@@ -323,6 +396,32 @@ class ThpcClient(AbstractClient):
             body = self.call("DescribeClusterActivities", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeClusterActivitiesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeClusterDedicatedProxy(self, request):
+        r"""本接口 (DescribeClusterDedicatedProxy) 用于查询IDC集群专线/VPN代理的状态。
+
+        * 返回终端节点（EndPoint）的当前状态，包括是否就绪、VIP地址等信息。
+        * 若代理未开通，EndPointReady返回false，EndPointStatus为UNKNOWN。
+
+        :param request: Request instance for DescribeClusterDedicatedProxy.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.DescribeClusterDedicatedProxyRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.DescribeClusterDedicatedProxyResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeClusterDedicatedProxy", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeClusterDedicatedProxyResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -392,6 +491,29 @@ class ThpcClient(AbstractClient):
             body = self.call("DescribeInitNodeScripts", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeInitNodeScriptsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeInstanceFamilies(self, request):
+        r"""查询指定集群可用的机型族列表，用于弹性伸缩配置时选择机型族。
+
+        :param request: Request instance for DescribeInstanceFamilies.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.DescribeInstanceFamiliesRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.DescribeInstanceFamiliesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeInstanceFamilies", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeInstanceFamiliesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -493,6 +615,52 @@ class ThpcClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeQueueAutoScaling(self, request):
+        r"""查询指定集群的队列弹性伸缩配置信息。
+
+        :param request: Request instance for DescribeQueueAutoScaling.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.DescribeQueueAutoScalingRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.DescribeQueueAutoScalingResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeQueueAutoScaling", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeQueueAutoScalingResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeQueueAutoScalingOverview(self, request):
+        r"""查询指定集群的队列弹性伸缩概览信息，包括期望容量、当前容量、当前动态节点数、有效定时任务数等。
+
+        :param request: Request instance for DescribeQueueAutoScalingOverview.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.DescribeQueueAutoScalingOverviewRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.DescribeQueueAutoScalingOverviewResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeQueueAutoScalingOverview", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeQueueAutoScalingOverviewResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeQueues(self, request):
         r"""本接口(DescribeQueues)用于查询指定集群队列概览信息列表。
 
@@ -507,6 +675,29 @@ class ThpcClient(AbstractClient):
             body = self.call("DescribeQueues", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeQueuesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeScheduledActions(self, request):
+        r"""查询指定集群队列的定时伸缩任务列表。
+
+        :param request: Request instance for DescribeScheduledActions.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.DescribeScheduledActionsRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.DescribeScheduledActionsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeScheduledActions", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeScheduledActionsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -553,6 +744,136 @@ class ThpcClient(AbstractClient):
             body = self.call("DetachNodes", params, headers=headers)
             response = json.loads(body)
             model = models.DetachNodesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DisableClusterDedicatedProxy(self, request):
+        r"""本接口 (DisableClusterDedicatedProxy) 用于关闭IDC集群的专线/VPN代理。
+
+        * 关闭后，系统将删除VPC终端节点（EndPoint），断开IDC集群与云上VPC的网络连接。
+        * 若代理未开通，调用将返回ProxyNotEnabled错误。
+        * 操作不可逆，关闭后需重新调用EnableClusterDedicatedProxy开启。
+
+        :param request: Request instance for DisableClusterDedicatedProxy.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.DisableClusterDedicatedProxyRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.DisableClusterDedicatedProxyResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DisableClusterDedicatedProxy", params, headers=headers)
+            response = json.loads(body)
+            model = models.DisableClusterDedicatedProxyResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def EnableClusterDedicatedProxy(self, request):
+        r"""本接口 (EnableClusterDedicatedProxy) 用于开启IDC集群的专线/VPN代理。
+
+        * 开启后，系统将自动创建VPC终端节点（EndPoint），实现IDC集群与云上VPC的网络互通。
+        * 若代理已开通，重复调用将幂等返回已有EndPoint信息。
+        * SubnetId与VpcId需同时指定或同时不指定。若不指定，则使用集群已绑定的VPC和子网。
+
+        :param request: Request instance for EnableClusterDedicatedProxy.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.EnableClusterDedicatedProxyRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.EnableClusterDedicatedProxyResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("EnableClusterDedicatedProxy", params, headers=headers)
+            response = json.loads(body)
+            model = models.EnableClusterDedicatedProxyResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def GenerateRegisterCode(self, request):
+        r"""本接口(GenerateRegisterCode)用于为队列创建一个注册码，注册码用于IDC机器的注册纳管。
+
+        :param request: Request instance for GenerateRegisterCode.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.GenerateRegisterCodeRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.GenerateRegisterCodeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("GenerateRegisterCode", params, headers=headers)
+            response = json.loads(body)
+            model = models.GenerateRegisterCodeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def GenerateRegisterCommand(self, request):
+        r"""本接口 (GenerateRegisterCommand) 用于生成IDC集群的节点注册命令。
+
+        * 返回的注册命令可直接在IDC机器上以root身份执行，将该机器纳管进指定的IDC集群。
+        * 当<code>Proxy=true</code>时，系统会先确保集群专线代理就绪（自动开启终端节点并轮询至ACTIVE），再签发注册码并渲染带代理VIP的注册命令；若在超时窗口内代理仍未就绪，将返回<code>FailedOperation.ProxyNotReady</code>。
+        * 当<code>Proxy=false</code>时，IDC机器需可直连集群，直接签发注册码并渲染注册命令。
+        * VpcId与SubnetId需同时指定或同时不指定；仅当<code>Proxy=true</code>且集群未绑定VPC时二者必填。当<code>Proxy=false</code>时二者不生效，若仍传入将返回<code>InvalidParameterValue.ParametersNotSupported</code>。
+        * 若集群此前已开启专线代理并绑定了VPC/子网，本次传入的VpcId/SubnetId与已绑定值不一致时，将返回<code>UnsupportedOperation.VpcAlreadyBound</code>（不支持改绑）。
+        * 仅支持IDC类型集群，对非IDC集群调用将返回<code>InvalidParameterValue.ParametersNotSupported</code>。
+
+        :param request: Request instance for GenerateRegisterCommand.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.GenerateRegisterCommandRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.GenerateRegisterCommandResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("GenerateRegisterCommand", params, headers=headers)
+            response = json.loads(body)
+            model = models.GenerateRegisterCommandResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def InquirePriceCreateWorkspaces(self, request):
+        r"""本接口(InquirePriceCreateWorkspaces)用于创建实例询价。
+
+        :param request: Request instance for InquirePriceCreateWorkspaces.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.InquirePriceCreateWorkspacesRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.InquirePriceCreateWorkspacesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("InquirePriceCreateWorkspaces", params, headers=headers)
+            response = json.loads(body)
+            model = models.InquirePriceCreateWorkspacesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -654,6 +975,29 @@ class ThpcClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyScheduledAction(self, request):
+        r"""修改指定的定时伸缩任务配置。
+
+        :param request: Request instance for ModifyScheduledAction.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.ModifyScheduledActionRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.ModifyScheduledActionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyScheduledAction", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyScheduledActionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyWorkspacesAttribute(self, request):
         r"""本接口 (ModifyWorkspacesAttribute) 用于修改工作空间的属性（目前只支持修改工作空间的名称）。
 
@@ -737,6 +1081,29 @@ class ThpcClient(AbstractClient):
             body = self.call("SetAutoScalingConfiguration", params, headers=headers)
             response = json.loads(body)
             model = models.SetAutoScalingConfigurationResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SetQueueAutoScaling(self, request):
+        r"""为指定集群的队列配置弹性伸缩策略，包括伸缩容量、扩容方式等。
+
+        :param request: Request instance for SetQueueAutoScaling.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.SetQueueAutoScalingRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.SetQueueAutoScalingResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SetQueueAutoScaling", params, headers=headers)
+            response = json.loads(body)
+            model = models.SetQueueAutoScalingResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

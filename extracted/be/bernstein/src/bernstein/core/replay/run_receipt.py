@@ -177,13 +177,19 @@ class RunReceiptVerifyResult:
     Attributes:
         ok: ``True`` only when every recompute and the signature pass.
         status: ``"ok"``, ``"malformed"`` (unparseable / structurally
-            incomplete input), or ``"tampered"`` (a recompute or the
-            signature diverged).
+            incomplete input), ``"tampered"`` (a recompute or the
+            signature diverged), or ``"untrusted_key"`` (the signature
+            verified but the key it used is not trusted by the supplied
+            key-succession chain).
         run_id: Run id claimed by the receipt (best-effort on failure).
         journal_events: Number of embedded journal rows walked.
         spine_entries: Number of embedded spine entries walked.
         divergent_step: 0-based index of the first divergent journal step,
             when journal tamper was located.
+        key_verdict: Lifecycle verdict for the signing key when a
+            key-succession chain was supplied
+            (:class:`~bernstein.core.security.receipt_key_chain.KeyVerdict`
+            as its string value), else ``None``.
         errors: Human-readable explanations, first failure first.
     """
 
@@ -193,6 +199,7 @@ class RunReceiptVerifyResult:
     journal_events: int = 0
     spine_entries: int = 0
     divergent_step: int | None = None
+    key_verdict: str | None = None
     errors: list[str] = field(default_factory=list[str])
 
 
@@ -221,6 +228,10 @@ def _binding_block(
     spine_head: str,
     spine_count: int,
     audit_head_sha256: str | None,
+    endpoint_identities: list[dict[str, str]] | None = None,
+    audit_since: str | None = None,
+    audit_until: str | None = None,
+    audit_head_hmac: str | None = None,
 ) -> dict[str, Any]:
     """The subject binding: one canonical block over every recomputed head.
 
@@ -230,6 +241,21 @@ def _binding_block(
     ``audit_head_sha256`` is omitted (not nulled) when absent so stripping
     the opt-in audit block from a receipt that was signed with it changes
     the binding bytes and collapses verification.
+
+    ``audit_since``/``audit_until``/``audit_head_hmac`` describe the
+    declared audit window itself, not just its recomputed content head, and
+    are bound alongside it: the verifier cannot re-derive ``head_hmac``
+    without the operator's HMAC key, so it passes through the receipt's own
+    ``audit_range`` values here rather than recomputing them, which is
+    enough to make relabelling the window post-signing fail the signature
+    check the same way mutating the audit events does.
+
+    When ``endpoint_identities`` is provided (non-empty), it is included in
+    the binding block as an ``endpoints`` array. The verifier will only
+    include it when present in journal events, keeping backwards
+    compatibility with existing receipts that have no endpoint identity
+    events (the field is simply absent, and the binding block is built
+    without it).
     """
     block: dict[str, Any] = {
         "journal_event_count": journal_count,
@@ -238,8 +264,16 @@ def _binding_block(
         "spine_entry_count": spine_count,
         "spine_head": spine_head,
     }
+    if endpoint_identities is not None and len(endpoint_identities) > 0:
+        block["endpoints"] = endpoint_identities
     if audit_head_sha256 is not None:
         block["audit_range_head_sha256"] = audit_head_sha256
+        if audit_since is not None:
+            block["audit_range_since"] = audit_since
+        if audit_until is not None:
+            block["audit_range_until"] = audit_until
+        if audit_head_hmac is not None:
+            block["audit_range_head_hmac"] = audit_head_hmac
     return block
 
 
@@ -248,6 +282,35 @@ def _signature_preimage(binding_bytes: bytes) -> bytes:
     from bernstein.core.security.audit_dsse import pae
 
     return pae(RUN_RECEIPT_PAYLOAD_TYPE, binding_bytes)
+
+
+def _extract_endpoint_identities(events: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Extract unique endpoint identity tuples from ``agent_spawned`` events.
+
+    Returns a list of canonical dicts with keys ``adapter``, ``model``,
+    ``base_url``, and ``profile``, de-duplicated (sorted for deterministic
+    ordering). Only events that carry ``event == 'agent_spawned'`` and at
+    least an ``endpoint_adapter_name`` contribute. Empty-string values are
+    excluded so the identity is always meaningful.
+    """
+    seen: set[tuple[str, str, str, str]] = set()
+    identities: list[dict[str, str]] = []
+    for event in events:
+        if event.get("event") != "agent_spawned":
+            continue
+        adapter = str(event.get("endpoint_adapter_name") or "")
+        if not adapter:
+            continue
+        model = str(event.get("endpoint_model") or "")
+        base_url = str(event.get("endpoint_base_url") or "")
+        profile = str(event.get("endpoint_profile_name") or "")
+        key = (adapter, model, base_url, profile)
+        if key in seen:
+            continue
+        seen.add(key)
+        identities.append({"adapter": adapter, "model": model, "base_url": base_url, "profile": profile})
+    identities.sort(key=lambda d: (d["adapter"], d["model"], d["base_url"], d["profile"]))
+    return identities
 
 
 def _project_journal_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -553,6 +616,10 @@ def build_run_receipt(
         spine_head=spine_head,
         spine_count=len(spine_rows),
         audit_head_sha256=audit_head,
+        endpoint_identities=_extract_endpoint_identities(journal_rows),
+        audit_since=audit_block["since"] if audit_block is not None else None,
+        audit_until=audit_block["until"] if audit_block is not None else None,
+        audit_head_hmac=audit_block["head_hmac"] if audit_block is not None else None,
     )
     binding_bytes = _canonical_json_bytes(binding)
     subject_sha256 = hashlib.sha256(binding_bytes).hexdigest()
@@ -642,6 +709,8 @@ def verify_run_receipt(
     receipt_bytes: bytes,
     *,
     public_key_pem: bytes | None = None,
+    key_chain_bytes: bytes | None = None,
+    attested_signed_at: str | None = None,
 ) -> RunReceiptVerifyResult:
     """Verify a run receipt using only its own bytes (and an optional pin).
 
@@ -661,18 +730,40 @@ def verify_run_receipt(
     key - requires supplying that key out-of-band via ``public_key_pem``;
     the embedded key must then match it.
 
+    Key lifecycle: an operator who rotates or revokes receipt-signing
+    keys pins one *root* key and hands over a signed key-succession chain
+    (:mod:`bernstein.core.security.receipt_key_chain`) alongside the
+    receipts. Supplying ``key_chain_bytes`` replaces the single-key pin
+    with a walk from that root to whichever key signed this receipt, so a
+    rotation does not invalidate receipts the predecessor signed and a
+    revoked key stops carrying trust. The verdict is reported in
+    ``key_verdict``.
+
     Args:
         receipt_bytes: The receipt file contents.
-        public_key_pem: Optional PEM Ed25519 public key to pin. The
-            embedded JWK must encode the same key, otherwise the receipt
-            is rejected even when its content recomputes cleanly.
+        public_key_pem: Optional PEM Ed25519 public key to pin. Without
+            ``key_chain_bytes`` the embedded JWK must encode the same key,
+            otherwise the receipt is rejected even when its content
+            recomputes cleanly. With ``key_chain_bytes`` this is the
+            *root* key the chain must be anchored on, and the embedded key
+            is checked against the chain entry for the receipt's ``kid``
+            instead.
+        key_chain_bytes: Optional signed key-succession chain document.
+            Requires ``public_key_pem``: a chain with no pinned root
+            establishes nothing, so it is refused rather than walked.
+        attested_signed_at: Optional timezone-aware ISO-8601 instant at
+            which the receipt is attested to have been signed, from a
+            source outside the receipt (receipt bytes carry no wall
+            clock). Only consulted when the signing key was revoked, to
+            decide which side of the revocation the signature falls on.
 
     Returns:
         A :class:`RunReceiptVerifyResult`. ``status`` is ``"malformed"``
-        for unparseable or structurally incomplete input and
-        ``"tampered"`` for any recompute or signature divergence - with
-        the first divergent journal step index named when journal tamper
-        was located.
+        for unparseable or structurally incomplete input, ``"tampered"``
+        for any recompute or signature divergence - with the first
+        divergent journal step index named when journal tamper was
+        located - and ``"untrusted_key"`` when the signature verified but
+        the key-succession chain does not trust the key that produced it.
     """
     try:
         receipt = json.loads(receipt_bytes.decode("utf-8"))
@@ -746,6 +837,9 @@ def verify_run_receipt(
 
     # 3. Optional audit range: head recomputes from the embedded events.
     audit_head: str | None = None
+    audit_since: str | None = None
+    audit_until: str | None = None
+    audit_head_hmac: str | None = None
     audit_block = receipt.get("audit_range")
     if audit_block is not None:
         if not isinstance(audit_block, dict) or not isinstance(audit_block.get("events"), list):
@@ -759,8 +853,14 @@ def verify_run_receipt(
         if audit_block.get("event_count") != len(audit_events):
             return _tampered(["audit_range.event_count does not match the embedded events"])
         audit_head = recomputed_audit_head
+        # Cannot be recomputed here without the operator's HMAC key, so the
+        # receipt's own values are bound as-is (see _binding_block).
+        audit_since = audit_block.get("since")
+        audit_until = audit_block.get("until")
+        audit_head_hmac = audit_block.get("head_hmac")
 
     # 4. Subject binding: rebuilt from recomputed values only.
+    endpoint_identities = _extract_endpoint_identities(events)
     binding = _binding_block(
         run_id=run_id,
         journal_head=recomputed_journal_head,
@@ -768,6 +868,10 @@ def verify_run_receipt(
         spine_head=recomputed_spine_head,
         spine_count=len(entries),
         audit_head_sha256=audit_head,
+        endpoint_identities=endpoint_identities if endpoint_identities else None,
+        audit_since=audit_since,
+        audit_until=audit_until,
+        audit_head_hmac=audit_head_hmac,
     )
     binding_bytes = _canonical_json_bytes(binding)
     recomputed_subject = hashlib.sha256(binding_bytes).hexdigest()
@@ -793,7 +897,7 @@ def verify_run_receipt(
     except ValueError as exc:
         return _malformed(f"embedded JWK is not a usable Ed25519 key: {exc}", run_id=run_id)
 
-    if public_key_pem is not None:
+    if public_key_pem is not None and key_chain_bytes is None:
         try:
             pinned = serialization.load_pem_public_key(public_key_pem)
         except (ValueError, TypeError) as exc:
@@ -820,12 +924,56 @@ def verify_run_receipt(
     except InvalidSignature:
         return _tampered(["Ed25519 signature does not verify over the recomputed subject binding"])
 
+    # 6. Key lifecycle: the signature is authentic, but is the key trusted?
+    key_verdict: str | None = None
+    if key_chain_bytes is not None:
+        if public_key_pem is None:
+            return _malformed(
+                "a key chain needs public_key_pem: the chain is only evidence relative to the "
+                "root key the auditor pinned out of band",
+                run_id=run_id,
+            )
+        from bernstein.core.security.receipt_key_chain import (
+            KeyChainError,
+            resolve_signing_key,
+            verify_key_chain,
+        )
+
+        def _untrusted(reason: str, verdict: str | None) -> RunReceiptVerifyResult:
+            return RunReceiptVerifyResult(
+                ok=False,
+                status="untrusted_key",
+                run_id=run_id,
+                journal_events=len(events),
+                spine_entries=len(entries),
+                key_verdict=verdict,
+                errors=[reason],
+            )
+
+        try:
+            chain = verify_key_chain(key_chain_bytes, root_public_key_pem=public_key_pem)
+            trust = resolve_signing_key(
+                chain,
+                kid=str(signing.get("key_id", "")),
+                public_key_raw=public_key.public_bytes(
+                    serialization.Encoding.Raw,
+                    serialization.PublicFormat.Raw,
+                ),
+                attested_signed_at=attested_signed_at,
+            )
+        except KeyChainError as exc:
+            return _untrusted(str(exc), None)
+        if not trust.trusted:
+            return _untrusted(trust.detail, str(trust.verdict))
+        key_verdict = str(trust.verdict)
+
     return RunReceiptVerifyResult(
         ok=True,
         status="ok",
         run_id=run_id,
         journal_events=len(events),
         spine_entries=len(entries),
+        key_verdict=key_verdict,
     )
 
 

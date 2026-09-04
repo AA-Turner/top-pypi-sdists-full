@@ -123,6 +123,11 @@ class BuildEnvironment:
     # instead). Composite of graph facts and author derivations; dissolves once
     # join typing consults per-side origin nodes directly.
     scoped_partial_derived: set[str] = field(default_factory=set)
+    # Discriminator address -> enum values this statement's row gate rules out
+    # (`partial_bridging.drop_excluded_partials`). Partition-family proofs
+    # (union coverage, `merge_conditions`) run over the remaining domain, so
+    # hiding a contradicted arm never breaks the proof the other arms need.
+    excluded_enum_values: dict[str, frozenset[str]] = field(default_factory=dict)
     # Members of each build-scoped join key equivalence group, keyed by the
     # group's canonical address: exactly the authored relation endpoints (union
     # of the scoped merge map's source->canonical entries), NOT the transitive
@@ -146,6 +151,13 @@ class BuildEnvironment:
     # referenced only in a condition is population-scope (d1) demand, not a
     # row-stream contributor. Set by `get_query_node`.
     statement_output_addresses: set[str] | None = None
+    # Build-loop scope: the `~` spans the group currently being built may NOT
+    # extend, because another group was elected to carry those extension rows
+    # (v4_helper/extent_ownership.py). Every merge constructed while this is set
+    # captures it, so the decision is fixed before the node ever resolves:
+    # re-deciding after resolution would leave the padding's nullable marks
+    # behind. `build_strategy_node` sets and clears it around each group.
+    extent_free_spans: frozenset[str] = frozenset()
 
     def _distinct_scoped_join_groups(self) -> list[tuple[str, list[str]]]:
         """Per scoped-join key group, its canonical plus the members that keep

@@ -21,12 +21,12 @@ import sys
 
 sys.path[0:0] = [""]
 from inspect import iscoroutinefunction
-from test import IntegrationTest, client_context, unittest
-from test.utils_shared import OvertCommandListener
 
 from bson.dbref import DBRef
 from pymongo.operations import IndexModel
 from pymongo.synchronous.command_cursor import CommandCursor
+from test import IntegrationTest, client_context, unittest
+from test.utils_shared import OvertCommandListener
 
 _IS_SYNC = True
 
@@ -118,7 +118,7 @@ class TestComment(IntegrationTest):
     def test_collection_helpers(self):
         listener = OvertCommandListener()
         db = (self.rs_or_single_client(event_listeners=[listener]))[self.db.name]
-        coll = db.get_collection("test")
+        coll = db.get_collection("coll")
 
         helpers = [
             (coll.list_indexes, []),

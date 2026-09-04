@@ -1,5 +1,6 @@
 from metaflow.decorators import StepDecorator
 from metaflow import current
+from metaflow.exception import MetaflowException
 import functools
 from enum import Enum
 import threading
@@ -15,9 +16,15 @@ __mf_promote_submodules__ = ["plugins.vllm"]
 ### The following classes are used to store the vLLM information in the current environment.
 # Then, Metaflow users can access the vLLM information through the current environment.
 class OpenAIAPIInfo:
-    def __init__(self, local_endpoint, local_api_key):
+    def __init__(self, local_endpoint, local_api_key, model_name):
         self.local_endpoint = local_endpoint
         self.local_api_key = local_api_key
+        # The model name to pass as `model=` when calling the OpenAI-compatible
+        # API (e.g. client.chat.completions.create(model=..., ...)). This is
+        # the logical model name (self.attributes["model"]), which vLLM is
+        # configured to serve under regardless of source ('huggingface' or
+        # 'anaconda') or whether a local model_path was resolved.
+        self.model_name = model_name
 
 
 class VLLM:
@@ -50,9 +57,11 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
     Parameters
     ----------
     model: str
-        HuggingFace model identifier to be served by vLLM.
+        HuggingFace or Anaconda model identifier to be served by vLLM.
     backend: str
         Determines where and how to run the vLLM process.
+    source: str
+        Where to obtain the model from: 'huggingface' (default) or 'anaconda'.
     openai_api_server: bool
         Whether to use OpenAI-compatible API server mode (subprocess) instead of native engine.
         Default is False (uses native engine).
@@ -77,6 +86,7 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
     defaults = {
         "model": None,
         "backend": "local",
+        "source": "huggingface",
         "openai_api_server": False,  # Default to native engine
         "debug": False,
         "stream_logs_to_card": False,
@@ -99,6 +109,24 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
                 f"@vllm decorator on step '{step_name}' requires a 'model' parameter. "
                 f"Example: @vllm(model='meta-llama/Llama-3.2-1B')"
             )
+
+        if self.attributes["source"] not in ("huggingface", "anaconda"):
+            raise MetaflowException(
+                f"@vllm 'source' must be 'huggingface' or 'anaconda', got "
+                f"'{self.attributes['source']}'."
+            )
+
+        if self.attributes["source"] == "anaconda":
+            if any(deco.name == "anaconda_models" for deco in decorators):
+                raise MetaflowException(
+                    "@anaconda_models cannot be used together with @vllm(source='anaconda') — "
+                    "@vllm manages the model download automatically. "
+                    "Remove @anaconda_models from this step."
+                )
+
+            # Attach a card to visualize the downloaded Anaconda model,
+            # mirroring what @anaconda_models does.
+            self.attach_card_decorator(flow, step_name, "anaconda_models", "blank")
 
         # Attach the vllm status card only for API server mode
         if self.attributes["openai_api_server"]:
@@ -129,11 +157,82 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
 
         return vllm_wrapper
 
+    def _resolve_anaconda_model(self):
+        """
+        Download the model from the Anaconda model catalog and return the
+        AnacondaModel handle (whose `.path` is the local safetensors
+        directory to hand to vLLM). Raises MetaflowException on failure.
+        """
+        from metaflow_extensions.outerbounds.plugins.anaconda_models.client import (
+            AnacondaModelClient,
+        )
+        from metaflow_extensions.outerbounds.plugins.anaconda_models.exceptions import (
+            ModelAccessDenied,
+        )
+        from metaflow_extensions.outerbounds.plugins.anaconda_models.decorator import (
+            _paint_card,
+            _DeniedModel,
+        )
+
+        model_name = self.attributes["model"]
+        client = AnacondaModelClient()
+
+        try:
+            card = current.card["anaconda_models"]
+        except Exception:
+            card = None
+
+        try:
+            anaconda_model = client.model(model_name, format="safetensors")
+            anaconda_model.pull()
+        except ModelAccessDenied as e:
+            if card is not None:
+                try:
+                    _paint_card(card, [_DeniedModel(name=model_name, reason=e.reason)])
+                except Exception:
+                    pass
+            raise MetaflowException(
+                f"[@vllm] Anaconda model access denied for '{model_name}': {e.reason}"
+            )
+        except Exception as e:
+            raise MetaflowException(
+                f"[@vllm] Failed to download model '{model_name}' from Anaconda catalog: {e}"
+            )
+
+        if not anaconda_model.path:
+            raise MetaflowException(
+                f"[@vllm] Failed to download model '{model_name}' from Anaconda catalog."
+            )
+
+        if card is not None:
+            try:
+                _paint_card(card, [anaconda_model])
+            except Exception:
+                pass
+
+        return anaconda_model
+
+    def _cleanup_anaconda_model(self):
+        anaconda_model = getattr(self, "_anaconda_model", None)
+        if anaconda_model is None:
+            return
+        try:
+            anaconda_model.delete()
+            if self.attributes["debug"]:
+                print(
+                    f"[@vllm] Removed downloaded model files at {anaconda_model.path}"
+                )
+        except Exception as e:
+            print(f"[@vllm] Warning: failed to remove downloaded model files: {e}")
+        finally:
+            self._anaconda_model = None
+
     def _run_api_server_mode(self, step_func):
         """Run vLLM in API server mode (subprocess, existing functionality)"""
         self.vllm_manager = None
         self.status_card = None
         self.card_monitor_thread = None
+        self._anaconda_model = None
 
         try:
             self.status_card = VLLMStatusCard(
@@ -166,8 +265,19 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
             )
             self.card_monitor_thread._stop_event = False
             self.card_monitor_thread.start()
+
+            model_path = None
+            if self.attributes["source"] == "anaconda":
+                if self.status_card:
+                    self.status_card.add_event(
+                        "info", "Downloading model from Anaconda catalog"
+                    )
+                self._anaconda_model = self._resolve_anaconda_model()
+                model_path = self._anaconda_model.path
+
             self.vllm_manager = VLLMOpenAIManager(
                 model=self.attributes["model"],
+                model_path=model_path,
                 backend=self.attributes["backend"],
                 debug=self.attributes["debug"],
                 status_card=self.status_card,
@@ -181,6 +291,7 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
                     vllm=OpenAIAPIInfo(
                         local_endpoint=f"http://127.0.0.1:{self.vllm_manager.port}/v1",
                         local_api_key="token123",
+                        model_name=self.attributes["model"],
                     )
                 )
             )
@@ -226,16 +337,25 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
                 if self.attributes["debug"]:
                     print("[@vllm] Card monitoring thread stopped.")
 
+            self._cleanup_anaconda_model()
+
     def _run_native_engine_mode(self, step_func):
         """Run vLLM in native engine mode (direct LLM API access)"""
         self.vllm = None
+        self._anaconda_model = None
 
         try:
             if self.attributes["debug"]:
                 print("[@vllm] Initializing native engine mode")
 
+            model_path = None
+            if self.attributes["source"] == "anaconda":
+                self._anaconda_model = self._resolve_anaconda_model()
+                model_path = self._anaconda_model.path
+
             self.vllm = VLLMPyManager(
                 model=self.attributes["model"],
+                model_path=model_path,
                 debug=self.attributes["debug"],
                 **self.attributes["engine_args"],
             )
@@ -253,3 +373,4 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
         finally:
             if self.vllm:
                 self.vllm.terminate_engine()
+            self._cleanup_anaconda_model()

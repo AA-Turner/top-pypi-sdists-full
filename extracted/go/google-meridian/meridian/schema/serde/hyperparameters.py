@@ -14,7 +14,7 @@
 
 """Serde for Hyperparameters."""
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 import warnings
 
 import bidict
@@ -26,6 +26,13 @@ from meridian.schema.serde import constants as sc
 from meridian.schema.serde import serde
 from meridian.schema.utils import proto_enum_converter
 import numpy as np
+
+__all__ = [
+    "HyperparametersSerde",
+    "media_effects_converter",
+    "non_paid_treatments_prior_type_converter",
+    "paid_media_prior_type_converter",
+]
 
 _MediaEffectsDist = meridian_pb.MediaEffectsDistribution
 _PaidMediaPriorType = meridian_pb.PaidMediaPriorType
@@ -115,10 +122,10 @@ class HyperparametersSerde(
     if obj.max_lag is not None:
       hyperparameters_proto.max_lag = obj.max_lag
 
-    if isinstance(obj.knots, int):
-      hyperparameters_proto.knots.append(obj.knots)
-    elif isinstance(obj.knots, list):
-      hyperparameters_proto.knots.extend(obj.knots)
+    if isinstance(obj.knots, int) and not isinstance(obj.knots, bool):
+      hyperparameters_proto.n_knots = obj.knots
+    elif isinstance(obj.knots, Collection):
+      hyperparameters_proto.knot_locations.locations.extend(obj.knots)
 
     if isinstance(obj.baseline_geo, str):
       hyperparameters_proto.baseline_geo_string = obj.baseline_geo
@@ -202,13 +209,24 @@ class HyperparametersSerde(
       baseline_geo = serialized.baseline_geo_string
 
     knots = None
-    if serialized.knots:
+    knots_field = serialized.WhichOneof(sc.KNOTS_SPEC)
+    if knots_field == sc.N_KNOTS:
+      knots = serialized.n_knots
+    elif knots_field == sc.KNOT_LOCATIONS:
+      knots = list(serialized.knot_locations.locations)
+    # TODO: Remove fallback for legacy 'knots' repeated field once
+    # downstream internal callers in ads/lift/mmm have migrated.
+    elif serialized.knots:
       if len(serialized.knots) == 1:
         knots = serialized.knots[0]
       else:
         knots = list(serialized.knots)
 
-    max_lag = serialized.max_lag if serialized.HasField(c.MAX_LAG) else None
+    max_lag = (
+        serialized.max_lag
+        if serialized.HasField(c.MAX_LAG)
+        else c.DEFAULT_MAX_LAG
+    )
 
     roi_calibration_period = (
         backend.make_ndarray(serialized.roi_calibration_period)
@@ -295,7 +313,7 @@ class HyperparametersSerde(
             serialized.media_effects_dist
         ),
         hill_before_adstock=serialized.hill_before_adstock,
-        max_lag=max_lag,  # pyrefly: ignore[bad-argument-type]
+        max_lag=max_lag,
         unique_sigma_for_each_geo=serialized.unique_sigma_for_each_geo,
         media_prior_type=paid_media_prior_type_converter.from_proto(
             serialized.media_prior_type

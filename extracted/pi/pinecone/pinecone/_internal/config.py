@@ -5,12 +5,47 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Literal
+
+from pinecone.errors.exceptions import PineconeValueError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+GrpcScheme = Literal["http", "https"]
+
+GRPC_SCHEMES: tuple[str, ...] = ("http", "https")
+
+
+def resolve_grpc_scheme(scheme: str | None) -> GrpcScheme | None:
+    """Resolve the gRPC endpoint scheme from an explicit value or the environment.
+
+    Args:
+        scheme: The caller's explicit choice, or ``None`` to fall back to the
+            ``PINECONE_GRPC_SCHEME`` environment variable.
+
+    Returns:
+        ``"http"``, ``"https"``, or ``None`` when neither source names one, which
+        leaves the choice to the caller's own default. A resolved ``"http"``
+        scheme warns once per process when the gRPC endpoint is built, unless
+        the host is loopback or RFC 1918 private.
+
+    Raises:
+        PineconeValueError: If either source names a scheme other than ``http``
+            or ``https``.
+    """
+    resolved = scheme if scheme is not None else os.environ.get("PINECONE_GRPC_SCHEME", "").strip()
+    if not resolved:
+        return None
+    if resolved == "http":
+        return "http"
+    if resolved == "https":
+        return "https"
+    raise PineconeValueError(
+        f"Invalid gRPC scheme {resolved!r}. Must be one of: {', '.join(GRPC_SCHEMES)}."
+    )
 
 
 def normalize_host(host: str | None) -> str:
@@ -19,20 +54,25 @@ def normalize_host(host: str | None) -> str:
     - If host is None or empty, return "".
     - If host doesn't start with http:// or https://, prepend https://.
     - Existing http:// or https:// prefixes are preserved as-is.
-    - Double-scheme patterns (e.g. "https://https://foo.io") are repaired by
-      stripping the outer scheme and keeping the inner one.
+    - Stacked-scheme patterns (e.g. "https://https://foo.io") are repaired by
+      stripping outer schemes and keeping the innermost one.
+
+    Idempotent: normalizing an already-normalized host returns it unchanged.
     """
     if not host:
         return ""
-    # Detect and repair double-scheme patterns before any other processing.
-    # This handles all four combos: https://https://, https://http://,
-    # http://https://, http://http://.
-    for outer in ("https://", "http://"):
-        if host.startswith(outer):
-            remainder = host[len(outer) :]
-            if remainder.startswith(("http://", "https://")):
-                # Strip the outer scheme; keep the inner scheme intact.
-                host = remainder
+    # Strip outer schemes until at most one remains, so any depth of stacking
+    # collapses to a single scheme and the result is idempotent.
+    while True:
+        stripped = False
+        for outer in ("https://", "http://"):
+            if host.startswith(outer):
+                remainder = host[len(outer) :]
+                if remainder.startswith(("http://", "https://")):
+                    host = remainder
+                    stripped = True
+                break
+        if not stripped:
             break
     if not host.startswith(("http://", "https://")):
         return f"https://{host}"
@@ -114,6 +154,12 @@ class PineconeConfig:
         proxy_url: HTTP proxy URL.
         ssl_ca_certs: Path to CA certificate bundle.
         ssl_verify: Whether to verify SSL certificates.
+        grpc_scheme: URL scheme used to dial the gRPC data plane, ``"http"`` or
+            ``"https"``. Falls back to the PINECONE_GRPC_SCHEME env var, then to
+            ``None``, which lets the gRPC client keep its own default. Dialling
+            ``"http"`` against a host outside loopback and the RFC 1918 private
+            ranges warns once per process, since the API key and every payload
+            then cross a public network unencrypted.
     """
 
     api_key: str = ""
@@ -125,6 +171,7 @@ class PineconeConfig:
     proxy_headers: dict[str, str] = field(default_factory=dict)
     ssl_ca_certs: str | None = None
     ssl_verify: bool = True
+    grpc_scheme: GrpcScheme | None = None
     connection_pool_maxsize: int = 0
     retry_config: RetryConfig = field(default_factory=RetryConfig)
 
@@ -150,6 +197,7 @@ class PineconeConfig:
             f"proxy_headers={self._redact_headers(self.proxy_headers)!r}, "
             f"ssl_ca_certs={self.ssl_ca_certs!r}, "
             f"ssl_verify={self.ssl_verify}, "
+            f"grpc_scheme={self.grpc_scheme!r}, "
             f"connection_pool_maxsize={self.connection_pool_maxsize}"
             f")"
         )
@@ -169,3 +217,4 @@ class PineconeConfig:
                 object.__setattr__(self, "additional_headers", env_headers)
         if self.source_tag:
             object.__setattr__(self, "source_tag", normalize_source_tag(self.source_tag))
+        object.__setattr__(self, "grpc_scheme", resolve_grpc_scheme(self.grpc_scheme))

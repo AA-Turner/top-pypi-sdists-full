@@ -56,6 +56,41 @@ def _packages(
     return packages
 
 
+def _isolate_builtin_imports_packages(
+    imports: Optional[List[Union[str, Tuple[str, str]]]] = None,
+    packages: Optional[List[Union[str, ModuleType]]] = None,
+) -> Tuple[List[Union[str, Tuple[str, str]]], Optional[List[Union[str, ModuleType]]]]:
+    """Isolate built-in helper UDxFs from the caller's session state.
+
+    Snowpark treats ``imports=None``/``packages=None`` as "resolve the entire
+    session", so a session-level import or package (e.g. an absolute
+    ``@APP_DB.SCHEMA.stage/x.whl`` that a clean room / native app registers for the
+    customer's own code) gets attached to every built-in UDxF we create. Under a
+    role/schema that can't reference that stage this fails with 002003, and in a
+    versioned schema with 093023 (SNOW-3986338). Built-in helpers are self-contained
+    SCOS closures that never need customer artifacts, so default an unspecified
+    ``imports``/``packages`` to empty. ``imports=[]`` makes Snowpark attach nothing;
+    ``packages=[]`` drops session packages while still auto-adding what the pickled
+    closure requires (cloudpickle, etc.). Callers that pass explicit values keep them.
+
+    NOT a behavior change (not a BCR): this only affects SCOS's OWN built-in UDFs
+    (the ``__SC_BUILTIN_*`` closures), never customer UDFs, and it does not change
+    the result of any query. An audit of all built-ins found every one is either
+    stdlib-only or declares its own package explicitly (e.g. ``_to_csv`` ->
+    ``packages=["jpype1"]``, which stays untouched because it is non-``None``); none
+    relied on an inherited session import/package. So this can only turn a
+    previously-failing (or needlessly heavy) built-in registration into a working,
+    self-contained one -- it cannot make correct behavior incorrect. Customer UDFs,
+    which legitimately need session imports, go through map_udf / pandas_udtf paths
+    and are unaffected.
+    """
+    if imports is None:
+        imports = []
+    if packages is None:
+        packages = []
+    return imports, packages
+
+
 def _udxf_name(
     fn: Callable,
     input_types: Optional[List[DataType]] = None,
@@ -126,6 +161,7 @@ def cached_udaf(
     The UDAF is cached based on its name and input types. Make sure any new cached functions are unique.
     """
     packages = _packages(packages)
+    imports, packages = _isolate_builtin_imports_packages(imports, packages)
 
     def _cached_udaf(udaf_type: typing.Type):
         telemetry.report_udf_usage(udaf_type.__name__)
@@ -178,6 +214,7 @@ def cached_udf(
     The UDF is cached based on its name and input types. Make sure any new cached functions are unique.
     """
     packages = _packages(packages)
+    imports, packages = _isolate_builtin_imports_packages(imports, packages)
 
     def _cached_udf(func: Callable):
         telemetry.report_udf_usage(func.__name__)
@@ -235,6 +272,7 @@ def cached_udtf(
     The UDTF is cached based on its name and input types. Make sure any new cached functions are unique.
     """
     packages = _packages(packages)
+    imports, packages = _isolate_builtin_imports_packages(imports, packages)
 
     def _cached_udtf(func: Callable):
         telemetry.report_udf_usage(func.__name__)

@@ -76,7 +76,27 @@ only two:
    ``console_artifact=`` naming the durable surface the finding is ALSO
    published to.
 2. **Whether the send buzzes the phone** (``disable_notification``).
-   ``error``/``critical`` buzz; nothing else does.
+   ``error``/``critical`` buzz; nothing else does — *by default*.
+
+**The push is overridable in BOTH directions; the destination is not.**
+``publish(..., silent=...)`` is three-state: ``None`` (default) keeps the
+severity-derived push above, ``True`` forces the silent delivery, and
+``False`` forces the phone push. Severity stays the **routing** key — which
+Telegram destination — and ``silent`` is the **push** key, so the two are
+decided separately and neither has to be distorted to get the other.
+
+That symmetry is the point. ``True`` exists so :func:`publish_clear` never
+depends on ``info`` staying outside :data:`SEVERITY_PHONE_PUSH` (I8105).
+``False`` exists because **a daily digest that must be seen is a legitimate
+``info``-severity push**: a report is not an incident, so publishing it at
+``error`` to buy a buzz corrupts the severity taxonomy and the operator
+channel routing along with it, while leaving it silent means the operator
+does not know it arrived. Until 2026-09-03 this override ran one way only
+(``if silent:``), which made ``False`` indistinguishable from ``None``: a
+caller asking for a push at ``info`` got silence, with no error and no log
+line. Measured consequence (alpha-engine-config-I9916): ``crucible``'s daily
+accountability report passed ``silent=False`` and was delivered silently,
+and the operator reported never receiving it.
 
 **SNS delivery is byte-identical at every severity.** Routing is a
 Telegram-only concept; the durable record on ``alpha-engine-alerts``
@@ -145,6 +165,8 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from krepis import _dedup, fleet_events
+from krepis.telegram import PARSE_MODE as TELEGRAM_PARSE_MODE
+from krepis.telegram import _validate_parse_mode
 
 logger = logging.getLogger(__name__)
 
@@ -687,6 +709,7 @@ def _publish_telegram(
     destination: str = DESTINATION_OPERATOR_CHAT,
     chat_id: str | None = None,
     message_thread_id: int | None = None,
+    parse_mode: str | None = TELEGRAM_PARSE_MODE,
 ) -> ChannelResult:
     """Send one message to the resolved Telegram ``destination``.
 
@@ -695,8 +718,15 @@ def _publish_telegram(
     which is what :func:`krepis.telegram.send_message` does by default.
     ``destination`` is carried through only to name itself in the returned
     :attr:`ChannelResult.detail` — the routing decision was already made by
-    :func:`resolve_destination`.
+    :func:`resolve_destination`. ``parse_mode`` is passed straight through to
+    :func:`krepis.telegram.send_message` (alpha-engine-config-I9925); the
+    default is that function's own default, so no existing caller changes.
     """
+    # OUTSIDE the try below, on purpose: a caller's typo (`"markdown"`) is a
+    # defect at the call site, and the `except Exception` that turns a
+    # transport failure into `ok=False` would otherwise swallow it — and with
+    # SNS also delivering, `publish` would not even raise on total failure.
+    _validate_parse_mode(parse_mode)
     try:
         from krepis.telegram import send_message
 
@@ -706,18 +736,45 @@ def _publish_telegram(
         # a delivery gate. See SEVERITY_PHONE_PUSH and the module docstring.
         #
         # `silent` is an explicit caller override of that severity-derived
-        # decision, in ONE direction only: True forces the silent delivery,
-        # None keeps the severity default. It exists so `publish_clear` does
-        # not depend on `info` staying outside SEVERITY_PHONE_PUSH forever
-        # (I8105) — a recovery must never push, whatever that set becomes.
+        # decision, in BOTH directions — it is three-state:
+        #   None  → keep the severity-derived default (SEVERITY_PHONE_PUSH)
+        #   True  → force silent delivery, whatever the severity
+        #   False → force the phone push, whatever the severity
+        #
+        # True exists so `publish_clear` does not depend on `info` staying
+        # outside SEVERITY_PHONE_PUSH forever (I8105) — a recovery must never
+        # push, whatever that set becomes.
+        #
+        # False exists because a daily digest that MUST be seen is a
+        # legitimate `info`-severity push. Severity is the ROUTING key, not
+        # the push key: a report is not an incident and must not be published
+        # at `error` merely to buzz a phone, nor must it be silent merely
+        # because it is not an incident. Until 2026-09-03 `False` was
+        # indistinguishable from `None` (`if silent:`), so a caller that
+        # asked for a push at `info` got silence and had no way to tell —
+        # `crucible`'s daily accountability report (`crucible/morning.py::
+        # deliver`, Brian ruling alpha-engine-config-I9916 "notify") passed
+        # `silent=False` and arrived silently, which is why the operator
+        # reported never receiving it.
         disable_push = severity.lower() not in SEVERITY_PHONE_PUSH
-        if silent:
-            disable_push = True
+        if silent is not None:
+            disable_push = bool(silent)
+        # `parse_mode` is forwarded ONLY when a caller chose one. The default
+        # is the transport's own default, and not naming it keeps the call
+        # shape byte-identical for every existing caller AND every existing
+        # test double of `send_message` (several accept an explicit kwarg
+        # list, and an unexpected kwarg there would read as "Telegram
+        # fan-out failed" — a fake transport failure manufactured by a
+        # signature change).
+        transport_kwargs: dict = {}
+        if parse_mode != TELEGRAM_PARSE_MODE:
+            transport_kwargs["parse_mode"] = parse_mode
         ok = send_message(
             message,
             disable_notification=disable_push,
             chat_id=chat_id,
             message_thread_id=message_thread_id,
+            **transport_kwargs,
         )
         # The destination is named in `detail` as well as on
         # `PublishResult.telegram_destination` so a human reading a CLI
@@ -890,6 +947,7 @@ def publish(
     destination: str | None = None,
     console_artifact: str | None = None,
     raise_on_total_failure: bool = True,
+    parse_mode: str | None = TELEGRAM_PARSE_MODE,
 ) -> PublishResult:
     """Fan out a failure alert to the operator-surveillance channels.
 
@@ -989,10 +1047,24 @@ def publish(
         marker is still live. Defaults to ``dedup_key`` when that is set and
         this is not, so existing dedup-keyed publishers become pairable
         without touching their call sites.
-    :param silent: Force silent Telegram delivery (delivered to the chat, no
-        phone push) regardless of severity. ``None`` (default) keeps the
-        severity-derived behaviour. ``False`` is NOT an escalation — it is
-        treated as "no override".
+    :param silent: Three-state explicit override of the severity-derived
+        phone push, in BOTH directions. ``None`` (default) keeps the
+        severity-derived behaviour (:data:`SEVERITY_PHONE_PUSH`). ``True``
+        forces silent delivery — delivered to the chat, no phone push —
+        whatever the severity. ``False`` forces the phone push whatever the
+        severity, for the caller whose message must be SEEN at a non-incident
+        severity (a daily digest is a legitimate ``info``-severity push).
+        Neither value changes the destination: severity remains the routing
+        key, and this argument is only the push key. Before 2026-09-03
+        ``False`` was indistinguishable from ``None`` and silently produced
+        silence (alpha-engine-config-I9916).
+    :param parse_mode: Telegram parse mode for the body, passed through to
+        :func:`krepis.telegram.send_message` (alpha-engine-config-I9925).
+        ``"Markdown"`` (default) is today's behaviour, byte for byte. ``"HTML"``
+        sends the body unescaped — the caller owns the markup and has run every
+        interpolated string through :func:`krepis.telegram.escape_html`,
+        INCLUDING ``source``, which this function splices into the prefix
+        verbatim. ``None`` sends plain text with no ``parse_mode`` key.
     :param destination: Explicit override of the severity-derived Telegram
         destination — one of :data:`ALERT_DESTINATIONS`. ``None`` (default)
         derives it from ``severity``. An override is honoured where it can
@@ -1031,6 +1103,10 @@ def publish(
     result = PublishResult()
     result.state = state
     result.identity_key = effective_identity
+    # A bad `parse_mode` is the caller's defect and raises HERE, before the
+    # dry-run short-circuit, the test-env guard and the channel fan-out —
+    # none of which may turn it into a quiet `ok=False` (I9925 review A2).
+    _validate_parse_mode(parse_mode)
     formatted = _format_message(message, severity, source, state)
 
     # ── Dry-run short-circuit (config-I6759) ─────────────────────────────
@@ -1175,6 +1251,7 @@ def publish(
                     formatted,
                     severity=severity,
                     silent=silent,
+                    parse_mode=parse_mode,
                     destination=resolved,
                     chat_id=log_chat_id if resolved == DESTINATION_LOG_CHAT else None,
                     message_thread_id=(

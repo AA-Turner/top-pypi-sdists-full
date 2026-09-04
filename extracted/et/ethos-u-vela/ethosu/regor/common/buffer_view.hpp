@@ -658,7 +658,7 @@ public:
         _elementBits = elementBits;
         _baseOffset = firstElement;
         _axisElements = axisElements;
-        if ( strideBytes.IsEmpty() && elementBits >= 8 )
+        if ( strideBytes.IsEmpty() && axisElements && elementBits >= 8 )
         {
             // Calculate byte strides
             _strideBytes = Shape::GetStridesForShape(axisElements, elementBits / 8);

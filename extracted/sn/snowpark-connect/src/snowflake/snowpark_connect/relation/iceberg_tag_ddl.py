@@ -22,20 +22,17 @@ The Spark tag DDL surface, from the Iceberg docs
 Snowflake's surface (per internal design doc, alignment confirmed with
 the SCOS owners on 2026-06-11) renames the keyword ``TAG`` to
 ``VERSION_TAG`` and uses ``ALTER ICEBERG TABLE`` instead of the bare
-``ALTER TABLE``. The snapshot-id binding for ``CREATE VERSION_TAG`` is
-expressed as a trailing ``AS OF VERSION <id>`` clause and is currently
-**required** by the Snowflake parser (server-side probe 2026-06-12: any
-``CREATE VERSION_TAG <name>`` form without a trailing ``AS OF VERSION``
-errors with ``unexpected '<EOF>'``, whether the SQL reaches Snowflake
-through SCOS translation or through SCOS SQL passthrough mode
-``snowpark.connect.sql.passthrough=true`` — the restriction is
-Snowflake-server-side, not SCOS-side, so passthrough is **not** an
-escape hatch for the bare form)::
+``ALTER TABLE``. Snapshot binding is expressed as a trailing
+``AS OF VERSION <id>`` or ``AS OF TIMESTAMP <ts>`` clause when the Spark
+SQL supplies one; bare ``CREATE TAG <name>`` omits the clause and
+Snowflake binds the tag to the current head snapshot::
 
+    ALTER ICEBERG TABLE <tbl> CREATE VERSION_TAG <name>
     ALTER ICEBERG TABLE <tbl> CREATE VERSION_TAG <name> AS OF VERSION <id>
     ALTER ICEBERG TABLE <tbl> CREATE OR REPLACE VERSION_TAG <name> AS OF VERSION <id>
     ALTER ICEBERG TABLE <tbl> CREATE VERSION_TAG IF NOT EXISTS <name> AS OF VERSION <id>
     ALTER ICEBERG TABLE <tbl> CREATE VERSION_TAG IF NOT EXISTS <name> AS OF TIMESTAMP <ts>
+    ALTER ICEBERG TABLE <tbl> ALTER VERSION_TAG <name> AS OF VERSION <id>
     ALTER ICEBERG TABLE <tbl> DROP VERSION_TAG <name>
     ALTER ICEBERG TABLE <tbl> DROP VERSION_TAG IF EXISTS <name>
 
@@ -91,11 +88,10 @@ Translation policy
 * ``IF NOT EXISTS`` (for CREATE) and ``IF EXISTS`` (for DROP) pass
   through to Snowflake — both are Snowflake-standard idioms.
 * ``CREATE OR REPLACE`` passes through — again, Snowflake-standard.
-* Bare ``REPLACE TAG`` (no CREATE) raises ``UNSUPPORTED_OPERATION``.
-  Snowflake doesn't expose a bare REPLACE form for ``VERSION_TAG``,
-  and silently rewriting to ``CREATE OR REPLACE`` would change the
-  failure-on-missing semantics that Iceberg's bare ``REPLACE TAG``
-  guarantees.
+* Bare ``REPLACE TAG … AS OF VERSION <id>`` (no CREATE) maps to
+  ``ALTER VERSION_TAG … AS OF VERSION <id>``. ``REPLACE TAG`` without
+  an ``AS OF VERSION`` / ``AS OF TIMESTAMP`` binding raises
+  ``UNSUPPORTED_OPERATION``.
 * ``AS OF VERSION <id>`` (snapshot-pinned tag creation) is translated
   to a trailing ``AS OF VERSION <id>`` clause on the Snowflake
   ``CREATE VERSION_TAG`` DDL. The server-side surface was confirmed
@@ -108,34 +104,15 @@ Translation policy
   ``ALTER TABLE … CREATE TAG [IF NOT EXISTS] <name> AS OF TIMESTAMP …``
   via a pre-parse hook in ``map_sql.py`` (see
   ``match_create_tag_as_of_timestamp_sql``).
-* The bare ``CREATE TAG <name>`` form (no ``AS OF VERSION``) — which
-  is Iceberg's canonical "tag the current head" idiom — raises
-  ``UNSUPPORTED_OPERATION`` with an actionable message. We chose
-  early-surface over pass-through because:
-
-  - Snowflake's parser currently rejects ``CREATE VERSION_TAG <name>``
-    with ``unexpected '<EOF>'`` (server probe 2026-06-12), so passing
-    through silently produces an opaque SQL compilation error 200
-    frames deep that's hard for customers to map back to a tag-DDL
-    cause.
-  - The restriction is Snowflake-server-side; SCOS SQL passthrough
-    mode is **not** an escape hatch — the bare form fails the same
-    way when sent verbatim.
-  - Customers who want head-snapshot semantics today must resolve
-    the head snapshot id explicitly via
-    ``INFORMATION_SCHEMA.GET_TABLE_VERSIONS('<fqn>')`` (see
-    ``tests/sas_tests/test_iceberg_snapshot_id_sample.py`` and
-    ``tests/sas_tests/test_iceberg_version_tag_sample.py``) and pass
-    it in as ``CREATE TAG <name> AS OF VERSION <id>``.
-
-  If a future Snowflake release defaults the snapshot id to head, this
-  branch can be relaxed to emit the bare form transparently — the
-  unit tests pin the current behavior so the relaxation is a
-  deliberate, reviewable change.
-* ``RETAIN <N> DAYS`` raises ``UNSUPPORTED_OPERATION``: Snowflake's
-  surface for tag retention is not documented as supported via the
-  ``CREATE VERSION_TAG`` DDL today, and emitting a guessed spelling
-  would risk silently dropping the retention bound.
+* The bare ``CREATE TAG <name>`` form (no ``AS OF VERSION``) — Iceberg's
+  canonical "tag the current head" idiom — is translated to bare
+  ``CREATE VERSION_TAG <name>`` and Snowflake binds the tag to the
+  current head snapshot. Explicit ``AS OF VERSION <id>`` / ``AS OF
+  TIMESTAMP <ts>`` bindings still pass through when supplied.
+* ``RETAIN <N> DAYS`` is translated to a trailing ``RETAIN <N> DAYS``
+  clause when ``TagOptions.snapshotRefRetain()`` is set. Iceberg encodes
+  the duration in milliseconds; SCOS lowers it to whole-day literals for
+  Snowflake's ``CREATE VERSION_TAG`` / ``ALTER VERSION_TAG`` grammar.
 * The emitted SQL always uses ``ALTER ICEBERG TABLE`` (not the
   type-detecting ``_execute_alter`` helper): tag DDL only makes sense
   on Iceberg-backed tables, so skipping the catalog round-trip is
@@ -169,6 +146,7 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.utils.telemetry import telemetry
 
 
 @dataclass(frozen=True)
@@ -181,6 +159,8 @@ class CreateTagAsOfTimestampMatch:
     create_or_replace: bool
     timestamp_sql: str
 
+
+_MILLIS_PER_DAY = 24 * 60 * 60 * 1000
 
 _CREATE_TAG_AS_OF_TIMESTAMP_SQL = re.compile(
     r"""
@@ -248,19 +228,7 @@ def _build_create_version_tag_action(
             action += " IF NOT EXISTS"
         return action
     if replace:
-        exception = AnalysisException(
-            f"Iceberg 'ALTER TABLE … REPLACE TAG {tag_name!r}' (without "
-            "CREATE) is not translated by Snowpark Connect: Snowflake "
-            "does not expose a bare REPLACE form for VERSION_TAG, and "
-            "automatically lowering this to 'CREATE OR REPLACE' would "
-            "change the semantics (Iceberg's bare REPLACE TAG fails if "
-            "the tag is missing; CREATE OR REPLACE creates it). If "
-            "create-or-update semantics are acceptable, rewrite the "
-            "statement as 'CREATE OR REPLACE TAG'; otherwise use "
-            "Snowflake-native DDL directly."
-        )
-        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-        raise exception
+        return "ALTER VERSION_TAG"
     exception = AnalysisException(
         "Internal: Iceberg CreateOrReplaceTag plan has neither "
         "'create' nor 'replace' flag set; this is a parser invariant "
@@ -270,16 +238,42 @@ def _build_create_version_tag_action(
     raise exception
 
 
+def _format_tag_retain_clause(retain_millis: int) -> str:
+    """Lower Iceberg's millisecond ``snapshotRefRetain`` to ``RETAIN N DAYS``."""
+    if retain_millis <= 0 or retain_millis % _MILLIS_PER_DAY != 0:
+        telemetry.report_iceberg_wap(
+            op="unsupported",
+            surface="sql_call",
+            ref_type="tag",
+            ddl_action="create",
+            outcome="rejected",
+            error_code="UNSUPPORTED_OPERATION",
+            detail="tag_retain_not_whole_days",
+        )
+        exception = AnalysisException(
+            f"Iceberg RETAIN duration {retain_millis} ms cannot be translated "
+            "to a whole number of DAYS for Snowflake VERSION_TAG DDL."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+    days = retain_millis // _MILLIS_PER_DAY
+    return f"RETAIN {days} DAYS"
+
+
 def _build_create_version_tag_sql(
     *,
     table_name_sql: str,
     action: str,
     quoted_tag: str,
-    as_of_clause: str,
+    as_of_clause: str | None = None,
+    retain_clause: str | None = None,
 ) -> str:
-    return (
-        f"ALTER ICEBERG TABLE {table_name_sql} {action} {quoted_tag} " f"{as_of_clause}"
-    )
+    parts = [f"ALTER ICEBERG TABLE {table_name_sql}", action, quoted_tag]
+    if as_of_clause is not None:
+        parts.append(as_of_clause)
+    if retain_clause is not None:
+        parts.append(retain_clause)
+    return " ".join(parts)
 
 
 def match_create_tag_as_of_timestamp_sql(
@@ -316,6 +310,12 @@ def translate_create_tag_as_of_timestamp_match(
             action += " IF NOT EXISTS"
     quoted_tag = quote_name_without_upper_casing(match.tag_name)
     as_of_clause = f"AS OF TIMESTAMP {match.timestamp_sql}"
+    telemetry.report_iceberg_wap(
+        op="tag_ddl",
+        surface="sql_call",
+        ref_type="tag",
+        ddl_action="create",
+    )
     return _build_create_version_tag_sql(
         table_name_sql=table_name_sql,
         action=action,
@@ -350,20 +350,9 @@ def translate_create_or_replace_tag(rel: TypingAny, table_name_sql: str) -> str:
     else:
         snapshot_id = None
 
+    retain_clause: str | None = None
     if snapshot_retain_opt.isDefined():
-        # RETAIN <N> DAYS: Iceberg's tag retention policy. Snowflake's
-        # surface for tag retention (if any) is not documented as
-        # supported in the SCOS-aligned design. Same posture as the
-        # ``AS OF VERSION`` branch.
-        exception = AnalysisException(
-            f"Iceberg 'ALTER TABLE … CREATE TAG {tag_name!r} RETAIN <N> "
-            "DAYS' is not translated by Snowpark Connect: the "
-            "Snowflake-side syntax for VERSION_TAG retention is not yet "
-            "documented as supported. Configure tag retention directly "
-            "through Snowflake."
-        )
-        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-        raise exception
+        retain_clause = _format_tag_retain_clause(int(snapshot_retain_opt.get()))
 
     snapshot_timestamp = _get_tag_snapshot_timestamp(options)
 
@@ -381,46 +370,47 @@ def translate_create_or_replace_tag(rel: TypingAny, table_name_sql: str) -> str:
         as_of_clause = f"AS OF VERSION {snapshot_id}"
     elif snapshot_timestamp is not None:
         as_of_clause = f"AS OF TIMESTAMP {snapshot_timestamp}"
-    else:
-        # The bare ``CREATE TAG <name>`` form (no ``AS OF VERSION``) is
-        # Iceberg's canonical "tag the current head" idiom. Snowflake's
-        # parser currently *requires* a trailing ``AS OF VERSION <id>``
-        # on ``CREATE VERSION_TAG`` (server probe 2026-06-12: any bare
-        # form is rejected with ``unexpected '<EOF>'``), so passing the
-        # translation through verbatim would surface as an opaque SQL
-        # compilation error 200 frames deep that's hard to attribute
-        # back to tag DDL. We surface a clear, actionable error here
-        # instead.
-        #
-        # Importantly, this is a Snowflake-server-side restriction, not
-        # a SCOS-side one — SCOS SQL passthrough mode
-        # (``snowpark.connect.sql.passthrough=true``) has the same
-        # behavior, so we explicitly tell the customer "passthrough
-        # won't help" to head off the natural workaround attempt.
+    elif replace and not create:
+        # Bare ``REPLACE TAG <name>`` (no ``AS OF VERSION`` / ``AS OF TIMESTAMP``):
+        # Snowflake's ``ALTER VERSION_TAG`` requires an explicit snapshot binding
+        # to repoint the tag, so we surface a clear error instead of emitting SQL
+        # that would fail deep in the parser.
+        telemetry.report_iceberg_wap(
+            op="unsupported",
+            surface="sql_call",
+            ref_type="tag",
+            ddl_action="replace",
+            outcome="rejected",
+            error_code="UNSUPPORTED_OPERATION",
+            detail="replace_tag_no_version",
+        )
         exception = AnalysisException(
-            f"Iceberg 'ALTER TABLE … CREATE TAG {tag_name!r}' (without "
+            f"Iceberg 'ALTER TABLE … REPLACE TAG {tag_name!r}' (without "
             "'AS OF VERSION <id>' or 'AS OF TIMESTAMP <ts>') is not "
             "translated by Snowpark Connect: Snowflake's "
-            "'CREATE VERSION_TAG' grammar requires an explicit "
-            "'AS OF VERSION <snapshot_id>' or 'AS OF TIMESTAMP <ts>' "
-            "clause today. This is a Snowflake-server restriction; SCOS "
-            "SQL passthrough mode (snowpark.connect.sql.passthrough=true) "
-            "does not lift it. To tag the current head snapshot, resolve "
-            "the id first via "
-            "'SELECT * FROM TABLE(<cld>.INFORMATION_SCHEMA."
-            "GET_TABLE_VERSIONS(''<fqn>''))' and pass it explicitly: "
-            f"'ALTER TABLE … CREATE TAG {tag_name!r} AS OF VERSION "
+            "'ALTER VERSION_TAG' grammar requires an explicit snapshot "
+            "binding. Rewrite as "
+            f"'ALTER TABLE … REPLACE TAG {tag_name!r} AS OF VERSION "
             "<snapshot_id>'."
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
+    else:
+        as_of_clause = None
 
     quoted_tag = quote_name_without_upper_casing(tag_name)
+    telemetry.report_iceberg_wap(
+        op="tag_ddl",
+        surface="sql_call",
+        ref_type="tag",
+        ddl_action="create",
+    )
     return _build_create_version_tag_sql(
         table_name_sql=table_name_sql,
         action=action,
         quoted_tag=quoted_tag,
         as_of_clause=as_of_clause,
+        retain_clause=retain_clause,
     )
 
 
@@ -433,4 +423,10 @@ def translate_drop_tag(rel: TypingAny, table_name_sql: str) -> str:
     if if_exists:
         action += " IF EXISTS"
     quoted_tag = quote_name_without_upper_casing(tag_name)
+    telemetry.report_iceberg_wap(
+        op="tag_ddl",
+        surface="sql_call",
+        ref_type="tag",
+        ddl_action="drop",
+    )
     return f"ALTER ICEBERG TABLE {table_name_sql} {action} {quoted_tag}"

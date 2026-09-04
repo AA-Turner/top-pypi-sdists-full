@@ -21,6 +21,17 @@ Write-Host "Version: $version  (tag: $tag)"
 $existing = git tag -l $tag
 if ($existing) { Write-Error "Tag $tag already exists locally. Bump version first."; exit 1 }
 
+# --- 2b. TAG-CHAIN CONTINUITY pre-flight (v0.413.0 lesson, 2026-09-03) ---
+# Every ledger version except the current prep must already have a tag.
+$ledger = Get-Content UNIFIED_REGISTRY_VERSION.txt | Where-Object { $_.StartsWith("v") }
+$prior = $ledger | Select-Object -SkipLast 1
+$gapAuthorized = @("v0.413.0")  # THE USER MANUAL BAND - prepared, silent ship failure, published inside v0.414.0
+foreach ($lv in $prior) {
+    if (-not (git tag -l $lv) -and ($gapAuthorized -notcontains $lv)) {
+        Write-Error "TAG-CHAIN GAP: ledger version $lv has no git tag. A prior ship failed silently. Refusing to ship on a broken chain."; exit 1
+    }
+}
+
 # --- 3. Fidelity gate ---
 Write-Host "=== Fidelity gate ===" -ForegroundColor Cyan
 python uqff_fidelity_tests.py
@@ -52,6 +63,14 @@ if ($tagSha -ne $headSha) { Write-Error "TAG/HEAD MISMATCH - aborting push."; ex
 git push origin master
 git push origin $tag
 
-Write-Host "=== SHIPPED $tag ===" -ForegroundColor Green
+# --- 9. Verify the ship actually landed (v0.413.0 lesson) ---
+$remoteTag = git ls-remote origin ("refs/tags/" + $tag)
+if (-not $remoteTag) { Write-Error "REMOTE TAG MISSING after push - the ship did NOT land. Do not trust this run."; exit 1 }
+$localHead = git rev-parse HEAD
+if (-not ($remoteTag.StartsWith($localHead.Substring(0,7)) -or $remoteTag.Contains($localHead))) {
+    Write-Host "WARNING: remote tag SHA does not obviously match local HEAD - verify manually." -ForegroundColor Yellow
+}
+
+Write-Host "=== SHIPPED $tag (remote tag verified) ===" -ForegroundColor Green
 Write-Host "Watch: https://github.com/Daniel8Murphy0007/Star-Magic-Program/actions"
 Write-Host "PyPI:  https://pypi.org/project/star-magic-program/$version/"

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: adam-atan2-pytorch
-Version: 0.4.0
+Version: 0.4.1
 Summary: Adam-atan2 for Pytorch
 Project-URL: Homepage, https://pypi.org/project/adam_atan2_pytorch/
 Project-URL: Repository, https://github.com/lucidrains/adam_atan2_pytorch

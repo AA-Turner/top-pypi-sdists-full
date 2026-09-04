@@ -42,6 +42,91 @@ class SourceFilesResource(BaseResource):
     https://developer.crowdin.com/api/v2/#tag/Source-Files
     """
 
+    # Organization Search
+    def search_branches(
+        self,
+        filter: str,
+        projectIds: Optional[Iterable[int]] = None,
+        userId: Optional[int] = None,
+        page: Optional[int] = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+    ):
+        """
+        Search Branches.
+
+        Link to documentation:
+        https://developer.crowdin.com/api/v2/#operation/api.branches.getMany
+        https://developer.crowdin.com/enterprise/api/v2/#operation/api.branches.getMany
+        """
+
+        params = {
+            "filter": filter,
+            "projectIds": None
+            if projectIds is None
+            else ",".join(str(projectId) for projectId in projectIds),
+            "userId": userId,
+        }
+        params.update(self.get_page_params(page=page, offset=offset, limit=limit))
+
+        return self._get_entire_data(method="get", path="branches", params=params)
+
+    def search_directories(
+        self,
+        filter: str,
+        projectIds: Optional[Iterable[int]] = None,
+        userId: Optional[int] = None,
+        page: Optional[int] = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+    ):
+        """
+        Search Directories.
+
+        Link to documentation:
+        https://developer.crowdin.com/api/v2/#operation/api.directories.getMany
+        https://developer.crowdin.com/enterprise/api/v2/#operation/api.directories.getMany
+        """
+
+        params = {
+            "filter": filter,
+            "projectIds": None
+            if projectIds is None
+            else ",".join(str(projectId) for projectId in projectIds),
+            "userId": userId,
+        }
+        params.update(self.get_page_params(page=page, offset=offset, limit=limit))
+
+        return self._get_entire_data(method="get", path="directories", params=params)
+
+    def search_files(
+        self,
+        filter: str,
+        projectIds: Optional[Iterable[int]] = None,
+        userId: Optional[int] = None,
+        page: Optional[int] = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+    ):
+        """
+        Search Files.
+
+        Link to documentation:
+        https://developer.crowdin.com/api/v2/#operation/api.files.getMany
+        https://developer.crowdin.com/enterprise/api/v2/#operation/api.files.getMany
+        """
+
+        params = {
+            "filter": filter,
+            "projectIds": None
+            if projectIds is None
+            else ",".join(str(projectId) for projectId in projectIds),
+            "userId": userId,
+        }
+        params.update(self.get_page_params(page=page, offset=offset, limit=limit))
+
+        return self._get_entire_data(method="get", path="files", params=params)
+
     # Branches
     def get_branch_path(self, projectId: int, branchId: Optional[int] = None):
         if branchId is not None:
@@ -116,7 +201,12 @@ class SourceFilesResource(BaseResource):
             path=self.get_branch_path(projectId=projectId, branchId=branchId),
         )
 
-    def delete_branch(self, branchId: int, projectId: Optional[int] = None):
+    def delete_branch(
+        self,
+        branchId: int,
+        projectId: Optional[int] = None,
+        prefer: Optional[str] = None,
+    ):
         """
         Delete Branch.
 
@@ -125,10 +215,32 @@ class SourceFilesResource(BaseResource):
         """
 
         projectId = projectId or self.get_project_id()
+        headers = {"Prefer": prefer} if prefer is not None else None
 
         return self.requester.request(
             method="delete",
+            headers=headers,
             path=f"projects/{projectId}/branches/{branchId}",
+        )
+
+    def check_branch_deletion_status(
+        self,
+        branchId: int,
+        jobIdentifier: str,
+        projectId: Optional[int] = None,
+    ):
+        """
+        Check Branch Deletion Status.
+
+        Link to documentation:
+        https://developer.crowdin.com/api/v2/#operation/api.projects.branches.jobs.get
+        """
+
+        projectId = projectId or self.get_project_id()
+
+        return self.requester.request(
+            method="get",
+            path=f"projects/{projectId}/branches/{branchId}/jobs/{jobIdentifier}",
         )
 
     def edit_branch(
@@ -241,7 +353,12 @@ class SourceFilesResource(BaseResource):
             path=self.get_directory_path(projectId=projectId, directoryId=directoryId),
         )
 
-    def delete_directory(self, directoryId: int, projectId: Optional[int] = None):
+    def delete_directory(
+        self,
+        directoryId: int,
+        projectId: Optional[int] = None,
+        prefer: Optional[str] = None,
+    ):
         """
         Delete Directory.
 
@@ -250,10 +367,32 @@ class SourceFilesResource(BaseResource):
         """
 
         projectId = projectId or self.get_project_id()
+        headers = {"Prefer": prefer} if prefer is not None else None
 
         return self.requester.request(
             method="delete",
+            headers=headers,
             path=self.get_directory_path(projectId=projectId, directoryId=directoryId),
+        )
+
+    def check_directory_deletion_status(
+        self,
+        directoryId: int,
+        jobIdentifier: str,
+        projectId: Optional[int] = None,
+    ):
+        """
+        Check Directory Deletion Status.
+
+        Link to documentation:
+        https://developer.crowdin.com/api/v2/#operation/api.projects.directories.jobs.get
+        """
+
+        projectId = projectId or self.get_project_id()
+
+        return self.requester.request(
+            method="get",
+            path=f"projects/{projectId}/directories/{directoryId}/jobs/{jobIdentifier}",
         )
 
     def edit_directory(
@@ -451,7 +590,12 @@ class SourceFilesResource(BaseResource):
             },
         )
 
-    def delete_file(self, fileId: int, projectId: Optional[int] = None):
+    def delete_file(
+        self,
+        fileId: int,
+        projectId: Optional[int] = None,
+        prefer: Optional[str] = None,
+    ):
         """
         Delete File.
 
@@ -460,10 +604,32 @@ class SourceFilesResource(BaseResource):
         """
 
         projectId = projectId or self.get_project_id()
+        headers = {"Prefer": prefer} if prefer is not None else None
 
         return self.requester.request(
             method="delete",
+            headers=headers,
             path=self.get_file_path(projectId=projectId, fileId=fileId),
+        )
+
+    def check_file_deletion_status(
+        self,
+        fileId: int,
+        jobIdentifier: str,
+        projectId: Optional[int] = None,
+    ):
+        """
+        Check File Deletion Status.
+
+        Link to documentation:
+        https://developer.crowdin.com/api/v2/#operation/api.projects.files.jobs.get
+        """
+
+        projectId = projectId or self.get_project_id()
+
+        return self.requester.request(
+            method="get",
+            path=f"projects/{projectId}/files/{fileId}/jobs/{jobIdentifier}",
         )
 
     def edit_file(

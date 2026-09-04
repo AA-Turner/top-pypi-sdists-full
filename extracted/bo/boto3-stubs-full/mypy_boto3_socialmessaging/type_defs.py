@@ -55,6 +55,8 @@ __all__ = (
     "GetLinkedWhatsAppBusinessAccountOutputTypeDef",
     "GetLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef",
     "GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef",
+    "GetWhatsAppBusinessPublicKeyInputTypeDef",
+    "GetWhatsAppBusinessPublicKeyOutputTypeDef",
     "GetWhatsAppFlowInputTypeDef",
     "GetWhatsAppFlowOutputTypeDef",
     "GetWhatsAppFlowPreviewInputTypeDef",
@@ -100,6 +102,7 @@ __all__ = (
     "PostWhatsAppMessageMediaOutputTypeDef",
     "PublishWhatsAppFlowInputTypeDef",
     "PutWhatsAppBusinessAccountEventDestinationsInputTypeDef",
+    "PutWhatsAppBusinessPublicKeyInputTypeDef",
     "ResponseMetadataTypeDef",
     "S3FileTypeDef",
     "S3PresignedUrlTypeDef",
@@ -214,6 +217,10 @@ class WhatsAppPhoneNumberDetailTypeDef(TypedDict):
     displayPhoneNumber: str
     qualityRating: str
     dataLocalizationRegion: NotRequired[str]
+
+
+class GetWhatsAppBusinessPublicKeyInputTypeDef(TypedDict):
+    originationPhoneNumberId: str
 
 
 GetWhatsAppFlowInputTypeDef = TypedDict(
@@ -423,6 +430,12 @@ PublishWhatsAppFlowInputTypeDef = TypedDict(
 )
 
 
+class PutWhatsAppBusinessPublicKeyInputTypeDef(TypedDict):
+    originationPhoneNumberId: str
+    businessPublicKey: NotRequired[str]
+    kmsKeyArn: NotRequired[str]
+
+
 class UntagResourceInputTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
@@ -435,6 +448,8 @@ UpdateWhatsAppFlowInputTypeDef = TypedDict(
         "flowId": str,
         "flowName": NotRequired[str],
         "categories": NotRequired[Sequence[MetaFlowCategoryType]],
+        "endpointUri": NotRequired[str],
+        "metaAppId": NotRequired[str],
     },
 )
 
@@ -471,6 +486,12 @@ class CreateWhatsAppMessageTemplateOutputTypeDef(TypedDict):
 
 class DeleteWhatsAppMessageMediaOutputTypeDef(TypedDict):
     success: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetWhatsAppBusinessPublicKeyOutputTypeDef(TypedDict):
+    businessPublicKey: str
+    businessPublicKeySignatureStatus: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -524,6 +545,7 @@ CreateWhatsAppFlowInputTypeDef = TypedDict(
         "flowJson": NotRequired[BlobTypeDef],
         "publish": NotRequired[bool],
         "cloneFlowId": NotRequired[str],
+        "endpointUri": NotRequired[str],
     },
 )
 CreateWhatsAppMessageTemplateInputTypeDef = TypedDict(

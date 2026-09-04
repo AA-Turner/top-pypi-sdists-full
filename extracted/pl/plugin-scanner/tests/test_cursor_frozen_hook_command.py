@@ -33,18 +33,102 @@ def test_frozen_cursor_hook_command_uses_supported_launcher(monkeypatch, tmp_pat
         "/Applications/HOL Guard.app/Contents/MacOS/hol-guard",
     )
     script = tmp_path / ".cursor" / "hooks" / HOOK_SCRIPT_NAME
-    command = _managed_hook_command(python_executable=None, script_path=script)
+    command = _managed_hook_command(
+        python_executable=None,
+        script_path=script,
+        event_name="beforeReadFile",
+    )
     tokens = shlex.split(command)
     assert tokens[0] == "/Applications/HOL Guard.app/Contents/MacOS/hol-guard"
     assert tokens[1] == FROZEN_CURSOR_HOOK_COMMAND
     assert tokens[2].endswith(HOOK_SCRIPT_NAME)
+    assert tokens[-2:] == ["--cursor-hook-event", "beforeReadFile"]
+
+
+def test_frozen_cursor_hook_command_prefers_current_hol_guard_shim(monkeypatch, tmp_path: Path) -> None:
+    core_dir = tmp_path / "core"
+    versioned = core_dir / "versions" / "3.0.55" / "hol-guard"
+    versioned.parent.mkdir(parents=True)
+    versioned.write_text("", encoding="utf-8")
+    shim = core_dir / "current-hol-guard"
+    shim.write_text("", encoding="utf-8")
+    shim.chmod(0o755)
+    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hook_config.sys.frozen", True, raising=False)
+    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hook_config.sys.executable", str(versioned))
+    script = tmp_path / ".cursor" / "hooks" / HOOK_SCRIPT_NAME
+    command = _managed_hook_command(
+        python_executable=None,
+        script_path=script,
+        event_name="beforeReadFile",
+    )
+    tokens = shlex.split(command)
+    assert tokens[0] == str(shim)
+    assert tokens[1] == FROZEN_CURSOR_HOOK_COMMAND
+
+
+def test_frozen_cursor_hook_command_prefers_macos_bundle_without_shim(monkeypatch, tmp_path: Path) -> None:
+    core_dir = tmp_path / "core"
+    versioned = core_dir / "versions" / "3.0.55" / "hol-guard"
+    versioned.parent.mkdir(parents=True)
+    versioned.write_text("", encoding="utf-8")
+    bundle = tmp_path / "HOL Guard.app" / "Contents" / "MacOS" / "hol-guard"
+    bundle.parent.mkdir(parents=True)
+    bundle.write_text("", encoding="utf-8")
+    bundle.chmod(0o755)
+    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hook_config.sys.frozen", True, raising=False)
+    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hook_config.sys.executable", str(versioned))
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.stable_guard_cli.sys.platform",
+        "darwin",
+    )
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.stable_guard_cli.MACOS_BUNDLED_HOL_GUARD",
+        bundle,
+    )
+    script = tmp_path / ".cursor" / "hooks" / HOOK_SCRIPT_NAME
+    command = _managed_hook_command(
+        python_executable=None,
+        script_path=script,
+        event_name="beforeReadFile",
+    )
+    tokens = shlex.split(command)
+    assert tokens[0] == str(bundle)
+
+
+def test_frozen_cursor_hook_command_keeps_versioned_executable_without_shim(monkeypatch, tmp_path: Path) -> None:
+    core_dir = tmp_path / "core"
+    versioned = core_dir / "versions" / "3.0.55" / "hol-guard"
+    versioned.parent.mkdir(parents=True)
+    versioned.write_text("", encoding="utf-8")
+    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hook_config.sys.frozen", True, raising=False)
+    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hook_config.sys.executable", str(versioned))
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.stable_guard_cli.sys.platform",
+        "linux",
+    )
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.stable_guard_cli.MACOS_BUNDLED_HOL_GUARD",
+        tmp_path / "missing-bundle",
+    )
+    script = tmp_path / ".cursor" / "hooks" / HOOK_SCRIPT_NAME
+    command = _managed_hook_command(
+        python_executable=None,
+        script_path=script,
+        event_name="beforeReadFile",
+    )
+    tokens = shlex.split(command)
+    assert tokens[0] == str(versioned)
 
 
 def test_unfrozen_cursor_hook_command_uses_current_interpreter(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hook_config.sys.frozen", False, raising=False)
     monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hook_config.sys.executable", "/usr/bin/python3")
     script = tmp_path / ".cursor" / "hooks" / HOOK_SCRIPT_NAME
-    command = _managed_hook_command(python_executable=None, script_path=script)
+    command = _managed_hook_command(
+        python_executable=None,
+        script_path=script,
+        event_name="beforeReadFile",
+    )
     assert FROZEN_CURSOR_HOOK_COMMAND not in command
     assert command.startswith("/usr/bin/python3")
 
@@ -58,6 +142,7 @@ def test_run_frozen_cursor_hook_executes_managed_script(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     assert run_frozen_cursor_hook([str(script)]) == 0
+    assert run_frozen_cursor_hook([str(script), "--cursor-hook-event", "beforeReadFile"]) == 0
     assert marker.read_text(encoding="utf-8") == "ok"
 
 
@@ -80,9 +165,8 @@ def test_run_frozen_cursor_hook_rejects_symlink(tmp_path: Path) -> None:
     assert run_frozen_cursor_hook([str(script)]) == 3
 
 
-def test_run_frozen_cursor_hook_rejects_wrong_argc() -> None:
+def test_run_frozen_cursor_hook_rejects_empty_argv() -> None:
     assert run_frozen_cursor_hook([]) == 2
-    assert run_frozen_cursor_hook(["a", "b"]) == 2
 
 
 def test_live_cursor_hook_script_path_rejects_symlink(tmp_path: Path) -> None:

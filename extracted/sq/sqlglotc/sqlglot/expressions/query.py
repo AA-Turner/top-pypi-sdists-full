@@ -624,6 +624,7 @@ class Group(Expression):
     arg_types = {
         "expressions": False,
         "grouping_sets": False,
+        "grouping_sets_as_group_by_element": False,
         "cube": False,
         "rollup": False,
         "totals": False,
@@ -1891,7 +1892,7 @@ class Where(Expression):
 class Analyze(Expression):
     arg_types = {
         "kind": False,
-        "this": False,
+        "tables": False,
         "options": False,
         "mode": False,
         "partition": False,

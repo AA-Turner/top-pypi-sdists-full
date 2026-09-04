@@ -183,17 +183,17 @@ class TestRedshift(Validator):
         self.validate_all(
             "SELECT DATE_PART(minute, timestamp '2023-01-04 04:05:06.789')",
             write={
-                "postgres": "SELECT EXTRACT(minute FROM CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
-                "redshift": "SELECT EXTRACT(minute FROM CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
-                "snowflake": "SELECT DATE_PART(minute, CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
+                "postgres": "SELECT EXTRACT(MINUTE FROM CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
+                "redshift": "SELECT EXTRACT(MINUTE FROM CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
+                "snowflake": "SELECT DATE_PART(MINUTE, CAST('2023-01-04 04:05:06.789' AS TIMESTAMP))",
             },
         )
         self.validate_all(
             "SELECT DATE_PART(month, date '20220502')",
             write={
-                "postgres": "SELECT EXTRACT(month FROM CAST('20220502' AS DATE))",
-                "redshift": "SELECT EXTRACT(month FROM CAST('20220502' AS DATE))",
-                "snowflake": "SELECT DATE_PART(month, CAST('20220502' AS DATE))",
+                "postgres": "SELECT EXTRACT(MONTH FROM CAST('20220502' AS DATE))",
+                "redshift": "SELECT EXTRACT(MONTH FROM CAST('20220502' AS DATE))",
+                "snowflake": "SELECT DATE_PART(MONTH, CAST('20220502' AS DATE))",
             },
         )
         self.validate_all(
@@ -389,7 +389,7 @@ class TestRedshift(Validator):
         )
         self.validate_identity(
             'DATE_PART(year, "somecol")',
-            'EXTRACT(year FROM "somecol")',
+            'EXTRACT(YEAR FROM "somecol")',
         ).this.assert_is(exp.Var)
         self.validate_identity(
             "SELECT CONCAT('abc', 'def')",
@@ -769,6 +769,14 @@ FROM (
 
         with self.assertRaises(ParseError):
             parse_one('1::"udt"', read="redshift")
+
+        # Redshift has the one-byte "char" type, so its quotes have to be preserved
+        self.validate_identity('CAST(65 AS "char")')
+        self.validate_identity('65::"char"', 'CAST(65 AS "char")')
+        self.validate_identity('CAST(x AS "CHAR")', "CAST(x AS CHAR)")
+        self.assertEqual(
+            self.parse_one('CAST(65 AS "char")').to.this, exp.DataType.Type.USERDEFINED
+        )
 
     def test_fetch_to_limit(self):
         self.validate_all(

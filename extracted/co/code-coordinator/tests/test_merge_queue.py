@@ -427,6 +427,18 @@ class FakeGh:
     # branch, matching pre-#2143 behavior.
     merged_branches: set[str] = field(default_factory=set)
     pr_is_merged_calls: list[tuple[str, str]] = field(default_factory=list)
+    # #2948: branch name -> resolved live preview-deployment URL. Defaults
+    # keep every prior test (none of which set this) inert —
+    # `get_pr_deployment_url` returns None for every branch, matching the
+    # "can't confirm a URL" fail-closed default `evaluate_uat_verdict` relies
+    # on when a repo opts into `uat_live_preview` but the fake has nothing
+    # configured for that branch.
+    deployment_urls: dict[str, str] = field(default_factory=dict)
+    deployment_url_calls: list[tuple[str, str]] = field(default_factory=list)
+
+    def get_pr_deployment_url(self, repo: str, branch: str) -> str | None:
+        self.deployment_url_calls.append((repo, branch))
+        return self.deployment_urls.get(branch)
 
     def find_pr_for_branch(self, repo: str, branch: str) -> dict | None:
         self.find_pr_calls.append((repo, branch))
@@ -1785,7 +1797,12 @@ class TestDesignRoundPushOnMerge:
         return Board(active=[], completed=list(completed or []))
 
     @staticmethod
-    def _config(*, portal_enabled: bool = True, gate_design_rounds: bool = True):
+    def _config(
+        *,
+        portal_enabled: bool = True,
+        gate_design_rounds: bool = True,
+        driver_mock_glob: str | None = "*.html",
+    ):
         """A minimal config-like object carrying only what
         `_maybe_push_design_round` and the ordinary merge-gate defaults
         read — same "build the smallest _Cfg that satisfies the gate
@@ -1794,9 +1811,16 @@ class TestDesignRoundPushOnMerge:
         *gate_design_rounds* is #2903's draft gate: True (the shipped
         default) holds the auto-pushed round for an operator, False is the
         pre-#2903 straight-to-`pending` behaviour.
+
+        *driver_mock_glob* (#3068) seeds `acceptance.drivers["api"].mock` —
+        the default `"*.html"` mirrors a `web-playwright` repo, the common
+        case every pre-#3068 test here implicitly assumed. `None` omits the
+        driver entirely (an unconfigured-acceptance repo).
         """
         from coord.config import (
             DEFAULT_PORTAL_APPROVAL,
+            AcceptanceConfig,
+            AcceptanceDriverConfig,
             PortalApprovalConfig,
             PortalConfig,
         )
@@ -1804,6 +1828,7 @@ class TestDesignRoundPushOnMerge:
         @dataclass
         class _Cfg:
             portal: PortalConfig = field(default_factory=PortalConfig)
+            acceptance: AcceptanceConfig = field(default_factory=AcceptanceConfig)
 
         cfg = _Cfg()
         cfg.portal = PortalConfig(
@@ -1815,6 +1840,14 @@ class TestDesignRoundPushOnMerge:
                 kinds={**DEFAULT_PORTAL_APPROVAL, "design_round": gate_design_rounds}
             ),
         )
+        if driver_mock_glob is not None:
+            cfg.acceptance = AcceptanceConfig(
+                drivers={
+                    "api": AcceptanceDriverConfig(
+                        kind="web-playwright", run="npx playwright test", mock=driver_mock_glob,
+                    )
+                }
+            )
         return cfg
 
     def _link(self, submission_id: str = "sub_1", milestone_number: int = 9) -> None:
@@ -1878,7 +1911,7 @@ class TestDesignRoundPushOnMerge:
 
         monkeypatch.setattr(
             "coord.mock_author.collect_mock_bundle_files",
-            lambda repo_github, milestone_number, branch: {"contract.md": "# contract"},
+            lambda repo_github, milestone_number, branch, driver_mock_glob: {"contract.md": "# contract"},
         )
         seen_upload = {}
 
@@ -1920,7 +1953,7 @@ class TestDesignRoundPushOnMerge:
 
         monkeypatch.setattr(
             "coord.mock_author.collect_mock_bundle_files",
-            lambda repo_github, milestone_number, branch: {"contract.md": "# contract"},
+            lambda repo_github, milestone_number, branch, driver_mock_glob: {"contract.md": "# contract"},
         )
         monkeypatch.setattr(
             "httpx.post",
@@ -1946,7 +1979,7 @@ class TestDesignRoundPushOnMerge:
         cfg = self._config()
         monkeypatch.setattr(
             "coord.mock_author.collect_mock_bundle_files",
-            lambda repo_github, milestone_number, branch: {},
+            lambda repo_github, milestone_number, branch, driver_mock_glob: {},
         )
 
         events = process(
@@ -1956,6 +1989,127 @@ class TestDesignRoundPushOnMerge:
 
         assert events[-1].kind == "design_round_push_skipped"
 
+    def test_non_html_driver_glob_skips_without_collecting(self, monkeypatch) -> None:
+        """#3068: a `tui-tuidriver` repo (`.screen` mocks) must never push a
+        design round — those mocks aren't browser-viewable — and the skip
+        must fire BEFORE `collect_mock_bundle_files` is even called, since
+        the outcome can't change once the glob is known non-viewable."""
+        self._link()
+        cfg = self._config(driver_mock_glob="*.screen")
+
+        called = []
+        monkeypatch.setattr(
+            "coord.mock_author.collect_mock_bundle_files",
+            lambda *a, **k: called.append(1) or {"contract.md": "# contract"},
+        )
+
+        events = process(
+            [_q("w1", size=10, assignment_type="mock-author")], _MockAuthorGh(),
+            config=cfg, board=self._board(),
+        )
+
+        assert events[-1].kind == "design_round_push_skipped"
+        assert "not browser-viewable" in events[-1].message
+        assert called == []
+
+    def test_no_acceptance_driver_configured_skips(self, monkeypatch) -> None:
+        """#3068: a `mock-author` entry for a repo with no acceptance driver
+        on file at all (e.g. a hand-dispatched entry) must skip visibly
+        rather than silently guessing `*.html`."""
+        self._link()
+        cfg = self._config(driver_mock_glob=None)
+
+        events = process(
+            [_q("w1", size=10, assignment_type="mock-author")], _MockAuthorGh(),
+            config=cfg, board=self._board(),
+        )
+
+        assert events[-1].kind == "design_round_push_skipped"
+        assert "no acceptance driver configured" in events[-1].message
+
+    def test_routed_repo_with_one_agreed_viewable_glob_still_pushes(
+        self, monkeypatch
+    ) -> None:
+        """#3068 review follow-up: a *routed* repo (#1125) has no flat driver,
+        but if every route declares the same browser-viewable glob the answer
+        is unambiguous — that's a resolution, not a guess, so the design round
+        must still push rather than silently regress to a skip."""
+        from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+        self._link()
+        cfg = self._config()
+        cfg.acceptance = AcceptanceConfig(
+            drivers={
+                "api": AcceptanceDriverConfig(
+                    routes=[
+                        AcceptanceDriverConfig(
+                            match="web/**", kind="web-playwright", mock="*.html",
+                        ),
+                        AcceptanceDriverConfig(
+                            match="api/**", kind="web-playwright", mock="*.html",
+                        ),
+                    ]
+                )
+            }
+        )
+        monkeypatch.setattr(
+            "coord.mock_author.collect_mock_bundle_files",
+            lambda repo_github, milestone_number, branch, driver_mock_glob: (
+                {"contract.md": "# contract", "mocks/a.html": "<html>"}
+            ),
+        )
+        monkeypatch.setattr(
+            "httpx.post",
+            lambda *a, **k: _StubResponse(200, {"bundle_key": "bundles/sub_1/r1.tar"}),
+        )
+
+        events = process(
+            [_q("w1", size=10, assignment_type="mock-author")], _MockAuthorGh(),
+            config=cfg, board=self._board(),
+        )
+
+        assert events[-1].kind == "design_round_drafted", events[-1].message
+
+    def test_routed_repo_with_disagreeing_globs_skips_with_a_reason(
+        self, monkeypatch
+    ) -> None:
+        """#3068: routes that disagree on the mock glob genuinely can't be
+        resolved milestone-wide (a milestone isn't one file), and publishing
+        the wrong route's mocks to a customer is worse than publishing none —
+        so skip, naming the ambiguity rather than picking one."""
+        from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+        self._link()
+        cfg = self._config()
+        cfg.acceptance = AcceptanceConfig(
+            drivers={
+                "api": AcceptanceDriverConfig(
+                    routes=[
+                        AcceptanceDriverConfig(
+                            match="web/**", kind="web-playwright", mock="*.html",
+                        ),
+                        AcceptanceDriverConfig(
+                            match="tui/**", kind="tui-tuidriver", mock="*.screen",
+                        ),
+                    ]
+                )
+            }
+        )
+        called = []
+        monkeypatch.setattr(
+            "coord.mock_author.collect_mock_bundle_files",
+            lambda *a, **k: called.append(1) or {},
+        )
+
+        events = process(
+            [_q("w1", size=10, assignment_type="mock-author")], _MockAuthorGh(),
+            config=cfg, board=self._board(),
+        )
+
+        assert events[-1].kind == "design_round_push_skipped"
+        assert "different mock globs" in events[-1].message
+        assert called == []
+
     def test_upload_failure_degrades_to_a_failed_event_not_an_exception(
         self, monkeypatch,
     ) -> None:
@@ -1963,7 +2117,7 @@ class TestDesignRoundPushOnMerge:
         cfg = self._config()
         monkeypatch.setattr(
             "coord.mock_author.collect_mock_bundle_files",
-            lambda repo_github, milestone_number, branch: {"contract.md": "# contract"},
+            lambda repo_github, milestone_number, branch, driver_mock_glob: {"contract.md": "# contract"},
         )
         monkeypatch.setattr(
             "httpx.post", lambda *a, **k: _StubResponse(401, {}, text="unauthorized"),
@@ -4500,16 +4654,19 @@ class TestSmokeGate:
 
 
 class TestUatGate:
-    """#2687: the pre-merge UAT gate. Two-part opt-in — "uat" must be in the
-    effective gate list AND the entry's own repo must have ``uat_preview``
-    configured — so a repo that hasn't opted in is unaffected even if
+    """#2687/#2948: the pre-merge UAT gate. Two-part opt-in — "uat" must be
+    in the effective gate list AND the entry's own repo must have
+    ``uat_preview`` (an explicit override template) OR ``uat_live_preview``
+    (opt in to the live GitHub-Deployment lookup) configured — so a repo
+    that hasn't opted into either is unaffected even if
     ``pipeline.default_gates`` grows "uat" fleet-wide."""
 
     @staticmethod
     def _config(
         *,
         gates: list[str] | None = None,
-        uat_preview: str | None = "https://{pr_branch_slug}.example.pages.dev/",
+        uat_preview: str | None = "https://preview.example/{branch}",
+        uat_live_preview: bool = False,
         repo_name: str = "api",
     ):
         """A minimal config-like object with a real Repo behind ``.repo()``."""
@@ -4536,7 +4693,10 @@ class TestUatGate:
         # tests observe the uat gate alone, mirroring TestSmokeGate's own
         # review-disabled-by-default isolation.
         cfg.pipeline.default_gates = gates if gates is not None else ["uat", "merge"]
-        cfg._repo = Repo(name=repo_name, github="acme/api", uat_preview=uat_preview)
+        cfg._repo = Repo(
+            name=repo_name, github="acme/api",
+            uat_preview=uat_preview, uat_live_preview=uat_live_preview,
+        )
         return cfg
 
     @staticmethod
@@ -4602,6 +4762,20 @@ class TestUatGate:
         cfg = self._config(gates=["uat", "merge"])
         assert mq.requires_uat(_q("a", required_gates=[]), cfg) is True
 
+    def test_requires_uat_true_via_live_preview_alone(self) -> None:
+        # #2948: `uat_live_preview` is a full per-repo opt-in on its own —
+        # a repo needs no `uat_preview` template at all to turn the gate on.
+        cfg = self._config(
+            gates=["review", "uat", "merge"], uat_preview=None, uat_live_preview=True,
+        )
+        assert mq.requires_uat(_q("a"), cfg) is True
+
+    def test_requires_uat_false_when_neither_uat_option_set(self) -> None:
+        cfg = self._config(
+            gates=["review", "uat", "merge"], uat_preview=None, uat_live_preview=False,
+        )
+        assert mq.requires_uat(_q("a"), cfg) is False
+
     # ── evaluate_uat_verdict ──
 
     def test_evaluate_uat_verdict_missing_names_preview_and_command(self) -> None:
@@ -4611,7 +4785,7 @@ class TestUatGate:
         ok, message = mq.evaluate_uat_verdict(_q("w1"), board, cfg)
         assert ok is False
         assert "uat verdict missing" in message
-        assert "preview: https://worker-w1.example.pages.dev/" in message
+        assert "preview: https://preview.example/worker/w1" in message
         assert "coord uat w1 --passed|--failed" in message
 
     def test_evaluate_uat_verdict_passed(self) -> None:
@@ -4652,6 +4826,59 @@ class TestUatGate:
         ok, message = mq.evaluate_uat_verdict(_q("w1"), board, cfg)
         assert ok is False
         assert "regressed" in message
+
+    # ── evaluate_uat_verdict: live preview lookup (#2948) ──
+
+    def test_evaluate_uat_verdict_resolves_via_live_deployment_lookup(self) -> None:
+        # No `uat_preview` override — relies entirely on `uat_live_preview`
+        # and a live `gh_ops.get_pr_deployment_url` lookup.
+        cfg = self._config(uat_preview=None, uat_live_preview=True)
+        work = self._work("w1", uat_state=None)
+        board = self._board(completed=[work])
+        gh = FakeGh(deployment_urls={"worker/w1": "https://abc123.example.pages.dev"})
+        ok, message = mq.evaluate_uat_verdict(_q("w1"), board, cfg, gh)
+        assert ok is False
+        assert "preview: https://abc123.example.pages.dev" in message
+        assert ("acme/api", "worker/w1") in gh.deployment_url_calls
+
+    def test_evaluate_uat_verdict_override_template_wins_over_live_lookup(self) -> None:
+        # An explicit `uat_preview` override always wins, even when the repo
+        # ALSO has `uat_live_preview` set — the live lookup is never even
+        # attempted.
+        cfg = self._config(
+            uat_preview="https://preview.example/{branch}", uat_live_preview=True,
+        )
+        work = self._work("w1", uat_state=None)
+        board = self._board(completed=[work])
+        gh = FakeGh(deployment_urls={"worker/w1": "https://abc123.example.pages.dev"})
+        ok, message = mq.evaluate_uat_verdict(_q("w1"), board, cfg, gh)
+        assert ok is False
+        assert "preview: https://preview.example/worker/w1" in message
+        assert "abc123" not in message
+        assert gh.deployment_url_calls == []
+
+    def test_evaluate_uat_verdict_unresolved_preview_says_so(self) -> None:
+        # #2948 acceptance bar: `uat_live_preview` is set but the live lookup
+        # finds nothing for this branch — the message must say the URL is
+        # unresolved, never fall back to a constructed guess.
+        cfg = self._config(uat_preview=None, uat_live_preview=True)
+        work = self._work("w1", uat_state=None)
+        board = self._board(completed=[work])
+        ok, message = mq.evaluate_uat_verdict(_q("w1"), board, cfg, FakeGh())
+        assert ok is False
+        assert "preview:" not in message
+        assert "could not be resolved" in message
+
+    def test_evaluate_uat_verdict_no_gh_ops_says_unresolved(self) -> None:
+        # A caller that doesn't pass gh_ops at all (the default, e.g.
+        # display_error's deliberately I/O-free recompute) never attempts
+        # the live lookup — same "unresolved" wording, not a crash.
+        cfg = self._config(uat_preview=None, uat_live_preview=True)
+        work = self._work("w1", uat_state=None)
+        board = self._board(completed=[work])
+        ok, message = mq.evaluate_uat_verdict(_q("w1"), board, cfg)
+        assert ok is False
+        assert "could not be resolved" in message
 
     # ── merge_gate_failures / passes_merge_gates ──
 
@@ -4699,6 +4926,20 @@ class TestUatGate:
         assert items[0].state == PENDING
         assert items[0].error is not None
         assert items[0].error.startswith("uat verdict missing")
+
+    def test_process_uat_required_event_carries_live_preview_url(self) -> None:
+        # #2948: the live GhOps.get_pr_deployment_url lookup is threaded all
+        # the way through process()'s live gate evaluation, not just through
+        # evaluate_uat_verdict called directly.
+        cfg = self._config(uat_preview=None, uat_live_preview=True)
+        board = self._board(completed=[self._work("w1")])
+        items = [_q("w1", size=10)]
+        gh = FakeGh(deployment_urls={"worker/w1": "https://abc123.example.pages.dev"})
+        events = process(items, gh, config=cfg, board=board)
+
+        uat_events = [e for e in events if e.kind == "uat_required"]
+        assert len(uat_events) == 1
+        assert "https://abc123.example.pages.dev" in uat_events[0].message
 
     def test_process_proceeds_when_uat_passed(self) -> None:
         cfg = self._config()
@@ -6407,6 +6648,42 @@ class TestPruneStaleQueueEntries:
         pruned = mq.prune_stale_queue_entries()
         assert pruned == []
         assert len(load_queue()) == 1
+
+    def test_mock_author_survives_closed_tracking_epic(self, coord_db, monkeypatch) -> None:
+        """#3063: a mock-author row's issue_number is the tracking epic, not
+        its own deliverable (#2639) — a closed epic must not prune it. Only
+        `pr_is_merged` (branch-scoped) may retire it.
+        """
+        from coord import github_ops
+
+        monkeypatch.setattr(github_ops, "issue_is_closed", lambda repo, n: True)
+        monkeypatch.setattr(github_ops, "pr_is_merged", lambda repo, b: False)
+
+        save_queue([
+            _q("mock-row", branch="issue-122-mock", assignment_type="mock-author"),
+        ])
+        pruned = mq.prune_stale_queue_entries()
+        assert pruned == []
+        assert [x.assignment_id for x in load_queue()] == ["mock-row"]
+
+    def test_mock_author_pruned_once_its_own_pr_merges(self, coord_db, monkeypatch) -> None:
+        """#3063: the carve-out doesn't wedge a mock-author row forever — once
+        its own branch is confirmed merged, pr_is_merged still prunes it.
+        """
+        from coord import github_ops
+
+        monkeypatch.setattr(github_ops, "issue_is_closed", lambda repo, n: True)
+        monkeypatch.setattr(
+            github_ops, "pr_is_merged",
+            lambda repo, branch: branch == "issue-122-mock",
+        )
+
+        save_queue([
+            _q("mock-row", branch="issue-122-mock", assignment_type="mock-author"),
+        ])
+        pruned = mq.prune_stale_queue_entries()
+        assert [x.assignment_id for x in pruned] == ["mock-row"]
+        assert load_queue() == []
 
 
 # ── #776: enqueued_at + size-at-enqueue-time ──────────────────────────────────

@@ -72,6 +72,20 @@ def _build_split(exp_class: Type[E]) -> t.Callable[[list], E]:
     )
 
 
+def _build_array_lambda_func(
+    exp_class: Type[E], name: str
+) -> t.Callable[[list], E | exp.Anonymous]:
+    def _builder(args: list) -> E | exp.Anonymous:
+        # Other dialects can't express arrayMap((x, y) -> x + y, arr1, arr2), which
+        # iterates over multiple arrays at once, so we keep it as an anonymous function
+        if len(args) > 2:
+            return exp.Anonymous(this=name, expressions=args)
+
+        return exp_class(this=seq_get(args, 1), expression=seq_get(args, 0))
+
+    return _builder
+
+
 # Skip the 'week' unit since ClickHouse's toStartOfWeek
 # uses an extra mode argument to specify the first day of the week
 TIMESTAMP_TRUNC_UNITS = {
@@ -271,10 +285,8 @@ class ClickHouseParser(parser.Parser):
         "ARRAYMIN": exp.ArrayMin.from_arg_list,
         "ARRAYREVERSE": exp.ArrayReverse.from_arg_list,
         "ARRAYSLICE": exp.ArraySlice.from_arg_list,
-        "ARRAYFILTER": lambda args: exp.ArrayFilter(
-            this=seq_get(args, 1), expression=seq_get(args, 0)
-        ),
-        "ARRAYMAP": lambda args: exp.Transform(this=seq_get(args, 1), expression=seq_get(args, 0)),
+        "ARRAYFILTER": _build_array_lambda_func(exp.ArrayFilter, "arrayFilter"),
+        "ARRAYMAP": _build_array_lambda_func(exp.Transform, "arrayMap"),
         "CURRENTDATABASE": exp.CurrentDatabase.from_arg_list,
         "CURRENTSCHEMAS": exp.CurrentSchemas.from_arg_list,
         "COUNTIF": _build_count_if,
@@ -318,6 +330,9 @@ class ClickHouseParser(parser.Parser):
         "SPLITBYSTRING": _build_split(exp.Split),
         "SUBSTRINGINDEX": exp.SubstringIndex.from_arg_list,
         "TOTYPENAME": exp.Typeof.from_arg_list,
+        "TRIMBOTH": exp.Trim.from_arg_list,
+        "TRIMLEFT": parser.build_trim,
+        "TRIMRIGHT": lambda args: parser.build_trim(args, is_left=False),
         "EDITDISTANCE": exp.Levenshtein.from_arg_list,
         "JAROWINKLERSIMILARITY": exp.JarowinklerSimilarity.from_arg_list,
         "LEVENSHTEINDISTANCE": exp.Levenshtein.from_arg_list,
@@ -333,6 +348,7 @@ class ClickHouseParser(parser.Parser):
         TokenType.FILE,
         TokenType.OR,
         TokenType.SET,
+        TokenType.VIEW,
     }
 
     RESERVED_TOKENS = parser.Parser.RESERVED_TOKENS - {TokenType.SELECT}
@@ -385,6 +401,9 @@ class ClickHouseParser(parser.Parser):
         "AND": lambda self: self._parse_connector_function(exp.and_),
         "OR": lambda self: self._parse_connector_function(exp.or_),
         "XOR": lambda self: exp.xor(*self._parse_function_args(alias=False)),
+        "VIEW": lambda self: self.expression(
+            exp.Anonymous(this="view", expressions=[self._parse_select()])
+        ),
     }
 
     PROPERTY_PARSERS = {
@@ -718,7 +737,7 @@ class ClickHouseParser(parser.Parser):
         func = expr.this if isinstance(expr, exp.Window) else expr
 
         # Aggregate functions can be split in 2 parts: <func_name><suffix[es]>
-        parts = self._resolve_clickhouse_agg(func.this) if isinstance(func, exp.Anonymous) else None
+        parts = self._resolve_clickhouse_agg(func.name) if isinstance(func, exp.Anonymous) else None
 
         if parts:
             anon_func: exp.Anonymous = t.cast(exp.Anonymous, func)
@@ -977,11 +996,13 @@ class ClickHouseParser(parser.Parser):
         # In INSERT INTO statements the same clause actually references multiple columns (opposite semantics),
         # but the final result is not altered by the extra parentheses.
         # Note: Clickhouse allows VALUES([structure], value, ...) so the branch checks for the last expression
+        # A single-value tuple is generated as "(x)", which is parsed back into a Paren
+        # rather than a Tuple, so it's unwrapped here to keep this rewrite idempotent
         expressions = value.expressions
         if values and not isinstance(expressions[-1], exp.Tuple):
             value.set(
                 "expressions",
-                [self.expression(exp.Tuple(expressions=[expr])) for expr in expressions],
+                [self.expression(exp.Tuple(expressions=[expr.unnest()])) for expr in expressions],
             )
 
         return value

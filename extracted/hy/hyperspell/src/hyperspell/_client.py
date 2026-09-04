@@ -35,11 +35,25 @@ from ._base_client import (
 )
 
 if TYPE_CHECKING:
-    from .resources import auth, vaults, actions, folders, evaluate, memories, sessions, connections, integrations
+    from .resources import (
+        auth,
+        live,
+        vaults,
+        actions,
+        folders,
+        entities,
+        evaluate,
+        memories,
+        sessions,
+        connections,
+        integrations,
+    )
     from .resources.auth import AuthResource, AsyncAuthResource
+    from .resources.live import LiveResource, AsyncLiveResource
     from .resources.vaults import VaultsResource, AsyncVaultsResource
     from .resources.actions import ActionsResource, AsyncActionsResource
     from .resources.folders import FoldersResource, AsyncFoldersResource
+    from .resources.entities import EntitiesResource, AsyncEntitiesResource
     from .resources.evaluate import EvaluateResource, AsyncEvaluateResource
     from .resources.memories import MemoriesResource, AsyncMemoriesResource
     from .resources.sessions import SessionsResource, AsyncSessionsResource
@@ -145,6 +159,18 @@ class Hyperspell(SyncAPIClient):
         return IntegrationsResource(self)
 
     @cached_property
+    def entities(self) -> EntitiesResource:
+        from .resources.entities import EntitiesResource
+
+        return EntitiesResource(self)
+
+    @cached_property
+    def live(self) -> LiveResource:
+        from .resources.live import LiveResource
+
+        return LiveResource(self)
+
+    @cached_property
     def memories(self) -> MemoriesResource:
         from .resources.memories import MemoriesResource
 
@@ -196,19 +222,8 @@ class Hyperspell(SyncAPIClient):
     @property
     @override
     def auth_headers(self) -> dict[str, str]:
-        return {**self._api_key, **self._as_user}
-
-    @property
-    def _api_key(self) -> dict[str, str]:
         api_key = self.api_key
         return {"Authorization": f"Bearer {api_key}"}
-
-    @property
-    def _as_user(self) -> dict[str, str]:
-        user_id = self.user_id
-        if user_id is None:
-            return {}
-        return {"X-As-User": user_id}
 
     @property
     @override
@@ -216,6 +231,7 @@ class Hyperspell(SyncAPIClient):
         return {
             **super().default_headers,
             "X-Stainless-Async": "false",
+            "X-As-User": self.user_id if self.user_id is not None else Omit(),
             **self._custom_headers,
         }
 
@@ -393,6 +409,18 @@ class AsyncHyperspell(AsyncAPIClient):
         return AsyncIntegrationsResource(self)
 
     @cached_property
+    def entities(self) -> AsyncEntitiesResource:
+        from .resources.entities import AsyncEntitiesResource
+
+        return AsyncEntitiesResource(self)
+
+    @cached_property
+    def live(self) -> AsyncLiveResource:
+        from .resources.live import AsyncLiveResource
+
+        return AsyncLiveResource(self)
+
+    @cached_property
     def memories(self) -> AsyncMemoriesResource:
         from .resources.memories import AsyncMemoriesResource
 
@@ -444,19 +472,8 @@ class AsyncHyperspell(AsyncAPIClient):
     @property
     @override
     def auth_headers(self) -> dict[str, str]:
-        return {**self._api_key, **self._as_user}
-
-    @property
-    def _api_key(self) -> dict[str, str]:
         api_key = self.api_key
         return {"Authorization": f"Bearer {api_key}"}
-
-    @property
-    def _as_user(self) -> dict[str, str]:
-        user_id = self.user_id
-        if user_id is None:
-            return {}
-        return {"X-As-User": user_id}
 
     @property
     @override
@@ -464,6 +481,7 @@ class AsyncHyperspell(AsyncAPIClient):
         return {
             **super().default_headers,
             "X-Stainless-Async": f"async:{get_async_library()}",
+            "X-As-User": self.user_id if self.user_id is not None else Omit(),
             **self._custom_headers,
         }
 
@@ -579,6 +597,18 @@ class HyperspellWithRawResponse:
         return IntegrationsResourceWithRawResponse(self._client.integrations)
 
     @cached_property
+    def entities(self) -> entities.EntitiesResourceWithRawResponse:
+        from .resources.entities import EntitiesResourceWithRawResponse
+
+        return EntitiesResourceWithRawResponse(self._client.entities)
+
+    @cached_property
+    def live(self) -> live.LiveResourceWithRawResponse:
+        from .resources.live import LiveResourceWithRawResponse
+
+        return LiveResourceWithRawResponse(self._client.live)
+
+    @cached_property
     def memories(self) -> memories.MemoriesResourceWithRawResponse:
         from .resources.memories import MemoriesResourceWithRawResponse
 
@@ -638,6 +668,18 @@ class AsyncHyperspellWithRawResponse:
         from .resources.integrations import AsyncIntegrationsResourceWithRawResponse
 
         return AsyncIntegrationsResourceWithRawResponse(self._client.integrations)
+
+    @cached_property
+    def entities(self) -> entities.AsyncEntitiesResourceWithRawResponse:
+        from .resources.entities import AsyncEntitiesResourceWithRawResponse
+
+        return AsyncEntitiesResourceWithRawResponse(self._client.entities)
+
+    @cached_property
+    def live(self) -> live.AsyncLiveResourceWithRawResponse:
+        from .resources.live import AsyncLiveResourceWithRawResponse
+
+        return AsyncLiveResourceWithRawResponse(self._client.live)
 
     @cached_property
     def memories(self) -> memories.AsyncMemoriesResourceWithRawResponse:
@@ -701,6 +743,18 @@ class HyperspellWithStreamedResponse:
         return IntegrationsResourceWithStreamingResponse(self._client.integrations)
 
     @cached_property
+    def entities(self) -> entities.EntitiesResourceWithStreamingResponse:
+        from .resources.entities import EntitiesResourceWithStreamingResponse
+
+        return EntitiesResourceWithStreamingResponse(self._client.entities)
+
+    @cached_property
+    def live(self) -> live.LiveResourceWithStreamingResponse:
+        from .resources.live import LiveResourceWithStreamingResponse
+
+        return LiveResourceWithStreamingResponse(self._client.live)
+
+    @cached_property
     def memories(self) -> memories.MemoriesResourceWithStreamingResponse:
         from .resources.memories import MemoriesResourceWithStreamingResponse
 
@@ -760,6 +814,18 @@ class AsyncHyperspellWithStreamedResponse:
         from .resources.integrations import AsyncIntegrationsResourceWithStreamingResponse
 
         return AsyncIntegrationsResourceWithStreamingResponse(self._client.integrations)
+
+    @cached_property
+    def entities(self) -> entities.AsyncEntitiesResourceWithStreamingResponse:
+        from .resources.entities import AsyncEntitiesResourceWithStreamingResponse
+
+        return AsyncEntitiesResourceWithStreamingResponse(self._client.entities)
+
+    @cached_property
+    def live(self) -> live.AsyncLiveResourceWithStreamingResponse:
+        from .resources.live import AsyncLiveResourceWithStreamingResponse
+
+        return AsyncLiveResourceWithStreamingResponse(self._client.live)
 
     @cached_property
     def memories(self) -> memories.AsyncMemoriesResourceWithStreamingResponse:

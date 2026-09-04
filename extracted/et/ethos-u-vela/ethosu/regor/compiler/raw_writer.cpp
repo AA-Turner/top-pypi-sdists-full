@@ -151,7 +151,7 @@ std::vector<std::pair<std::unique_ptr<const uint8_t[]>, size_t>> RawWriter::Seri
     {
         const Tensor *tensor = output.get();
         auto tensorUsage = customNpuOp->UsageOfTensor(tensor);
-        if ( IsOFM(tensorUsage) )
+        if ( IsOFM(tensorUsage) && !graph->IsPersistent(output.get()) )
         {
             SerialiseOutputTensor(tensor, tensor_address_map.at(tensor->Uid()));
         }

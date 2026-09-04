@@ -12,6 +12,26 @@ from .checkpointing import get_checkpointer
 from .graph_builder import build_work_on_issue_graph
 from .pilot_workflow import error_handler_node, get_mermaid_diagram
 from .state_schema import WorkOnIssueEvent, WorkOnIssueState
+from .trio_config import (
+    AdjudicationPolicy,
+    AdjudicationResult,
+    Phase,
+    PointVerdict,
+    ReviewCap,
+    ReviewCapViolation,
+    RoleAssignment,
+    RoleDiversityViolation,
+    RotationPolicy,
+    RoundAssignments,
+    TrioConfig,
+    TrioConfigValidationError,
+    load_trio_config,
+    parse_adjudication_response,
+    resolve_round_assignments,
+    validate_review_budget,
+    validate_round_assignments,
+    validate_trio_config,
+)
 
 __all__ = [
     "WorkOnIssueEvent",
@@ -20,4 +40,22 @@ __all__ = [
     "error_handler_node",
     "get_checkpointer",
     "get_mermaid_diagram",
+    "AdjudicationPolicy",
+    "AdjudicationResult",
+    "Phase",
+    "PointVerdict",
+    "RoundAssignments",
+    "ReviewCap",
+    "ReviewCapViolation",
+    "RoleAssignment",
+    "RoleDiversityViolation",
+    "RotationPolicy",
+    "TrioConfig",
+    "TrioConfigValidationError",
+    "load_trio_config",
+    "parse_adjudication_response",
+    "resolve_round_assignments",
+    "validate_review_budget",
+    "validate_round_assignments",
+    "validate_trio_config",
 ]

@@ -68,6 +68,10 @@ class EventType(Enum):
     RESOLUTION_RULE = "scos_resolution_rule"
     NULL_TYPE_FALLBACK = "scos_null_type_fallback"
     STARTUP_INIT_FAILURE = "scos_startup_init_failure"
+    # Emitted once per parquet read, recording whether it went through Parquet Direct (PD) or the
+    # normal COPY/INFER path, and — when it did not — the reason PD was skipped. Enables monitoring
+    # of PD adoption and diagnosing why a read that "should" have been PD fell back.
+    PARQUET_READ_PATH = "scos_parquet_read_path"
 
 
 # global labels
@@ -500,6 +504,37 @@ class QueryTelemetrySink(TelemetrySink):
         )
 
 
+# Iceberg `system.<proc>` names we knowingly reject and want to size demand for.
+# Anything outside this fixed set is bucketed as "other_unsupported_proc" so a
+# raw, customer-typed CALL segment never reaches telemetry (see report_iceberg_wap
+# `detail` contract: small stable vocabulary, no customer identifiers).
+ICEBERG_WAP_KNOWN_UNSUPPORTED_PROCS = frozenset(
+    {
+        "cherrypick_snapshot",
+        "publish_changes",
+        "rollback_to_snapshot",
+        "set_current_snapshot",
+        "expire_snapshots",
+        "remove_orphan_files",
+        "rewrite_data_files",
+        "rewrite_manifests",
+        "rewrite_position_delete_files",
+        "register_table",
+        "migrate",
+        "add_files",
+        "create_changelog_view",
+        "compute_table_stats",
+    }
+)
+
+
+def iceberg_wap_unsupported_proc_detail(proc: str | None) -> str:
+    """Map an unsupported Iceberg system proc to a stable telemetry ``detail`` tag."""
+    if proc in ICEBERG_WAP_KNOWN_UNSUPPORTED_PROCS:
+        return proc
+    return "other_unsupported_proc"
+
+
 class Telemetry:
     def __init__(self, is_enabled=True) -> None:
         self._sink = NoOpTelemetrySink()  # use no-op sink until initialized
@@ -834,6 +869,104 @@ class Telemetry:
         summary["udf_usage"][udf_name] += 1
 
     @safe
+    def report_iceberg_metadata_table_usage(self, metadata_table_name: str) -> None:
+        """Record per-request use of an Iceberg metadata table function (name -> count)."""
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_metadata_tables" not in summary:
+            summary["iceberg_metadata_tables"] = defaultdict(int)
+
+        summary["iceberg_metadata_tables"][metadata_table_name] += 1
+
+    @safe
+    def report_iceberg_wap(
+        self,
+        op: str,
+        *,
+        surface: str | None = None,
+        dml_op: str | None = None,
+        ddl_action: str | None = None,
+        ref_type: str | None = None,
+        catalog_kind: str | None = None,
+        outcome: str = "attempted",
+        error_code: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        """Record one Iceberg WAP (write-audit-publish) branch/tag touch (SNOW-3968491).
+
+        Appends a structured event to ``summary["iceberg_wap"]`` (a list, like ``io``
+        and ``file_read_paths``) rather than a bare counter, so a PrPr can see *how*
+        customers use WAP -- the combination of operation, invocation surface, and ref
+        type -- not just how often. Multiple events per request are expected (e.g. a
+        branch write followed by a fast-forward publish).
+
+        Args:
+            op: WAP operation class -- ``"branch_ddl"``, ``"tag_ddl"``, ``"write"``,
+                ``"read"``, ``"publish"``, or ``"unsupported"``.
+            surface: How the operation was expressed -- ``"sql_suffix"`` (SQL
+                ``db.t.branch_x``), ``"sql_call"`` (``CALL system.<proc>``),
+                ``"df_write"`` (DataFrame writer), ``"read_option"``
+                (``option("branch"|"tag")``), ``"wap_branch_conf"``
+                (``spark.wap.branch`` session config), or ``"version_as_of"``
+                (SQL ``VERSION AS OF`` / ``option("versionAsOf")``).
+            dml_op: The write verb/mode. For SQL DML -- ``"insert"`` / ``"update"`` /
+                ``"delete"`` / ``"merge"``. For DataFrame writes -- the write mode
+                (e.g. ``"append"`` / ``"overwrite"`` / ``"overwrite_partitions"`` /
+                ``"create"`` / ``"replace"`` / ``"create_or_replace"`` / ``"truncate"`` /
+                ``"errorifexists"`` / ``"ignore"``).
+            ddl_action: For ``op`` in {``"branch_ddl"``, ``"tag_ddl"``} -- ``"create"``
+                / ``"drop"`` / ``"replace"``.
+            ref_type: ``"branch"``, ``"tag"``, or ``"ref"`` (an unresolved
+                ``VERSION AS OF`` name that may be either a branch or a tag).
+            catalog_kind: ``"managed"`` / ``"cld_glue"`` / ``"cld_unity"`` /
+                ``"horizon"`` when cheaply available at the call site; omitted otherwise.
+            outcome: ``"attempted"`` (SCOS dispatched it -- default) or ``"rejected"``
+                (SCOS refused it at translate time). Execution success is separate;
+                see the Note below.
+            error_code: SCOS error code when ``outcome="rejected"`` (e.g.
+                ``"UNSUPPORTED_OPERATION"``).
+            detail: Short reason tag from a small stable vocabulary; never a
+                customer identifier. Rejections use e.g. ``"reserved_main"``,
+                ``"snapshot_pinned_branch"``, ``"replace_branch"``,
+                ``"replace_tag_no_version"``, ``"tag_retain_days"``, ``"tag_dml"``,
+                ``"wap_branch_conflict"``, ``"invalid_branch_name"``,
+                ``"cherrypick_snapshot"`` / ``"other_unsupported_proc"`` (see
+                ``iceberg_wap_unsupported_proc_detail``); publish uses
+                ``"fast_forward"``.
+
+        Note:
+            Hooks fire at *translate* time, so ``outcome`` captures SCOS-side rejections
+            (tag-write, snapshot-pinned branch, cherry-pick, bad fast-forward args) but
+            not downstream *execution* failures. Execution success/failure rolls up via
+            the request-level ``was_successful`` / ``error_code`` on the same summary
+            row; join on that row in Snowhouse to attribute execution errors to WAP.
+            Deliberately records no branch/table names (cf. ``report_native_function_target``).
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_wap" not in summary:
+            summary["iceberg_wap"] = []
+
+        event = {
+            "op": op,
+            "surface": surface,
+            "dml_op": dml_op,
+            "ddl_action": ddl_action,
+            "ref_type": ref_type,
+            "catalog_kind": catalog_kind,
+            "outcome": outcome,
+            "error_code": error_code,
+            "detail": detail,
+        }
+        summary["iceberg_wap"].append({k: v for k, v in event.items() if v is not None})
+
+    @safe
     def report_native_function_target(self, target: str) -> None:
         """Record a Snowflake function reached through ``register_native_snowflake_function``.
 
@@ -901,13 +1034,18 @@ class Telemetry:
         read is a re-inference signal (cf. SNOW-3891256).
 
         Do NOT read the absence of an ``INFER_STAGE_FILE_SCHEMA`` count as "the caller
-        supplied an explicit schema". That correlation holds only incidentally today, because
-        both read mappers gate inference behind ``if schema is None``. SNOW-3717231 plans to
-        call a with-schema ``INFER_STAGE_FILE_SCHEMA`` for explicit-schema reads too, so that
-        the backend returns the same per-column response format in both cases -- once it lands,
-        an explicit-schema read will also produce an INFER count and any query built on that
-        inference will silently start returning wrong answers. If schema provenance is ever
-        actually needed, record it explicitly rather than deriving it from this counter.
+        supplied an explicit schema", and do NOT read its presence as "inference ran".
+        **That correlation is now broken, not merely fragile.** SNOW-3853392 landed the
+        with-schema call this docstring previously anticipated: an explicit-schema read routes
+        through the TVF's schema-adapt mode (``USER_SCHEMA``) and so produces an INFER count
+        of its own, even though adapt mode reads no file and runs no inference -- it is a
+        constant-row plan that echoes the caller's schema back. Any query deriving schema
+        provenance, or "did we sample the file", from this counter returns wrong answers.
+
+        Schema provenance is therefore not recoverable from telemetry today. If it is needed,
+        record it explicitly (a ``schema_source`` of inferred / explicit-adapt /
+        explicit-client-fallback, emitted from the schema branch rather than at dispatch,
+        since the fallback outcome is not known at dispatch time).
         """
         if self._not_in_request():
             return
@@ -918,6 +1056,52 @@ class Telemetry:
             summary["nss_tvf"] = defaultdict(int)
 
         summary["nss_tvf"][tvf] += 1
+
+    @safe
+    def report_nss_schema_adapt_fallback(
+        self, error_type: str, sql_error_code: int | None = None
+    ) -> None:
+        """Count a schema-adapt refusal that fell back to client-side DATA_SCHEMA.
+
+        SNOW-3853392 routes an explicit read schema through INFER_STAGE_FILE_SCHEMA's
+        schema-adapt mode, falling back to building the columns client-side if the backend
+        refuses. The fallback is *correct* -- it produces columns that are equivalent to
+        adapt mode's (same names, same nullability, same parsed ``spark_type``) -- so it
+        cannot be found by looking at results, and without this counter its only trace is a
+        log line.
+
+        Two of the refusal causes are whole-deployment conditions:
+
+        * a GS predating SNOW-3853392 rejects ``USER_SCHEMA`` as an unknown named argument;
+        * ``ENABLE_INFER_STAGE_FILE_SCHEMA_TVF`` off refuses the call before adapt mode is
+          reached, which now affects explicit-schema reads too -- before SNOW-3853392 they
+          needed only ``ENABLE_STAGE_FILE_READER_TVF``.
+
+        Either makes *every* explicit-schema read on that deployment take the fallback while
+        looking perfectly healthy. But a non-zero rate is **not** by itself a deployment
+        signal: GS resolves the stage and the FILE FORMAT object before it branches on
+        ``USER_SCHEMA``, so an empty directory (``isErrorIfNoFiles``), a missing stage
+        privilege or an unsupported resolved format land here too -- and those are ordinary
+        per-request conditions. Read the key before concluding anything.
+
+        Keyed by exception class name plus the Snowflake error code when the exception
+        carries one (``"SnowparkSQLException:1044"``), else the class name alone. Bounded
+        cardinality either way, and the code is the part that discriminates: on its own the
+        class does not, because gate-off, an old GS, a transient SQL error and the
+        per-request causes above all arrive as the same Snowpark exception type. Deliberately
+        not a dimension on the ``file_read_paths`` entry -- this is a rare event, and adding
+        a fourth key there would multiply grouping combinations on every read for no gain.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "nss_schema_adapt_fallback" not in summary:
+            summary["nss_schema_adapt_fallback"] = defaultdict(int)
+
+        key = error_type if sql_error_code is None else f"{error_type}:{sql_error_code}"
+        summary["nss_schema_adapt_fallback"][key] += 1
 
     @safe
     def report_file_read_path(self, io_type: str, path: str, reason: str) -> None:
@@ -1110,6 +1294,40 @@ class Telemetry:
             **self._basic_telemetry_data(),
             TelemetryField.KEY_TYPE.value: TelemetryType.TYPE_EVENT.value,
             TelemetryType.EVENT_TYPE.value: EventType.NULL_TYPE_FALLBACK.value,
+            TelemetryField.KEY_DATA.value: payload,
+        }
+        self._send(message)
+
+    @safe
+    def send_parquet_read_path_telemetry(
+        self,
+        used: bool,
+        reason: str,
+        data: dict[str, Any],
+        plan_id: int | None = None,
+    ) -> None:
+        """Emitted once per parquet read: which path it took and, if not PD, why.
+
+        used=True means the read materialized rows through Parquet Direct (a loose-parquet
+        PARQUET_DIRECT_EXTERNAL_STAGE iceberg table); used=False means the normal COPY/INFER path.
+        reason is a PdReadReason code (PD_USED when used, otherwise the fallback reason). data
+        carries context (n_paths, cloud, stage_kind). plan_id and spark_session_id are injected.
+        """
+        payload = dict(data)
+        payload["used_parquet_direct"] = used
+        payload["reason"] = reason
+        if plan_id is not None:
+            payload["plan_id"] = plan_id
+        summary = self._request_summary.get()
+        if spark_session_id := summary.get("spark_session_id"):
+            payload["spark_session_id"] = spark_session_id
+        if operation_id := summary.get("spark_operation_id"):
+            payload["spark_operation_id"] = operation_id
+
+        message = {
+            **self._basic_telemetry_data(),
+            TelemetryField.KEY_TYPE.value: TelemetryType.TYPE_EVENT.value,
+            TelemetryType.EVENT_TYPE.value: EventType.PARQUET_READ_PATH.value,
             TelemetryField.KEY_DATA.value: payload,
         }
         self._send(message)

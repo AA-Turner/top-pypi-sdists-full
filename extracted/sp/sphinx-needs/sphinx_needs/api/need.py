@@ -76,26 +76,26 @@ def generate_need(
     title: str,
     *,
     need_source: NeedItemSourceProtocol | None = None,
-    docname: None | str = None,
-    lineno: None | int = None,
+    docname: str | None = None,
+    lineno: int | None = None,
     id: str | None = None,
     doctype: str = ".rst",
     content: str = "",
-    lineno_content: None | int = None,
+    lineno_content: int | None = None,
     status: str | None = None,
-    tags: None | str | list[str] = None,
-    constraints: None | str | list[str] = None,
+    tags: str | list[str] | None = None,
+    constraints: str | list[str] | None = None,
     parts: dict[str, NeedsPartType] | None = None,
     arch: dict[str, str] | None = None,
-    signature: None | str = None,
+    signature: str | None = None,
     sections: Sequence[str] | None = None,
     jinja_content: bool | None = None,
-    hide: None | bool | str = None,
-    collapse: None | bool | str = None,
-    style: None | str = None,
-    layout: None | str = None,
+    hide: bool | str | None = None,
+    collapse: bool | str | None = None,
+    style: str | None = None,
+    layout: str | None = None,
     template_root: Path | None = None,
-    template: None | str = None,
+    template: str | None = None,
     pre_template: str | None = None,
     post_template: str | None = None,
     is_import: bool = False,
@@ -264,7 +264,7 @@ def generate_need(
             f"Constraints {unknown_constraints!r} not in 'needs_constraints'.",
         )
 
-    extras_no_defaults: dict[str, None | FieldLiteralValue | FieldFunctionArray] = {}
+    extras_no_defaults: dict[str, FieldLiteralValue | FieldFunctionArray | None] = {}
     for extra_field in needs_schema.iter_extra_fields():
         if extra_field.name not in kwargs:
             extras_no_defaults[extra_field.name] = None
@@ -283,7 +283,7 @@ def generate_need(
                     f"Field {extra_field.name!r} is invalid: {err}",
                 ) from err
 
-    links_no_defaults: dict[str, None | LinksLiteralValue | LinksFunctionArray] = {}
+    links_no_defaults: dict[str, LinksLiteralValue | LinksFunctionArray | None] = {}
     for link_field in needs_schema.iter_link_fields():
         if link_field.name not in kwargs:
             links_no_defaults[link_field.name] = None
@@ -305,15 +305,15 @@ def generate_need(
     defaults_ctx: PredicateContextData = {
         "id": need_id,
         "type": need_type,
-        "title": core_converted["title"].value  # type: ignore[typeddict-item]
+        "title": core_converted["title"].value
         if isinstance(core_converted["title"], FieldLiteralValue)
-        else "",
-        "tags": copy(core_converted["tags"].value)  # type: ignore[arg-type]
+        else "",  # ty: ignore[invalid-argument-type]
+        "tags": copy(core_converted["tags"].value)
         if isinstance(core_converted["tags"], FieldLiteralValue)
-        else [],  # TODO allow for non-df/vf values?
-        "status": core_converted["status"].value  # type: ignore[typeddict-item]
+        else [],  # TODO allow for non-df/vf values?  # ty: ignore[invalid-argument-type]
+        "status": core_converted["status"].value
         if isinstance(core_converted["status"], FieldLiteralValue)
-        else None,
+        else None,  # ty: ignore[invalid-argument-type]
         "docname": source.dict_repr["docname"],
         "is_import": source.dict_repr["is_import"],
         "is_external": source.dict_repr["is_external"],
@@ -566,30 +566,30 @@ def _unwrap_field_value(
 
 def add_need(
     app: Sphinx,
-    state: None | RSTState = None,
-    docname: None | str = None,
-    lineno: None | int = None,
+    state: RSTState | None = None,
+    docname: str | None = None,
+    lineno: int | None = None,
     need_type: str = "",
     title: str = "",
     *,
     need_source: NeedItemSourceProtocol | None = None,
     id: str | None = None,
     content: str | StringList = "",
-    lineno_content: None | int = None,
-    doctype: None | str = None,
+    lineno_content: int | None = None,
+    doctype: str | None = None,
     status: str | None = None,
-    tags: None | str | list[str] = None,
-    constraints: None | str | list[str] = None,
+    tags: str | list[str] | None = None,
+    constraints: str | list[str] | None = None,
     parts: dict[str, NeedsPartType] | None = None,
     arch: dict[str, str] | None = None,
-    signature: None | str = None,
+    signature: str | None = None,
     sections: list[str] | None = None,
     jinja_content: bool | None = None,
-    hide: None | bool | str = None,
-    collapse: None | bool | str = None,
-    style: None | str = None,
-    layout: None | str = None,
-    template: None | str = None,
+    hide: bool | str | None = None,
+    collapse: bool | str | None = None,
+    style: str | None = None,
+    layout: str | None = None,
+    template: str | None = None,
     pre_template: str | None = None,
     post_template: str | None = None,
     is_import: bool = False,
@@ -953,7 +953,7 @@ def add_external_need(
         content=content,
         # TODO a title being None is not "type compatible" with other parts of the code base,
         # however, at present changing it to an empty string breaks some existing tests.
-        title=title,  # type: ignore[arg-type]
+        title=title,  # ty: ignore[invalid-argument-type]
         status=status,
         tags=tags,
         constraints=constraints,
@@ -968,7 +968,7 @@ def _prepare_template(
     needs_config: NeedsSphinxConfig,
     needs_info: NeedItem,
     template_name: str,
-    template_root: None | Path,
+    template_root: Path | None,
 ) -> str:
     template_folder = Path(needs_config.template_folder)
     if not template_folder.is_absolute():
@@ -1120,7 +1120,7 @@ def _get_field_default(
     extras: dict[str, AllowedTypes | None],
     links: dict[str, list[str]],
     location: tuple[str | None, int | None] | None,
-) -> None | FieldLiteralValue | FieldFunctionArray:
+) -> FieldLiteralValue | FieldFunctionArray | None:
     if scheme is None:
         return None  # TODO except (and catch upstream)
     # TODO if we stored default lists as tuples we could avoid the deepcopy here
@@ -1149,7 +1149,7 @@ def _get_links_default(
     extras: dict[str, AllowedTypes | None],
     links: dict[str, list[str]],
     location: tuple[str | None, int | None] | None,
-) -> None | LinksLiteralValue | LinksFunctionArray:
+) -> LinksLiteralValue | LinksFunctionArray | None:
     if scheme is None:
         return None  # TODO except (and catch upstream)
     # TODO if we stored default lists as tuples we could avoid the deepcopy here

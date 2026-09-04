@@ -3,13 +3,22 @@ import logging
 import os
 import re
 import shutil
+import sys
 from io import TextIOWrapper
 from pathlib import Path
 
-import pkg_resources
+try:
+    from importlib.resources import files as importlib_resources_files
+except ImportError:  # Python < 3.9: importlib.resources.files() added in 3.9
+    from importlib_resources import files as importlib_resources_files
+import referencing
+import referencing.exceptions
 import yaml
-from jsonschema import Draft7Validator, RefResolver
-from jsonschema.exceptions import RefResolutionError, ValidationError
+from jsonschema import Draft7Validator
+from jsonschema.exceptions import (  # pylint: disable=no-name-in-module
+    RefResolutionError,
+    ValidationError,
+)
 from nested_lookup import nested_lookup
 
 from .exceptions import InternalError, SpecValidationError
@@ -33,7 +42,8 @@ def resource_stream(package_name, resource_name, encoding="utf-8"):
     Decoding errors raise :exc:`ValueError`. :term:`universal newlines`
     are enabled. Can be used in a ``with`` statement.
     """
-    f = pkg_resources.resource_stream(package_name, resource_name)
+    pkg = sys.modules[package_name].__spec__.parent or package_name
+    f = importlib_resources_files(pkg).joinpath(resource_name).open("rb")
     return TextIOWrapper(f, encoding=encoding)
 
 
@@ -50,15 +60,16 @@ def resource_yaml(package_name, resource_name):
 
 
 def copy_resource(package_name, resource_name, out_path):
-    with pkg_resources.resource_stream(
-        package_name, resource_name
+    pkg = sys.modules[package_name].__spec__.parent or package_name
+    with importlib_resources_files(pkg).joinpath(resource_name).open(
+        "rb"
     ) as fsrc, out_path.open("wb") as fdst:
         shutil.copyfileobj(fsrc, fdst)
 
 
-def get_schema_store(schema_search_path):
-    """Load all the schemas in schema_search_path and return a dict"""
-    schema_store = {}
+def get_schema_registry(schema_search_path):
+    """Load all the schemas in schema_search_path and return a registry"""
+    schemas = {}
     schema_fnames = os.listdir(schema_search_path)
     for schema_fname in schema_fnames:
         schema_path = os.path.join(schema_search_path, schema_fname)
@@ -66,20 +77,42 @@ def get_schema_store(schema_search_path):
             with open(schema_path, "r", encoding="utf-8") as schema_f:
                 schema = json.load(schema_f)
                 if "$id" in schema:
-                    schema_store[schema["$id"]] = schema
-    return schema_store
+                    schemas[schema["$id"]] = schema
+
+    # Add HTTPS version of JSON Schema for compatibility
+    if "http://json-schema.org/draft-07/schema#" in schemas:
+        schemas["https://json-schema.org/draft-07/schema#"] = schemas[
+            "http://json-schema.org/draft-07/schema#"
+        ]
+
+    # Create resources with proper specification
+    resources = []
+    for uri, schema in schemas.items():
+        try:
+            resource = referencing.Resource.from_contents(
+                schema, default_specification=referencing.jsonschema.DRAFT7
+            )
+            resources.append((uri, resource))
+        except (
+            ValueError,
+            TypeError,
+            KeyError,
+        ):  # pylint: disable=broad-exception-caught
+            # Fallback for schemas without proper $schema
+            resource = referencing.Resource.from_contents(
+                schema, default_specification=referencing.jsonschema.DRAFT7
+            )
+            resources.append((uri, resource))
+
+    return referencing.Registry().with_resources(resources)
 
 
 def make_validator(schema):
     schema_search_path = Path(os.path.dirname(os.path.realpath(__file__))).joinpath(
         "data/schema/"
     )
-    resolver = RefResolver(
-        base_uri=Draft7Validator.ID_OF(schema),
-        store=get_schema_store(schema_search_path),
-        referrer=schema,
-    )
-    return Draft7Validator(schema, resolver=resolver)
+    registry = get_schema_registry(schema_search_path)
+    return Draft7Validator(schema, registry=registry)
 
 
 def make_resource_validator():
@@ -379,7 +412,7 @@ def load_resource_spec(resource_spec_file):  # pylint: disable=R # noqa: C901
     inliner = RefInliner(base_uri, resource_spec)
     try:
         inlined = inliner.inline()
-    except RefResolutionError as e:
+    except (RefResolutionError, referencing.exceptions.Unresolvable) as e:
         LOG.debug("Resource spec validation failed", exc_info=True)
         raise SpecValidationError(str(e)) from e
 
@@ -444,7 +477,7 @@ def load_hook_spec(hook_spec_file):  # pylint: disable=R # noqa: C901
     inliner = RefInliner(base_uri, hook_spec)
     try:
         inlined = inliner.inline()
-    except RefResolutionError as e:
+    except (RefResolutionError, referencing.exceptions.Unresolvable) as e:
         LOG.debug("Hook spec validation failed", exc_info=True)
         raise SpecValidationError(str(e)) from e
 

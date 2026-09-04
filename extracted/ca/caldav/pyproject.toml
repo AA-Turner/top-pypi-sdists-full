@@ -9,19 +9,39 @@ source = "vcs"
 version-file = "caldav/_version.py"
 
 [tool.hatch.build.targets.sdist]
+## The release is built from a clean checkout (see docs/design/RELEASE-HOWTO.md)
+## and `tox -e package` fails if the sdist contains a single file git does not
+## track, so this list does not have to enumerate every kind of junk - it only
+## has to keep an *ordinary working tree* buildable.
+##
+## The reason it is needed at all: hatchling's VCS-ignore support honours only
+## the ROOT .gitignore.  A file hidden from `git status` by a nested .gitignore,
+## or by the developer's global git ignore file, is invisible locally and lands
+## in the tarball anyway.  caldav-3.2.1.tar.gz shipped .claude/settings.json and
+## 1755 files under venv/ that way - the venv because RELEASE-HOWTO used to
+## create it inside the release clone.
 exclude = [
-  ".#*",      # Emacs lock files
-  "#*#",      # Emacs auto-save files
-  "*~",       # Backup files
-  "*.swp",    # Vim swap files
-  "*.pyc",    # Python bytecode
+  ".#*",        # Emacs lock files
+  "\\#*\\#",    # Emacs auto-save files - a bare "#" starts a comment
+  "*~",         # Backup files
+  "*.swp",      # Vim swap files
+  "*.pyc",      # Python bytecode
   "__pycache__",
+  ".claude",    # per-directory AI harness settings
+  ".prompts",   # AI prompt archive
+  ".pytest_cache",
+  ".ruff_cache",
+  "venv",
+  "/docs/build",
+  "/tests/caldav_test_servers.yaml",  # may hold credentials
+  "/tests/conf_private.py",
 ]
 
 [tool.hatch.build.targets.wheel]
+packages = ["caldav"]
 exclude = [
   ".#*",
-  "#*#",
+  "\\#*\\#",
   "*~",
   "*.swp",
   "*.pyc",
@@ -53,7 +73,7 @@ classifiers = [
 
 dependencies = [
   "lxml",
-  "niquests",
+  "niquests", ## see docs/source/http-libraries.rst
   "recurring-ical-events>=2.0.0",
   "typing_extensions;python_version<'3.11'",
   "icalendar>6.0.0",
@@ -71,6 +91,12 @@ Documentation = "https://caldav.readthedocs.io/"
 Changelog = "https://github.com/python-caldav/caldav/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
+## A no-op today, since niquests is an ordinary dependency above - it exists so
+## that `caldav[niquests]` already resolves.  v4.0 is planned to depend on no
+## HTTP library by default, and this is how consumers will keep the current
+## behaviour, so they can depend on it now and change nothing later.  See
+## docs/source/http-libraries.rst
+niquests = ["niquests"]
 test = [
   "vobject",
   "pytest",
@@ -84,26 +110,35 @@ test = [
   "pyfakefs",
   "httpx",
   "httpxyz",
+  ## Deliberately NOT enabled, and not an oversight.  testCheckCompatibility
+  ## skips itself without caldav_server_tester, but enabling it here buys
+  ## nothing and costs something:
+  ##  * caldav_server_tester depends on caldav, so this is a dependency cycle
+  ##    in the published metadata that every downstream packager inherits.
+  ##  * its probe set has to move in lockstep with compatibility_hints.py.  A
+  ##    *released* checker only probes the features that existed when it
+  ##    shipped - 1.2.0 probes 63 of the 82 the current checkout does - so CI
+  ##    would go green while covering none of the features a feature branch
+  ##    just added.  Green-but-vacuous is worse than skipped-and-honest.
+  ## testCheckCompatibility is therefore run manually, against a
+  ## caldav-server-tester checkout developed in step with this branch.  See
+  ## tests/README.md.
   #"caldav_server_tester"
   "deptry>=0.24.0; python_version >= '3.10'",
 ]
-[tool.setuptools_scm]
-write_to = "caldav/_version.py"
-
-[tool.setuptools]
-py-modules = ["caldav"]
-include-package-data = true
-
-[tool.setuptools.packages.find]
-exclude = ["tests"]
-namespaces = false
-
 [tool.deptry]
 ignore = ["DEP002"]  # Test dependencies (pytest, coverage, etc.) are not imported in main code
 
 [tool.deptry.per_rule_ignores]
-DEP001 = ["conf", "h2", "httpxyz"]  # conf: Local test config, h2: Optional HTTP/2 support, httpxyz: Optional async HTTP client
-DEP003 = ["aiohttp"]  # aiohttp: optional dep used only in caldav/testing.py (XandikosServer)
+DEP001 = ["conf", "h2"]  # conf: Local test config, h2: Optional HTTP/2 support.
+## httpxyz needed an entry here while it was imported by name; the httpx-family
+## libraries are now imported dynamically (see _ASYNC_HTTPX_CANDIDATES), which
+## deptry does not see at all.
+DEP003 = ["aiohttp", "h2"]  # aiohttp: optional dep used only in caldav/testing.py
+## h2 needs an entry in both DEP001 and DEP003: which of the two the optional
+## `import h2` in async_davclient.py trips depends on whether h2 happens to be
+## installed - DEP001 "missing" when it is not (CI), DEP003 "transitive" when it
+## is (a local checkout, where niquests or httpx has pulled it in).
 
 [tool.ruff]
 line-length = 100
@@ -125,14 +160,14 @@ ignore = [
     "E722",    # Bare except — 28 violations, each needs case-by-case review
     "F401",    # Unused imports — many are re-exports or conditional; needs audit
     "F821",    # Undefined names — often in TYPE_CHECKING blocks or docstrings
-    "F841",    # Unused variables — often intentional (e.g. unpacking)
     "UP031",   # %-format — 31 violations; ruff only offers unsafe auto-fix
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Examples and docs may have undefined names for illustration
-"examples/*.py" = ["F821"]
-"docs/**/*.py" = ["F821"]
+# Examples and docs may have undefined names for illustration, and an unused
+# variable there is the point: it shows what a method hands back.
+"examples/*.py" = ["F821", "F841"]
+"docs/**/*.py" = ["F821", "F841"]
 # Tests may use assertions and have unusual patterns
 "tests/*.py" = ["B011", "B017"]
 

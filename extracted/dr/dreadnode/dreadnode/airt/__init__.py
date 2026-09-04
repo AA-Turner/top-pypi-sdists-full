@@ -180,6 +180,11 @@ from dreadnode.airt.targets import (
 )
 from dreadnode.airt.templatefuzz import templatefuzz_attack
 from dreadnode.airt.tmap_trajectory import tmap_trajectory_attack
+from dreadnode.airt.tool_attack import (
+    attacker_model_proposer,
+    evolutionary_proposer,
+    multistep_tool_attack,
+)
 from dreadnode.airt.trojail import trojail_attack
 from dreadnode.airt.watermark_removal import watermark_removal_attack
 
@@ -198,6 +203,7 @@ __all__ = [
     "approval_bypass",
     "aprt_progressive_attack",
     "atlas_attack",
+    "attacker_model_proposer",
     "attacks_for_category",
     "attention_shifting_attack",
     "authz",
@@ -221,6 +227,7 @@ __all__ = [
     "echo_chamber_attack",
     "entropy_membership",
     "equation_solving_extraction",
+    "evolutionary_proposer",
     "extract_response_text",
     "extract_tool_calls",
     "genetic_persona_attack",
@@ -244,6 +251,7 @@ __all__ = [
     "mapf_attack",
     "mcp_probes",
     "multimodal_attack",
+    "multistep_tool_attack",
     "nes_attack",
     "nes_inversion",
     "nexus_attack",

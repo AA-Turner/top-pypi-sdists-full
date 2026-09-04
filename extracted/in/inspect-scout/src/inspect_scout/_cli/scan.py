@@ -6,15 +6,19 @@ from click.core import ParameterSource
 from inspect_ai._cli.util import (
     int_bool_or_str_flag_callback,
     int_or_bool_flag_callback,
-    parse_cli_args,
     parse_cli_config,
     parse_model_role_cli_args,
 )
-from inspect_ai._util.config import resolve_args
+from inspect_ai._util.config import parse_cli_args, resolve_args
 from inspect_ai._util.constants import DEFAULT_CACHE_DAYS
 from inspect_ai._util.error import PrerequisiteError
 from inspect_ai._util.logger import warn_once
-from inspect_ai.model import BatchConfig, CachePolicy, GenerateConfig, Model
+from inspect_ai.model import (
+    BatchConfig,
+    CachePolicy,
+    GenerateConfig,
+    ModelRoles,
+)
 from typing_extensions import Unpack
 
 from inspect_scout._project._project import read_project
@@ -572,7 +576,7 @@ def scan_command(
         scanjob.model_args,
     )
     scan_model_roles = cast(
-        dict[str, str | Model] | None,
+        ModelRoles | None,
         resolve_scan_option(
             ctx,
             "model_role",

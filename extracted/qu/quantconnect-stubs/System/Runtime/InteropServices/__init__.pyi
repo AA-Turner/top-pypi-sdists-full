@@ -2397,7 +2397,7 @@ class _NFloat_CreateTruncating:
         ...
 
 
-class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropServices_NFloat], System.Numerics.IMinMaxValue[System_Runtime_InteropServices_NFloat], System.IUtf8SpanFormattable):
+class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropServices_NFloat], System.Numerics.IMinMaxValue[System_Runtime_InteropServices_NFloat]):
     """This class has no documentation."""
 
     EPSILON: System.Runtime.InteropServices.NFloat

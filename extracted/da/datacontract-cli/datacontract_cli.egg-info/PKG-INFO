@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 1.1.2
+Version: 1.1.3
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@entropy-data.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@entropy-data.com>
 License-Expression: MIT
@@ -46,7 +46,7 @@ Requires-Dist: boto3<2.0.0,>=1.34.41
 Requires-Dist: Jinja2<4.0.0,>=3.1.5
 Requires-Dist: jinja_partials<1.0.0,>=0.2.1
 Requires-Dist: datacontract-specification<2.0.0,>=1.2.3
-Requires-Dist: open-data-contract-standard<4.0.0,>=3.1.2
+Requires-Dist: open-data-contract-standard<3.2.0,>=3.1.2
 Requires-Dist: deepdiff<10.0.0,>=6.0.0
 Provides-Extra: avro
 Requires-Dist: avro==1.12.2; extra == "avro"
@@ -138,7 +138,7 @@ Requires-Dist: datacontract-cli[all]; extra == "dev"
 Requires-Dist: httpx==0.28.1; extra == "dev"
 Requires-Dist: kafka-python; extra == "dev"
 Requires-Dist: minio==7.2.20; extra == "dev"
-Requires-Dist: moto==5.2.2; extra == "dev"
+Requires-Dist: moto==5.2.3; extra == "dev"
 Requires-Dist: openapi-spec-validator<0.10,>=0.7; extra == "dev"
 Requires-Dist: pandas>=2.1.0; extra == "dev"
 Requires-Dist: pre-commit<4.7.0,>=3.7.1; extra == "dev"
@@ -148,7 +148,7 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pymssql==2.3.13; extra == "dev"
 Requires-Dist: psycopg2-binary<3.0,>=2.9; extra == "dev"
 Requires-Dist: mysql-connector-python<26.8.0,>=8.0.30; extra == "dev"
-Requires-Dist: ruff==0.16.4; extra == "dev"
+Requires-Dist: ruff==0.16.5; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,mysql,postgres]==4.15.0; extra == "dev"
 Requires-Dist: trino==0.339.0; extra == "dev"
 Dynamic: license-file
@@ -295,6 +295,9 @@ $ datacontract lint odcs.yaml
 
 # show a changelog between two data contracts
 $ datacontract changelog v1.odcs.yaml v2.odcs.yaml
+
+# fail when a contract change is backward-incompatible
+$ datacontract breaking v1.odcs.yaml v2.odcs.yaml
 
 # execute schema and quality checks (define credentials as environment variables)
 $ datacontract test odcs.yaml

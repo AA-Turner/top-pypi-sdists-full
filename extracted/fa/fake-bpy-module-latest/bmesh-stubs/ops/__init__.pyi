@@ -515,6 +515,29 @@ def create_monkey(
     type list[`bmesh.types.BMVert`]
     """
 
+def create_quadsphere(
+    bm: bmesh.types.BMesh,
+    segments: int = 0,
+    method: typing.Literal["EVEN_AREA", "EVEN_ANGLE"] = "EVEN_AREA",
+    radius: float = 0,
+    matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
+    | mathutils.Matrix = ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)),
+    calc_uvs: bool = False,
+) -> dict[str, typing.Any]:
+    """Create Quad Sphere.Creates a sphere from a subdivided cube, made up entirely of quads.
+
+        :param bm: The bmesh to operate on.
+        :param segments: Number of quads along each edge of the cube the sphere is made from.
+        :param method: Mapping from the cube onto the sphere.
+        :param radius: Radius.
+        :param matrix: Matrix to multiply the new geometry with.
+        :param calc_uvs: Calculate default UVs.
+        :return: verts:
+    Output verts.
+
+    type list[`bmesh.types.BMVert`]
+    """
+
 def create_uvsphere(
     bm: bmesh.types.BMesh,
     u_segments: int = 0,

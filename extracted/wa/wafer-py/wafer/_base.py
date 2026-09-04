@@ -9,7 +9,9 @@ import random
 import re
 import socket
 import subprocess
+import threading
 import time
+from collections import OrderedDict
 from html import unescape
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
@@ -242,8 +244,73 @@ def _to_method(method: str) -> Method:
         raise ValueError(f"Unknown HTTP method: {method}") from None
 
 
-def _load_system_cert_store() -> CertStore | None:
-    """Load system CA certificates into a wreq CertStore."""
+# Ceiling on how long a concurrent caller waits for another thread's chase.
+# The holder's own work is deadline-capped, so this only matters if that
+# thread dies outright.
+_AIA_WAIT_SECONDS = 30.0
+
+# Bound on the per-origin chase table. A session pointed at attacker-chosen
+# URLs would otherwise accumulate one entry per certificate-error host for as
+# long as it lives.
+_AIA_MAX_TRACKED_HOSTS = 512
+
+# Retries when a client build races an AIA certificate install. The generation
+# only advances on a successful chase, so contention is momentary; the bound
+# exists so a pathological session cannot spin here.
+_MAX_CLIENT_PUBLISH_ATTEMPTS = 3
+
+
+class _AiaChase:
+    """One origin's chase: who owns it, whether it finished, and its verdict.
+
+    The verdict is recorded here rather than inferred from the shared list of
+    collected certificates, which cannot distinguish "the winner succeeded"
+    from "some other origin's chase added something".
+    """
+
+    __slots__ = ("done", "succeeded")
+
+    def __init__(self):
+        self.done = threading.Event()
+        self.succeeded = False
+
+_CERT_VERIFY_MARKERS = (
+    "certificate_verify_failed",
+    "certificate verify failed",
+    "unable to get local issuer",
+    "self signed certificate",
+    "self-signed certificate",
+)
+
+
+def is_certificate_verify_failure(error: BaseException) -> bool:
+    """Report whether a transport error is a certificate path failure.
+
+    wreq surfaces BoringSSL's verdict as an opaque nested error string, so
+    this matches the reason text rather than an exception type. Matching
+    conservatively is deliberate: a false positive costs one wasted probe
+    and the original error is still raised, while a false negative leaves
+    the site permanently unreachable.
+
+    Kept here rather than in ``wafer._aia`` because it runs on every
+    transport error, while ``_aia`` pulls in ``cryptography`` -- roughly a
+    third of wafer's import time, and pure waste for a session that never
+    meets a broken chain. This predicate is what decides whether that cost
+    is paid at all.
+    """
+
+    text = str(error).lower()
+    return any(marker in text for marker in _CERT_VERIFY_MARKERS)
+
+
+def _load_system_cert_pems() -> bytes | None:
+    """Read the system CA certificates as a PEM stack.
+
+    The raw bytes are kept, not just the CertStore built from them, because
+    AIA chasing needs the same material twice: to verify a fetched
+    intermediate against the roots this client actually trusts, and to build
+    an augmented store once it is proven.
+    """
     try:
         if platform.system() == "Darwin":
             result = subprocess.run(
@@ -257,7 +324,7 @@ def _load_system_cert_store() -> CertStore | None:
                 capture_output=True,
             )
             if result.returncode == 0 and result.stdout:
-                return CertStore.from_pem_stack(result.stdout)
+                return result.stdout
         elif platform.system() == "Linux":
             for path in [
                 "/etc/ssl/certs/ca-certificates.crt",
@@ -266,7 +333,7 @@ def _load_system_cert_store() -> CertStore | None:
             ]:
                 try:
                     with open(path, "rb") as f:
-                        return CertStore.from_pem_stack(f.read())
+                        return f.read()
                 except FileNotFoundError:
                     continue
         # Fallback: try certifi if available
@@ -274,7 +341,7 @@ def _load_system_cert_store() -> CertStore | None:
             import certifi
 
             with open(certifi.where(), "rb") as f:
-                return CertStore.from_pem_stack(f.read())
+                return f.read()
         except ImportError:
             pass
     except Exception:
@@ -282,8 +349,20 @@ def _load_system_cert_store() -> CertStore | None:
     return None
 
 
+def _cert_store_from_pems(pem_stack: bytes | None) -> CertStore | None:
+    """Build a wreq CertStore from a PEM stack, or None if unusable."""
+    if not pem_stack:
+        return None
+    try:
+        return CertStore.from_pem_stack(pem_stack)
+    except Exception:
+        logger.debug("Failed to build cert store", exc_info=True)
+        return None
+
+
 # Cache the cert store at module load time
-_SYSTEM_CERT_STORE = _load_system_cert_store()
+_SYSTEM_CERT_PEMS = _load_system_cert_pems()
+_SYSTEM_CERT_STORE = _cert_store_from_pems(_SYSTEM_CERT_PEMS)
 if _SYSTEM_CERT_STORE:
     logger.debug("Loaded system CA certificate store")
 else:
@@ -781,6 +860,31 @@ class BaseSession:
         self._embed = embed
         self._embed_origin = embed_origin
         self._embed_referers = embed_referers or []
+
+        # AIA chasing state. Intermediates proven to be signed by a root in
+        # the system store, the store built from them, and the hosts already
+        # chased (attempted, not necessarily completed -- one try each).
+        self._aia_extra_pems: list[bytes] = []
+        self._aia_cert_store = None
+        # Bumped whenever certificates are installed. A client build that
+        # started before a bump is stale and must not be published.
+        self._aia_generation = 0
+        # Soonest notAfter across the installed anchors, or None when there
+        # are none. Checked per request so expiry does not depend on a client
+        # rebuild happening to occur.
+        self._aia_expires_at: float | None = None
+        # (canonical host, port) -> _AiaChase. Doubles as the "already
+        # attempted" record and the gate concurrent callers wait on. Ordered so
+        # the bound can evict the oldest origin instead of refusing new ones.
+        self._aia_attempted: OrderedDict[tuple[str, int], _AiaChase] = OrderedDict()
+        # AsyncSession runs the chase in a worker thread, so two concurrent
+        # requests failing on the same host could both pass the "already
+        # attempted" test before either recorded it and each run a full probe
+        # and fetch. The lock makes claiming a host one step. Reentrant
+        # because it guards both the chase bookkeeping and _cert_store, and a
+        # future caller holding one while reaching the other would otherwise
+        # deadlock rather than fail visibly.
+        self._aia_lock = threading.RLock()
 
         # Proxy
         self._proxy = None
@@ -1774,6 +1878,301 @@ class BaseSession:
         defaults.update(kwargs)
         return cls(**defaults)
 
+    def _expire_aia_anchors_if_due(self) -> bool:
+        """Drop anchors past their notAfter, returning whether any went.
+
+        Called before a request rather than only from a client rebuild. A
+        session that never rotates builds its client once, and the verifier
+        does not check a trust anchor's own validity, so without this an
+        expired intermediate would stay effective for as long as the session
+        lives. Costs one timestamp comparison when nothing has expired.
+        """
+
+        expires_at = self._aia_expires_at
+        if expires_at is None or time.time() < expires_at:
+            return False
+        with self._aia_lock:
+            before = len(self._aia_extra_pems)
+        # _cert_store performs the prune and the invalidation under the lock.
+        self._cert_store()
+        with self._aia_lock:
+            dropped = len(self._aia_extra_pems) != before
+        if dropped:
+            logger.debug("AIA anchors expired; rebuilding without them")
+            self._rebuild_client()
+        return dropped
+
+    def _publish_under_generation(self, build):
+        """Build something from the trust store and publish it if still current.
+
+        Returns the object to publish. Ordinary rebuilds -- rotation,
+        retirement, the lazy native transport -- do not hold ``_aia_lock``, so
+        a build that read the store before a chase installed a certificate
+        would otherwise be assigned over the object that has it, and the
+        request would fail on a chain wafer had already completed.
+
+        Every consumer of the trust store must go through here. This existed
+        as five near-identical copies, and the copy that was missed was the
+        native-TLS transport -- which then carried exactly that bug.
+        """
+
+        for _ in range(_MAX_CLIENT_PUBLISH_ATTEMPTS - 1):
+            with self._aia_lock:
+                generation = self._aia_generation
+            candidate = build()
+            with self._aia_lock:
+                if self._aia_generation == generation:
+                    return candidate
+        # Certificates kept landing mid-build. Build the last one holding the
+        # lock so nothing can change underneath it: returning an unchecked
+        # candidate here would publish trust state already known to be stale,
+        # which is the whole failure this helper exists to prevent.
+        with self._aia_lock:
+            return build()
+
+    def _cert_store(self):
+        """Return the trust store this session's client should verify against.
+
+        Normally the shared system store. A session that has completed a
+        server's chain by AIA chasing gets its own store with the proven
+        intermediates added -- built once and cached, since _build_client_kwargs
+        runs on every fingerprint rotation.
+        """
+
+        if not self._aia_extra_pems:
+            return _SYSTEM_CERT_STORE
+        from wafer._aia import drop_expired_pems, merge_pem_stacks
+
+        # Everything here runs under the lock. This method both reads and
+        # *writes* the shared certificate list, and it is reached from
+        # _build_client_kwargs on every rotation and retirement rebuild --
+        # none of which hold the lock otherwise. Unlocked, a rebuild that
+        # snapshotted the list before a chase installed a certificate would
+        # write the snapshot back, erasing the certificate that chase had
+        # just proven and overwriting its cache invalidation with a stale
+        # store. The origin is already recorded as attempted, so the host
+        # would stay unreachable for the rest of the session.
+        with self._aia_lock:
+            # A trust anchor's own validity period is not enforced by the
+            # verifier, so an intermediate that expires mid-session would go
+            # on being trusted after the PKI stopped vouching for it. Checked
+            # on every call rather than only when the cache is cold: after
+            # the first build the cache is only invalidated by a new chase,
+            # so a cache-gated check would never fire for the long sessions
+            # this is meant to protect.
+            live = drop_expired_pems(self._aia_extra_pems)
+            if len(live) != len(self._aia_extra_pems):
+                logger.debug(
+                    "Dropping %d expired AIA intermediate(s) from the store",
+                    len(self._aia_extra_pems) - len(live),
+                )
+                self._aia_extra_pems[:] = live
+                self._aia_cert_store = None
+                # Bump the generation and drop the native transport as well.
+                # Without this an already-built wreq client and an existing
+                # Imperva transport both keep honouring the withdrawn anchor,
+                # and nothing left would invalidate them.
+                self._aia_generation += 1
+                self._native_tls = None
+                # Forget every settled verdict too. A succeeded origin whose
+                # anchor was just withdrawn is back to failing, and leaving it
+                # settled means the chase never runs again -- so the server
+                # renewing its intermediate could never repair the session.
+                self._aia_attempted = OrderedDict(
+                    (key, chase)
+                    for key, chase in self._aia_attempted.items()
+                    if not chase.done.is_set()
+                )
+            from wafer._aia import earliest_expiry as _earliest
+
+            self._aia_expires_at = _earliest(live) if live else None
+            if not live:
+                return _SYSTEM_CERT_STORE
+            if self._aia_cert_store is None:
+                self._aia_cert_store = _cert_store_from_pems(
+                    merge_pem_stacks(_SYSTEM_CERT_PEMS or b"", live)
+                )
+            return self._aia_cert_store or _SYSTEM_CERT_STORE
+
+    def _complete_chain_via_aia(self, url: str, timeout: float | None = None) -> bool:
+        """Try once to complete a host's certificate chain, returning success.
+
+        Returns True only when new, verified intermediates were added, which
+        is the caller's signal to rebuild the client and retry. One attempt
+        per host per session: a chain that could not be completed from
+        trusted material will not complete on a second try either, and
+        retrying would turn every genuinely bad certificate into repeated
+        probe traffic against the host.
+
+        Concurrent callers for the same host do not race and do not give up.
+        The first claims the host and does the work; the rest wait for it and
+        then answer from its result. Letting them return False immediately
+        would fail requests that a chase already in flight was about to fix,
+        which is precisely what a caller issuing parallel requests to one
+        broken-chain host would hit.
+        """
+
+        parsed = urlparse(url)
+        host = parsed.hostname
+        if not host:
+            return False
+        # Keyed by host AND port: two services on one name can present
+        # different chains, so a chase against :8443 must not suppress the
+        # one :443 still needs.
+        try:
+            key = (_canonical_host(host), parsed.port or 443)
+        except ValueError:
+            return False
+        # Imported before the claim: this is the first touch of wafer._aia and
+        # so of cryptography, and a failure here after claiming would leave an
+        # origin whose event is never set, making every later request to it
+        # wait the full timeout and then fail.
+        from wafer._aia import ChaseInconclusive
+
+        with self._aia_lock:
+            state = self._aia_attempted.get(key)
+            # Ownership is decided here, inside the lock, rather than from
+            # thread identity: async runs these in a pool, so the same thread
+            # can legitimately return for an origin it already finished.
+            owner = state is None
+            # Whether this origin's chase had already finished before this
+            # caller arrived, as opposed to being in flight right now.
+            settled = not owner and state.done.is_set()
+            if owner:
+                if len(self._aia_attempted) >= _AIA_MAX_TRACKED_HOSTS:
+                    # A caller fetching attacker-chosen URLs would otherwise
+                    # grow this map without bound. Evict the oldest *finished*
+                    # entry: evicting one still in flight would hand its origin
+                    # a second owner, which is the duplicate-probe race this
+                    # table exists to prevent, and the first owner could then
+                    # delete the second's verdict.
+                    for victim, chase in self._aia_attempted.items():
+                        if chase.done.is_set():
+                            del self._aia_attempted[victim]
+                            break
+                    else:
+                        logger.debug(
+                            "AIA origin table full of in-flight chases; "
+                            "not chasing %s",
+                            host,
+                        )
+                        return False
+                state = _AiaChase()
+                self._aia_attempted[key] = state
+            else:
+                self._aia_attempted.move_to_end(key)
+        if settled:
+            # This origin was chased already and whatever it found is
+            # installed. Reporting success again would tell the caller to
+            # retry a request that just failed with the certificates already
+            # in place -- and since nothing changes between those attempts,
+            # it would retry without limit. Failing here instead lets the
+            # request end with the certificate error that is actually true.
+            return False
+        if not owner:
+            # Waiting on a chase in flight. Capped independently of the
+            # request deadline: async runs this in a pool thread, so a long
+            # wait parks a worker that every other to_thread call in the
+            # process -- cookie-cache writes, native TLS, browser render --
+            # then queues behind.
+            wait_for = _AIA_WAIT_SECONDS
+            if timeout is not None:
+                wait_for = min(wait_for, timeout)
+            state.done.wait(wait_for)
+            # Read the winner's own verdict. Inferring it from the length of
+            # the shared PEM list would be wrong twice over: the winner may
+            # finish before this thread samples the length, and a chase for
+            # an unrelated host adding a certificate would read as success.
+            return state.succeeded
+        # Every exit from here must release the waiters, or a concurrent
+        # request for this host blocks for the full wait.
+        try:
+            state.succeeded = self._run_aia_chase(url, host, timeout)
+            return state.succeeded
+        except ChaseInconclusive as exc:
+            # The chain was never examined, so there is no verdict to record.
+            # Forget the origin: a chase starved of budget behind a slow
+            # challenge, or one whose probe met a momentary DNS or CA hiccup,
+            # would otherwise be remembered as "unfixable" and leave the host
+            # unreachable for the life of the session.
+            logger.debug("AIA chase for %s was inconclusive: %s", host, exc)
+            with self._aia_lock:
+                # Only if this caller still owns the entry: an eviction may
+                # have replaced it with a different chase's state.
+                if self._aia_attempted.get(key) is state:
+                    del self._aia_attempted[key]
+            return False
+        finally:
+            state.done.set()
+
+    def _run_aia_chase(
+        self,
+        url: str,
+        host: str,
+        timeout: float | None,
+    ) -> bool:
+        """Do the chase for a host this caller has claimed."""
+
+        if not _SYSTEM_CERT_PEMS:
+            # Without a known trust store there is nothing to verify a
+            # fetched intermediate against, and unverified is not usable.
+            return False
+        from wafer._aia import proxy_supports_chasing
+
+        if not proxy_supports_chasing(self._proxy_url):
+            logger.debug(
+                "Skipping AIA chase for %s: cannot tunnel through the "
+                "configured proxy without leaking around it",
+                host,
+            )
+            return False
+        from wafer._aia import ChaseInconclusive, resolve_missing_intermediates
+
+        try:
+            pems = resolve_missing_intermediates(
+                url,
+                _SYSTEM_CERT_PEMS,
+                timeout=timeout,
+                proxy_url=self._proxy_url,
+                # The probe honors this session's DNS pin, so a pinned host is
+                # reached at exactly the pre-validated address. The issuer
+                # fetch goes to a host the pin never covered, and is guarded
+                # instead by the same public-address rule the pin enforces
+                # (see _is_fetchable_url) on the URL and on every redirect.
+                resolve=self._resolve,
+            )
+        except ChaseInconclusive:
+            raise
+        except Exception:
+            logger.debug("AIA chase raised for %s", host, exc_info=True)
+            return False
+        if not pems:
+            return False
+        with self._aia_lock:
+            known = set(self._aia_extra_pems)
+            added = [pem for pem in pems if pem not in known]
+            if not added:
+                return False
+            self._aia_extra_pems.extend(added)
+            self._aia_cert_store = None
+            self._aia_generation += 1
+            from wafer._aia import earliest_expiry as _earliest
+
+            self._aia_expires_at = _earliest(self._aia_extra_pems)
+            # The native-TLS transport builds its SSL context once at
+            # construction, so drop it and let it be rebuilt with the new
+            # intermediates. Keeping the old one would leave the Imperva
+            # fallback failing on a chain the wreq path can now complete.
+            self._native_tls = None
+        # Rebuilt outside the lock on purpose. _rebuild_client re-hydrates the
+        # cookie jar from the on-disk cache -- up to max_entries file reads and
+        # JSON parses -- and holding _aia_lock across that would block every
+        # concurrent caller on disk I/O. The store it reads is already current,
+        # so the worst case is a client published a moment before another
+        # origin's certificate lands, which the next rebuild picks up.
+        self._rebuild_client()
+        return True
+
     def _build_client_kwargs(self) -> dict:
         """Build kwargs for wreq Client construction.
 
@@ -1831,8 +2230,9 @@ class BaseSession:
                 "timeout": self.timeout,
                 "cookie_store": True,
             }
-        if _SYSTEM_CERT_STORE is not None:
-            kwargs["tls_verify"] = _SYSTEM_CERT_STORE
+        store = self._cert_store()
+        if store is not None:
+            kwargs["tls_verify"] = store
         if self._proxy is not None:
             kwargs["proxies"] = [self._proxy]
         if self._resolve:
@@ -1953,16 +2353,28 @@ class BaseSession:
         }
 
     def _native_transport(self):
-        """Lazily create the per-session native-TLS transport."""
-        if self._native_tls is None:
-            from wafer._native_tls import NativeTLSTransport
+        """Lazily create the per-session native-TLS transport.
 
-            self._native_tls = NativeTLSTransport(
+        Published under the same generation check the wreq client uses. This
+        transport builds its SSL context once from a snapshot of the fetched
+        intermediates, so a build that started before a chase installed one
+        would otherwise assign itself over that chase's invalidation and go
+        on missing the certificate, with nothing left to invalidate it again.
+        """
+
+        if self._native_tls is not None:
+            return self._native_tls
+        from wafer._native_tls import NativeTLSTransport
+
+        self._native_tls = self._publish_under_generation(
+            lambda: NativeTLSTransport(
                 follow_redirects=self.follow_redirects,
                 proxy_url=self._proxy_url,
                 max_redirects=self.max_redirects,
                 resolve=self._resolve,
+                extra_ca_pems=list(self._aia_extra_pems),
             )
+        )
         return self._native_tls
 
     def _native_user_agent(self, extra_headers: dict[str, str] | None) -> str:

@@ -1,14 +1,15 @@
-# SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Optional
 
+from esp_idf_monitor.base.monitor_log import MonitorLog
 from esp_idf_monitor.config import Config
 
-from .output_helpers import error_print
+_log = MonitorLog()
 
-cfg, _ = Config().load_configuration()
-cfg = cfg['esp-idf-monitor']
+_parser, _ = Config().load_configuration()
+cfg = _parser['esp-idf-monitor']
 
 
 def key_to_hex(key: Optional[str], default: str) -> str:
@@ -18,7 +19,7 @@ def key_to_hex(key: Optional[str], default: str) -> str:
     # convert key from string to C0 escape code
     C0_code = ascii_code - ord('@')
     if C0_code < 1 or C0_code > 32:
-        error_print(
+        _log.err(
             f"Unsupported configuration for key: '{key}', please use just the English alphabet "
             f"characters (A-Z) and [,],\\,^,_. Using the default option '{default}'."
         )
@@ -31,18 +32,24 @@ EXIT_KEY = key_to_hex(cfg.get('exit_key'), ']')
 CHIP_RESET_KEY = key_to_hex(cfg.get('chip_reset_key'), 'R')
 RECOMPILE_UPLOAD_KEY = key_to_hex(cfg.get('recompile_upload_key'), 'F')
 RECOMPILE_UPLOAD_APP_KEY = key_to_hex(cfg.get('recompile_upload_app_key'), 'A')
+RECOMPILE_UPLOAD_ALL_KEY = key_to_hex(cfg.get('recompile_upload_all_key'), 'E')
 TOGGLE_OUTPUT_KEY = key_to_hex(cfg.get('toggle_output_key'), 'Y')
 TOGGLE_LOG_KEY = key_to_hex(cfg.get('toggle_log_key'), 'L')
 TOGGLE_TIMESTAMPS_KEY = key_to_hex(cfg.get('toggle_timestamp_key'), 'I')
 CHIP_RESET_BOOTLOADER_KEY = key_to_hex(cfg.get('chip_reset_bootloader_key'), 'P')
 EXIT_MENU_KEY = key_to_hex(cfg.get('exit_menu_key'), 'X')
-SKIP_MENU_KEY = cfg.get('skip_menu_key', False)
+try:
+    SKIP_MENU_KEY = cfg.getboolean('skip_menu_key', False)
+except ValueError:
+    _log.err(f"Unsupported configuration for 'skip_menu_key': {cfg.get('skip_menu_key')!r}, using default 'False'.")
+    SKIP_MENU_KEY = False
 
 
 COMMAND_KEYS = [
     CHIP_RESET_KEY,
     RECOMPILE_UPLOAD_KEY,
     RECOMPILE_UPLOAD_APP_KEY,
+    RECOMPILE_UPLOAD_ALL_KEY,
     TOGGLE_OUTPUT_KEY,
     TOGGLE_LOG_KEY,
     TOGGLE_TIMESTAMPS_KEY,

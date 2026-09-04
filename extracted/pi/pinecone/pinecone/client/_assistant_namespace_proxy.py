@@ -28,11 +28,18 @@ class _AssistantNamespaceProxy:
         object.__setattr__(self, "_assistants", assistants)
 
     def __call__(self, name: str) -> AssistantModel:
-        """Shortcut for :meth:`Assistants.describe` (legacy ``pc.assistant(name)``)."""
+        """Look up an assistant by name; equivalent to ``Assistants.describe``.
+
+        :meta private:
+        """
         assistants: Assistants = object.__getattribute__(self, "_assistants")
         return assistants.describe(name=name)
 
     def __getattr__(self, attr: str) -> Any:
+        """Forward attribute access to the underlying ``Assistants`` namespace.
+
+        :meta private:
+        """
         # Called only for attributes not found on the proxy itself, so
         # forward to the underlying Assistants namespace.
         assistants: Assistants = object.__getattribute__(self, "_assistants")
@@ -52,11 +59,18 @@ class _AsyncAssistantNamespaceProxy:
         object.__setattr__(self, "_assistants", assistants)
 
     async def __call__(self, name: str) -> AssistantModel:
-        """Shortcut for :meth:`AsyncAssistants.describe` (legacy ``await pc.assistant(name)``)."""
+        """Look up an assistant by name; equivalent to ``AsyncAssistants.describe``.
+
+        :meta private:
+        """
         assistants: AsyncAssistants = object.__getattribute__(self, "_assistants")
         return await assistants.describe(name=name)
 
     def __getattr__(self, attr: str) -> Any:
+        """Forward attribute access to the underlying ``AsyncAssistants`` namespace.
+
+        :meta private:
+        """
         assistants: AsyncAssistants = object.__getattribute__(self, "_assistants")
         return getattr(assistants, attr)
 

@@ -165,6 +165,12 @@ class OverpassReverseGeocoder:
         concurrency: Maximum in-flight queries in :meth:`reverse_many`.
         timeout: Per-request timeout in seconds, also sent to Overpass as
             the in-query ``[timeout:]`` budget.
+        startup_wait: Maximum seconds to wait for the Overpass server to
+            become ready (the dispatcher accepting queries) when entering
+            the ``async with`` context. Set to ``0`` to skip the probe.
+            The default (300 s) covers a warm restart of the North
+            America extract; a cold import takes hours and should be
+            waited out separately.
         session: Pre-built aiohttp session. When omitted, the client opens
             (and closes) its own inside ``async with``.
     """
@@ -178,6 +184,7 @@ class OverpassReverseGeocoder:
         backoff_base: float = 2.0,
         concurrency: int = 8,
         timeout: int = 60,
+        startup_wait: float = 300.0,
         session: Optional[aiohttp.ClientSession] = None,
     ) -> None:
         self.urls: list[str] = []
@@ -191,6 +198,7 @@ class OverpassReverseGeocoder:
         self.backoff_base = backoff_base
         self.concurrency = max(1, int(concurrency))
         self.timeout = timeout
+        self.startup_wait = max(0.0, float(startup_wait))
         self._session = session
         self._owns_session = session is None
         self._logger = logging.getLogger(__name__)
@@ -201,7 +209,81 @@ class OverpassReverseGeocoder:
                 timeout=aiohttp.ClientTimeout(total=self.timeout + 10)
             )
             self._owns_session = True
+        if self.startup_wait > 0:
+            await self._wait_ready()
         return self
+
+    async def _wait_ready(
+        self,
+        poll_interval: float = 5.0,
+    ) -> None:
+        """Block until the Overpass dispatcher can actually serve queries.
+
+        The Overpass HTTP server starts before its dispatcher (the
+        database layer) finishes loading. ``/api/status`` returns 200
+        almost immediately, but real queries get 504
+        ("Dispatcher_Client::request_read_and_idx::timeout") until the
+        database files are mapped. This probe sends a tiny no-op query
+        and waits for a 200 with valid JSON before declaring readiness.
+
+        Args:
+            poll_interval: Seconds between consecutive polls.
+        """
+        if self._session is None:
+            return  # defensive; should never happen inside __aenter__
+
+        max_wait = self.startup_wait
+        elapsed = 0.0
+        # A zero-cost query: ask for the count of nothing.  The
+        # dispatcher must be ready for it to parse and return ``{"elements":[]}``
+        # (~ 50 bytes).  This is cheaper than ``/api/status`` because it
+        # exercises the exact code-path real queries need.
+        probe_query = "[out:json][timeout:5];out count;"
+
+        self._logger.info(
+            "Waiting up to %.0fs for Overpass dispatcher to become ready …",
+            max_wait,
+        )
+
+        while elapsed < max_wait:
+            for url in self.urls:
+                try:
+                    async with self._session.post(
+                        url, data={"data": probe_query}
+                    ) as resp:
+                        if resp.status == 200:
+                            # Verify the body is parseable JSON — a 200
+                            # with an HTML error page is still not ready.
+                            try:
+                                await resp.json(content_type=None)
+                            except (ValueError, aiohttp.ClientResponseError):
+                                continue
+                            if elapsed > 0:
+                                self._logger.info(
+                                    "Overpass dispatcher ready at %s "
+                                    "after %.0fs",
+                                    url, elapsed,
+                                )
+                            else:
+                                self._logger.info(
+                                    "Overpass dispatcher ready at %s", url,
+                                )
+                            return
+                except (aiohttp.ClientError, asyncio.TimeoutError):
+                    pass
+            self._logger.debug(
+                "Overpass dispatcher not ready yet — retrying in %.0fs "
+                "(%.0f/%.0fs)",
+                poll_interval, elapsed, max_wait,
+            )
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        self._logger.warning(
+            "Overpass dispatcher did not become ready within %.0fs — "
+            "proceeding anyway (queries may fail with 504)",
+            max_wait,
+        )
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         if self._owns_session and self._session is not None:

@@ -1,11 +1,11 @@
 from collections.abc import Callable
 import asyncio
-import contextlib
 from datetime import datetime, date, timedelta, time
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 import hashlib
 import math
+import re
 import numpy as np
 import pandas as pd
 import calendar
@@ -104,6 +104,9 @@ class SchedulingVisits(FlowComponent):
     | day_utilization | No | Headroom factor for the Stage-1 solve, `0 < value <= 1.0` (default `0.90`). Only consulted when `in_store_hours_range` is set. `1.0` targets 100% of a day the packer cannot actually fill (pure `MarketClustering` parity); `0.90` leaves buffer for fragmentation — measured as the better default on the Verizon dataset. Out-of-bounds values raise `ConfigError` at construction. |
     | subcluster_week_spread | No | `true` (default, **behaviour change** — see `CHANGELOG.md`) \\| `false`. Sub-cluster block days spread across ISO weeks instead of racing to the earliest free run — `_pick_consecutive_workdays` prefers the run touching an employee's least-already-reserved week. `false` restores the pre-FEAT-245 earliest-start tie-break exactly. |
     | in_store_compressed | — | Output column on `visited_stores[*]` (FEAT-245). Present **only** when `in_store_hours_range` is set — an unset range adds no column (spec AC-1). `True` when Stage 2 actually shrank this specific visit's duration below the Stage-1/nominal candidate that was tried first; a visit placed at the Stage-1 value alone is not "compressed" — Stage 1 already redefines what "nominal" means for that employee-market. |
+    | store_schedule | No | `false` (default) \\| `true`. When set, `run()` also builds `self.store_schedule_df` — `schedule_df` flattened from one row per employee-day to one row per employee/store/**day**, unpacking the `visited_stores` dict into its own compact frame (identity columns first: `associate_oid`, `market`, `state_code`/`city`, `day`, `store_id`, `store_name`, `visit_order`, arrival/departure times, distance/time to store, ...). Off by default: `self.store_schedule_df` stays `None` and costs nothing to build. |
+    | start_date / end_date | No | Explicit scheduling window (`date`, `datetime`, or ISO `'YYYY-MM-DD'` string), inclusive on both ends. Must be given together — providing only one raises `ConfigError`, as does `end_date < start_date`. When set, this window replaces the calendar month entirely: `get_workdays()` is built from `start_date`/`end_date` instead of `year`/`month`, so a range can span multiple months or cover only part of one. `year`/`month` (used for the `year`/`month` output columns and logging) are then derived from `start_date`. |
+    | year / month | No | Legacy calendar-month selector, default the current month. Ignored once `start_date`/`end_date` are given. When they aren't, they are converted internally into `start_date`/`end_date` spanning that month's first through last calendar day — `get_workdays()` always runs off `start_date`/`end_date`, never off `year`/`month` directly. |
 
 
         Example:
@@ -119,7 +122,10 @@ class SchedulingVisits(FlowComponent):
           in_store_visit: 0.75
           max_visits_per_day: 4
           max_distance: 120
-          year: 2024
+          store_schedule: true  # Optional: also build self.store_schedule_df (one row per employee/store/day)
+          start_date: '2024-12-01'  # Optional: explicit window, overrides year/month
+          end_date: '2024-12-31'
+          year: 2024  # Used only when start_date/end_date are omitted
           month: 12
           start_hour: 9  # Start working at 9:00 AM
           schedule_window_days: 3  # Half-width, in business days, of the monthly cadence window
@@ -324,7 +330,41 @@ class SchedulingVisits(FlowComponent):
         self._today = today
         self.year: int = kwargs.pop('year', today.year)
         self.month: int = kwargs.pop('month', today.month)
+        # Explicit scheduling window (FEAT-TBD): start_date/end_date, when
+        # given, replace the calendar month entirely as the source of
+        # `get_workdays()`. Both must be provided together.
+        start_date_kw = kwargs.pop('start_date', None)
+        end_date_kw = kwargs.pop('end_date', None)
+        if (start_date_kw is None) != (end_date_kw is None):
+            raise ConfigError(
+                "start_date and end_date must be provided together, got "
+                f"start_date={start_date_kw!r}, end_date={end_date_kw!r}"
+            )
+        if start_date_kw is not None:
+            self.start_date: date = self._parse_schedule_date(start_date_kw, 'start_date')
+            self.end_date: date = self._parse_schedule_date(end_date_kw, 'end_date')
+            if self.end_date < self.start_date:
+                raise ConfigError(
+                    f"end_date ({self.end_date}) cannot be before start_date ({self.start_date})"
+                )
+            # year/month remain in sync (output columns, logging), anchored
+            # to the window's start — the range itself may span months.
+            self.year = self.start_date.year
+            self.month = self.start_date.month
+        else:
+            # Legacy behaviour: year/month describe the full calendar
+            # month, converted here into the same start_date/end_date pair
+            # that get_workdays() consumes.
+            self.start_date, self.end_date = self._month_bounds(self.year, self.month)
         self.market_analysis = None
+        # Opt-in additional output (FEAT-TBD): `schedule_df` is one row
+        # per employee-day, with per-store detail nested inside
+        # `visited_stores`. When set, `run()` also flattens that dict into
+        # `self.store_schedule_df` — one row per employee/store/day, the
+        # grain most reporting wants without the day-level aggregates.
+        # Off by default: zero extra cost when unused (`store_schedule_df`
+        # stays `None`).
+        self.store_schedule: bool = kwargs.pop('store_schedule', False)
         super(SchedulingVisits, self).__init__(
             loop=loop,
             job=job,
@@ -393,11 +433,37 @@ class SchedulingVisits(FlowComponent):
         """Format time as HH:MM AM/PM."""
         return time_obj.strftime("%I:%M %p")
 
-    def get_workdays(self, year: int, month: int, exception_dates: list = None):
-        """Get all workdays (Monday to Friday) in a given month, excluding exception dates."""
+    @staticmethod
+    def _month_bounds(year: int, month: int) -> Tuple[date, date]:
+        """First and last calendar day of a given year/month."""
         first_day = date(year, month, 1)
         last_day = date(year, month, calendar.monthrange(year, month)[1])
-        workdays = pd.bdate_range(first_day, last_day)
+        return first_day, last_day
+
+    @staticmethod
+    def _parse_schedule_date(value: Any, field_name: str) -> date:
+        """Coerce a start_date/end_date kwarg (date, datetime, or ISO
+        string) into a plain `date`."""
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        if isinstance(value, str):
+            try:
+                return pd.Timestamp(value).date()
+            except (ValueError, TypeError) as exc:
+                raise ConfigError(
+                    f"{field_name} must be a valid date, got {value!r}"
+                ) from exc
+        raise ConfigError(
+            f"{field_name} must be a date, datetime, or ISO date string, "
+            f"got {type(value).__name__}"
+        )
+
+    def get_workdays(self, start_date: date, end_date: date, exception_dates: list = None):
+        """Get all workdays (Monday to Friday) between start_date and
+        end_date (inclusive), excluding exception dates."""
+        workdays = pd.bdate_range(start_date, end_date)
         if exception_dates:
             # Convert exception_dates to datetime
             exception_dates = pd.to_datetime(exception_dates)
@@ -453,24 +519,55 @@ class SchedulingVisits(FlowComponent):
         digest = hashlib.md5(str(store_id).encode("utf-8")).hexdigest()
         return int(digest, 16) % (10 ** 8)
 
+    #: Regex for cadence strings: a leading integer followed by ``x<period>``,
+    #: e.g. ``"10xWeek"`` → ``("10", "week")``.  Fixes defect 4: the old
+    #: ``int(cadence[0])`` parsed only the FIRST CHARACTER of the string,
+    #: so ``"10xWeek"`` silently became 1 visit instead of 10.
+    _CADENCE_RE = re.compile(r"^\s*(\d+)\s*x\s*(week|month|qtr)", re.IGNORECASE)
+
+    @staticmethod
+    def _parse_cadence(cadence: str) -> tuple[int, str] | None:
+        """Parse a cadence string into ``(visit_rule, visit_frequency)``.
+
+        Fixes defect 4 (``int(cadence[0])`` parsed only the first character,
+        so ``"10xWeek"`` silently became 1 visit). Regexes the full leading
+        integer, falling back to substring matching for cadence strings the
+        regex does not recognise.
+
+        Returns:
+            ``(visit_rule, visit_frequency)`` if the cadence was recognised,
+            else ``None``.
+        """
+        lowered = cadence.lower()
+        match = SchedulingVisits._CADENCE_RE.match(lowered)
+        if match:
+            freq_map = {"week": "weekly", "month": "monthly", "qtr": "quarterly"}
+            return int(match.group(1)), freq_map[match.group(2)]
+
+        # Fallback: the original substring tolerance, for cadence strings
+        # the stricter regex above does not recognise.
+        for token, frequency in (
+            ("xweek", "weekly"),
+            ("xmonth", "monthly"),
+            ("xqtr", "quarterly"),
+        ):
+            if token in lowered:
+                return int(lowered[0]), frequency
+        return None
+
     def _normalized_visit_frequency(self, cadence: str | None, visit_frequency: Any) -> str:
         """Mirror of the ``cadence`` -> ``visit_frequency`` normalization
         performed INSIDE `get_scheduled_dates()` (kept in sync
-        intentionally — `get_scheduled_dates()` itself is out of scope to
-        modify per FEAT-233's Codebase Contract). Used so the visit record
-        stores the SAME effective cadence category that
+        intentionally — both call `_parse_cadence()`). Used so the visit
+        record stores the SAME effective cadence category that
         `get_scheduled_dates()` actually scheduled against, which
         `_pack_visits()` relies on to pick the ISO-week vs. monthly window.
         """
         frequency = visit_frequency
         if cadence:
-            cadence = cadence.lower()
-            if 'xweek' in cadence:
-                frequency = 'weekly'
-            elif 'xmonth' in cadence:
-                frequency = 'monthly'
-            elif 'xqtr' in cadence:
-                frequency = 'monthly'  # quarterly folds into monthly, same as get_scheduled_dates
+            parsed = self._parse_cadence(cadence)
+            if parsed:
+                frequency = parsed[1]  # only the frequency label, not the rule
         if isinstance(frequency, str) and frequency.lower() == 'quarterly':
             frequency = 'monthly'
         return frequency
@@ -490,21 +587,14 @@ class SchedulingVisits(FlowComponent):
         if len(workdays) == 0:
             return scheduled_dates
 
-        # Set visit_frequency and visit_rule based on cadence if provided
+        # Set visit_frequency and visit_rule based on cadence if provided.
+        # Uses _parse_cadence() which regexes the full leading integer —
+        # the old ``int(cadence[0])`` parsed only the first character, so
+        # ``"10xWeek"`` silently became 1 visit (defect 4 fix).
         if cadence:
-            cadence = cadence.lower()
-            if 'xweek' in cadence:
-                num = int(cadence[0])
-                visit_rule = num
-                visit_frequency = 'weekly'
-            elif 'xmonth' in cadence:
-                num = int(cadence[0])
-                visit_rule = num
-                visit_frequency = 'monthly'
-            elif 'xqtr' in cadence:
-                num = int(cadence[0])
-                visit_rule = num
-                visit_frequency = 'quarterly'
+            parsed = self._parse_cadence(cadence)
+            if parsed:
+                visit_rule, visit_frequency = parsed
 
         # If visit_frequency is numeric (e.g. pre-rename DataFrame where
         # the column still holds the visit *count* rather than the cadence
@@ -648,7 +738,7 @@ class SchedulingVisits(FlowComponent):
         """
         if self._workdays_cache is None:
             self._workdays_cache = list(
-                self.get_workdays(self.year, self.month, self._exception_dates)
+                self.get_workdays(self.start_date, self.end_date, self._exception_dates)
             )
         capacity = self.max_visits_per_day * len(self._workdays_cache)
         if capacity <= 0:
@@ -925,12 +1015,12 @@ class SchedulingVisits(FlowComponent):
             max_date = schedule_df['day'].max()
             unique_days = schedule_df['day'].nunique()
 
-            workdays = self.get_workdays(self.year, self.month, self._exception_dates)
+            workdays = self.get_workdays(self.start_date, self.end_date, self._exception_dates)
             expected_business_days = len(workdays)
 
             self._logger.info(f"Schedule date range: {min_date.date()} to {max_date.date()}")
             self._logger.info(f"Unique days scheduled: {unique_days}")
-            self._logger.info(f"Expected business days in month: {expected_business_days}")
+            self._logger.info(f"Expected business days in range: {expected_business_days}")
 
             # ✅ NEW: Check for duplicate store visits
             self._logger.info("\n=== DUPLICATE STORE VISIT ANALYSIS ===")
@@ -1540,6 +1630,66 @@ class SchedulingVisits(FlowComponent):
             )
 
         return frame
+
+    def _build_store_schedule_df(self, schedule_df: pd.DataFrame) -> pd.DataFrame:
+        """Flatten `schedule_df` into one row per employee/store/day.
+
+        `schedule_df` is one row per employee-day, with per-store detail
+        nested in `visited_stores`. This unpacks that dict into its own,
+        more compact frame — the grain most reporting wants ("who visited
+        which store on which day") without also carrying the day-level
+        aggregates (`total_distance`, `total_time_minutes`, ...).
+
+        Args:
+            schedule_df: The employee-day frame built by `run()`, already
+                carrying `market`/`state_code`/`city` (and
+                `start_location` when `resolve_start_location` is set) via
+                `_attach_market_columns`.
+
+        Returns:
+            One row per scheduled visit, identity columns first
+            (`associate_oid`, `market`, `day`, `store_id`, ...) followed
+            by whatever else each `visited_stores` entry carries
+            (`in_store_compressed`, passthrough columns, ...). Empty
+            (columns preserved) when `schedule_df` has no rows.
+        """
+        identity_columns = [
+            'associate_oid', 'corporate_email', 'market', 'market_id',
+            'state_code', 'city', 'day', 'year', 'month',
+            'store_id', 'store_name', 'latitude', 'longitude',
+            'visit_order', 'arrival_time', 'departure_time',
+            'arrival_time_24h', 'departure_time_24h',
+            'time_in_store_minutes', 'travel_time_to_store_minutes',
+            'distance_to_store_miles', 'visit_rule', 'visit_frequency',
+            'scheduled_vs_target_days', 'leg_degraded',
+        ]
+        if schedule_df is None or schedule_df.empty:
+            return pd.DataFrame(columns=identity_columns)
+
+        day_level_columns = ('state_code', 'city', 'start_location')
+        rows = []
+        for _, day_row in schedule_df.iterrows():
+            base = {
+                'associate_oid': day_row.get('associate_oid'),
+                'corporate_email': day_row.get('corporate_email'),
+                'market': day_row.get('market'),
+                'market_id': day_row.get('market_id'),
+                'day': day_row.get('day'),
+                'year': day_row.get('year'),
+                'month': day_row.get('month'),
+            }
+            for column in day_level_columns:
+                if column in day_row.index:
+                    base[column] = day_row[column]
+            for info in (day_row.get('visited_stores') or {}).values():
+                # `info` (per-store) wins on overlap — it is the more
+                # specific value (e.g. its own `market`/`market_id`).
+                rows.append({**base, **info})
+
+        store_schedule_df = pd.DataFrame(rows)
+        ordered = [c for c in identity_columns if c in store_schedule_df.columns]
+        trailing = [c for c in store_schedule_df.columns if c not in ordered]
+        return store_schedule_df[ordered + trailing]
 
     def _attach_market_columns_to_source(self) -> None:
         """Write each market's centre point back onto the source frame.
@@ -2920,9 +3070,9 @@ class SchedulingVisits(FlowComponent):
         self._attach_market_columns_to_source()
 
         # Get workdays
-        workdays = self.get_workdays(self.year, self.month, self._exception_dates)
+        workdays = self.get_workdays(self.start_date, self.end_date, self._exception_dates)
         self._logger.info(
-            f"Working with {len(workdays)} business days in {self.year}-{self.month}"
+            f"Working with {len(workdays)} business days between {self.start_date} and {self.end_date}"
         )
 
         # FEAT-241: peel outlier sub-cluster rows out of the normal
@@ -3128,8 +3278,25 @@ class SchedulingVisits(FlowComponent):
             if 'employee_position' in employee_info:
                 employee_position = employee_info['employee_position']
             else:
-                with contextlib.suppress(Exception):
+                # Defect 3 fix: the old contextlib.suppress(Exception) could
+                # leave ``employee_position`` unbound when (a) employee_info
+                # had no 'employee_position', (b) _calculate_employee_position
+                # raised, and (c) the employee was not a ghost — causing a
+                # NameError at the logger line below. Now uses an explicit
+                # fallback chain that always produces a value (or None).
+                employee_position = None
+                try:
                     employee_position = self._calculate_employee_position(employee_data)
+                except Exception:
+                    self._logger.warning(
+                        "Failed to calculate position for employee %s; "
+                        "falling back to ghost position or None.",
+                        employee_id,
+                    )
+                # Ghost employees always use their pre-assigned position
+                # (near the market anchor) — the medoid computed above is
+                # over all assigned stores, which can drift far from the
+                # anchor on elongated markets.
                 if 'position' in ghost_employees.get(employee_id, {}):
                     employee_position = ghost_employees[employee_id]['position']
 
@@ -3560,6 +3727,13 @@ class SchedulingVisits(FlowComponent):
         # Set the final results
         self.schedule_df = schedule_df
         self.exception_stores_df = exception_stores_df
+        # Opt-in employee/store/day breakdown (see __init__). Built from
+        # the already-market-attached schedule_df, so state_code/city
+        # (and start_location, when resolved) come along for free.
+        self.store_schedule_df = (
+            self._build_store_schedule_df(schedule_df)
+            if self.store_schedule else None
+        )
 
         # Debug analysis
         self._logger.info("Analyzing scheduling results...")

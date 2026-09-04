@@ -1789,7 +1789,19 @@ def heal(backup_root: Path, identity: dict | None = None,
     # made such a daemon IMMORTAL — it can never match the current fingerprint,
     # so it is stale by definition, and 0.1.5 recycled it. Treat a missing
     # fingerprint as stale, which is what it means.
-    stale_is_serving = (alive is None and stale_fp != fp
+    fp_stale = stale_fp != fp
+    # A WEDGE: current code, not marked unpinnable (that gap is a credential
+    # problem no respawn fixes -- see the case below), but the fingerprinted
+    # probe still refused it. The only way `alive is None` reaches here under
+    # a MATCHING fingerprint and no `unpinnable` mark is `_serving_can_pin`
+    # answering False -- it already retried and confirmed nothing comes back.
+    # Without this, `stale_fp != fp` never held for a daemon running code we
+    # DO ship, so a wedge on current code was never a match and `heal` read
+    # it as healthy forever. Measured on a Mac: `cswap pin --heal` printed
+    # "Nothing to heal" twice against a trio that accepted TCP and never
+    # answered.
+    wedged = not fp_stale and not (stale_st or {}).get("unpinnable")
+    stale_is_serving = (alive is None and (fp_stale or wedged)
                         and _read_alive_port(certdir) is not None)
     if not stale_is_serving:
         # The watchdog did its job (or there was never anything stale), so no
@@ -1798,8 +1810,9 @@ def heal(backup_root: Path, identity: dict | None = None,
         # clear that actually keeps the record from going stale.
         _clear_heal_defer(certdir)
     if stale_is_serving:
-        # Serving, but running code we no longer ship. Recycle it: the spawn
-        # below rebinds the SAME port, so live sessions never see the swap.
+        # Serving, but running code we no longer ship (or wedged on code we
+        # do). Recycle it: the spawn below rebinds the SAME port, so live
+        # sessions never see the swap.
         #
         # NOT WITHOUT A SLOT. A dangling pin (its account gone from the
         # registry) has nothing to spawn afterwards, so killing here would
@@ -1807,11 +1820,16 @@ def heal(backup_root: Path, identity: dict | None = None,
         # recycle exists to prevent, caused by the recycle.
         if not account_num:
             return False
-        # LET THE GAPLESS PATH GO FIRST. Every daemon reaching here is the code
-        # watchdog's own trigger, and the watchdog replaces it while it keeps
-        # serving. TERMing instead is what turns a deploy into a cut.
+        # LET THE GAPLESS PATH GO FIRST -- BUT ONLY FOR THE REASON IT EXISTS
+        # FOR. `_watchdog_had_its_turn` defers one tick so the code watchdog's
+        # own gapless replacement can win the race; that watchdog fires on a
+        # STALE FINGERPRINT, and a wedge is not a code deploy -- the same
+        # deadlock that broke `/health` may just as well have broken the
+        # watchdog's own thread, so waiting a tick on it wastes exactly the
+        # time a wedge should not get.
         stale_pid = int((stale_st or {}).get("pid") or 0)
-        if stale_pid and not _watchdog_had_its_turn(certdir, stale_pid, stale_fp):
+        if fp_stale and stale_pid and not _watchdog_had_its_turn(
+                certdir, stale_pid, stale_fp):
             _log_lifecycle(
                 "a daemon on stale code is serving — leaving it to its own "
                 "code watchdog, which replaces it without darkening the port. "
@@ -2685,6 +2703,12 @@ _WORKER_SUBTREE = re.compile(r"^/v1/(code/)?sessions/[^/]+/worker(/|$|\?)")
 # GET held open for the life of the session, so it cannot migrate on
 # `Connection: close` the way a reply does — it has to be closed.
 _EVENT_STREAM = re.compile(r"/worker/events/stream")
+# A PIN-BROKERED RE-REGISTRATION IS A BIRTH TOO. `POST .../<id>/bridge`
+# mints the id again exactly as a create does, but matches neither pattern
+# above, so `_note_bridge_traffic` dropped it before the startup grace ever
+# saw it -- unreachable for an id whose create predates this daemon (a
+# handover, or one this daemon never served at all).
+_BRIDGE_REGISTER = re.compile(r"^/v1/(code/)?sessions/[^/]+/bridge(/|$|\?)")
 
 # The session id inside a worker path, which is the bridge the call belongs
 # to. Same shape as the routes above, captured rather than merely matched.
@@ -3467,18 +3491,21 @@ def save_pin(backup_root: Path, email: str | None, org_uuid: str | None) -> None
     read = getattr(_settings, "_read_raw_for_write", None) or _settings._read_raw
     raw = read(path)
     if email:
-        # MERGE, NEVER ASSIGN. `_read_raw_for_write` above guards the OUTER
-        # dict so a read-modify-write cannot discard autoswitch, UI and every
-        # unknown section — and assigning the INNER dict reintroduced exactly
-        # that fault one level down. `remoteControl` is shared: `debugSlowMs`
-        # is read here and written by nobody in this function, so rebuilding
-        # the section deleted a live setting of our own on every pin.
+        # REBUILD WITH THE PAIR FIRST, NEIGHBOURS CARRIED IN THEIR ORDER.
+        # `_read_raw_for_write` above guards the OUTER dict so a
+        # read-modify-write cannot discard autoswitch, UI and every unknown
+        # section. `remoteControl` is shared too: `debugSlowMs` is read here
+        # and written by nobody in this function, so it must survive too.
         section = raw.get("remoteControl")
         if not isinstance(section, dict):
             section = {}
-        section["pinnedEmail"] = email
-        section["pinnedOrganizationUuid"] = org_uuid or ""
-        raw["remoteControl"] = section
+        section.pop("pinnedEmail", None)
+        section.pop("pinnedOrganizationUuid", None)
+        raw["remoteControl"] = {
+            "pinnedEmail": email,
+            "pinnedOrganizationUuid": org_uuid or "",
+            **section,
+        }
     else:
         # CLEARING DROPS THE PIN, NOT THE SECTION. Removing the whole thing
         # takes every neighbouring key with it, which is the same deletion by
@@ -3491,27 +3518,10 @@ def save_pin(backup_root: Path, email: str | None, org_uuid: str | None) -> None
                 raw.pop("remoteControl", None)
         else:
             raw.pop("remoteControl", None)
-    # ORDER PRESERVED, never sorted. The original defect was real — clearing
-    # POPS this key and pinning re-ASSIGNS it, and a pop-then-assign appends at
-    # the end, so a clear+re-pin rewrote identical content in a different order
-    # on a file symlinked into the dotfiles repo. 0.1.70 fixed that by sorting
-    # the whole file, and the reasoning held only while this was the sole
-    # writer. It is not. FOUR others write this same path, all through the
-    # host's insertion-order writer (`json.dumps(data, indent=2)`, no
-    # sort_keys):
-    #
-    #     settings.py   save_settings / set_setting / unset_setting
-    #     pin.py        _clear_pin_record
-    #
-    # Each appends a NEW section at the end, because `raw[k] = v` on a fresh
-    # key does. Sorting
-    # here then drags that key inward on the next pin — an order-only diff on a
-    # tracked file, once per new section, forever. So the invariant that
-    # matters on a SHARED file is agreeing with its other writers, not being
-    # internally tidy. Preserving order costs one move of this key the first
-    # time a clear+re-pin happens after this change — a content-meaningful
-    # diff, since the key really was removed and re-added — and is byte-stable
-    # from then on, under BOTH pin cycles and new sections.
+    # ORDER PRESERVED, never sorted: the pair is written first and every
+    # neighbour follows in its prior order. A pin is therefore a fixed point —
+    # a file the old code left pair-last is normalised ONCE, on its next pin,
+    # to the dotfiles record's order, and stays byte-stable after that.
     _settings.atomic_write_json(path, raw)
 
 
@@ -3846,14 +3856,13 @@ def _live_session_ids() -> list[str]:
     return out
 
 
-def _live_job_ids() -> list[str]:
-    """Job ids of sessions with a LIVE process, from the registry.
+def _live_job_pids() -> dict[str, int]:
+    """Job id -> pid of the LIVE process that owns it, from the registry.
 
-    The opposite selection to `_carry_candidates`, which takes only sessions
-    with NO process. Both are needed: that one keeps an ended session's bridge
-    across a rotation, this one keeps a RUNNING session's reattach possible.
+    `_live_job_ids` is this with the pid dropped, kept for its own callers
+    that never needed it.
     """
-    out: list[str] = []
+    out: dict[str, int] = {}
     try:
         home = require("paths").get_claude_config_home()
         for path in (home / "sessions").glob("*.json"):
@@ -3867,10 +3876,20 @@ def _live_job_ids() -> list[str]:
                 os.kill(int(pid), 0)
             except Exception:  # noqa: BLE001 — gone, or not ours to signal
                 continue
-            out.append(str(job))
+            out[str(job)] = int(pid)
     except Exception:  # noqa: BLE001 — no host, nothing to enumerate
-        return []
+        return {}
     return out
+
+
+def _live_job_ids() -> list[str]:
+    """Job ids of sessions with a LIVE process, from the registry.
+
+    The opposite selection to `_carry_candidates`, which takes only sessions
+    with NO process. Both are needed: that one keeps an ended session's bridge
+    across a rotation, this one keeps a RUNNING session's reattach possible.
+    """
+    return list(_live_job_pids())
 
 
 def _carry_candidates() -> list[tuple[str, str | None]]:
@@ -4299,6 +4318,123 @@ def _live_bridge_ids() -> set[str]:
     for bridge, _name, _src in _live_bridge_records():
         live.update(_both_spellings(bridge))
     return live
+
+
+#: OUR OWN FIELD, stamped into Claude Code's `jobs/<id>/state.json` next to
+#: `bridgeSessionId` -- nothing else in this codebase keeps a record mapping
+#: a bridge to its creating pid, so `_dead_creator_bridge_ids` has to make
+#: one before it can ever read one back.
+_CREATOR_PID_KEY = "cswapPinCreatorPid"
+
+#: The same binding, kept IN MEMORY. Claude Code removes `jobs/<id>/`
+#: whole once it settles a job -- sometimes inside a second of the creator
+#: dying -- taking the file-only stamp with it before anything ever reads
+#: it back. This copy is what survives that removal; it does not survive a
+#: restart of THIS process, so a successor after a handover still depends
+#: on the file for whatever job records it inherits.
+_creator_pid_by_bridge: dict[str, int] = {}
+
+
+def _dead_creator_bridge_ids(stamp: bool = True) -> set[str]:
+    """Bridge ids named in a job record THIS HOST wrote, whose creating
+    process is CONFIRMED gone -- POSITIVE evidence only.
+
+    `_live_job_ids` / `_live_bridge_ids` condemn by SUBTRACTION: a session
+    record that is merely absent, unparseable, or answers a signal with
+    anything other than "no such process" reads exactly like a dead one to
+    both -- fine as a NEGATIVE guard (never close something provably alive),
+    wrong as the sole gate on a DELETE, since one torn or GC'd record then
+    removes a bridge from protection and adds it to condemnation in the same
+    step. Measured: a missing session record, a torn one, and an EPERM from
+    `os.kill` were all indistinguishable from "the creator is dead" through
+    that path.
+
+    So this keeps its own record. STAMP FIRST, while a live job's pid is
+    still knowable -- there is no earlier record of it to read back, and
+    once the creator is gone this is the only chance there will ever be.
+    Every live job, every call: cheap (a handful of jobs at most), and
+    correctness needs the FIRST stamp landed before the process dies, not
+    the latest one.
+
+    Then READ: a bridge is dead only when its job's `state.json` carries
+    BOTH `bridgeSessionId` and a stamped pid, and signalling that exact pid
+    raises ``ProcessLookupError`` -- not merely "some" exception. No record,
+    an unreadable one, no stamped pid, or any other errno (most of all
+    ``PermissionError`` -- a reused pid now owned by someone else) all
+    resolve to KEEP, never to dead.
+
+    ``stamp=False`` skips the write pass (and `_live_job_pids()` with it) and
+    reads only what is already on disk -- for a caller on the request thread,
+    where N unserialized callers sharing the sweep's one tmp filename would
+    tear a live job's `state.json`. The sweep (its own thread, serialized by
+    `_sweep_lock`) still stamps; a request-thread read of a not-yet-stamped
+    record just resolves to KEEP until the sweep gets to it.
+    """
+    try:
+        home = require("paths").get_claude_config_home()
+    except Exception:  # noqa: BLE001 — no host, nothing to enumerate
+        return set()
+
+    if stamp:
+        for job, pid in _live_job_pids().items():
+            path = home / "jobs" / job / "state.json"
+            rec = _read_json(path)
+            if not isinstance(rec, dict) or not rec.get("bridgeSessionId"):
+                continue
+            _creator_pid_by_bridge[str(rec["bridgeSessionId"])] = pid
+            if rec.get(_CREATOR_PID_KEY) == pid:
+                continue  # already agrees -- no write, no contention with CC
+            rec[_CREATOR_PID_KEY] = pid
+            tmp = path.with_name(f".state.json.cswap-{os.getpid()}")
+            try:
+                # 0600 AT CREATION, not after -- see `_carry_job_record`'s own
+                # note on this exact pattern. `write_text` makes the file 0644
+                # under the usual umask and widens a file CC itself writes 0600
+                # (bridgeOwnerAccountUuid, resumeSessionId, the session output
+                # tail all live in it).
+                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    json.dump(rec, fh)
+                tmp.replace(path)
+            except OSError:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass  # a temp we cannot remove must not abort the whole sweep
+
+    out: set[str] = set()
+    seen: set[str] = set()
+    for path in (home / "jobs").glob("*/state.json"):
+        rec = _read_json(path)
+        if not isinstance(rec, dict):
+            continue
+        bridge, pid = rec.get("bridgeSessionId"), rec.get(_CREATOR_PID_KEY)
+        if not bridge:
+            continue
+        seen.add(str(bridge))
+        if not isinstance(pid, int):
+            continue
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            out.update(_both_spellings(str(bridge)))
+        except Exception:  # noqa: BLE001 — unknown resolves to KEEP
+            continue
+
+    # THE JOB DIRECTORY CAN BE GONE BY NOW -- see `_creator_pid_by_bridge`.
+    # A bridge whose job record still exists was already judged above and
+    # is skipped here; this only covers the ones the file-only pass can no
+    # longer see at all.
+    for bridge, pid in list(_creator_pid_by_bridge.items()):
+        if bridge in seen:
+            continue
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            out.update(_both_spellings(bridge))
+        except Exception:  # noqa: BLE001 — unknown resolves to KEEP
+            continue
+    return out
 
 
 def observed_bridge_owners() -> dict[str, str | None]:
@@ -5155,6 +5291,19 @@ def last_arm_cutoff() -> int | None:
     return _last_arm_cutoff
 
 
+# HOW LONG A PINNED REQUEST WAITS ON `refresh_lock` BEFORE GIVING UP. The
+# work inside that lock is the HOST's, not this module's, and a contended
+# refresh pays for all of it: a cold Keychain read (macos_keychain's own
+# `get_password` bounds that subprocess to 5s), then -- should the held
+# token be expired -- `consume_backup_grant`'s own `.consume-<n>.lock` wait
+# (`FileLock`'s default `timeout=10.0`), the switcher's `self.lock_file`
+# wait (another 10s), a Keychain RE-read (5s again) and the refresh POST
+# (`oauth.try_refresh_oauth_credentials`'s default `timeout_s=10.0`) --
+# 5+10+10+5+10 = 40s worst case. Set above that, or a healthy refresh that
+# is merely slow and contended gets cut off as if it were stalled.
+_MINT_LOCK_BOUND_S = 45.0
+
+
 def make_pin_token_provider(switcher, account_num: str, email: str):
     """Build the ``pin_token_provider`` callable for :class:`PinProxy`.
 
@@ -5195,6 +5344,26 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
     # {account_num: (read_at, credential_json)}. Per provider, so it dies with
     # the daemon and no state outlives a recycle.
     _cred_cache: dict = {}
+    # SET/CLEARED ONLY BY WHOEVER HOLDS `refresh_lock`. Lets a reader that
+    # peeks the lock non-blocking (`_mint_lock_busy`) say how long it has
+    # been held -- the fact that tells a stalled Keychain read apart from a
+    # merely slow one, on the one probe that must never wait behind either.
+    # Attached to `provider` below, once it exists.
+
+    # PER-CALLING-THREAD, not a shared flag. Each request runs on its own
+    # thread, and a bare module-level flag was cleared on entry by whoever
+    # called `provider()` NEXT and read by whichever thread asked -- so one
+    # thread's genuine stall could read as cleared (a wrong fail-open) or an
+    # unrelated thread's stall could read as this one's own (a wrong 503).
+    _stalled = threading.local()
+
+    def mint_stalled() -> bool:
+        """True when THIS THREAD's last call returned None only because it
+        could not take `refresh_lock` within `_MINT_LOCK_BOUND_S`, not
+        because minting genuinely failed. The request path uses this to
+        answer 503 instead of going out unpinned -- see
+        `_refuse_stalled_mint`."""
+        return getattr(_stalled, "flag", False)
 
     def _consume(creds: str, num: str, mail: str) -> "oauth.RefreshOutcome":
         """Refresh through the host's interprocess gate, direct POST as
@@ -5319,6 +5488,7 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
 
     def provider() -> str | None:
         _deferred.discard(1)
+        _stalled.flag = False
         target = _current_target()
         if target is None:
             return None
@@ -5356,27 +5526,50 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
         # store before deciding. That re-read predates this cache.
         cached = _cred_cache.get(ckey)
         if cached is not None:
+            provider.blind_reason = ""
+            token = _live_token(cached)
+            if token:
+                return token  # common path: no lock, no network
             creds = cached
         else:
-            creds = switcher.read_account_credentials(num, mail)
-            if creds:
-                _cred_cache[ckey] = creds
-        if not creds:
-            # SAY WHICH SLOT, or "could not be read" is unfalsifiable. An empty
-            # read and a read of the WRONG slot are indistinguishable from the
-            # warning alone, and hours went into a machine where the second was
-            # never excluded. The provider is the only place that knows what it
-            # asked for.
-            provider.blind_reason = f"no credential for slot {num} ({mail})"
-            return None
-        provider.blind_reason = ""
-        token = _live_token(creds)
-        if token:
-            return token  # common path: no lock, no network
+            # COLD -- the very first read for this key, which is EVERY key on
+            # a fresh daemon (`_cred_cache` starts empty every start). This
+            # used to run right here, outside `refresh_lock` and unbounded:
+            # the same store the refresh below already treats as capable of
+            # wedging forever, invisible to `_mint_lock_busy` and therefore to
+            # `/health` and the self-heal watchdog. It goes under the same
+            # bounded lock the refresh uses, below.
+            creds = None
 
-        with refresh_lock:
-            # Someone may have rotated it while we waited — re-read and reuse.
+        # BOUNDED, not `with refresh_lock:`. The critical section below can
+        # call into the host's Keychain read and a network refresh, and a
+        # stalled credential store can wedge either one forever (measured: a
+        # `security find-generic-password -w` still hung after 2d19h) --
+        # unkillable from here, so the holder of the lock stays blocked in
+        # that call. Everyone else must not queue behind it: they fail this
+        # one request instead. See `_MINT_LOCK_BOUND_S`.
+        if not refresh_lock.acquire(timeout=_MINT_LOCK_BOUND_S):
+            _stalled.flag = True
+            provider.blind_reason = (
+                f"mint stalled: the refresh lock has been held over "
+                f"{_MINT_LOCK_BOUND_S:.0f}s for slot {num} ({mail}) -- a "
+                "stuck credential read or refresh, not a broken pin")
+            return None
+        provider._lock_acquired_at = time.monotonic()
+        try:
+            # Someone may have rotated it while we waited, or this is the
+            # cold-cache case above and this IS the first read — either way
+            # the read happens here, under the lock.
             creds = switcher.read_account_credentials(num, mail) or creds
+            if not creds:
+                # SAY WHICH SLOT, or "could not be read" is unfalsifiable. An
+                # empty read and a read of the WRONG slot are indistinguishable
+                # from the warning alone, and hours went into a machine where
+                # the second was never excluded. The provider is the only
+                # place that knows what it asked for.
+                provider.blind_reason = f"no credential for slot {num} ({mail})"
+                return None
+            provider.blind_reason = ""
             # REPLACE THE HELD COPY, or the cache keeps handing back the
             # expired blob and every later request re-enters this lock.
             _cred_cache[ckey] = creds
@@ -5404,6 +5597,14 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
                 # Say that rather than nothing.
                 provider.blind_reason = (
                     f"no token after refresh for slot {num} ({mail})")
+            if rotated:
+                # HELD COPY, SAME AS THE COLD-READ WRITE ABOVE. `_cred_cache`
+                # was left holding the pre-refresh (expired) blob after a
+                # successful refresh -- `can_pin_cached()`, and therefore
+                # `/health`'s `can_pin`, kept reading a permanently-expired
+                # cache after every rotation, until the NEXT credential read
+                # happened to run.
+                _cred_cache[ckey] = rotated
             # The gate persists internally (under the slot lock, CAS on the
             # refresh-token fingerprint). Persisting again here would write
             # back OUTSIDE that lock and could clobber a racing writer's
@@ -5411,6 +5612,9 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
             if rotated and not hasattr(switcher, "consume_backup_grant"):
                 switcher.persist_backup_credentials(num, mail, rotated)
             return token
+        finally:
+            provider._lock_acquired_at = None
+            refresh_lock.release()
 
     def pin_is_noop() -> bool:
         """True when returning no token is the CORRECT answer, not a failure.
@@ -5446,28 +5650,116 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
             return True  # pin cleared: leaving every bearer alone IS the job
         return _pin_is_the_live_login(target[0])
 
+    def can_pin_cached() -> bool:
+        """Whether the pin can apply RIGHT NOW using only what is already in
+        hand -- no store read, no lock, no network. This is what `/health`
+        asks: the store read `provider()` may need to answer for real is
+        exactly the call that can wedge (see `_MINT_LOCK_BOUND_S`), and
+        `/health` must never make it -- see `_can_pin_from_cache`.
+
+        True on a no-op pin (nothing to swap) or a cached, still-live token.
+        False otherwise: a cold or expired cache, which used to be resolved
+        by calling `provider()` from the health thread itself. The daemon-
+        start warm (`_warm_mint_cache`) is what keeps this True on a healthy
+        daemon before the first real request arrives.
+        """
+        if pin_is_noop():
+            return True
+        target = _current_target()
+        if target is None:
+            return True
+        cached = _cred_cache.get(target)
+        return bool(cached and _live_token(cached))
+
     provider.pin_is_noop = pin_is_noop
+    provider.mint_stalled = mint_stalled
+    provider.refresh_lock = refresh_lock
+    provider.can_pin_cached = can_pin_cached
+    provider._lock_acquired_at = None
     return provider
+
+
+def _mint_lock_busy(provider) -> "float | None":
+    """Non-blocking peek at the provider's refresh lock.
+
+    None when the lock is free, or the provider carries none (a bare
+    callable, the shape a test double or an old caller uses). A float when
+    it is held RIGHT NOW: how long, when the holder recorded taking it,
+    else ``0.0`` when that is unknown. Never blocks — this is what lets
+    `/health` and the self-heal watchdog ask "can this daemon mint" without
+    queuing behind a stalled credential store the way a request that calls
+    `provider()` itself would.
+    """
+    lock = getattr(provider, "refresh_lock", None)
+    if lock is None:
+        return None
+    if lock.acquire(blocking=False):
+        lock.release()
+        return None
+    since = getattr(provider, "_lock_acquired_at", None)
+    return (time.monotonic() - since) if since is not None else 0.0
 
 
 def _can_mint(provider) -> "bool | None":
     """Whether the pinned token can be minted RIGHT NOW, or None if unaskable.
 
-    The one reader of that fact. `/health` answers from it and so does the
-    self-heal watchdog, because two copies of this expression drift the day one
-    of them is corrected — and they would then disagree about whether a daemon
-    is applying the pin, which is the whole question.
+    The self-heal watchdog's reader of that fact (`/health` reads
+    `_can_pin_from_cache` instead — see there for why).
 
-    None means there is nothing to ask (no provider at all — a stand-in server
-    in a test). Callers must treat it as "cannot tell" and act on `is False`,
-    never on falsiness: a bare `not _can_mint(...)` recycles every test server.
+    None means there is nothing to ask: no provider at all (a stand-in server
+    in a test), or its refresh lock is held RIGHT NOW (`_mint_lock_busy`) — a
+    refresh genuinely in progress, possibly a stalled one, that this call must
+    not wait behind. Callers must treat it as "cannot tell" and act on
+    `is False`, never on falsiness: a bare `not _can_mint(...)` recycles every
+    test server, and would recycle a daemon over a refresh merely in flight.
     """
     if provider is None:
+        return None
+    if _mint_lock_busy(provider) is not None:
         return None
     try:
         return bool(provider()) or _pin_is_noop(provider)
     except Exception:  # noqa: BLE001 — a health question is never fatal
         return False
+
+
+def _can_pin_from_cache(provider) -> bool:
+    """`/health`'s reading of whether the pin can apply, without ever calling
+    `provider()` -- the call that can wedge on a stalled credential store,
+    on the ONE probe every monitor, `cswap pin --heal` and the installer's
+    activation check use for liveness (see `_MINT_LOCK_BOUND_S`).
+
+    Uses the provider's own cached-state reading (`can_pin_cached`) when it
+    has one -- every provider `make_pin_token_provider` builds does. Falls
+    back to `_can_mint` for anything else: a bare test double with no cache
+    of its own, which carries no store access to wedge on in the first
+    place.
+    """
+    cached = getattr(provider, "can_pin_cached", None)
+    if cached is not None:
+        return cached()
+    return _can_mint(provider) is not False
+
+
+_last_mint_busy_log: dict = {"at": None}
+
+
+def _note_mint_busy(age: float) -> None:
+    """Log, at most once per `_BUSY_REPORT_COOLDOWN_S`, that the self-heal
+    watchdog is skipping a recycle because the mint's refresh lock is
+    currently held. Same idiom as `_note_busy_slot` and for the same reason:
+    a stalled store is checked on every watchdog tick and one line per tick
+    would bury the signal it exists to be."""
+    now = time.monotonic()
+    last = _last_mint_busy_log["at"]
+    if last is not None and now - last < _BUSY_REPORT_COOLDOWN_S:
+        return
+    _last_mint_busy_log["at"] = now
+    _log_lifecycle(
+        f"cannot mint the pinned token right now: the refresh lock has been "
+        f"held for {age:.0f}s -- not replacing ourselves for a stall a "
+        "successor would only inherit"
+    )
 
 
 def _pin_is_noop(provider) -> bool:
@@ -6632,6 +6924,35 @@ def _append_capped(path, line: str, fh=None, cap: int = _LOG_MAX_BYTES):
             fh = open(path, "a", buffering=1, encoding="utf-8",
                       errors="replace")
         return fh
+    except (OSError, ValueError):
+        return None
+
+
+def _write_capped_line(fh, line: str, cap: int = _LOG_MAX_BYTES):
+    """Write ``line`` to the already-open ``fh``. Never opens or closes it.
+
+    `_append_capped` opens on a first write and reopens on rotation — fine for
+    a handle only one caller touches, but `self._debug` is ONE handle shared
+    by every `_serve_client` thread. Re-arming the trace (or just crossing the
+    cap) nulls it, and every thread then races into `open(2)` at once:
+    measured as 342 `_serve_client` threads sharing one identical stack,
+    parked in that same `open()` while a stalled filesystem let everything
+    else in the daemon keep running.
+
+    So the request path only ever writes to a handle something ELSE already
+    opened (`PinProxy._trace_tick`, off a background loop) and drops the line
+    when nothing is open — or, on crossing the cap, DROPS the reference
+    (never closes it, for the same unsynchronised-threads reason
+    `_append_capped` already drops rather than closes) and leaves the
+    rotate-and-reopen to the next tick.
+
+    Never raises, same contract as `_append_capped`.
+    """
+    if fh is None or fh.closed:
+        return None
+    try:
+        fh.write(line)
+        return None if fh.tell() > cap else fh
     except (OSError, ValueError):
         return None
 
@@ -7890,6 +8211,25 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+# HOW MANY TIMES `_serving_can_pin` RECONNECTS before calling a port that
+# accepts TCP and never answers a wedge rather than "unknown". A single
+# timeout is indistinguishable from an ordinary slow tick; on 0.1.240
+# `/health` answers within milliseconds even under a stalled mint (see
+# `mint_stalled` below), so silence across every attempt is the request
+# handler itself, not the credential store.
+_PIN_PROBE_ATTEMPTS = 3
+
+# HOW LONG A `mint_stalled_s` MAY RUN before it is a reason to recycle rather
+# than wait. `_MINT_LOCK_BOUND_S` already bounds one REQUEST's wait on the
+# refresh lock; this bounds how long the DAEMON may report the lock busy
+# before something is wrong that a request-scoped timeout cannot fix. A
+# credential store the daemon cannot read is cleared only by a fresh process
+# started from the GUI session (`heal-pin.sh`'s whole reason to exist), so a
+# stall past this is a reason to recycle, not to keep waiting on the same
+# process.
+_MINT_STALL_WEDGE_S = 60.0
+
+
 def _serving_can_pin(port: int, timeout: float = 1.0) -> bool | None:
     """What the daemon on ``port`` says about minting, or None if it will not say.
 
@@ -7897,27 +8237,47 @@ def _serving_can_pin(port: int, timeout: float = 1.0) -> bool | None:
     <n>` run to completion returned rc=0, printed "Pinned the cloud account",
     left the daemon pid unchanged and `can_pin` false throughout — because the
     record it consulted had lost its `unpinnable` mark to a respawn.
+
+    A CONNECT FAILURE IS "NOBODY THERE" and answers None on the first try:
+    the caller's own dead-port check already handles that population, and
+    retrying it would only cost time for no new information. A socket that
+    ACCEPTS and then never answers is different -- see `_PIN_PROBE_ATTEMPTS`
+    -- and reads as a confirmed wedge (False), not "it would not say" (None).
+    Measured on a Mac: `cswap pin --heal` printed "Nothing to heal" twice
+    against a trio that accepted TCP and never answered, because this
+    returned None and every caller reads None as healthy by policy.
     """
-    try:
-        with socket.create_connection(("127.0.0.1", port), timeout=timeout) as sk:
-            sk.settimeout(timeout)
-            sk.sendall(b"GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
-            buf = b""
-            while len(buf) < 65536:
-                chunk = sk.recv(4096)
-                if not chunk:
-                    break
-                buf += chunk
-    except OSError:
-        return None
-    parts = buf.split(b"\r\n\r\n", 1)
-    if len(parts) != 2:
-        return None
-    try:
-        val = json.loads(parts[1]).get("can_pin")
-    except ValueError:
-        return None
-    return val if isinstance(val, bool) else None
+    for attempt in range(_PIN_PROBE_ATTEMPTS):
+        try:
+            sk = socket.create_connection(("127.0.0.1", port), timeout=timeout)
+        except OSError:
+            return None
+        buf = b""
+        try:
+            with sk:
+                sk.settimeout(timeout)
+                sk.sendall(b"GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+                while len(buf) < 65536:
+                    chunk = sk.recv(4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+        except OSError:
+            pass  # a reset AFTER a full answer is still an answer -- see below
+        if b"\r\n\r\n" not in buf:
+            continue  # connected, but no full answer either -- a wedge
+        parts = buf.split(b"\r\n\r\n", 1)
+        try:
+            body = json.loads(parts[1])
+        except ValueError:
+            return None  # a real, if malformed, answer -- not silence
+        held = body.get("mint_stalled_s")
+        if isinstance(held, (int, float)) and held > _MINT_STALL_WEDGE_S:
+            return False
+        val = body.get("can_pin")
+        return val if isinstance(val, bool) else None
+    # Every attempt connected and none produced an answer.
+    return False
 
 
 def _read_alive_port(certdir: Path, fingerprint: str | None = None) -> int | None:
@@ -8025,6 +8385,18 @@ _STAND_DOWN_SIGNAL = getattr(signal, "SIGHUP", None)
 # An unhandled USR1 is fatal on delivery, so this only has to outlast the
 # kernel's trip to the other process, not any work the handler does.
 _ASK_SETTLE_SECONDS = 0.25
+# HOW LONG `stop()` WILL WAIT FOR THE STANDBY TO ACTUALLY GO. A single
+# fire-and-forget `send_signal` can race the child's own startup — the SIGHUP
+# only means "release" once `standby_main` has reached
+# `signal.signal(signal.SIGHUP, _release)`, and a child spawned moments
+# earlier may not have gotten that far. MEASURED: a holder whose daemon spawn
+# was stubbed to die on every retry (a tight, near-zero-backoff respawn loop)
+# sent one SIGHUP that `os.kill` accepted without error, yet the standby was
+# still alive, still holding the descriptor, minutes later — and outlived the
+# whole suite to become an orphaned holder once its parent (this test
+# process) finally exited. Re-sent until the child is confirmed dead, bounded
+# so a genuinely wedged standby cannot hang teardown forever.
+_STANDBY_RELEASE_BOUND_S = 3.0
 
 # How long a bridge creation waits for a token it could not mint. Three tries
 # at 0.3s is under a second — below the noise of opening Remote Control, and
@@ -8639,6 +9011,7 @@ class PortHolder:
         no guard here that would catch it.
         """
         import signal
+        import subprocess
 
         self._stop = True
         # RELEASE THE STANDBY FIRST, and by SIGHUP. It is detached and outlives
@@ -8647,12 +9020,27 @@ class PortHolder:
         # is still there, still holding the descriptor, and will arm the moment
         # `getppid()` moves. SIGHUP, never SIGTERM. Death must keep the
         # address. Only being asked releases it.
+        #
+        # RE-SENT UNTIL CONFIRMED DEAD — see `_STANDBY_RELEASE_BOUND_S`. A
+        # single `send_signal` that `os.kill` accepts is not proof the
+        # standby is gone: the signal can arrive before `standby_main` has
+        # installed its own handler, and a stop that only fires once leaves
+        # exactly that standby behind, still holding the descriptor.
         standby = getattr(self, "_standby", None)
         if standby is not None and getattr(standby, "returncode", 0) is None:
-            try:
-                standby.send_signal(signal.SIGHUP)
-            except (OSError, ValueError):
-                pass
+            deadline = time.monotonic() + _STANDBY_RELEASE_BOUND_S
+            while True:
+                try:
+                    standby.send_signal(signal.SIGHUP)
+                except (OSError, ValueError):
+                    break
+                try:
+                    standby.wait(timeout=0.2)
+                    break  # confirmed gone
+                except subprocess.TimeoutExpired:
+                    pass
+                if time.monotonic() >= deadline:
+                    break
         # KILL THE CHILD WE STARTED, not a number we are holding. `daemon_pid`
         # is only meaningful while the Popen it came from is ours — and a pid
         # is reused freely, so signalling it after the child is gone aims at
@@ -9364,9 +9752,21 @@ def _watch_own_code(
             # `is False`, never falsiness -- see `_can_mint`. And the interval
             # guard is what stops a machine that genuinely cannot read from
             # recycling on every tick.
-            blind = _can_mint(getattr(server, "_pin_token_provider", None)) is False
+            _mint_provider = getattr(server, "_pin_token_provider", None)
+            # A STALLED LOCK IS NOT A VERDICT, in either direction. `_can_mint`
+            # already answers None for it (never False, so `blind` below stays
+            # False and `replace_for_blind` never fires on a stall -- the
+            # successor would only inherit the same stuck credential store).
+            # But a bare `not blind` also reads None as "can mint", which
+            # would clear a genuine `unpinnable` mark on a tick that asked
+            # nothing. Both wrong answers share one cause: treat busy as its
+            # own case, not as either verdict.
+            _busy_s = _mint_lock_busy(_mint_provider) if _mint_provider else None
+            blind = _can_mint(_mint_provider) is False
             now = time.time()
-            if not blind:
+            if _busy_s is not None:
+                _note_mint_busy(_busy_s)
+            elif not blind:
                 clear_blind_recycle(certdir)
                 # AND TAKE THE MARK BACK. Recovery is not only "stop trying to
                 # recycle" -- the record has to stop saying the pin is dead, or
@@ -11059,6 +11459,9 @@ class PinProxy:
         # Wakes the title sweep out of its wait so a join costs nothing. Here
         # rather than in `start()`: a caller can drive the loop without it.
         self._sweep_wake = threading.Event()
+        # Ends `_trace_tick_loop` -- set only at the end of `stop()`, never by
+        # `release_listener`'s `_stop`. See the note where the thread starts.
+        self._trace_tick_stop = threading.Event()
         # True when a supervisor handed us the listening socket. Then the port
         # is not ours to close — see start() and stop().
         self._inherited = False
@@ -11079,6 +11482,11 @@ class PinProxy:
         # Which path `_debug` is open on, so a re-armed trace does not keep
         # writing to the file it was armed on first.
         self._debug_for = None
+        # Same pair, for CSWAP_PIN_SHAPE — see `_trace_tick`.
+        self._shape = None
+        self._shape_for = None
+        # `_trace_tick` logs an open() failure once, not once per tick.
+        self._trace_open_warned: set = set()
         # Connections carrying a subscription rather than a reply. Held
         # separately because the drain must treat them the other way round:
         # every other connection is waited for, these are let go.
@@ -11198,9 +11606,34 @@ class PinProxy:
         """
         self._accept_thread = threading.Thread(target=self._accept_loop, daemon=True)
         self._accept_thread.start()
+        # CLEARED HERE, BEFORE THE THREAD EXISTS TO SEE IT. `release_listener`
+        # sets this to wake a title thread it is about to join and never
+        # clears it back — so a restart (`_resume_serving` after a handover
+        # that failed to come up) used to hand the new thread a pre-set
+        # event: its first wait returned instantly, the first-pass budget
+        # burned to zero, and the sweep hit the wire immediately instead of
+        # after its beat.
+        self._sweep_wake.clear()
         self._title_thread = threading.Thread(
             target=self._title_sweep_loop, daemon=True)
         self._title_thread.start()
+        # OWN THREAD, NOT `_stop`-GATED. `_trace_tick` used to run off
+        # `_title_sweep_loop`'s beat, so a parking tick (a stalled trace-file
+        # open) froze that thread's OTHER job, `_carry_on_login_change`, for
+        # as long as it parked -- and `release_listener` setting `_stop`
+        # ended the tick at a handover, right when a draining process is
+        # still relaying the connections it holds and still writing to the
+        # trace. Gated on its OWN event (`_trace_tick_stop`, created in
+        # `__init__`), set only at the end of `stop()` (after the drain), so
+        # the tick outlives `_stop` but not the process -- a `stop()` that
+        # never runs used to leak this thread forever, one per proxy the
+        # suite ever started.
+        self._trace_tick_thread = threading.Thread(
+            target=self._trace_tick_loop, daemon=True)
+        self._trace_tick_thread.start()
+        _provider = getattr(self, "_pin_token_provider", None)
+        if getattr(_provider, "can_pin_cached", None) is not None:
+            threading.Thread(target=self._warm_mint_cache, daemon=True).start()
 
     #: How often the daemon re-checks cloud titles. The same cadence the
     #: auto-switch engine used, kept so the API cost is unchanged — this moves
@@ -11212,6 +11645,9 @@ class PinProxy:
     #: the wire at once; short enough that a daemon replaced every few minutes
     #: still repairs something.
     _TITLE_SWEEP_FIRST_S = 20.0
+
+    #: How often the wait checks `live_bridge_names()` for a rename made since the wait began.
+    _RENAME_CHECK_S = 10.0
 
     def _title_sweep_loop(self) -> None:
         """Re-check cloud titles on a cadence, because the connect hook cannot.
@@ -11249,6 +11685,10 @@ class PinProxy:
             waited = 0.0
             budget = self._TITLE_SWEEP_FIRST_S if first else self._TITLE_SWEEP_S
             first = False
+            try:
+                names = live_bridge_names()
+            except Exception:  # noqa: BLE001 — never take the sweep down
+                names = None
             while waited < budget and not self._stop:
                 # WAKEABLE, not a bare sleep. `release_listener` joins this
                 # thread, and a poll-only wait makes that join pay up to half
@@ -11269,8 +11709,27 @@ class PinProxy:
                 # almost never moves, so the parse runs only when it might
                 # have. The carry itself skips records that already agree, so
                 # a spurious wake writes nothing.
+                #
+                # `live_bridge_names()` runs here too, inside the same guard:
+                # an absurd `pid` in a session record can raise something
+                # `_pid_alive` does not catch, and that must not take the
+                # sweep thread down any more than a login-carry failure would.
+                #
+                # NARROWED TO A RENAME. Comparing the whole dict woke this on
+                # ANY change to the live named-bridge SET -- a second session
+                # starting or an existing one exiting -- which is ordinary
+                # churn, not a rename, and drove the beat to
+                # `_RENAME_CHECK_S` on every such event. Only a value
+                # changing under a key present BOTH before and now is a
+                # rename; a key appearing or vanishing is compared from the
+                # next check on, not this one.
                 try:
                     self._carry_on_login_change()
+                    if names is not None and waited % self._RENAME_CHECK_S == 0:
+                        cur = live_bridge_names()
+                        if any(cur[k] != v for k, v in names.items() if k in cur):
+                            break
+                        names = cur
                 except Exception:  # noqa: BLE001 — never take the sweep down
                     pass
             if self._stop:
@@ -11325,6 +11784,89 @@ class PinProxy:
             # session, and the pin does not decide when one restarts. The cause
             # is a policy answer fetched while the pin was not in that
             # session's path, and that is where it is fixed.
+
+    def _trace_tick_loop(self) -> None:
+        """Run `_trace_tick` on its own 0.5s beat, until `stop()` ends it --
+        see the note where this thread is started."""
+        while not self._trace_tick_stop.is_set():
+            try:
+                self._trace_tick()
+            except Exception:  # noqa: BLE001 — never take this thread down
+                pass
+            self._trace_tick_stop.wait(0.5)
+
+    def _warm_mint_cache(self) -> None:
+        """Populate the mint cache ONCE, off the request path and off
+        `/health` -- see the note where this thread is started.
+
+        `/health` now reads `can_pin` only from what is already cached
+        (`_can_pin_from_cache`), so without this a healthy daemon reports
+        it False until its first real pinned request warms the cache
+        itself. ONE call, no retry: a stalled store shows up as
+        `mint_stalled` on the very next `/health` peek (the read runs under
+        `refresh_lock`, see `_MINT_LOCK_BOUND_S`), and a failed or slow warm
+        just leaves the cache cold for the first real request to pay for
+        instead.
+        """
+        try:
+            self._pin_token_provider()
+        except Exception:  # noqa: BLE001 — a warm attempt is never fatal
+            pass
+
+    def _trace_tick(self) -> None:
+        """(Re)open and cap the opt-in traces off the request path.
+
+        The only place `self._debug`/`self._shape` are opened, rotated or
+        re-targeted now. `_serve_client` and the CSWAP_PIN_SHAPE writer only
+        ever write to whatever this leaves open, or drop the line — see
+        `_write_capped_line`. Runs on its own `_trace_tick_loop` thread, so
+        this runs at worst every 0.5s, which is not on the request path.
+
+        A line written between a re-arm (or a cap crossing) and the next tick
+        is lost. Accepted: a diagnostic gap is cheaper than the proxy parking
+        every request thread inside `open(2)` on it, which is the incident
+        this replaces.
+        """
+        debug_path = trace_target(getattr(self, "_certdir", None))
+        if debug_path != self._debug_for:
+            self._debug, self._debug_for = None, debug_path
+        if debug_path:
+            self._debug = self._reopen_trace(
+                "debug", debug_path, self._debug, _TRACE_MAX_BYTES)
+
+        shape_path = os.environ.get("CSWAP_PIN_SHAPE")
+        if shape_path != self._shape_for:
+            self._shape, self._shape_for = None, shape_path
+        if shape_path:
+            self._shape = self._reopen_trace(
+                "shape", shape_path, self._shape, _LOG_MAX_BYTES)
+
+    def _reopen_trace(self, key: str, path: str, fh, cap: int):
+        """Rotate and (re)open one trace handle. Only `_trace_tick` calls this.
+
+        Never raises: an ``open()`` that fails here leaves the handle at
+        ``None`` (so the request path keeps dropping the line, per
+        `_write_capped_line`'s contract) and says so on stderr once per `key`,
+        not once per tick — the same "once per daemon" restraint
+        `_warn_unpinnable` uses, for the same reason: a tick fires every 0.5s
+        and a line each would bury the signal.
+        """
+        try:
+            if fh is not None and not fh.closed and fh.tell() > cap:
+                fh.close()
+                fh = None
+            if fh is None or fh.closed:
+                _rotate_if_over(Path(path), cap)
+                fh = open(path, "a", buffering=1, encoding="utf-8",
+                          errors="replace")
+            return fh
+        except (OSError, ValueError) as exc:
+            if key not in self._trace_open_warned:
+                self._trace_open_warned.add(key)
+                _log_lifecycle(
+                    f"the {key} trace at {path} could not be (re)opened "
+                    f"({exc}); it stays off until this daemon is replaced")
+            return None
 
     def _note_stream_end(self, bridge: str, seconds: float, closer: str) -> None:
         """One line per bridge per minute when its inbound stream ends; the
@@ -11725,13 +12267,13 @@ class PinProxy:
     def _reset_bridge_traffic(self) -> None:
         """Start the per-bridge accounting. Safe to call more than once."""
         self._bridge_posts: dict = {}
-        #: bridge id -> monotonic instant of the FIRST post this daemon saw
-        #: from it, never overwritten, and set ONLY for a bridge whose
-        #: create THIS daemon served within the startup grace. A bridge
-        #: inherited on a handover, or one whose create predates this
-        #: daemon's own `_last_create`, never gets an entry and is judged
-        #: at once. `deaf_bridges` uses this to give a just-registered
-        #: bridge time to open its stream.
+        #: bridge id -> monotonic instant of its most recent birth here:
+        #: either a create THIS daemon served within the startup grace, or
+        #: a pin-brokered `.../bridge` re-registration (always, and
+        #: REASSIGNED on each one, since a re-registration is a new birth).
+        #: A bridge inherited on a handover, with neither, never gets an
+        #: entry and is judged at once. `deaf_bridges` uses this to give a
+        #: just-registered bridge time to open its stream.
         self._bridge_first_post: dict = {}
         #: monotonic instant of the last `POST /v1/code/sessions` this
         #: daemon itself served, or None. Tells a bridge born here from one
@@ -11758,12 +12300,23 @@ class PinProxy:
         failure here would cost a request rather than a statistic.
         """
         try:
-            if not (_WORKER_SUBTREE.search(path) or _EVENT_STREAM.search(path)):
+            is_register = _BRIDGE_REGISTER.search(path)
+            if not (is_register or _WORKER_SUBTREE.search(path)
+                    or _EVENT_STREAM.search(path)):
                 return
             bid = _BRIDGE_ID.search(path)
             if not bid:
                 return
             stamp = time.monotonic() if now is None else now
+            if is_register:
+                # A NEW BIRTH, so an ASSIGNMENT, not `setdefault`: a
+                # re-registration replaces whatever grace an earlier life
+                # of this id earned, exactly as a fresh create would.
+                # `_bridge_posts` is untouched -- the register itself is
+                # not a worker post, and `deaf_bridges` must still judge
+                # this id only once it has actually posted.
+                self._bridge_first_post[bid.group(1)] = stamp
+                return
             if _EVENT_STREAM.search(path):
                 if conn is not None:
                     self._stream_owner[conn] = bid.group(1)
@@ -12137,20 +12690,40 @@ class PinProxy:
         # AN OUTBOUND-ONLY BRIDGE IS NOT DEAF, it never listens; see
         # `_outbound_only_bridge_ids`. Empty on this fleet today.
         holding |= _outbound_only_bridge_ids()
+        # NOR IS AN EXITED SESSION'S SHUTDOWN FLUSH. Its post is real and its
+        # creating process is confirmed gone, so no stream is ever coming;
+        # `_dead_creator_bridge_ids` already has the positive proof, and
+        # without this a session that exited stays "deaf" until the next
+        # listing pass drops it from `_connected_bridges`. READ-ONLY here:
+        # this runs on the request thread, where N unserialized callers
+        # would share the sweep's one tmp filename. The sweep (its own
+        # thread) still stamps.
+        holding |= _dead_creator_bridge_ids(stamp=False)
         out = [bid for bid, last in posts.items()
                if stamp - last <= window and bid not in holding]
         # A BRIDGE THAT HAS JUST REGISTERED IS NOT YET DEAF. Its stream GET
         # follows its first post within seconds; this daemon judging it in
         # that gap is the state itself, not a loss, and no timer ever
-        # retracts a transition-only report. Shielded only while this daemon
-        # never saw its stream go -- a REAL loss (`deaf_for` answers a
-        # number) is reported at once, grace or not.
+        # retracts a transition-only report. Unmeasured only -- this daemon
+        # never saw its stream go -- and shielded while its first post is
+        # inside the grace.
+        #
+        # A MEASURED LOSS GETS THE SAME DWELL, not immediate judgment: a
+        # sweep can land in the ordinary gap between a stream closing and
+        # Claude Code reopening it, and `deaf_for` answers a real but
+        # momentary age there (0s, measured). Shielded while that age is
+        # still inside the grace; a loss still there once it passes is
+        # judged exactly as before.
         first_post = getattr(self, "_bridge_first_post", None) or {}
         deaf_for = getattr(self, "deaf_for", None)
-        out = [bid for bid in out
-               if not ((deaf_for is None or deaf_for(bid, now=stamp) is None)
-                       and stamp - first_post.get(bid, -1e9)
-                       < grace)]
+
+        def _too_young(bid):
+            age = None if deaf_for is None else deaf_for(bid, now=stamp)
+            if age is None:
+                return stamp - first_post.get(bid, -1e9) < grace
+            return age < grace
+
+        out = [bid for bid in out if not _too_young(bid)]
         # AND THE SERVER MUST BE HOLDING IT. Posting without a stream has two
         # readings and our own sockets cannot separate them: a bridge that
         # LOST its ear, and one claude.ai is not attached to at all -- a
@@ -12243,6 +12816,36 @@ class PinProxy:
                     f"{RENAME_REPORT_FAIL} — upstream answered {code}; the "
                     "roster still shows the new name and peers keep seeing "
                     "the old one")
+        except Exception:  # noqa: BLE001 — a statistic must not cost a request
+            pass
+
+    def _note_bridge_superseded(self, path: str, status_line: bytes) -> None:
+        """A worker POST refused with 409 is not a bridge gone quiet.
+
+        `_note_bridge_traffic` records only the REQUEST, so a bridge the
+        server has already superseded stays in `_bridge_posts` for the full
+        `_DEAF_WINDOW_S` and `deaf_bridges` reports it with a line that
+        claims "messages reach the server" and "only a NEW PROCESS clears
+        it" — both false for one whose every worker POST comes back 409.
+        `sweep_superseded_bridges` clears the same id eventually, driven by
+        a listing poll, but always later than the 409 that already told us.
+
+        Never raises: a statistic must not cost a request.
+        """
+        try:
+            if not status_line.startswith(b"HTTP/1.1 409"):
+                return
+            if not _WORKER_SUBTREE.search(path) or _EVENT_STREAM.search(path):
+                return
+            bid = _BRIDGE_ID.search(path)
+            if not bid:
+                return
+            b = bid.group(1)
+            self._bridge_posts.pop(b, None)
+            self._bridge_first_post.pop(b, None)
+            stream_lost = getattr(self, "_stream_lost", None)
+            if stream_lost is not None:
+                stream_lost.pop(b, None)
         except Exception:  # noqa: BLE001 — a statistic must not cost a request
             pass
 
@@ -12649,7 +13252,13 @@ class PinProxy:
         — completes.
         """
         self.release_listener()
-        return self.await_inflight(drain)
+        cut = self.await_inflight(drain)
+        # ONLY HERE, AFTER THE DRAIN -- `release_listener`'s `_stop` must not
+        # end the tick (see the note where `_trace_tick_loop` starts): a
+        # draining process still relays what it holds and still writes to
+        # the trace through the whole wait this method just did.
+        self._trace_tick_stop.set()
+        return cut
 
     def _close_open_connections(self) -> None:
         """Close every open connection, write end first.
@@ -13596,8 +14205,13 @@ class PinProxy:
     def sweep_superseded_bridges(self, token: str) -> int:
         """Close bridges that a NEWER bridge of the same name has replaced.
 
-        FOUR CONDITIONS, ALL REQUIRED. Each alone closes something in use;
-        the measurement that ruled each one out is named with it.
+        A SECOND, NARROWER PATH accepts a merely ``disconnected`` twin too,
+        but only with positive local evidence THIS HOST minted it and its
+        creating process has died -- see the note where it branches, below.
+
+        FOUR CONDITIONS, ALL REQUIRED, for the path this docstring covers.
+        Each alone closes something in use; the measurement that ruled each
+        one out is named with it.
 
         1. ``connection_status == "connected"``. Only a connected bridge
            competes for a message; a disconnected one costs nothing and
@@ -13653,6 +14267,15 @@ class PinProxy:
         self._restore_bridge_titles(sessions, token)
 
         live = _live_bridge_ids()
+        # A SECOND, NARROWER ACCEPTING PATH, alongside the four conditions
+        # above: a twin still merely `disconnected` (Claude Code may never
+        # get around to archiving a session nobody is left to reconnect),
+        # closed ONLY with POSITIVE local evidence -- a job record THIS HOST
+        # wrote, naming this bridge, whose creating process has since died.
+        # "No process holds it" alone is never enough: another machine's
+        # sleeping bridge answers that identically, and the pin exists
+        # precisely so this host cannot see that machine's pids.
+        dead_creator = _dead_creator_bridge_ids()
         newest: dict[str, str] = {}
         for item in sessions:
             title = (item.get("title") or "").strip()
@@ -13666,22 +14289,34 @@ class PinProxy:
             sid, title = item.get("id"), (item.get("title") or "").strip()
             if not sid or not title or sid in live:
                 continue
-            if item.get("connection_status") != "connected":
-                continue
-            if item.get("status") != "archived":
-                continue
-            # A RUNNING WORKER IS A SESSION AT WORK, and the listing says so
-            # for every machine, which local pids cannot. Measured on a live
-            # roster: of three bridges passing all three conditions above, one
-            # was `running` and had no process here -- so the three conditions
-            # alone would close a bridge another machine was working on.
-            # A FOURTH NEGATIVE GUARD, in the same spirit as `sid in live`:
-            # `running` is evidence of life, `idle` is evidence of nothing (5
-            # of the 7 locally-live bridges were idle in that same sample), so
-            # only `running` may save a bridge and nothing here may condemn
-            # one. An age floor was the obvious alternative and does not work:
-            # the running bridge measured was 160 minutes old.
-            if str(item.get("worker_status") or "").lower() == "running":
+            if (item.get("connection_status") == "connected"
+                    and item.get("status") == "archived"):
+                # A RUNNING WORKER IS A SESSION AT WORK, and the listing says
+                # for every machine, which local pids cannot. Measured on a
+                # live roster: of three bridges passing all three conditions
+                # above, one was `running` and had no process here -- so the
+                # three conditions alone would close a bridge another machine
+                # was working on.
+                # A FOURTH NEGATIVE GUARD, in the same spirit as `sid in
+                # live`: `running` is evidence of life, `idle` is evidence of
+                # nothing (5 of the 7 locally-live bridges were idle in that
+                # same sample), so only `running` may save a bridge and
+                # nothing here may condemn one. An age floor was the obvious
+                # alternative and does not work: the running bridge measured
+                # was 160 minutes old.
+                if str(item.get("worker_status") or "").lower() == "running":
+                    continue
+            elif (item.get("status") == "active"
+                    and item.get("connection_status") == "disconnected"
+                    and sid in dead_creator):
+                # THE DEAD-CREATOR PATH. Archived is deliberately excluded --
+                # that is the owner's claude.ai history, kept on purpose,
+                # whatever a local record says -- and `worker_status` is
+                # ignored: a disconnected bridge whose creator is dead here
+                # carries a stale flag, and only the dead-creator record may
+                # speak for it.
+                pass
+            else:
                 continue
             if (item.get("last_event_at") or "") >= newest[title]:
                 continue  # the newest of its name — someone put this away
@@ -13874,6 +14509,38 @@ class PinProxy:
         except OSError:
             pass
 
+    def _refuse_stalled_mint(self, tls, method: str, path: str) -> bool:
+        """Answer a pinned request 503 rather than queue it behind a refresh
+        lock a stalled credential store may never release.
+
+        Keeps the connection alive (``Connection: keep-alive``) like an
+        ordinary reply: the swap being unavailable this once says nothing
+        about the connection, and closing it would cost every OTHER request
+        pipelined on it too (see ``_forward``'s note on Remote Control's
+        worker connection).
+
+        Rate-limited like ``_note_mint_busy`` and ``_note_busy_slot`` — a
+        session retrying a pinned route against a stuck store would
+        otherwise write one line per request.
+        """
+        now = time.monotonic()
+        last = getattr(self, "_stall_refused_at", None)
+        if last is None or now - last >= _BUSY_REPORT_COOLDOWN_S:
+            self._stall_refused_at = now
+            _log_lifecycle(
+                f"{method} {path} refused (503): the pinned token could not "
+                f"be minted within {_MINT_LOCK_BOUND_S:.0f}s -- a stalled "
+                "credential store, not a broken pin"
+            )
+        try:
+            tls.sendall(
+                b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n"
+                b"Connection: keep-alive\r\n\r\n"
+            )
+        except OSError:
+            pass
+        return True
+
     def _warn_unpinnable(self) -> None:
         """Say once, on stderr, that the pin is not being applied.
 
@@ -13985,7 +14652,21 @@ class PinProxy:
         # deliberately nothing to swap, and reporting can_pin=false there tells
         # a monitor the pin is broken on the one machine where it has nothing
         # to do.
-        can_pin = _can_mint(self._pin_token_provider) is not False
+        #
+        # NEVER WAITS ON THE MINT, and never CALLS the provider at all: even
+        # a free lock does not mean the provider is cheap to call -- reading
+        # the pin and resolving the account are their own store accesses,
+        # every one of which could be the thing that is stuck (measured: a
+        # Keychain read still hung after 2d19h). This is the ONE probe every
+        # monitor, `cswap pin --heal` and the installer's activation check
+        # use for liveness, so a stalled store must never make it read as a
+        # dead daemon. Peek the refresh lock non-blocking first; `can_pin`
+        # otherwise comes only from what is already cached — see
+        # `_can_pin_from_cache` and the daemon-start warm that keeps it
+        # populated on a healthy daemon.
+        mint_stalled_s = _mint_lock_busy(self._pin_token_provider)
+        can_pin = (True if mint_stalled_s is not None
+                   else _can_pin_from_cache(self._pin_token_provider))
         # WHAT EGRESS IS ACTUALLY DOING, not what it is configured to do.
         # `chain` above reports the hop the relay WOULD use, so a daemon that
         # can reach no hop and is dialling DIRECT reported exactly what a
@@ -14032,7 +14713,14 @@ class PinProxy:
              "can_pin": can_pin, "egress": egress,
              "holder_pid": holder_pid,
              "direct_last": _iso_utc(self._egress_direct_last),
-             "hop_degraded_last": _iso_utc(self._hop_degraded_last)}
+             "hop_degraded_last": _iso_utc(self._hop_degraded_last),
+             # ADDITIVE, never a replacement for `can_pin`: whether the mint
+             # check itself is currently busy behind a refresh in progress
+             # (possibly stalled) rather than answered, and for how long —
+             # see the note above `mint_stalled_s` is computed from.
+             "mint_stalled": mint_stalled_s is not None,
+             "mint_stalled_s": (round(mint_stalled_s, 1)
+                                 if mint_stalled_s is not None else None)}
         )
         try:
             conn.sendall(
@@ -14368,6 +15056,18 @@ class PinProxy:
         original_headers = list(headers)
         if pinned:
             token = _tok if _tok_fetched else self._pin_token_provider()
+            # A STALL, NOT A FAIL-OPEN CASE. `provider()` above just gave up
+            # on `refresh_lock` after `_MINT_LOCK_BOUND_S` rather than queue
+            # behind a credential store that may never answer (measured: a
+            # Keychain read still hung after 2d19h) -- the shape that put 104
+            # requests on this daemon "before headers" with a live socket and
+            # nothing serving it. Fail THIS request fast instead of joining
+            # them; the fail-open path below is for a credential that was
+            # actually asked and answered no.
+            if token is None and getattr(
+                    self._pin_token_provider, "mint_stalled", None
+            ) and self._pin_token_provider.mint_stalled():
+                return self._refuse_stalled_mint(tls, method, path)
             token = self._wait_for_pin_token(method, path, token)
             if token:
                 headers = [
@@ -14451,22 +15151,15 @@ class PinProxy:
         # the PREVIOUS request's send and report a wait longer than the
         # request itself.
         self._local.t_sent = None
-        debug_path = trace_target(getattr(self, "_certdir", None))
-        # THE HANDLE IS CACHED AND THE TARGET IS NOT FIXED ANY MORE.
-        # `_append_capped` keeps a descriptor across calls and reopens only on
-        # rotation, so a trace re-armed at a different path kept writing to the
-        # first one — reachable now that arming does not restart the daemon.
-        if debug_path != self._debug_for:
-            # LET GO, DO NOT CLOSE. These two fields are read and written from
-            # every connection thread with no lock, so closing here can pull
-            # the file out from under a thread already inside `_append_capped`
-            # past its `fh.closed` check — and `write`/`tell` on a closed file
-            # raises ValueError, which that helper does not catch, so it lands
-            # in the request. Dropping the reference lets refcounting close it
-            # when the last writer is done, and nothing writes to a handle
-            # nobody holds.
-            self._debug, self._debug_for = None, debug_path
-        if debug_path:
+        # THE REQUEST PATH NEVER OPENS THIS FILE. `_trace_tick` (on its own
+        # `_trace_tick_loop` thread) is the only place that opens, rotates or
+        # re-targets `self._debug` now; this thread only writes to whatever
+        # it finds already open, or drops the line — see
+        # `_write_capped_line`. Opening from here, shared by every
+        # `_serve_client` thread, is what parked 342 of them inside one
+        # `open(2)` call while a stalled filesystem let the rest of the daemon
+        # keep working.
+        if self._debug is not None:
             hdrs = " | ".join(
                 f"{k}: {v[:60]}" for k, v in headers
                 if k.lower() in (
@@ -14474,11 +15167,10 @@ class PinProxy:
                     "sec-websocket-version", "cache-control", "content-type",
                 )
             )
-            self._debug = _append_capped(
-                debug_path,
+            self._debug = _write_capped_line(
+                self._debug,
                 f"[c{getattr(self._local, 'cid', 0)}] "
                 f"{method} {path} pinned={pinned} swapped={swapped} :: {hdrs}\n",
-                self._debug,
                 cap=_TRACE_MAX_BYTES,
             )
 
@@ -14490,8 +15182,7 @@ class PinProxy:
         # this proxy is the only place it can be observed. Structure alone is
         # enough to locate the offending position and keeps prompt text out of
         # the log.
-        shape_path = os.environ.get("CSWAP_PIN_SHAPE")
-        if shape_path and body and path.startswith("/v1/messages"):
+        if self._shape is not None and body and path.startswith("/v1/messages"):
             try:
                 payload = json.loads(body)
                 shape = [
@@ -14500,11 +15191,9 @@ class PinProxy:
                      if isinstance(m.get("content"), list) else "str")
                     for m in (payload.get("messages") or [])
                 ]
-                # CAPPED, like the request trace and `daemon.log`. Opened per
-                # write here rather than held, so the handle is closed
-                # immediately; `_append_capped` still enforces the ceiling and
-                # rotates through `.1`/`.2`.
-                fh = _append_capped(shape_path, json.dumps({
+                # SAME HANDLE DISCIPLINE as the request trace above: write to
+                # whatever `_trace_tick` already opened, never open here.
+                self._shape = _write_capped_line(self._shape, json.dumps({
                     "cid": getattr(self._local, "cid", 0),
                     "n": len(shape),
                     "roles": [r for r, _ in shape],
@@ -14514,8 +15203,6 @@ class PinProxy:
                         "output_config" in m for m in (payload.get("messages") or [])
                     ),
                 }) + "\n")
-                if fh is not None:
-                    fh.close()
             except Exception:
                 pass
 
@@ -14700,6 +15387,7 @@ class PinProxy:
                 on_status=lambda st: (
                     self._note_attachment(path, st),
                     self._note_rename(method, path, st),
+                    self._note_bridge_superseded(path, st),
                     self._tunnel_trace(
                         f"    <- {st.decode('latin1', 'replace').strip()}"
                         f"  {method} {path}  ua={_ua}"),

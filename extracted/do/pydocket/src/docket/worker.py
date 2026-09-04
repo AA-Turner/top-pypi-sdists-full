@@ -36,7 +36,8 @@ from opentelemetry.trace import Status, StatusCode, Tracer
 
 from ._cancellation import CANCEL_MSG_CLEANUP, _wait_for_event, cancel_task
 from ._lua import Arg, Key, redis_script
-from ._redis import RedisClient
+from ._redelivery import RedeliverySweep, renew_leases
+from ._redis import DISCONNECTED, Disconnected, RedisClient
 from ._telemetry import suppress_instrumentation
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError, LockError, ResponseError
@@ -62,6 +63,7 @@ from .dependencies import (
     get_single_dependency_parameter_of_type,
     resolved_dependencies,
 )
+from .dependencies._perpetual import perpetual_is_live
 from .dependencies._resolution import (
     detect_single_conflicts,
     validate_worker_dependencies,
@@ -105,6 +107,11 @@ AUTOMATIC_PERPETUAL_RESEED_INTERVAL_SECONDS = 60
 # Minimum TTL in seconds for Redis keys to avoid immediate expiration when
 # redelivery_timeout is very small (e.g., in tests with 200ms timeouts).
 MINIMUM_TTL_SECONDS = 1
+
+# The most messages one Redis command may claim, for the delivery read and for
+# the redelivery sweep's claim alike.  A larger batch trades fewer round trips
+# for bigger single replies.
+MESSAGE_BATCH = 1000
 
 TaskKey: TypeAlias = str
 
@@ -229,11 +236,19 @@ class Worker:
         async with Worker(docket) as worker:
             await worker.run_forever()
     ```
+
+    ``message_batch`` caps how many messages one Redis command may claim: both
+    the delivery read and the redelivery sweep's claim.  A larger batch costs
+    fewer round trips.  It also makes Redis serialize that many whole messages
+    into one reply, and makes each sweep read about ten times the batch in
+    pending-list entries.  A burst larger than one batch still drains in full,
+    because the poll loop reads again while slots stay free.
     """
 
     docket: Docket
     name: str
     concurrency: int
+    message_batch: int
     redelivery_timeout: timedelta
     reconnection_delay: timedelta
     minimum_check_interval: timedelta
@@ -257,10 +272,17 @@ class Worker:
         enable_internal_instrumentation: bool = False,
         fallback_task: TaskFunction | None = None,
         dependencies: (Mapping[str, Any] | Sequence[Any] | None) = None,
+        # Last in the list so that every positional call written against an
+        # earlier version keeps its meaning.
+        message_batch: int = MESSAGE_BATCH,
     ) -> None:
+        if message_batch < 1:
+            raise ValueError(f"message_batch must be at least 1, got {message_batch}")
+
         self.docket = docket
         self.name = name or f"{socket.gethostname()}#{os.getpid()}"
         self.concurrency = concurrency
+        self.message_batch = message_batch
         self.redelivery_timeout = redelivery_timeout
         self.reconnection_delay = reconnection_delay
         self.minimum_check_interval = minimum_check_interval
@@ -393,6 +415,9 @@ class Worker:
         metrics_port: int | None = None,
         tasks: list[str] = ["docket.tasks:standard_tasks"],
         fallback_task: str | None = None,
+        # Last in the list so that every positional call written against an
+        # earlier version keeps its meaning.
+        message_batch: int = MESSAGE_BATCH,
     ) -> None:
         """Run a worker as the main entry point (CLI).
 
@@ -426,6 +451,7 @@ class Worker:
                         docket=docket,
                         name=name,
                         concurrency=concurrency,
+                        message_batch=message_batch,
                         redelivery_timeout=redelivery_timeout,
                         reconnection_delay=reconnection_delay,
                         minimum_check_interval=minimum_check_interval,
@@ -543,8 +569,16 @@ class Worker:
                 try:
                     async with self.docket.redis() as redis:
                         return await self._worker_loop(redis, forever=forever)
-                except ConnectionError:
+                except DISCONNECTED:
                     if stopping.is_set():
+                        return
+                    if not self.docket._redis.is_connected:
+                        # The docket closed while this worker was still
+                        # running, so there is nothing to reconnect to.
+                        logger.debug(
+                            "Docket connection is closed, stopping worker",
+                            extra=self._log_context(),
+                        )
                         return
                     REDIS_DISRUPTIONS.add(1, self.labels())
                     logger.warning(
@@ -607,6 +641,12 @@ class Worker:
         active_tasks: dict[asyncio.Task[None], RedisMessageID] = {}
         task_executions: dict[asyncio.Task[None], Execution] = {}
         available_slots = self.concurrency
+        redelivery_sweep = RedeliverySweep(
+            self.docket,
+            worker_name=self.name,
+            redelivery_timeout=self.redelivery_timeout,
+            message_batch=self.message_batch,
+        )
         log_context = self._log_context()
 
         async def check_for_work() -> bool:
@@ -621,23 +661,10 @@ class Worker:
 
         async def get_redeliveries(redis: Redis) -> RedisReadGroupResponse:
             logger.debug("Getting redeliveries", extra=log_context)
-            try:
-                with self._maybe_suppress_instrumentation():
-                    _, redeliveries, *_ = await redis.xautoclaim(
-                        name=self.docket.stream_key,
-                        groupname=self.docket.worker_group_name,
-                        consumername=self.name,
-                        min_idle_time=int(
-                            self.redelivery_timeout.total_seconds() * 1000
-                        ),
-                        start_id="0-0",
-                        count=available_slots,
-                    )
-            except ResponseError as e:
-                if "NOGROUP" in str(e):
-                    await self.docket._ensure_stream_and_group()
-                    return await get_redeliveries(redis)
-                raise  # pragma: no cover
+            with self._maybe_suppress_instrumentation():
+                redeliveries = await redelivery_sweep.claim(redis, available_slots)
+            # The poll loop reads this sentinel stream name to mark the
+            # messages it starts as redeliveries.
             return [(b"__redelivery__", redeliveries)]
 
         async def get_new_deliveries(redis: Redis) -> RedisReadGroupResponse:
@@ -649,7 +676,7 @@ class Worker:
                         consumername=self.name,
                         streams={self.docket.stream_key: ">"},
                         block=int(self.minimum_check_interval.total_seconds() * 1000),
-                        count=available_slots,
+                        count=min(available_slots, self.message_batch),
                     )
             except ResponseError as e:
                 if "NOGROUP" in str(e):
@@ -663,12 +690,14 @@ class Worker:
             message: RedisMessage,
             is_redelivery: bool = False,
         ) -> None:
+            # No sync: the claim in `_execute` reads the same hashes back.
             execution = await Execution.from_message(
                 self.docket,
                 message,
                 redelivered=is_redelivery,
                 fallback_task=self.fallback_task,
                 message_id=message_id,
+                sync=False,
             )
 
             task = asyncio.create_task(
@@ -725,7 +754,7 @@ class Worker:
                 if not execution._acked:
                     await execution.mark_as_failed(error=None)
 
-        disconnect: ConnectionError | None = None
+        disconnect: Disconnected | None = None
         try:
             async with AsyncExitStack() as dependency_stack:
                 # Each Dependency class used by a registered task may declare
@@ -754,68 +783,84 @@ class Worker:
                         session.stopping.set()
                         return
                     if self.schedule_automatic_tasks:
-                        await self._schedule_all_automatic_perpetual_tasks()
-                        infra.create_task(
-                            self._reseed_automatic_perpetual_tasks_loop(),
-                            name=f"{self.docket.name} - automatic perpetual reseed",
-                        )
-                    infra.create_task(
-                        self._scheduler_loop(redis),
-                        name=f"{self.docket.name} - scheduler",
-                    )
-                    infra.create_task(
-                        self._renew_leases(redis, active_tasks),
-                        name=f"{self.docket.name} - lease renewal",
-                    )
-                    self._heartbeat_task = asyncio.create_task(
-                        self._heartbeat(),
-                        name=f"{self.docket.name} - heartbeat",
-                    )
-                    has_work: bool = True
-                    while (
-                        forever or has_work or active_tasks
-                    ) and not stopping.is_set():
-                        await process_completed_tasks()
-                        available_slots = self.concurrency - len(active_tasks)
-                        if available_slots <= 0:
-                            await asyncio.sleep(
-                                self.minimum_check_interval.total_seconds()
-                            )
-                            continue
                         try:
-                            for source in [get_redeliveries, get_new_deliveries]:
-                                for stream_key, messages in await source(redis):
-                                    is_redelivery = stream_key == b"__redelivery__"
-                                    for message_id, message in messages:
-                                        if not message:  # pragma: no cover
-                                            continue
-
-                                        await start_task(
-                                            message_id, message, is_redelivery
-                                        )
-
-                                if available_slots <= 0:
-                                    break
-
-                            if not forever and not active_tasks:
-                                has_work = await check_for_work()
-                        except ConnectionError as error:
-                            # The worker's own polling read lost its connection --
-                            # a failover or a server restart drops a blocked
-                            # XREADGROUP this way.  Stop the loop and let _run
-                            # reconnect; in-flight tasks still drain in the finally
-                            # below.  A ConnectionError raised by a task body
-                            # surfaces through process_completed_tasks instead,
-                            # which stays outside this guard so it keeps its
-                            # die-and-redeliver behavior.
+                            await self._schedule_all_automatic_perpetual_tasks()
+                        except DISCONNECTED as error:
+                            # Seeding lost Redis.  An error escaping the
+                            # TaskGroup body comes back wrapped in an
+                            # ExceptionGroup, which _run's `except DISCONNECTED`
+                            # does not match, so hold it, skip the rest of the
+                            # startup, and re-raise it bare below.
                             disconnect = error
-                            break
+                        else:
+                            infra.create_task(
+                                self._reseed_automatic_perpetual_tasks_loop(),
+                                name=f"{self.docket.name} - automatic perpetual reseed",
+                            )
+                    if disconnect is None:
+                        infra.create_task(
+                            self._scheduler_loop(redis),
+                            name=f"{self.docket.name} - scheduler",
+                        )
+                        infra.create_task(
+                            self._renew_leases(redis, active_tasks),
+                            name=f"{self.docket.name} - lease renewal",
+                        )
+                        self._heartbeat_task = asyncio.create_task(
+                            self._heartbeat(),
+                            name=f"{self.docket.name} - heartbeat",
+                        )
+                        has_work: bool = True
+                        while (
+                            forever or has_work or active_tasks
+                        ) and not stopping.is_set():
+                            await process_completed_tasks()
+                            available_slots = self.concurrency - len(active_tasks)
+                            if available_slots <= 0:
+                                await asyncio.sleep(
+                                    self.minimum_check_interval.total_seconds()
+                                )
+                                continue
+                            try:
+                                sources = [get_new_deliveries]
+                                with self._maybe_suppress_instrumentation():
+                                    sweep_due = await redelivery_sweep.due(redis)
+                                if sweep_due:
+                                    sources.insert(0, get_redeliveries)
+                                for source in sources:
+                                    for stream_key, messages in await source(redis):
+                                        is_redelivery = stream_key == b"__redelivery__"
+                                        for message_id, message in messages:
+                                            if not message:  # pragma: no cover
+                                                continue
+
+                                            await start_task(
+                                                message_id, message, is_redelivery
+                                            )
+
+                                    if available_slots <= 0:
+                                        break
+
+                                if not forever and not active_tasks:
+                                    has_work = await check_for_work()
+                            except DISCONNECTED as error:
+                                # The worker's own polling read lost Redis -- a
+                                # failover, a server restart, or a server too busy
+                                # to answer drops a blocked XREADGROUP this way.
+                                # Stop the loop and let _run reconnect; in-flight
+                                # tasks still drain in the finally below.  A
+                                # disconnection raised by a task body surfaces
+                                # through process_completed_tasks instead, which
+                                # stays outside this guard so it keeps its
+                                # die-and-redeliver behavior.
+                                disconnect = error
+                                break
 
                     session.stopping.set()
 
-            # A disconnection in the poll loop above leaves the TaskGroup intact
-            # (no exception escaped it), so re-raise it here as a bare
-            # ConnectionError for _run to catch and reconnect on.
+            # A disconnection caught above leaves the TaskGroup intact (no
+            # exception escaped it), so re-raise it here on its own for _run
+            # to catch and reconnect on.
             if disconnect is not None:
                 raise disconnect
         except asyncio.CancelledError:
@@ -883,8 +928,8 @@ class Worker:
     ) -> None:
         """Periodically renew leases on stream messages.
 
-        Calls XCLAIM with idle=0 to reset the message's idle time, preventing
-        XAUTOCLAIM from reclaiming it while we're still processing.
+        See _redelivery for how a renewal keeps XAUTOCLAIM from reclaiming a
+        message that this worker is still processing.
         """
         session = self._processing_session
         if session is None:
@@ -901,18 +946,14 @@ class Worker:
             if not message_ids:
                 continue
 
-            try:
-                with self._maybe_suppress_instrumentation():
-                    await redis.xclaim(
-                        name=self.docket.stream_key,
-                        groupname=self.docket.worker_group_name,
-                        consumername=self.name,
-                        min_idle_time=0,
-                        message_ids=message_ids,
-                        idle=0,
-                    )
-            except Exception:
-                logger.warning("Failed to renew leases", exc_info=True)
+            with self._maybe_suppress_instrumentation():
+                await renew_leases(
+                    cast(RedisClient, redis),
+                    stream_key=self.docket.stream_key,
+                    group_name=self.docket.worker_group_name,
+                    consumer_name=self.name,
+                    message_ids=message_ids,
+                )
 
     async def _reseed_automatic_perpetual_tasks_loop(self) -> None:
         """Periodically re-sow automatic perpetuals so a chain severed after
@@ -970,24 +1011,13 @@ class Worker:
                             # iterator advances on every call, so reseeding a
                             # healthy cron would drift its schedule into the
                             # future.  Only touch a task once its chain is gone.
-                            if await self._automatic_perpetual_is_live(redis, key):
+                            if await perpetual_is_live(self.docket, redis, key):
                                 continue
                             await self.docket.add(
                                 task_function, when=perpetual.initial_when, key=key
                             )()
             except LockError:  # pragma: no cover
                 return
-
-    async def _automatic_perpetual_is_live(self, redis: RedisClient, key: str) -> bool:
-        """Whether an automatic perpetual already has a live schedule entry.
-
-        Mirrors the dedup in the scheduling script: a task is live when it's
-        parked or queued (``known`` is set) or currently running.
-        """
-        runs_key = self.docket.runs_key(key)
-        if (await redis.hget(runs_key, "known")) is not None:
-            return True
-        return (await redis.hget(runs_key, "state")) == b"running"
 
     async def _delete_known_task(self, redis: Redis, execution: Execution) -> None:
         logger.debug("Deleting known task", extra=self._log_context())
@@ -1249,6 +1279,14 @@ class Worker:
                     pipeline.zrem(self.task_workers_set(task_name), self.name)
                 pipeline.delete(self.worker_tasks_set(self.name))
                 await pipeline.execute()
+        except ConnectionError:
+            # A worker that loses Redis on the way out ages out on its own:
+            # every other heartbeat prunes members older than the missed
+            # heartbeat window, and the worker's task set carries a TTL.
+            logger.debug(
+                "Could not clear worker heartbeat, connection is gone",
+                extra=self._log_context(),
+            )
         except Exception:
             logger.exception(
                 "Error clearing worker heartbeat",
@@ -1308,7 +1346,7 @@ class Worker:
 
             except asyncio.CancelledError:  # pragma: no cover
                 return
-            except ConnectionError:
+            except DISCONNECTED:
                 REDIS_DISRUPTIONS.add(1, self.labels())
                 logger.exception(
                     "Error sending worker heartbeat",

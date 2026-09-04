@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: wikitextparser
-Version: 1.0.3
+Version: 2.0.0
 Summary: A simple parsing tool for MediaWiki's wikitext markup.
 Keywords: MediaWiki,wikitext,parser
 Author: 5j9
@@ -13,7 +13,7 @@ Requires-Dist: regex>=2022.9.11
 Requires-Dist: wcwidth
 Requires-Dist: coverage ; extra == 'dev'
 Requires-Dist: pytest ; extra == 'tests'
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Project-URL: Homepage, https://github.com/5j9/wikitextparser
 Provides-Extra: dev
 Provides-Extra: tests
@@ -40,7 +40,7 @@ The purpose is to allow users easily extract and/or manipulate templates, templa
 Installation
 ============
 
-- Python 3.8+ is required
+- Python 3.9+ is required
 - ``pip install wikitextparser``
 
 Usage

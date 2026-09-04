@@ -1,6 +1,7 @@
 from collections import namedtuple
 
 import pytest
+from django.core.files.storage import default_storage as storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from pulpcore.plugin.exceptions import (
@@ -25,8 +26,9 @@ def test_create_read_delete_content(tmp_path):
     artifact.save()
 
     content = Content.objects.create()
+    artifact_file = storage.open(artifact.file.name)
     content_artifact = ContentArtifact.objects.create(
-        artifact=artifact, content=content, relative_path="test/location/in/repository"
+        artifact=artifact, content=content, relative_path=artifact_file.name
     )
     assert Content.objects.filter(pk=content.pk).exists()
     assert (

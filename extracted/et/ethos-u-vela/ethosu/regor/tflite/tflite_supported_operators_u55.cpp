@@ -75,6 +75,8 @@ static const std::set<OpType> s_supportedOpTypes = {
     OpType::Rsqrt,
     OpType::Pack,
     OpType::Unpack,
+    OpType::Gelu,
+    OpType::Elu,
     OpType::LeakyRelu,
     OpType::SquaredDifference,
     OpType::MirrorPad,

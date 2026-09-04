@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: panther_analysis_tool
-Version: 1.8.2
+Version: 1.9.0
 Summary: Panther command line interface for writing, testing, and packaging policies/rules.
 License: Apache-2.0
 License-File: LICENSE.txt

@@ -22,6 +22,7 @@ from urllib.parse import quote
 
 from agentic_devtools.cli.ci.agent_assignment import AgentAssignmentResult, assign_issue_to_agent
 from agentic_devtools.cli.ci.exceptions import MalformedEventError
+from agentic_devtools.cli.ci.finalization_state import FinalizedReviewKey, PRCommentFinalizationStateStore
 from agentic_devtools.cli.ci.job_logs import UNKNOWN_STEP_SENTINEL
 from agentic_devtools.cli.ci.models import (
     COPILOT_COMMENT_LOGINS,
@@ -3350,6 +3351,38 @@ class GitHubActionsProvider(CIPlatformProvider):
         Suppressed comments are deduplicated against REST comments and merged
         into the result with ``is_suppressed=True``.
         """
+        comments, review_body_recovery_complete = self._list_review_comments_with_recovery_status(pr_number, review_id)
+        self._set_review_comment_recovery_complete(
+            pr_number=pr_number,
+            review_id=review_id,
+            recovery_complete=review_body_recovery_complete,
+        )
+        return comments
+
+    def _set_review_comment_recovery_complete(self, *, pr_number: int, review_id: int, recovery_complete: bool) -> None:
+        """Cache whether suppressed-comment recovery completed for one review."""
+        status = getattr(self, "_review_comment_recovery_complete", None)
+        if not isinstance(status, dict):
+            status = {}
+            setattr(self, "_review_comment_recovery_complete", status)
+        status[(pr_number, review_id)] = recovery_complete
+
+    def _was_review_comment_recovery_complete(self, *, pr_number: int, review_id: int) -> bool:
+        """Return cached suppressed-comment recovery status for one review.
+
+        Defaults to ``True`` when no status was recorded so tests or callers that
+        stub ``list_review_comments()`` continue to exercise the normal path.
+        """
+        status = getattr(self, "_review_comment_recovery_complete", None)
+        if not isinstance(status, dict):
+            return True
+        cached = status.get((pr_number, review_id))
+        return cached if isinstance(cached, bool) else True
+
+    def _list_review_comments_with_recovery_status(
+        self, pr_number: int, review_id: int
+    ) -> tuple[list[ReviewCommentInfo], bool]:
+        """List review comments and report whether suppressed-comment recovery completed."""
         response = _gh_api(
             self._repo_api(f"/pulls/{pr_number}/reviews/{review_id}/comments"),
             paginate=True,
@@ -3378,8 +3411,10 @@ class GitHubActionsProvider(CIPlatformProvider):
             for c in comments
         ]
 
+        review_body_recovery_complete = review_id <= 0
         # Recover suppressed comments from the review body (FR-001, FR-006, FR-008)
         if review_id > 0:
+            review_body_recovery_complete = True
             try:
                 review_response = _gh_api(
                     self._repo_api(f"/pulls/{pr_number}/reviews/{review_id}"),
@@ -3397,14 +3432,16 @@ class GitHubActionsProvider(CIPlatformProvider):
                     pr_number,
                     review_id,
                 )
+                review_body_recovery_complete = False
             except Exception:
                 logger.warning(
                     "PR #%d: Failed to recover suppressed comments from review %d body",
                     pr_number,
                     review_id,
                 )
+                review_body_recovery_complete = False
 
-        return rest_comments
+        return rest_comments, review_body_recovery_complete
 
     @retry_with_backoff()
     def list_pr_issue_events(self, pr_number: int) -> list[IssueEvent]:
@@ -4601,6 +4638,15 @@ class GitHubActionsProvider(CIPlatformProvider):
             FinalizationResult with details about what was resolved/skipped.
         """
         repo = self._resolve_repo()
+        review_key = FinalizedReviewKey(repository=repo, pr_number=pr_number, review_id=review_id)
+        finalization_state_store = PRCommentFinalizationStateStore(self)
+        if finalization_state_store.is_terminal(key=review_key):
+            logger.info(
+                "PR #%d review %d was permanently finalized earlier — skipping re-finalization",
+                pr_number,
+                review_id,
+            )
+            return FinalizationResult(skipped=True, reason="already_finalized")
         self._thread_signals_cache.pop(pr_number, None)
         self._thread_identity_cache.pop(pr_number, None)
 
@@ -4630,13 +4676,27 @@ class GitHubActionsProvider(CIPlatformProvider):
         # --- Per-Comment SDK Verification Loop (FR-004/005/006/007/008) ---
         comments = self.list_review_comments(pr_number, review_id)
         if not comments:
+            review_body_recovery_complete = self._was_review_comment_recovery_complete(
+                pr_number=pr_number,
+                review_id=review_id,
+            )
+            if not review_body_recovery_complete:
+                error = f"review #{review_id}: review comment recovery incomplete"
+                logger.warning(
+                    "PR #%d: Review %d comment recovery incomplete — skipping terminal no-comments marker",
+                    pr_number,
+                    review_id,
+                )
+                return FinalizationResult(reason="review_comment_recovery_incomplete", errors=(error,))
             logger.info("No review comments for review %d on PR #%d — nothing to finalize", review_id, pr_number)
+            finalization_state_store.mark_terminal(key=review_key, reason="no_comments")
             return FinalizationResult(skipped=False, reason="no_comments")
 
         # Build diff context once for this review
         diff_context = self._build_verification_context_diff(review.commit_sha, head_sha)
 
         resolved_ids: list[int] = []
+        has_unconfirmed_resolution = False
         unconfirmed_unresolve_ids: list[int] = []
         resolutions: list[CommentResolution] = []
         errors: list[str] = []
@@ -4714,6 +4774,7 @@ class GitHubActionsProvider(CIPlatformProvider):
         # Include previously unconfirmed-resolved threads for re-evaluation
         existing_comment_ids = {comment.id for comment, _ in comments_for_sdk}
         reevaluated_unconfirmed_comment_ids: set[int] = set()
+        unconfirmed_reevaluation_complete = True
         try:
             unconfirmed_ids = self._list_unconfirmed_resolved_comment_ids(pr_number)
         except Exception as exc:
@@ -4725,6 +4786,7 @@ class GitHubActionsProvider(CIPlatformProvider):
                 exc,
             )
             unconfirmed_ids = set()
+            unconfirmed_reevaluation_complete = False
         for unconfirmed_id in unconfirmed_ids:
             if unconfirmed_id in existing_comment_ids:
                 # Already in-scope for SDK verification, but still needs special handling
@@ -4733,11 +4795,19 @@ class GitHubActionsProvider(CIPlatformProvider):
                 continue
             unconfirmed_comment = self._fetch_review_comment_by_id(pr_number, unconfirmed_id)
             if unconfirmed_comment is None:
+                logger.warning(
+                    "Failed to fetch unconfirmed resolved review comment %d on PR #%d; "
+                    "keeping review non-terminal for re-evaluation safety",
+                    unconfirmed_id,
+                    pr_number,
+                )
+                unconfirmed_reevaluation_complete = False
                 continue
             if unconfirmed_comment.is_suppressed:
                 # Unreachable in practice for the same reason as the suppressed branch
                 # above: _fetch_review_comment_by_id reads a REST payload, which never
                 # carries the minimized keys _comment_is_suppressed looks for.
+                unconfirmed_reevaluation_complete = False
                 continue
             comment_context = self._build_comment_verification_context(unconfirmed_comment, diff_context)
             comments_for_sdk.append((unconfirmed_comment, comment_context))
@@ -4930,6 +5000,8 @@ class GitHubActionsProvider(CIPlatformProvider):
                     else:
                         clear_resolution_state(thread_id, state_dir)
                 if verdict == VerificationVerdict.COMMENT_RESOLVE:
+                    if tier_result is not None and "fallback" in (tier_result.tier_name or ""):
+                        has_unconfirmed_resolution = True
                     resolved_ids.append(comment.id)
                     has_existing_addressed_reply = self._has_existing_addressed_reply(
                         pr_number, comment.id, addressed_reply_parent_comment_ids
@@ -5077,6 +5149,13 @@ class GitHubActionsProvider(CIPlatformProvider):
             resolutions=tuple(resolutions),
             errors=tuple(errors),
         )
+        if (
+            result.unresolved_count == 0
+            and not result.errors
+            and not has_unconfirmed_resolution
+            and unconfirmed_reevaluation_complete
+        ):
+            finalization_state_store.mark_terminal(key=review_key, reason=result.reason)
         logger.info(
             "Finalization complete for PR #%d review %d: %d resolved, %d unresolved, %d suppressed",
             pr_number,

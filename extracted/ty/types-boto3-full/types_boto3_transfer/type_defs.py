@@ -560,6 +560,7 @@ class SftpConnectorConfigOutputTypeDef(TypedDict):
     UserSecretId: NotRequired[str]
     TrustedHostKeys: NotRequired[list[str]]
     MaxConcurrentConnections: NotRequired[int]
+    OrderedUserSecretVersionStages: NotRequired[list[str]]
 
 
 class LoggingConfigurationTypeDef(TypedDict):
@@ -860,6 +861,7 @@ class SftpConnectorConfigTypeDef(TypedDict):
     UserSecretId: NotRequired[str]
     TrustedHostKeys: NotRequired[Sequence[str]]
     MaxConcurrentConnections: NotRequired[int]
+    OrderedUserSecretVersionStages: NotRequired[Sequence[str]]
 
 
 class SftpConnectorConnectionDetailsTypeDef(TypedDict):

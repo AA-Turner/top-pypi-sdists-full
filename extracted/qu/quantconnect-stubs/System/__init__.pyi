@@ -580,27 +580,6 @@ class IConvertible(metaclass=abc.ABCMeta):
         ...
 
 
-class IFormattable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
-        ...
-
-
-class ISpanFormattable(System.IFormattable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
-        ...
-
-
-class IUtf8SpanFormattable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
-        ...
-
-
 class _Typed_Int16_CreateChecked(typing.Generic[System_Int16_CreateChecked_TOther]):
     """"""
 
@@ -646,7 +625,7 @@ class _Int16_CreateTruncating:
         ...
 
 
-class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+class Int16(System.IConvertible, System.Numerics.ISignedNumber[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
@@ -926,6 +905,20 @@ class IAsyncDisposable(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     def dispose_async(self) -> System.Threading.Tasks.ValueTask:
+        ...
+
+
+class IFormattable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
+        ...
+
+
+class ISpanFormattable(System.IFormattable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
         ...
 
 
@@ -1927,6 +1920,13 @@ class HashCode:
         warnings.warn("HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code.", DeprecationWarning)
 
     def to_hash_code(self) -> int:
+        ...
+
+
+class IUtf8SpanFormattable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
         ...
 
 
@@ -3333,7 +3333,7 @@ class MidpointRounding(IntEnum):
     TO_POSITIVE_INFINITY = 4
 
 
-class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEquatable[System_Half], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[System_Half]):
+class Half(System.IBinaryFloatParseAndFormatInfo[System_Half]):
     """This class has no documentation."""
 
     EPSILON: System.Half
@@ -7711,7 +7711,7 @@ class _IntPtr_CreateTruncating:
         ...
 
 
-class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr], System.ISpanFormattable, System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_IntPtr], System.Numerics.IMinMaxValue[System_IntPtr], System.Numerics.ISignedNumber[System_IntPtr], System.IUtf8SpanFormattable):
+class IntPtr(System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_IntPtr], System.Numerics.IMinMaxValue[System_IntPtr], System.Numerics.ISignedNumber[System_IntPtr]):
     """This class has no documentation."""
 
     ZERO: System.IntPtr
@@ -8080,7 +8080,7 @@ class _UIntPtr_CreateTruncating:
         ...
 
 
-class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntPtr], System.ISpanFormattable, System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_UIntPtr], System.Numerics.IMinMaxValue[System_UIntPtr], System.Numerics.IUnsignedNumber[System_UIntPtr], System.IUtf8SpanFormattable):
+class UIntPtr(System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_UIntPtr], System.Numerics.IMinMaxValue[System_UIntPtr], System.Numerics.IUnsignedNumber[System_UIntPtr]):
     """This class has no documentation."""
 
     ZERO: System.UIntPtr
@@ -8747,7 +8747,7 @@ class _UInt32_CreateTruncating:
         ...
 
 
-class UInt32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+class UInt32(System.IConvertible, System.Numerics.IUnsignedNumber[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
@@ -10012,7 +10012,7 @@ class _UInt128_CreateTruncating:
         ...
 
 
-class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[System_UInt128]):
+class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IBinaryIntegerParseAndFormatInfo[System_UInt128]):
     """This class has no documentation."""
 
     MIN_VALUE: System.UInt128
@@ -10043,9 +10043,27 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
     def __eq__(self, right: System.UInt128) -> bool:
         ...
 
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.UInt128) -> bool:
+        ...
+
+    @overload
     def __ge__(self, right: System.UInt128) -> bool:
         ...
 
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.UInt128) -> bool:
+        ...
+
+    @overload
     def __gt__(self, right: System.UInt128) -> bool:
         ...
 
@@ -10105,12 +10123,30 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
     def __ixor__(self, right: System.UInt128) -> System.UInt128:
         ...
 
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.UInt128) -> bool:
+        ...
+
+    @overload
     def __le__(self, right: System.UInt128) -> bool:
         ...
 
     def __lshift__(self, shift_amount: int) -> System.UInt128:
         ...
 
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.UInt128) -> bool:
+        ...
+
+    @overload
     def __lt__(self, right: System.UInt128) -> bool:
         ...
 
@@ -10372,7 +10408,7 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
         ...
 
 
-class UInt64(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+class UInt64(System.IConvertible, System.Numerics.IUnsignedNumber[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
@@ -11634,7 +11670,7 @@ class _Int32_CreateTruncating:
         ...
 
 
-class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+class Int32(System.IConvertible, System.Numerics.ISignedNumber[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
@@ -12052,7 +12088,7 @@ class AggregateException(System.Exception):
         ...
 
 
-class Char(System.IComparable[str], System.IEquatable[str], System.IConvertible, System.ISpanFormattable, System.Numerics.IUnsignedNumber[str], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[str], System.IUtfChar[str], System.IBinaryIntegerParseAndFormatInfo[str]):
+class Char(System.IConvertible, System.Numerics.IUnsignedNumber[str], System.IUtfChar[str], System.IBinaryIntegerParseAndFormatInfo[str]):
     """This class has no documentation."""
 
     MAX_VALUE: str = ...
@@ -12971,7 +13007,7 @@ class _Single_CreateTruncating:
         ...
 
 
-class Single(System.IComparable[float], System.IConvertible, System.ISpanFormattable, System.IEquatable[float], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[float]):
+class Single(System.IConvertible, System.IBinaryFloatParseAndFormatInfo[float]):
     """This class has no documentation."""
 
     MIN_VALUE: float = ...
@@ -14611,7 +14647,7 @@ class _Int128_CreateTruncating:
         ...
 
 
-class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[System_Int128]):
+class Int128(System.Numerics.ISignedNumber[System_Int128], System.IBinaryIntegerParseAndFormatInfo[System_Int128]):
     """This class has no documentation."""
 
     MIN_VALUE: System.Int128
@@ -14644,9 +14680,27 @@ class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanForma
     def __eq__(self, right: System.Int128) -> bool:
         ...
 
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Int128) -> bool:
+        ...
+
+    @overload
     def __ge__(self, right: System.Int128) -> bool:
         ...
 
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Int128) -> bool:
+        ...
+
+    @overload
     def __gt__(self, right: System.Int128) -> bool:
         ...
 
@@ -14706,12 +14760,30 @@ class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanForma
     def __ixor__(self, right: System.Int128) -> System.Int128:
         ...
 
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Int128) -> bool:
+        ...
+
+    @overload
     def __le__(self, right: System.Int128) -> bool:
         ...
 
     def __lshift__(self, shift_amount: int) -> System.Int128:
         ...
 
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Int128) -> bool:
+        ...
+
+    @overload
     def __lt__(self, right: System.Int128) -> bool:
         ...
 
@@ -16227,7 +16299,7 @@ class _Decimal_CreateTruncating:
         ...
 
 
-class Decimal(System.ISpanFormattable, System.IComparable[float], System.IConvertible, System.IEquatable[float], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.Numerics.IFloatingPoint[float], System.Numerics.IMinMaxValue[float], System.IUtf8SpanFormattable):
+class Decimal(System.IConvertible, System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.Numerics.IFloatingPoint[float], System.Numerics.IMinMaxValue[float]):
     """This class has no documentation."""
 
     ZERO: float = 0
@@ -18547,7 +18619,7 @@ class _SByte_CreateTruncating:
         ...
 
 
-class SByte(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+class SByte(System.IConvertible, System.Numerics.ISignedNumber[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
@@ -19192,7 +19264,7 @@ class _Double_CreateTruncating:
         ...
 
 
-class Double(System.IComparable[float], System.IConvertible, System.ISpanFormattable, System.IEquatable[float], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[float]):
+class Double(System.IConvertible, System.IBinaryFloatParseAndFormatInfo[float]):
     """This class has no documentation."""
 
     MIN_VALUE: float = ...
@@ -19976,7 +20048,7 @@ class _Int64_CreateTruncating:
         ...
 
 
-class Int64(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+class Int64(System.IConvertible, System.Numerics.ISignedNumber[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
@@ -20768,7 +20840,7 @@ class _Byte_CreateTruncating:
         ...
 
 
-class Byte(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IUtfChar[int], System.IBinaryIntegerParseAndFormatInfo[int]):
+class Byte(System.IConvertible, System.Numerics.IUnsignedNumber[int], System.IUtfChar[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
@@ -21223,7 +21295,7 @@ class _UInt16_CreateTruncating:
         ...
 
 
-class UInt16(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+class UInt16(System.IConvertible, System.Numerics.IUnsignedNumber[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...

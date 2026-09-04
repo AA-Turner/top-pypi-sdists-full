@@ -21,6 +21,7 @@ from ...client.api.compute.unarchive_sandbox import asyncio as unarchive_sandbox
 from ...client.api.compute.update_sandbox import asyncio as update_sandbox
 from ...client.client import client
 from ...client.models import (
+    Env,
     Metadata,
     MetadataLabels,
     Sandbox,
@@ -430,6 +431,7 @@ class SandboxInstance:
         custom_domain: str | None = None,
         prefix: str | None = None,
         snapshot_id: str | None = None,
+        envs: list[Env] | None = None,
     ) -> SandboxForkResponse:
         """Fork this sandbox into a new sandbox or application.
 
@@ -444,6 +446,10 @@ class SandboxInstance:
             custom_domain: Custom domain for an application fork.
             prefix: URL prefix for an application fork.
             snapshot_id: Snapshot ID to fork from.
+            envs: Environment variables the fork runs with, on top of the ones
+                the source has: a variable the source already carries takes this
+                value in the fork, one it does not is added, and every other
+                variable of the source is kept.
         """
         body = SandboxForkRequest(target_name=target_name, target_type=target_type)
         if port is not None:
@@ -456,6 +462,8 @@ class SandboxInstance:
             body.prefix = prefix
         if snapshot_id is not None:
             body.snapshot_id = snapshot_id
+        if envs is not None:
+            body.envs = envs
         response = await fork_sandbox(
             self.metadata.name,
             client=client,

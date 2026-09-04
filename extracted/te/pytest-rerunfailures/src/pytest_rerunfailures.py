@@ -3,6 +3,7 @@ import importlib.metadata
 import os
 import platform
 import re
+import secrets
 import socket
 import sys
 import threading
@@ -13,9 +14,12 @@ from contextlib import suppress
 from typing import Any
 
 import pytest
-from _pytest.outcomes import fail
+from _pytest.outcomes import Exit, fail
 from _pytest.runner import runtestprotocol
 from packaging.version import parse as parse_version
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 failed_subtests_key: Any
 SubtestReport: Any
@@ -179,7 +183,7 @@ def pytest_addoption(parser):
 
 
 def _get_global_reruns(config):
-    reruns = config.getvalue("reruns")
+    reruns = config.getoption("reruns")
     if reruns is not None:
         return reruns
 
@@ -191,14 +195,13 @@ def _get_global_reruns(config):
 # making sure the options make sense
 # should run before / at the beginning of pytest_cmdline_main
 def check_options(config):
-    val = config.getvalue
     if (
         config.option.max_suite_reruns is not None
         and config.option.max_suite_reruns < 0
     ):
         raise pytest.UsageError("--max-suite-reruns must be >= 0")
-    reruns = config.getvalue("force_reruns") or _get_global_reruns(config)
-    if not val("collectonly") and reruns:
+    reruns = config.getoption("force_reruns") or _get_global_reruns(config)
+    if not config.getoption("collectonly") and reruns:
         if config.option.usepdb:  # a core option
             raise pytest.UsageError("--reruns incompatible with --pdb")
 
@@ -208,7 +211,7 @@ def _get_marker(item):
 
 
 def get_reruns_count(item):
-    reruns = item.session.config.getvalue("force_reruns")
+    reruns = item.session.config.getoption("force_reruns")
     if reruns is not None:
         return reruns
 
@@ -224,7 +227,7 @@ def get_reruns_count(item):
         else:
             marker_reruns = 1
 
-        if item.session.config.getvalue("reruns_mode") == "append":
+        if item.session.config.getoption("reruns_mode") == "append":
             global_reruns = _get_global_reruns(item.session.config)
             if global_reruns is not None:
                 return marker_reruns + global_reruns
@@ -245,7 +248,7 @@ def get_reruns_delay(item):
         else:
             delay = 0
     else:
-        delay = item.session.config.getvalue("reruns_delay")
+        delay = item.session.config.getoption("reruns_delay")
         if delay is None:
             try:
                 delay = float(item.session.config.getini("reruns_delay"))
@@ -273,7 +276,7 @@ def get_reruns_delay_backoff_factor(item):
         else:
             factor = 1.0
     else:
-        factor = item.session.config.getvalue("reruns_delay_backoff_factor")
+        factor = item.session.config.getoption("reruns_delay_backoff_factor")
         if factor is None:
             try:
                 factor = float(
@@ -411,10 +414,12 @@ def _remove_failed_subtests_from_report(item, report):
         del failed_subtests[report.nodeid]
 
 
-def _remove_failed_subtest_reports_from_stats(item):
+def _remove_failed_subtest_reports_from_stats(
+    config, session, nodeid, worker_id=None, item_index=None
+):
     """
-    Remove already-logged SubtestReports for this item from the terminal reporter's
-    stats buckets.
+    Remove already-logged SubtestReports for a superseded test attempt from the
+    terminal reporter's stats buckets.
 
     SubtestReports are logged immediately during runtestprotocol (independent of
     log=False), so when a rerun is triggered they must be retroactively removed
@@ -430,13 +435,13 @@ def _remove_failed_subtest_reports_from_stats(item):
     if SubtestReport is None:
         return
 
-    tr = item.config.pluginmanager.get_plugin("terminalreporter")
+    tr = config.pluginmanager.get_plugin("terminalreporter")
     if tr is None:
         return
 
     def _remove_subtest_reports(key):
         """
-        Remove SubtestReports for item.nodeid from tr.stats[key].
+        Remove matching SubtestReports from tr.stats[key].
 
         Returns the number of removed reports, and deletes the key entirely when
         the list becomes empty, because some code just checks the presence of
@@ -445,11 +450,21 @@ def _remove_failed_subtest_reports_from_stats(item):
         if key not in tr.stats:
             return 0
 
+        def is_matching_subtest_report(report):
+            if not isinstance(report, SubtestReport) or report.nodeid != nodeid:
+                return False
+            if (
+                worker_id is not None
+                and getattr(report, "worker_id", None) != worker_id
+            ):
+                return False
+            return (
+                item_index is None or getattr(report, "item_index", None) == item_index
+            )
+
         num_items_before = len(tr.stats[key])
         tr.stats[key] = [
-            r
-            for r in tr.stats[key]
-            if not isinstance(r, SubtestReport) or r.nodeid != item.nodeid
+            report for report in tr.stats[key] if not is_matching_subtest_report(report)
         ]
         num_items_removed = num_items_before - len(tr.stats[key])
 
@@ -462,7 +477,7 @@ def _remove_failed_subtest_reports_from_stats(item):
     if failed_removed > 0:
         # Decrement session.testsfailed which was incremented when the
         # SubtestReport was originally logged via pytest_runtest_logreport.
-        item.session.testsfailed = max(0, item.session.testsfailed - failed_removed)
+        session.testsfailed = max(0, session.testsfailed - failed_removed)
 
     # When a test is rerun, subtests that already passed on the first attempt
     # will run again and produce a second SUBPASSED report. Remove the first
@@ -470,7 +485,7 @@ def _remove_failed_subtest_reports_from_stats(item):
     _remove_subtest_reports("subtests passed")
 
 
-def _get_num_failed_subtests(item, report):
+def _get_num_failed_subtests(item, nodeid):
     """
     Return the number of failed subtests.
 
@@ -481,7 +496,7 @@ def _get_num_failed_subtests(item, report):
 
     failed_subtests = item.config.stash.get(failed_subtests_key, None)
     if failed_subtests is not None:
-        return failed_subtests.get(report.nodeid, 0)
+        return failed_subtests.get(nodeid, 0)
 
     return 0
 
@@ -552,7 +567,7 @@ def _should_not_rerun(item, report, reruns):
     is_terminal_error = any(item._terminal_errors.values())
     condition = get_reruns_condition(item)
     has_failed_subtests = (
-        report.when == "call" and _get_num_failed_subtests(item, report) > 0
+        report.when == "call" and _get_num_failed_subtests(item, report.nodeid) > 0
     )
 
     return (
@@ -584,15 +599,41 @@ def pytest_configure(config):
         if is_master(config):
             config.failures_db = ServerStatusDB()
         else:
-            config.failures_db = ClientStatusDB(config.workerinput["sock_port"])
+            config.failures_db = ClientStatusDB(
+                config.workerinput["sock_port"],
+                config.workerinput["statusdb_token"],
+            )
     else:
         config.failures_db = StatusDB()  # no-op db
 
 
 class XDistHooks:
+    def pytest_sessionstart(self, session):
+        self.session = session
+
+    def pytest_runtest_logreport(self, report):
+        """Clean up subtest reports superseded by a worker rerun."""
+        worker_id = getattr(report, "worker_id", None)
+        item_index = getattr(report, "item_index", None)
+        # xdist adds worker_id and item_index when forwarding a report to the
+        # controller. Together they distinguish every collected test item.
+        if (
+            report.outcome == "rerun"
+            and worker_id is not None
+            and item_index is not None
+        ):
+            _remove_failed_subtest_reports_from_stats(
+                self.session.config,
+                self.session,
+                report.nodeid,
+                worker_id=worker_id,
+                item_index=item_index,
+            )
+
     def pytest_configure_node(self, node):
-        """Configure xdist hook for node sock_port."""
+        """Configure xdist hook with StatusDB connection details."""
         node.workerinput["sock_port"] = node.config.failures_db.sock_port
+        node.workerinput["statusdb_token"] = node.config.failures_db.token
 
     def pytest_handlecrashitem(self, crashitem, report, sched):
         """Return the crashitem from pending and collection."""
@@ -712,15 +753,22 @@ class SocketDB(StatusDB):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setblocking(1)
 
-    def _sock_recv(self, conn) -> str:
+    def _sock_recv_bytes(self, conn, max_length: int | None = None) -> bytes:
         buf = b""
         while True:
             b = conn.recv(1)
+            if not b:
+                raise ConnectionError("StatusDB connection closed unexpectedly")
             if b == self.delim:
                 break
             buf += b
+            if max_length is not None and len(buf) > max_length:
+                break
 
-        return buf.decode()
+        return buf
+
+    def _sock_recv(self, conn) -> str:
+        return self._sock_recv_bytes(conn).decode()
 
     def _sock_send(self, conn, msg: str):
         conn.send(msg.encode() + self.delim)
@@ -729,6 +777,7 @@ class SocketDB(StatusDB):
 class ServerStatusDB(SocketDB):
     def __init__(self) -> None:
         super().__init__()
+        self.token = secrets.token_hex(32)
         self.sock.bind(("127.0.0.1", 0))
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -748,7 +797,16 @@ class ServerStatusDB(SocketDB):
             t.start()
 
     def run_connection(self, conn):
-        with suppress(ConnectionError):
+        with conn, suppress(ConnectionError):
+            expected_token = self.token.encode("ascii")
+            authenticated = secrets.compare_digest(
+                self._sock_recv_bytes(conn, max_length=len(expected_token)),
+                expected_token,
+            )
+            self._sock_send(conn, "1" if authenticated else "0")
+            if not authenticated:
+                return
+
             while True:
                 op, i, k, v = self._sock_recv(conn).split("|")
                 if op == "set":
@@ -815,9 +873,13 @@ class ServerStatusDB(SocketDB):
 
 
 class ClientStatusDB(SocketDB):
-    def __init__(self, sock_port):
+    def __init__(self, sock_port, token):
         super().__init__()
         self.sock.connect(("127.0.0.1", sock_port))
+        self._sock_send(self.sock, token)
+        if self._sock_recv(self.sock) != "1":
+            self.sock.close()
+            raise ConnectionError("StatusDB authentication failed")
 
     def _set(self, i: str, k: str, v: int):
         self._sock_send(self.sock, "|".join(("set", i, k, str(v))))
@@ -865,7 +927,55 @@ def _is_rerun_path_excluded(item):
     )
 
 
+def _teardown_suspended_finalizers(item, call, report):
+    """Tear down the scopes held back for a re-run that will not happen.
+
+    pytest_runtest_teardown takes the module, class and session finalizers off
+    the setup stack when it expects the test to be re-run. Whether the error a
+    teardown raised rules that re-run out is only known here, where the report
+    of the phase says how the error was classified, so put the finalizers back
+    and tear down whatever this item was the last user of.
+
+    Returns the report of the teardown phase.
+    """
+    if not getattr(item, "_finalizers_suspended", False):
+        return report
+
+    item._finalizers_suspended = False
+    _restore_suspended_finalizers(item)
+
+    def teardown_higher_scopes():
+        try:
+            item.session._setupstate.teardown_exact(item._teardown_nextitem)
+        except (Exit, KeyboardInterrupt):
+            # A fixture that ends the session has to keep ending it.
+            raise
+        except BaseException as exc:
+            if call.excinfo is None:
+                raise
+            # Both errors come from the teardown of this item, so report them
+            # together, the way pytest reports several failing finalizers.
+            raise BaseExceptionGroup(
+                "errors during test teardown", [exc, call.excinfo.value]
+            ) from None
+
+    teardown_call = pytest.CallInfo.from_call(
+        teardown_higher_scopes, when="teardown", reraise=(Exit, KeyboardInterrupt)
+    )
+    if teardown_call.excinfo is None:
+        return report
+
+    # The report of the phase is already built, so the only way for the error
+    # above to reach the terminal is a report that replaces it.
+    return pytest.TestReport.from_item_and_call(item, teardown_call)
+
+
 def pytest_runtest_teardown(item, nextitem):
+    # pytest_runtest_makereport needs both of these to finish a teardown this
+    # hook left half done because it expected a re-run.
+    item._finalizers_suspended = False
+    item._teardown_nextitem = nextitem
+
     reruns = get_reruns_count(item)
     if reruns is None:
         # global setting is not specified, and this test is not marked with
@@ -888,12 +998,19 @@ def pytest_runtest_teardown(item, nextitem):
         return
 
     # Only remove non-function level actions from the stack if the test is to be re-run
-    # Exceeding re-run limits, being free of failue statuses, and encountering
-    # allowable exceptions indicate that the test is not to be re-ran.
+    # Exceeding re-run limits, being free of failue statuses, encountering
+    # allowable exceptions, and a falsy flaky condition indicate that the test is
+    # not to be re-ran. A failure can also be carried by failed subtests alone,
+    # which leaves the call phase itself passing.
     if (
         item.execution_count <= reruns
-        and any(_test_failed_statuses.values())
+        and (
+            any(_test_failed_statuses.values())
+            or _get_num_failed_subtests(item, item.nodeid) > 0
+        )
+        and not any(item._test_xfailed.values())
         and not any(item._terminal_errors.values())
+        and get_reruns_condition(item)
     ):
         # clean cached results from any level of setups
         _remove_cached_results_from_failed_fixtures(item)
@@ -905,15 +1022,17 @@ def pytest_runtest_teardown(item, nextitem):
                     if key not in suspended_finalizers:
                         suspended_finalizers[key] = item.session._setupstate.stack[key]
                     del item.session._setupstate.stack[key]
+                    item._finalizers_suspended = True
     else:
         # restore suspended finalizers
         _restore_suspended_finalizers(item)
 
 
-@pytest.hookimpl(hookwrapper=True)
+# A wrapper rather than an old-style hookwrapper because it has to be able to
+# let an Exit or a KeyboardInterrupt out of _teardown_suspended_finalizers.
+@pytest.hookimpl(wrapper=True)
 def pytest_runtest_makereport(item, call):
-    outcome = yield
-    result = outcome.get_result()
+    result = yield
     if result.when == "setup":
         # clean failed statuses at the beginning of each test/rerun
         setattr(item, "_test_failed_statuses", {})
@@ -921,12 +1040,24 @@ def pytest_runtest_makereport(item, call):
         # create a dict to store error-check results for each stage
         setattr(item, "_terminal_errors", {})
 
+        # create a dict to store xfail results for each stage
+        setattr(item, "_test_xfailed", {})
+
     _test_failed_statuses = getattr(item, "_test_failed_statuses", {})
     _test_failed_statuses[result.when] = result.failed
     item._test_failed_statuses = _test_failed_statuses
     item._terminal_errors[result.when] = _should_hard_fail_on_error(
         item, result, call.excinfo
     )
+    # subtests emit extra "call" reports, so accumulate rather than overwrite
+    item._test_xfailed[result.when] = item._test_xfailed.get(
+        result.when, False
+    ) or hasattr(result, "wasxfail")
+
+    if result.when == "teardown" and item._terminal_errors["teardown"]:
+        result = _teardown_suspended_finalizers(item, call, result)
+
+    return result
 
 
 def pytest_runtest_protocol(item, nextitem):
@@ -958,7 +1089,8 @@ def pytest_runtest_protocol(item, nextitem):
     item.execution_count = db.get_test_failures(item.nodeid)
     db.set_test_reruns(item.nodeid, reruns)
 
-    if item.execution_count > reruns:
+    # A rerun count limits extra attempts, not the initial test execution.
+    if item.execution_count > reruns and item.execution_count > 0:
         return True
 
     need_to_run = True
@@ -967,10 +1099,11 @@ def pytest_runtest_protocol(item, nextitem):
         item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
         reports = runtestprotocol(item, nextitem=nextitem, log=False)
 
+        rerun_triggered = False
         for report in reports:  # 3 reports: setup, call, teardown
             report.rerun = item.execution_count - 1
-            if _should_not_rerun(item, report, reruns):
-                # last run or no failure detected, log normally
+            if rerun_triggered or _should_not_rerun(item, report, reruns):
+                # no rerun needed or one already triggered, log normally
                 item.ihook.pytest_runtest_logreport(report=report)
             else:
                 # failure detected and reruns not exhausted, since i < reruns
@@ -994,11 +1127,13 @@ def pytest_runtest_protocol(item, nextitem):
                 _remove_failed_setup_state_from_session(item)
                 _discard_test_class_instance(item)
                 _remove_failed_subtests_from_report(item, report)
-                _remove_failed_subtest_reports_from_stats(item)
+                _remove_failed_subtest_reports_from_stats(
+                    item.config, item.session, item.nodeid
+                )
 
-                break  # trigger rerun
-        else:
-            need_to_run = False
+                rerun_triggered = True
+
+        need_to_run = rerun_triggered
 
         item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
 

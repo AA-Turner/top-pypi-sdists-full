@@ -208,6 +208,7 @@ def register_byte_range_generator_udtf(
         name=name,
         is_permanent=False,
         replace=True,
+        imports=[],
         packages=["snowflake-snowpark-python"],
     )
 
@@ -622,6 +623,7 @@ def register_bz2_file_processor_udtf(
         name=name,
         is_permanent=False,
         replace=True,
+        imports=[],
         packages=["snowflake-snowpark-python"],
     )
 

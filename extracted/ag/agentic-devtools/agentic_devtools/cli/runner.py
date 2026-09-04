@@ -372,6 +372,10 @@ COMMAND_MAP = {
     "agdt-speckit-tasks": ("agentic_devtools.cli.speckit", "speckit_tasks"),
     "agdt-speckit-implement": ("agentic_devtools.cli.speckit", "speckit_implement"),
     "agdt-speckit-clarify": ("agentic_devtools.cli.speckit", "speckit_clarify"),
+    "agdt-speckit-cloud-agent-guard": (
+        "agentic_devtools.cli.speckit",
+        "cloud_agent_guard_command",
+    ),
     "agdt-speckit-checklist": ("agentic_devtools.cli.speckit", "speckit_checklist"),
     "agdt-speckit-analyze": ("agentic_devtools.cli.speckit", "speckit_analyze"),
     "agdt-speckit-constitution": ("agentic_devtools.cli.speckit", "speckit_constitution"),

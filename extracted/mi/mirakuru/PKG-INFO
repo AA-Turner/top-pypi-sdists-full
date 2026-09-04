@@ -1,31 +1,31 @@
 Metadata-Version: 2.4
 Name: mirakuru
-Version: 3.0.2
+Version: 3.0.3
 Summary: Process executor (not only) for tests.
+Keywords: executor,orchestration,process,tests
+Author: Grzegorz Śliwiński
 Author-email: Grzegorz Śliwiński <fizyk+pypi@fizyk.dev>
 License-Expression: LGPL-3.0-or-later
-Project-URL: Source, https://github.com/dbfixtures/mirakuru
-Project-URL: Bug Tracker, https://github.com/dbfixtures/mirakuru/issues
-Project-URL: Changelog, https://github.com/dbfixtures/mirakuru/blob/v3.0.2/CHANGES.rst
-Keywords: process,executor,tests,orchestration
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: psutil>=4.0.0 ; sys_platform != 'cygwin'
 Requires-Python: >=3.10
+Project-URL: Source, https://github.com/dbfixtures/mirakuru
+Project-URL: Bug Tracker, https://github.com/dbfixtures/mirakuru/issues
+Project-URL: Changelog, https://github.com/dbfixtures/mirakuru/blob/v3.0.3/CHANGES.rst
 Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: psutil>=4.0.0; sys_platform != "cygwin"
-Dynamic: license-file
 
 .. image:: https://raw.githubusercontent.com/dbfixtures/mirakuru/master/logo.png
     :height: 100px

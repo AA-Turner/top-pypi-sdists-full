@@ -91,22 +91,22 @@ class _LazyIndexes:
                 # In principle, parts should not have the fields below (and thus should be copied from the need),
                 # but there is currently no validation for this, so we also record them.
                 _idx_is_external.setdefault(
-                    part.get("is_external", need["is_external"]),  # type: ignore[arg-type]
+                    part.get("is_external", need["is_external"]),
                     [],
                 ).append((id, part_id))
                 _idx_types.setdefault(
-                    part.get("type", need["type"]),  # type: ignore[arg-type]
+                    part.get("type", need["type"]),
                     [],
                 ).append((id, part_id))
                 _idx_type_names.setdefault(
-                    part.get("type_name", need["type_name"]),  # type: ignore[arg-type]
+                    part.get("type_name", need["type_name"]),
                     [],
                 ).append((id, part_id))
                 _idx_status.setdefault(
-                    part.get("status", need["status"]),  # type: ignore[arg-type]
+                    part.get("status", need["status"]),
                     [],
                 ).append((id, part_id))
-                for tag in part.get("tags", need["tags"]):  # type: ignore[attr-defined]
+                for tag in part.get("tags", need["tags"]):
                     _idx_tags.setdefault(tag, []).append((id, part_id))
 
         return _Indexes(
@@ -353,7 +353,7 @@ class NeedsAndPartsListView:
             for part_id in values:
                 selected_ids.extend(
                     (need_id, part_id)
-                    for need_id in self._indexes.indexes.parts_to_needs.get(part_id, [])
+                    for need_id in self._indexes.indexes.parts_to_needs.get(part_id, [])  # ty: ignore[invalid-argument-type]
                 )
         else:
             val_set = set(values)
@@ -361,6 +361,21 @@ class NeedsAndPartsListView:
                 v for v in self._selected_ids if v[0] in val_set or v[1] in val_set
             )
         return self._copy_filtered(selected_ids)
+
+    def filter_id_complete(self, values: Iterable[str]) -> NeedsAndPartsListView:
+        """Create new view with only the needs/parts whose ``id_complete`` is in ``values``.
+
+        This selection is exact, which ``filter_ids`` is not:
+        a part is selected on its own, without its need and without its sibling parts,
+        and a need is selected without its parts.
+        Values that are not in the view are ignored.
+        """
+        value_set = set(values)
+        return self._copy_filtered(
+            (item["id_parent"], item["id"]) if item["is_part"] else (item["id"], None)
+            for item in self
+            if item["id_complete"] in value_set
+        )
 
     def filter_is_external(self, value: bool) -> NeedsAndPartsListView:
         """Create new view with only needs/parts where ``is_external`` field is true/false."""

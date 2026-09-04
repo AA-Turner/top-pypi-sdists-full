@@ -39,9 +39,7 @@ from trilogy.core.processing.discovery_validation import (
     validate_stack,
 )
 from trilogy.core.processing.node_generators.common import (
-    AuthoredJoinPair,
     reinject_common_join_keys_v2,
-    relevant_authored_join_pairs,
 )
 from trilogy.core.processing.node_generators.presence_probe import (
     coalescing_axis_group,
@@ -57,14 +55,12 @@ from trilogy.core.processing.node_generators.select_helpers.datasource_nodes imp
     create_datasource_node,
     create_select_node,
     create_select_node_candidate,
-    create_union_datasource,
     finalize_select_node,
 )
 from trilogy.core.processing.node_generators.select_helpers.source_scoring import (
     deduplicate_datasources,
     get_graph_partial_nodes,
     get_materialization_score,
-    prune_dominated_datasources,
     resolve_subgraphs,
     score_datasource_node,
     subgraph_is_complete,
@@ -83,73 +79,12 @@ __all__ = [
     "create_datasource_node",
     "create_pruned_concept_graph",
     "create_select_node",
-    "create_union_datasource",
     "gen_select_merge_node",
     "get_graph_partial_nodes",
     "get_materialization_score",
     "resolve_subgraphs",
     "score_datasource_node",
 ]
-
-
-def _authored_key_scope(
-    pairs: list["AuthoredJoinPair"], environment: BuildEnvironment
-) -> set[str]:
-    """Canonical addresses of the pairing machinery for relevant authored
-    joins: each pair's merged canonical plus both members' FK carrier keys.
-    A datasource whose relevant bindings sit entirely inside this scope is a
-    side-path carrier candidate for dominated-source pruning."""
-    scope: set[str] = set()
-    for pair in pairs:
-        scope.add(pair.canonical.address)
-        for member in (pair.left, pair.right):
-            for key_addr in member.keys or ():
-                key_concept = environment.concepts.get(key_addr)
-                scope.add(key_concept.address if key_concept is not None else key_addr)
-    return scope
-
-
-def _authored_join_pairs_enforceable(
-    pairs: list["AuthoredJoinPair"],
-    environment: BuildEnvironment,
-    relevant_datasets: list[str],
-    g: ReferenceGraph,
-    orig_g: ReferenceGraph,
-    depth: int,
-) -> bool:
-    """No-silent-fallback guard: the direct-datasource path can only pair an
-    authored join relation whose members are bound on the kept datasources. A
-    relation needing a dimension hop must fall through to weak-component
-    discovery (which injects the hop) rather than return a single-component
-    plan that silently drops the authored equality."""
-    if not pairs:
-        return True
-    kept_identifiers: set[str] = set()
-    for node in relevant_datasets:
-        datasource = g.datasources.get(node) or orig_g.datasources.get(node)
-        if isinstance(datasource, BuildUnionDatasource):
-            kept_identifiers.update(child.identifier for child in datasource.children)
-        elif datasource is not None:
-            kept_identifiers.add(datasource.identifier)
-    bound_here = {
-        binding.concept
-        for binding in environment.domain_graph.binding_edges
-        if binding.datasource in kept_identifiers
-    }
-    for pair in pairs:
-        unbound = [
-            member.address
-            for member in (pair.left, pair.right)
-            if member.address not in bound_here
-        ]
-        if unbound:
-            logger.info(
-                f"{padding(depth)}{LOGGER_PREFIX} cannot resolve root graph - "
-                f"authored join key members {unbound} not bound on kept "
-                f"datasources; deferring to weak discovery for enforcement"
-            )
-            return False
-    return True
 
 
 def create_pruned_concept_graph(
@@ -164,7 +99,8 @@ def create_pruned_concept_graph(
 ) -> ReferenceGraph | None:
     orig_g = g
     g = g.copy()
-    union_options = get_union_sources(datasources, all_concepts)
+    excluded = environment.excluded_enum_values if environment is not None else None
+    union_options = get_union_sources(datasources, all_concepts, excluded)
     concepts_by_address = {c.address: c for c in orig_g.concepts.values()}
     target_grain = BuildGrain.from_concepts(all_concepts)
     rollup_edges: list[tuple[str, str]] = []
@@ -193,7 +129,8 @@ def create_pruned_concept_graph(
                 x.non_partial_for.conditional
                 for x in ds_list
                 if x.non_partial_for is not None
-            ]
+            ],
+            excluded,
         )
         reduced_non_partial_for = (
             BuildWhereClause(conditional=_merged) if _merged is not None else None
@@ -253,21 +190,6 @@ def create_pruned_concept_graph(
     relevant_datasets = deduplicate_datasources(
         relevant_datasets, relevant_concepts, g_edges, g.datasources, depth, partial
     )
-    authored_pairs: list[AuthoredJoinPair] = (
-        relevant_authored_join_pairs(all_concepts, environment)
-        if environment is not None
-        else []
-    )
-    if authored_pairs and environment is not None:
-        relevant_datasets = prune_dominated_datasources(
-            relevant_datasets,
-            relevant_concepts_pre,
-            g,
-            partial,
-            _authored_key_scope(authored_pairs, environment),
-            depth,
-        )
-
     keep = set(relevant_datasets)
     keep.update(relevant_concepts)
     g.remove_nodes_from([n for n in g.nodes() if n not in keep])
@@ -277,11 +199,6 @@ def create_pruned_concept_graph(
         for xc in c.pseudonyms:
             synonyms[xc] = c.address
     reinject_common_join_keys_v2(orig_g, g, synonyms, add_joins=True)
-
-    if environment is not None and not _authored_join_pairs_enforceable(
-        authored_pairs, environment, relevant_datasets, g, orig_g, depth
-    ):
-        return None
 
     subgraphs = [
         s
@@ -325,10 +242,10 @@ def _source_concepts_via_graph(
     allow_intersection: bool = False,
     filter_conditions: BuildWhereClause | None = None,
 ) -> list[StrategyNode]:
-    """Run the pruned-graph → subgraph → SelectNode pipeline for a list of concepts.
+    """Run the pruned-graph, subgraph, SelectNode pipeline for a list of concepts.
 
-    conditions: used for graph pruning (which datasources to keep).
-    filter_conditions: if set, used for WHERE application in SelectNodes instead of conditions.
+    `conditions` drives graph pruning; `filter_conditions`, when set, is what
+    the SelectNodes apply as WHERE instead.
     """
     orig_concepts = list(concepts)
     sourceable_condition_atoms = (
@@ -356,7 +273,7 @@ def _source_concepts_via_graph(
         defer_conditions_to_merge = (
             filter_conditions is None
             and conditions is not None
-            and _conditions_deferrable_to_merge(orig_concepts, conditions, environment)
+            and _conditions_can_be_sourced_by_components(conditions, environment)
         )
         select_conditions = (
             filter_conditions if filter_conditions is not None else conditions
@@ -397,7 +314,6 @@ def _source_concepts_via_graph(
                 k,
                 subgraph,
                 g=pruned,
-                accept_partial=accept_partial,
                 environment=environment,
                 depth=depth,
                 conditions=select_conditions,
@@ -432,7 +348,6 @@ def _source_concepts_via_graph(
                     k,
                     subgraph,
                     g=pruned,
-                    accept_partial=accept_partial,
                     environment=environment,
                     depth=depth,
                     conditions=None,
@@ -474,7 +389,9 @@ def _source_concepts_via_graph(
                             if atom not in pushed
                         ]
                     )
-                    if remaining and _condition_can_apply_after_merge(mixed, remaining):
+                    if remaining and _condition_can_apply_after_node_merge(
+                        [c.node for c in mixed], remaining
+                    ):
                         logger.info(
                             f"{padding(depth)}{LOGGER_PREFIX} progressively routing WHERE; "
                             "grouped sources keep applicable atoms and flat sources defer "
@@ -517,10 +434,13 @@ def _source_concepts_via_graph(
 
 
 def _conditions_can_be_sourced_by_components(
-    concepts: list[BuildConcept],
     conditions: BuildWhereClause,
     environment: BuildEnvironment,
 ) -> bool:
+    """Whether every WHERE atom is coverable by a complete, non-aggregate
+    source, so the WHERE can be merged-then-reapplied rather than pushed per
+    source. Only the early routing check: the caller still builds
+    conditionless trial candidates and only accepts deferral for flat scans."""
     return len(_sourceable_condition_atoms(conditions, environment)) == len(
         decompose_condition(conditions.conditional)
     )
@@ -556,20 +476,6 @@ def _sourceable_condition_atoms(
         if condition_required_addresses(atom).issubset(available):
             sourceable.append(atom)
     return sourceable
-
-
-def _conditions_deferrable_to_merge(
-    concepts: list[BuildConcept],
-    conditions: BuildWhereClause,
-    environment: BuildEnvironment,
-) -> bool:
-    """Whether the WHERE can be merged-then-reapplied rather than pushed per source.
-
-    This is only the early routing check: every atom must be coverable by a
-    complete, non-aggregate source. The caller still builds conditionless trial
-    candidates and only accepts deferral for flat source scans.
-    """
-    return _conditions_can_be_sourced_by_components(concepts, conditions, environment)
 
 
 def _condition_source_concepts(
@@ -621,15 +527,6 @@ def _condition_atoms_applied_by_candidates(
     return [a for c in candidates for a in _node_condition_atoms(c.node)]
 
 
-def _condition_can_apply_after_merge(
-    candidates: list[SourceNodeCandidate],
-    condition: BoolExpr,
-) -> bool:
-    return _condition_can_apply_after_node_merge(
-        [c.node for c in candidates], condition
-    )
-
-
 def _candidates_route_conditions(
     candidates: list[SourceNodeCandidate],
     conditions: BuildWhereClause,
@@ -642,7 +539,9 @@ def _candidates_route_conditions(
             if atom not in pushed
         ]
     )
-    return remaining is None or _condition_can_apply_after_merge(candidates, remaining)
+    return remaining is None or _condition_can_apply_after_node_merge(
+        [c.node for c in candidates], remaining
+    )
 
 
 def _candidate_satisfies_request(
@@ -691,13 +590,6 @@ def _condition_remaining_after_parents(
     )
 
 
-def _condition_can_apply_after_parent_merge(
-    parents: list[StrategyNode],
-    condition: BoolExpr,
-) -> bool:
-    return _condition_can_apply_after_node_merge(parents, condition)
-
-
 def _merge_condition_routing(
     parents: list[StrategyNode],
     output_concepts: list[BuildConcept],
@@ -714,12 +606,12 @@ def _merge_condition_routing(
     if _parents_apply_condition_atoms(parents, conditions):
         merge_condition = (
             condition
-            if _condition_can_apply_after_parent_merge(parents, condition)
+            if _condition_can_apply_after_node_merge(parents, condition)
             else None
         )
         return condition, merge_condition, None
     remaining_conditions = _condition_remaining_after_parents(parents, conditions)
-    if remaining_conditions and _condition_can_apply_after_parent_merge(
+    if remaining_conditions and _condition_can_apply_after_node_merge(
         parents, remaining_conditions
     ):
         return condition, remaining_conditions, None
@@ -772,12 +664,11 @@ def gen_select_merge_node(
         f"{padding(depth)}{LOGGER_PREFIX} generating select merge node for normals: {normals}, abstract_props: {abstract_props}, constants: {constants}, conditions: {conditions}"
     )
     # A request that is EXACTLY a coalescing (`full`/`union`) axis is a query
-    # about the unified domain: datasource scoring here would project one
-    # member's table as the axis. Decline it — the discovery loop's ROOT
-    # dispatch assembles the mandatory coalesce of every member side
-    # (gen_coalescing_axis_node) and owns condition application (a presence
-    # probe filter must land post-merge). Any other output in the request
-    # means the author is querying a side; those stay on this path.
+    # about the unified domain; datasource scoring here would project one
+    # member's table as the axis. Decline it so the discovery loop's ROOT
+    # dispatch assembles every member side (gen_coalescing_axis_node) and
+    # applies conditions post-merge. Any other output in the request means
+    # the author is querying a side; those stay on this path.
     if (
         len(normals) == 1
         and not abstract_props
@@ -803,7 +694,6 @@ def gen_select_merge_node(
                 [p], g, environment, depth + 1, accept_partial, conditions
             )
         ]
-        # all found
         if len(abstract_nodes) < len(abstract_props):
             logger.info(
                 f"{padding(depth)}{LOGGER_PREFIX} not all abstract properties could be sourced, cannot generate select node."
@@ -862,9 +752,7 @@ def gen_select_merge_node(
         if (
             not parents
             and conditions
-            and _conditions_can_be_sourced_by_components(
-                normals, conditions, environment
-            )
+            and _conditions_can_be_sourced_by_components(conditions, environment)
         ):
             augmented = unique(
                 normals
@@ -886,12 +774,11 @@ def gen_select_merge_node(
                 conditions,
             )
         if not parents and conditions:
-            # Retry with only "covered" condition atoms (those implied by some datasource's
-            # non_partial_for) for graph pruning. Foreign datasources (e.g. tree_enrichment
-            # when filtering by city='USSFO') are kept via the intersection check since the
-            # condition is guaranteed to be applied by the owning partial datasource.
-            # The original conditions are still passed as filter_conditions so that
-            # per-datasource WHERE clauses (e.g. tree_category='deciduous') are preserved.
+            # Retry pruning with only the condition atoms implied by some
+            # datasource's non_partial_for; the owning partial datasource is
+            # guaranteed to apply them, so foreign datasources survive via the
+            # intersection check. The full conditions still go through as
+            # filter_conditions so per-datasource WHERE clauses are preserved.
             covered = covered_conditions(conditions, environment)
             if covered:
                 parents = _source_concepts_via_graph(
@@ -933,12 +820,10 @@ def gen_select_merge_node(
             _merge_condition_routing(parents, all_concepts, conditions)
         )
 
-        # When the merge's joined grain (e.g. customer_id from agg + dim) is
-        # finer than the outer target's grain (e.g. region) — and the target
-        # is reachable from the merge grain via property-of-key — the merge
-        # needs to SUM-roll additive aggregates up to the target grain.
-        # Mark force_group + rollup_concepts so the renderer emits SUM and
-        # GROUP BY at the merge level.
+        # When the merge's joined grain is finer than the target grain and the
+        # target is reachable from it via property-of-key, the merge must
+        # SUM-roll additive aggregates up: force_group + rollup_concepts make
+        # the renderer emit SUM and GROUP BY at the merge level.
         additive_aggs = [
             c for c in all_concepts if c.is_aggregate and _is_additive_aggregate(c)
         ]
@@ -970,12 +855,10 @@ def gen_select_merge_node(
                 rollup_at_merge = additive_aggs
                 force_merge_group = True
 
-        # A parent whose own group was deferred past this merge (so a pushed
-        # WHERE could apply after the join) contributes its ungrouped, finer
-        # row grain to the join. Left alone, the merge's grain defaults to that
-        # finer pregrain and the deferred normalization vanishes — an aggregate
-        # with an intermediate input grain (e.g. count(grain(...))) then counts
-        # physical rows. Force the regroup back to the merge's own output grain.
+        # A parent whose group was deferred past this merge contributes its
+        # ungrouped, finer row grain. Left alone, the merge's grain defaults to
+        # that pregrain and the deferred normalization vanishes, so force the
+        # regroup back to the merge's own output grain.
         merge_grain: BuildGrain | None = None
         if any(p.group_deferred for p in parents):
             merge_grain = BuildGrain.from_concepts(normals, environment=environment)
@@ -1005,7 +888,7 @@ def gen_select_merge_node(
         completion_mandatory = unique(
             validate_targets + list(conditions.row_arguments), "address"
         )
-        complete, _, _, _, _ = validate_stack(
+        complete, _, _, _ = validate_stack(
             environment,
             [candidate],
             validate_targets,

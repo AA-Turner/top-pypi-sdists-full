@@ -19,6 +19,9 @@ extensions = [
     "sphinx_design",
     "sphinx_tabs.tabs",
     "sphinx_copybutton",
+    # Renders {mermaid} directives (e.g. the subpackage dependency graph in the
+    # contributor release docs).
+    "sphinxcontrib.mermaid",
     # Aggregates each subpackage's docs/source/{contributors,developers}/ from
     # its submodule under submodules/<repo>/ into this build. See
     # docs/source/_ext/subpackage_docs.py.
@@ -52,8 +55,8 @@ html_theme_options = {
     # differently per page depth. Use an absolute URL, pinned to /en/stable so it
     # tracks the latest released docs rather than /en/latest (unreleased main).
     "announcement": (
-        "Jupyter AI v3.1.0 is now released! 🎉 "
-        '<a href="https://jupyter-ai.readthedocs.io/en/stable/releases/v3.1.0.html">'
+        "Jupyter AI v3.2.0 is now released! 🎉 "
+        '<a href="https://jupyter-ai.readthedocs.io/en/stable/releases/v3.2.0.html">'
         "See the release notes</a>."
     ),
     "nav_links": [
@@ -75,3 +78,11 @@ html_theme_options = {
         },
     ],
 }
+
+def setup(app):
+    # Enable Plausible.io stats
+    app.add_js_file("https://plausible.io/js/pa-UHxbx3cCjgiU99DP3Pn5X.js", loading_method="async")
+    app.add_js_file(
+        filename=None,
+        body="window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init({hashBasedRouting:true})",
+    )

@@ -1,6 +1,6 @@
 [project]
 name = "splink"
-version = "4.0.16"
+version = "4.0.17"
 description = "Fast probabilistic data linkage at scale"
 authors = [
     { name = "Robin Linacre", email = "robinlinacre@hotmail.com" },
@@ -10,7 +10,7 @@ authors = [
     { name = "Andy Bond" },
     { name = "Ross Kennedy" },
 ]
-requires-python = ">=3.9.0,<4.0.0"
+requires-python = ">=3.10.0,<4.0.0"
 readme = "README.md"
 license = "MIT"
 dependencies = [
@@ -78,6 +78,7 @@ testing = [
 typechecking = ["mypy==1.9.0"]
 
 [tool.uv]
+exclude-newer = "7 days"
 default-groups = [
     "core",
     "dev",

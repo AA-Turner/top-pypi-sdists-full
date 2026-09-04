@@ -84,7 +84,7 @@ void ParseConfig(const std::string &config, size_t size, std::unique_ptr<Archite
 
 // Create a Graph from a list of operations
 // Populates inputs/outputs based on tensorUsage
-std::unique_ptr<Graph> CreateGraph(std::vector<std::shared_ptr<Operation>> &ops)
+std::unique_ptr<Graph> CreateGraph(std::vector<std::shared_ptr<Operation>> &ops, GraphNotation notation)
 {
     std::vector<std::shared_ptr<Tensor>> inputs;
     std::vector<std::shared_ptr<Tensor>> outputs;
@@ -107,7 +107,7 @@ std::unique_ptr<Graph> CreateGraph(std::vector<std::shared_ptr<Operation>> &ops)
             }
         }
     }
-    auto graph = std::make_unique<Graph>("testGraph", inputs, outputs, persistent, placeholder, GraphNotation::GraphAPI, 1);
+    auto graph = std::make_unique<Graph>("testGraph", inputs, outputs, persistent, placeholder, notation, 1);
     return graph;
 }
 

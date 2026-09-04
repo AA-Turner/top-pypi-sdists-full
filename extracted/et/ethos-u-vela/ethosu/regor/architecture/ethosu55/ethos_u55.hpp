@@ -60,7 +60,6 @@ enum class EthosU55NpuOp
     None = 0,
     Convolution,
     Depthwise,
-    VectorProduct,
     Pooling,
     ReduceSum,
     Elementwise,

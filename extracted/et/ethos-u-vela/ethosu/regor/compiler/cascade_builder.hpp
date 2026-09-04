@@ -106,11 +106,12 @@ private:
     const std::unordered_map<UniqueId, int> &_opLocalMemUsage;
     const std::unordered_map<UniqueId, LiveRangeSummary> &_tensorLiveRanges;
     bool _spilling = false;
+    ArchitectureMemory *_stagingMemory = nullptr;
 
 public:
     CascadeBuilder(vector_span<std::unique_ptr<SchedulerOperation>> ops,
         const std::unordered_map<UniqueId, int> &nonLocalMemUsage, const std::unordered_map<UniqueId, int> &opLocalMemUsage,
-        const std::unordered_map<UniqueId, LiveRangeSummary> &tensorLiveRanges, bool spilling);
+        const std::unordered_map<UniqueId, LiveRangeSummary> &tensorLiveRanges, const MemArea &staging, bool spilling);
     static bool CanReuseCascadeRollingBuffer(const SchedulerOperation *op, const SchedulerOpInfo *opInfo,
         const CascadeBuffer &ifmBuffer, const CascadeBuffer &ofmBuffer);
 

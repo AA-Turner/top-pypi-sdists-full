@@ -16,12 +16,11 @@ dependencies = [
     "tenacity>=8.0.0",
     "click>=8.1.3,!=8.2.0,!=8.2.2,!=8.3.0,!=8.3.1",
     "cloudpickle>=3.0.0",
-    "dill>=0.4.0",
     "duckdb>=1.4.0",
     "fastapi>=0.128.1",
     "ijson>=3.2.0",
     "importlib-metadata",
-    "inspect-ai>=0.3.252",
+    "inspect-ai>=0.3.263",
     "inspect-swe>=0.2.56",
     "jinja2>=3.0.0",
     "jsonlines>=3.0.0",
@@ -58,7 +57,9 @@ dev = [
     # zipfile-zstd patches zipfile to support zstd compression (for creating test fixtures)
     "zipfile-zstd>=0.0.4; python_version < '3.14'",
     "pytest-xdist",
-    "anthropic>=0.80.0",
+    # >=1.0.0: anthropic 1.x types its exceptions against httpx2, which the
+    # tests construct directly (httpx2 arrives transitively via anthropic)
+    "anthropic>=1.0.0",
     "arize-phoenix-client",
     "google-genai>=1.69.0",
     # harbor (for the atif source tests): >=0.6.0 is the first release with the
@@ -67,7 +68,9 @@ dev = [
     "huggingface_hub",
     "langsmith",
     "logfire>=3",
-    "openai>=2.26.0",
+    # >=3.0.0: openai 3.x types its exceptions against httpx2, which the
+    # tests construct directly (httpx2 arrives transitively via openai)
+    "openai>=3.0.0",
     "pytest-dotenv",
     "pytest-asyncio",
     "mypy",
@@ -95,7 +98,9 @@ dev = [
     "ruff",
     "pytest",
     "pytest-xdist",
-    "anthropic",
+    # >=1.0.0: anthropic 1.x types its exceptions against httpx2, which the
+    # tests construct directly (httpx2 arrives transitively via anthropic)
+    "anthropic>=1.0.0",
     "arize-phoenix-client",
     "google-genai",
     # harbor (for the atif source tests): >=0.6.0 is the first release with the
@@ -104,7 +109,9 @@ dev = [
     "huggingface_hub",
     "langsmith",
     "logfire",
-    "openai",
+    # >=3.0.0: openai 3.x types its exceptions against httpx2, which the
+    # tests construct directly (httpx2 arrives transitively via openai)
+    "openai>=3.0.0",
     "pytest-dotenv",
     "pytest-asyncio",
     "mypy",
@@ -171,7 +178,13 @@ convention = "google"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-addopts = "-n auto"
+# -n logical, not auto: auto means physical cores when psutil is importable
+# (it always is — an inspect_ai runtime dependency), which uses only 2 of the
+# 4 vCPUs on ubuntu-latest CI runners. --dist worksteal lets an idle worker
+# take pending tests off a straggler (xdist's default load hands out large
+# contiguous slices, so slow e2e files can strand one worker). Both measured
+# in inspect_ai (design/ci-perf/report.md there).
+addopts = "-n logical --dist worksteal"
 
 [tool.mypy]
 strict = true

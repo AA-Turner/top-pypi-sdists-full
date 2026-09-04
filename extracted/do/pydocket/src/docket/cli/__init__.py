@@ -39,7 +39,7 @@ from docket.cli._support import (
 from docket.docket import Docket, DocketSnapshot, WorkerInfo
 from docket.execution import ExecutionState
 from docket.strikelist import Operator
-from docket.worker import Worker
+from docket.worker import MESSAGE_BATCH, Worker
 
 
 app: typer.Typer = typer.Typer(
@@ -117,11 +117,33 @@ def worker(
             envvar="DOCKET_WORKER_CONCURRENCY",
         ),
     ] = 10,
+    message_batch: Annotated[
+        int,
+        typer.Option(
+            help=(
+                "The most messages one Redis command may claim, for both the "
+                "delivery read and the redelivery sweep. A larger batch costs "
+                "fewer round trips. It also makes Redis serialize that many "
+                "whole messages into one reply, and makes each sweep read "
+                "about ten times the batch in pending-list entries. A burst "
+                "larger than one batch still drains in full."
+            ),
+            envvar="DOCKET_WORKER_MESSAGE_BATCH",
+            min=1,
+        ),
+    ] = MESSAGE_BATCH,
     redelivery_timeout: Annotated[
         timedelta,
         typer.Option(
             parser=duration,
-            help="How long to wait before redelivering a task to another worker",
+            help=(
+                "How long a task must sit idle before it becomes eligible for "
+                "redelivery to another worker.  A worker sweeps for eligible "
+                "tasks on a jittered timer at a quarter of this timeout, so "
+                "redelivery lands up to about 31% past it, and usually sooner.  "
+                "A sweep walks a very long pending list in bounded steps, one "
+                "per poll pass, so that walk can add time beyond that"
+            ),
             envvar="DOCKET_WORKER_REDELIVERY_TIMEOUT",
         ),
     ] = timedelta(minutes=5),
@@ -209,6 +231,7 @@ def worker(
             url=url,
             name=name,
             concurrency=concurrency,
+            message_batch=message_batch,
             redelivery_timeout=redelivery_timeout,
             reconnection_delay=reconnection_delay,
             minimum_check_interval=minimum_check_interval,

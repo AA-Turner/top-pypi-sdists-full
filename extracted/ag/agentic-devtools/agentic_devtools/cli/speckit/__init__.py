@@ -7,6 +7,13 @@ Provides ``agdt-speckit-*`` entry points that read the corresponding
 ``gh copilot`` session.
 """
 
+from .cloud_agent_guard import (
+    CloudAgentGuardResult,
+    check_cloud_agent_in_flight,
+    cloud_agent_guard_command,
+    derive_speckit_base_branch,
+    parse_cloud_agent_marker,
+)
 from .commands import (
     speckit_analyze,
     speckit_checklist,
@@ -57,6 +64,11 @@ from .verify_artifacts import verify_artifacts_command as speckit_verify_artifac
 
 __all__ = [
     "speckit_analyze",
+    "CloudAgentGuardResult",
+    "check_cloud_agent_in_flight",
+    "cloud_agent_guard_command",
+    "derive_speckit_base_branch",
+    "parse_cloud_agent_marker",
     "speckit_checklist",
     "speckit_clarify",
     "speckit_constitution",

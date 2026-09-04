@@ -26,6 +26,7 @@ import arviz as az
 import joblib
 from meridian import backend
 from meridian import constants
+from meridian.analysis.review import configs
 from meridian.analysis.review import results
 from meridian.analysis.review import reviewer
 from meridian.common import errors
@@ -52,8 +53,6 @@ __all__ = [
     "MCMCOOMError",
     "Meridian",
     "ModelFittingError",
-    # TODO: Migrate to a direct call to common/errors.py.
-    "NotFittedModelError",
     "save_mmm",
     "load_mmm",
 ]
@@ -72,7 +71,6 @@ class ModelFittingError(Exception):
 
 MCMCSamplingError = posterior_sampler.MCMCSamplingError
 MCMCOOMError = posterior_sampler.MCMCOOMError
-NotFittedModelError = errors.NotFittedModelError
 
 
 def _is_valid_results_subset(
@@ -80,6 +78,11 @@ def _is_valid_results_subset(
     results_by_type: Mapping[type[results.CheckResult], results.CheckResult],
 ) -> bool:
   """Checks if the present results match one of the allowed subsets."""
+  present_types = present_types - frozenset([
+      results.ImplausibleROICheckResult,
+      results.HighVarianceCheckResult,
+      results.PotentialBiasCheckResult,
+  ])
   # Case A: Convergence check only, which must have failed.
   if present_types == results.CONVERGENCE_ONLY_SET:
     conv_result = results_by_type[results.ConvergenceCheckResult]
@@ -969,26 +972,6 @@ class Meridian:
         n_times_output=n_times_output,
     )
 
-  def populate_cached_properties(self):
-    """Eagerly activates all cached properties.
-
-    This is useful for creating a `tf.function` computation graph with this
-    Meridian object as part of a captured closure. Within the computation graph,
-    internal state mutations are problematic, and so this method freezes the
-    object's states before the computation graph is created.
-    """
-    self._model_context.populate_cached_properties()
-    cls = self.__class__
-    # "Freeze" all @cached_property attributes by simply accessing them (with
-    # `getattr()`).
-    cached_properties = [
-        attr
-        for attr in dir(self)
-        if isinstance(getattr(cls, attr, cls), functools.cached_property)
-    ]
-    for attr in cached_properties:
-      _ = getattr(self, attr)
-
   # TODO: Remove this method.
   def create_inference_data_coords(
       self, n_chains: int, n_draws: int
@@ -1047,7 +1030,7 @@ class Meridian:
       error_findings = [
           finding
           for finding in outcome.findings
-          if finding.severity == eda_outcome.EDASeverity.ERROR
+          if finding.severity == eda_outcome.EDASeverity.FAIL
       ]
       if error_findings:
         error_findings_by_type[outcome.check_type].extend(
@@ -1171,21 +1154,35 @@ class Meridian:
     )
     self.inference_data.extend(posterior_inference_data, join="right")
 
-  def review(self) -> results.ReviewSummary:
+  def review(
+      self,
+      *,
+      convergence_check_config: configs.ConvergenceConfig | None = None,
+      post_convergence_checks: reviewer.ChecksBattery | None = None,
+  ) -> results.ReviewSummary:
     """Runs the model health checks and stores the results in `health_summary`.
 
     This method should be called after the model has been fitted, i.e., after
     `sample_posterior` has been executed to populate `self.inference_data`.
 
+    Args:
+      convergence_check_config: Optional configuration for the convergence
+        check.
+      post_convergence_checks: Optional battery of post-convergence checks to
+        run.
+
     Returns:
       A `ReviewSummary` object containing the results of the health checks.
     """
     if not hasattr(self.inference_data, constants.POSTERIOR):
-      raise NotFittedModelError(
+      raise errors.NotFittedModelError(
           "The model must be fitted before calling review()."
       )
     model_reviewer = reviewer.ModelReviewer(
-        model_context=self.model_context, inference_data=self.inference_data
+        model_context=self.model_context,
+        inference_data=self.inference_data,
+        convergence_check_config=convergence_check_config,
+        post_convergence_checks=post_convergence_checks,
     )
     self._health_summary = model_reviewer.run()
     return self._health_summary
@@ -1206,6 +1203,8 @@ class Meridian:
       parallel_iterations: int = 10,
       seed: Sequence[int] | int | None = None,
       reconstruction_batch_size: int = constants.DEFAULT_RECONSTRUCTION_BATCH_SIZE,
+      convergence_check_config: configs.ConvergenceConfig | None = None,
+      post_convergence_checks: reviewer.ChecksBattery | None = None,
       **pins,
   ) -> None:
     """Runs MCMC sampling and then the model health checks."""
@@ -1225,7 +1224,10 @@ class Meridian:
         reconstruction_batch_size=reconstruction_batch_size,
         **pins,
     )
-    self.review()
+    self.review(
+        convergence_check_config=convergence_check_config,
+        post_convergence_checks=post_convergence_checks,
+    )
 
   def posterior_thinning(
       self,
@@ -1272,7 +1274,7 @@ class Meridian:
       ValueError: If arguments are invalid.
     """
     if not hasattr(self.inference_data, constants.POSTERIOR):
-      raise NotFittedModelError(
+      raise errors.NotFittedModelError(
           "sample_posterior() must be called before posterior_thinning()."
       )
     if (sampling_rate is None) == (n_draws is None):

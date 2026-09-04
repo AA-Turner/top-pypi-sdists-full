@@ -5,7 +5,7 @@ on:
     types: [labeled]
   workflow_dispatch: { inputs: { issue_number: { description: 'Issue number to process (for manual testing)', required: true, type: number } } }
 
-permissions: { actions: write, issues: write, contents: read }
+permissions: { actions: write, issues: write, contents: read, pull-requests: read }
 
 concurrency:
   group: speckit-trigger-${{ github.event.issue.number || inputs.issue_number }}
@@ -22,26 +22,26 @@ jobs:
         env: { SPECKIT_ENGINE_RAW: "${{ vars.SPECKIT_ENGINE || 'legacy' }}" }
         run: raw="${SPECKIT_ENGINE_RAW}"; e="${raw,,}"; [[ "$e" == "cloud-agent" || "$e" == "legacy" ]] || echo "::warning::unsupported SPECKIT_ENGINE '${raw}'; using legacy"; [[ "$e" == "cloud-agent" ]] || e="legacy"; echo "value=$e" >> "$GITHUB_OUTPUT"
 
+      - name: Check out repository (Cloud Agent Guard)
+        if: steps.engine.outputs.value == 'cloud-agent'
+        uses: actions/checkout@v5
+
       - name: Cloud Agent In-Flight Guard
         id: cloud-inflight
         if: steps.engine.outputs.value == 'cloud-agent'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
-          script: |
-            const issueNumber = Number(context.issue?.number || context.payload.inputs?.issue_number || '${{ inputs.issue_number }}'); try {
-              const [labels, pulls] = await Promise.all([
-                github.paginate(github.rest.issues.listLabelsOnIssue, { owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, per_page: 100 }),
-                github.paginate(github.rest.pulls.list, { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 }),
-              ]);
-              const markerRegex = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=([123]) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
-              const expectedBase = (phase, hierarchy) => (phase === 2 ? `speckit/${issueNumber}/phase-1-specify` : (phase === 3 && hierarchy !== 'task') ? `speckit/${issueNumber}/phase-2-clarify` : 'main');
-              const active = labels.some((label) => /^speckit:agent-assigned-phase-[123]$/.test(label.name || '')) || pulls.some((pr) => {
-                const markerMatch = pr.user?.login === 'copilot-swe-agent[bot]' ? (pr.body || '').match(markerRegex) : null;
-                return !!markerMatch && Number(markerMatch[1]) === issueNumber && pr.base?.ref === expectedBase(Number(markerMatch[2]), String(markerMatch[3] || '').toLowerCase());
-              });
-              core.setOutput('already', active ? 'true' : 'false'); if (active) core.info(`A Cloud Agent phase is already in flight for issue #${issueNumber}`);
-            } catch (e) { core.warning(`Cloud guard lookup failed; preserving tracking state: ${e?.message ?? String(e)}`); core.setOutput('already', 'true'); }
+        env: { SPECKIT_PR_TOKEN: "${{ secrets.SPECKIT_PR_TOKEN }}", COPILOT_GITHUB_TOKEN: "${{ secrets.COPILOT_GITHUB_TOKEN }}", GH_TOKEN: "${{ secrets.GH_TOKEN }}", GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}", ISSUE_NUMBER: "${{ github.event.issue.number || inputs.issue_number }}" }
+        run: |
+          python -m pip install .
+          set +e
+          result="$(agdt-speckit-cloud-agent-guard --issue-number "$ISSUE_NUMBER" --phase 0 --repo "$GITHUB_REPOSITORY")"; status=$?
+          printf '%s\n' "$result"; already="true"
+          if [[ "$status" -eq 0 ]]; then
+            already="$(RESULT="$result" python -c 'import json, os; print("true" if json.loads(os.environ["RESULT"]).get("in_flight") is True else "false")' 2>/dev/null)"
+            [[ "$already" == "true" || "$already" == "false" ]] || already="true"
+          else
+            echo "::warning::Cloud guard lookup failed; preserving tracking state"
+          fi
+          echo "already=$already" >> "$GITHUB_OUTPUT"
 
       - name: Add Processing Label
         if: steps.engine.outputs.value != 'cloud-agent' && steps.cloud-inflight.outputs.already != 'true'

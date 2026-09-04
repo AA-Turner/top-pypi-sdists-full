@@ -263,7 +263,7 @@ GraphApi::GraphTensor *CreateParamTensor(const ::flatbuffers::Vector<FB_TYPE> *a
         buffer = builder->CreateBuffer(vbuf.size() * sizeof(vbuf[0]), GraphApi::BufferMapping::Allocate, vbuf.data());
     }
     GraphApi::GraphShape tosaShape = shape ? *shape : GraphApi::GraphShape{1, {int(buf.size())}};
-    GraphApi::GraphDataType type;
+    GraphApi::GraphDataType type = {};
     if constexpr ( std::is_same_v<ACTUAL_ALLOC_TYPE, bool> ) type = GraphApi::GraphDataType::Bool8;
     else if constexpr ( std::is_same_v<ACTUAL_ALLOC_TYPE, int8_t> ) type = GraphApi::GraphDataType::Int8;
     else if constexpr ( std::is_same_v<ACTUAL_ALLOC_TYPE, int16_t> ) type = GraphApi::GraphDataType::Int16;

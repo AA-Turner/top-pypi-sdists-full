@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: os_vif
-Version: 5.2.0
+Version: 5.2.1
 Summary: A library for plugging and unplugging virtual interfaces in OpenStack.
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

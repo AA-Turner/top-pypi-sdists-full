@@ -3018,13 +3018,15 @@ def _resolve_account_email(api_key: str):
             return None, None
         import json as _json
         import os as _os
-        import urllib.parse as _up
         import urllib.request as _ur
 
         from clawmetry.endpoints import app_url as _resolve_app_url
         base = _resolve_app_url()
-        url = base + "/api/cloud/account?token=" + _up.quote(api_key)
-        with _ur.urlopen(url, timeout=2.5) as resp:
+        # Key in a header, never the query string: the server logs the
+        # request line, and a cm_ key is a whole account credential.
+        req = _ur.Request(base + "/api/cloud/account",
+                          headers={"X-Api-Key": api_key}, method="GET")
+        with _ur.urlopen(req, timeout=2.5) as resp:
             data = _json.loads(resp.read() or b"{}")
         email = (data.get("email") or "").strip()
         plan = (data.get("plan") or "").strip()
@@ -3203,6 +3205,14 @@ def _status_snapshot(args) -> dict:
             }
         except Exception:
             snap["sync_state"] = {"last_sync": None, "files_seen": 0}
+
+    # Native exporter blocks per profiled runtime (WO-57). Same source as
+    # the human line.
+    try:
+        from clawmetry.instrument import status_all as _instr_status_all
+        snap["instrumented_runtimes"] = _instr_status_all(probe=False)
+    except Exception:
+        snap["instrumented_runtimes"] = None
 
     # Runtimes. Same resolution as the human path.
     try:
@@ -3673,6 +3683,29 @@ def _cmd_status(args) -> None:
             else:
                 _status = str(_lic.get("status") or "invalid")
                 print(f"  License:     ⚠️  {_status}  (run `clawmetry license` for details)")
+    except Exception:
+        pass
+
+    # Native exporter blocks (WO-57): one line per runtime that has an
+    # instrument profile registered, so a node without any prints nothing.
+    try:
+        from clawmetry.instrument import status_all as _instr_status_all
+        _all = _instr_status_all(probe=False)
+        if _all:
+            print()
+        for _rt, _st in sorted(_all.items()):
+            _lbl = _st.get("label") or _rt
+            if _st.get("configured"):
+                print(f"  {_lbl} telemetry: on (by clawmetry) -> "
+                      f"{_st.get('endpoint') or '?'}")
+            elif _st.get("telemetry_enabled"):
+                print(f"  {_lbl} telemetry: on (not by clawmetry) -> "
+                      f"{_st.get('endpoint') or '?'}")
+            elif _st.get("entitled") is False:
+                print(f"  {_lbl} telemetry: off  (paid runtime; not on this plan)")
+            else:
+                print(f"  {_lbl} telemetry: off  (run `clawmetry instrument "
+                      f"{_rt}` for the runtime's own exporter signals)")
     except Exception:
         pass
 
@@ -7624,6 +7657,13 @@ def main() -> None:
     # dashboard import. Stdlib-only; `stamp` always exits 0 (fail-open).
     if len(sys.argv) > 1 and sys.argv[1] == "trace":
         raise SystemExit(trace_main(sys.argv[2:]))
+    # FAST PATH — `clawmetry instrument <runtime> …` (WO-57): writes the
+    # runtime's own OpenTelemetry exporter settings so it reports to this
+    # ClawMetry. Which runtimes: whatever profiles are registered (free ones
+    # here, paid ones from the clawmetry-pro wheel). No dashboard import.
+    if len(sys.argv) > 1 and sys.argv[1] == "instrument":
+        from clawmetry.instrument import cli_main as _instr_cli
+        raise SystemExit(_instr_cli(sys.argv[2:]))
     # FAST PATH — `clawmetry hook claude-code --base <url>`: the LOCAL-first
     # PreToolUse gate client (auto-installed by the policy watcher — see
     # clawmetry/claude_code_gate.py). Runs on every gated Claude Code tool
@@ -7749,35 +7789,6 @@ def main() -> None:
             _v = "unknown"
         print(f"clawmetry {_v}")
         return
-    # Tag this process as the dashboard BEFORE importing dashboard, so every
-    # get_store() in dashboard.py (module-level + handlers) is barred from the
-    # DuckDB writer — only the sync daemon writes. Set before the import or a
-    # module-level open would race in before the gate is active. The daemon
-    # (-m clawmetry.sync) never takes this path and calls mark_writer_owner(),
-    # which overrides the gate.
-    os.environ["CLAWMETRY_ROLE"] = "dashboard"
-    from dashboard import main as dashboard_main
-
-    # Anonymous, opt-out install-lifecycle ping (install once ever, update
-    # once per new version). See clawmetry/telemetry.py for the privacy
-    # contract. Fires on a daemon thread so a network failure can't slow
-    # CLI startup; honours CLAWMETRY_NO_TELEMETRY=1 and
-    # ~/.clawmetry/notelemetry.
-    try:
-        from clawmetry import telemetry as _telemetry
-        try:
-            from dashboard import __version__ as _ver
-        except Exception:
-            _ver = "unknown"
-        _telemetry.maybe_ping(_ver)
-        # Desktop shell launched us? Report the open (which runtimes this
-        # machine has, cloud vs local) once things settle. No-ops for a
-        # plain `pip install clawmetry && clawmetry`.
-        _telemetry.maybe_desktop_ping(_ver)
-    except Exception:
-        # Never let telemetry plumbing break startup.
-        pass
-
     # Windows: protect against closed/detached stdout/stderr before any library
     # (argparse colour detection, click._winconsole) calls fileno() on them.
     #
@@ -7789,6 +7800,8 @@ def main() -> None:
     # click._winconsole._is_console() calls f.fileno() → ValueError when closed.
     # NO_COLOR suppresses argparse / click colour paths (Python 3.14+).
     # We *also* replace closed handles with devnull sinks so later code is safe.
+    # (Moved ahead of the parser build below so it also guards the `<subcmd>
+    # --help` short-circuit's own printing, not just the post-import path.)
     if sys.platform == "win32":
         import io as _io
 
@@ -8690,6 +8703,13 @@ def main() -> None:
         help="Claude Code approval hooks: install | uninstall | status | "
              "run {pretooluse|notification} (pre-execution gate + phone push)")
     p_hooks.add_argument("hooks_cmd", nargs="*")
+    # `instrument` is likewise intercepted by the fast path (WO-57).
+    p_instr = sub.add_parser(
+        "instrument",
+        help="Turn on a runtime's own OpenTelemetry export and point it at "
+             "this ClawMetry: instrument <runtime> [--project] [--content] "
+             "[--uninstall | --status]  (--help lists runtimes)")
+    p_instr.add_argument("instrument_args", nargs="*")
 
     # `hook` (singular) is likewise intercepted by its fast path in main();
     # this parser entry exists only for --help discovery. It is the
@@ -8736,6 +8756,52 @@ def main() -> None:
         "compliance",
         "nemoclaw-daemons",
     )
+
+    # Short-circuit `<subcmd> --help`/`-h` (e.g. `clawmetry connect --help`)
+    # before importing dashboard. A subcommand's help is printed entirely by
+    # argparse's own subparser -h action (every sub.add_parser() above gets
+    # one for free) and never touches dashboard_main or the store, but the
+    # dashboard import below still ran first because it used to sit ahead of
+    # the parser build — paying for get_store()'s module-level DuckDB init
+    # just to print text argparse already knows how to print. That init
+    # SIGSEGVs on some Python 3.9/Linux runners (#5108, #5309: `clawmetry
+    # connect --help` observed crashing in CI while `status`/`sync --help`
+    # in the same run did not). Let argparse handle it and exit first.
+    if len(sys.argv) > 1 and sys.argv[1] in _subcmds and (
+        "-h" in sys.argv[2:] or "--help" in sys.argv[2:]
+    ):
+        parser.parse_args()
+        return  # argparse's -h action always exits; unreachable in practice
+
+    # Tag this process as the dashboard BEFORE importing dashboard, so every
+    # get_store() in dashboard.py (module-level + handlers) is barred from the
+    # DuckDB writer — only the sync daemon writes. Set before the import or a
+    # module-level open would race in before the gate is active. The daemon
+    # (-m clawmetry.sync) never takes this path and calls mark_writer_owner(),
+    # which overrides the gate.
+    os.environ["CLAWMETRY_ROLE"] = "dashboard"
+    from dashboard import main as dashboard_main
+
+    # Anonymous, opt-out install-lifecycle ping (install once ever, update
+    # once per new version). See clawmetry/telemetry.py for the privacy
+    # contract. Fires on a daemon thread so a network failure can't slow
+    # CLI startup; honours CLAWMETRY_NO_TELEMETRY=1 and
+    # ~/.clawmetry/notelemetry.
+    try:
+        from clawmetry import telemetry as _telemetry
+        try:
+            from dashboard import __version__ as _ver
+        except Exception:
+            _ver = "unknown"
+        _telemetry.maybe_ping(_ver)
+        # Desktop shell launched us? Report the open (which runtimes this
+        # machine has, cloud vs local) once things settle. No-ops for a
+        # plain `pip install clawmetry && clawmetry`.
+        _telemetry.maybe_desktop_ping(_ver)
+    except Exception:
+        # Never let telemetry plumbing break startup.
+        pass
+
     if len(sys.argv) > 1 and sys.argv[1] in _subcmds:
         args = parser.parse_args()
         # Issue #322: Set OpenClaw config directory from CLI flag

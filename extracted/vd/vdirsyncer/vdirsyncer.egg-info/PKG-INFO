@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vdirsyncer
-Version: 0.20.0
+Version: 0.21.0
 Summary: Synchronize calendars and contacts
 Author-email: Markus Unterwaditzer <markus@unterwaditzer.net>
 License-Expression: BSD-3-Clause
@@ -13,19 +13,20 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Internet
 Classifier: Topic :: Office/Business :: Scheduling
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: click-log<0.5.0,>=0.3.0
 Requires-Dist: requests>=2.20.0
-Requires-Dist: aiohttp<4.0.0,>=3.8.2
+Requires-Dist: aiohttp<4.0.0,>=3.9.0
 Requires-Dist: aiostream<0.8.0,>=0.4.3
+Requires-Dist: tenacity>=9.0.0
 Provides-Extra: google
 Requires-Dist: aiohttp-oauthlib; extra == "google"
 Provides-Extra: test
@@ -36,6 +37,16 @@ Requires-Dist: pytest-httpserver; extra == "test"
 Requires-Dist: trustme; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: aioresponses; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx!=1.4.7; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Requires-Dist: setuptools_scm; extra == "docs"
+Provides-Extra: check
+Requires-Dist: mypy; extra == "check"
+Requires-Dist: ruff; extra == "check"
+Requires-Dist: types-docutils; extra == "check"
+Requires-Dist: types-requests; extra == "check"
+Requires-Dist: types-setuptools; extra == "check"
 Dynamic: license-file
 
 ==========

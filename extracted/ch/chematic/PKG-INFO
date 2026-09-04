@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chematic
-Version: 0.89.0
+Version: 1.0.2
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
@@ -18,6 +18,9 @@ Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
 Classifier: License :: OSI Approved :: Apache Software License
 Requires-Dist: numpy>=1.20
+Requires-Dist: pytest<9 ; extra == 'test'
+Requires-Dist: pytest-asyncio>=0.23,<1 ; extra == 'test'
+Provides-Extra: test
 Summary: Pure-Rust cheminformatics — SMILES, fingerprints, 190+ descriptors, pKa, ADMET
 Keywords: cheminformatics,smiles,chemistry,rdkit,fingerprints,drug-discovery,molecular-descriptors,wasm,admet,qed
 Author-email: "Kentaro Tanabe (kent-tokyo)" <kent-tokyo@users.noreply.github.com>
